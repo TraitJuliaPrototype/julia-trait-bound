@@ -172,3 +172,26 @@ definitions CANNOT kill them — the ~460 ms/100-fn class of session cost
 vanishes BY CONSTRUCTION for trait-bound code. Immortal workers are not
 just piracy semantics; they are the fix for TTFX-after-load. This finally
 connects Q2 to the project's core thesis with measurements at every link.
+
+## FINAL EXPERIMENT: invalidation scoping — the chain closed end-to-end
+
+Patch v5 (265 lines total): in `jl_method_table_activate`, a method defined
+by a NON-universe module skips `_invalidate_dispatch_backedges` while a
+universe filter is active. Same binary, same load-churn scenario:
+
+| | compile on first sweep after churn | semantics |
+|---|---|---|
+| unscoped (control) | **456.3 ms** (all recompile) | new method applies |
+| universe-scoped | **0.0 ms** | pre-churn, preserved |
+
+Every link of the thesis is now measured on one binary: sealed resolution
+(P1a), sealed dynamic dispatch (P1b, 91–108 ns/call cached), and
+universe-scoped invalidation eliminating the load-order recompilation class
+entirely. All three prior tests still pass on the final build.
+
+Experimental program CLOSED. Remaining open items are design/policy
+questions only core devs can answer (QUESTIONS.md Q1, Q3–Q6, revised Q2) —
+each now backed by a runnable experiment on branch trait-universe.
+The known cost of the PoC scoping hack is stated in-code: unsealed callers
+go stale, which is precisely the argument for universe-KEYED CIs (native
+design) instead of a global switch.

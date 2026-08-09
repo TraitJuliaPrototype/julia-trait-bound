@@ -1,0 +1,265 @@
+diff --git a/src/gf.c b/src/gf.c
+index 47db547..254740e 100644
+--- a/src/gf.c
++++ b/src/gf.c
+@@ -2750,6 +2750,8 @@ static int method_morespecific_via_interferences(jl_method_t *target_method, jl_
+ }
+ 
+ 
++static int jl_universe_allows(jl_method_t *meth) JL_NOTSAFEPOINT;   // universe filter, defined below
++
+ void jl_method_table_activate(jl_typemap_entry_t *newentry)
+ {
+     JL_TIMING(ADD_METHOD, ADD_METHOD);
+@@ -2928,7 +2930,14 @@ void jl_method_table_activate(jl_typemap_entry_t *newentry)
+                         // found that this specialization dispatch got replaced by m
+                         // call invalidate_backedges(mi, max_world, "jl_method_table_insert");
+                         // but ignore invoke-type edges
+-                        int invalidatedmi = _invalidate_dispatch_backedges(mi, type, m, d, n, replaced_dispatch, ambig, max_world, morespec);
++                        // trait-bound PoC (invalidation scoping experiment): a
++                        // method defined by a NON-universe module does not
++                        // invalidate existing compiled code while a universe
++                        // filter is active. Unsealed callers become stale —
++                        // which is exactly why native support must scope this
++                        // to universe-keyed CIs rather than a global switch.
++                        int invalidatedmi = jl_universe_allows(method) ?
++                            _invalidate_dispatch_backedges(mi, type, m, d, n, replaced_dispatch, ambig, max_world, morespec) : 0;
+                         if (replaced_dispatch) {
+                             jl_atomic_store_relaxed(&mi->dispatch_status, 0);
+                             jl_array_ptr_1d_push(oldmi, (jl_value_t*)mi);
+@@ -4200,9 +4209,58 @@ have_entry:
+     return mfunc;
+ }
+ 
++// sealed-universe machinery lives with the matcher below; tentative
++// declarations here because jl_apply_generic precedes it in this file
++static int jl_sealed_dispatch_active(void) JL_NOTSAFEPOINT;
++#define JL_SEALED_CACHE_LEN 1024
++static _Atomic(jl_array_t*) jl_sealed_dispatch_cache;
++static size_t jl_sealed_cache_minw[JL_SEALED_CACHE_LEN];
++static size_t jl_sealed_cache_maxw[JL_SEALED_CACHE_LEN];
++
+ JL_DLLEXPORT jl_value_t *jl_apply_generic(jl_value_t *F, jl_value_t **args, uint32_t nargs)
+ {
+     size_t world = jl_current_task->world_age;
++    if (jl_sealed_dispatch_active()) {
++        // sealed frame: resolve through the filtered matcher, bypassing the
++        // ordinary dispatch caches (they may hold non-universe methods)
++        jl_tupletype_t *tt = arg_type_tuple(F, args, nargs + 1);
++        jl_value_t *matches = jl_nothing;
++        JL_GC_PUSH2(&tt, &matches);
++        int cacheable = jl_is_datatype(tt) && ((jl_datatype_t*)tt)->isdispatchtuple;
++        jl_array_t *scache = jl_atomic_load_relaxed(&jl_sealed_dispatch_cache);
++        size_t idx = 0;
++        if (cacheable) {
++            if (scache == NULL) {
++                scache = jl_alloc_vec_any(2 * JL_SEALED_CACHE_LEN);
++                jl_as_global_root((jl_value_t*)scache, 1);
++                jl_atomic_store_release(&jl_sealed_dispatch_cache, scache);
++            }
++            idx = jl_object_id((jl_value_t*)tt) & (JL_SEALED_CACHE_LEN - 1);
++            if (jl_array_ptr_ref(scache, 2 * idx) == (jl_value_t*)tt &&
++                world >= jl_sealed_cache_minw[idx] && world <= jl_sealed_cache_maxw[idx]) {
++                jl_method_instance_t *cmfunc = (jl_method_instance_t*)jl_array_ptr_ref(scache, 2 * idx + 1);
++                JL_GC_POP();
++                JL_GC_PROMISE_ROOTED(cmfunc);
++                return _jl_invoke(F, args, nargs, cmfunc, world);
++            }
++        }
++        size_t min_valid = 1, max_valid = ~(size_t)0;
++        int ambig = 0;
++        matches = jl_matching_methods(tt, jl_nothing, 1, 1, world, &min_valid, &max_valid, &ambig);
++        if (matches == jl_nothing || jl_array_nrows(matches) != 1 || ambig)
++            jl_method_error(F, args, nargs + 1, world);
++        jl_method_match_t *match = (jl_method_match_t*)jl_array_ptr_ref(matches, 0);
++        jl_method_instance_t *smfunc = jl_method_match_to_mi(match, world, min_valid, max_valid, 0);
++        if (cacheable) {
++            jl_sealed_cache_minw[idx] = min_valid;
++            jl_sealed_cache_maxw[idx] = max_valid;
++            jl_array_ptr_set(scache, 2 * idx + 1, (jl_value_t*)smfunc);
++            jl_array_ptr_set(scache, 2 * idx, (jl_value_t*)tt);
++        }
++        JL_GC_POP();
++        JL_GC_PROMISE_ROOTED(smfunc);
++        return _jl_invoke(F, args, nargs, smfunc, world);
++    }
+     jl_method_instance_t *mfunc = jl_lookup_generic_(F, args, nargs,
+                                                      jl_int32hash_fast(jl_return_address()),
+                                                      world);
+@@ -4399,6 +4457,76 @@ static jl_method_match_t *make_method_match(jl_tupletype_t *spec_types, jl_svec_
+ // exceeded early. This is only best-effort, since specificity means that many matched methods
+ // may be sorted and removed in the output processing for ml_matches and therefore we can only
+ // conservatively under-approximate the matches during the search.
++// --- trait-universe filter (trait-bound PoC) --------------------------------
++// When set (a Vector{Any} of Modules), jl_matching_methods/ml_matches resolve
++// ONLY into methods whose defining module chain intersects the universe —
++// sealed resolution below the matcher: specificity and shadowing are computed
++// as if outside methods did not exist. NULL disables. The caller (Julia side)
++// must keep the array rooted. PoC scope: inference/reflection-time matching;
++// runtime dispatch caches are not filtered.
++static _Atomic(jl_array_t*) jl_universe_modules;
++
++// P2 (PoC): direct-mapped cache for sealed dynamic dispatch, so sealed
++// frames are not uncached-per-call. Keyed on the (interned) concrete arg
++// tuple type; world-bounded; flushed whenever the universe changes. Because
++// the filtered matcher does not narrow validity for skipped outside methods,
++// entries stay valid across pirate definitions (sealed immortality).
++#define JL_SEALED_CACHE_LEN 1024
++static _Atomic(jl_array_t*) jl_sealed_dispatch_cache;
++static size_t jl_sealed_cache_minw[JL_SEALED_CACHE_LEN];
++static size_t jl_sealed_cache_maxw[JL_SEALED_CACHE_LEN];
++
++JL_DLLEXPORT void jl_set_universe_filter(jl_array_t *mods)
++{
++    jl_array_t *scache = jl_atomic_load_relaxed(&jl_sealed_dispatch_cache);
++    if (scache != NULL) {   // universe changed: flush sealed dispatch cache
++        for (size_t i = 0; i < 2 * JL_SEALED_CACHE_LEN; i++)
++            jl_array_ptr_set(scache, i, NULL);
++    }
++    jl_atomic_store_release(&jl_universe_modules, mods);
++}
++
++static int jl_universe_filter_active(void) JL_NOTSAFEPOINT
++{
++    return jl_atomic_load_relaxed(&jl_universe_modules) != NULL;
++}
++
++static int jl_universe_allows(jl_method_t *meth) JL_NOTSAFEPOINT
++{
++    jl_array_t *mods = jl_atomic_load_relaxed(&jl_universe_modules);
++    if (mods == NULL)
++        return 1;
++    jl_module_t *m = meth->module;
++    while (1) {
++        for (size_t i = 0; i < jl_array_nrows(mods); i++) {
++            if (jl_array_ptr_ref(mods, i) == (jl_value_t*)m)
++                return 1;
++        }
++        if (m->parent == m || m->parent == NULL)
++            return 0;
++        m = m->parent;
++    }
++}
++// P1b: task/thread-scoped sealed dispatch. `jl_set_sealed_mode(1)` makes
++// every dynamic call in this dynamic extent resolve through the filtered
++// matcher (uncached — universe-keyed caches are P2 work). Returns the old
++// value so callers can save/restore. Scope caveat (PoC): thread-local, so
++// a sealed frame must not migrate threads mid-flight.
++JL_DLLEXPORT int8_t jl_set_sealed_mode(int8_t on)
++{
++    jl_ptls_t ptls = jl_current_task->ptls;
++    int8_t old = ptls->sealed_mode;
++    ptls->sealed_mode = on;
++    return old;
++}
++
++static int jl_sealed_dispatch_active(void) JL_NOTSAFEPOINT
++{
++    return jl_atomic_load_relaxed(&jl_universe_modules) != NULL &&
++           jl_current_task->ptls->sealed_mode;
++}
++// ---------------------------------------------------------------------------
++
+ static int ml_matches_visitor(jl_typemap_entry_t *ml, struct typemap_intersection_env *closure0)
+ {
+     struct ml_matches_env *closure = container_of(closure0, struct ml_matches_env, match);
+@@ -4425,6 +4553,8 @@ static int ml_matches_visitor(jl_typemap_entry_t *ml, struct typemap_intersectio
+     if (closure->match.max_valid > max_world)
+         closure->match.max_valid = max_world;
+     jl_method_t *meth = ml->func.method;
++    if (!jl_universe_allows(meth))
++        return 1;   // sealed resolution: this method does not exist in the universe
+     int only = jl_atomic_load_relaxed(&meth->dispatch_status) & METHOD_SIG_LATEST_ONLY;
+     if (closure->lim >= 0 && only) {
+         if (closure->lim == 0) {
+@@ -4648,7 +4778,7 @@ static jl_value_t *ml_matches(jl_methtable_t *mt, jl_methcache_t *mc,
+     jl_value_t *isect2 = NULL;
+     JL_GC_PUSH6(&env.t, &env.matc, &env.match.env, &search.env, &env.match.ti, &isect2);
+ 
+-    if (mc) {
++    if (mc && !jl_universe_filter_active()) {   // caches may hold non-universe methods
+         // first check the leaf cache if the type might have been put in there
+         if (((jl_datatype_t*)unw)->isdispatchtuple) {
+             jl_genericmemory_t *leafcache = jl_atomic_load_relaxed(&mc->leafcache);
+diff --git a/src/julia_threads.h b/src/julia_threads.h
+index 061eb92..986a458 100644
+--- a/src/julia_threads.h
++++ b/src/julia_threads.h
+@@ -211,6 +211,11 @@ typedef struct _jl_tls_states_t {
+         uint64_t sleep_leave;
+     )
+ 
++    // trait-bound PoC (P1b): while nonzero AND a universe filter is set,
++    // dynamic dispatch from this thread's running task resolves through the
++    // sealed (filtered) matcher, uncached.
++    int8_t sealed_mode;
++
+     // some hidden state (usually just because we don't have the type's size declaration)
+ #ifdef JL_LIBRARY_EXPORTS
+     uv_mutex_t sleep_lock;
+diff --git a/src/precompile_utils.c b/src/precompile_utils.c
+index 86bb723..bcc29bb 100644
+--- a/src/precompile_utils.c
++++ b/src/precompile_utils.c
+@@ -195,6 +195,20 @@ static void jl_compile_all_defs(jl_array_t *mis, int all, jl_array_t *mod_array)
+     JL_GC_POP();
+ }
+ 
++// trait-bound PoC (Q2 experiment): with JULIA_PRECOMPILE_FOREIGN=1, also emit
++// standalone native code for INLINEABLE CIs (the ordinary policy keeps only
++// their IR, betting callers will inline them — a bet runtime dispatch loses,
++// re-paying codegen every session).
++static int precompile_foreign_mode(void)
++{
++    static int mode = -1;
++    if (mode == -1) {
++        char *e = getenv("JULIA_PRECOMPILE_FOREIGN");
++        mode = (e != NULL && e[0] == '1');
++    }
++    return mode;
++}
++
+ static int precompile_enq_specialization_(jl_method_instance_t *mi, void *closure)
+ {
+     assert(jl_is_method_instance(mi));
+@@ -208,7 +222,8 @@ static int precompile_enq_specialization_(jl_method_instance_t *mi, void *closur
+             jl_value_t *inferred = jl_atomic_load_relaxed(&codeinst->inferred);
+             if (inferred &&
+                 (jl_options.compile_enabled == JL_OPTIONS_COMPILE_ALL || inferred == jl_nothing ||
+-                 ((jl_is_string(inferred) || jl_is_code_info(inferred)) && jl_ir_inlining_cost(inferred) == UINT16_MAX))) {
++                 ((jl_is_string(inferred) || jl_is_code_info(inferred)) &&
++                  (jl_ir_inlining_cost(inferred) == UINT16_MAX || precompile_foreign_mode())))) {
+                 do_compile = 1;
+             }
+             else if (jl_atomic_load_relaxed(&codeinst->invoke) != NULL || jl_atomic_load_relaxed(&codeinst->precompile)) {
+@@ -240,8 +255,29 @@ static int precompile_enq_all_specializations__(jl_typemap_entry_t *def, void *e
+             if (m->module == (jl_module_t*)jl_array_ptr_ref(closure->worklist, i))
+                 break;
+         }
+-        if (i == l)
++        if (i == l) {
++            // trait-bound PoC (Q2 experiment): with JULIA_PRECOMPILE_FOREIGN=1,
++            // also enqueue FOREIGN methods' specializations created during this
++            // precompile session (MethodInstance not from any image) — the
++            // workload reached them; without native code they re-codegen at
++            // first use in every session (the measured ~240 ms X9 constant).
++            if (!precompile_foreign_mode())
++                return 1;
++            jl_value_t *specializations = jl_atomic_load_relaxed(&m->specializations);
++            if (!jl_is_svec(specializations)) {
++                if (!jl_object_in_image(specializations))
++                    precompile_enq_specialization_((jl_method_instance_t*)specializations, closure->m);
++            }
++            else {
++                size_t j, n = jl_svec_len(specializations);
++                for (j = 0; j < n; j++) {
++                    jl_value_t *mi = jl_svecref(specializations, j);
++                    if (mi != jl_nothing && !jl_object_in_image(mi))
++                        precompile_enq_specialization_((jl_method_instance_t*)mi, closure->m);
++                }
++            }
+             return 1;
++        }
+     }
+     if ((m->name == jl_symbol("__init__") || m->ccallable) && jl_is_dispatch_tupletype(m->sig)) {
+         // ensure `__init__()` and @ccallables get strongly-hinted, specialized, and compiled
