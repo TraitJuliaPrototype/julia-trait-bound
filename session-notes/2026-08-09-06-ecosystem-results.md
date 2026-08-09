@@ -134,3 +134,24 @@ native-code retention policy limit, not a Makie-integration or design
 problem, and not fixable from package code. A sysimage (PackageCompiler)
 or an AOT rung (juliac/trim) removes it; it is once per session and
 type-independent — the per-type X8 numbers (18 vs 155 ms) are unaffected.
+
+## X10 — Rung-2-lite: constructive piracy-immunity (world-pinned sealed execution)
+
+`TraitRegions.sealed(Trait, :op, t, args...)` runs ops via
+`Base.invoke_in_world` pinned to the **universe world** — bumped only by
+registration events (seals, region ops), re-pinned in `__init__`. Pirate
+`Base.sort(::Vector{Float64}) = v` defined after the pin:
+
+| path | result changed? | recompile |
+|---|---|---|
+| normal region op | yes (12.581 ≠ 13.581) | 72.7 ms |
+| plain twin | yes | 60.5 ms |
+| **sealed region op** | **no** | **0.0 ms** |
+
+Blame report names the offender: "pirate `sort(v::Vector{Float64}) @ Main
+…x10_pirate.jl:25` killed 20 CodeInstances; directly hit modules: ColStats,
+PlainStack". Sealed-call overhead: ~406 ns vs ~137 ns per call (two
+`invoke_in_world` hops) — fine for chunky ops. Tests: +3 (suite now 23).
+Limits stated: pins *time* not *territory* (no allowlist/closure-rule
+enforcement; that is the full Rung-2 interpreter spike), and a stale pinned
+world also hides legitimate post-pin fixes until the next registration bump.

@@ -102,3 +102,12 @@ proposal.
     *enumerable*, but Rung 1 inherits Julia's native-code retention policy —
     one more per-session constant that native support (or juliac over the
     closed universe) eliminates.
+
+21. **Rung-2-lite via `invoke_in_world` (X10).** Sealed resolution's
+    semantic fork needs no custom interpreter to demonstrate: pinning
+    resolution to a registration-bumped universe world gives constructive
+    piracy-immunity (pirate invisible inside regions, applies outside,
+    0 ms recompile, blame names the offender) in ~30 LOC. The full
+    interpreter spike's remaining value is *territory* (allowlist/closure
+    rule) and AOT enumerability — cite `invoke_in_world` as the existing
+    precedent that world-pinned execution is already in the language.

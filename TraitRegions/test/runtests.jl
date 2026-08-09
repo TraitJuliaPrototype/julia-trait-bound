@@ -158,3 +158,17 @@ end
         (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
     @test universe_id() != u1
 end
+
+# --- Rung-2-lite: world-pinned (sealed) execution ---------------------------
+
+@testset "sealed execution survives piracy" begin
+    ta = TableA([[3.0, 1.0, 2.0]])
+    normal_before = doublemean(ta, 1)
+    sealed_before = sealed(ColTable, :doublemean, ta, 1)
+    @test normal_before == sealed_before == 4.0
+    # pirate the witness-visible surface AFTER the universe world was pinned
+    @eval Base.sum(v::Vector{Float64}) = 1000.0   # _mean uses a manual loop; pick sort instead
+    @eval _mean(c::Vector{Float64}) = 99.0        # redefine the region helper itself
+    @test sealed(ColTable, :doublemean, ta, 1) == 4.0        # pinned world: old helper
+    @test doublemean(ta, 1) == 198.0                          # live world: new helper
+end

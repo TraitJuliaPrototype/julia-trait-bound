@@ -39,7 +39,8 @@ Design notes carried over from the M0 spike (see session-notes/):
 module TraitRegions
 
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
-       register_op!, precompile_seal, reinit, universe_id, fingerprint
+       register_op!, precompile_seal, reinit, universe_id, fingerprint,
+       sealed
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -151,6 +152,7 @@ function register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
     w = NamedTuple{Tuple(declared), NTuple{length(fs), Function}}(fs)
     raw = NamedTuple{Tuple(declared)}(fs)   # concrete closure types preserved
     reg[T] = Seal(project, w, raw, R)
+    _bump_universe!()
     return nothing
 end
 
@@ -164,8 +166,43 @@ end
 
 const OP_WORKERS = IdDict{Tuple{Type,Symbol},Tuple{Function,Tuple}}()
 
+# ---------------------------------------------------------------------------
+# Rung-2-lite: the universe WORLD. Every registration event (seal or region
+# op) advances it; nothing else does. `sealed` calls resolve in this pinned
+# world, so a method defined after the last registration — a pirate — does
+# not exist inside sealed region execution: piracy-immunity as a definition,
+# not an observation. This is `Base.invoke_in_world` doing what Rung 3's
+# sealed resolution would do natively (pinning *time*; it cannot pin
+# *territory* — no allowlist — which is what the full Rung-2 interpreter
+# spike would add).
+# ---------------------------------------------------------------------------
+
+const UNIVERSE_WORLD = Ref{UInt}(0)
+
+_bump_universe!() = (UNIVERSE_WORLD[] = Base.get_world_counter(); nothing)
+
+__init__() = _bump_universe!()
+
+"""
+    sealed(Trait, :op, t, args...)
+
+Run region op `:op` with method resolution pinned to the universe world (the
+world as of the last seal/op registration). Definitions made since — e.g. a
+pirated Base method at the representation's types — are invisible: the
+sealed call keeps executing the pre-pirate code, with zero recompilation.
+"""
+function sealed(trait::Type, opname::Symbol, @nospecialize(t), args...)
+    entry = get(OP_WORKERS, (trait, opname), nothing)
+    entry === nothing && error("no region op `$opname` for trait $trait")
+    s = seal_of(trait, t)
+    world = UNIVERSE_WORLD[]
+    r = Base.invoke_in_world(world, s.project, t)
+    return Base.invoke_in_world(world, entry[1], s.w, r, args...)
+end
+
 function register_op!(trait::Type, name::Symbol, @nospecialize(worker::Function), @nospecialize(argts::Tuple))
     OP_WORKERS[(trait, name)] = (worker, argts)
+    _bump_universe!()
     return nothing
 end
 
