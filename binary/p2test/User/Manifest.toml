@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "c9bc7ff9f862e0668063c0e00a669eb83bd5e11e"
+project_hash = "278f7d0e7ff8051b860119c74dadd6f58667ec7b"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -12,6 +12,12 @@ version = "1.11.0"
 [[deps.Helper]]
 path = "../Helper"
 uuid = "11111111-1111-1111-1111-111111111111"
+version = "0.1.0"
+
+[[deps.LoadChurn]]
+deps = ["Helper"]
+path = "/home/hellmann/Repos/julia-trait-bound/binary/p2test/LoadChurn"
+uuid = "33333333-3333-3333-3333-333333333333"
 version = "0.1.0"
 
 [[deps.PrecompileTools]]

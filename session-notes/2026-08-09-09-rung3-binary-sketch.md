@@ -147,3 +147,28 @@ Q2 for core devs is hereby REWRITTEN (see QUESTIONS.md): not "change the
 policy" but "is PT-style tagging the intended universal answer, why does it
 miss Makie-shaped loads, and should a sealed universe imply
 tag-everything-reached semantics?"
+
+## Q2(b) RESOLVED: the Makie constant is an invalidation problem, not a caching-policy problem
+
+Probe 2 (upstream pre-inference + tagged downstream workload): 0.0 ms —
+PT tagging is robust to the inference-cached-upstream shape. Hypothesis
+rejected.
+
+Probe 3 (load-order invalidation): Helper fns route through a generic
+`inner(::AbstractFloat)`; a third package loaded AFTER User defines
+`inner(::Float64)`. Result: control 0.0 ms → with churn **462.7 ms, fully
+attributed as recompile_time**. The tagged native CIs are destroyed by a
+single more-specific method definition at load time.
+
+X9 reconciliation: same root cause; X9 showed recompile=0 because those
+CIs died at image VALIDATION (never entered the live cache → later codegen
+counts as fresh) vs here live-kill (counts as recompile). Either way:
+**load-order method definitions annihilate workload-tagged native code**,
+and `using CairoMakie`-class loads kill thousands of CIs (X4: 3539).
+
+The punchline for the writeup and the core-dev conversation: under sealed
+resolution, region CIs carry no edges outside the universe, so load-order
+definitions CANNOT kill them — the ~460 ms/100-fn class of session cost
+vanishes BY CONSTRUCTION for trait-bound code. Immortal workers are not
+just piracy semantics; they are the fix for TTFX-after-load. This finally
+connects Q2 to the project's core thesis with measurements at every link.

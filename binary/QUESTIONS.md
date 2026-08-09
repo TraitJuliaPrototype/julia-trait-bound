@@ -93,3 +93,15 @@ untagged execution-created CI at image load (edges? MI identity)?
 @compile_workload tagging — window coverage or load-order invalidation of
 tagged CIs — and what instrumentation would you accept to find out?
 (c) should universe/sealed compilation imply tag-everything-reached?
+
+## Q2(b) — answered by experiment; question upgraded
+Measured causal chain: PT tagging yields 0 ms (robust even to
+upstream-pre-inferred CIs); one load-order more-specific method definition
+kills all 100 tagged CIs (462.7 ms, attributed as recompile on live-kill,
+as fresh compile on validation-reject — the latter explains X9's Makie
+signature). Upgraded question for core devs: given that sealed-universe
+CIs would have no out-of-universe edges and thus be immune to load-order
+kills by construction, would you accept universe-keyed CIs as the
+mechanism that makes pkgimage native code SURVIVE ecosystem load orders —
+i.e., is "edges confined to the universe" an acceptable validity argument
+in staticdata validation?
