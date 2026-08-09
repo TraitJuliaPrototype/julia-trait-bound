@@ -138,3 +138,8 @@ serializes in the conformer's pkgimage, merges at load). Consequences:
   plain 26.2. The package-path seal (the common case) moves this cost to
   precompile (0 ms at load). Interactive-seal fast path = future work;
   op registry (reinit) not yet converted.
+- 1.12 note: a seal defined INSIDE @compile_workload is invisible to calls
+  in the same block on 1.12 (strict world age) — seal at top level, call in
+  the workload. Fixed in TraitRegions' own workload; the ecosystem
+  workloads (1.11-pinned) still use in-block @seal and will need the same
+  one-line move when migrating to 1.12.

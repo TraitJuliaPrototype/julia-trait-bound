@@ -626,9 +626,15 @@ end
     _pc_op(t, i::Int) = sum(col(t, i)::Vector{Float64}) + ncols(t)
 end
 
+# top level, not in the workload: the seal_info method must exist in the
+# world the workload block was lowered in (1.12 enforces this strictly)
+@seal _PCTrait _PCDummy begin
+    project(t) = t.cols
+    ncols(r)   = length(r)
+    col(r, i)  = r[i]
+end
+
 @compile_workload begin
-    register!(_PCTrait, _PCDummy,
-              (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
     _pc_op(_PCDummy([[1.0, 2.0]]), 1)
     precompile_seal(_PCTrait, _PCDummy)
 end
