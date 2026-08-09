@@ -1,0 +1,66 @@
+diff --git a/src/gf.c b/src/gf.c
+index 47db547..254bc9c 100644
+--- a/src/gf.c
++++ b/src/gf.c
+@@ -4399,6 +4399,43 @@ static jl_method_match_t *make_method_match(jl_tupletype_t *spec_types, jl_svec_
+ // exceeded early. This is only best-effort, since specificity means that many matched methods
+ // may be sorted and removed in the output processing for ml_matches and therefore we can only
+ // conservatively under-approximate the matches during the search.
++// --- trait-universe filter (trait-bound PoC) --------------------------------
++// When set (a Vector{Any} of Modules), jl_matching_methods/ml_matches resolve
++// ONLY into methods whose defining module chain intersects the universe —
++// sealed resolution below the matcher: specificity and shadowing are computed
++// as if outside methods did not exist. NULL disables. The caller (Julia side)
++// must keep the array rooted. PoC scope: inference/reflection-time matching;
++// runtime dispatch caches are not filtered.
++static _Atomic(jl_array_t*) jl_universe_modules;
++
++JL_DLLEXPORT void jl_set_universe_filter(jl_array_t *mods)
++{
++    jl_atomic_store_release(&jl_universe_modules, mods);
++}
++
++static int jl_universe_filter_active(void) JL_NOTSAFEPOINT
++{
++    return jl_atomic_load_relaxed(&jl_universe_modules) != NULL;
++}
++
++static int jl_universe_allows(jl_method_t *meth) JL_NOTSAFEPOINT
++{
++    jl_array_t *mods = jl_atomic_load_relaxed(&jl_universe_modules);
++    if (mods == NULL)
++        return 1;
++    jl_module_t *m = meth->module;
++    while (1) {
++        for (size_t i = 0; i < jl_array_nrows(mods); i++) {
++            if (jl_array_ptr_ref(mods, i) == (jl_value_t*)m)
++                return 1;
++        }
++        if (m->parent == m || m->parent == NULL)
++            return 0;
++        m = m->parent;
++    }
++}
++// ---------------------------------------------------------------------------
++
+ static int ml_matches_visitor(jl_typemap_entry_t *ml, struct typemap_intersection_env *closure0)
+ {
+     struct ml_matches_env *closure = container_of(closure0, struct ml_matches_env, match);
+@@ -4425,6 +4462,8 @@ static int ml_matches_visitor(jl_typemap_entry_t *ml, struct typemap_intersectio
+     if (closure->match.max_valid > max_world)
+         closure->match.max_valid = max_world;
+     jl_method_t *meth = ml->func.method;
++    if (!jl_universe_allows(meth))
++        return 1;   // sealed resolution: this method does not exist in the universe
+     int only = jl_atomic_load_relaxed(&meth->dispatch_status) & METHOD_SIG_LATEST_ONLY;
+     if (closure->lim >= 0 && only) {
+         if (closure->lim == 0) {
+@@ -4648,7 +4687,7 @@ static jl_value_t *ml_matches(jl_methtable_t *mt, jl_methcache_t *mc,
+     jl_value_t *isect2 = NULL;
+     JL_GC_PUSH6(&env.t, &env.matc, &env.match.env, &search.env, &env.match.ti, &isect2);
+ 
+-    if (mc) {
++    if (mc && !jl_universe_filter_active()) {   // caches may hold non-universe methods
+         // first check the leaf cache if the type might have been put in there
+         if (((jl_datatype_t*)unw)->isdispatchtuple) {
+             jl_genericmemory_t *leafcache = jl_atomic_load_relaxed(&mc->leafcache);
