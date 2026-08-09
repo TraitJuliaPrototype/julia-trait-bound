@@ -1,0 +1,28 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ChurnStorm = "9c3979ee-a721-4027-aea5-70fd0ff08968"
+ColPlots = "eff6be20-6fab-4e1b-8e40-a25afd906885"
+ColReports = "2320ab91-7e0b-4532-9f14-bd80d9cf9c43"
+ColStats = "877a04e8-a67d-433a-bf9f-ae48e0e2cd8b"
+ColTables = "7a1baee8-5358-4588-880c-149bb8a8622f"
+EagerTables = "8700a4b4-ee74-438e-a90b-dcede356e2e2"
+LazyTables = "25f65375-48e7-49d8-905b-1d721dc50b20"
+MatrixTables = "336ef422-dcbe-4aa0-9ce6-ff31a16dbd6e"
+MethodAnalysis = "85b6ec6f-f7df-4429-9514-a64bcd9ee824"
+PlainStack = "e9cbd4c1-9289-4935-8d62-cadc24626768"
+SnoopCompile = "aa65fe97-06da-5843-b5b1-d5d13cad87d2"
+SnoopCompileCore = "e2b509da-e806-4183-be48-004708413034"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+
+[sources]
+ChurnStorm = {path = "../ChurnStorm"}
+ColPlots = {path = "../ColPlots"}
+ColReports = {path = "../ColReports"}
+ColStats = {path = "../ColStats"}
+ColTables = {path = "../ColTables"}
+EagerTables = {path = "../EagerTables"}
+LazyTables = {path = "../LazyTables"}
+MatrixTables = {path = "../MatrixTables"}
+PlainStack = {path = "../PlainStack"}
+TraitRegions = {path = "../../TraitRegions"}

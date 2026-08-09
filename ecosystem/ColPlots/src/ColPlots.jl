@@ -74,13 +74,14 @@ struct _PCDummy
     cols::Vector{Vector{Float64}}
 end
 
+@seal ColTable _PCDummy begin
+    project(t) = t.cols
+    ncols(r)   = length(r)
+    col(r, i)  = r[i]
+end
+
 @compile_workload begin
     d = _PCDummy([[1.0, 2.0, 3.0, 2.5], [4.0, 5.0, 6.0, 5.5]])
-    @seal ColTable _PCDummy begin
-        project(t) = t.cols
-        ncols(r)   = length(r)
-        col(r, i)  = r[i]
-    end
     render(histplot(d, 1))
     render(histplot_naive(d, 2))
     precompile_seal(ColTable, _PCDummy)

@@ -51,13 +51,14 @@ struct _PCDummy
     cols::Vector{Vector{Float64}}
 end
 
+@seal ColTable _PCDummy begin
+    project(t) = t.cols
+    ncols(r)   = length(r)
+    col(r, i)  = r[i]
+end
+
 @compile_workload begin
     d = _PCDummy([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    @seal ColTable _PCDummy begin
-        project(t) = t.cols
-        ncols(r)   = length(r)
-        col(r, i)  = r[i]
-    end
     report(d); report_dyn(d); report_fc(d)
     precompile_seal(ColTable, _PCDummy)
 end

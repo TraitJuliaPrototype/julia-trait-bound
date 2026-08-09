@@ -81,3 +81,13 @@ verification (Design A / PR-2) would recover roughly two-thirds of this
 channel with no semantic machinery, and universe scoping remains
 load-bearing for the remaining third. Both halves of the unbundled
 proposal are justified by the same measurement.
+
+## 1.12 rerun (scripts12, stock 1.12.2): spuriousness PERSISTS
+667 mt_backedge-killed signatures during `using CairoMakie`: 283 genuine,
+**384 spurious (57.6%)** by the top-match criterion (1.11: 63.5%). 1.12's
+added precision machinery (interferences, missing-edge morespecific check)
+has not eliminated the class. Decision: build the env-gated
+verify-before-kill (JULIA_PRECISE_INVALIDATION) at the typename-backedge
+kill site and evaluate against the Julia test suite. Baseline established:
+patched binary passes worlds 148/148 and core/reflection/misc/invalidation
+8,636,166/0 with the filter off.
