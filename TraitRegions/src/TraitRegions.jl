@@ -125,7 +125,11 @@ function register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
     rts = Base.return_types(project, Tuple{T})
     R = (length(rts) == 1 && isconcretetype(rts[1])) ? rts[1] : Any
     if R === Any
-        @warn "seal of $T for $trait: could not infer a concrete representation from `project`; seal checks degraded" T trait
+        # Silent check-skipping is exactly the cliff C5 exists to prevent:
+        # an un-inferable projection means NO witness can be checked.
+        error("seal of $T for $trait: could not infer a concrete representation " *
+              "from `project` — every seal check would be skipped. Annotate the " *
+              "projection's return type or fix its type stability.")
     else
         deep_concrete(R) ||
             error("seal of $T for $trait: representation $R is not deeply concrete " *
@@ -201,6 +205,11 @@ function sealed(trait::Type, opname::Symbol, @nospecialize(t), args...)
 end
 
 function register_op!(trait::Type, name::Symbol, @nospecialize(worker::Function), @nospecialize(argts::Tuple))
+    existing = get(OP_WORKERS, (trait, name), nothing)
+    if existing !== nothing && existing[1] !== worker
+        error("region op `$name` for trait $trait is already provided by " *
+              "$(parentmodule(existing[1])); refusing cross-package op hijack")
+    end
     OP_WORKERS[(trait, name)] = (worker, argts)
     _bump_universe!()
     return nothing

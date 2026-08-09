@@ -46,18 +46,30 @@ measured (X-numbers = scripts):
    witness lines) vs **25 ms and growing-with-stack-size** for the plain
    twin. Workers come precompiled from pkgimages and are reachable by types
    that did not exist at precompile time.
-2. **Zero invalidation under churn (X4).** 100 new types + methods on Base
-   functions + redefinitions, and separately a full `using CairoMakie`
-   (93 invalidation trees ecosystem-wide): **zero** region workers
-   invalidated, 0.0 ms post-churn recompilation.
+2. **Zero invalidation under churn (X4) — with the control stated.** 100 new
+   types + methods on Base functions + redefinitions, and separately a full
+   `using CairoMakie` (93 invalidation trees ecosystem-wide): zero region
+   workers invalidated, 0.0 ms post-churn recompilation. The plain twin
+   *also* survived this particular churn (well-typed new-type churn rarely
+   invalidates concretely-typed code) — the discriminating case is targeted
+   piracy at the representation's types (X10): there the plain twin and
+   ordinary region ops change behavior and pay 60–73 ms session-wide
+   recompilation, while sealed execution does neither.
 3. **Instances scale with representations, not types (X5).** 13 user types
    over 2 representations → 2–3 worker instances per op, not 13. A conformer
    introducing a new representation owns its workers' native code in its own
    pkgimage (X2).
-4. **A real-world example — Makie (X8).** Idiomatic `convert_arguments`
-   recipes drag each user type through Makie's pipeline: **~155 ms per
-   additional custom type, forever**. Erasing the type before Makie sees it:
-   **~18 ms, flat** (~8.5× per type; 2.9× over a 7-type session).
+4. **A real-world example — Makie (X8), honestly attributed.** Idiomatic
+   `convert_arguments` recipes drag each user type through Makie's pipeline:
+   ~155 ms per additional custom type, indefinitely. Reducing to plain
+   arrays before Makie sees the type: ~18 ms, flat. To be clear about
+   attribution: a hand-written "bin, then plot the arrays" function achieves
+   the same flat cost with no trait machinery — the win comes from *type
+   erasure at the boundary*, which the region design systematizes and makes
+   the default rather than invents; and the region column excludes per-type
+   registration (a few ms of witness compilation) from the marginal figure.
+   What the trait layer adds over hand-erasure is that the erased reduction
+   itself stays precompiled and invalidation-immune across types.
 
 ## What does it cost at runtime?
 
@@ -91,17 +103,25 @@ constructively, twice, at increasing strength:
 - **Pinned in time (X10, stock 1.11)**: ops run via `Base.invoke_in_world`
   at a "universe world" bumped only by seal/op registrations. A pirated
   `Base.sort(::Vector{Float64})` changes results and forces 60–73 ms of
-  recompilation on the normal paths; the sealed path returns the pre-pirate
-  result with 0.0 ms — and the blame report names the pirate method and the
-  modules it hit. World-pinned execution is already in the language; sealed
-  resolution is a disciplined use of it, not an exotic new semantic.
+  session-wide recompilation on the normal paths; the sealed path returns
+  the pre-pirate result with 0.0 ms — and the blame report names the pirate
+  method and the modules it hit. Honest scope: this is *snapshot* semantics
+  — the pin advances on every registration event, adopting anything defined
+  in between, so it demonstrates the semantic fork cheaply but is not a
+  standing guarantee. That is precisely why the design wants
+  compiler-managed universe versioning rather than a package-side world ref.
 - **Pinned in territory (X11, 1.12 Compiler stdlib, ~120 LOC)**: a custom
   `AbstractInterpreter` whose method table resolves only into an enrolled
-  universe of modules, workers wrapped as world-pinned OpaqueClosures. The
-  same pirate, *defined before the worker is even compiled*, is invisible —
-  non-enrolled modules do not exist inside sealed compilation — and a
-  region call resolving outside the universe throws `MethodError`: the
-  closure rule enforced, not linted.
+  universe of modules, workers wrapped as OpaqueClosures. The same pirate,
+  *defined before the worker is even compiled*, is invisible to statically
+  resolved calls — non-enrolled modules do not exist inside sealed
+  compilation — and a statically resolved region call landing outside the
+  universe throws `MethodError`. Scope, measured not assumed: dynamic calls
+  (the witness-table mechanism itself) are covered against *post*-compilation
+  pirates by the OpaqueClosure's creation world, but a pirate that predates
+  compilation and is reached dynamically leaks through — the residual hole
+  is exactly "compile sealed workers at registration time", which a native
+  implementation gets for free by keying compilation on the universe.
 
 The X11 implementation surfaced a design fact the proposal should own:
 **sealed resolution cannot be a post-filter**. `jl_matching_methods` drops
@@ -128,11 +148,17 @@ implementation should restrict the method table *below* the matcher.
 ## What this prototype deliberately does not claim
 
 No soundness in the macro layer (evadable; static wiring is convention). The
-sealed interpreter enforces the closure rule for individual workers but its
-allowlist is a whole-module proxy for a real, curated `TraitCore` kernel —
-curating one is the closure rule's true cost and remains future work. No
-plotting TTFP win (Makie's first-plot cost is Makie-internal; our machinery
-adds ~nothing to it, X7). Per-element trait surfaces favor `@full_compile`.
+sealed interpreter enforces the closure rule for statically resolved calls
+in individual workers; its allowlist is a whole-module proxy for a real,
+curated `TraitCore` kernel — curating one is the closure rule's true cost
+and remains future work — and **piracy from inside the universe** (an
+enrolled module pirating Base at the representation's types) is not
+prevented by any rung below full enrollment governance. Fingerprints are
+best-effort (signature + source location — blind to in-place body edits)
+and universe ids are not yet stable across sessions, so persisted-cache
+validation remains future work. Registries are not thread-safe. No plotting
+TTFP win (Makie's first-plot cost is Makie-internal; our machinery adds
+~nothing to it, X7). Per-element trait surfaces favor `@full_compile`.
 Seal-time return-type checks are best-effort `Base.return_types`. Sealed
 OpaqueClosures are not yet wired into the region registry as a routine
 execution mode (single-worker demo only).

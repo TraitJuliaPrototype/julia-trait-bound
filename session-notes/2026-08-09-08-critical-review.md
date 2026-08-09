@@ -85,3 +85,24 @@ do not.** Do not post the draft without addressing A1, A2, B1, B2.
    A6/A7 + inside-universe piracy as stated limitations. 4. Interesting
    synthesis: combine X10+X11 (world-pin AND table restriction) to cover
    both static and dynamic calls — likely the honest Stage-A endpoint.
+
+## Repair status (same day)
+
+- FIXED A3: register_op! errors on cross-package op hijack.
+- FIXED A4: un-inferable `project` is now a seal-time ERROR, not a warning.
+- FIXED A8: Test target added (Pkg.test works); Base.sum piracy removed
+  from testset. All 23 tests pass post-fix (1.11.7).
+- RESOLVED A1 (better than expected): X11 rewritten with measured scope —
+  territory seals static calls incl. pre-compile pirates; the OC's own
+  creation world seals dynamic calls against post-compile pirates
+  (discovered during repair: OCs pin dynamic dispatch to their creation
+  world); residual hole = pre-compile pirate reached dynamically, closed by
+  compiling sealed workers at registration time.
+- REFRAMED in writeup: X10 as snapshot semantics (A2), X4 with the control
+  stated (B1), X8 with honest attribution + registration-cost caveat (B2),
+  limitations section now includes inside-universe piracy, fingerprint
+  blindness, thread safety.
+- DEFERRED: A5 (SealedMT mixed-shadowing recovery), A6 (content-based
+  fingerprints), A7 (locks), fair X8 rerun with per-type closure sites and
+  a bin-then-plot column, sealed-OC registry wiring. All listed in writeup
+  as future work or acknowledged limits.

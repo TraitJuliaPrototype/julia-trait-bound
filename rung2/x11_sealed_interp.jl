@@ -37,6 +37,27 @@ catch e
 end
 println("closure rule:  worker calling non-universe code → ", bad_result)
 
-println(sealed_val == live0 && live_val != live0 && bad_result == :method_error ?
-        "X11 VERDICT: PASS — sealed resolution (territory) + constructive closure rule" :
+# -- the reviewer's counterexample: DYNAMIC calls escape the sealed table ----
+module RegionCode2
+    const WIT = Base.RefValue{Any}(sort)          # Function-typed witness slot
+    _medw(c::Vector{Float64}) = (cs = WIT[](c)::Vector{Float64}; cs[(length(cs) + 1) ÷ 2])
+end
+oc2 = SealedWorkers.compile_sealed(RegionCode2._medw, (Vector{Float64},), (Base, Core, RegionCode2))
+leak = oc2(data)   # dynamic call; sort-pirate PREDATES oc2's compilation world
+println("PRE-compile pirate + dynamic call, table-sealed only: ", leak,
+        "  (leaks — residual hole: ", leak != live0, ")")
+
+# -- but the OC's own creation world covers POST-compile pirates, even dynamic:
+Base.reverse(v::Vector{Float64}) = v              # second pirate, AFTER oc2 was compiled
+RegionCode2.WIT[] = reverse
+data2 = [9.0, 1.0, 8.0, 2.0]                      # even length: reversal moves the median slot
+direct = RegionCode2._medw(data2)                 # plain call, live world → pirate applies
+inoc = oc2(data2)                                 # same dynamic call inside the OC
+println("POST-compile pirate (reverse): direct call = ", direct,
+        " | inside sealed OC = ", inoc,
+        "  (OC world-pins dynamic calls at creation: ", inoc != direct, ")")
+
+println(sealed_val == live0 && live_val != live0 && bad_result == :method_error &&
+        leak != live0 && inoc != direct ?
+        "X11 VERDICT: territory seals static calls (even pre-compile pirates); the OC creation world seals dynamic calls against post-compile pirates; RESIDUAL HOLE = pre-compile pirate reached dynamically — closed by compiling sealed workers at registration time" :
         "X11 VERDICT: inspect")

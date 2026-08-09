@@ -166,9 +166,9 @@ end
     normal_before = doublemean(ta, 1)
     sealed_before = sealed(ColTable, :doublemean, ta, 1)
     @test normal_before == sealed_before == 4.0
-    # pirate the witness-visible surface AFTER the universe world was pinned
-    @eval Base.sum(v::Vector{Float64}) = 1000.0   # _mean uses a manual loop; pick sort instead
-    @eval _mean(c::Vector{Float64}) = 99.0        # redefine the region helper itself
+    # redefine the region helper AFTER the universe world was pinned
+    # (no Base piracy here — that would leak into later testsets)
+    @eval _mean(c::Vector{Float64}) = 99.0
     @test sealed(ColTable, :doublemean, ta, 1) == 4.0        # pinned world: old helper
     @test doublemean(ta, 1) == 198.0                          # live world: new helper
 end
