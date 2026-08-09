@@ -202,14 +202,40 @@ register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple)) =
     _define_seal!(TraitRegions, trait, T, kw)
 
 # ---------------------------------------------------------------------------
-# Cross-region op registry: (trait, opname) → (worker, extra argtypes).
-# Populated by `@region`. NOTE (Rung-1 friction, native fixes this): top-level
-# registration is discarded when a region package is loaded from its
-# pkgimage, so region packages must call `TraitRegions.reinit(@__MODULE__)`
-# from `__init__` to replay their registrations at load time.
+# Cross-region op registry: ops ARE methods too (P0, mirroring seals).
+# `@region` defines `op_info(::Type{Trait}, ::Val{:name}) = (worker, argts)`
+# in the region package's own module — serialized in its pkgimage, merged at
+# load. The reinit/__init__ replay dance is gone.
 # ---------------------------------------------------------------------------
 
-const OP_WORKERS = IdDict{Tuple{Type,Symbol},Tuple{Function,Tuple}}()
+op_info(::Type, ::Val) = nothing   # fallback: no such op
+
+"A3 guard, run before the op_info method definition: refuse cross-package hijack."
+function _check_op_free(trait::Type, name::Symbol, @nospecialize(worker::Function))
+    existing = op_info(trait, Val(name))
+    if existing !== nothing && existing[1] !== worker
+        error("region op `$name` for trait $trait is already provided by " *
+              "$(parentmodule(existing[1])); refusing cross-package op hijack")
+    end
+    return nothing
+end
+
+"All ops of `trait` from the method table: Vector{Pair{Symbol,Tuple{Function,Tuple}}}."
+function each_op(trait::Type)
+    out = Pair{Symbol,Tuple{Function,Tuple}}[]
+    for m in methods(op_info)
+        sig = m.sig
+        sig isa DataType && length(sig.parameters) == 3 || continue
+        Tt, Vt = sig.parameters[2], sig.parameters[3]
+        Tt isa DataType && Tt <: Type && Tt.parameters[1] === trait || continue
+        Vt isa DataType && Vt <: Val || continue
+        name = Vt.parameters[1]
+        name isa Symbol || continue
+        entry = op_info(trait, Val(name))
+        entry === nothing || push!(out, name => entry)
+    end
+    return out
+end
 
 # ---------------------------------------------------------------------------
 # Rung-2-lite: the universe WORLD. Every registration event (seal or region
@@ -237,7 +263,7 @@ pirated Base method at the representation's types — are invisible: the
 sealed call keeps executing the pre-pirate code, with zero recompilation.
 """
 function sealed(trait::Type, opname::Symbol, @nospecialize(t), args...)
-    entry = get(OP_WORKERS, (trait, opname), nothing)
+    entry = op_info(trait, Val(opname))
     entry === nothing && error("no region op `$opname` for trait $trait")
     s = seal_of(trait, t)
     world = UNIVERSE_WORLD[]
@@ -245,44 +271,35 @@ function sealed(trait::Type, opname::Symbol, @nospecialize(t), args...)
     return Base.invoke_in_world(world, entry[1], s.w, r, args...)
 end
 
+"Runtime op registration (scripts/tests): defines the op_info method via eval."
 function register_op!(trait::Type, name::Symbol, @nospecialize(worker::Function), @nospecialize(argts::Tuple))
-    existing = get(OP_WORKERS, (trait, name), nothing)
-    if existing !== nothing && existing[1] !== worker
-        error("region op `$name` for trait $trait is already provided by " *
-              "$(parentmodule(existing[1])); refusing cross-package op hijack")
-    end
-    OP_WORKERS[(trait, name)] = (worker, argts)
+    _check_op_free(trait, name, worker)
+    @eval op_info(::Type{$trait}, ::Val{$(QuoteNode(name))}) = ($worker, $argts)
     _bump_universe!()
     return nothing
 end
 
-"Dynamic cross-region call: the honest Rung-1 lowering (dict lookup + dynamic dispatch per call)."
+"Dynamic cross-region call: the honest Rung-1 lowering (op lookup + dynamic dispatch per call)."
 function dyncall(trait::Type, name::Symbol, @nospecialize(w), @nospecialize(r), args...)
-    entry = get(OP_WORKERS, (trait, name), nothing)
+    entry = op_info(trait, Val(name))
     entry === nothing &&
         error("no witness or region op `$name` for trait $trait (witness tables and the op registry were both consulted)")
     return entry[1](w, r, args...)
 end
 
-"Load-time check that a statically-wired import really is a region op of this trait."
+"Precompile-time check that a statically-wired import really is a region op of this trait."
 function check_import(trait::Type, mod::Module, name::Symbol)
-    entry = get(OP_WORKERS, (trait, name), nothing)
+    entry = op_info(trait, Val(name))
     entry === nothing &&
-        error("@region imports: `$name` is not a registered op of trait $trait (is $mod loaded, and does it call TraitRegions.reinit in __init__?)")
+        error("@region imports: `$name` is not a registered op of trait $trait (is $mod loaded?)")
     worker = getproperty(mod, Symbol(name, "#worker"))
     entry[1] === worker ||
         error("@region imports: `$mod.$name` does not match the registered worker for trait $trait")
     return nothing
 end
 
-"Replay a module's region-op registrations (call from the region package's `__init__`)."
-function reinit(mod::Module)
-    for n in names(mod; all = true)
-        startswith(String(n), "#region_registrar#") || continue
-        getfield(mod, n)()
-    end
-    return nothing
-end
+"Deprecated no-op: ops are methods now (serialized with the region package); nothing to replay."
+reinit(::Module) = nothing
 
 """
     precompile_seal(Trait, T)
@@ -295,8 +312,7 @@ function precompile_seal(trait::Type, T::Type)
     s = seal_info(trait, T)
     s === nothing && error("precompile_seal: $T is not sealed for $trait")
     n = 0
-    for ((tr, _), (worker, argts)) in OP_WORKERS
-        tr === trait || continue
+    for (_, (worker, argts)) in each_op(trait)
         precompile(worker, (typeof(s.w), s.R, argts...)) && (n += 1)
     end
     return n
@@ -321,9 +337,13 @@ fingerprint(s::Seal) = reduce(hash, (fingerprint(f) for f in values(s.w)); init 
 function universe_id()
     h = hash(0x756e69)
     traits = Base.IdSet{Any}()
-    for key in keys(OP_WORKERS)
-        h = hash(key[2], h)
-        push!(traits, key[1])
+    for m in methods(op_info)
+        sig = m.sig
+        sig isa DataType && length(sig.parameters) == 3 || continue
+        Tt, Vt = sig.parameters[2], sig.parameters[3]
+        Tt isa DataType && Tt <: Type && Vt isa DataType && Vt <: Val || continue
+        h = hash(Vt.parameters[1], h)
+        push!(traits, Tt.parameters[1])
     end
     for trait in traits
         for (T, s) in each_seal(trait)
@@ -576,7 +596,7 @@ macro region(trait, rest...)
         end
     end
     out = Any[]
-    regs = Any[]     # register_op! + check_import calls, replayed by reinit
+    regs = Any[]     # op_info method definitions + checks, all top-level
     for ex in block.args
         fc = false
         inner = ex
@@ -588,7 +608,9 @@ macro region(trait, rest...)
             if _is_region_op(inner)
                 workerdef, entrydef, fname, worker, argts = _rewrite_op(trait, inner, imports, fc)
                 push!(out, workerdef, entrydef)
-                push!(regs, :(TraitRegions.register_op!($trait, $(QuoteNode(fname)), $worker, ($(argts...),))))
+                push!(regs, :(TraitRegions._check_op_free($trait, $(QuoteNode(fname)), $worker)))
+                push!(regs, :(TraitRegions.op_info(::Type{$trait}, ::Val{$(QuoteNode(fname))}) =
+                                  ($worker, ($(argts...),))))
             else
                 push!(out, inner)   # helper: first argument is `::`-annotated
             end
@@ -599,8 +621,7 @@ macro region(trait, rest...)
     for (name, mod) in imports
         push!(regs, :(TraitRegions.check_import($trait, $mod, $(QuoteNode(name)))))
     end
-    registrar = Symbol("#region_registrar#", gensym())
-    push!(out, :(const $registrar = () -> begin $(regs...); nothing end), :($registrar()))
+    push!(out, regs..., :(TraitRegions._bump_universe!()))
     return esc(Expr(:block, out..., :nothing))
 end
 

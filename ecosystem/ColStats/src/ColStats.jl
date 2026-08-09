@@ -81,14 +81,12 @@ export colmean, colstd, meanall, summarize, colrange
     end
 end
 
-__init__() = TraitRegions.reinit(@__MODULE__)
 
 struct _PCDummy
     cols::Vector{Vector{Float64}}
 end
 
 @compile_workload begin
-    TraitRegions.reinit(@__MODULE__)
     d = _PCDummy([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     @seal ColTable _PCDummy begin
         project(t) = t.cols

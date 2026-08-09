@@ -143,3 +143,15 @@ serializes in the conformer's pkgimage, merges at load). Consequences:
   the workload. Fixed in TraitRegions' own workload; the ecosystem
   workloads (1.11-pinned) still use in-block @seal and will need the same
   one-line move when migrating to 1.12.
+
+## Follow-up: ops-as-methods (DONE)
+
+`op_info(::Type{Trait}, ::Val{:name}) = (worker, argts)` methods defined by
+@region in the region package's module; `reinit` is now a deprecated no-op
+and ALL __init__/replay code is deleted from the ecosystem. A3 guard kept
+(`_check_op_free` before each definition). dyncall/sealed/check_import/
+precompile_seal/universe_id ported to method-table enumeration (`each_op`).
+Verified: 23 tests on 1.11.7 + 1.12.2; full ecosystem (ops, plots, X1
+static 14 ms / dyn 14 ms unchanged, X10 pirate PASS); 6 seals + 10 ops
+enumerable from method tables. Remaining follow-up: interactive-seal fast
+path (runtime register! still pays ~18 ms method-definition cost).

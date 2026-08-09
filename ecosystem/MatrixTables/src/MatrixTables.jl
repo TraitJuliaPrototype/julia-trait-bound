@@ -23,7 +23,6 @@ end
 end
 
 @compile_workload begin
-    TraitRegions.reinit(ColStats)
     d = MatTable([1.0 2.0; 3.0 4.0])
     ColStats.colmean(d, 1); ColStats.summarize(d)
     precompile_seal(ColTable, MatTable)
