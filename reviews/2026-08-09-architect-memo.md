@@ -91,3 +91,16 @@ verify-before-kill (JULIA_PRECISE_INVALIDATION) at the typename-backedge
 kill site and evaluate against the Julia test suite. Baseline established:
 patched binary passes worlds 148/148 and core/reflection/misc/invalidation
 8,636,166/0 with the filter off.
+
+## Precision patch built and partially evaluated (patch v6)
+Env-gated (JULIA_PRECISE_INVALIDATION=1) verify-before-kill at the
+typename-backedge kill site: before invalidating, re-match the backedge
+signature in the new world (lim=1, no ambiguity); kill only if the new
+method wins; any doubt → kill as before (conservative). Evidence so far:
+- worlds 148/148 PASSES with gate ON (invalidation semantics preserved);
+- genuine-kill control still invalidates (correct), with measured
+  verification overhead ~+1.3 ms/check at insertion time — the concrete
+  argument for Design A's BATCHED verification at a load barrier rather
+  than eager per-kill checks;
+- pending (running): broader gated suite + CairoMakie-load kill-count A/B
+  on the patched binary.
