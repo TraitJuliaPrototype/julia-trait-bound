@@ -55,3 +55,30 @@ fast-path bypass. Full from-source build + test on the patched binary:
 
 Next: P1b task-local universe in jl_apply_generic; TraitRegions native-filter
 backend; P1c enrollment bit from Project.toml.
+
+## P1b IMPLEMENTED AND PASSING
+
+`binary/universe_filter_v2.patch` (117 lines total): per-thread
+`sealed_mode` flag (jl_tls_states_t, appended pre-#ifdef),
+`jl_set_sealed_mode` (save/restore semantics), and a sealed branch in
+`jl_apply_generic`: while a universe is set AND sealed_mode is on, every
+dynamic call resolves through the FILTERED matcher, bypassing all dispatch
+caches (uncached per call — universe-keyed caches are P2).
+
+Test (`test_sealed_dispatch.jl`): pirate `Base.sort(::Vector{Float64})`
+defined BEFORE any sealed compilation, reached through a `Ref{Any}` witness
+slot — live call takes the pirate (4.0); `sealed_call` returns 3.0.
+**X11's residual hole (pre-compile pirate + dynamic call) closed natively.**
+P1a test still passes on the same binary.
+
+PoC caveats recorded: sealed dispatch is uncached (slow; P2 fixes);
+compilation inside sealed frames unsupported (warm outside first);
+thread-scoped, so no task migration mid-sealed-frame; static call sites
+inlined pre-sealing are covered by P1a-compiled workers, not this flag —
+full coverage = P1a compilation + P1b dispatch together.
+
+Gotcha for future rebuilds: `(make; echo EXIT $?)` backgrounding masks make
+failures — check the log, not the task exit code.
+
+Next: TraitRegions native backend (`sealed` uses jl_set_sealed_mode when
+available); P1c enrollment bit from Project.toml; P2 universe-keyed caches.
