@@ -106,3 +106,15 @@ do not.** Do not post the draft without addressing A1, A2, B1, B2.
   fingerprints), A7 (locks), fair X8 rerun with per-type closure sites and
   a bin-then-plot column, sealed-OC registry wiring. All listed in writeup
   as future work or acknowledged limits.
+
+## Fair X8 rerun (repair, B2 closed)
+
+Per-type registration inside @timed, per-type @eval'd witness closures,
+plus a `plainpre` (hand bin-then-plot) control. 6 types, marginal compile:
+recipe 999.6/6 ≈ 167 ms/type; region 589.3/6 ≈ 98 ms/type; plainpre
+303.9/6 ≈ 51 ms/type. Old 18-vs-155 numbers withdrawn from the writeup.
+Honest claim: 1.7× over recipes from boundary erasure; hand-erasure is
+cheaper per type still; the trait layer's value over hand-erasure is
+guarantees (precompiled reduction, seal checks, invalidation immunity),
+not marginal compile. Deferred still: A5, A6, A7, sealed-OC wiring,
+op-count scaling grid.

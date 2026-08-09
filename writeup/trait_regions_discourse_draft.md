@@ -59,17 +59,21 @@ measured (X-numbers = scripts):
    over 2 representations → 2–3 worker instances per op, not 13. A conformer
    introducing a new representation owns its workers' native code in its own
    pkgimage (X2).
-4. **A real-world example — Makie (X8), honestly attributed.** Idiomatic
-   `convert_arguments` recipes drag each user type through Makie's pipeline:
-   ~155 ms per additional custom type, indefinitely. Reducing to plain
-   arrays before Makie sees the type: ~18 ms, flat. To be clear about
-   attribution: a hand-written "bin, then plot the arrays" function achieves
-   the same flat cost with no trait machinery — the win comes from *type
-   erasure at the boundary*, which the region design systematizes and makes
-   the default rather than invents; and the region column excludes per-type
-   registration (a few ms of witness compilation) from the marginal figure.
-   What the trait layer adds over hand-erasure is that the erased reduction
-   itself stays precompiled and invalidation-immune across types.
+4. **A real-world example — Makie (X8), fair version.** Marginal compile per
+   additional never-seen table type, with per-type registration/definition
+   cost *inside* the measurement and per-type witness closures (no sharing
+   artifacts): idiomatic `convert_arguments` recipes ≈ **167 ms/type**
+   (typed Makie pipeline, indefinitely); trait region ≈ **98 ms/type**
+   (mostly seal-time witness compilation + checks); hand-written
+   "bin-then-plot" erasure ≈ **51 ms/type**. The honest reading: the win
+   over recipes comes from *type erasure at the boundary* — which the
+   region design systematizes rather than invents, and which a disciplined
+   author can hand-write cheaper per type. What the trait layer buys over
+   hand-erasure is not marginal compile but the guarantees: the erased
+   reduction stays precompiled, checked at seal time, and
+   invalidation-immune across types. (An earlier draft of this experiment
+   reported 18 vs 155 ms; that version shared witness-closure types across
+   test types and excluded registration — numbers withdrawn.)
 
 ## What does it cost at runtime?
 

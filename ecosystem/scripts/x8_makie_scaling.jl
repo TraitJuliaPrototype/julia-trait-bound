@@ -32,9 +32,16 @@ function binfor(t)
     ([lo + (b - 0.5) * w / 24 for b in 1:24], counts)
 end
 
+# Modes (post-review, fair version):
+#   recipe   — idiomatic Makie: convert_arguments per type (typed pipeline)
+#   region   — trait region: erased reduction via histcounts
+#   plainpre — hand-erasure control: generic bin-then-plot, no trait machinery
+# Fairness fixes vs the original run: per-type registration/definition cost
+# is INSIDE the timed section, and region witnesses are @eval'd per type so
+# closure-type sharing cannot hide per-type witness compilation.
 if mode == "recipe"
     render_one(t) = colorbuffer(barplot(t).figure)
-else
+elseif mode == "region"
     render_one(t) = begin
         cc = histcounts(t, 1)
         fig = Figure(size = (400, 300))
@@ -42,30 +49,40 @@ else
         barplot!(ax, cc[1], cc[2])
         colorbuffer(fig)
     end
+else # plainpre
+    render_one(t) = begin
+        centers, counts = binfor(t)   # generic: specializes per type
+        fig = Figure(size = (400, 300))
+        ax = Axis(fig[1, 1])
+        barplot!(ax, centers, counts)
+        colorbuffer(fig)
+    end
 end
 
 function prep(T)
     if mode == "recipe"
         @eval Makie.convert_arguments(::Type{<:BarPlot}, t::$T) = binfor(t)
-    else
-        TraitRegions.register!(ColTable, T,
+    elseif mode == "region"
+        @eval TraitRegions.register!(ColTable, $T,
             (project = x -> x.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
     end
 end
 
 prep(Tab0)
 warm = @timed Base.invokelatest(render_one, Tab0([rand(500)]))
-@printf("X8 mode=%-6s  warm-up type (shared Makie session cost): %7.1f ms compile\n",
+@printf("X8 mode=%-8s warm-up type (shared Makie session cost): %7.1f ms compile\n",
         mode, warm.compile_time * 1e3)
 
 tot = 0.0
 for k in 1:K
     T = @eval $(Symbol("Tab", k))
-    prep(T)
     t = Base.invokelatest(T, [rand(500)])
-    s = @timed Base.invokelatest(render_one, t)
+    s = @timed begin
+        Base.invokelatest(prep, T)                # registration INSIDE the marginal cost
+        Base.invokelatest(render_one, t)
+    end
     global tot += s.compile_time
     @printf("  type %d: %7.1f ms compile (%7.1f ms total)\n",
             k, s.compile_time * 1e3, s.time * 1e3)
 end
-@printf("X8 mode=%-6s  marginal compile for %d additional types: %7.1f ms\n", mode, K, tot * 1e3)
+@printf("X8 mode=%-8s marginal compile for %d additional types: %7.1f ms\n", mode, K, tot * 1e3)
