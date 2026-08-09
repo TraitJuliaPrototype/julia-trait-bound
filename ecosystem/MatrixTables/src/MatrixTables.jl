@@ -16,20 +16,17 @@ struct MatTable
     m::Matrix{Float64}
 end
 
-_seal!() = TraitRegions.register!(ColTable, MatTable,
-    (project = t -> t.m,
-     ncols   = r -> size(r, 2),
-     col     = (r, i) -> r[:, i]))
-
-__init__() = _seal!()
+@seal ColTable MatTable begin
+    project(t) = t.m
+    ncols(r)   = size(r, 2)
+    col(r, i)  = r[:, i]
+end
 
 @compile_workload begin
     TraitRegions.reinit(ColStats)
-    _seal!()
     d = MatTable([1.0 2.0; 3.0 4.0])
     ColStats.colmean(d, 1); ColStats.summarize(d)
     precompile_seal(ColTable, MatTable)
-    empty!(TraitRegions.seal_registry(ColTable))
 end
 
 end

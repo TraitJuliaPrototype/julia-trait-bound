@@ -118,3 +118,23 @@ cheaper per type still; the trait layer's value over hand-erasure is
 guarantees (precompiled reduction, seal checks, invalidation immunity),
 not marginal compile. Deferred still: A5, A6, A7, sealed-OC wiring,
 op-count scaling grid.
+
+## P0 refactor: seals-as-methods (DONE, same day)
+
+Seal storage is now `seal_info(::Type{Trait}, ::Type{T}) = <Seal>` methods,
+defined via `@seal` INTO THE CALLING MODULE (external method extension →
+serializes in the conformer's pkgimage, merges at load). Consequences:
+- EagerTables/LazyTables/MatrixTables seal at TOP LEVEL, `__init__` deleted
+  — the seal-side registration boilerplate is gone, validating the Rung-3
+  "seals-as-methods" bet (P0 exit criterion met).
+- Enumeration from the method table (`each_seal`), `unseal!` via
+  delete_method; universe_id/precompile_seal ported; @trait no longer
+  generates registries. All 23 tests pass on 1.11.7 AND 1.12.2; ecosystem
+  re-verified (report ops, x1, x6).
+- Julia itself enforced the design: eval into a closed module during
+  precompile is an ERROR — the method MUST belong to the sealing package.
+- Honest trade-off: runtime `register!`/interactive sealing now costs
+  ~18 ms (method definition) vs ~7 ms dict — X1 static total 27.5 ms vs
+  plain 26.2. The package-path seal (the common case) moves this cost to
+  precompile (0 ms at load). Interactive-seal fast path = future work;
+  op registry (reinit) not yet converted.

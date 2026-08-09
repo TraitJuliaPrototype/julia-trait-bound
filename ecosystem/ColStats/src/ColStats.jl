@@ -90,11 +90,13 @@ end
 @compile_workload begin
     TraitRegions.reinit(@__MODULE__)
     d = _PCDummy([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    TraitRegions.register!(ColTable, _PCDummy,
-        (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
+    @seal ColTable _PCDummy begin
+        project(t) = t.cols
+        ncols(r)   = length(r)
+        col(r, i)  = r[i]
+    end
     colmean(d, 1); colstd(d, 2); meanall(d); summarize(d); colrange(d, 1)
     precompile_seal(ColTable, _PCDummy)
-    empty!(TraitRegions.seal_registry(ColTable))
 end
 
 end

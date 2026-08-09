@@ -15,11 +15,10 @@ struct LazyTable
     n::Int
 end
 
-_seal!() = TraitRegions.register!(ColTable, LazyTable,
-    (project = t -> Vector{Float64}[[Float64(t.n)], t.base],
-     ncols   = r -> Int(r[1][1]),
-     col     = (r, i) -> r[2] .* Float64(i)))
-
-__init__() = _seal!()
+@seal ColTable LazyTable begin
+    project(t) = Vector{Float64}[[Float64(t.n)], t.base]
+    ncols(r)   = Int(r[1][1])
+    col(r, i)  = r[2] .* Float64(i)
+end
 
 end

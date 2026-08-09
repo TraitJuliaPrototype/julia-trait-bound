@@ -79,12 +79,14 @@ end
     TraitRegions.reinit(ColStats)
     TraitRegions.reinit(@__MODULE__)
     d = _PCDummy([[1.0, 2.0, 3.0, 2.5], [4.0, 5.0, 6.0, 5.5]])
-    TraitRegions.register!(ColTable, _PCDummy,
-        (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
+    @seal ColTable _PCDummy begin
+        project(t) = t.cols
+        ncols(r)   = length(r)
+        col(r, i)  = r[i]
+    end
     render(histplot(d, 1))
     render(histplot_naive(d, 2))
     precompile_seal(ColTable, _PCDummy)
-    empty!(TraitRegions.seal_registry(ColTable))
 end
 
 end

@@ -136,11 +136,13 @@ ncols_direct(t::_PCDummy) = length(t.cols)
 
 @compile_workload begin
     d = _PCDummy([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    TraitRegions.register!(ColTable, _PCDummy,
-        (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
+    @seal ColTable _PCDummy begin
+        project(t) = t.cols
+        ncols(r)   = length(r)
+        col(r, i)  = r[i]
+    end
     colmean(d, 1); colstd(d, 2); meanall(d); summarize(d)
     colmean_direct(d, 1); colstd_direct(d, 2); meanall_direct(d); summarize_direct(d)
-    empty!(TraitRegions.seal_registry(ColTable))
 end
 
 end # module

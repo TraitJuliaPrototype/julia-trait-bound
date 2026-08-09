@@ -40,7 +40,7 @@ module TraitRegions
 
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
-       sealed
+       sealed, each_seal, unseal!
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -58,8 +58,43 @@ struct Seal
     R::Type                # inferred representation (Any if inference failed)
 end
 
-"""Overloaded per trait by `@trait`: returns the trait's `IdDict{Type,Seal}`."""
-function seal_registry end
+"""
+Seals ARE methods (P0 of the Rung-3 plan): `@seal` defines
+`seal_info(::Type{Trait}, ::Type{T}) = <const Seal>` at the conformer's top
+level. The method and its constant Seal serialize into the conformer's own
+pkgimage and merge into the global table at load — Julia's existing method
+machinery replaces the dict registry, deleting the seal-side
+`__init__` replay dance entirely.
+"""
+seal_info(::Type, ::Type) = nothing   # fallback: not sealed
+
+_check_not_sealed(trait::Type, T::Type) =
+    seal_info(trait, T) === nothing || error("duplicate seal: $T is already sealed for $trait")
+
+"All seals of `trait`, enumerated from the method table: Vector{Pair{Type,Seal}}."
+function each_seal(trait::Type)
+    out = Pair{Type,Seal}[]
+    for m in methods(seal_info)
+        sig = m.sig
+        sig isa DataType && length(sig.parameters) == 3 || continue
+        Tt, TT = sig.parameters[2], sig.parameters[3]
+        Tt isa DataType && Tt <: Type && Tt.parameters[1] === trait || continue
+        TT isa DataType && TT <: Type || continue
+        T = TT.parameters[1]
+        T isa Type || continue
+        s = seal_info(trait, T)
+        s isa Seal && push!(out, T => s)
+    end
+    return out
+end
+
+"Remove a seal (interactive edits, tests): deletes the `seal_info` method."
+function unseal!(trait::Type, T::Type)
+    seal_info(trait, T) === nothing && return nothing
+    Base.delete_method(which(seal_info, Tuple{Type{trait}, Type{T}}))
+    _bump_universe!()
+    return nothing
+end
 
 """Overloaded per trait by `@trait`: declared methods as a NamedTuple
 `name => (args = (T...,), ret = Type-or-SelfR)`, in declaration order."""
@@ -78,32 +113,21 @@ function deep_concrete(@nospecialize(T); seen = Base.IdSet{Any}())
 end
 
 function seal_of(trait::Type, @nospecialize(t))
-    s = get(seal_registry(trait), typeof(t), nothing)
+    s = seal_info(trait, typeof(t))
     s === nothing && error(string(typeof(t)) * " is not sealed for trait " * string(trait))
     return s::Seal
 end
 
 """
-    register!(Trait, T, (; project, witnesses...))
-
-Runtime seal: fail-early checks, then store the seal. Called by `@seal`, and
-usable directly. Checks (claim C5 — errors name trait, type, and method):
-  1. no duplicate seal for `T`;
-  2. the witness set matches the trait's declared methods exactly;
-  3. `project` has a method for `T`; its return type `R` is inferred
-     (best-effort) and deep-concreteness of `R` is required;
-  4. each witness has a method for `(R, declared argtypes...)`;
-  5. best-effort: each witness's inferred return type must be a subtype of
-     the declared one (`R` declarations check against the inferred `R`).
-
-Takes the witnesses as a positional NamedTuple (not kwargs) so the whole call
-is `@nospecialize`-able: sealing compiles nothing but the witness bodies.
+Run all fail-early seal checks and construct the Seal (no storage). Checks
+(claim C5 — errors name trait, type, and method): witness set matches the
+declaration exactly; `project` has a method for `T` and infers a deeply
+concrete representation `R`; each witness has a method at `(R, argtypes...)`
+with a compatible best-effort return type. Positional NamedTuple so the call
+is `@nospecialize`-able.
 """
-function register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
+function build_seal(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
     info = trait_info(trait)
-    reg = seal_registry(trait)
-    haskey(reg, T) &&
-        error("duplicate seal: $T is already sealed for $trait")
 
     haskey(kw, :project) ||
         error("seal of $T for $trait: missing `project`")
@@ -155,10 +179,27 @@ function register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
     fs = Tuple(Function[kw[name] for name in declared])
     w = NamedTuple{Tuple(declared), NTuple{length(fs), Function}}(fs)
     raw = NamedTuple{Tuple(declared)}(fs)   # concrete closure types preserved
-    reg[T] = Seal(project, w, raw, R)
+    return Seal(project, w, raw, R)
+end
+
+"""
+Check, build, and define the seal as a method of `seal_info` evaluated in
+`mod` — so a seal made at a conformer package's top level is an ordinary
+external method extension, serialized in that package's pkgimage and merged
+at load like any other method. No `__init__` replay needed for seals.
+"""
+function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::NamedTuple))
+    _check_not_sealed(trait, T)
+    s = build_seal(trait, T, kw)
+    fn = GlobalRef(TraitRegions, :seal_info)
+    Base.eval(mod, :($fn(::Type{$trait}, ::Type{$T}) = $s))
     _bump_universe!()
     return nothing
 end
+
+"Runtime seal (scripts/tests). For package top level, prefer `@seal` (serializes with the caller)."
+register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple)) =
+    _define_seal!(TraitRegions, trait, T, kw)
 
 # ---------------------------------------------------------------------------
 # Cross-region op registry: (trait, opname) → (worker, extra argtypes).
@@ -251,7 +292,7 @@ Call from a conformer package's precompile workload (after sealing) so the
 conformer's pkgimage owns the workers for any representation it introduces.
 """
 function precompile_seal(trait::Type, T::Type)
-    s = get(seal_registry(trait), T, nothing)
+    s = seal_info(trait, T)
     s === nothing && error("precompile_seal: $T is not sealed for $trait")
     n = 0
     for ((tr, _), (worker, argts)) in OP_WORKERS
@@ -285,7 +326,7 @@ function universe_id()
         push!(traits, key[1])
     end
     for trait in traits
-        for (T, s) in seal_registry(trait)
+        for (T, s) in each_seal(trait)
             h = hash((T, fingerprint(s)), h)
         end
     end
@@ -338,11 +379,8 @@ macro trait(name, block)
         push!(entries, :($mname = (args = ($(argts...),), ret = $retex)))
     end
     isempty(entries) && error("@trait: trait $name declares no methods")
-    regname = Symbol("##seals#", name)
     return esc(quote
         struct $name <: TraitRegions.AbstractTrait end
-        const $regname = Base.IdDict{Type, TraitRegions.Seal}()
-        TraitRegions.seal_registry(::Type{$name}) = $regname
         TraitRegions.trait_info(::Type{$name}) = ($(entries...),)
         $name
     end)
@@ -383,7 +421,7 @@ macro seal(trait, T, block)
         name, fn = _parse_seal_def(ex)
         push!(kws, Expr(:(=), name, fn))
     end
-    return esc(:(TraitRegions.register!($trait, $T, ($(kws...),))))
+    return esc(:(TraitRegions._define_seal!($(__module__), $trait, $T, ($(kws...),))))
 end
 
 # ---------------------------------------------------------------------------
@@ -593,7 +631,6 @@ end
               (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
     _pc_op(_PCDummy([[1.0, 2.0]]), 1)
     precompile_seal(_PCTrait, _PCDummy)
-    empty!(seal_registry(_PCTrait))
 end
 
 end # module

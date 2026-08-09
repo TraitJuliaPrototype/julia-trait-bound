@@ -56,11 +56,13 @@ end
     TraitRegions.reinit(ColStats)
     TraitRegions.reinit(@__MODULE__)
     d = _PCDummy([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    TraitRegions.register!(ColTable, _PCDummy,
-        (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
+    @seal ColTable _PCDummy begin
+        project(t) = t.cols
+        ncols(r)   = length(r)
+        col(r, i)  = r[i]
+    end
     report(d); report_dyn(d); report_fc(d)
     precompile_seal(ColTable, _PCDummy)
-    empty!(TraitRegions.seal_registry(ColTable))
 end
 
 end

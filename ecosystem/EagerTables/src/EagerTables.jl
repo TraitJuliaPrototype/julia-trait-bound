@@ -13,11 +13,12 @@ struct EagerTable
     cols::Vector{Vector{Float64}}
 end
 
-_seal!() = TraitRegions.register!(ColTable, EagerTable,
-    (project = t -> t.cols,
-     ncols   = r -> length(r),
-     col     = (r, i) -> r[i]))
-
-__init__() = _seal!()
+# Seals are methods (P0): a top-level @seal serializes into THIS package's
+# pkgimage like any external method extension. No __init__ replay.
+@seal ColTable EagerTable begin
+    project(t) = t.cols
+    ncols(r)   = length(r)
+    col(r, i)  = r[i]
+end
 
 end
