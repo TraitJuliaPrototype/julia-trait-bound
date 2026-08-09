@@ -98,3 +98,20 @@ flag; filtered matcher vs per-universe tables; validity/epoch semantics;
 enrollment stamping in loading.jl). These mark the exact edge of what we
 could build without upstream judgment — P2 proper (CI keying + staticdata)
 should not proceed without answers to Q1/Q2.
+
+## p2-experiments branch (repo + julia clone branch trait-universe)
+
+Q2 experiment: located the exact native-code selection policy
+(precompile_utils.c — worklist-module-only walk; owner!=nothing skipped
+with core-dev TODO; inlining_cost==UINT16_MAX gate). Patch v4 adds
+JULIA_PRECOMPILE_FOREIGN=1: enqueue foreign new-in-image specializations.
+Mini-test REFINED X9's diagnosis rather than confirming the patch: vanilla
+already natively caches workload-created foreign specializations of
+NON-inlineable methods; the per-session re-codegen gap is specifically
+(a) inlineable foreign CIs (IR kept, native refused) and (b) custom-owner
+CIs. Measuring the fix needs the Makie shape: aggregate over ~100 mid-size
+functions — pending next step (generate a 100-fn Helper, A/B with the
+inlining-cost gate dropped under the env flag in
+precompile_enq_specialization_). QUESTIONS.md Q2 sharpened with file/line
+specifics. Also pending: rerun test_universe/test_sealed_* after this
+rebuild (should be unaffected — precompile_utils only).

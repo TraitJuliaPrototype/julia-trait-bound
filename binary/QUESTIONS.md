@@ -61,3 +61,21 @@ Is loading.jl the right place to stamp modules, and would a
 `dispatch_status`-adjacent method flag be acceptable, or should enrollment
 stay entirely at module granularity (as our PoC has it, via parent-chain
 walk at match time — measured cost is small but nonzero per match)?
+
+## Q2 addendum — exact policy sites, from experiment (branch p2-experiments)
+The native-code selection for pkgimages is: `precompile_utils.c`
+`precompile_enq_all_specializations__` walks ONLY worklist-module methods;
+`precompile_enq_specialization_` skips `codeinst->owner != jl_nothing`
+outright ("TODO(vchuravy) native code caching for foreign interpreters")
+and requires `jl_ir_inlining_cost(inferred) == UINT16_MAX` for standalone
+native. Measured consequences: a workload-created foreign specialization of
+a LARGE (non-inlineable) method DOES get native code today; the X9 gap is
+specifically (a) inlineable foreign CIs reached by runtime dispatch (kept
+as IR per staticdata.c:931, re-codegen'd every session) and (b) custom-owner
+CIs. Sharpened question: would a rule "emit standalone native for
+new-in-this-image foreign CIs regardless of inlining cost when <condition>"
+be acceptable, and what should <condition> be — universe membership, a
+dispatch-observed bit, or an explicit precompile directive? Our env-gated
+experiment (JULIA_PRECOMPILE_FOREIGN=1, patch v4) enqueues foreign
+new-in-image specializations; scale measurement (many mid-size functions,
+the Makie shape) is the pending next step.
