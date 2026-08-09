@@ -111,3 +111,11 @@ proposal.
     interpreter spike's remaining value is *territory* (allowlist/closure
     rule) and AOT enumerability — cite `invoke_in_world` as the existing
     precedent that world-pinned execution is already in the language.
+
+22. **Sealed resolution cannot be a post-filter (X11).** jl_matching_methods
+    drops methods fully shadowed by a more-specific match, so filtering a
+    pirate out afterwards leaves its universe-internal victims missing; the
+    spike recovers them by direct method-list search. A native
+    implementation should restrict the table *below* the matcher. Also:
+    OC-from-IR wants argtypes[1]==typeof(env); MethodTableView needs
+    isoverlayed. Stage A core: ~120 LOC total on the 1.12 Compiler stdlib.

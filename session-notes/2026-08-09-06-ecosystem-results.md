@@ -161,3 +161,29 @@ world also hides legitimate post-pin fixes until the next registration bump.
 Discourse draft: `writeup/trait_regions_discourse_draft.md`. Remaining
 polish before posting: 1.12 smoke test, op-count scaling grid (X1 at
 5/15/45 ops) as headline chart, repo link, and a read-through by Frank.
+
+## X11 — Stage A / full Rung 2: territory-sealed workers (Julia 1.12.2)
+
+`rung2/sealed_workers.jl`: `SealedInterp <: AbstractInterpreter` (1.12
+Compiler stdlib) with a `SealedMT` method-table view that resolves only into
+allowlisted modules, + `compile_sealed(f, argtypes, universe)` wrapping the
+result as a world-pinned OpaqueClosure. All 23 TraitRegions tests also pass
+unchanged on 1.12.2.
+
+Result (`rung2/x11_sealed_interp.jl`): pirate `Base.sort(::Vector{Float64})`
+defined in Main BEFORE compilation — live call changes (4.0), sealed OC
+returns pre-pirate semantics (3.0): **territory-based immunity, beyond
+X10's time-based pinning**. And the closure rule is CONSTRUCTIVE: a worker
+calling non-universe code throws MethodError from sealed execution.
+
+Implementation notes (the sharp edges, for the writeup):
+- OC-from-IR needs `ir.argtypes[1] = Tuple{}` (must equal typeof(env)).
+- Post-filtering matches is NOT sealed resolution: the C matcher drops
+  methods fully shadowed by a more-specific (pirate) method, so filtering
+  the pirate leaves an empty match list. `SealedMT.findall` must RECOVER
+  shadowed universe-internal methods by direct method-list search — evidence
+  that native sealed resolution wants a table restriction below the matcher.
+- MethodTableView interface additionally requires `isoverlayed` (= true).
+
+Next (Stage A remainder): wire sealed OCs into the TraitRegions registry as
+a third execution mode; cache per (op, R, universe); measure overhead.
