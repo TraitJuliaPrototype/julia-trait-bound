@@ -2,7 +2,9 @@
 
 *Draft for Discourse (compiler/internals). All numbers reproducible from the
 linked repo (Julia 1.11.7, `--startup-file=no`, fresh process per
-measurement; experiment scripts in `ecosystem/scripts/`).*
+measurement; experiment scripts in `ecosystem/scripts/` and `rung2/`. The
+package and its 23-test suite pass unchanged on 1.11.7 and 1.12.2; the
+sealed-interpreter experiment is 1.12-only).*
 
 ## The problem, in one sentence
 
@@ -83,14 +85,30 @@ mechanism is known-cheap; the only thing a package cannot provide is
 soundness.* The convention-based static wiring re-freezes witness resolution
 — exactly the hole compiler-managed universe versioning would close.
 
-We also demonstrated the contentious semantic constructively (X10):
-**sealed resolution** via `Base.invoke_in_world` pinned to a
-"universe world" bumped only by seal/op registrations. A pirated
-`Base.sort(::Vector{Float64})` changes results and forces 60–73 ms of
-recompilation on the normal paths; the sealed path returns the pre-pirate
-result with 0.0 ms — and the blame report names the pirate method and the
-modules it hit. World-pinned execution is already in the language; sealed
-resolution is a disciplined use of it, not an exotic new semantic.
+We also demonstrated the contentious semantic — **sealed resolution** —
+constructively, twice, at increasing strength:
+
+- **Pinned in time (X10, stock 1.11)**: ops run via `Base.invoke_in_world`
+  at a "universe world" bumped only by seal/op registrations. A pirated
+  `Base.sort(::Vector{Float64})` changes results and forces 60–73 ms of
+  recompilation on the normal paths; the sealed path returns the pre-pirate
+  result with 0.0 ms — and the blame report names the pirate method and the
+  modules it hit. World-pinned execution is already in the language; sealed
+  resolution is a disciplined use of it, not an exotic new semantic.
+- **Pinned in territory (X11, 1.12 Compiler stdlib, ~120 LOC)**: a custom
+  `AbstractInterpreter` whose method table resolves only into an enrolled
+  universe of modules, workers wrapped as world-pinned OpaqueClosures. The
+  same pirate, *defined before the worker is even compiled*, is invisible —
+  non-enrolled modules do not exist inside sealed compilation — and a
+  region call resolving outside the universe throws `MethodError`: the
+  closure rule enforced, not linted.
+
+The X11 implementation surfaced a design fact the proposal should own:
+**sealed resolution cannot be a post-filter**. `jl_matching_methods` drops
+methods fully shadowed by a more-specific match, so filtering a pirate out
+afterwards leaves its universe-internal victims missing from the match list;
+our table view has to recover them by direct method-list search. A native
+implementation should restrict the method table *below* the matcher.
 
 ## Friction a language feature would delete (found the hard way)
 
@@ -109,18 +127,27 @@ resolution is a disciplined use of it, not an exotic new semantic.
 
 ## What this prototype deliberately does not claim
 
-No soundness (macros are evadable; static wiring is convention). No closure
-rule enforcement (the sealed-world demo pins *time*, not *territory* — no
-allowlisted kernel yet). No plotting TTFP win (Makie's first-plot cost is
-Makie-internal; our machinery adds ~nothing to it, X7). Per-element trait
-surfaces favor `@full_compile`. Seal-time return-type checks are best-effort
-`Base.return_types`.
+No soundness in the macro layer (evadable; static wiring is convention). The
+sealed interpreter enforces the closure rule for individual workers but its
+allowlist is a whole-module proxy for a real, curated `TraitCore` kernel —
+curating one is the closure rule's true cost and remains future work. No
+plotting TTFP win (Makie's first-plot cost is Makie-internal; our machinery
+adds ~nothing to it, X7). Per-element trait surfaces favor `@full_compile`.
+Seal-time return-type checks are best-effort `Base.return_types`. Sealed
+OpaqueClosures are not yet wired into the region registry as a routine
+execution mode (single-worker demo only).
 
 ## Ask
 
-Is a versioned "trait-bound" strict subset (enrollment via Project.toml, a
-sealed-resolution rule for region code, compiler-managed witness tables and
-universe-keyed caches) something the community wants us to develop into a
-full proposal? The repo has the design documents, the prototype
-(TraitRegions.jl, 23 tests), the ecosystem, and every number above as a
-runnable script. Repo link: (to be added on publication).
+The ladder is now fully evidenced: **Rung 1** (macro prototype) measured on
+a 9-package ecosystem; **Rung 2** (sealed resolution) implemented both as a
+stock-Julia primitive-reuse and as a restricted-table interpreter; **Rung 3**
+(the language feature) bracketed by the faked-native columns, with its two
+genuinely new requirements identified concretely (enrollment metadata;
+table restriction below the matcher). Is a versioned "trait-bound" strict
+subset — enrollment via Project.toml, sealed resolution for region code,
+compiler-managed witness tables and universe-keyed caches — something the
+community wants developed into a full proposal? The repo has the design
+documents, the prototype (TraitRegions.jl, 23 tests, 1.11+1.12), the
+ecosystem, and every number above as a runnable script. Repo link: (to be
+added on publication).

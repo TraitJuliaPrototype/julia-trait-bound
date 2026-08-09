@@ -13,7 +13,11 @@ Proof of concept for **trait-bounded Julia** ("TraitRegions.jl"). Read `Backgrou
 
 - Julia via **juliaup** at `/home/hellmann/.juliaup/bin/julia`. Default channel: **1.12.2**.
   Also installed: 1.10.0, 1.10.2, 1.11.0, 1.11.7, release (1.12.3).
-  ⚠️ The plan targets **Julia 1.10/1.11** with version-hedged reflection shims. Use `julia +1.11.7` / `julia +1.10.2` to pin a channel when it matters; decide the primary dev version at M0.
+  **Version policy (settled)**: all measurements were made on `julia +1.11.7`;
+  TraitRegions tests pass unchanged on 1.11.7 AND 1.12.2; the Rung-2 sealed
+  interpreter (`rung2/`) is **1.12-only** (Compiler stdlib). Note the
+  ecosystem/scripts Manifest was instantiated under 1.11 — running those
+  scripts under 1.12 requires re-instantiation (slow: Makie).
 - Depot: `/home/hellmann/.julia` (writable from the sandbox).
 - **Network works** in the sandbox: pkg.julialang.org reachable, `Pkg.add` verified end-to-end (FunctionWrappers v1.1.3 installed into a scratch env without prompts).
 - A Julia MCP server (`mcp__julia__julia_eval` etc.) exists in this setup but was **disconnected** in the first session — do not rely on it; run Julia via Bash instead. If it is connected in a future session it gives a persistent REPL, which is nicer for iterative work.
