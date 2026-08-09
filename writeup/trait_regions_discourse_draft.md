@@ -43,7 +43,7 @@ measured (X-numbers = scripts):
 
 1. **Flat TTFX (X1).** Fresh session, never-seen type, composed op across
    two region packages: **14 ms** of compilation (mostly the user's three
-   witness lines) vs **25 ms and growing-with-stack-size** for the plain
+   witness lines) vs **25 ms** (structurally per-op × per-type; the op-count scaling grid itself remains unmeasured) for the plain
    twin. Workers come precompiled from pkgimages and are reachable by types
    that did not exist at precompile time.
 2. **Zero invalidation under churn (X4) — with the control stated.** 100 new

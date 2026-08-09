@@ -14,11 +14,17 @@ git — the clone has its own; see the diff via `cd julia && git diff`).
   the package-side post-filter, fixed at the correct layer).
 - The `ml_matches` leaf/full-cache fast paths are bypassed while the filter
   is active (caches may hold non-universe methods).
-- Deliberate PoC scope: filters `jl_matching_methods`/reflection/inference;
-  runtime dispatch caches are NOT filtered (that is the task-universe work,
-  P1b). Skipped methods do not narrow result world-validity — which is the
-  sealed semantics: universe results stay valid across outside definitions
-  ("immortal workers" falling out of the matcher patch).
+- Scope and KNOWN UNSOUNDNESS (review #2, reviews/2026-08-09-critical-review-binary.md):
+  the filter is GLOBAL — any method compiled while it is active stores an
+  unnarrowed CI in the ordinary global cache, which plain dispatch then
+  serves after the filter is cleared (silent sealed answers in unsealed
+  code; probe-verified). `invoke` paths bypass the filter, so the sealed
+  guarantee covers dynamically dispatched edges only. The invalidation
+  guard covers the dispatch-backedge channel only. Whether not-narrowing
+  validity is sound is exactly open question Q5 — the architect memo
+  (reviews/2026-08-09-architect-memo.md, Design C: additive overlay
+  tables) eliminates the poisoning class by construction and is the
+  intended replacement for this subtractive filter.
 
 ## Build / test
 

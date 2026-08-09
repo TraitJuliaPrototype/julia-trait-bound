@@ -68,3 +68,16 @@ retention, AOT closure) instead of pricing them all at sealed resolution.
 One sentence: the measurements prove EDGE-CONFINED, EPOCH-KEYED
 COMPILATION; sealed resolution is one policy on top — propose the
 substrate, let the policy be an opt-in execution mode.
+
+## Design-A spuriousness measurement: FIRST RESULT (xA_spurious.jl)
+`using CairoMakie` over the warmed ecosystem stack, top-match criterion
+(is the invalidating method now the most specific match for the killed
+signature): **85 mt_backedge-killed signatures → 31 genuine, 54 spurious
+(63.5%)**; 176 method-backedge roots unclassified by this first cut.
+Caveats: signature-level not call-site-level (rigorous version needs the
+killed CIs' inferred argtypes); one churn source; single run.
+Interpretation: between the memo's decision thresholds — deferred
+verification (Design A / PR-2) would recover roughly two-thirds of this
+channel with no semantic machinery, and universe scoping remains
+load-bearing for the remaining third. Both halves of the unbundled
+proposal are justified by the same measurement.

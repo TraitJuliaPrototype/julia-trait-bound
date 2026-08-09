@@ -584,9 +584,9 @@ _is_fdef(ex) = ex isa Expr && (ex.head === :function || (ex.head === :(=) && ex.
 
 Optional second argument: statically-wired cross-region imports (the
 faked-native lowering). Ops may be preceded by `@full_compile` to opt into
-per-witness-set monomorphization. Region packages loaded from a pkgimage
-must call `TraitRegions.reinit(@__MODULE__)` in `__init__` to replay op
-registrations.
+per-witness-set monomorphization. Ops are registered as `op_info` methods
+in the calling module — serialized with the package; no `__init__` replay
+is needed (`reinit` is a deprecated no-op).
 """
 macro region(trait, rest...)
     length(rest) in (1, 2) || error("@region: expected `@region Trait [imports] begin ... end`")
