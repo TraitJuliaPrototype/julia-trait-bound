@@ -1,0 +1,11 @@
+name = "TraitRegions"
+uuid = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+authors = ["trait-bound PoC"]
+version = "0.1.0"
+
+[deps]
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+
+[compat]
+julia = "1.10"
+PrecompileTools = "1"

@@ -1,0 +1,12 @@
+name = "RegionDemo"
+uuid = "fcf520aa-7a67-4ef5-9473-97c9a6e4988d"
+authors = ["trait-bound PoC"]
+version = "0.1.0"
+
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+
+[compat]
+julia = "1.10"
+PrecompileTools = "1"
