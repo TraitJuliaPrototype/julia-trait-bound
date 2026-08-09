@@ -104,3 +104,22 @@ method wins; any doubt → kill as before (conservative). Evidence so far:
   than eager per-kill checks;
 - pending (running): broader gated suite + CairoMakie-load kill-count A/B
   on the patched binary.
+
+## Precision patch v6: suite VERDICT + benefit A/B (final)
+- **Gated targeted suite (core/reflection/misc/worlds/ambiguous/
+  Compiler-invalidation): SUCCESS, exit 0** with
+  JULIA_PRECISE_INVALIDATION=1 — the verify-before-kill survives Julia's
+  own tests.
+- **Benefit A/B: NULL for the load-time channel.** CairoMakie-load kills
+  identical gate off/on (665 sigs, 58.5% spurious both runs). Diagnosis:
+  the patched site (_typename_invalidate_backedges) runs on RUNTIME method
+  insertion (proven active by the genuine-kill control's gate overhead);
+  package-LOAD invalidations flow through the pkgimage edge-verification
+  path in staticdata (jl_verify/insert_backedges), which the patch does not
+  touch. The ~58% spurious opportunity lives in the image-load channel.
+- Net: precision-fix concept validated as SAFE; the effective fix must be
+  implemented at the staticdata load-verification site (exactly where
+  Julia already re-matches edges — extending its acceptance criterion from
+  "resolution identical" toward "top-match unchanged" is the follow-up),
+  or as Design A's batched barrier around loading. Next session's task is
+  precisely scoped.
