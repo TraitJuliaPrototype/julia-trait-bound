@@ -155,3 +155,10 @@ Verified: 23 tests on 1.11.7 + 1.12.2; full ecosystem (ops, plots, X1
 static 14 ms / dyn 14 ms unchanged, X10 pirate PASS); 6 seals + 10 ops
 enumerable from method tables. Remaining follow-up: interactive-seal fast
 path (runtime register! still pays ~18 ms method-definition cost).
+- Post-conversion regression found+fixed: image-loaded seals run no code, so
+  nothing bumped UNIVERSE_WORLD at load and `sealed` pinned to a pre-seal
+  world (MethodError). Fix: unpinned default (falls back to calling world) +
+  explicit `freeze_universe!()`; x10 freezes after loading. This is itself a
+  finding: method-merge registration is silent — native universe versioning
+  must be computed at load, not by running code. Tests green 1.11+1.12,
+  x10 PASS.

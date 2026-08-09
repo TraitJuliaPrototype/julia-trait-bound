@@ -40,7 +40,7 @@ module TraitRegions
 
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
-       sealed, each_seal, unseal!
+       sealed, each_seal, unseal!, each_op, freeze_universe!
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -252,7 +252,14 @@ const UNIVERSE_WORLD = Ref{UInt}(0)
 
 _bump_universe!() = (UNIVERSE_WORLD[] = Base.get_world_counter(); nothing)
 
-__init__() = _bump_universe!()
+"""
+Pin the universe world to now. With methods-based registration, seals loaded
+from pkgimages run no code (nothing bumps the world at load), so a session
+that wants pinned `sealed` semantics calls this once after loading its
+packages; in-session `@seal`/`register!` bump it automatically. While
+unpinned (0), `sealed` falls back to the calling world.
+"""
+freeze_universe!() = _bump_universe!()
 
 """
     sealed(Trait, :op, t, args...)
@@ -267,6 +274,7 @@ function sealed(trait::Type, opname::Symbol, @nospecialize(t), args...)
     entry === nothing && error("no region op `$opname` for trait $trait")
     s = seal_of(trait, t)
     world = UNIVERSE_WORLD[]
+    world == 0 && (world = Base.get_world_counter())
     r = Base.invoke_in_world(world, s.project, t)
     return Base.invoke_in_world(world, entry[1], s.w, r, args...)
 end

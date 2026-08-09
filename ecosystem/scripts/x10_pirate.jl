@@ -12,6 +12,7 @@ t = EagerTable([[5.0, 1.0, 4.0, 2.0, 3.0]])   # unsorted on purpose: the median 
 PlainStack.getcol(x::EagerTable, i::Int) = x.cols[i]
 PlainStack.ncols_direct(x::EagerTable) = length(x.cols)
 
+TraitRegions.freeze_universe!()   # pin the universe: image-loaded seals run no code at load
 normal0 = ColStats.summarize(t)
 sealed0 = sealed(ColTable, :summarize, t)
 plain0  = summarize_p(t)
