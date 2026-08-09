@@ -81,3 +81,15 @@ proposal.
 17. `imports` declarations could be inferred (any `g(t,…)` where `g`
     resolves to a loaded region op of the same trait) — but explicitness is
     the honest stand-in for enrollment metadata; keep as-is at Rung 1.
+
+18. **The Makie speedup lives in marginal types, not the first plot (X8).**
+    Idiomatic `convert_arguments` recipes respecialize Makie's pipeline per
+    user type (~155 ms/type, unbounded); erased reduction holds Makie's
+    types constant (~18 ms/type, flat). Frame plotting claims as "cost of
+    the Nth custom type", never "time to first plot".
+19. **`max_methods` union-splitting interacts with erased designs**: a
+    generic caller above the erased entries pays a one-time ~100–350 ms
+    recompile when its call site sees a 4th distinct type. Not an
+    invalidation; once per session; worth documenting so users don't
+    misread it as the abstraction failing. A native implementation could
+    avoid it entirely (entries wouldn't exist as dispatchable methods).

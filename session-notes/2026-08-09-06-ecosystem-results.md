@@ -83,3 +83,29 @@ plotting TTFP win (that fight is inside Makie).
 
 Community writeup draft; maybe an op-count scaling grid (X1 at 5/15/45 ops)
 for the headline chart; 1.12 smoke test.
+
+## X8 — where Makie DOES show a good speedup (added after X7)
+
+X7 measured only the *first* type; Makie's real per-type cost lives in its
+idiomatic integration path: `convert_arguments` recipes drag the user type
+through Makie's pipeline, which respecializes per type. The region route
+erases the type before Makie sees it. With a warm-up type absorbing the
+shared session cost in both modes, marginal cost per additional never-seen
+type (6 types, 2 runs, reproducible):
+
+| mode | typical marginal / type | one-time event | 6-type total marginal |
+|---|---|---|---|
+| recipe (convert_arguments) | **~155 ms, every type, forever** | ~470 ms (type 2) | ~1300 ms |
+| region (erased reduction) | **~18 ms** | ~120–350 ms once | ~440 ms |
+
+Also: the warm-up type itself is cheaper (region 209 ms vs recipe 530 ms —
+the recipe pipeline compiles through the user type even the first time).
+Whole 7-type session: ~0.65 s vs ~1.85 s ≈ **2.9× cumulative; ~8.5× per-type
+asymptotically** — and the region curve is flat while the recipe curve keeps
+paying ~155 ms per type indefinitely.
+
+Spike forensics: the reproducible mid-run spike in region mode is NOT
+invalidation (`@snoop_invalidations`: 0 trees; recompile_time 0) — it is
+Julia's `max_methods` union-split heuristic recompiling the script's generic
+harness function once its dynamic call site has seen 4 distinct types. One
+time per session, position moves with instrumentation, then flat.
