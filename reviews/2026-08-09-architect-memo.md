@@ -123,3 +123,27 @@ method wins; any doubt → kill as before (conservative). Evidence so far:
   "resolution identical" toward "top-match unchanged" is the follow-up),
   or as Design A's batched barrier around loading. Next session's task is
   precisely scoped.
+
+## Precision-fix arc: FINAL close-out (patch v7)
+Load-channel probe (dominated newcomer loaded before the tagged package):
+**stock 1.12 already keeps the CIs (0.0 ms, gate irrelevant)** — the
+interference fast path in verify_call implements dominance acceptance.
+Sequence of findings across the arc:
+1. Runtime-insertion channel (v6 site): safe, conservative; xA's spurious
+   set is mostly multi-match abstract sigs its lim=1 criterion won't keep.
+2. Load-verification channel: 1.12 upstream is further along than the 1.11
+   numbers suggested — clearly-sound spurious cases (dominated newcomers)
+   are ALREADY kept; the slow-path dominance patch (v7, worlds 148/148
+   green gate-on) is redundant for those shapes.
+3. Therefore the 57.5% "spurious by top-match" residue consists of cases
+   where the interference fast path fails (deleted methods, partial
+   covers, large sets) — and for abstract sigs with partial covers,
+   keeping is NOT obviously sound (a newcomer can win a subset of the
+   site). The next probe is per-kill forensics of fast-path failures, not
+   a new criterion; the honest expectation is that upstream has captured
+   most of the safely-capturable class on 1.12.
+Net for the memo's Design A: on 1.12 the eager-precision half is largely
+DONE upstream; the remaining value concentrates in (a) the method-backedge
+channel (217 roots, still unclassified), (b) batching/deferral of genuine
+kills, and (c) the universe-scoped semantics for the genuinely-conflicting
+class — which circles back to the project's core proposal.
