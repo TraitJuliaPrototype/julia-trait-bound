@@ -155,3 +155,9 @@ PlainStack". Sealed-call overhead: ~406 ns vs ~137 ns per call (two
 Limits stated: pins *time* not *territory* (no allowlist/closure-rule
 enforcement; that is the full Rung-2 interpreter spike), and a stale pinned
 world also hides legitimate post-pin fixes until the next registration bump.
+
+## Writeup
+
+Discourse draft: `writeup/trait_regions_discourse_draft.md`. Remaining
+polish before posting: 1.12 smoke test, op-count scaling grid (X1 at
+5/15/45 ops) as headline chart, repo link, and a read-through by Frank.
