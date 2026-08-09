@@ -1,0 +1,63 @@
+# Concrete questions for Julia core developers
+
+Context: `universe_filter_v3.patch` (~170 lines on v1.12.2) implements
+sealed resolution below the matcher, task(thread)-scoped sealed dynamic
+dispatch, and a sealed dispatch cache. All measured working (tests in this
+directory). These questions are where our PoC choices need core-dev judgment
+before this could become a PR series.
+
+## Q1 — Where should the universe live on a CodeInstance?
+Sealed-compiled code currently exists only as OpaqueClosures (package side)
+or implicitly via the global filter. For universe-keyed compilation we see
+three options: (a) reuse `cache_owner` with a universe token — works today
+but excludes such CIs from pkgimage native code entirely (as we measured:
+foreign-owner CIs get `native=false`); (b) a new `universe::UInt64` field on
+CodeInstance, part of cache identity; (c) keying by a separate overlay-style
+method table per universe. Which direction would upstream entertain? Is (b)
+serialization-feasible in staticdata without a format break?
+
+## Q2 — Native-code retention policy for universe-keyed CIs.
+We measured (X9, repo notes): workload-compiled foreign CIs survive in
+pkgimages with `cache=true, max_world=∞` but `native=false`, costing ~240 ms
+of pure LLVM re-codegen per session for a Makie-scale stack. Where exactly
+is the drop decision made in the current pipeline (jl_precompile /
+staticdata native-code selection), and would a "retain native for CIs
+carrying a universe key" rule be acceptable? Within a sealed universe the
+usual cross-image method-identity hazards should be excluded by
+construction — is that reasoning sound, or does relocation/root layout make
+foreign native code fundamentally harder than we think?
+
+## Q3 — Task-scoped vs thread-scoped sealed mode.
+PoC puts `sealed_mode` on `jl_tls_states_t` (thread) because adding a field
+to `jl_task_t` touches the Julia-visible Task layout. Correct semantics
+want task scoping (migration safety). Options: a real `jl_task_t` field, or
+piggybacking ScopedValues (but reading the scope chain in the dispatch hot
+path seems costly). What is the acceptable mechanism for a per-task flag
+consulted in `jl_apply_generic` at ~zero cost?
+
+## Q4 — Filtering below the matcher vs separate method tables.
+Our filter skips non-universe methods inside `ml_matches_visitor`, which
+correctly recovers universe methods shadowed by more-specific outside
+pirates (impossible with post-filtering — we verified both). Alternative:
+one `jl_methtable_t` per universe with methods inserted at enrollment.
+1.12's typemap/methtable machinery: which approach composes better with the
+leaf/full caches and world-splitting, in your view? Is there prior art we
+should copy (overlay tables in GPUCompiler are additive, ours is
+subtractive)?
+
+## Q5 — Validity semantics for sealed results.
+Our filter deliberately does NOT narrow `min/max_valid` for skipped outside
+methods, so sealed CIs and cache entries stay valid across pirate
+definitions ("immortal workers" — the desired semantics). Is piggybacking
+world-validity this way sound with respect to the invalidation machinery,
+or do we need an explicit "universe epoch" dimension so that enrollment
+changes (the only legitimate invalidator) can be distinguished from
+world advancement?
+
+## Q6 — Enrollment metadata (ties to issue #54903).
+We want a per-package Project.toml marker to set an enrollment bit on
+methods at definition time (jl_method_t flag from the defining module).
+Is loading.jl the right place to stamp modules, and would a
+`dispatch_status`-adjacent method flag be acceptable, or should enrollment
+stay entirely at module granularity (as our PoC has it, via parent-chain
+walk at match time — measured cost is small but nonzero per match)?

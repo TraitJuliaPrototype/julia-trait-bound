@@ -82,3 +82,19 @@ failures — check the log, not the task exit code.
 
 Next: TraitRegions native backend (`sealed` uses jl_set_sealed_mode when
 available); P1c enrollment bit from Project.toml; P2 universe-keyed caches.
+
+## P2 opener + core-dev questions (tag rung3-p1 set first)
+
+Sealed dispatch cache (direct-mapped 1024, keyed on interned dispatch
+tuple, world-bounded, flushed on universe change; rooted via
+jl_as_global_root): **91 ns/call sealed vs 37 ns plain (54 ns overhead)**,
+down from µs-scale uncached. Both P1 tests still pass. Immortality carries
+into the cache (filtered matches don't narrow validity). Patch now
+universe_filter_v3.patch (~170 lines).
+
+`binary/QUESTIONS.md`: six concrete core-dev questions (CI universe keying
+vs cache_owner; staticdata native-retention rule; task- vs thread-scoped
+flag; filtered matcher vs per-universe tables; validity/epoch semantics;
+enrollment stamping in loading.jl). These mark the exact edge of what we
+could build without upstream judgment — P2 proper (CI keying + staticdata)
+should not proceed without answers to Q1/Q2.
