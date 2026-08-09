@@ -12,9 +12,16 @@ println("pre-pirate: _med = ", live0, " (expect 3.0)")
 Base.sort(v::Vector{Float64}) = v          # pirate in Main, MORE SPECIFIC than Base's
 
 # --- the native filter: Main is not enrolled --------------------------------
-const UNIVERSE = Any[Base, Core, RegionCode]   # rooted here, as the API requires
+# (Compiler stdlib must be enrolled: inference itself dispatches into it)
+const UNIVERSE = Any[Base, Core, Base.Compiler, RegionCode]
 set_universe(u) = ccall(:jl_set_universe_filter, Cvoid, (Any,), u)
 clear_universe() = ccall(:jl_set_universe_filter, Cvoid, (Ptr{Cvoid},), C_NULL)
+
+# warm every Main-owned path used between set/clear: while the global filter
+# is active, any cache-miss dispatch into Main dies (the filter working as
+# built — the P1b task-scoped universe replaces this global bluntness)
+clear_universe()
+Base.code_ircode(RegionCode._med, (Vector{Float64},))
 
 # 1) matcher-level check: with the filter on, the pirate does not exist and —
 #    crucially — Base's shadowed sort IS found (the A5 case, fixed natively)
