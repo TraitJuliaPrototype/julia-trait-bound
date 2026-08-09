@@ -1,0 +1,10 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.11.7"
+manifest_format = "2.0"
+project_hash = "ca07939bbf10d2816870e1b1ae902c5ec456246e"
+
+[[deps.Helper]]
+path = "/home/hellmann/Repos/julia-trait-bound/binary/p2test/Helper"
+uuid = "11111111-1111-1111-1111-111111111111"
+version = "0.1.0"

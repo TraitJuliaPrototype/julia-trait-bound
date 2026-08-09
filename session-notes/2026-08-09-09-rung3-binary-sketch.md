@@ -115,3 +115,35 @@ inlining-cost gate dropped under the env flag in
 precompile_enq_specialization_). QUESTIONS.md Q2 sharpened with file/line
 specifics. Also pending: rerun test_universe/test_sealed_* after this
 rebuild (should be unaffected — precompile_utils only).
+
+## Q2 scale experiment: the caching landscape, measured (p2test, 100 mid-size foreign fns via dispatch)
+
+| arm | aggregate first-call compile |
+|---|---|
+| stock 1.11.7, no tagging | 490.6 ms |
+| stock 1.12.2, no tagging | 458.3 ms |
+| patched, vanilla mode, no tagging | 461.2 ms |
+| patched, JULIA_PRECOMPILE_FOREIGN=1, no tagging | 464.5 ms (patch DOESN'T fix it) |
+| **PrecompileTools @compile_workload arm (1.12)** | **0.0 ms** |
+
+Findings:
+1. The per-session re-codegen constant is identical on 1.11 and 1.12 — not
+   fixed upstream.
+2. **PrecompileTools' newly-inferred tagging fully solves it** for
+   workload-covered foreign code: tagging sets the CI `precompile` flag,
+   which bypasses the inlining-cost gate in precompile_enq_specialization_.
+   The mechanism ALREADY EXISTS; policy patching is the wrong lever.
+3. My foreign-mode enqueue patch emits native code that is NOT used at
+   load for execution-created (untagged) CIs — presumably rejected in
+   validation (no proper edges) or not linked to the restored MI. Confirms
+   CIs must go through the tagged-inference path to survive.
+4. Therefore X9's Makie 240 ms (WITH a workload!) must mean Makie-shaped
+   CIs escape the tagging window (inferred at load/init or in paths the
+   workload misses) or their tagged CIs die in load-order invalidation —
+   un-reconciled; next probe: instrument which of ColPlots' first-plot
+   re-codegen signatures were tagged at precompile time.
+
+Q2 for core devs is hereby REWRITTEN (see QUESTIONS.md): not "change the
+policy" but "is PT-style tagging the intended universal answer, why does it
+miss Makie-shaped loads, and should a sealed universe imply
+tag-everything-reached semantics?"

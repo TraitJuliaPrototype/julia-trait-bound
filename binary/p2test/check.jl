@@ -1,9 +1,5 @@
 using User, Helper
-mis = collect(Base.specializations(first(methods(hfun))))
-for mi in mis
-    c = isdefined(mi, :cache) ? mi.cache : nothing
-    println(mi.specTypes, " cache=", c !== nothing,
-            c !== nothing ? " native=$(c.invoke != C_NULL || c.specptr != C_NULL)" : "")
-end
-s = @timed User.run_dyn(rand(1000))
-println("first dynamic call: compile ", round(s.compile_time*1e3, digits=1), " ms")
+v = [1.0, 2.0, 3.0]
+s = @timed User.run_all(v)   # first dynamic sweep over all 100 in this session
+println("aggregate first-call compile over 100 foreign fns: ",
+        round(s.compile_time * 1e3, digits = 1), " ms")

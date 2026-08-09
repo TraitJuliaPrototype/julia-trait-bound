@@ -79,3 +79,17 @@ dispatch-observed bit, or an explicit precompile directive? Our env-gated
 experiment (JULIA_PRECOMPILE_FOREIGN=1, patch v4) enqueues foreign
 new-in-image specializations; scale measurement (many mid-size functions,
 the Makie shape) is the pending next step.
+
+## Q2 — REVISED after the scale experiment (see session-notes 09)
+Measured: the ~460-490 ms/100-fn per-session re-codegen constant for
+dispatch-reached foreign inlineable CIs is identical on 1.11.7 and 1.12.2;
+PrecompileTools' newly-inferred tagging (CI `precompile` flag) fully
+eliminates it (0.0 ms); raw policy patches (enqueue foreign + drop inlining
+gate) emit native that is NOT honored at load for execution-created CIs.
+Revised questions: (a) is the CI-tagging path the intended long-term
+mechanism for foreign native retention, and what exactly disqualifies an
+untagged execution-created CI at image load (edges? MI identity)?
+(b) why do Makie-shaped loads still pay ~240 ms on first plot despite
+@compile_workload tagging — window coverage or load-order invalidation of
+tagged CIs — and what instrumentation would you accept to find out?
+(c) should universe/sealed compilation imply tag-everything-reached?
