@@ -38,7 +38,8 @@ Design notes carried over from the M0 spike (see session-notes/):
 """
 module TraitRegions
 
-export @trait, @seal, @region, register!, seal_of, deep_concrete
+export @trait, @seal, @region, register!, seal_of, deep_concrete,
+       register_op!, precompile_seal, reinit, universe_id, fingerprint
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -52,6 +53,7 @@ struct SelfR end
 struct Seal
     project::Function
     w::NamedTuple          # abstract field: erased witness table
+    raw::NamedTuple        # same witnesses, concrete types (@full_compile path)
     R::Type                # inferred representation (Any if inference failed)
 end
 
@@ -147,8 +149,101 @@ function register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
 
     fs = Tuple(Function[kw[name] for name in declared])
     w = NamedTuple{Tuple(declared), NTuple{length(fs), Function}}(fs)
-    reg[T] = Seal(project, w, R)
+    raw = NamedTuple{Tuple(declared)}(fs)   # concrete closure types preserved
+    reg[T] = Seal(project, w, raw, R)
     return nothing
+end
+
+# ---------------------------------------------------------------------------
+# Cross-region op registry: (trait, opname) → (worker, extra argtypes).
+# Populated by `@region`. NOTE (Rung-1 friction, native fixes this): top-level
+# registration is discarded when a region package is loaded from its
+# pkgimage, so region packages must call `TraitRegions.reinit(@__MODULE__)`
+# from `__init__` to replay their registrations at load time.
+# ---------------------------------------------------------------------------
+
+const OP_WORKERS = IdDict{Tuple{Type,Symbol},Tuple{Function,Tuple}}()
+
+function register_op!(trait::Type, name::Symbol, @nospecialize(worker::Function), @nospecialize(argts::Tuple))
+    OP_WORKERS[(trait, name)] = (worker, argts)
+    return nothing
+end
+
+"Dynamic cross-region call: the honest Rung-1 lowering (dict lookup + dynamic dispatch per call)."
+function dyncall(trait::Type, name::Symbol, @nospecialize(w), @nospecialize(r), args...)
+    entry = get(OP_WORKERS, (trait, name), nothing)
+    entry === nothing &&
+        error("no witness or region op `$name` for trait $trait (witness tables and the op registry were both consulted)")
+    return entry[1](w, r, args...)
+end
+
+"Load-time check that a statically-wired import really is a region op of this trait."
+function check_import(trait::Type, mod::Module, name::Symbol)
+    entry = get(OP_WORKERS, (trait, name), nothing)
+    entry === nothing &&
+        error("@region imports: `$name` is not a registered op of trait $trait (is $mod loaded, and does it call TraitRegions.reinit in __init__?)")
+    worker = getproperty(mod, Symbol(name, "#worker"))
+    entry[1] === worker ||
+        error("@region imports: `$mod.$name` does not match the registered worker for trait $trait")
+    return nothing
+end
+
+"Replay a module's region-op registrations (call from the region package's `__init__`)."
+function reinit(mod::Module)
+    for n in names(mod; all = true)
+        startswith(String(n), "#region_registrar#") || continue
+        getfield(mod, n)()
+    end
+    return nothing
+end
+
+"""
+    precompile_seal(Trait, T)
+
+Precompile every registered region op's worker for `T`'s representation.
+Call from a conformer package's precompile workload (after sealing) so the
+conformer's pkgimage owns the workers for any representation it introduces.
+"""
+function precompile_seal(trait::Type, T::Type)
+    s = get(seal_registry(trait), T, nothing)
+    s === nothing && error("precompile_seal: $T is not sealed for $trait")
+    n = 0
+    for ((tr, _), (worker, argts)) in OP_WORKERS
+        tr === trait || continue
+        precompile(worker, (typeof(s.w), s.R, argts...)) && (n += 1)
+    end
+    return n
+end
+
+# ---------------------------------------------------------------------------
+# Fingerprints and universe id (best-effort, Rung-1)
+# ---------------------------------------------------------------------------
+
+"Best-effort fingerprint of a witness: method signature + source location."
+function fingerprint(@nospecialize(f::Function))
+    h = hash(0x7261)
+    for m in methods(f)
+        h = hash((m.sig, m.file, m.line), h)
+    end
+    return h
+end
+
+fingerprint(s::Seal) = reduce(hash, (fingerprint(f) for f in values(s.w)); init = fingerprint(s.project))
+
+"Hash of every seal of every registered trait — drifts when any witness is edited."
+function universe_id()
+    h = hash(0x756e69)
+    traits = Base.IdSet{Any}()
+    for key in keys(OP_WORKERS)
+        h = hash(key[2], h)
+        push!(traits, key[1])
+    end
+    for trait in traits
+        for (T, s) in seal_registry(trait)
+            h = hash((T, fingerprint(s)), h)
+        end
+    end
+    return h
 end
 
 # ---------------------------------------------------------------------------
@@ -253,16 +348,33 @@ _count_symbol(ex, s::Symbol) =
     ex === s ? 1 :
     ex isa Expr ? sum(a -> _count_symbol(a, s), ex.args; init = 0) : 0
 
-"Rewrite `g(t, xs...)` → `getfield(w, :g)(r, xs...)` recursively; `t` may not appear anywhere else."
-function _rewrite_body(ex, tname::Symbol, w::Symbol, r::Symbol)
+"""
+Rewrite `g(t, xs...)` recursively; `t` may not appear anywhere else.
+Three lowerings, chosen per call site:
+  * `g` in the region's declared imports → **static** call to the other
+    region package's worker (`Mod.var"g#worker"(w, r, xs...)`) — the
+    faked-native lowering: inlinable, no table, no dynamic dispatch;
+  * otherwise → `haskey(w, :g)` branch (folds at compile time, since the
+    witness-table type is concrete in the worker): witness call if `g` is a
+    witness, else `dyncall` through the op registry — the honest Rung-1
+    dynamic cross-region lowering.
+"""
+function _rewrite_body(ex, tname::Symbol, w::Symbol, r::Symbol, trait, imports::Dict{Symbol,Any})
     ex isa Expr || return ex
     if ex.head === :call && length(ex.args) >= 2 && ex.args[2] === tname
-        ex.args[1] isa Symbol ||
+        g = ex.args[1]
+        g isa Symbol ||
             error("@region: trait call with non-symbol callee: $(ex)")
-        rest = [_rewrite_body(a, tname, w, r) for a in ex.args[3:end]]
-        return :(getfield($w, $(QuoteNode(ex.args[1])))($r, $(rest...)))
+        rest = [_rewrite_body(a, tname, w, r, trait, imports) for a in ex.args[3:end]]
+        if haskey(imports, g)
+            workerref = Expr(:., imports[g], QuoteNode(Symbol(g, "#worker")))
+            return :($workerref($w, $r, $(rest...)))
+        end
+        q = QuoteNode(g)
+        return :(haskey($w, $q) ? getfield($w, $q)($r, $(rest...)) :
+                 TraitRegions.dyncall($trait, $q, $w, $r, $(rest...)))
     end
-    return Expr(ex.head, (_rewrite_body(a, tname, w, r) for a in ex.args)...)
+    return Expr(ex.head, (_rewrite_body(a, tname, w, r, trait, imports) for a in ex.args)...)
 end
 
 _argname(a) = a isa Symbol ? a :
@@ -281,7 +393,9 @@ function _is_region_op(fdef)
     return first_arg isa Symbol
 end
 
-function _rewrite_op(trait, fdef)
+_argtype(a) = (a isa Expr && a.head === :(::)) ? a.args[end] : :Any
+
+function _rewrite_op(trait, fdef, imports::Dict{Symbol,Any}, fc::Bool)
     if fdef.head === :(=) || fdef.head === :function
         call, body = fdef.args[1], fdef.args[2]
     else
@@ -302,28 +416,33 @@ function _rewrite_op(trait, fdef)
     tname = _argname(call.args[2])
     extras = call.args[3:end]
     extranames = map(_argname, extras)
+    argts = map(_argtype, extras)
 
     worker = Symbol(fname, "#worker")
     w = gensym(:w); r = gensym(:r)
-    newbody = _rewrite_body(body, tname, w, r)
+    newbody = _rewrite_body(body, tname, w, r, trait, imports)
     n = _count_symbol(newbody, tname)
     n == 0 || error("@region: in op `$fname`, `$tname` escapes trait position " *
                     "($n occurrence(s) outside first-argument-of-call); " *
                     "regions may touch the trait object only through trait calls")
 
-    workerdef = :(Base.@noinline function $worker($w, $r, $(extras...))
-        $newbody
-    end)
-    if retanno !== nothing
-        workerdef = :(Base.@noinline function $worker($w, $r, $(extras...))::$retanno
+    workerdef = if retanno === nothing
+        :(Base.@noinline function $worker($w, $r, $(extras...))
+            $newbody
+        end)
+    else
+        :(Base.@noinline function $worker($w, $r, $(extras...))::$retanno
             $newbody
         end)
     end
+    # @full_compile entries hand the worker the *concrete* witness tuple:
+    # Julia then monomorphizes the whole call chain per witness set.
+    table = fc ? :(s.raw) : :(s.w)
     entrydef = :(function $fname(Base.@nospecialize($tname), $(extras...))
         s = TraitRegions.seal_of($trait, $tname)
-        $worker(s.w, s.project($tname), $(extranames...))
+        $worker($table, s.project($tname), $(extranames...))
     end)
-    return workerdef, entrydef, fname, worker
+    return workerdef, entrydef, fname, worker, argts
 end
 
 """
@@ -344,23 +463,60 @@ Trait calls should carry their declared return type at the use site
 (`col(t, i)::Vector{Float64}`) to keep worker bodies type-stable; without an
 assert the call is still correct but downstream code pays dynamic dispatch.
 """
-macro region(trait, block)
+_is_fdef(ex) = ex isa Expr && (ex.head === :function || (ex.head === :(=) && ex.args[1] isa Expr &&
+               (ex.args[1].head === :call ||
+                (ex.args[1].head === :(::) && ex.args[1].args[1] isa Expr && ex.args[1].args[1].head === :call))))
+
+"""
+    @region Trait [Mod.op, Mod.op2, ...] begin ... end
+
+Optional second argument: statically-wired cross-region imports (the
+faked-native lowering). Ops may be preceded by `@full_compile` to opt into
+per-witness-set monomorphization. Region packages loaded from a pkgimage
+must call `TraitRegions.reinit(@__MODULE__)` in `__init__` to replay op
+registrations.
+"""
+macro region(trait, rest...)
+    length(rest) in (1, 2) || error("@region: expected `@region Trait [imports] begin ... end`")
+    block = rest[end]
     block isa Expr && block.head === :block || error("@region: expected a begin/end block")
+    imports = Dict{Symbol,Any}()
+    if length(rest) == 2
+        iv = rest[1]
+        iv isa Expr && iv.head === :vect ||
+            error("@region: imports must be a vector literal like [ColStats.colmean, ...]")
+        for item in iv.args
+            item isa Expr && item.head === :. && item.args[2] isa QuoteNode ||
+                error("@region: each import must be `Module.opname`, got $item")
+            imports[item.args[2].value] = item.args[1]
+        end
+    end
     out = Any[]
+    regs = Any[]     # register_op! + check_import calls, replayed by reinit
     for ex in block.args
-        if ex isa Expr && (ex.head === :function || (ex.head === :(=) && ex.args[1] isa Expr &&
-                           (ex.args[1].head === :call ||
-                            (ex.args[1].head === :(::) && ex.args[1].args[1] isa Expr && ex.args[1].args[1].head === :call))))
-            if _is_region_op(ex)
-                workerdef, entrydef, _, _ = _rewrite_op(trait, ex)
+        fc = false
+        inner = ex
+        if ex isa Expr && ex.head === :macrocall && ex.args[1] === Symbol("@full_compile")
+            fc = true
+            inner = ex.args[end]
+        end
+        if _is_fdef(inner)
+            if _is_region_op(inner)
+                workerdef, entrydef, fname, worker, argts = _rewrite_op(trait, inner, imports, fc)
                 push!(out, workerdef, entrydef)
+                push!(regs, :(TraitRegions.register_op!($trait, $(QuoteNode(fname)), $worker, ($(argts...),))))
             else
-                push!(out, ex)   # helper: first argument is `::`-annotated
+                push!(out, inner)   # helper: first argument is `::`-annotated
             end
         else
             push!(out, ex)   # LineNumberNodes, using, const, plain code
         end
     end
+    for (name, mod) in imports
+        push!(regs, :(TraitRegions.check_import($trait, $mod, $(QuoteNode(name)))))
+    end
+    registrar = Symbol("#region_registrar#", gensym())
+    push!(out, :(const $registrar = () -> begin $(regs...); nothing end), :($registrar()))
     return esc(Expr(:block, out..., :nothing))
 end
 
@@ -390,6 +546,7 @@ end
     register!(_PCTrait, _PCDummy,
               (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
     _pc_op(_PCDummy([[1.0, 2.0]]), 1)
+    precompile_seal(_PCTrait, _PCDummy)
     empty!(seal_registry(_PCTrait))
 end
 

@@ -1,0 +1,7 @@
+name = "EagerTables"
+uuid = "8700a4b4-ee74-438e-a90b-dcede356e2e2"
+version = "0.1.0"
+
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+ColTables = "7a1baee8-5358-4588-880c-149bb8a8622f"

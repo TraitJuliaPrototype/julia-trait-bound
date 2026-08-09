@@ -1,0 +1,6 @@
+name = "ColTables"
+uuid = "7a1baee8-5358-4588-880c-149bb8a8622f"
+version = "0.1.0"
+
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"

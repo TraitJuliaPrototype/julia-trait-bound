@@ -1,0 +1,8 @@
+name = "ColStats"
+uuid = "877a04e8-a67d-433a-bf9f-ae48e0e2cd8b"
+version = "0.1.0"
+
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+ColTables = "7a1baee8-5358-4588-880c-149bb8a8622f"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"

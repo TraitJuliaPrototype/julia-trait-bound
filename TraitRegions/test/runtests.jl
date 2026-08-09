@@ -118,3 +118,43 @@ end
 @testset "R-returning trait methods" begin
     @test total(CT([1.0, 2.0])) == 3.0
 end
+
+# --- cross-region composition, @full_compile, precompile enumeration --------
+
+@region ColTable begin
+    # `colmean` is a region op, not a witness: lowers to the dynamic op-registry call
+    doublemean(t, i::Int) = 2 * colmean(t, i)
+end
+
+# a second "package" statically importing ops from the first
+module StaticImporter
+    using Main: TraitRegions, ColTable
+    TraitRegions.@region ColTable [Main.colmean] begin
+        triplemean(t, i::Int) = 3 * colmean(t, i)   # static call into Main's worker
+    end
+end
+
+@region ColTable begin
+    @full_compile fastmean(t, i::Int) = _mean(col(t, i)::Vector{Float64})
+end
+
+@testset "cross-region + fc + enumeration" begin
+    ta = TableA([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    @test doublemean(ta, 1) == 4.0                      # dynamic op-table route
+    @test StaticImporter.triplemean(ta, 1) == 6.0       # static-wired route
+    @test fastmean(ta, 1) == 2.0                        # @full_compile route
+    # fc worker specialized on the concrete witness tuple, not the erased one
+    fcmis = collect(Base.specializations(first(methods(var"fastmean#worker"))))
+    @test any(fcmis) do mi
+        p = mi.specTypes.parameters[2]
+        p isa DataType && p <: NamedTuple && p.parameters[2] != NTuple{2,Function}
+    end
+    # enumeration precompiles workers for a seal's representation
+    @test TraitRegions.precompile_seal(ColTable, TableA) >= 4
+    # universe id drifts when a new seal arrives
+    u1 = universe_id()
+    struct Extra; cols::Vector{Vector{Float64}}; end
+    TraitRegions.register!(ColTable, Extra,
+        (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]))
+    @test universe_id() != u1
+end

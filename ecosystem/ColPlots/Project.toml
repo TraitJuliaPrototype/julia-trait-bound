@@ -1,0 +1,10 @@
+name = "ColPlots"
+uuid = "eff6be20-6fab-4e1b-8e40-a25afd906885"
+version = "0.1.0"
+
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+ColTables = "7a1baee8-5358-4588-880c-149bb8a8622f"
+ColStats = "877a04e8-a67d-433a-bf9f-ae48e0e2cd8b"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
