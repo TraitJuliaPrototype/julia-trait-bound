@@ -13,9 +13,16 @@ ColPlots — plotting over ColTable by wrapping CairoMakie, in two designs:
 """
 module ColPlots
 
-using TraitRegions, ColTables, ColStats
-using CairoMakie
-using PrecompileTools: @compile_workload
+using PrecompileTools: @compile_workload, @recompile_invalidations
+
+# Makie's dependency chain invalidates ~3500 CodeInstances at load (measured;
+# FilePathsBase/StaticArrays/SparseArrays/... redefine methods under it).
+# Recompile them during THIS package's precompile so they land in our
+# pkgimage; ColPlots is a leaf, so nothing loads later to kill them again.
+@recompile_invalidations begin
+    using TraitRegions, ColTables, ColStats
+    using CairoMakie
+end
 
 export histplot, histplot_naive, histcounts, render
 

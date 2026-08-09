@@ -93,3 +93,12 @@ proposal.
     invalidation; once per session; worth documenting so users don't
     misread it as the abstraction failing. A native implementation could
     avoid it entirely (entries wouldn't exist as dispatchable methods).
+
+20. **Pkgimages drop native code for foreign runtime-dispatched CIs (X9).**
+    Workload-compiled Makie signatures survive with `cache=true, native=false`
+    — first use pays pure LLVM codegen (~250 ms/session), zero inference,
+    zero recompile. No package-level workload or @recompile_invalidations can
+    fix it; a sysimage or AOT does. Cite as: erased designs make workloads
+    *enumerable*, but Rung 1 inherits Julia's native-code retention policy —
+    one more per-session constant that native support (or juliac over the
+    closed universe) eliminates.

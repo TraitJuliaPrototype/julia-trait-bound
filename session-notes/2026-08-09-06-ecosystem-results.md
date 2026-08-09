@@ -109,3 +109,28 @@ invalidation (`@snoop_invalidations`: 0 trees; recompile_time 0) — it is
 Julia's `max_methods` union-split heuristic recompiling the script's generic
 harness function once its dynamic call site has seen 4 distinct types. One
 time per session, position moves with instrumentation, then flat.
+
+## X9 — can the Makie first-plot (warm-up) cost be precompiled away? (Partially — and we know exactly why not)
+
+Chased the ~240 ms region-mode warm-up (X8) to ground:
+
+- Fully package-contained route (`histplot` + `render`, workload-covered):
+  still 236 ms compile; second call 0 ms.
+- `@snoop_inference`: only ~16 ms is inference; ~254 ms is the ROOT frame =
+  **LLVM codegen**. `recompile_time` = 0 ⇒ not invalidation-driven.
+- `@snoop_invalidations (using ColPlots)`: 95 trees, **3539 CodeInstances
+  killed at load** by Makie's dep chain (FilePathsBase, StaticArrays,
+  SparseArrays, JSON, FillArrays…) — real, but NOT the cause of our 236 ms.
+- `@recompile_invalidations` around ColPlots' `using` block: +10 s precompile,
+  **no change** (247 ms) — confirming the cause is elsewhere. Kept anyway
+  (hardens against load-order invalidation; documented as no-op for this metric).
+- Direct CI inspection of traced signatures (e.g. `Makie.get_ticks`):
+  `cache=true, max_world=∞, native=false` — **the pkgimage kept the inference
+  result but dropped the native code** for foreign runtime-dispatch-reached
+  methods. The 190 re-JITted signatures are inference-free codegen replays.
+
+**Conclusion**: the remaining ~240 ms/session is a Julia 1.11 pkgimage
+native-code retention policy limit, not a Makie-integration or design
+problem, and not fixable from package code. A sysimage (PackageCompiler)
+or an AOT rung (juliac/trim) removes it; it is once per session and
+type-independent — the per-type X8 numbers (18 vs 155 ms) are unaffected.
