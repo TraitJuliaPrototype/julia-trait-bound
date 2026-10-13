@@ -1,0 +1,9 @@
+[deps]
+CBottom = "5b1aed1c-e1f3-4e45-b617-a2b3c4d5e6f7"
+CTop = "8e4d104f-1426-4178-a94a-d5e6f708192a"
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+
+[sources]
+CBottom = {path = "../CBottom"}
+CTop = {path = "../CTop"}
+TraitWorld = {path = "../../../../TraitWorld"}

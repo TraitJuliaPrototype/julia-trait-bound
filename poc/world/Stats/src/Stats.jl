@@ -35,7 +35,7 @@ normalize!(t::(ColTable, ColStore), i::Int) = (c = col(t, i); setcol!(t, i, c ./
     colmap(abs, m, 1); colsum(abs2, m, 1)
     v = [[1.0, 3.0]]
     normalize!(v, 1)
-    weighted(m, 1)
+    weighted(m, 1); weighted([[1.0, 2.0]], 1)
 end
 
 end

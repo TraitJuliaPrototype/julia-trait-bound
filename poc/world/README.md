@@ -221,3 +221,64 @@ Erasure compiles only the closure's body.
   - Steady state is unchanged by the guard: 1.01× at 4096 elements, 2.9× at 16.
 - **Ownership is attributed per module under `Main`.** A module defined in a
   script counts as its own package; `Main` itself is the session's.
+
+## M7: caching (rule 7), concrete mode, verify_main and a trimmed binary
+
+**Where compiled code lives.** `poc/world/m7_placement.jl`, a fresh process
+with `--trace-compile`, first calls:
+
+| first call | compiled in the session, with App loaded | without App |
+|---|---|---|
+| `colmean(v, 1)`, Columns' representation | 0 | 0 |
+| `colmean(Measurements(…), 1)`, a conformer's projection | 0 | 0 |
+| `colmean(Ramp(…), 1)`, a conformer's own representation | 0 | 0 |
+| `weighted(v, 1)`, Stats at Columns' representation | 0 | 0 |
+| `weighted(Ramp(…), 1)`, Stats at UserTypes' representation | 0 | 9 |
+
+The last combination is in no package's image unless an application that
+depends on both, App, compiles it: rule 7, the session last. The delegated
+extension `ColsDGridExt` has a workload of its own. Two fixes were needed:
+TraitWorld's own workload did not cover the audit (its `Iterators.product`
+compiled per arity at the first call; now a loop), and Stats' workload did not
+cover `weighted` at Columns' representation.
+
+**Concrete mode** (`poc/world/concrete/`), ported. CBottom, CMid1 and CMid2
+are trait modules now (rule 1); CTop is `@warn_on_abstract @trait_module`:
+
+- The warning appears while CTop is built and names
+  `field scale of CBottom.Config is declared Real (CBottom.jl:8)` with the
+  chain through CMid2 and CMid1.
+- A new session is not warned again: the check runs in `checked_call`'s first
+  call of a signature, whose flag is saved in the image.
+- The cliff: 66.0 against 0.89 ns per element, 74×.
+- `check_concrete(sig)` gives the same report on demand, in 91 ms.
+
+`@error_on_abstract` raises `AbstractTypeError`; either macro also applies to
+one function inside a trait module.
+
+**verify_main**, ported. TraitWorld's own dynamic calls are classified as
+trait sites with enumerated targets: the builder per user type (`enter`), the
+worker per signature (`checked_call`), a function argument's wrapper. Entries
+are analyzed at their call site's argument types, so only the user types the
+program can pass are enumerated, while native code is required of the real,
+`@nospecialize` entry. Every enumerated worker gets the build-time checks
+(rules 1 and 3) and the piracy audit. `App.main` chooses its table type at
+run time:
+
+    CLOSED: every call on a normal path reaches enumerated, compiled code
+    closure: 147 method instances (56 on normal paths), 521 static calls
+    dynamic calls: 1 bounded; 12 trait dispatch sites -> 8 targets (2 enter, 6 worker)
+    holes on normal paths: 0
+
+**A trimmed binary** (`poc/world/trim/build.sh`, `juliac --trim=unsafe-warn`).
+`verify_main(…; entrypoints = true)` registers the targets and closes the
+world. It fills the entry caches, and the binary runs no checks, no guard, no
+erasure and no reflection. The binary is 2.09 MB and prints what the session
+prints for both table types. Without verify_main the binary dies at the first
+entry (the reflection path was trimmed). Trim reports 47 verifier warnings;
+all are at the enumerated entry steps or on error paths. Routing the check
+through a dynamic call took the reflection out of the binary (2.46 to 2.09 MB,
+139 to 47 warnings).
+
+Limit: dynamic operations (`@implement … dynamic`) hold erased function
+pointers created at run time, so a closed world should use implementations.

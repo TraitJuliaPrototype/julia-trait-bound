@@ -1,0 +1,11 @@
+name = "CMid2"
+uuid = "7d3c0f3e-0315-4067-9839-c4d5e6f70819"
+version = "0.1.0"
+
+[deps]
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+CMid1 = "6c2bfe2d-f204-4f56-8728-b3c4d5e6f708"
+
+[sources]
+TraitWorld = {path = "../../../../TraitWorld"}
+CMid1 = {path = "../CMid1"}
