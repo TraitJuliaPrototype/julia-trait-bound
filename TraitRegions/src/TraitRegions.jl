@@ -49,7 +49,7 @@ export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
        sealed, each_seal, unseal!, each_op, freeze_universe!, PiracyError,
        verify_main, isclosed, check_concrete, AbstractTypeError,
-       @warn_on_abstract, @error_on_abstract
+       @warn_on_abstract, @error_on_abstract, @implement
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -57,15 +57,25 @@ export @trait, @seal, @region, register!, seal_of, deep_concrete,
 
 abstract type AbstractTrait end
 
-"Marker for a trait-method return type declared as `R` (the representation)."
-struct SelfR end
-
 struct Seal
     project::Function
-    w::NamedTuple          # abstract field: erased witness table
-    raw::NamedTuple        # same witnesses, concrete types (@full_compile path)
-    R::Type                # inferred representation (Any if inference failed)
+    w::Any                 # erased witness table (a NamedTuple of `Function`), or `Impl{Trait}()`
+    raw::Any               # same witnesses with concrete types (@full_compile path), or `Impl{Trait}()`
+    R::Type                # the representation
 end
+
+"""
+Marker passed to workers in place of a witness table when the seal's
+representation has an implementation (`@implement Trait{R}`): the trait's
+operations are then ordinary methods of `impl_op` on `R`, called statically.
+"""
+struct Impl{T} end
+
+"Operations implemented per representation: methods `impl_op(::Type{Trait}, ::Val{:op}, r::R, args...)`, defined by `@implement`."
+function impl_op end
+
+"`true` for each (trait, representation) pair with an `@implement` block."
+impl_info(::Type, ::Type) = false
 
 include("ownership.jl")
 include("audit.jl")
@@ -94,7 +104,7 @@ machinery replaces the dict registry, deleting the seal-side
 seal_info(::Type, ::Type) = nothing   # fallback: not sealed
 
 _check_not_sealed(trait::Type, T::Type) =
-    seal_info(trait, T) === nothing || error("duplicate seal: $T is already sealed for $trait")
+    _seal_info(trait, T) === nothing || error("duplicate seal: $T is already sealed for $trait")
 
 "All seals of `trait`, enumerated from the method table: Vector{Pair{Type,Seal}}."
 function each_seal(trait::Type)
@@ -107,7 +117,7 @@ function each_seal(trait::Type)
         TT isa DataType && TT <: Type || continue
         T = TT.parameters[1]
         T isa Type || continue
-        s = seal_info(trait, T)
+        s = _seal_info(trait, T)
         s isa Seal && push!(out, T => s)
     end
     return out
@@ -121,8 +131,19 @@ function unseal!(trait::Type, T::Type)
     return nothing
 end
 
+"""
+Registry lookups from the sealing machinery go through `invokelatest`: a
+static call would give TraitRegions' compiled code an edge that every package
+declaring a trait or sealing a type invalidates (measured: 134 ms of
+recompilation at the first seal of a session).
+"""
+_trait_info(@nospecialize(trait)) = Base.invokelatest(trait_info, trait)::NamedTuple
+_seal_info(@nospecialize(trait), @nospecialize(T)) = Base.invokelatest(seal_info, trait, T)
+_op_info(@nospecialize(trait), name::Symbol) = Base.invokelatest(op_info, trait, Val(name))
+
 """Overloaded per trait by `@trait`: declared methods as a NamedTuple
-`name => (args = (T...,), ret = Type-or-SelfR)`, in declaration order."""
+`name => (args = R -> (T...,), ret = R -> Type)`, in declaration order. Both are
+functions of the representation `R`, so declarations may mention it."""
 function trait_info end
 
 "Recursive concreteness: `T`, its type parameters, and its field types, all the way down (`Vector{Any}` is concrete but not deeply concrete)."
@@ -132,9 +153,15 @@ function deep_concrete(@nospecialize(T); seen = Base.IdSet{Any}())
     push!(seen, T)
     isconcretetype(T) || return false
     if T isa DataType
-        all(p -> deep_concrete(p; seen), T.parameters) || return false
+        for p in T.parameters
+            deep_concrete(p; seen) || return false
+        end
     end
-    return all(ft -> deep_concrete(ft; seen), fieldtypes(T))
+    # fieldtype by index: `fieldtypes(T)` compiles a closure for every type visited
+    for i in 1:fieldcount(T)
+        deep_concrete(fieldtype(T, i); seen) || return false
+    end
+    return true
 end
 
 function seal_of(trait::Type, @nospecialize(t))
@@ -151,53 +178,62 @@ concrete representation `R`; each witness has a method at `(R, argtypes...)`
 with a compatible best-effort return type. Positional NamedTuple so the call
 is `@nospecialize`-able.
 """
-function build_seal(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
-    info = trait_info(trait)
+function build_seal(trait::Type, T::Type, @nospecialize(kw::NamedTuple); R::Union{Nothing,Type} = nothing)
+    info = _trait_info(trait)
 
     haskey(kw, :project) ||
         error("seal of $T for $trait: missing `project`")
     project = kw[:project]
+    hasmethod(project, Tuple{T}) ||
+        error("seal of $T for $trait: `project` has no method for ($T,)")
+
+    # the representation: declared (`@seal Trait{R} T …`) or inferred from `project`
+    rts = Base.return_types(project, Tuple{T})
+    Rinf = (length(rts) == 1 && isconcretetype(rts[1])) ? rts[1] : Any
+    if R === nothing
+        # Silent check-skipping is exactly the cliff C5 exists to prevent:
+        # an un-inferable projection means NO operation can be checked.
+        Rinf === Any && error("seal of $T for $trait: could not infer a concrete representation " *
+              "from `project` — every seal check would be skipped. Declare it, " *
+              "`@seal $trait{R} $T …`, or fix the projection's type stability.")
+        R = Rinf
+    elseif Rinf === Any
+        p0, Rd = project, R
+        project = t -> p0(t)::Rd            # declared: assert it, inference could not tell
+    elseif Rinf !== R
+        error("seal of $T for $trait: `project` returns $Rinf, declared $R")
+    end
+    deep_concrete(R) ||
+        error("seal of $T for $trait: representation $R is not deeply concrete " *
+              "(abstract fields would make every worker slow for every user of $R)")
 
     declared = keys(info)
     given = filter(!=(:project), keys(kw))
+    if isempty(given)
+        # projection only: the operations come from the representation's implementation
+        Base.invokelatest(impl_info, trait, R) ||
+            error("seal of $T for $trait: no `@implement $trait{$R}` exists; implement the " *
+                  "operations for $R, or supply them in the seal")
+        return Seal(project, Impl{trait}(), Impl{trait}(), R)
+    end
     for name in declared
         name in given ||
-            error("seal of $T for $trait: missing witness `$name`")
+            error("seal of $T for $trait: missing operation `$name`")
     end
     for name in given
         name in declared ||
-            error("seal of $T for $trait: `$name` is not a method of $trait")
+            error("seal of $T for $trait: `$name` is not an operation of $trait")
     end
-
-    hasmethod(project, Tuple{T}) ||
-        error("seal of $T for $trait: `project` has no method for ($T,)")
-    rts = Base.return_types(project, Tuple{T})
-    R = (length(rts) == 1 && isconcretetype(rts[1])) ? rts[1] : Any
-    if R === Any
-        # Silent check-skipping is exactly the cliff C5 exists to prevent:
-        # an un-inferable projection means NO witness can be checked.
-        error("seal of $T for $trait: could not infer a concrete representation " *
-              "from `project` — every seal check would be skipped. Annotate the " *
-              "projection's return type or fix its type stability.")
-    else
-        deep_concrete(R) ||
-            error("seal of $T for $trait: representation $R is not deeply concrete " *
-                  "(abstract fields would make every worker slow for every user of $R)")
-    end
-
     for name in declared
         f = kw[name]
         m = info[name]
-        if R !== Any
-            sig = Tuple{R, m.args...}
-            hasmethod(f, sig) ||
-                error("seal of $T for $trait: witness `$name` has no method for $sig")
-            want = m.ret === SelfR ? R : m.ret
-            got = Base.return_types(f, sig)
-            if length(got) == 1 && got[1] !== Any && !(got[1] <: want)
-                error("seal of $T for $trait: witness `$name` returns $(got[1]), " *
-                      "declared $want")
-            end
+        sig = Tuple{R, m.args(R)...}
+        hasmethod(f, sig) ||
+            error("seal of $T for $trait: operation `$name` has no method for $sig")
+        want = m.ret(R)
+        got = Base.return_types(f, sig)
+        if length(got) == 1 && got[1] !== Any && !(got[1] <: want)
+            error("seal of $T for $trait: operation `$name` returns $(got[1]), declared $want")
         end
     end
 
@@ -208,15 +244,47 @@ function build_seal(trait::Type, T::Type, @nospecialize(kw::NamedTuple))
 end
 
 """
+Check an `@implement Trait{R}` block once its methods exist: every declared
+operation is implemented at its declared signature with a compatible result
+type, R is deeply concrete, and the definer owns the trait or R.
+"""
+function _check_impl(definer::Module, trait::Type, R::Type, given::Tuple)
+    info = _trait_info(trait)
+    deep_concrete(R) ||
+        error("@implement $trait{$R}: representation $R is not deeply concrete")
+    for name in given
+        name in keys(info) || error("@implement $trait{$R}: `$name` is not an operation of $trait")
+    end
+    for name in keys(info)
+        m = info[name]
+        sig = Tuple{Type{trait}, Val{name}, R, m.args(R)...}
+        hasmethod(impl_op, sig) ||
+            error("@implement $trait{$R}: operation `$name` is missing or has no method for $(Tuple{R, m.args(R)...})")
+        want = m.ret(R)
+        got = Base.return_types(impl_op, sig)
+        if length(got) == 1 && got[1] !== Any && !(got[1] <: want)
+            error("@implement $trait{$R}: operation `$name` returns $(got[1]), declared $want")
+        end
+    end
+    _check_orphan(definer, trait, R; what = "implementation")
+    _bump_universe!()
+    return nothing
+end
+
+_check_impl_free(trait::Type, R::Type) =
+    Base.invokelatest(impl_info, trait, R) && error("duplicate implementation: $trait{$R} is already implemented")
+
+"""
 Check, build, and define the seal as a method of `seal_info` evaluated in
 `mod` — so a seal made at a conformer package's top level is an ordinary
 external method extension, serialized in that package's pkgimage and merged
 at load like any other method. No `__init__` replay needed for seals.
 """
-function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::NamedTuple); definer::Module = mod)
+function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::NamedTuple);
+                       definer::Module = mod, R::Union{Nothing,Type} = nothing)
     _check_not_sealed(trait, T)
     _check_orphan(definer, trait, T)
-    s = build_seal(trait, T, kw)
+    s = build_seal(trait, T, kw; R)
     fn = GlobalRef(TraitRegions, :seal_info)
     Base.eval(mod, :($fn(::Type{$trait}, ::Type{$T}) = $s))
     _bump_universe!()
@@ -238,9 +306,10 @@ compiles those witness calls into its own image.
 """
 function _compile_seal_code(trait::Type, T::Type, s::Seal)
     ccall(:jl_compile_hint, Int32, (Any,), Tuple{typeof(s.project), T})
-    info = trait_info(trait)
+    s.w isa NamedTuple || return nothing    # operations come from the representation's implementation
+    info = _trait_info(trait)
     for name in keys(info)
-        sig = Tuple{typeof(getfield(s.raw, name)), s.R, info[name].args...}
+        sig = Tuple{typeof(getfield(s.raw, name)), s.R, info[name].args(s.R)...}
         Base.isdispatchtuple(sig) && ccall(:jl_compile_hint, Int32, (Any,), sig)
     end
     for sig in _seal_witness_sigs(trait, s, Base.get_world_counter())
@@ -255,12 +324,12 @@ the owner of T (including its type parameters), a package extension of
 either, or a declared implementer. Two packages sealing the same foreign
 pair would otherwise silently override each other.
 """
-function _check_orphan(definer::Module, trait::Type, T::Type)
+function _check_orphan(definer::Module, trait::Type, T::Type; what::String = "seal")
     d = owner(definer)
     owners = sig_owners(Tuple{Type{trait}, Type{T}})
     d in owners && return nothing
     d isa Module && any(o -> o isa Module && nameof(o) in implements(d), owners) && return nothing
-    msg = "orphan seal: $definer owns neither trait $trait nor type $T. Seal in the " *
+    msg = "orphan $what: $definer owns neither trait $trait nor type $T. Define it in the " *
           "package that owns one of them, or in a package extension of it."
     MODE[] === :error && error(msg)
     MODE[] === :warn && @warn msg
@@ -268,8 +337,8 @@ function _check_orphan(definer::Module, trait::Type, T::Type)
 end
 
 "Runtime seal (scripts/tests), attributed to `Main`. For package top level, prefer `@seal` (serializes with the caller)."
-register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple)) =
-    _define_seal!(TraitRegions, trait, T, kw; definer = Main)
+register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple); R::Union{Nothing,Type} = nothing) =
+    _define_seal!(TraitRegions, trait, T, kw; definer = Main, R)
 
 # ---------------------------------------------------------------------------
 # Cross-region op registry: ops ARE methods too (P0, mirroring seals).
@@ -301,7 +370,7 @@ function each_op(trait::Type)
         Vt isa DataType && Vt <: Val || continue
         name = Vt.parameters[1]
         name isa Symbol || continue
-        entry = op_info(trait, Val(name))
+        entry = _op_info(trait, name)
         entry === nothing || push!(out, name => entry)
     end
     return out
@@ -372,10 +441,26 @@ the lookup and the worker call becomes static.
     return entry[1](w, r, args...)
 end
 
-"Assert a witness result to the type its trait declares (`R` in the declaration: the representation's type)."
+"Assert an operation's result to the type its trait declares at the representation `typeof(r)`."
 @inline function _wret(::Type{T}, ::Val{name}, r, x) where {T, name}
-    D = getfield(trait_info(T), name).ret
-    return D === SelfR ? x::typeof(r) : x::D
+    D = getfield(trait_info(T), name).ret(typeof(r))
+    return x::D
+end
+
+@inline _hasop(::NamedTuple{names}, ::Val{g}) where {names, g} = Base.sym_in(g, names)
+
+"""
+A trait call `g(t, args…)` inside a region, after the rewrite: the seal's own
+operation through the erased table, the representation's implementation
+through a static call, or another region op through the op registry.
+"""
+@inline function _wcall(::Type{T}, ::Val{g}, w::NamedTuple, r, args...) where {T, g}
+    _hasop(w, Val(g)) || return dyncall(T, g, w, r, args...)
+    return _wret(T, Val(g), r, getfield(w, g)(r, args...))
+end
+@inline function _wcall(::Type{T}, ::Val{g}, w::Impl{T}, r, args...) where {T, g}
+    _hasop(trait_info(T), Val(g)) || return dyncall(T, g, w, r, args...)
+    return _wret(T, Val(g), r, impl_op(T, Val(g), r, args...))
 end
 
 "Precompile-time check that a statically-wired import really is a region op of this trait."
@@ -428,7 +513,9 @@ function fingerprint(@nospecialize(f::Function))
     return h
 end
 
-fingerprint(s::Seal) = reduce(hash, (fingerprint(f) for f in values(s.w)); init = fingerprint(s.project))
+fingerprint(s::Seal) = s.w isa NamedTuple ?
+    reduce(hash, (fingerprint(f) for f in values(s.w)); init = fingerprint(s.project)) :
+    hash(typeof(s.w), fingerprint(s.project))
 
 "Hash of every seal of every registered trait — drifts when any witness is edited."
 function universe_id()
@@ -465,15 +552,14 @@ function _parse_trait_sig(ex)
     length(call.args) >= 2 ||
         error("@trait: method `$name` needs at least the representation argument")
     argts = Any[]
-    for a in call.args[3:end]     # first arg is `r` — untyped by definition
+    for a in call.args[3:end]     # the first argument is the representation, `r` or `r::R`
         if a isa Expr && a.head === :(::)
             push!(argts, a.args[end])
         else
             push!(argts, :Any)
         end
     end
-    retex = ret === :R ? :(TraitRegions.SelfR) : ret
-    return name, argts, retex
+    return name, argts, ret
 end
 
 """
@@ -487,13 +573,18 @@ meaning "the representation type itself". Generates the trait tag type, its
 seal registry, and its declared-method table.
 """
 macro trait(name, block)
-    name isa Symbol || error("@trait: trait name must be a symbol")
+    # `@trait Name` or `@trait Name{R}`: R names the representation in the declarations
+    P = :R
+    if name isa Expr && name.head === :curly && length(name.args) == 2 && name.args[2] isa Symbol
+        name, P = name.args
+    end
+    name isa Symbol || error("@trait: trait name must be a symbol, or `Name{R}`")
     block isa Expr && block.head === :block || error("@trait: expected a begin/end block")
     entries = Any[]
     for ex in block.args
         ex isa LineNumberNode && continue
         mname, argts, retex = _parse_trait_sig(ex)
-        push!(entries, :($mname = (args = ($(argts...),), ret = $retex)))
+        push!(entries, :($mname = (args = ($P -> ($(argts...),)), ret = ($P -> $retex))))
     end
     isempty(entries) && error("@trait: trait $name declares no methods")
     return esc(quote
@@ -531,14 +622,140 @@ Seal type `T` for `Trait`: the definitions become anonymous witness functions
 passed to [`register!`](@ref), which runs all fail-early checks at this point.
 """
 macro seal(trait, T, block)
-    block isa Expr && block.head === :block || error("@seal: expected a begin/end block")
+    Rex = nothing
+    if trait isa Expr && trait.head === :curly && length(trait.args) == 2
+        trait, Rex = trait.args
+    end
+    block isa Expr && block.head === :block || (block = Expr(:block, block))   # `@seal Trait{R} T project(t) = …`
     kws = Any[]
     for ex in block.args
         ex isa LineNumberNode && continue
         name, fn = _parse_seal_def(ex)
         push!(kws, Expr(:(=), name, fn))
     end
-    return esc(:(TraitRegions._define_seal!($(__module__), $trait, $T, ($(kws...),))))
+    return esc(:(TraitRegions._define_seal!($(__module__), $trait, $T, ($(kws...),); R = $Rex)))
+end
+
+"""
+    @implement Trait{R} begin op(r, args...) = ... end    # the representation, explicit
+    @implement Trait begin op(r::R, args...) = ... end    # R from the representation argument's annotation
+    @implement Trait T begin op(r, args...) = ... end     # a user type: T is its own representation,
+    @implement Trait T begin project(t) = ...; ... end    #   or the one its `project` returns
+
+Implement the trait's operations once for representation `R`, as ordinary
+methods; every seal that projects onto `R` without operations of its own uses
+them, and workers call them statically. Given a user type `T`, the block also
+seals `T` (onto itself, or through `project`). Only the owner of `Trait` or of
+`R` (or an extension of one) may implement.
+"""
+macro implement(args...)
+    length(args) in (2, 3) ||
+        error("@implement: expected `@implement Trait{R} begin … end`, `@implement Trait begin … end` " *
+              "or `@implement Trait T begin … end`")
+    if length(args) == 3
+        trait, T, block = args
+        return esc(_implement_for_type(__module__, trait, T, _impl_defs(block)))
+    end
+    spec, block = args
+    defs = _impl_defs(block)
+    if spec isa Expr && spec.head === :curly && length(spec.args) == 2
+        trait, R = spec.args
+    else
+        trait, R = spec, _annotated_rep(spec, defs)
+    end
+    return esc(_implement_expr(__module__, trait, R, defs))
+end
+
+"Operation definitions of an `@implement` block: `(name, call, body, rname, rtype)`."
+function _impl_defs(block)
+    block isa Expr && block.head === :block || (block = Expr(:block, block))
+    defs = Any[]
+    for ex in block.args
+        ex isa LineNumberNode && continue
+        if ex isa Expr && (ex.head === :(=) || ex.head === :function) && ex.args[1] isa Expr && ex.args[1].head === :call
+            call, body = ex.args
+        else
+            error("@implement: expected operation definitions `name(r, args...) = body`, got $ex")
+        end
+        name = call.args[1]
+        name isa Symbol || error("@implement: operation name must be a symbol, got $name")
+        length(call.args) >= 2 || error("@implement: operation `$name` needs the representation argument")
+        r = call.args[2]
+        rname, rtype = r isa Expr && r.head === :(::) ? (r.args[1], r.args[2]) : (r, nothing)
+        push!(defs, (name, call, body, rname, rtype))
+    end
+    return defs
+end
+
+"The representation named by the operations' annotations (`ncols(r::MyRep) = …`); they must agree."
+function _annotated_rep(trait, defs)
+    Rs = unique!(Any[d[5] for d in defs if d[5] !== nothing])
+    isempty(Rs) && error("@implement $trait: cannot infer the representation. Annotate the first argument " *
+                         "of an operation (`op(r::MyRep, …) = …`), write `@implement $trait{R}`, or give a user type.")
+    length(Rs) == 1 || error("@implement $trait: the operations annotate different representations: $(join(Rs, ", "))")
+    return only(Rs)
+end
+
+_impl_method(trait, R, d) = Expr(:(=),
+    :(TraitRegions.impl_op(::Type{$trait}, ::Val{$(QuoteNode(d[1]))}, $(d[4])::$R, $(d[2].args[3:end]...))), d[3])
+
+function _implement_expr(mod, trait, R, defs)
+    ops = [d for d in defs if d[1] !== :project]
+    length(ops) == length(defs) || error("@implement $trait{$R}: `project` belongs to a user type: `@implement $trait T begin … end`")
+    return quote
+        TraitRegions._check_impl_free($trait, $R)
+        $([_impl_method(trait, R, d) for d in ops]...)
+        TraitRegions.impl_info(::Type{$trait}, ::Type{$R}) = true
+        TraitRegions._check_impl($mod, $trait, $R, ($(map(d -> QuoteNode(d[1]), ops)...),))
+        nothing
+    end
+end
+
+function _implement_for_type(mod, trait, T, defs)
+    pidx = findfirst(d -> d[1] === :project, defs)
+    ops = [d for d in defs if d[1] !== :project]
+    if pidx === nothing
+        # the user type is its own representation; seal it onto itself
+        return quote
+            $(_implement_expr(mod, trait, T, ops))
+            TraitRegions._define_seal!($mod, $trait, $T, (project = identity,); R = $T)
+            nothing
+        end
+    end
+    # the representation is whatever `project` returns, known only once it is inferred
+    pd = defs[pidx]
+    pfun = :(($(pd[2].args[2:end]...),) -> $(pd[3]))
+    quoted = [QuoteNode(_impl_method(:__TRAIT__, :__REP__, d)) for d in ops]
+    return quote
+        let p = $pfun, R = TraitRegions._projected_rep($trait, $T, p)
+            TraitRegions._implement_at!($mod, $trait, R, Any[$(quoted...)], ($(map(d -> QuoteNode(d[1]), ops)...),))
+            TraitRegions._define_seal!($mod, $trait, $T, (project = p,); R = R)
+        end
+        nothing
+    end
+end
+
+"The representation a projection returns for `T`, which must infer to one concrete type."
+function _projected_rep(trait::Type, T::Type, @nospecialize(p))
+    rts = Base.return_types(p, Tuple{T})
+    length(rts) == 1 && isconcretetype(rts[1]) ||
+        error("@implement $trait $T: `project` does not infer a concrete representation ($(rts)); " *
+              "declare it with `@implement $trait{R}` and `@seal $trait{R} $T …`")
+    return rts[1]
+end
+
+_subst(ex, pairs...) = ex isa Expr ? Expr(ex.head, (_subst(a, pairs...) for a in ex.args)...) :
+    (i = findfirst(p -> p.first === ex, pairs); i === nothing ? ex : pairs[i].second)
+
+"Define an implementation at a representation computed at load time (`@implement Trait T` with `project`)."
+function _implement_at!(mod::Module, trait::Type, R::Type, methods::Vector{Any}, names::Tuple)
+    Base.invokelatest(_check_impl_free, trait, R)
+    for m in methods
+        Core.eval(mod, _subst(m, :__TRAIT__ => trait, :__REP__ => R))
+    end
+    Core.eval(mod, :(TraitRegions.impl_info(::Type{$trait}, ::Type{$R}) = true))
+    Base.invokelatest(_check_impl, mod, trait, R, names)
+    return nothing
 end
 
 # ---------------------------------------------------------------------------
@@ -555,10 +772,10 @@ Three lowerings, chosen per call site:
   * `g` in the region's declared imports → **static** call to the other
     region package's worker (`Mod.var"g#worker"(w, r, xs...)`) — the
     faked-native lowering: inlinable, no table, no dynamic dispatch;
-  * otherwise → `haskey(w, :g)` branch (folds at compile time, since the
-    witness-table type is concrete in the worker): witness call if `g` is a
-    witness, else `dyncall` through the op registry — the honest Rung-1
-    dynamic cross-region lowering.
+  * otherwise → `_wcall(trait, Val(:g), w, r, xs...)`, which folds at compile
+    time: an operation of the seal's own table (an indirect call), of the
+    representation's implementation (a static call), or else `dyncall`
+    through the op registry — the dynamic cross-region lowering.
 """
 function _rewrite_body(ex, tname::Symbol, w::Symbol, r::Symbol, trait, imports::Dict{Symbol,Any})
     ex isa Expr || return ex
@@ -572,10 +789,9 @@ function _rewrite_body(ex, tname::Symbol, w::Symbol, r::Symbol, trait, imports::
             return :($workerref($w, $r, $(rest...)))
         end
         q = QuoteNode(g)
-        # a witness result is asserted to the type the trait declares, so an
-        # inference failure in a conformer's witness stops at the boundary
-        return :(haskey($w, $q) ? TraitRegions._wret($trait, Val($q), $r, getfield($w, $q)($r, $(rest...))) :
-                 TraitRegions.dyncall($trait, $q, $w, $r, $(rest...)))
+        # an operation's result is asserted to the type the trait declares, so an
+        # inference failure in a seal's operation stops at the boundary
+        return :(TraitRegions._wcall($trait, Val($q), $w, $r, $(rest...)))
     end
     return Expr(ex.head, (_rewrite_body(a, tname, w, r, trait, imports) for a in ex.args)...)
 end
@@ -794,9 +1010,32 @@ end
     col(r, i)  = r[i]
 end
 
+# an implementation at the same representation, and types sealed inside the
+# workload: making a type usable at the REPL then compiles only the user's code
+@implement _PCTrait{Vector{Vector{Float64}}} begin
+    ncols(r)  = length(r)
+    col(r, i) = r[i]
+end
+struct _PCImplemented; cols::Vector{Vector{Float64}}; end
+struct _PCOwnOps; cols::Vector{Vector{Float64}}; end
+struct _PCMacro; cols::Vector{Vector{Float64}}; end
+
 @compile_workload begin
     _pc_op(_PCDummy([[1.0, 2.0]]), 1)
     precompile_seal(_PCTrait, _PCDummy)
+    # the sealing path, as `register!` and as `@seal` call it: projection only, and own operations
+    _define_seal!(TraitRegions, _PCTrait, _PCImplemented, (project = t -> t.cols,); definer = TraitRegions, R = nothing)
+    _define_seal!(TraitRegions, _PCTrait, _PCOwnOps, (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i]);
+                  definer = TraitRegions, R = nothing)
+    _define_seal!(TraitRegions, _PCTrait, _PCMacro, (project = t -> t.cols,); R = nothing)
+    _check_impl(TraitRegions, _PCTrait, Vector{Vector{Float64}}, (:ncols, :col))
+    # the macros' own code runs when a user's file is expanded
+    macroexpand(TraitRegions, :(@seal _PCTrait{Vector{Vector{Float64}}} _PCMacro project(t) = t.cols))
+    macroexpand(TraitRegions, :(@seal _PCTrait _PCMacro begin project(t) = t.cols; ncols(r) = length(r); col(r, i) = r[i] end))
+    macroexpand(TraitRegions, :(@implement _PCTrait _PCMacro begin ncols(r) = 1; col(r, i) = Float64[] end))
+    macroexpand(TraitRegions, :(@implement _PCTrait _PCMacro begin project(t) = t.cols; ncols(r) = 1; col(r, i) = r[i] end))
+    macroexpand(TraitRegions, :(@trait _PCT2{R} begin f(r::R)::Int end))
+    macroexpand(TraitRegions, :(@region _PCTrait begin _pc_x(t) = ncols(t) end))
     # the audit's slow paths: re-resolving an invalidated CodeInstance, compiling
     # before auditing, ownership lookups, and reporting a finding
     let tt = Tuple{typeof(seal_info(_PCTrait, _PCDummy).w), Vector{Vector{Float64}}, Int}

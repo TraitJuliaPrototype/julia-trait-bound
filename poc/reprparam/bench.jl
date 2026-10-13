@@ -1,0 +1,83 @@
+# Costs of the three ways to seal a type (poc/reprparam):
+#   julia --startup-file=no --project=poc/reprparam/env poc/reprparam/bench.jl
+using Columns, TraitRegions, Printf
+const JL = Base.julia_cmd()
+const ENVDIR = joinpath(@__DIR__, "env")
+
+# --- steady state: a fine-grained operation (`value`, one call per element) -------------
+struct ViaImpl; cols::Vector{Vector{Float64}}; end            # uses the library's implementation
+@seal ColTable ViaImpl project(t) = t.cols
+struct ViaOwn; cols::Vector{Vector{Float64}}; end             # same behaviour, operations of its own
+@seal ColTable ViaOwn begin
+    project(t) = t.cols
+    ncols(r) = length(r)
+    col(r, i) = r[i]
+    value(r, i, j) = r[i][j]
+end
+function plain_total(cols::Vector{Vector{Float64}}, len::Int)  # plain Julia, no traits
+    s = 0.0
+    for i in 1:length(cols), j in 1:len
+        s += cols[i][j]
+    end
+    s
+end
+const SINK = Ref(0.0)    # results are consumed, so the compiler cannot drop the work
+function best(f, args...; reps)
+    f(args...)
+    minimum(1:7) do _
+        acc = 0.0
+        t = @elapsed for _ in 1:reps; acc += f(args...); end
+        SINK[] += acc
+        t / reps
+    end
+end
+println("steady state, total(t, len) over 4 columns (ns per call | per element)")
+for len in (16, 4096)
+    cols = [rand(len) for _ in 1:4]
+    reps = len == 16 ? 200_000 : 2_000
+    tp = best(plain_total, cols, len; reps)
+    ti = best(total, ViaImpl(cols), len; reps)
+    to = best(total, ViaOwn(cols), len; reps)
+    @printf("  len %4d: plain %9.1f | implementation %9.1f (%.2f×) | own operations %9.1f (%.2f×)   per element: %.2f | %.2f | %.2f\n",
+            len, 1e9tp, 1e9ti, ti / tp, 1e9to, to / tp, 1e9tp / 4len, 1e9ti / 4len, 1e9to / 4len)
+end
+
+# --- a fresh session: making a new type usable ------------------------------------------
+const CASES = [
+    ("projection onto the library's representation", """
+        struct NewT; cols::Vector{Vector{Float64}}; end
+        @seal ColTable NewT project(t) = t.cols
+        x = NewT([[1.0, 2.0], [3.0, 4.0]])"""),
+    ("own operations at the library's representation", """
+        struct NewT; cols::Vector{Vector{Float64}}; end
+        @seal ColTable NewT begin
+            project(t) = t.cols
+            ncols(r) = length(r)
+            col(r, i) = r[i]
+            value(r, i, j) = r[i][j]
+        end
+        x = NewT([[1.0, 2.0], [3.0, 4.0]])"""),
+    ("own representation with an implementation", """
+        struct NewT; base::Vector{Float64}; n::Int; end
+        @implement ColTable NewT begin
+            ncols(r) = r.n
+            col(r, i) = r.base .* i
+            value(r, i, j) = r.base[j] * i
+        end
+        x = NewT([1.0, 2.0], 2)"""),
+]
+println("\na fresh session: define the type, seal it, first call of colmean, colrange, total (ms)")
+for (label, code) in CASES
+    script = """
+    using Columns, TraitRegions
+    Base.cumulative_compile_timing(true)
+    c0 = Base.cumulative_compile_time_ns()[1]; t0 = time_ns()
+    include_string(Main, $(repr(code)))
+    t1 = time_ns()
+    colmean(x, 1); colrange(x, 2); total(x, 2)
+    t2 = time_ns(); c2 = Base.cumulative_compile_time_ns()[1]
+    print((t1 - t0) / 1e6, " ", (t2 - t1) / 1e6, " ", (c2 - c0) / 1e6)
+    """
+    seal_ms, call_ms, comp_ms = parse.(Float64, split(read(`$JL --startup-file=no --project=$ENVDIR -e $script`, String)))
+    @printf("  %-48s seal %6.1f | first calls %6.1f | of which compiling %6.1f\n", label, seal_ms, call_ms, comp_ms)
+end

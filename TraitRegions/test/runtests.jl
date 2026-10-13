@@ -65,10 +65,10 @@ end
         col(r, i)  = r[i]
     end
     # missing witness
-    @test_throws "missing witness `col`" TraitRegions.register!(ColTable, BadReturn,
+    @test_throws "missing operation `col`" TraitRegions.register!(ColTable, BadReturn,
         (project = t -> t.cols, ncols = r -> length(r)))
     # unknown witness
-    @test_throws "not a method of" TraitRegions.register!(ColTable, BadReturn,
+    @test_throws "not an operation of" TraitRegions.register!(ColTable, BadReturn,
         (project = t -> t.cols, ncols = r -> length(r), col = (r, i) -> r[i],
          extra = r -> 1))
     # wrong declared return type, caught at seal time
@@ -288,6 +288,83 @@ end
     @test var"cm_whole#guard".concrete === :warn && var"cm_clean#guard".concrete === :error
     @test var"cm_plain#guard".concrete === :off
     @test_throws "applies to a `@region`" macroexpand(@__MODULE__, :(@warn_on_abstract f(x) = x))
+end
+
+# representations as trait parameters, operations implemented per representation
+@trait PTable{R} begin
+    pcols(r::R)::Int
+    pcol(r::R, i::Int)::Vector{Float64}
+end
+@trait Firsts{R} begin
+    firstel(r::R)::eltype(R)                     # a declaration that depends on the representation
+end
+@implement PTable{Vector{Vector{Float64}}} begin
+    pcols(r) = length(r)
+    pcol(r, i) = r[i]
+end
+@implement Firsts{Vector{Int}} begin firstel(r) = r[1] end
+@implement Firsts begin firstel(r::Vector{Float64}) = r[1] end   # R from the annotation
+@region PTable begin
+    pmean(t, i::Int) = (c = pcol(t, i); sum(c) / length(c))
+    psum(t) = (s = 0.0; for i in 1:pcols(t); s += sum(pcol(t, i)); end; s)
+    pboth(t) = pmean(t, 1) + psum(t)             # another op, through the op registry
+end
+@region Firsts begin
+    twice(t) = 2 * firstel(t)
+end
+struct PMeas; series::Vector{Vector{Float64}}; end
+@seal PTable{Vector{Vector{Float64}}} PMeas project(t) = t.series          # projection only
+struct PRev; cols::Vector{Vector{Float64}}; end
+@seal PTable PRev begin                            # same representation, its own operations
+    project(t) = t.cols
+    pcols(r) = length(r)
+    pcol(r, i) = r[end - i + 1]
+end
+struct PRamp; base::Vector{Float64}; n::Int; end
+@implement PTable PRamp begin                      # its own representation
+    pcols(r) = r.n
+    pcol(r, i) = r.base .* i
+end
+struct PGrid; m::Matrix{Float64}; end
+struct PGridRep; m::Matrix{Float64}; end
+@implement PTable PGrid begin                      # R from the projection
+    project(t) = PGridRep(t.m)
+    pcols(r) = size(r.m, 2)
+    pcol(r, i) = r.m[:, i]
+end
+struct IntBox; v::Vector{Int}; end
+struct FloatBox; v::Vector{Float64}; end
+@seal Firsts IntBox project(t) = t.v
+@seal Firsts FloatBox project(t) = t.v
+pmain(n::Int) = (s = 0.0; for t in Any[PMeas([[1.0, 2.0]]), PRev([[1.0], [5.0]]), PRamp([1.0], n)]; s += pmean(t, 1)::Float64; end; s)
+
+@testset "representations and implementations" begin
+    m, v = PMeas([[1.0, 2.0], [3.0, 4.0]]), PRev([[1.0, 2.0], [3.0, 5.0]])
+    @test pmean(m, 1) == 1.5 && pmean(v, 1) == 4.0          # one representation, two behaviours
+    @test psum(m) == 10.0 && pboth(m) == 11.5
+    @test pmean(PRamp([1.0, 2.0], 3), 2) == 3.0 && pmean(PGrid([1.0 2.0; 3.0 4.0]), 2) == 3.0
+    sm, sv = TraitRegions.seal_info(PTable, PMeas), TraitRegions.seal_info(PTable, PRev)
+    @test sm.w isa TraitRegions.Impl && sv.w isa NamedTuple
+    @test TraitRegions.seal_info(PTable, PRamp).R === PRamp && TraitRegions.seal_info(PTable, PGrid).R === PGridRep
+    # the implementation's worker calls the operations statically; the seal's own, indirectly
+    dyn(W) = count(st -> Meta.isexpr(st, :call) && !(st.args[1] isa GlobalRef),
+                   first(only(Base.code_typed_by_type(Tuple{typeof(var"psum#worker"), W, Vector{Vector{Float64}}}))).code)
+    @test dyn(typeof(sm.w)) == 0 && dyn(typeof(sv.w)) > 0
+    # declarations that depend on R
+    @test twice(IntBox([3, 4])) === 6 && twice(FloatBox([1.5])) === 3.0
+    @test only(Base.return_types(var"twice#worker", (TraitRegions.Impl{Firsts}, Vector{Int}))) === Int
+    # checks
+    struct PBad; c::Vector{Vector{Float64}}; end
+    @test_throws "returns Vector{Vector{Float64}}, declared Matrix{Float64}" @eval @seal PTable{Matrix{Float64}} PBad project(t) = t.c
+    @test_throws "no `@implement" @eval @seal PTable{Vector{Float64}} PBad project(t) = t.c[1]
+    @test_throws "already implemented" @eval @implement PTable{Vector{Vector{Float64}}} begin pcols(r) = 0; pcol(r, i) = r[i] end
+    @test_throws "missing" @eval @implement PTable{Vector{Int}} begin pcols(r) = length(r) end
+    @test_throws "cannot infer the representation" @eval @implement PTable begin pcols(r) = 1; pcol(r, i) = Float64[] end
+    # trait dispatch over implementations is enumerated like any other
+    r = verify_main(pmain, (Int,))
+    @test !any(h -> !h.errorpath, r.holes)
+    @test any(p -> p.first === :worker && p.second.parameters[2] === TraitRegions.Impl{PTable}, r.targets)
+    @test isempty(check_concrete(PTable))
 end
 
 @trait Int8Bag begin

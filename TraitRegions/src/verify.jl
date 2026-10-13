@@ -796,6 +796,7 @@ Witness signatures the registered ops' workers actually call for seal `s`
 """
 function _seal_witness_sigs(trait::Type, s::Seal, world::UInt)
     out = Any[]
+    s.w isa NamedTuple || return out        # an implementation: no operations of the seal's own
     seen = Base.IdSet{Any}()
     for (_, entry) in each_op(trait)
         worker, argts = entry[1], entry[2]

@@ -1,0 +1,8 @@
+[deps]
+Columns = "4c12f6c0-8607-4873-bd52-6ad86f5e4038"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+
+[sources]
+Columns = {path = "../Columns"}
+TraitRegions = {path = "../../../TraitRegions"}
