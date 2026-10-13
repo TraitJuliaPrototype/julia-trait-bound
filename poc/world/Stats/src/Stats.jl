@@ -5,7 +5,7 @@ using TraitWorld
 @trait_module begin
 
 using Columns, Rows
-export overview, overview2, colmap, colsum, ColStore, setcol!, normalize!
+export overview, overview2, colmap, colsum, ColStore, setcol!, normalize!, weight, weighted
 
 "Rule 3 in practice: a function that needs both views declares both bounds."
 overview(t::(ColTable, RowTable)) = (colmean(t, 1), firstrow(t))
@@ -15,6 +15,10 @@ overview2(t::Table) = (colmean(t, 1), firstrow(t))
 # Callable: erased (compiled once per signature) or fast (compiled per function type)
 colmap(f::Callable{Tuple{Float64},Float64}, t::ColTable, i::Int) = map(f, col(t, i))
 colsum(@specialize(f::Callable{Tuple{Float64},Float64}), t::ColTable, i::Int) = sum(f, col(t, i))
+
+"Weights by value; the library's generic rule (a target for the piracy scenario)."
+weight(x::Real) = 1.0
+weighted(t::ColTable, i::Int) = sum(x -> weight(x) * x, col(t, i))
 
 "Column storage: a trait with a mutating operation accepts only projections that share the user's data (rule 4)."
 @trait ColStore{R} begin
@@ -31,6 +35,7 @@ normalize!(t::(ColTable, ColStore), i::Int) = (c = col(t, i); setcol!(t, i, c ./
     colmap(abs, m, 1); colsum(abs2, m, 1)
     v = [[1.0, 3.0]]
     normalize!(v, 1)
+    weighted(m, 1)
 end
 
 end

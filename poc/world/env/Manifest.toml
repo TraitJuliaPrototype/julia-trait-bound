@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "bd3f5bd7d68bf5e1bf480b6e095eb0f9dac75320"
+project_hash = "2627601d6169448895e23a45440f4980ad6cba0c"
 
 [[deps.BaseTraits]]
 deps = ["TraitWorld"]
@@ -20,6 +20,12 @@ version = "0.1.0"
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 version = "1.11.0"
+
+[[deps.Pirate]]
+deps = ["Stats"]
+path = "../Pirate"
+uuid = "06b5f8d7-9cae-4fb0-a1c2-5d6e7f8091a2"
+version = "0.1.0"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]

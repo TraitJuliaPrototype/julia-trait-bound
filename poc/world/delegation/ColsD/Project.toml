@@ -1,0 +1,23 @@
+name = "ColsD"
+uuid = "39e8cbfa-cfd1-4c23-94f5-8091a2b3c4d5"
+version = "0.1.0"
+
+[deps]
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+
+[weakdeps]
+GridLib = "17c6a9e8-adbf-4a01-b2d3-6e7f8091a2b3"
+OtherD = "28d7bae9-bec0-4b12-83e4-7f8091a2b3c4"
+
+[extensions]
+ColsDGridExt = "GridLib"
+ColsDBadExt = ["GridLib", "OtherD"]
+
+[extras]
+GridLib = "17c6a9e8-adbf-4a01-b2d3-6e7f8091a2b3"
+OtherD = "28d7bae9-bec0-4b12-83e4-7f8091a2b3c4"
+
+[sources]
+TraitWorld = {path = "../../../../TraitWorld"}
+GridLib = {path = "../GridLib"}
+OtherD = {path = "../OtherD"}

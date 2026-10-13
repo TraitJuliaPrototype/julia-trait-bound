@@ -189,3 +189,35 @@ A fresh session's first call with a new closure:
 | `colsum(f, t, 1)`, specialized | 35–36 |
 
 Erasure compiles only the closure's body.
+
+## M6: layering, ownership and the audit
+
+- **Rule 1 at two levels.**
+  - A trait module's imports must be in the trait world.
+  - Every call its library code makes is resolved on typed code, once per
+    worker signature, following calls into helpers of trait modules. A
+    trait module that reaches ordinary code without importing it
+    (`Main.Plain.f(...)`) is reported with its line.
+  - `poc/world/m6_rules.jl`, and tests.
+- **Rule 5, delegation** (`poc/world/delegation/`).
+  - ColsD declares the extension `ColsDGridExt`, triggered by GridLib, to
+    implement its trait for GridLib's representation: it loads and works.
+  - `ColsDBadExt` is triggered by GridLib and OtherD, but its method mentions
+    only GridLib's type, so it is rejected when it loads. Whether a call saw
+    its methods would otherwise depend on whether OtherD happened to be loaded.
+  - While an extension is precompiled, Base has not recorded its parent
+    yet. TraitWorld reads the relation from the parent's Project.toml, next to
+    the extension's file.
+- **The piracy audit**, ported from TraitRegions.
+  - It runs in `checked_call`, once per worker signature and world. Each
+    signature carries its own guard state in its compiled code.
+  - A piratical method is one whose package owns neither the function nor the
+    types in every signature it applies to.
+  - The Pirate package defines `Stats.weight(::Float64)`:
+    - warn mode (the default on stock Julia) names it once and then
+      computes what plain Julia computes (8.0);
+    - error mode raises `PiracyError`;
+    - `mode!(:recompile)` is plain Julia.
+  - Steady state is unchanged by the guard: 1.01× at 4096 elements, 2.9× at 16.
+- **Ownership is attributed per module under `Main`.** A module defined in a
+  script counts as its own package; `Main` itself is the session's.

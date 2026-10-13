@@ -1,0 +1,9 @@
+name = "Pirate"
+uuid = "06b5f8d7-9cae-4fb0-a1c2-5d6e7f8091a2"
+version = "0.1.0"
+
+[deps]
+Stats = "f5a4e7c6-8b9d-4eaf-90b1-4c5d6e7f8091"
+
+[sources]
+Stats = {path = "../Stats"}
