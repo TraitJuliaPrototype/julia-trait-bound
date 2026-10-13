@@ -2,10 +2,16 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "226efb13bc092a2041f2f61f42ffbfba793d82aa"
+project_hash = "59de8cd06511df351eadbd8a0f77a8dd57d54df2"
+
+[[deps.BaseTraits]]
+deps = ["TraitWorld"]
+path = "../BaseTraits"
+uuid = "d3e2c5a4-6f7b-4c8d-9eaf-2a3b4c5d6e7f"
+version = "0.1.0"
 
 [[deps.Columns]]
-deps = ["TraitWorld"]
+deps = ["BaseTraits", "TraitWorld"]
 path = "../Columns"
 uuid = "b1c0a3e2-4d5f-4a6b-9c7d-0e1f2a3b4c5d"
 version = "0.1.0"

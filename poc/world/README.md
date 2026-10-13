@@ -87,3 +87,41 @@ dynamic case compiles a `@cfunction` per operation at first use.
 Check results live where rule 7 places the code: `checked_call` is a
 generated function whose per-signature flag is embedded in the compiled code,
 so it is saved with whichever package image compiled that signature.
+
+## M2: Base capability traits and generic implementations
+
+`BaseTraits` declares `HasLength` (`Base.length`), `Iterable` (`Base.iterate`
+at two arities) and `Indexable <: HasLength` (`Base.getindex`), with
+conformance declared for Base's families: `AbstractArray`, `Tuple`,
+`AbstractString`, `AbstractDict`, `AbstractSet` (Iterable, HasLength);
+`AbstractVector` and `Tuple` (Indexable). Columns implements `ColTable`
+generically for every `Indexable` representation whose elements are
+`Vector{Float64}`, and specifically for `Vector{Vector{Float64}}` and
+`Matrix{Float64}`. `poc/world/m2_basetraits.jl`:
+
+| representation | HasLength | Iterable | Indexable |
+|---|---|---|---|
+| `Vector{Float64}`, ranges, `BitVector`, a `SubArray`, tuples | declared | declared | declared |
+| `Matrix{Float64}` | declared | declared | accidental |
+| `String`, `SubString{String}`, `Dict{Int,Float64}` | declared | declared | accidental |
+| `Set{Int}` | declared | declared | – |
+| `Int`, `Float64`, `Char`, `Pair`, a `NamedTuple` | accidental | accidental | accidental |
+
+"Declared" means declared and confirmed by inference at the declared types;
+"accidental" means the methods exist without a declaration, so structural
+conformance would accept it. Every declared Base family conforms. The check
+treats an abstract declared argument (the iteration state) by existence only:
+inference there says little, and every call asserts the result anyway.
+
+- **A subtype that breaks AbstractVector's contract** (`Broken`, no
+  `getindex`): inference finds the fallback that throws, TraitWorld warns once,
+  and a trait module calling `t[1]` raises the identical `CanonicalIndexError`
+  as plain Julia.
+- **ColTable follows from the capability traits:** `Vector{Vector{Float64}}`
+  takes Columns' specific implementation, a tuple of vectors, a `SubArray` of
+  vectors and a user's own `Indexable` representation take the generic one; `Int`
+  has `length` and `getindex` but is not a ColTable.
+- **Generic against specific,** `total` over 4 columns: 1.00–1.03× at 4096
+  elements, 1.09–1.22× at 16.
+- **A conformance check** of `Indexable` costs 120–260 µs the first time and
+  17–25 µs warm.

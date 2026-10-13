@@ -1,10 +1,12 @@
 [deps]
+BaseTraits = "d3e2c5a4-6f7b-4c8d-9eaf-2a3b4c5d6e7f"
 Columns = "b1c0a3e2-4d5f-4a6b-9c7d-0e1f2a3b4c5d"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
 UserTypes = "c2d1b4f3-5e6a-4b7c-8d9e-1f2a3b4c5d6e"
 
 [sources]
+BaseTraits = {path = "../BaseTraits"}
 Columns = {path = "../Columns"}
 TraitWorld = {path = "../../../TraitWorld"}
 UserTypes = {path = "../UserTypes"}
