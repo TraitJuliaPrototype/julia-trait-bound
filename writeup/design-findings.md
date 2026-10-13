@@ -65,6 +65,25 @@ error split, the verifier and concrete mode.
 
 ## 3. Design details
 
+Since doc rev 92 the note states the design as one principle, layering
+("ordinary code may use the trait world; the trait world uses only itself"),
+and seven rules: 1 layering; 2 projection per trait, at the boundary; 3 bounds
+propagate to the boundary; 4 several bounds, several views; 5 one ownership
+rule (seals and implementations are methods; ownership is delegated by the
+owner, never claimed; checked per applicable signature, so a `Union` is no
+loophole); 6 what a call sees; 7 where compiled code lives. The details below
+predate that wording: "part of the trait world" is rule 6, the closed trait
+world is rule 1, declared implementers and the orphan rule are rule 5, and
+the caching table in 3.4 is rule 7. Since rev 99 the note calls a seal a
+projection, written `@implement Trait T project(t) = …` (a seal's own
+operations: `@implement Trait T dynamic begin … end`); the prototype still
+uses `@seal`. The note's section "Working with existing Julia" adds, as design
+not yet prototyped: traits over existing functions (capability traits such
+as `Indexable` over `Base.length` and `getindex`, conformance declared for
+families), defaults and generic implementations, one projection for several
+traits, dispatch with types first and trait bounds above `Any`, and the
+built-in trait `Callable{A, S}` for function arguments from ordinary code.
+
 ### 3.1 What a later definition does to compiled trait-bound code
 
 | A method defined later by | Effect on a trait-mode specialization |
