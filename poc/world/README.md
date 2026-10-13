@@ -125,3 +125,67 @@ inference there says little, and every call asserts the result anyway.
   elements, 1.09–1.22× at 16.
 - **A conformance check** of `Indexable` costs 120–260 µs the first time and
   17–25 µs warm.
+
+## M3: several bounds, joint projections, rule 4
+
+`Rows` (RowTable, the bundle `Table`) and `Stats` (functions over two
+bounds, `Callable`, a trait with a mutating operation). `poc/world/m3_views.jl`:
+
+- **Projections run:** two for a type projected once per trait, one for a
+  joint projection, `@implement (ColTable, RowTable) Joint project(t) = t.m`.
+- **Workers:** with a joint projection the worker receives two views of one
+  representation, and it is the representation's own worker (the one
+  Stats' workload compiled for `Matrix{Float64}`). Separate projections need a
+  worker for their pair of representations.
+- **The bundle trait** `overview2(t::Table)` gives the same result as
+  `overview(t::(ColTable, RowTable))`.
+- **Rule 4:**
+  - a mutation through a sharing projection reaches the user's data;
+  - `@implement ColStore Frozen copies project(t) = deepcopy(t.cols)` is
+    rejected, because ColStore has the mutating operation `setcol!`;
+  - the same copying projection is accepted for ColTable.
+
+## M4: dispatch, types first, then traits
+
+Tested in `TraitWorld/test`:
+
+- Unrelated bounds on one position (`f(t::ColTable)`, `f(t::RowTable)`) are
+  rejected when the module is defined; adding `f(t::(ColTable, RowTable))`
+  resolves them, and a value with both projections takes that method.
+- A subtrait beats its supertrait (`Indexable` over `HasLength`): the worker's
+  bound includes the supertraits, so Julia's own specificity agrees.
+- An entry and a type method that differ in another position
+  (`h(t::ColTable, x::Int)`, `h(v::AbstractVector, x::Integer)`) are reported
+  as ambiguous at definition.
+- `Matrix{Float64}` has a ColTable implementation, but `describe(m::AbstractMatrix)`
+  still wins for it.
+- A differential test over 13 values compares a library before and after it
+  adopts a trait method. Only the three calls that used to reach the untyped
+  fallback and have a projection change.
+
+## M5: Callable
+
+Library's choice per argument: `f::Callable{A, S}` erases a function from
+above; `@specialize f::Callable{A, S}` compiles per function type. Functions of
+the trait world (Base's `abs2`) are always passed as themselves. A function
+called at two signatures carries two bounds, `f::(Callable{…}, Callable{…})`:
+one erased pointer per signature. Results of another type are errors, where
+plain Julia would widen. `poc/world/bench_m5.jl`:
+
+| | 16 elements | 4096 elements |
+|---|---|---|
+| `colmap(h, t, 1)`, erased, against `map(h, v)` | 220 ns against 29 | 4.0–4.4 ns per element of overhead |
+| `colsum(h, t, 1)`, specialized, against `sum(h, v)` | 120 ns against 7.7 | 1.31× |
+| `colsum(abs2, t, 1)`, Base's function | 125 ns against 6.6 | 1.47× |
+
+The fixed cost per call is about 110 ns: the entry, the function's wrapper
+(cached per type for functions that capture nothing) and the checked call.
+A fresh session's first call with a new closure:
+
+| call | ms |
+|---|---|
+| `colmap(f, t, 1)`, erased | 7.3–8.4 |
+| `map(f, v)`, plain Julia | 19–20 |
+| `colsum(f, t, 1)`, specialized | 35–36 |
+
+Erasure compiles only the closure's body.
