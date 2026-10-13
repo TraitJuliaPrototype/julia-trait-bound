@@ -47,7 +47,8 @@ module TraitRegions
 
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
-       sealed, each_seal, unseal!, each_op, freeze_universe!, PiracyError
+       sealed, each_seal, unseal!, each_op, freeze_universe!, PiracyError,
+       verify_main, isclosed
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -67,11 +68,16 @@ end
 
 include("ownership.jl")
 include("audit.jl")
+include("verify.jl")
 
 function __init__()
     SESSION[] = rand(UInt) | UInt(1)
-    m = Symbol(get(ENV, "JULIA_TRAITBOUND", "warn"))
-    MODE[] = m in (:warn, :error, :recompile) ? m : :warn
+    if CLOSED_WORLD[]
+        MODE[] = :recompile
+    else
+        m = Symbol(get(ENV, "JULIA_TRAITBOUND", "warn"))
+        MODE[] = m in (:warn, :error, :recompile) ? m : :warn
+    end
     return nothing
 end
 
@@ -212,6 +218,32 @@ function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::Name
     fn = GlobalRef(TraitRegions, :seal_info)
     Base.eval(mod, :($fn(::Type{$trait}, ::Type{$T}) = $s))
     _bump_universe!()
+    ccall(:jl_generating_output, Cint, ()) == 1 && _compile_seal_code(trait, T, s)
+    return nothing
+end
+
+"""
+Compile a seal's own code into the package image being built: the projection
+at `T`, each witness at its declared signature when that is concrete, and each
+witness at the signatures the ops registered so far actually call (declared
+argument types may be abstract; workers call at concrete ones). `build_seal`
+already inferred the declared signatures, so the image holds them either way;
+without native code they are compiled at first use in every session, and no
+downstream image can supply native code for a CodeInstance that lives in this
+one (found by `verify_main`, poc/verifymain). Ops from region packages this
+conformer does not load are not seen here: the application's verified build
+compiles those witness calls into its own image.
+"""
+function _compile_seal_code(trait::Type, T::Type, s::Seal)
+    ccall(:jl_compile_hint, Int32, (Any,), Tuple{typeof(s.project), T})
+    info = trait_info(trait)
+    for name in keys(info)
+        sig = Tuple{typeof(getfield(s.raw, name)), s.R, info[name].args...}
+        Base.isdispatchtuple(sig) && ccall(:jl_compile_hint, Int32, (Any,), sig)
+    end
+    for sig in _seal_witness_sigs(trait, s, Base.get_world_counter())
+        ccall(:jl_compile_hint, Int32, (Any,), sig)
+    end
     return nothing
 end
 

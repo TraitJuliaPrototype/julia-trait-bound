@@ -1,0 +1,9 @@
+name = "VMAppW"
+uuid = "eca516a9-b80c-43a0-81ee-571935d8e233"
+version = "0.1.0"
+
+[deps]
+MyTable = "b0000000-0000-0000-0000-000000000002"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Stats = "b0000000-0000-0000-0000-000000000001"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"

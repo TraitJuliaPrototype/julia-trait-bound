@@ -1,0 +1,25 @@
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ColPlots = "eff6be20-6fab-4e1b-8e40-a25afd906885"
+ColReports = "2320ab91-7e0b-4532-9f14-bd80d9cf9c43"
+ColStats = "877a04e8-a67d-433a-bf9f-ae48e0e2cd8b"
+ColTables = "7a1baee8-5358-4588-880c-149bb8a8622f"
+EagerTables = "8700a4b4-ee74-438e-a90b-dcede356e2e2"
+EcoApp = "eb3a52e4-18ed-493b-a73c-9034ea54f2f5"
+EcoAppW = "08f1983d-b395-491e-99cb-52acf146dc3d"
+LazyTables = "25f65375-48e7-49d8-905b-1d721dc50b20"
+MatrixTables = "336ef422-dcbe-4aa0-9ce6-ff31a16dbd6e"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+
+[sources]
+ColPlots = {path = "../../../ecosystem/ColPlots"}
+ColReports = {path = "../../../ecosystem/ColReports"}
+ColStats = {path = "../../../ecosystem/ColStats"}
+ColTables = {path = "../../../ecosystem/ColTables"}
+EagerTables = {path = "../../../ecosystem/EagerTables"}
+EcoApp = {path = "../EcoApp"}
+EcoAppW = {path = "../EcoAppW"}
+LazyTables = {path = "../../../ecosystem/LazyTables"}
+MatrixTables = {path = "../../../ecosystem/MatrixTables"}
+TraitRegions = {path = "../../../TraitRegions"}

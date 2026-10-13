@@ -199,6 +199,53 @@ end
     @test occursin("PiracyError", string(ex.args[3]))
 end
 
+# verify_main fixtures: the element types of the data are chosen at runtime
+vm_tables(n::Int) = Any[isodd(i) ? TableA([[1.0, 2.0]]) : TableB([1.0], [2.0]) for i in 1:n]
+vm_trait(n::Int) = (s = 0.0; for t in vm_tables(n); s += colmean(t, 1)::Float64; end; s)
+vm_plainf(t) = sum(t isa TableA ? t.cols[1] : t.a)          # generic: specialized per runtime type
+vm_plain(n::Int) = (s = 0.0; for t in vm_tables(n); s += vm_plainf(t)::Float64; end; s)
+vm_meth(::TableA) = 1.0; vm_meth(::TableB) = 2.0; vm_meth(::BadReturn) = 3.0; vm_meth(::AbstractRep) = 4.0
+vm_methods(n::Int) = (s = 0.0; for t in vm_tables(n); s += vm_meth(t)::Float64; end; s)
+const VM_ANY = Any[0]
+vm_err(x::Int) = x > 0 ? x : throw(ArgumentError(string("bad: ", VM_ANY[1])))
+# review counterexamples: each must report the vm_plainf / vm_nsf hole on a normal path
+vm_nsf(@nospecialize(x::T)) where {T} = sizeof(T)           # @nospecialize with a type variable: specialized anyway
+vm_nospec(n::Int) = (s = 0; for t in vm_tables(n); s += vm_nsf(t)::Int; end; s)
+vm_exit(n::Int) = (for t in vm_tables(n); vm_plainf(t); end; exit(0))   # never returns, but not an error
+vm_try(n::Int) = (s = 0.0; for t in vm_tables(n); s += try; error(string(vm_plainf(t))); catch; 1.0; end; end; s)
+vm_task(n::Int) = fetch(Threads.@spawn vm_plain(n))::Float64  # the closure runs from the scheduler
+
+@testset "verify_main" begin
+    r = verify_main(vm_trait, (Int,))
+    @test !any(h -> !h.errorpath, r.holes)                      # trait dispatch is bounded
+    @test r.trait_sites > 0
+    @test any(p -> p.first === :worker && p.second.parameters[3] === Vector{Vector{Float64}}, r.targets)
+    @test any(p -> p.first === :project && p.second.parameters[2] === TableB, r.targets)
+    @test isempty(r.findings)
+    verify_main(vm_trait, (Int,); compile = true)               # compile every enumerated target
+    @test isclosed(verify_main(vm_trait, (Int,)))
+    @test vm_trait(4) == sum(t -> colmean(t, 1), vm_tables(4))
+    # plain Julia: a generic method called on a runtime-typed value is a hole
+    rp = verify_main(vm_plain, (Int,))
+    @test any(h -> !h.errorpath && h.kind === :dispatch && h.callee === vm_plainf, rp.holes)
+    @test !isclosed(rp)
+    # methods on concrete types are a finite target set, even past max_methods
+    rm = verify_main(vm_methods, (Int,))
+    @test !any(h -> h.callee === vm_meth, rm.holes)
+    @test rm.bounded > 0
+    # a dynamic call on the way to a throw is an error-path hole
+    re = verify_main(vm_err, (Int,))
+    @test any(h -> h.errorpath, re.holes)
+    @test !any(h -> !h.errorpath, re.holes)
+    @test occursin("verify_main", sprint(show, MIME"text/plain"(), r))
+    normalhole(r, f) = any(h -> !h.errorpath && h.callee === f, r.holes)
+    @test normalhole(verify_main(vm_nospec, (Int,)), vm_nsf)
+    @test normalhole(verify_main(vm_exit, (Int,)), vm_plainf)
+    @test normalhole(verify_main(vm_try, (Int,)), vm_plainf)
+    rt = verify_main(vm_task, (Int,))
+    @test rt.roots >= 1 && normalhole(rt, vm_plainf)
+end
+
 @trait Int8Bag begin
     items(r)::Vector{Int8}
 end

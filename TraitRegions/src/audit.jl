@@ -17,6 +17,8 @@
 # ---------------------------------------------------------------------------
 
 const MODE = Ref(:warn)
+"Set by `verify_main(...; entrypoints = true)`: a trimmed binary, audited at build time; the guard stays off."
+const CLOSED_WORLD = Ref(false)
 const SESSION = Ref{UInt}(0)
 
 """

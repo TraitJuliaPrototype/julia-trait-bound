@@ -1,0 +1,14 @@
+[deps]
+MyTable = "b0000000-0000-0000-0000-000000000002"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Stats = "b0000000-0000-0000-0000-000000000001"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+VMApp = "f3cb5e31-64fe-45eb-87a5-6954ef76b10c"
+VMAppW = "eca516a9-b80c-43a0-81ee-571935d8e233"
+
+[sources]
+MyTable = {path = "../../errorsplit/MyTable"}
+Stats = {path = "../../errorsplit/Stats"}
+TraitRegions = {path = "../../../TraitRegions"}
+VMApp = {path = "../VMApp"}
+VMAppW = {path = "../VMAppW"}
