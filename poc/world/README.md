@@ -14,7 +14,7 @@ planned in `writeup/poc2-plan.md`. The machinery is the package
 
 | package | kind | role |
 |---|---|---|
-| `TraitWorld/` (repo root) | the machinery | traits, implementations, projections, trait modules, entries, `Callable`, checks (rules 1, 3, 5), the audit, concrete mode, `verify_main`; 97 tests |
+| `TraitWorld/` (repo root) | the machinery | traits, implementations, projections, trait modules, entries, `Callable`, checks (rules 1, 3, 5), the audit, concrete mode, `verify_main`; 117 tests |
 | `BaseTraits` | trait module | `HasLength`, `Iterable`, `Indexable` over Base's functions; conformance for Base's families |
 | `Columns` | trait module | `ColTable`: generic over `Indexable`, specific for `Vector{Vector{Float64}}` and `Matrix{Float64}`; `describe` with types first |
 | `Rows` | trait module | `RowTable`, the bundle `Table` |
@@ -343,8 +343,20 @@ What the proof of concept taught about the design, beyond confirming it:
 - **Rules 6 and 3 are approximations on stock Julia.**
   - Rule 6: Julia compiles against the whole method table, so the audit
     stands in for "compiled against what a call sees".
-  - Rule 3: checked on typed code at first use, or at build time; not by the
-    compiler.
+  - Rules 3 and 1 are a heuristic on typed code, run per worker signature
+    reached from an entry: at its first call, or while a package image is
+    built. It follows workers and helpers whatever their argument types, and
+    a trait object returned to ordinary code is an error. It does not walk
+    the bodies of generic implementations or dynamic operations, nor plain
+    functions of a trait module called directly by ordinary code.
+- **Entry caches are stamped with TraitWorld's generation**, which
+  `@trait`, `@implement`, trait-bounded definitions and package loads bump;
+  unrelated method definitions do not. A plain method that a generic
+  implementation's predicate reads (`eltype` of a user type) must exist before
+  the first call, or be followed by `TraitWorld.refresh!()`.
+- **Workers compile per view set, not only per representation.** A function
+  bounded by `ColTable` gets a second worker when a caller with two bounds
+  passes its object on: representations × the bound sets of callers.
 - **Ownership checks for ordinary methods in a trait module** run right after
   the definition. A package that fails them does not build, but in a session
   the method stays defined.
@@ -357,3 +369,50 @@ What the proof of concept taught about the design, beyond confirming it:
 - **Fresh-session costs** of implementing a type at the REPL: 123–128 ms for
   a projection, 241–259 ms for dynamic operations. Most of it is inference
   in the checks.
+
+## Review (Fable) and what changed
+
+An adversarial review of TraitWorld reproduced every number above and found
+the following. Every item is fixed and tested (`TraitWorld/test`, testsets
+"review: …"), unless noted.
+
+| finding | fix |
+|---|---|
+| the rule-3 check followed a worker called from a worker only at concrete argument types: `helper2(t::Iterable, x) = sum(t) + x`, called with `x::Union{Int,Float64}`, computed silently | follows workers and helpers at any argument types |
+| a trait object escaped by return value (`leak(t::ColTable) = t`) | an error at the boundary (one dispatch in `checked_call`, folded per signature) and in the check (the worker's inferred result) |
+| an untyped fallback of another shape than the entry's (`g(x, y)` beside `g(t::ColTable, x::Int)`) was not reached: `g(42, 1)` raised a `MethodError` where plain Julia returns 2 | the entry's fallback calls the most specific applicable method that is neither an entry nor a worker |
+| `h(x::T) where {T}` silently replaced the entry of `h(t::ColTable)` | an unbounded where-variable counts as untyped (it becomes the fallback); a method that replaces an entry is an error |
+| defaults could not call supertrait operations (`lastel(r) = r[length(r)]`) | operations pass the whole trait object, with its supertraits' views, to a default |
+| existing methods (a family, `@implement X{R}` without a block) ignored the trait's defaults | defaults are computed per representation: operations it has no method for |
+| the projection-with-operations form, `@implement ColTable{MyRep} T begin project(t) = …; ncols(r) = …; … end`, was rejected by the ownership precheck | the check runs after definition for that form |
+| a lower-bounded type variable conferred ownership: `Base.length(x::T) where {T >: Mine}` was accepted | only `TObj`'s trait parameter counts its lower bound |
+| unrelated bounds added by another module (`Columns.colmean(t::RowX, i)` from the owner of `RowX`) were not checked | every module checks the functions it gave workers to |
+| unlocked caches | a lock for the slow paths; entry, callable and trait-world caches are copy-on-write, read without the lock |
+| entries differing only in which position is trait-bounded were rejected as ambiguous | not reported at definition: they overlap only where a value has both projections, and a call there raises Julia's own ambiguity error |
+| `Base.Fix1(userf, x)` counted as a function of the trait world because the wrapper is Base's | a function belongs to the trait world only if its type does all the way down |
+| every method definition anywhere emptied every entry cache (25–95 µs per bump and signature) | caches are stamped with TraitWorld's generation; the call after an unrelated definition costs 3.2 µs |
+| ownership was rechecked for every method of a function after each definition (quadratic) | each method once |
+| generic implementations' results were never checked before run time | checked at each concrete representation, as families are (a warning) |
+| `is_piratical` was unused | removed |
+| README overclaims (the rule-3 and rule-1 checks; conformance for families) | the Limits section above |
+
+Not done: merging `Builder`, `Group` and `_subviews` into one tuple, and
+`_latest_ci`/`_valid_ci` into one function (cosmetic); a concurrency test
+(the test suite runs single-threaded).
+
+Numbers after the fixes (`bench_m1.jl`, `bench_m5.jl`, trim):
+
+| | before | after |
+|---|---|---|
+| `total` at 4096 elements, representation / projection | 1.00–1.01× | 1.01× |
+| the same at 16 elements | 2.8–3.0× | 2.9–3.1× |
+| dynamic operations, 4096 elements | 7.0–7.3× | 7.2× |
+| `colsum` (specialized) / `colmap` (erased) at 16 elements | 120 / 220 ns | 127 / 219 ns |
+| a new closure's first call, erased | 7.3–8.4 ms | 7.7 ms |
+| trimmed binary | 2.09 MB, 47 warnings | 2.09 MB, 56 warnings (the fallback's reflection, on its error path) |
+
+A fresh session's first calls of a newly projected type cost 19 ms in
+`bench_m1.jl`, not the 9–10 ms measured at M1: since M2, Columns' first
+projection of a session also searches its generic implementation over the
+capability traits. The commit before the review measures 37–42 ms for the
+first `colmean` alone, against 30 ms after.

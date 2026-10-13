@@ -389,3 +389,14 @@ Limits on stock Julia:
 - Rule 6 is the audit, and rule 3 is checked on typed code at first use.
 - Keyword arguments and varargs are not supported in trait-bounded functions.
 - Dynamic operations hold run-time pointers, so not in a closed world.
+
+**Review.** An adversarial review (Fable) of TraitWorld found ten bugs and
+several overclaims, all fixed and tested; the table is in
+`poc/world/README.md`. Three sharpen the design:
+
+- a trait object returned to ordinary code is an escape like any other;
+- the fallback of a function with trait-bounded methods is the most specific
+  ordinary method of any shape, so adopting a trait method never changes a
+  call that worked;
+- ownership counts a lower-bounded type variable only for a trait object's
+  traits.
