@@ -341,3 +341,51 @@ whose unused result the compiler dropped; the benchmark now consumes results.
 | Precision fixes to invalidation | kill only code whose dispatch really changes | largely upstream already in 1.12; does not remove the cost |
 | A global invalidation filter | ignore later definitions everywhere | unsound: ordinary code was served answers computed under the filter |
 | Runtime inline caches for a seal's own operations | guard on the operation's identity, inline the fast path | JIT machinery Julia lacks |
+
+## 12. TraitWorld: the design of rev 101 on stock Julia
+
+`TraitWorld/` implements the note's design as of rev 101, with Base
+capability traits; the packages and every number are in `poc/world/README.md`
+(plan: `writeup/poc2-plan.md`). In short:
+
+| | TraitWorld | TraitRegions |
+|---|---|---|
+| one operation per element, 4096 elements | 1.00–1.01× plain | 1.02–1.03× |
+| the same, 16 elements (entry) | 2.8–3.0× | 2.3–2.5× |
+| a type's own operations | 6.3–6.4 ns per element, 7.0–7.3× | 19–23 ns, 24–35× |
+| generic implementation over `Indexable` against a specific one | 1.00–1.03× | – |
+| `Callable`, erased, per call | 4.0–4.4 ns | – |
+| first call of a new closure, erased / plain `map` / specialized | 7–8 / 19–20 / 35–36 ms | – |
+| a fresh session: projection, implement + first calls | 123–128 + 9–10 ms | 113 + 3 ms |
+| first calls with an application depending on both packages | nothing compiled | – |
+| concrete mode, the abstract field three packages down | found at build time, 74× | the same |
+| `verify_main` + `juliac --trim` of a program choosing its table type at run time | closed, 2.09 MB, runs | 1.9 MB |
+
+Findings that change or sharpen the design:
+
+- **Rule 5 covers an implementation's methods.** An operation that is
+  someone else's function may be implemented only by an owner of the function
+  or of the representation; the trait's owner declares existing methods
+  instead.
+- **A type's own operations replace the representation's.** Operations they
+  leave out come from the trait's defaults.
+- **Delegation is a package extension whose triggers its methods mention.**
+  While the extension precompiles, the relation is read from the parent's
+  Project.toml.
+- **Inference confirms declared conformance only at concrete argument
+  types,** and misses fallbacks that throw on some paths. Structural
+  conformance would accept `Int`, `Char`, `Pair`, `NamedTuple`, `String`,
+  `Dict` and `Matrix` where they mean something else.
+- **Check results live where rule 7 places the code:** a flag per worker
+  signature, embedded in a generated function's compiled code.
+- **The machinery obeys the design:**
+  - no edges from registry lookups;
+  - reflection behind dynamic calls;
+  - its own workload;
+  - entries analyzed at their call sites for AOT.
+
+Limits on stock Julia:
+
+- Rule 6 is the audit, and rule 3 is checked on typed code at first use.
+- Keyword arguments and varargs are not supported in trait-bounded functions.
+- Dynamic operations hold run-time pointers, so not in a closed world.

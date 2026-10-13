@@ -10,6 +10,22 @@ planned in `writeup/poc2-plan.md`. The machinery is the package
     julia --startup-file=no --project=poc/world/env poc/world/spike4.jl
     julia --project=TraitWorld -e 'using Pkg; Pkg.test()'
 
+## Packages
+
+| package | kind | role |
+|---|---|---|
+| `TraitWorld/` (repo root) | the machinery | traits, implementations, projections, trait modules, entries, `Callable`, checks (rules 1, 3, 5), the audit, concrete mode, `verify_main`; 97 tests |
+| `BaseTraits` | trait module | `HasLength`, `Iterable`, `Indexable` over Base's functions; conformance for Base's families |
+| `Columns` | trait module | `ColTable`: generic over `Indexable`, specific for `Vector{Vector{Float64}}` and `Matrix{Float64}`; `describe` with types first |
+| `Rows` | trait module | `RowTable`, the bundle `Table` |
+| `Stats` | trait module | functions over two bounds, `Callable`, `ColStore` (mutating), `weighted` (the piracy target) |
+| `UserTypes` | ordinary | a conformer: projection, own representation, dynamic operations |
+| `Pirate` | ordinary | defines `Stats.weight(::Float64)` |
+| `App` | ordinary | an application depending on Stats and UserTypes; `main` for verify_main and trim |
+| `delegation/` | GridLib, OtherD, ColsD | extensions: a delegate, and one with an unrelated trigger |
+| `concrete/` | CBottom, CMid1, CMid2, CTop | the abstract field three trait modules below a hot loop |
+| `trim/` | | `juliac --trim` builds of `App.main` |
+
 ## How TraitWorld works
 
 - **Operations are functions, implementations are methods.** `@trait ColTable{R}`
@@ -282,3 +298,62 @@ through a dynamic call took the reflection out of the binary (2.46 to 2.09 MB,
 
 Limit: dynamic operations (`@implement … dynamic`) hold erased function
 pointers created at run time, so a closed world should use implementations.
+
+## Findings
+
+What the proof of concept taught about the design, beyond confirming it:
+
+1. **Rule 5 must apply to an implementation's methods, not only to the
+   trait.** Implementing an existing function (`Base.size`) for a foreign
+   representation is piracy even when the trait is one's own. TraitWorld
+   rejects it before defining anything. The trait's owner declares the
+   existing methods instead, and conformance is checked.
+2. **A type's own operations replace the representation's, never mix with
+   them.** Operations a dynamic implementation leaves out come from the
+   trait's defaults, calling its own operations. Falling back to the
+   representation's implementation gave `Reversed` columns in the wrong
+   order.
+3. **Inference can confirm declared conformance only at concrete argument
+   types.**
+   - At an abstract declared argument (an iteration state) it says nothing.
+   - It catches fallbacks that always throw (`Union{}`), but not ones that
+     throw on some paths (`iterate` of a broken AbstractVector infers
+     `Nothing`).
+   - Every call asserts its result, so "identical or error" holds anyway.
+4. **Structural conformance would accept `Int`, `Char`, `Pair` and
+   `NamedTuple` for all three capability traits.** It would also accept
+   `String`, `Dict` and `Matrix` as `Indexable`, against their meaning.
+5. **Erased calls are cheap only if the callee is concrete.** The callee
+   must declare concrete types, the caller pass boxes, and the wrapper have
+   a fixed arity: 7 ns. Otherwise they cost 27–74 ns, or allocate.
+6. **Check results belong where rule 7 puts the code.** A per-signature flag
+   embedded in a generated function's code is saved with whichever image
+   compiled it, for the rule 3 check, the audit's first run and concrete
+   mode alike.
+7. **The machinery must obey the design.** Registry lookups go through
+   `invokelatest`, reflection paths through dynamic calls, and TraitWorld's
+   own workload covers them. Otherwise loads invalidate it, sessions
+   recompile it, and trimmed binaries carry it.
+8. **Entries must be analyzed at their call sites.** Inside a `@nospecialize`
+   entry every registered type looks possible; at the call site, only the
+   program's own.
+
+## Limits of the proof of concept
+
+- **Rules 6 and 3 are approximations on stock Julia.**
+  - Rule 6: Julia compiles against the whole method table, so the audit
+    stands in for "compiled against what a call sees".
+  - Rule 3: checked on typed code at first use, or at build time; not by the
+    compiler.
+- **Ownership checks for ordinary methods in a trait module** run right after
+  the definition. A package that fails them does not build, but in a session
+  the method stays defined.
+- **Not supported:** keyword arguments, varargs and optional arguments in
+  trait-bounded functions. An untyped fallback must come after the
+  trait-bounded methods it falls back from.
+- **Generic implementations' bodies** are not walked by the rule 3 check.
+- **Dynamic operations in a closed world:** their erased pointers are created
+  at run time, so a trimmed build should use implementations.
+- **Fresh-session costs** of implementing a type at the REPL: 123–128 ms for
+  a projection, 241–259 ms for dynamic operations. Most of it is inference
+  in the checks.
