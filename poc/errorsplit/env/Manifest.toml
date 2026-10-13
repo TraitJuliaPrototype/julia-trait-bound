@@ -1,0 +1,112 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.12.2"
+manifest_format = "2.0"
+project_hash = "a9bb0bb8b354af05f70587339fda0c43e5aaee78"
+
+[[deps.Artifacts]]
+uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+version = "1.11.0"
+
+[[deps.CompilerSupportLibraries_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "1.3.0+1"
+
+[[deps.Dates]]
+deps = ["Printf"]
+uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+version = "1.11.0"
+
+[[deps.Dominated]]
+deps = ["Stats"]
+path = "../Dominated"
+uuid = "b0000000-0000-0000-0000-000000000004"
+version = "0.1.0"
+
+[[deps.FakeImpl]]
+deps = ["Stats"]
+path = "../FakeImpl"
+uuid = "b0000000-0000-0000-0000-000000000006"
+version = "0.1.0"
+
+[[deps.Legit]]
+deps = ["Stats"]
+path = "../Legit"
+uuid = "b0000000-0000-0000-0000-000000000005"
+version = "0.1.0"
+
+[[deps.Libdl]]
+uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+version = "1.11.0"
+
+[[deps.LinearAlgebra]]
+deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
+uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+version = "1.12.0"
+
+[[deps.MyTable]]
+deps = ["PrecompileTools", "Stats", "TraitRegions"]
+path = "../MyTable"
+uuid = "b0000000-0000-0000-0000-000000000002"
+version = "0.1.0"
+
+[[deps.OpenBLAS_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
+uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.29+0"
+
+[[deps.Orphan]]
+deps = ["Stats", "TraitRegions"]
+path = "../Orphan"
+uuid = "b0000000-0000-0000-0000-000000000007"
+version = "0.1.0"
+
+[[deps.Pirate]]
+deps = ["Stats"]
+path = "../Pirate"
+uuid = "b0000000-0000-0000-0000-000000000003"
+version = "0.1.0"
+
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "edbeefc7a4889f528644251bdb5fc9ab5348bc2c"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.3.4"
+
+[[deps.Preferences]]
+deps = ["TOML"]
+git-tree-sha1 = "5005266de4bfe50e53ff44a5cb5c540b6e47a254"
+uuid = "21216c6a-2e73-6563-6e65-726566657250"
+version = "1.6.0"
+
+[[deps.Printf]]
+deps = ["Unicode"]
+uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+version = "1.11.0"
+
+[[deps.Stats]]
+deps = ["LinearAlgebra", "TraitRegions"]
+path = "../Stats"
+uuid = "b0000000-0000-0000-0000-000000000001"
+version = "0.1.0"
+
+[[deps.TOML]]
+deps = ["Dates"]
+uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.3"
+
+[[deps.TraitRegions]]
+deps = ["PrecompileTools"]
+path = "../../../TraitRegions"
+uuid = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+version = "0.1.0"
+
+[[deps.Unicode]]
+uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+version = "1.11.0"
+
+[[deps.libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "5.15.0+0"

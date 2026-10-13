@@ -1,0 +1,8 @@
+name = "FakeImpl"
+uuid = "b0000000-0000-0000-0000-000000000006"
+version = "0.1.0"
+[deps]
+Stats = "b0000000-0000-0000-0000-000000000001"
+
+[traitbound]
+implements = ["Stats"]

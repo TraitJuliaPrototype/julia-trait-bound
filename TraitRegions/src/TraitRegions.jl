@@ -35,12 +35,19 @@ Design notes carried over from the M0 spike (see session-notes/):
   * trait knowledge lives at seal *time* (runtime checks), the region rewrite
     is purely syntactic — so traits, seals, and regions may live in different
     packages without macro-expansion-order coupling.
+
+The error split (design doc, Stage 1; ownership.jl, audit.jl): every entry
+audits its worker's compiled concrete-edge closure for methods defined by a
+package that owns neither the function nor its argument types. Session mode
+`TraitRegions.mode!` / `JULIA_TRAITBOUND`: `:warn` (default) names the pirate
+and runs as plain Julia; `:error` raises `PiracyError`; `:recompile` opts out.
+Seals obey an orphan rule; `catch` inside region ops rethrows `PiracyError`.
 """
 module TraitRegions
 
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
-       sealed, each_seal, unseal!, each_op, freeze_universe!
+       sealed, each_seal, unseal!, each_op, freeze_universe!, PiracyError
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -56,6 +63,16 @@ struct Seal
     w::NamedTuple          # abstract field: erased witness table
     raw::NamedTuple        # same witnesses, concrete types (@full_compile path)
     R::Type                # inferred representation (Any if inference failed)
+end
+
+include("ownership.jl")
+include("audit.jl")
+
+function __init__()
+    SESSION[] = rand(UInt) | UInt(1)
+    m = Symbol(get(ENV, "JULIA_TRAITBOUND", "warn"))
+    MODE[] = m in (:warn, :error, :recompile) ? m : :warn
+    return nothing
 end
 
 """
@@ -188,8 +205,9 @@ Check, build, and define the seal as a method of `seal_info` evaluated in
 external method extension, serialized in that package's pkgimage and merged
 at load like any other method. No `__init__` replay needed for seals.
 """
-function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::NamedTuple))
+function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::NamedTuple); definer::Module = mod)
     _check_not_sealed(trait, T)
+    _check_orphan(definer, trait, T)
     s = build_seal(trait, T, kw)
     fn = GlobalRef(TraitRegions, :seal_info)
     Base.eval(mod, :($fn(::Type{$trait}, ::Type{$T}) = $s))
@@ -197,9 +215,27 @@ function _define_seal!(mod::Module, trait::Type, T::Type, @nospecialize(kw::Name
     return nothing
 end
 
-"Runtime seal (scripts/tests). For package top level, prefer `@seal` (serializes with the caller)."
+"""
+Orphan rule: a seal for (Trait, T) may be defined only by the owner of Trait,
+the owner of T (including its type parameters), a package extension of
+either, or a declared implementer. Two packages sealing the same foreign
+pair would otherwise silently override each other.
+"""
+function _check_orphan(definer::Module, trait::Type, T::Type)
+    d = owner(definer)
+    owners = sig_owners(Tuple{Type{trait}, Type{T}})
+    d in owners && return nothing
+    d isa Module && any(o -> o isa Module && nameof(o) in implements(d), owners) && return nothing
+    msg = "orphan seal: $definer owns neither trait $trait nor type $T. Seal in the " *
+          "package that owns one of them, or in a package extension of it."
+    MODE[] === :error && error(msg)
+    MODE[] === :warn && @warn msg
+    return nothing
+end
+
+"Runtime seal (scripts/tests), attributed to `Main`. For package top level, prefer `@seal` (serializes with the caller)."
 register!(trait::Type, T::Type, @nospecialize(kw::NamedTuple)) =
-    _define_seal!(TraitRegions, trait, T, kw)
+    _define_seal!(TraitRegions, trait, T, kw; definer = Main)
 
 # ---------------------------------------------------------------------------
 # Cross-region op registry: ops ARE methods too (P0, mirroring seals).
@@ -220,9 +256,9 @@ function _check_op_free(trait::Type, name::Symbol, @nospecialize(worker::Functio
     return nothing
 end
 
-"All ops of `trait` from the method table: Vector{Pair{Symbol,Tuple{Function,Tuple}}}."
+"All ops of `trait` from the method table: Vector{Pair{Symbol,Tuple}}, each entry `(worker, argtypes, guard)`."
 function each_op(trait::Type)
-    out = Pair{Symbol,Tuple{Function,Tuple}}[]
+    out = Pair{Symbol,Tuple}[]
     for m in methods(op_info)
         sig = m.sig
         sig isa DataType && length(sig.parameters) == 3 || continue
@@ -282,16 +318,23 @@ end
 "Runtime op registration (scripts/tests): defines the op_info method via eval."
 function register_op!(trait::Type, name::Symbol, @nospecialize(worker::Function), @nospecialize(argts::Tuple))
     _check_op_free(trait, name, worker)
-    @eval op_info(::Type{$trait}, ::Val{$(QuoteNode(name))}) = ($worker, $argts)
+    guard = GuardState(name)
+    @eval op_info(::Type{$trait}, ::Val{$(QuoteNode(name))}) = ($worker, $argts, $guard)
     _bump_universe!()
     return nothing
 end
 
-"Dynamic cross-region call: the honest Rung-1 lowering (op lookup + dynamic dispatch per call)."
-function dyncall(trait::Type, name::Symbol, @nospecialize(w), @nospecialize(r), args...)
+"""
+Dynamic cross-region call: the honest Rung-1 lowering (op lookup + dynamic
+dispatch per call). Inlined into workers so that the constant op name folds
+the lookup and the worker call becomes static.
+"""
+@inline function dyncall(trait::Type, name::Symbol, @nospecialize(w), @nospecialize(r), args...)
     entry = op_info(trait, Val(name))
     entry === nothing &&
         error("no witness or region op `$name` for trait $trait (witness tables and the op registry were both consulted)")
+    # a dynamic call leaves no edge, so the callee's closure needs its own audit
+    _guard(entry[3]::GuardState, entry[1], w, r, args...)
     return entry[1](w, r, args...)
 end
 
@@ -320,7 +363,8 @@ function precompile_seal(trait::Type, T::Type)
     s = seal_info(trait, T)
     s === nothing && error("precompile_seal: $T is not sealed for $trait")
     n = 0
-    for (_, (worker, argts)) in each_op(trait)
+    for (_, entry) in each_op(trait)
+        worker, argts = entry[1], entry[2]
         precompile(worker, (typeof(s.w), s.R, argts...)) && (n += 1)
     end
     return n
@@ -531,8 +575,9 @@ function _rewrite_op(trait, fdef, imports::Dict{Symbol,Any}, fc::Bool)
     argts = map(_argtype, extras)
 
     worker = Symbol(fname, "#worker")
+    guard = Symbol(fname, "#guard")
     w = gensym(:w); r = gensym(:r)
-    newbody = _rewrite_body(body, tname, w, r, trait, imports)
+    newbody = _rethrow_piracy(_rewrite_body(body, tname, w, r, trait, imports))
     n = _count_symbol(newbody, tname)
     n == 0 || error("@region: in op `$fname`, `$tname` escapes trait position " *
                     "($n occurrence(s) outside first-argument-of-call); " *
@@ -551,10 +596,31 @@ function _rewrite_op(trait, fdef, imports::Dict{Symbol,Any}, fc::Bool)
     # Julia then monomorphizes the whole call chain per witness set.
     table = fc ? :(s.raw) : :(s.w)
     entrydef = :(function $fname(Base.@nospecialize($tname), $(extras...))
-        s = TraitRegions.seal_of($trait, $tname)
-        $worker($table, s.project($tname), $(extranames...))
+        s = TraitRegions._enter($guard, $trait, $tname)
+        $r = s.project($tname)
+        TraitRegions._guard($guard, $worker, $table, $r, $(extranames...))
+        $worker($table, $r, $(extranames...))
     end)
-    return workerdef, entrydef, fname, worker, argts
+    return workerdef, entrydef, fname, worker, guard, argts
+end
+
+"""
+Inside region ops, `catch` must not swallow a `PiracyError`: poison follows
+edges and dynamic calls have none, so a fallback taken after a caught
+`PiracyError` would compute something plain Julia never computes.
+"""
+function _rethrow_piracy(ex)
+    ex isa Expr || return ex
+    args = Any[_rethrow_piracy(a) for a in ex.args]
+    if ex.head === :try && length(args) >= 3 && args[3] isa Expr
+        var = args[2]
+        if var === false
+            var = gensym(:err)
+            args[2] = var
+        end
+        args[3] = Expr(:block, :($var isa TraitRegions.PiracyError && rethrow()), args[3])
+    end
+    return Expr(ex.head, args...)
 end
 
 """
@@ -614,11 +680,14 @@ macro region(trait, rest...)
         end
         if _is_fdef(inner)
             if _is_region_op(inner)
-                workerdef, entrydef, fname, worker, argts = _rewrite_op(trait, inner, imports, fc)
+                workerdef, entrydef, fname, worker, guard, argts = _rewrite_op(trait, inner, imports, fc)
+                push!(out, :(if !isdefined(@__MODULE__, $(QuoteNode(guard)))
+                                 const $guard = TraitRegions.GuardState($(QuoteNode(fname)))
+                             end))
                 push!(out, workerdef, entrydef)
                 push!(regs, :(TraitRegions._check_op_free($trait, $(QuoteNode(fname)), $worker)))
                 push!(regs, :(TraitRegions.op_info(::Type{$trait}, ::Val{$(QuoteNode(fname))}) =
-                                  ($worker, ($(argts...),))))
+                                  ($worker, ($(argts...),), $guard)))
             else
                 push!(out, inner)   # helper: first argument is `::`-annotated
             end
@@ -666,6 +735,19 @@ end
 @compile_workload begin
     _pc_op(_PCDummy([[1.0, 2.0]]), 1)
     precompile_seal(_PCTrait, _PCDummy)
+    # the audit's slow paths: re-resolving an invalidated CodeInstance, compiling
+    # before auditing, ownership lookups, and reporting a finding
+    let tt = Tuple{typeof(seal_info(_PCTrait, _PCDummy).w), Vector{Vector{Float64}}, Int}
+        mi = Base.method_instance(var"_pc_op#worker", tt)
+        ci = _latest_ci(mi)
+        ci === nothing || _walk(ci, UInt(1))
+        audit(var"_pc_op#worker", tt)
+        implements(TraitRegions); is_piratical(first(methods(_pc_op)))
+        f = PiracyFinding(first(methods(_pc_op)), Tuple{typeof(_pc_op), Int}, mi)
+        Base.CoreLogging.with_logger(Base.CoreLogging.ConsoleLogger(IOBuffer())) do
+            _warn_piracy(GuardState(:_pc_op), Vector{Float64}, [f])
+        end
+    end
 end
 
 end # module

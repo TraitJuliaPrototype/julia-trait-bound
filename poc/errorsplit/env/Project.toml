@@ -1,0 +1,19 @@
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+Stats = "b0000000-0000-0000-0000-000000000001"
+MyTable = "b0000000-0000-0000-0000-000000000002"
+Pirate = "b0000000-0000-0000-0000-000000000003"
+Dominated = "b0000000-0000-0000-0000-000000000004"
+Legit = "b0000000-0000-0000-0000-000000000005"
+FakeImpl = "b0000000-0000-0000-0000-000000000006"
+Orphan = "b0000000-0000-0000-0000-000000000007"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+[sources]
+TraitRegions = {path = "../../../TraitRegions"}
+Stats = {path = "../Stats"}
+MyTable = {path = "../MyTable"}
+Pirate = {path = "../Pirate"}
+Dominated = {path = "../Dominated"}
+Legit = {path = "../Legit"}
+FakeImpl = {path = "../FakeImpl"}
+Orphan = {path = "../Orphan"}

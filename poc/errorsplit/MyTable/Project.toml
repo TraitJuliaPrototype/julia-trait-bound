@@ -1,0 +1,7 @@
+name = "MyTable"
+uuid = "b0000000-0000-0000-0000-000000000002"
+version = "0.1.0"
+[deps]
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+Stats = "b0000000-0000-0000-0000-000000000001"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"

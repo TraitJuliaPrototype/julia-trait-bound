@@ -172,3 +172,72 @@ end
     @test sealed(ColTable, :doublemean, ta, 1) == 4.0        # pinned world: old helper
     @test doublemean(ta, 1) == 198.0                          # live world: new helper
 end
+
+# --- the error split (design doc, Stage 1) ----------------------------------
+# Main is a pirate whenever it defines a method on a Base function for Base
+# types only. These testsets define one such pirate, so they run last.
+
+@testset "ownership rule" begin
+    @test TraitRegions.owner(Base) === :Julia
+    @test TraitRegions.owner(Core) === :Julia
+    @test TraitRegions.owner(TraitRegions) === TraitRegions
+    @test TraitRegions.owner(StaticImporter) === Main            # REPL code is Main's
+    # LinearAlgebra-style stdlib methods on Base functions are Julia's own, not piracy
+    @test !TraitRegions.is_piratical(first(methods(sum, (Vector{Float64},))))
+    # a method mentioning one of the definer's types is owned (Aqua's rule)
+    @test !TraitRegions.is_piratical(which(TraitRegions.seal_info, Tuple{Type{ColTable}, Type{TableA}}))
+    # orphan rule: Main owns neither TraitRegions' private trait nor a Base type
+    TraitRegions.mode!(:error)
+    @test_throws "orphan seal" TraitRegions._check_orphan(Main, TraitRegions._PCTrait, Vector{Vector{Float64}})
+    @test TraitRegions._check_orphan(Main, ColTable, Vector{Vector{Float64}}) === nothing   # Main owns ColTable
+    TraitRegions.mode!(:warn)
+end
+
+@testset "catch blocks rethrow PiracyError" begin
+    ex = TraitRegions._rethrow_piracy(:(try f() catch; 0 end))
+    @test ex.args[2] isa Symbol                                 # a catch variable was added
+    @test occursin("PiracyError", string(ex.args[3]))
+end
+
+@trait Int8Bag begin
+    items(r)::Vector{Int8}
+end
+struct Bag
+    v::Vector{Int8}
+end
+@seal Int8Bag Bag begin
+    project(t) = t.v
+    items(r)   = r
+end
+@region Int8Bag begin
+    bagsum(t) = sum(items(t)::Vector{Int8})
+    # dynamic call into another op; the catch must not swallow PiracyError
+    safesum(t) = try
+        bagsum(t)
+    catch
+        -1
+    end
+end
+
+@testset "guard: piracy against trait-bound code" begin
+    b = Bag(Int8[1, 2, 3])
+    @test bagsum(b) == 6
+    @test isempty(TraitRegions.audit_all())
+    # a legitimate method for Main's own type changes nothing
+    @eval Base.show(io::IO, ::Bag) = print(io, "Bag")
+    @test bagsum(b) == 6
+    # the pirate: Main owns neither `sum` nor `Vector{Int8}`
+    @eval Base.sum(v::Vector{Int8}) = 42
+    TraitRegions.mode!(:error)
+    err = try bagsum(b); nothing catch e; e end
+    @test err isa PiracyError
+    @test occursin("sum(v::Vector{Int8})", sprint(showerror, err))
+    @test_throws PiracyError safesum(b)                         # not swallowed by `catch`
+    @test !isempty(TraitRegions.audit_all())
+    TraitRegions.mode!(:warn)
+    @test (@test_logs (:warn, r"PiracyError") bagsum(b)) == 42   # warned once, runs on the pirate
+    @test (@test_logs bagsum(b)) == 42                           # not warned again
+    TraitRegions.mode!(:recompile)
+    @test (@test_logs bagsum(b)) == 42
+    TraitRegions.mode!(:warn)
+end
