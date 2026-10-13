@@ -74,8 +74,11 @@ mutable struct GuardState
     audited::Vector{Any}            # representations audited in this world
     seals::IdDict{Any,Any}          # T => Seal, looked up in this world
     warned::Base.IdSet{Method}      # pirates already reported in :warn mode
+    concrete::Symbol                # concrete mode: :off, :warn or :error (concrete.jl)
+    concrete_ok::Vector{Any}        # representations checked; kept across sessions when checked at precompile
 end
-GuardState(op::Symbol) = GuardState(op, UInt(0), UInt(0), Any[], IdDict{Any,Any}(), Base.IdSet{Method}())
+GuardState(op::Symbol, concrete::Symbol = :off) =
+    GuardState(op, UInt(0), UInt(0), Any[], IdDict{Any,Any}(), Base.IdSet{Method}(), concrete, Any[])
 
 function _restamp!(st::GuardState)
     world = Base.get_world_counter()
@@ -111,7 +114,7 @@ end
 
 "Fast path, inlined into every entry: one mode check, two compares, a short scan."
 @inline function _guard(st::GuardState, @nospecialize(worker), @nospecialize(w), @nospecialize(r), args...)
-    MODE[] === :recompile && return nothing
+    MODE[] === :recompile && st.concrete === :off && return nothing
     R = typeof(r)
     if st.session == SESSION[] && st.world == Base.get_world_counter()
         for x in st.audited
@@ -128,13 +131,18 @@ end
 @noinline function _guard_slow(st::GuardState, @nospecialize(worker), @nospecialize(w), @nospecialize(r), @nospecialize(args::Tuple))
     _restamp!(st)
     R = typeof(r)
-    findings = audit(worker, Tuple{typeof(w), R, map(typeof, args)...})
-    if isempty(findings)
-        push!(st.audited, R)
-        return nothing
+    argtypes = Tuple{typeof(w), R, map(typeof, args)...}
+    if MODE[] !== :recompile
+        findings = audit(worker, argtypes)
+        if !isempty(findings)
+            MODE[] === :error && throw(PiracyError(st.op, R, findings))   # stays poisoned
+            Base.inferencebarrier(_warn_piracy)(st, R, findings)
+        end
     end
-    MODE[] === :error && throw(PiracyError(st.op, R, findings))   # stays poisoned
-    Base.inferencebarrier(_warn_piracy)(st, R, findings)
+    # concrete mode: checked once per representation; an error leaves it unchecked
+    if st.concrete !== :off && !_concrete_checked(st, R)
+        Base.inferencebarrier(_check_concrete_op)(st, worker, argtypes)
+    end
     push!(st.audited, R)
     return nothing
 end

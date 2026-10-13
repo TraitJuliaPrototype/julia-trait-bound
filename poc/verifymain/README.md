@@ -76,7 +76,7 @@ Real programs on the CairoMakie stack (`makie_holes.jl`), normal-path holes:
 
 | main | holes | where |
 |---|---|---|
-| `compute_main` (trait ops incl. `ColPlots.histcounts`) | 28 | all in `histcounts`: its comprehension captures `lo` and `w`, which the loop reassigns, so they are boxed and every use is dynamic |
+| `compute_main` (trait ops incl. `ColPlots.histcounts`) | 28 | all in `histcounts`: its comprehension captures `lo`, which the loop reassigns, so it is boxed and every use is dynamic |
 | `plot_main` (`histplot(t::Any, 1)` + render) | 16 | `histplot(::Any, …)` itself, then Makie's display path; the walk stops at holes, so this is a frontier |
 | `plot_concrete` (one `EagerTable`, render) | 79 (59 distinct) | ColPlots 30, Observables 20, Makie 18, GridLayoutBase 5, Julia 4, script 2 |
 

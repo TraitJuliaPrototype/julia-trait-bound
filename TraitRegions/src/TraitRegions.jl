@@ -48,7 +48,8 @@ module TraitRegions
 export @trait, @seal, @region, register!, seal_of, deep_concrete,
        register_op!, precompile_seal, reinit, universe_id, fingerprint,
        sealed, each_seal, unseal!, each_op, freeze_universe!, PiracyError,
-       verify_main, isclosed
+       verify_main, isclosed, check_concrete, AbstractTypeError,
+       @warn_on_abstract, @error_on_abstract
 
 # ---------------------------------------------------------------------------
 # Runtime core
@@ -69,6 +70,7 @@ end
 include("ownership.jl")
 include("audit.jl")
 include("verify.jl")
+include("concrete.jl")
 
 function __init__()
     SESSION[] = rand(UInt) | UInt(1)
@@ -370,6 +372,12 @@ the lookup and the worker call becomes static.
     return entry[1](w, r, args...)
 end
 
+"Assert a witness result to the type its trait declares (`R` in the declaration: the representation's type)."
+@inline function _wret(::Type{T}, ::Val{name}, r, x) where {T, name}
+    D = getfield(trait_info(T), name).ret
+    return D === SelfR ? x::typeof(r) : x::D
+end
+
 "Precompile-time check that a statically-wired import really is a region op of this trait."
 function check_import(trait::Type, mod::Module, name::Symbol)
     entry = op_info(trait, Val(name))
@@ -398,6 +406,11 @@ function precompile_seal(trait::Type, T::Type)
     for (_, entry) in each_op(trait)
         worker, argts = entry[1], entry[2]
         precompile(worker, (typeof(s.w), s.R, argts...)) && (n += 1)
+        # concrete mode: the conformer's build reports what its representation does to annotated ops
+        st = entry[3]::GuardState
+        if st.concrete !== :off && all(isconcretetype, argts) && !_concrete_checked(st, s.R)
+            _check_concrete_op(st, worker, Tuple{typeof(s.w), s.R, argts...})
+        end
     end
     return n
 end
@@ -559,7 +572,9 @@ function _rewrite_body(ex, tname::Symbol, w::Symbol, r::Symbol, trait, imports::
             return :($workerref($w, $r, $(rest...)))
         end
         q = QuoteNode(g)
-        return :(haskey($w, $q) ? getfield($w, $q)($r, $(rest...)) :
+        # a witness result is asserted to the type the trait declares, so an
+        # inference failure in a conformer's witness stops at the boundary
+        return :(haskey($w, $q) ? TraitRegions._wret($trait, Val($q), $r, getfield($w, $q)($r, $(rest...))) :
                  TraitRegions.dyncall($trait, $q, $w, $r, $(rest...)))
     end
     return Expr(ex.head, (_rewrite_body(a, tname, w, r, trait, imports) for a in ex.args)...)
@@ -615,15 +630,13 @@ function _rewrite_op(trait, fdef, imports::Dict{Symbol,Any}, fc::Bool)
                     "($n occurrence(s) outside first-argument-of-call); " *
                     "regions may touch the trait object only through trait calls")
 
-    workerdef = if retanno === nothing
-        :(Base.@noinline function $worker($w, $r, $(extras...))
-            $newbody
-        end)
-    else
-        :(Base.@noinline function $worker($w, $r, $(extras...))::$retanno
-            $newbody
-        end)
-    end
+    # the worker's source location is the op's own, so reports point at user code
+    lnn = body isa Expr && body.head === :block ? findfirst(a -> a isa LineNumberNode, body.args) : nothing
+    lnn = lnn === nothing ? LineNumberNode(0, :none) : body.args[lnn]
+    wcall = Expr(:call, worker, w, r, extras...)
+    retanno === nothing || (wcall = Expr(:(::), wcall, retanno))
+    workerdef = Expr(:macrocall, GlobalRef(Base, Symbol("@noinline")), lnn,
+                     Expr(:function, wcall, Expr(:block, lnn, newbody)))
     # @full_compile entries hand the worker the *concrete* witness tuple:
     # Julia then monomorphizes the whole call chain per witness set.
     table = fc ? :(s.raw) : :(s.w)
@@ -682,33 +695,49 @@ _is_fdef(ex) = ex isa Expr && (ex.head === :function || (ex.head === :(=) && ex.
 
 Optional second argument: statically-wired cross-region imports (the
 faked-native lowering). Ops may be preceded by `@full_compile` to opt into
-per-witness-set monomorphization. Ops are registered as `op_info` methods
+per-witness-set monomorphization, and by `@warn_on_abstract` or
+`@error_on_abstract` to opt into concrete mode (concrete.jl); a whole region
+opts in with `@warn_on_abstract @region …`. Ops are registered as `op_info` methods
 in the calling module — serialized with the package; no `__init__` replay
 is needed (`reinit` is a deprecated no-op).
 """
 macro region(trait, rest...)
-    length(rest) in (1, 2) || error("@region: expected `@region Trait [imports] begin ... end`")
+    isempty(rest) && error("@region: expected `@region Trait [imports] begin ... end`")
     block = rest[end]
     block isa Expr && block.head === :block || error("@region: expected a begin/end block")
     imports = Dict{Symbol,Any}()
-    if length(rest) == 2
-        iv = rest[1]
-        iv isa Expr && iv.head === :vect ||
-            error("@region: imports must be a vector literal like [ColStats.colmean, ...]")
-        for item in iv.args
-            item isa Expr && item.head === :. && item.args[2] isa QuoteNode ||
-                error("@region: each import must be `Module.opname`, got $item")
-            imports[item.args[2].value] = item.args[1]
+    region_level = :off          # concrete mode for the whole region (`@warn_on_abstract @region …`)
+    for arg in rest[1:end-1]
+        if arg isa Expr && arg.head === :(=) && arg.args[1] === :concrete
+            lv = arg.args[2]
+            region_level = lv isa QuoteNode ? lv.value : lv
+            region_level in (:off, :warn, :error) || error("@region: concrete must be :off, :warn or :error")
+        elseif arg isa Expr && arg.head === :vect
+            for item in arg.args
+                item isa Expr && item.head === :. && item.args[2] isa QuoteNode ||
+                    error("@region: each import must be `Module.opname`, got $item")
+                imports[item.args[2].value] = item.args[1]
+            end
+        else
+            error("@region: expected imports like [ColStats.colmean, ...], got $arg")
         end
     end
     out = Any[]
     regs = Any[]     # op_info method definitions + checks, all top-level
     for ex in block.args
         fc = false
+        level = region_level
         inner = ex
-        if ex isa Expr && ex.head === :macrocall && ex.args[1] === Symbol("@full_compile")
-            fc = true
-            inner = ex.args[end]
+        # op annotations, in any order: @full_compile, @warn_on_abstract, @error_on_abstract
+        while inner isa Expr && inner.head === :macrocall
+            if inner.args[1] === Symbol("@full_compile")
+                fc = true
+            elseif _concrete_level(inner.args[1]) !== nothing
+                level = _concrete_level(inner.args[1])
+            else
+                break
+            end
+            inner = inner.args[end]
         end
         if _is_fdef(inner)
             if _is_region_op(inner)
@@ -716,6 +745,7 @@ macro region(trait, rest...)
                 push!(out, :(if !isdefined(@__MODULE__, $(QuoteNode(guard)))
                                  const $guard = TraitRegions.GuardState($(QuoteNode(fname)))
                              end))
+                push!(out, :(TraitRegions._set_concrete!($guard, $(QuoteNode(level)))))
                 push!(out, workerdef, entrydef)
                 push!(regs, :(TraitRegions._check_op_free($trait, $(QuoteNode(fname)), $worker)))
                 push!(regs, :(TraitRegions.op_info(::Type{$trait}, ::Val{$(QuoteNode(fname))}) =

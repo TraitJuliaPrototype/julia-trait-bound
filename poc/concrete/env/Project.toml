@@ -1,0 +1,14 @@
+[deps]
+CBottom = "3a645a4a-2dea-4823-949a-c2b8ce7fead3"
+CMid1 = "17e38c30-f257-47e1-94c1-be05ac361b16"
+CMid2 = "abe9a16b-5489-49e9-8c61-d708050e197c"
+CTop = "44af233a-6147-4ebe-8c60-fd59b426e28a"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+TraitRegions = "de633b5f-5817-4da7-81fe-6ffd4b968b0a"
+
+[sources]
+CBottom = {path = "../CBottom"}
+CMid1 = {path = "../CMid1"}
+CMid2 = {path = "../CMid2"}
+CTop = {path = "../CTop"}
+TraitRegions = {path = "../../../TraitRegions"}

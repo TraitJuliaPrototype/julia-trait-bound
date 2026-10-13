@@ -1,0 +1,6 @@
+name = "CMid1"
+uuid = "17e38c30-f257-47e1-94c1-be05ac361b16"
+version = "0.1.0"
+
+[deps]
+CBottom = "3a645a4a-2dea-4823-949a-c2b8ce7fead3"

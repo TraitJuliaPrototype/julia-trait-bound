@@ -246,6 +246,50 @@ vm_task(n::Int) = fetch(Threads.@spawn vm_plain(n))::Float64  # the closure runs
     @test rt.roots >= 1 && normalhole(rt, vm_plainf)
 end
 
+# concrete mode fixtures: an abstract field two layers below a hot loop, a boxed capture
+module CMBottom; struct Config; scale::Real; end; scale(c::Config) = c.scale; end
+module CMMid; import ..CMBottom; factor(c) = CMBottom.scale(c) * 2 + 1; end
+@region ColTable begin
+    cm_plain(t, i::Int) = sum(col(t, i))          # no assertion written: @region inserts the declared type
+    @warn_on_abstract function cm_boxed(t, i::Int)
+        c = col(t, i)
+        lo = c[1]
+        for x in c; lo = min(lo, x); end
+        f = () -> lo
+        s = 0.0
+        for x in c; s += x - f(); end
+        s
+    end
+    @error_on_abstract function cm_deep(t, i::Int, cfg::CMBottom.Config)
+        s = 0.0
+        for x in col(t, i); s += x * CMMid.factor(cfg); end
+        s
+    end
+    @error_on_abstract cm_clean(t, i::Int) = (s = 0.0; for x in col(t, i); s += x; end; s)
+end
+@warn_on_abstract @region ColTable begin
+    cm_whole(t) = ncols(t)
+end
+
+@testset "concrete mode" begin
+    ta = TableA([[1.0, 2.0, 3.0]])
+    s = TraitRegions.seal_info(ColTable, TableA)
+    @test only(Base.return_types(var"cm_plain#worker", (typeof(s.w), s.R, Int))) === Float64
+    @test (@test_logs (:warn, r"variable `lo` is boxed") cm_boxed(ta, 1)) == 3.0
+    @test (@test_logs cm_boxed(ta, 1)) == 3.0                       # warned once
+    err = try cm_deep(ta, 1, CMBottom.Config(0.5)); nothing catch e; e end
+    @test err isa AbstractTypeError
+    msg = sprint(showerror, err)
+    @test occursin("field `scale`", msg) && occursin("declared `Real`", msg) && occursin("factor", msg)
+    @test cm_deep isa Function && (try cm_deep(ta, 1, CMBottom.Config(0.5)); false catch e; e isa AbstractTypeError end)
+    @test cm_clean(ta, 1) == 6.0
+    r = check_concrete(ColTable)
+    @test any(p -> p.first[1] === :cm_deep, r) && !any(p -> p.first[1] === :cm_clean, r)
+    @test var"cm_whole#guard".concrete === :warn && var"cm_clean#guard".concrete === :error
+    @test var"cm_plain#guard".concrete === :off
+    @test_throws "applies to a `@region`" macroexpand(@__MODULE__, :(@warn_on_abstract f(x) = x))
+end
+
 @trait Int8Bag begin
     items(r)::Vector{Int8}
 end
