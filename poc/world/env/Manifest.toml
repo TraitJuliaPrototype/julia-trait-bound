@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "59de8cd06511df351eadbd8a0f77a8dd57d54df2"
+project_hash = "bd3f5bd7d68bf5e1bf480b6e095eb0f9dac75320"
 
 [[deps.BaseTraits]]
 deps = ["TraitWorld"]
@@ -37,6 +37,18 @@ version = "1.6.0"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 version = "1.11.0"
+
+[[deps.Rows]]
+deps = ["Columns", "TraitWorld"]
+path = "../Rows"
+uuid = "e4f3d6b5-7a8c-4d9e-8fa0-3b4c5d6e7f80"
+version = "0.1.0"
+
+[[deps.Stats]]
+deps = ["Columns", "Rows", "TraitWorld"]
+path = "../Stats"
+uuid = "f5a4e7c6-8b9d-4eaf-90b1-4c5d6e7f8091"
+version = "0.1.0"
 
 [[deps.TOML]]
 deps = ["Dates"]
