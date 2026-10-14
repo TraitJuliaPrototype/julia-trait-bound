@@ -1,0 +1,6 @@
+name = "DataFramesInterface"
+uuid = "344160c3-72ad-4ef2-a9e2-9b1e05c6db63"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]

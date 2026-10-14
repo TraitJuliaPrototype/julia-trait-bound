@@ -1,5 +1,7 @@
 # Traits for better Julia: findings, measurements and details
 
+*Layout note, 2026-10-14: `Background/`, `TraitRegions/`, `ecosystem/`, `binary/`, `rung2/`, `spike/`, `reviews/` and `poc/{concrete,errorsplit,reprparam,verifymain}` were moved to `attic/` with the same relative layout; paths below that start with them now live under `attic/`.*
+
 Companion to the design note "Traits for better Julia"
 (https://claude.ai/code/artifact/4f98f689-d7c8-4487-a92b-282a77417d20).
 The note explains the design; this file holds the evidence, the proof-of-concept
@@ -83,6 +85,63 @@ as `Indexable` over `Base.length` and `getindex`, conformance declared for
 families), defaults and generic implementations, one projection for several
 traits, dispatch with types first and trait bounds above `Any`, and the
 built-in trait `Callable{A, S}` for function arguments from ordinary code.
+
+Since rev 959 (2026-10-14) the simplest form is `@implement Trait T` with no
+body: the type conforms through methods of the trait's operations (it is its
+own representation) or through a field `data` whose type conforms (the
+projection is the field access); the written-out forms are listed in the
+note's "How a type conforms to a trait", under "Finer points" since rev 981.
+TraitWorld implements the written-out forms only. Since rev 964 only a trait
+module's exported functions carry bounds: internal functions are inferred
+from the representations the bounds admit and compiled with the worker that
+calls them (rule 3 reworded); linked representations per module were
+rejected. Rev 981 adds two subsections under "Finer points": parametric user
+types conform as families declared with `where`, checked by coverage at the
+declaration, never at a call; keyword and default arguments work as in plain
+Julia with defaults evaluated in the worker after projection, the entry
+projecting bounded keywords and passing supplied keywords on as a named
+tuple, and a third `Callable` parameter naming keywords a function from above
+is called with. Rev 984 states the principle behind these decisions at the
+head of "Finer points" (rules 1 and 2 read operationally: only values cross
+the boundary, each where a bound stands, translated by that bound; code
+never crosses, so the trait world never compiles against code from above;
+no bound for the way up) and derives varargs (several crossing points with
+one bound) and functions that cross (a returned closure is a trait-world
+value, a bounded closure has an entry; a `Callable` result is translated by
+its bound, so a trait result is projected per call; trait objects never go
+up). `@specialize` is unchanged: the worker moves up, the function never
+moves down. Rev 988 lets the caller decide the mode of a function it hands
+down: `Callable{A, S, M}` carries a third parameter, `DynamicCall` (the
+default: a pointer at the signature, the worker compiled once, an indirect
+call) or `CompiledCall` (a worker per function type, compiled above as
+ordinary code, a direct call the compiler may inline); the bound carries the
+library's default, a value wrapped by `compiled_call(f)` or `dynamic_call(f)`
+fixes the mode and wins, since neither mode touches the library's cache.
+`@specialize` is retired; "static and inlined" was corrected to "a direct
+call the compiler may inline". Rev 1004 settles how code not written with
+traits in mind is handled. Membership in the trait world is a property of
+compiled code, checked on every specialization a worker reaches, Base and
+packages alike (globals of trait-world types, no undeclared door, callees
+checked transitively), so rule 1 now lets a trait module import any package;
+doors have a direction (outward: logging, display, stdout as dynamic calls
+upward without an inference edge; inward: eval, deserialization, reflection
+only as declared calls with a checked result). Non-trait code is reached
+only through an *interface package*, a category of its own: it admits what
+passes the check and declares the rest, a trait half with traits, bounded
+functions and handles, and an ordinary half of declared calls that also
+hides the outside package's globals (Makie above all); BaseInterface is
+implicit in every trait module and holds the door list and the curated
+traits over Base's interfaces; each standard library has its own. Compiled
+code follows rule 7 unchanged. A trait package *seals* itself and an
+interface package seals what it wraps: a later definition that would pirate
+a sealed package is refused at precompile, load or definition, never at a
+call; the opt-out is
+plain Julia (recompile the touched signatures, warn), the interim is
+everything tolerated. Poisoning at the call (the previous rule) and an
+immune trait world were rejected. TraitWorld's layering check stops at Base
+and has none of the global check, door list, declared calls or sealing; it
+rejects keyword, optional and vararg arguments in trait-bounded functions and
+has no mode parameter. Session note 16.
 
 ### 3.1 What a later definition does to compiled trait-bound code
 

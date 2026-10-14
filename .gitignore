@@ -1,4 +1,4 @@
 *.jl.cov
 *.jl.mem
 trace_*.txt
-binary/julia/
+attic/binary/julia/

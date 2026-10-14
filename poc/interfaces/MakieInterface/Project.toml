@@ -1,0 +1,6 @@
+name = "MakieInterface"
+uuid = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]

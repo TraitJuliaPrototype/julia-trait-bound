@@ -1,0 +1,6 @@
+name = "App"
+uuid = "dbd75ed8-5414-4945-870e-dcdcb84b57ec"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]

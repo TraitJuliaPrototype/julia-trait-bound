@@ -1,0 +1,6 @@
+name = "ChurnStorm"
+uuid = "66401319-38e2-4345-bbef-f46d24812cc9"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]
