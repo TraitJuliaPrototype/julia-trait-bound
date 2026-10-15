@@ -206,21 +206,37 @@ function _record(path)
     run(pipeline(detach(`nice -n 10 $jl --startup-file=no --project=$(Base.active_project()) -e $code`); stdout = log, stderr = log); wait = false)
     return nothing
 end
+"""
+Whether the recorded session is still running: a process ids can be reused, so
+on Linux the process must also still be the session, whose command line names
+its trace file; elsewhere only the id is checked.
+"""
+function _session_running(pid::Integer, trace::AbstractString)
+    ccall(:kill, Cint, (Cint, Cint), pid, 0) == 0 || return false
+    f = "/proc/$pid/cmdline"
+    isfile(f) || return true
+    return occursin(trace, replace(read(f, String), '\0' => ' '))
+end
 function _finish_pending(spec)
-    s = TOML.parsefile(spec)
-    pid = s["pid"]
-    while ccall(:kill, Cint, (Cint, Cint), pid, 0) == 0     # the session is still running
+    # claim the record (a rename is atomic): another builder that got there first keeps it
+    claimed = spec * ".claimed-" * string(getpid())
+    try
+        mv(spec, claimed)
+    catch
+        return nothing
+    end
+    s = TOML.parsefile(claimed)
+    while _session_running(s["pid"], s["trace"])
         sleep(0.5)
     end
     deps = Dict(k => UUID(v) for (k, v) in s["deps"])
-    @eval Main begin end
     # load what the session loaded, in its order, so that versions are read from the loaded packages
     for n in s["order"]
         Base.require(Base.PkgId(deps[n], n))
     end
     name = generate(s["trace"]; deps, order = String.(s["order"]))
     isfile(joinpath(cachedir(), name * ".built")) || build(name; wait = true)
-    rm(spec)
+    rm(claimed; force = true)
     return nothing
 end
 
