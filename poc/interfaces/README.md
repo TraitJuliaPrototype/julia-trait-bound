@@ -249,17 +249,33 @@ guarantee that loads cannot invalidate it inside the trait world. What remains
 is the load: CairoMakie's image alone takes about 4.2 s, the trait stack and
 its scans about 1 s.
 
-**Rule 4's extension for an ad-hoc session.** `MakiePlots/ext/MakiePlotsCSVExt.jl`
-(triggered by CSV and DataFrames) defines no methods; its workload reads a
-CSV, summarizes it and plots it with CSV loaded. In the ad-hoc session it
-loads, and the first PNG comes at 10.3–11.7 s instead of 21 s (`CSV.read` 0.4
-s instead of 3.2 s), but Makie's axis path still recompiles for about 2.8 s
-(SentinelArrays' `axes(::SentinelArray, i)` and InlineStrings' `thisind`
-invalidating it), while with `App` loaded the same ad-hoc calls reach the PNG
-0.36 s after the load with nothing recompiled. So an extension's image does
-not supply valid code for those Makie methods where an ordinary package's
-image does; why is open (how Julia stores and validates external code in an
-extension image).
+**Combination caches (`ComboCache/`), rule 4 for ad-hoc sessions.** Session 1
+runs with `--trace-compile=<file>`; `ComboCache.generate` writes a package that
+depends on the project packages the session loaded, importing them **in the
+session's load order**, with the recorded compilations as its workload;
+`ComboCache.build` precompiles it in a background process (niced, 33 s here);
+in later sessions `ComboCache.load()`, after the `using`s, loads it, which adds
+no package, only compiled code:
+
+| ad-hoc session, `using` the stack, MakiePlots, CSV, DataFrames | first PNG | read, summarize, plot, PNG after loading | compiling (recompiling) |
+|---|---|---|---|
+| without a cache | 21.2–22.2 s | 14.4–15.1 s | 14.5–15.0 s (7.2–7.7 s) |
+| a package extension of MakiePlots for CSV (removed) | 10.3–11.7 s | 4.2–4.7 s | 4.5–5.1 s (2.7–3.2 s) |
+| a combination cache with imports in alphabetical order | 11.1–11.5 s | 4.3–4.5 s | 4.8–5.0 s (3.1–3.2 s) |
+| a combination cache with imports in the session's load order | **7.5 s** | **0.34 s** | 0.8 s (0.12 s) |
+
+The load order is the finding: whether cached code is still valid depends on
+which packages loaded before which, so code compiled in a process that loads
+the same packages in another order can be valid there and invalid in the
+session. With alphabetical imports the build process kept Makie's code for
+`initialize_block!(::Axis)` and the `Figure` and `Scene` constructors valid,
+replayed them as no-ops and stored nothing, while the session had invalidated
+them (1.4 s for `initialize_block!` alone). A build that loads in the
+session's order invalidates what the session invalidates, recompiles it during
+the replay and stores it, which is also why `App`'s image works (its imports
+are the session's order). The extension, which inherits the order of an
+extension precompile, kept 286 of its Makie CodeInstances invalid in the
+session (`x10_load_validation.jl`).
 
 **The load.** `@time_imports using App`: 285 packages, 3.9 s of package
 loading with 0.02 s of compilation in it (Makie 1.06 s, MakiePlots 0.33 s,

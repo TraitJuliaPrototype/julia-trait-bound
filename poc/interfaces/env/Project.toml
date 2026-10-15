@@ -7,6 +7,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ChurnStorm = "66401319-38e2-4345-bbef-f46d24812cc9"
 ColorTypesWrapper = "ae48a317-9183-4f80-9e8e-7bc9d720ea49"
 Columns = "b1c0a3e2-4d5f-4a6b-9c7d-0e1f2a3b4c5d"
+ComboCache = "2b5f3c1e-7a4d-4e8b-9c0f-1d2e3f4a5b6c"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesWrapper = "344160c3-72ad-4ef2-a9e2-9b1e05c6db63"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
@@ -31,6 +32,7 @@ BaseTraits = {path = "../../world/BaseTraits"}
 ChurnStorm = {path = "../ChurnStorm"}
 ColorTypesWrapper = {path = "../ColorTypesWrapper"}
 Columns = {path = "../../world/Columns"}
+ComboCache = {path = "../ComboCache"}
 DataFramesWrapper = {path = "../DataFramesWrapper"}
 MakiePlots = {path = "../MakiePlots"}
 Pipeline = {path = "../Pipeline"}
@@ -46,4 +48,4 @@ UserTypes = {path = "../../world/UserTypes"}
 julia = "1.12"
 
 [traits]
-tolerate = ["Durations", "OffsetArrays", "PlotUtils", "StatsBase"]   # PlotUtils: convert(::Type{RGB}, ::Unsigned), a pirate of ColorTypes where ColorTypes is wrapped
+tolerate = ["Durations", "OffsetArrays", "PlotUtils", "StatsBase"]

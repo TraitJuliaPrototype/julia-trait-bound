@@ -291,6 +291,27 @@ image about 4.2 s). For interactive sessions the design's answer is rule 4's
 package extension: e.g. an extension of MakiePlots triggered by CSV whose
 workload holds Makie's code compiled with InlineStrings present (not tried).
 
+## Combination caches (`poc/interfaces/ComboCache`)
+
+The user asked how to patch Julia to cache more aggressively with the
+design's guarantees. Measured first (`x10_load_validation.jl`, instrumenting
+`Base.StaticData._insert_backedges`, which 1.12 runs as Julia code in a fixed
+require world): load-time validation is 1.8 s over 285 images, 0.03 s of it
+the trait world's own; the 13 s of recompilation are in Makie's and CSV's
+ordinary code, where the trait world's guarantees do not hold. So the lever
+is rule 4, combination caches, not a Julia patch: `ComboCache` records a
+session (`--trace-compile`), generates a package depending on the project
+packages it loaded with the recorded compilations as workload, builds it in
+the background, and loads it in later sessions. It works only when the
+generated package imports its dependencies in the session's load order:
+cached code's validity depends on the load order, and a build in another
+order keeps Makie code valid that the session invalidates, so the replay
+stores nothing for it. Order-faithful: first PNG 7.5 s (22 s without), read
+to PNG 0.34 s after loading, as with App. The MakiePlots CSV extension is
+removed (superseded). Not yet: automatic recording and loading (today three
+explicit steps), keying caches by load order and package versions, and the
+Julia patch for trait-world code (the invalidation filter, attic 0a33fef).
+
 ## Next
 
 1. Open: refuse mode's order dependence (read every wrapper's tolerations

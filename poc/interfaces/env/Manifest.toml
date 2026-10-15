@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "fb8d941bff24523bd14c7cc071faed69a913fbc0"
+project_hash = "d90a46f09ec36f90d542e7741ca1f7f1cff63bc9"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -288,6 +288,12 @@ weakdeps = ["DataFrames"]
 
     [deps.Columns.extensions]
     ColumnsDataFramesExt = "DataFrames"
+
+[[deps.ComboCache]]
+deps = ["TOML", "UUIDs"]
+path = "../ComboCache"
+uuid = "2b5f3c1e-7a4d-4e8b-9c0f-1d2e3f4a5b6c"
+version = "0.1.0"
 
 [[deps.CommonSolve]]
 deps = ["PrecompileTools"]
@@ -1060,10 +1066,6 @@ deps = ["CairoMakie", "Columns", "Makie", "PrecompileTools", "Reports", "TraitWo
 path = "../MakiePlots"
 uuid = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
 version = "0.1.0"
-weakdeps = ["CSV", "DataFrames"]
-
-    [deps.MakiePlots.extensions]
-    MakiePlotsCSVExt = ["CSV", "DataFrames"]
 
 [[deps.MappedArrays]]
 git-tree-sha1 = "0ee4497a4e80dbd29c058fcee6493f5219556f40"
