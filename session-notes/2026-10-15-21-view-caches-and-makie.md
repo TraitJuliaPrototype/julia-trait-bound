@@ -105,12 +105,22 @@ named the old path, was rebuilt. Notes in `attic/binary/README.md`.
 - **Answer to the user:** yes, modulo coverage. The list of what Makie must
   change, and what caching cannot remove, is in the README.
 
+## The untrimmed App build (the user: "Go")
+
+On the free machine, under a watchdog that would kill it below 2.5 GB
+available: 398 s, a 1.17 GB executable. The lowest available memory was
+5.4 GB, starting from 22 GB, so the build needs about 16.5 GB. It runs: summaries, a correct
+histogram PNG, **0.93–0.98 s from process start to the PNG**, peak RSS
+1.1 GB (ad-hoc session 16 s, `App`'s package image 6.4 s). The trimmed
+Pipeline binary takes 0.02 s, with no DataFrames and no Makie. Run-time
+compilation of the full binary was not measured.
+
 ## Next
 
 1. Step 4, if the user wants it: caching for types of the session (a cache
    that depends on a script?).
 2. Concurrent flushes of the same view: a lock instead of last-writer-wins.
-3. The untrimmed `App` build now that the machine is free (needs ~14 GB more
-   than was free in session 20).
+3. Whether the full binary compiles anything at run time (its 0.9 s:
+   startup versus work).
 4. From session 20: refuse mode's order dependence, ComboCache's session lock,
    remaining review items.

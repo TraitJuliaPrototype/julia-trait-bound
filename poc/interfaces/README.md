@@ -524,13 +524,19 @@ their keywords (`Tuple{Type{Figure}}` for `Figure(; size)`). The plan's
 "outward doors bound to the application's declared sinks" is not
 implemented (`App.sinks()` is a placeholder). 3.7–5.4 s.
 
-**Step 2, the untrimmed juliac build of `App`**: not built. On this machine
-(30 GB, shared with another simulation) the build reaches LLVM's code
-generation for the whole image (`jl_dump_native`) and then needs about 14 GB
-more than was free: killed by a memory guard at 4 GB available, after 5.5 min
-with the default image threads and after 19 min with `JULIA_IMAGE_THREADS=1`.
-An earlier attempt, run in parallel with other jobs, took the machine down
-(session note 20). It needs a machine with the memory to itself.
+**Step 2, the untrimmed juliac build of `App`** (session 21, the machine to
+itself): built in 398 s, a 1.17 GB executable (`build/app_full`, not
+committed). Available memory fell to 5.4 GB from 22 GB, so the build needs
+about 16.5 GB. `app_full sample.csv out.png` reads the CSV with CSV.jl into a
+DataFrame, summarizes it in the trait world and draws the histogram with
+CairoMakie: **0.93–0.98 s from process start to the PNG**, peak resident
+memory 1.1 GB. The same work takes 16 s in an ad-hoc session and 6.4 s with
+`App`'s package image (most of it the load). Whether the binary compiles
+anything at run time was not measured. Its tail of 0.9 s is the image's
+startup plus the work. In session 20 the build was killed twice by the
+memory guard while another simulation held the rest of the memory; an
+earlier attempt, run in parallel with other jobs, took the machine down
+(session note 20).
 
 **Step 3, the trimmed pipeline**, `Pipeline.pipeline` (Columns, Stats and
 Reports, a small concrete CSV reader, text out):
@@ -600,7 +606,6 @@ the packages' behalf (1091 methods without them); sealing refuses by
 deletion after the load, which makes refuse mode depend on the load order;
 the door check is static, so a door behind a dynamic call is not seen; the
 standard libraries all count as Julia; outward doors are not bound to
-declared sinks; the untrimmed build of the full application did not fit in
-the memory this machine had free; parametric user types, `Callable`'s
+declared sinks; parametric user types, `Callable`'s
 keyword parameter and the capability traits' move into the Base wrapper are not
 done.
