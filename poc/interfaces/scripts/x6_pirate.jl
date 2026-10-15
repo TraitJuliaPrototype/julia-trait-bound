@@ -28,5 +28,5 @@ else
     @printf("using Pirate took %.2f s (the scan included)\n", t)
     println("weight(1.0) = ", Stats.weight(1.0), "  method owner: ", which(Stats.weight, (Float64,)).module)
     s1 = @timed summarize(v)
-    @printf("after: summarize(v)[1].wsum = %.1f (%.1f ms, %.1f ms compiling)\n", s1.value[1].wsum, s1.time * 1e3, (s1.compile_time + s1.recompile_time) * 1e3)
+    @printf("after: summarize(v)[1].wsum = %.1f (%.1f ms, %.1f ms compiling)\n", s1.value[1].wsum, s1.time * 1e3, s1.compile_time * 1e3)
 end

@@ -35,10 +35,10 @@ A trait system for Julia, designed in the note "Traits for better Julia" (a Clau
     julia +1.12.2 --startup-file=no --project=poc/world/env poc/world/m1run.jl        # the note's example on TraitWorld
 
 The interfaces proof of concept (`writeup/poc3-plan.md`): M0–M8 done and
-measured (sessions 18–20), results in `poc/interfaces/README.md`; the
+measured (sessions 18–20), results in `poc/interfaces/README.md` and `writeup/design-findings.md` §13; the
 untrimmed juliac build of `App` did not fit in the free memory (session note
-20). Next: M9, the findings into `writeup/design-findings.md` and the note,
-and a Fable review. Record results in `poc/interfaces/README.md` and a dated
+20). M9 done except the live note: the Fable review is folded in; three design
+questions wait for the user (session note 20). Record results in `poc/interfaces/README.md` and a dated
 session note.
 
 ## Basic workflow
@@ -75,4 +75,4 @@ session note.
 | `2026-10-14-17-fable-review-of-note-rev1010.md` | 2026-10-14 — Session 17: Fable review of the note at rev 1010 (16 findings, folded in at rev 1019) |
 | `2026-10-14-18-poc3-review-and-m1-m4.md` | 2026-10-14 — Session 18: review of the note (rev 1019) and the PoC plan, no blockers, six corrections; M0 environment, M1, M2, M4 and the M3 machinery on TraitWorld |
 | `2026-10-14-19-poc3-m3-packages.md` | 2026-10-14 — Session 19: review of session 18 (one bug: interface registration lost at precompile), the M3 packages written and run, demo 1 steps 1–3 once; finding: an error path gave every entry an inference edge that `using DataFrames` invalidated (fixed with barriers); the audit's `Base._which` recompile (prepared) |
-| `2026-10-15-20-crash-recovery-and-m8.md` | 2026-10-15 — Session 20: recovery after the machine crashed (memory, parallel jobs); session 19's unrecorded work reconstructed; an uncached ownership lookup made sealing 7× slower (fixed); the tolerations lists; the trimmed pipeline runs (3.53 MB, 39 warnings); the full build does not fit in the free memory |
+| `2026-10-15-20-crash-recovery-and-m8.md` | 2026-10-15 — Session 20: recovery after the machine crashed (memory, parallel jobs); session 19's unrecorded work reconstructed; an uncached ownership lookup made sealing 7× slower (fixed); the tolerations lists; the trimmed pipeline runs (3.53 MB, 39 warnings); the full build does not fit in the free memory; M9: design-findings §13 and a Fable review (18 items; the scan via the global method table; the implementer exemptions hide 1042 of 1091 pirates, open for the design) |

@@ -17,5 +17,5 @@ Reports = {path = "../Reports"}
 TraitWorld = {path = "../../../TraitWorld"}
 
 [traits]
-# found by scripts/x7_trees.jl in Makie's tree with CairoMakie loaded (49 methods)
-tolerate = ["CompositionsBase", "FFTA", "ImageCore", "Interpolations", "IntervalSets", "Makie", "OffsetArrays", "PlotUtils", "StatsBase"]
+# found by scripts/x7_trees.jl in Makie's tree with CairoMakie loaded (49 methods; Tables is in Makie's tree too)
+tolerate = ["CompositionsBase", "FFTA", "ImageCore", "Interpolations", "IntervalSets", "Makie", "OffsetArrays", "PlotUtils", "StatsBase", "Tables"]

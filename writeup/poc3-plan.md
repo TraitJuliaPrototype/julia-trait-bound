@@ -454,3 +454,20 @@ numbers in `session-notes/2026-10-14-19-poc3-m3-packages.md` and
     method, and the full scan with Makie loaded went from 2 s to 15 s, the
     demo's load from 9 s to 29 s. A negative cache of loaded non-extension
     roots (reset in `__init__`) restores 2–3 s (session 20).
+11. **§3.3 enumeration, again.** Julia 1.12 keeps every method in one
+    global table, `Core.methodtable` (type names have no tables of their
+    own; session 18 looked for `Core.GlobalMethods`, the 1.13 name). A
+    visit of it costs 0.03 s with Makie loaded and sees call methods of
+    callable types, which the walk over bound names missed (review). The
+    walk stays as the fallback for a Julia with per-type tables.
+12. **§3.3 implementers.** The audit's counts rely on `DEFAULT_IMPLEMENTS`,
+    implementer declarations TraitWorld makes for StaticArrays, Colors,
+    ColorVectorSpace, ImageCore, StatsBase, ChainRules and Distributions;
+    without them Makie's tree has 1091 piratical methods instead of 49. The
+    note's rule 5 lets only an owner name a delegate; open for the design.
+13. **§3.2 doors.** The door check is static: a door behind a dynamic call
+    is not seen on stock Julia. The walk's budget end is warned at every
+    concrete level.
+14. **§3.3 refuse mode is order-dependent** (tolerations count from the
+    interface's load); not fixed. Reading every interface's tolerations from
+    the manifest when TraitWorld loads would fix it.

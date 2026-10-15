@@ -24,5 +24,6 @@ report("trait stack")
 dfi = report("+ DataFramesInterface (DataFrames' tree)")
 @eval using MakieInterface
 mk = report("+ MakieInterface (Makie's tree, CairoMakie loaded)")
-println("\ntolerate in DataFramesInterface: ", dfi)
-println("tolerate in MakieInterface: ", setdiff(mk, dfi))
+# each interface tolerates the pirates in its own wrapped tree (Tables is in both)
+println("\ntolerate in DataFramesInterface: ", filter(in(TraitWorld._manifest_closure("DataFrames")), dfi))
+println("tolerate in MakieInterface: ", filter(in(TraitWorld._manifest_closure("Makie")), mk))

@@ -43,5 +43,5 @@ if trees !== nothing
 end
 if !PLAIN
     s1 = @timed (summarize(df); zscores(df, 1); histcounts(df, 1); summarize(m))
-    @printf("   post-churn: the next calls compile %.2f ms\n", (s1.compile_time + s1.recompile_time) * 1e3)
+    @printf("   post-churn: the next calls compile %.2f ms\n", s1.compile_time * 1e3)
 end

@@ -28,3 +28,9 @@ for h in holes
     bymod[m] = get(bymod, m, 0) + 1
 end
 println("normal-path holes by package root: ", sort!(collect(bymod); by = p -> -p[2]))
+# "the trait part is closed": no normal-path hole whose caller is in the trait
+# stack, and every trait dispatch site has enumerated targets. The code behind
+# declared calls (Makie's, DataFrames') is not walked, so its holes are not counted.
+const TRAIT_STACK = ("TraitWorld", "BaseTraits", "Columns", "Rows", "Stats", "Reports")
+println("normal-path holes with a caller in the trait stack: ", sum(p[2] for p in bymod if p[1] in TRAIT_STACK; init = 0),
+        "; declared targets not walked: ", count(t -> t[1] === :declared, r.targets))

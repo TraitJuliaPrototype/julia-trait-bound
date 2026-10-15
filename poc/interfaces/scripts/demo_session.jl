@@ -4,7 +4,9 @@
 # scripts/demo1.jl runs it in a fresh process with --trace-compile and lists
 # what compiled at run time, per step.
 using Printf
-ms(s) = @sprintf("%.1f ms (%.1f ms compiling)", s.time * 1e3, (s.compile_time + s.recompile_time) * 1e3)
+# compile_time includes recompile_time (Base prints the latter as "of which")
+ms(s) = @sprintf("%.1f ms (%.1f ms compiling%s)", s.time * 1e3, s.compile_time * 1e3,
+                s.recompile_time > 0 ? @sprintf(", %.1f ms of it recompiling", s.recompile_time * 1e3) : "")
 # a marker in the --trace-compile output: a fresh function compiles when first called
 # (it must compute something, or Julia returns its constant without native code)
 macro step(n)
@@ -31,8 +33,8 @@ println("summarize(df):            ", ms(s1))
 println("  ", join([@sprintf("%s mean %.3f std %.3f", n, c.mean, c.std) for (n, c) in zip(names(df), s1.value)], "; "))
 s2 = @timed zscores(df, 1)
 println("zscores(df, 1):           ", ms(s2))
-s3 = @timed summarize(df; cols = [2, 3])
-println("summarize(df; cols=[2,3]): ", ms(s3), "  (a new keyword set: the sorter and body compile per set, as in plain Julia)")
+s3 = @timed summarize(df; cols = (2, 3))          # a tuple: Reports' workload has ranges and vectors only
+println("summarize(df; cols=(2,3)): ", ms(s3), "  (a keyword type the image lacks: the sorter and body compile per type, as in plain Julia)")
 f = figure(); ax = axis!(f; title = "sample.csv", xlabel = "x")
 p1 = @timed histbars!(ax, df, 1)
 println("histbars!(ax, df, 1):     ", ms(p1), "  (the trait world bins, Makie draws bars)")

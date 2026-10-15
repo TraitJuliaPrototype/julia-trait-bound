@@ -62,7 +62,7 @@ on NamedTuples and vectors); Makie's tree with CairoMakie loaded, 49 methods
 of 10 packages. Written into `[traits] tolerate`: DataFramesInterface
 `["Tables"]`, MakieInterface the nine others (CompositionsBase, FFTA,
 ImageCore, Interpolations, IntervalSets, Makie, OffsetArrays, PlotUtils,
-StatsBase). Demo 1 also reported Durations (CSV's dependency; it defines
+StatsBase) and, after the review, Tables too (it is in Makie's tree). Demo 1 also reported Durations (CSV's dependency; it defines
 `Dates.format`/`tryparsenext` for its own `DatePart{'n'}`), which is outside
 any wrapped tree: tolerated by the project, `env/Project.toml`. Plan §10.4
 said both lists stay empty; corrected.
@@ -91,12 +91,13 @@ reads the file whole and prints one value per `print`. Result:
 `verify_main` one normal-path hole (the builtin `invoke_modify` in Base's
 scheduler `wait()`, which IO reaches and juliac handles); the binary
 3.53 MB, 39 trim verifier warnings, runs in 0.02 s (49 MB RSS) with the
-in-session result. The 39 warnings: 36 in TraitWorld's entry steps and
-per-signature checks (`enter`'s slow and error paths, `kwfallback`,
-`checked_kwcall`, `_check_once`, `_guard`, all behind barriers on paths the
-closed world and the filled entry caches skip), 3 in TraitWorld's `__init__`
-reading the project's tolerations (no active project in a binary), none in
-the pipeline's own code. M7 of `poc/world` had 2.09 MB and 47 warnings.
+in-session result. The 39 warnings (classification corrected after the
+review): 10 are the entry's two dynamic steps on the normal path of every
+call, the builder and the worker call, to targets `verify_main` registered as
+entry points and found by dispatch at run time; 26 are error, slow and check
+paths the closed world skips; 3 are TraitWorld's `__init__` reading the
+project's tolerations (no active project in a binary); none is in the
+pipeline's own code. M7 of `poc/world` had 2.09 MB and 47 warnings.
 
 The untrimmed build of `App` (demo 2 step 2) did not complete. Run alone,
 `nice`d, under a watchdog that kills it below 4 GB of available memory
@@ -124,15 +125,71 @@ gives ranges).
 - The trimmed binary built and ran three times; the full build killed twice
   by the guard, the machine unaffected.
 
+## M9: design-findings §13 and the Fable review
+
+`writeup/design-findings.md` §13 holds the PoC's table and findings. A Fable
+review (fable-critic, read-only, one niced Julia process at a time) of the
+code and the claims returned 18 items. Verified here before acting: the
+exemption list and its effect (the reviewer's log: 49 methods with
+`DEFAULT_IMPLEMENTS`, 1091 without), `recompile_time` being part of
+`compile_time` (Base's `timing.jl`), the callable-type pirate missed by the
+names walk.
+
+Fixed and tested (191 tests pass, one `@test_broken`):
+
+- the sealing scan now visits Julia 1.12's single global method table,
+  `Core.methodtable` (0.03 s with Makie loaded against 2.3 s for the names
+  walk, a superset of its methods, the same 49 pirates), which also finds
+  call methods of callable types (`(::Base.Fix1{…})(x)`); demo load 6.1 s,
+  full scans 0.02–0.81 s, x6's loads 0.01–0.17 s;
+- the door walk's budget end warns at every concrete level;
+- the scripts report `compile_time` with `recompile_time` as "of which";
+- `repr` is no outward door; the dynamic-call comment in `doors.jl` says
+  what stock Julia does not check;
+- `verify_app.jl` prints the holes with a caller in the trait stack (0) and
+  the declared targets not walked (5);
+- `x7_trees.jl` derives each interface's list from its own tree; Tables is
+  in Makie's tree, so MakieInterface tolerates it too (its own precompile
+  had reported it);
+- the demo's "new keyword set" now uses a type the image lacks,
+  `cols = (2, 3)`: **0.9 s in the trait world (0.73 s recompiling), 46 ms in
+  plain Julia** — the per-signature check's code, invalidated by Makie's
+  load, recompiles. The old 0.2 ms used a type in Reports' workload.
+
+Corrected in the README, §13 and plan §10.11–14: the implementer exemptions
+and the raw count; the trimmed binary's warnings (10 are the entry's two
+dynamic steps on the normal path, to registered targets; 26 skipped paths;
+3 `__init__`); what "the trait part is closed" means and that declared
+targets are not walked; the first-plot comparison (not comparable; a third
+to a half of Makie's first-plot time is recompilation despite the workload,
+cause not traced); refuse mode's order dependence; the static door check;
+the standard libraries counted as Julia; sinks not implemented; X4's units.
+
+Not fixed (listed as limits): refuse mode's order dependence (fix: read
+every interface's tolerations from the manifest at TraitWorld's load);
+`_manifest_closure` sealing only the package name when the active manifest
+lacks it; declared targets with keywords listed at the keyword-less
+signature; `_sig_alternatives`' cap at 256 Union combinations, beyond which
+a Union mentioning one own type passes; warn mode reporting each definer
+once; `_DOOR_FACTS` never invalidated; `_WALK[]` not thread-safe; tests for
+interface tolerations read from an image, `_manifest_closure` and the
+pirate-first order with a package.
+
+For the user (design decisions):
+
+1. **Implementers** (the review's major finding): who declares that
+   StaticArrays implements StaticArraysCore? The note says only an owner
+   names a delegate; `design-findings.md` §3 and TraitWorld have the
+   implementer declare. 95 % of the piracy in Makie's tree hangs on this.
+2. **Extension triggers**: the review argues triggers confer nothing
+   (CompositionsBase's InverseFunctions extension is an orphan case from
+   aliasing a Base value); not yet adopted.
+3. Whether §13's findings go into the live note.
+
 ## Next
 
-1. M9: the findings of sessions 18–20 into `writeup/design-findings.md`
-   (machinery without static edges into generic Base code; the sealing scan
-   and its cost; refusal by deletion; tolerations of real trees; the trimmed
-   pipeline and what `verify_main` predicts) and, with the user's go-ahead,
-   into the live note; the open question on extension triggers.
-2. A Fable review of the code and the claims, and its fixes.
+1. The user's decisions above; then the note, if wanted.
+2. The untrimmed build of `App`, only when the machine is free.
 3. Smaller: `App.pipeline` duplicates `Pipeline.pipeline` (the earlier
    in-App variant with `readdlm`), kept in App's workload; remove or label
-   it. `x6_pirate.jl` and `x7_trees.jl` are the regression checks for
-   sealing; a test for the negative ownership cache would be cheap.
+   it. The not-fixed review items above.

@@ -4,7 +4,9 @@
 # (a generic function that compiles per type). The numbers demo 1 is compared with.
 #   julia +1.12.2 --startup-file=no --project=poc/interfaces/env poc/interfaces/scripts/m0_plain.jl
 using Printf
-ms(s) = @sprintf("%.1f ms (%.1f ms compiling)", s.time * 1e3, (s.compile_time + s.recompile_time) * 1e3)
+# compile_time includes recompile_time (Base prints the latter as "of which")
+ms(s) = @sprintf("%.1f ms (%.1f ms compiling%s)", s.time * 1e3, s.compile_time * 1e3,
+                s.recompile_time > 0 ? @sprintf(", %.1f ms of it recompiling", s.recompile_time * 1e3) : "")
 const SAMPLE = joinpath(@__DIR__, "..", "App", "data", "sample.csv")
 
 t0 = @timed @eval using DataFrames, CSV
@@ -50,8 +52,8 @@ end
 
 s1 = @timed psummarize(df)
 println("plain summarize(df), first result: ", ms(s1))
-s2 = @timed psummarize(df; cols = [2, 3])
-println("plain summarize(df; cols=[2,3]):   ", ms(s2))
+s2 = @timed psummarize(df; cols = (2, 3))
+println("plain summarize(df; cols=(2,3)):   ", ms(s2))
 p1 = @timed pplot(df)
 println("plain first plot (bin, barplot!, colorbuffer): ", ms(p1))
 

@@ -48,7 +48,7 @@ end
 prep(Tab0)
 warm = @timed Base.invokelatest(render_one, Tab0([rand(500)]))
 @printf("X8 mode=%-8s warm-up type (shared session cost): %7.1f ms compile (%7.1f ms total)\n",
-        mode, (warm.compile_time + warm.recompile_time) * 1e3, warm.time * 1e3)
+        mode, warm.compile_time * 1e3, warm.time * 1e3)
 tot = 0.0
 for k in 1:K
     T = @eval $(Symbol("Tab", k))
@@ -57,7 +57,7 @@ for k in 1:K
         Base.invokelatest(prep, T)
         Base.invokelatest(render_one, t)
     end
-    global tot += s.compile_time + s.recompile_time
-    @printf("  type %d: %7.1f ms compile (%7.1f ms total)\n", k, (s.compile_time + s.recompile_time) * 1e3, s.time * 1e3)
+    global tot += s.compile_time
+    @printf("  type %d: %7.1f ms compile (%7.1f ms total)\n", k, s.compile_time * 1e3, s.time * 1e3)
 end
 @printf("X8 mode=%-8s marginal compile for %d additional types: %7.1f ms (%.1f per type)\n", mode, K, tot * 1e3, tot * 1e3 / K)

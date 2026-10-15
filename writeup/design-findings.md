@@ -459,3 +459,131 @@ several overclaims, all fixed and tested; the table is in
   call that worked;
 - ownership counts a lower-bounded type variable only for a trait object's
   traits.
+
+## 13. Interface packages around DataFrames and Makie
+
+The interfaces proof of concept (`poc/interfaces/`, plan
+`writeup/poc3-plan.md` with its review corrections §9–§10, sessions 18–20)
+extends TraitWorld by keyword, default and variable arguments, `Callable`
+modes, the one-line conformance, interface packages with declared calls and
+handles, the door check and sealing, and connects Columns and Stats to the
+real DataFrames.jl 1.8 and CairoMakie 0.15. Every number is in
+`poc/interfaces/README.md`. In short:
+
+| | trait world | plain Julia |
+|---|---|---|
+| `summarize(df)` after `using` the stack and both interfaces, first call | 2.1–2.8 ms, nothing compiled | 76 ms |
+| an entry's first call at a keyword type the image lacks | 0.9 s, mostly recompiling the per-signature check after Makie's load | 46 ms |
+| first bars from the trait world's bins, first render | 1.07 s, 1.19 s: Makie's own first-plot costs behind declared calls, a third to a half of it recompilation despite the interface's workload | not comparable (13.4 s without a workload) |
+| a new type at the REPL: declaring conformance / first result / first plot | 540–680 / 10–14 / 25–31 ms | 0.6–0.7 / 39–45 / 58–65 ms |
+| marginal cost per additional type (X8) | 35–41 ms | Makie recipe 297 ms, hand erasure 36 ms |
+| `using ChurnStorm` / `using CairoMakie`: trait-stack instances invalidated | 0 / 64, all check and macro code; no entry, worker or builder; next calls compile nothing | – |
+| a worker redefined in the session | its dependents in Reports and TraitWorld only; next call 0.86 s, mostly recompiling the check code | – |
+| a pirate of a sealed package, either load order | deleted at the load, `PiracyError` logged; tolerated: plain Julia's answer | – |
+| piratical methods in the wrapped trees | DataFrames' 4 (Tables); Makie's 49 from 10 packages after built-in implementer declarations, 1091 from 13 without them | – |
+| sealing scan per top-level `using`; demo load | 0.02–0.81 s (one global method table); 4.1 → 6.1 s | – |
+| `verify_main(App.main)` (CSV, DataFrames, Makie) | no hole in the trait stack, 5 declared targets (not walked); 140 holes in the ordinary code (CSV 112, Base 17, DataFrames 11) | – |
+| `juliac --trim` of the trait-world pipeline | 3.53 MB, 39 warnings (10 the entry's two dynamic steps to registered targets, 26 skipped paths, 3 `__init__`, none in the pipeline's code), runs | – |
+
+Findings that change or sharpen the design:
+
+- **Core and implementation packages are most of the piracy in a real
+  tree, and rule 5 needs an answer for them.** Of 1091 methods in Makie's
+  dependency closure that pirate what the interface seals, 1042 come from
+  packages split into a core of types and functions and an implementation:
+  StaticArrays on StaticArraysCore (794), ColorVectorSpace, Colors and
+  ImageCore on ColorTypes (231), StatsBase on StatsAPI. TraitWorld exempts
+  them by implementer declarations it makes itself (`DEFAULT_IMPLEMENTS`),
+  as this file's §3 once put it ("implementers declare the interface they
+  implement"); the note's rule 5 allows only "a delegate one of them
+  names", the owner naming. For the note: either the core package names its
+  implementations (StaticArraysCore names StaticArrays), or an interface
+  tolerates them, which would make the tolerations lists long and the
+  sealing of real trees mostly nominal. The remaining 49 methods from 10
+  packages are a sibling package's generic function on Base's types
+  (DataAPI's `nrow` on `NamedTuple`, AbstractFFTs' plans on `Array`,
+  `getindex` on Base's ranges), which the interfaces tolerate; a package
+  outside every wrapped tree (CSV's Durations, pirating `Dates`) is
+  tolerated by the project.
+- **An extension's triggers confer no ownership** (the review's view, to be
+  decided): CompositionsBase's InverseFunctions extension defining
+  `InverseFunctions.inverse(::Base.Splat{typeof(∘)})` is the orphan case,
+  arising from aliasing a Base value instead of defining a type; counting
+  triggers as owners would let two parents' extensions with the same
+  trigger implement the same method, the conflict rule 5 prevents.
+- **The machinery must have no static edge into Base's generic code.**
+  An entry's error path that formatted its message by broadcasting over a
+  `Vector{Any}` gave every entry an inference edge into `string`,
+  `convert` and `promote` at abstract types; `using DataFrames`, `CSV` and
+  `CairoMakie` each invalidated every entry through it. Message formatting
+  and reflection only behind `Base.inferencebarrier` (`@noinline` is still
+  a static edge), typed loops instead of generic reductions on untyped
+  containers. After the sweep no entry, worker or builder is invalidated by
+  any of these loads. A requirement on the runtime's entry code (trade-off
+  8), not a change to the rules.
+- **The checks are not immune, and that is the price of new signatures
+  after a big load.** The rule-3, door and concrete checks and
+  `@implement`'s macro code are reflection over the compiler; Makie's tree
+  invalidates them (64 instances), so the one-line conformance costs
+  0.5–0.7 s once Makie is loaded (0.12 s without), and so does an entry's
+  first call at a keyword type the image lacks (0.9 s, plain Julia 46 ms).
+  The compiled code for a new type is cheap (10–14 ms first result); the
+  declaration and the per-signature check are not, on stock Julia.
+- **A foreign type conforms through a delegate, by type.** `DataFrame`
+  conforms to `ColTable` in an extension of Columns (rule 5), projecting to
+  the DataFrame's own column vectors as `Vector{Vector{Float64}}` and
+  refusing other column types by name; a projection to
+  `Tables.columntable`, whose type varies per value, would compile a worker
+  per column-type tuple at first call.
+- **Declared calls return library objects as handles.** Makie's mutators
+  return plot objects; a declared call's result crosses only as a handle.
+- **On stock Julia refusal is deletion after the load, and so depends on
+  the load order.** Base swallows exceptions from package callbacks, so a
+  pirate's methods are deleted and a `PiracyError` logged, in either order;
+  but an interface's tolerations count only from its own load, so a member
+  of its tree loaded before the first trait package loses methods the
+  interface would tolerate. The note's semantics (the seal's load fails)
+  have no such case.
+- **Sealing's scan is cheap with one global method table.** Julia 1.12
+  keeps every method in `Core.methodtable`; visiting it, filtered by
+  `primary_world`, costs 0.03 s with Makie loaded, and the full scan with
+  ownership checks 0.02–0.81 s per top-level `using`. Walking the bound names
+  (Aqua's way) took 2.3 s and missed call methods of callable types;
+  everything the scan asks per method (ownership, extension parents) must be
+  cached.
+- **`verify_main` predicts where a trimmed binary dies.** Two binaries of
+  the pipeline built and died at their first dynamic call, `readdlm`'s
+  options and `readlines`' `ondone` closure; both were normal-path holes of
+  the ordinary code in `verify_main`'s report. With them removed the binary
+  runs, through the entry's two dynamic steps per call whose targets
+  `verify_main` registered, and the quarantine is as planned: the trait part
+  trims, and what DataFrames, CSV and Makie need is the ordinary code's
+  business.
+
+Limits:
+
+- The door check is static on stock Julia: an inward door behind a dynamic
+  call is not seen (the design checks a dynamic call's target when it
+  compiles). Its walk into Base has a budget, whose end is warned.
+- All standard libraries count as Julia, so `Pkg`, `REPL`,
+  `InteractiveUtils` and `Test` are in the trait world, which the note
+  counts as ordinary code.
+- Outward doors are not bound to the application's declared sinks;
+  declared targets with keywords are listed without their keywords; the
+  code behind declared calls is not walked by `verify_main`.
+- The untrimmed juliac build of the full application needs more memory
+  than the 30 GB machine had free (about 14 GB more, at LLVM's code
+  generation of the whole image); not built.
+- Parametric user types, `Callable`'s keyword parameter and the capability
+  traits' move into BaseInterface are not done.
+
+**Review.** An adversarial review (Fable, session 20) found 18 items: four
+bugs (call methods of callable types missed by the scan; the door budget's
+end silent; compile time double-counted in the scripts; `repr` as an outward
+door), all fixed and tested (191 tests, one `@test_broken` for the dynamic
+door); overclaims about the implementer exemptions, the trimmed binary's
+warnings, "closed" and the first-plot comparison, all corrected in the
+README and above; and gaps now listed as limits. Not fixed: refuse mode's
+order dependence, `_manifest_closure`'s silent fallback without a manifest
+entry, keyword-less declared targets, the Union cap in
+`_sig_alternatives`. The list is in `session-notes/2026-10-15-20-crash-recovery-and-m8.md`.
