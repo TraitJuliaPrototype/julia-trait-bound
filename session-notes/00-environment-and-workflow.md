@@ -4,7 +4,7 @@
 
 ## Project
 
-A trait system for Julia, designed in the note "Traits for better Julia" (a Claude Doc, https://claude.ai/code/artifact/4f98f689-d7c8-4487-a92b-282a77417d20; local copy `writeup/traits-for-better-julia.md`, rev 1010) and prototyped on stock Julia. Read in this order:
+A trait system for Julia, designed in the note "Traits for better Julia" (a Claude Doc, https://claude.ai/code/artifact/4f98f689-d7c8-4487-a92b-282a77417d20; local copy `writeup/traits-for-better-julia.md`, rev 1022) and prototyped on stock Julia. Read in this order:
 
 1. `writeup/traits-for-better-julia.md`, the design.
 2. `writeup/design-findings.md`, measurements, proof-of-concept results and the long tables.
@@ -37,8 +37,8 @@ A trait system for Julia, designed in the note "Traits for better Julia" (a Clau
 The interfaces proof of concept (`writeup/poc3-plan.md`): M0–M8 done and
 measured (sessions 18–20), results in `poc/interfaces/README.md` and `writeup/design-findings.md` §13; the
 untrimmed juliac build of `App` did not fit in the free memory (session note
-20). M9 done except the live note: the Fable review is folded in; three design
-questions wait for the user (session note 20). Record results in `poc/interfaces/README.md` and a dated
+20). M9 done: the Fable review is folded in, the note updated to rev 1022; two design
+questions were decided or explained in the note at rev 1022; who names a split package's implementations stays open (session note 20). Record results in `poc/interfaces/README.md` and a dated
 session note.
 
 ## Basic workflow

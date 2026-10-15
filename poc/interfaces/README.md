@@ -176,7 +176,8 @@ package into a core of types and functions and an implementation, and the
 PoC handles it by declaring the implementers on the packages' behalf, which
 the note's rule 5 ("a delegate one of them names") does not allow: the
 declaration should come from the core package, or the implementers be
-tolerated. Open for the design (session note 20).
+tolerated. Open for the design; the note explains the problem at rev 1022
+(Sealing, trade-off 2).
 
 The 49 are the two interface packages' `[traits] tolerate` lists in their
 Project.toml: `["Tables"]` for DataFramesInterface, the ten packages above
@@ -187,10 +188,9 @@ own `DatePart{'n'}`, piracy of Julia, which is sealed from the start, so
 `env/Project.toml` tolerates it. With the lists in place demo 1 loads
 without a piracy report. By the strict rule an extension owns only as its
 parent does: CompositionsBase's InverseFunctions extension defining
-`InverseFunctions.inverse(::Base.Splat{typeof(∘)})` counts as a pirate. The
-review's view, not yet decided: triggers confer nothing; the case is the
-orphan case, from aliasing a Base value (`compose === ∘`) instead of a new
-type.
+`InverseFunctions.inverse(::Base.Splat{typeof(∘)})` counts as a pirate. Adopted in the
+note (rev 1022, rule 5): triggers confer nothing; the case is the orphan
+case, from aliasing a Base value (`compose === ∘`) instead of a new type.
 
 **Step 7, the doors** (TraitWorld's tests, "poc3 M5"): a worker calling
 `eval`, `task_local_storage()` or reading a module's non-constant global is

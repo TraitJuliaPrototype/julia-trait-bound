@@ -174,7 +174,7 @@ invalidation filter, the dispatch check.
 - **Poison, don't reject.** The method table stays plain Julia's; affected trait-mode code raises `PiracyError` naming the method. Rejecting would not work: `try using X catch end`, backend probing and REPL sessions would continue and compute something plain Julia does not.
 - **Uncatchable inside trait-bound code.** Trait-mode lowering of `catch` rethrows `PiracyError`. Ordinary callers of a poisoned entry are invalidated, not poisoned.
 - **What counts as piracy.** A method defined outside the part of the trait world some trait-mode code depends on, applicable to that part's types, including one that turns a `MethodError` into a result; redefinition by a stranger (overwriting a method, replacing a binding, redefining a struct). Methods are attributed to the package whose load created them, so `Core.eval(Owner, …)` cannot launder a definition (Julia does not record that today). This replaces Aqua's mention rule and closes its Union loophole.
-- **Rules for trait-bound packages.** They may not pirate their dependencies (checked when built). Julia is one owner, so LinearAlgebra's matrix multiply is not piracy. Implementers declare the interface they implement (StaticArrays for StaticArraysCore); an implementer of a trait-bound package must be trait-bound and joins every part of the trait world that contains its interface.
+- **Rules for trait-bound packages.** They may not pirate their dependencies (checked when built). Julia is one owner, so LinearAlgebra's matrix multiply is not piracy. Implementers declare the interface they implement (StaticArrays for StaticArraysCore; superseded: under the note's rule 5 only the owner names a delegate, and who declares a split package's implementations is open, §13); an implementer of a trait-bound package must be trait-bound and joins every part of the trait world that contains its interface.
 - **Coherence of seals.** A seal for (Trait, T) may be defined only by the owner of Trait, the owner of T, or an extension of one triggered by the other.
 - **Still allowed:** adding methods for your own types to any function; sealing your own types, in packages or at the REPL; redefining your own code; piracy no trait-mode code is affected by.
 - **The exception to "identical or error".** Element types Julia derives from inference (broadcast, `map`, comprehensions) are answered within the trait world at compile time; where Julia documents them as inference-dependent (empty `map`), they can differ.
@@ -496,17 +496,18 @@ Findings that change or sharpen the design:
   them by implementer declarations it makes itself (`DEFAULT_IMPLEMENTS`),
   as this file's §3 once put it ("implementers declare the interface they
   implement"); the note's rule 5 allows only "a delegate one of them
-  names", the owner naming. For the note: either the core package names its
+  names", the owner naming. Either the core package names its
   implementations (StaticArraysCore names StaticArrays), or an interface
   tolerates them, which would make the tolerations lists long and the
-  sealing of real trees mostly nominal. The remaining 49 methods from 10
+  sealing of real trees mostly nominal. Explained in the note at rev 1022
+  (Sealing, trade-off 2) as an open problem. The remaining 49 methods from 10
   packages are a sibling package's generic function on Base's types
   (DataAPI's `nrow` on `NamedTuple`, AbstractFFTs' plans on `Array`,
   `getindex` on Base's ranges), which the interfaces tolerate; a package
   outside every wrapped tree (CSV's Durations, pirating `Dates`) is
   tolerated by the project.
-- **An extension's triggers confer no ownership** (the review's view, to be
-  decided): CompositionsBase's InverseFunctions extension defining
+- **An extension's triggers confer no ownership** (adopted in the note at
+  rev 1022, rule 5): CompositionsBase's InverseFunctions extension defining
   `InverseFunctions.inverse(::Base.Splat{typeof(∘)})` is the orphan case,
   arising from aliasing a Base value instead of defining a type; counting
   triggers as owners would let two parents' extensions with the same

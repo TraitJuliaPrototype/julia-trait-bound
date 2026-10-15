@@ -181,14 +181,25 @@ For the user (design decisions):
    StaticArrays implements StaticArraysCore? The note says only an owner
    names a delegate; `design-findings.md` §3 and TraitWorld have the
    implementer declare. 95 % of the piracy in Makie's tree hangs on this.
-2. **Extension triggers**: the review argues triggers confer nothing
+2. **Extension triggers** (adopted, see below): the review argues triggers confer nothing
    (CompositionsBase's InverseFunctions extension is an orphan case from
-   aliasing a Base value); not yet adopted.
+   aliasing a Base value).
 3. Whether §13's findings go into the live note.
+
+Decided after the review (the user): the live note updated to rev 1022.
+Rule 5 now says "an extension owns what its parent owns; its triggers confer
+nothing" (decision 2 adopted); a new Sealing bullet "Split packages are most
+of a real tree's piracy (open)" explains decision 1's problem with the
+numbers, and trade-off 2 points to it; trade-off 8 gains the requirement
+that the runtime's entry code has no static inference edge into Base's
+generic code; the closing paragraph points to `poc/interfaces/README.md`.
+The local copy `writeup/traits-for-better-julia.md` was patched with the same
+edits. Decision 1 (who declares implementations) stays open; TraitWorld's
+`DEFAULT_IMPLEMENTS` is unchanged until it is decided.
 
 ## Next
 
-1. The user's decisions above; then the note, if wanted.
+1. Decision 1: who names a split package's implementations.
 2. The untrimmed build of `App`, only when the machine is free.
 3. Smaller: `App.pipeline` duplicates `Pipeline.pipeline` (the earlier
    in-App variant with `readdlm`), kept in App's workload; remove or label
