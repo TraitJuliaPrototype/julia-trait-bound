@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "1375cf9c10abafddd85d66b59874f0c3d831f4f3"
+project_hash = "fb8d941bff24523bd14c7cc071faed69a913fbc0"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -90,7 +90,7 @@ uuid = "27a7e980-b3e6-11e9-2bcd-0b925532e340"
 version = "0.4.2"
 
 [[deps.App]]
-deps = ["CSV", "Columns", "DataFrames", "DataFramesInterface", "DelimitedFiles", "MakieInterface", "PrecompileTools", "Reports", "Stats", "TraitWorld"]
+deps = ["CSV", "Columns", "DataFrames", "DataFramesWrapper", "DelimitedFiles", "MakiePlots", "PrecompileTools", "Reports", "Stats", "TraitWorld"]
 path = "../App"
 uuid = "dbd75ed8-5414-4945-870e-dcdcb84b57ec"
 version = "0.1.0"
@@ -257,6 +257,12 @@ weakdeps = ["StyledStrings"]
     [deps.ColorTypes.extensions]
     StyledStringsExt = "StyledStrings"
 
+[[deps.ColorTypesWrapper]]
+deps = ["ColorTypes", "ColorVectorSpace", "Colors", "ImageCore", "TraitWorld"]
+path = "../ColorTypesWrapper"
+uuid = "ae48a317-9183-4f80-9e8e-7bc9d720ea49"
+version = "0.1.0"
+
 [[deps.ColorVectorSpace]]
 deps = ["ColorTypes", "FixedPointNumbers", "LinearAlgebra", "Requires", "Statistics", "TensorCore"]
 git-tree-sha1 = "8b3b6f87ce8f65a2b4f857528fd8d70086cd72b1"
@@ -363,9 +369,9 @@ git-tree-sha1 = "5fab31e2e01e70ad66e3e24c968c264d1cf166d6"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 version = "1.8.2"
 
-[[deps.DataFramesInterface]]
+[[deps.DataFramesWrapper]]
 deps = ["Columns", "DataFrames", "TraitWorld"]
-path = "../DataFramesInterface"
+path = "../DataFramesWrapper"
 uuid = "344160c3-72ad-4ef2-a9e2-9b1e05c6db63"
 version = "0.1.0"
 
@@ -1049,9 +1055,9 @@ version = "0.24.16"
     [deps.Makie.weakdeps]
     DynamicQuantities = "06fc5a27-2a28-4c7c-a15d-362465fb6821"
 
-[[deps.MakieInterface]]
+[[deps.MakiePlots]]
 deps = ["CairoMakie", "Columns", "Makie", "PrecompileTools", "Reports", "TraitWorld"]
-path = "../MakieInterface"
+path = "../MakiePlots"
 uuid = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
 version = "0.1.0"
 
@@ -1235,7 +1241,7 @@ uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "3.0.0"
 
 [[deps.Pipeline]]
-deps = ["Columns", "DelimitedFiles", "PrecompileTools", "Reports", "Stats", "TraitWorld"]
+deps = ["Columns", "PrecompileTools", "Reports", "Stats", "TraitWorld"]
 path = "../Pipeline"
 uuid = "9b2e4c1d-7f3a-4d5e-8a6b-0c1d2e3f4a5b"
 version = "0.1.0"
@@ -1575,6 +1581,12 @@ weakdeps = ["ChainRulesCore", "Statistics"]
 git-tree-sha1 = "6ab403037779dae8c514bad259f32a447262455a"
 uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
 version = "1.4.4"
+
+[[deps.StaticArraysCoreWrapper]]
+deps = ["StaticArrays", "StaticArraysCore", "TraitWorld"]
+path = "../StaticArraysCoreWrapper"
+uuid = "66345fb3-cd26-487f-b971-8868f07e7182"
+version = "0.1.0"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra"]

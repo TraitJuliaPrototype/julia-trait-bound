@@ -12,14 +12,14 @@ const SAMPLE = joinpath(@__DIR__, "..", "App", "data", "sample.csv")
 using DataFrames, CSV
 df = CSV.read(SAMPLE, DataFrame)
 if !PLAIN
-    @eval using Columns, Stats, Reports, DataFramesInterface
+    @eval using Columns, Stats, Reports, DataFramesWrapper
     summarize(df); zscores(df, 1); histcounts(df, 1)          # hot
     m = Matrix(df); summarize(m); histcounts(m, 2)
 end
 invs = WHAT == "storm" ? (@snoop_invalidations (@eval using ChurnStorm)) :
                          (@snoop_invalidations (@eval using CairoMakie))
 using SnoopCompile
-const STACK = ("Columns", "Stats", "Rows", "BaseTraits", "Reports", "DataFramesInterface", "MakieInterface", "TraitWorld")
+const STACK = ("Columns", "Stats", "Rows", "BaseTraits", "Reports", "DataFramesWrapper", "MakiePlots", "TraitWorld")
 # the raw log first: every invalidated instance, by package root (robust to entries SnoopCompile does not parse)
 rootname(mi) = mi.def isa Method ? string(nameof(Base.moduleroot(mi.def.module))) : "?"
 raw = Dict{String,Int}()

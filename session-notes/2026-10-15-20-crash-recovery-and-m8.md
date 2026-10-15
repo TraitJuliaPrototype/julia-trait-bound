@@ -242,9 +242,45 @@ arguments are described three ways (walked at the entry; "runs as ordinary
 code"; "must be concretely typed"), pick one. The PoC still has
 `@interface_package` and the built-in implementer list.
 
+## Note rev 1110 and the PoC rework (the user: "Yes" to all five proposals)
+
+The note: four rules (1 layering; 2 the boundary translates, once per bound
+= old 2-4; 3 ownership = old 5; 4 what a call sees, and where its code lives
+= old 6 and 7; four, not five as first said), every reference renumbered
+(39 finds generated and checked against the draft), the interactions table
+cut, "Generic implementations" and "Several traits, one projection" moved to
+Finer points, nine earlier forms of the design moved to design-findings §14,
+open-typed arguments walked at the entry everywhere (the rev 1019 decision);
+a projection's share/copy declaration moved to the conformance checks.
+design-findings maps the old rule numbers at its top.
+
+The PoC: `interface.jl` became `calls.jl` (`@call`, `@handle`, declared calls
+held by the ordinary module around the trait module) and `wrapper.jl`
+(`@trait_wrapper Pkg Impl…`, WRAPPERS, DELEGATES, one wrapper per package);
+`DEFAULT_IMPLEMENTS` and `[traitbound] implements` are gone, a delegate
+counts as an owner in `owned_method` and the scan; `is_trait_world` includes
+wrapped packages and their implementations; only trait packages and
+wrappers seal. Packages renamed: MakieInterface -> MakiePlots (declared
+calls, no seal, no tolerations), DataFramesInterface -> DataFramesWrapper
+(`@trait_wrapper DataFrames`, tolerates Tables); new StaticArraysCoreWrapper
+and ColorTypesWrapper. Rule numbers in TraitWorld's messages, comments and
+tests renumbered. 199 tests pass, one `@test_broken`.
+
+Measured (the whole chain rerun, niced): the audit of what is sealed is 20
+methods with DataFrames wrapped and Makie called (OffsetArrays 12, StatsBase
+4, Tables 4); StaticArraysCoreWrapper absorbs 511 StaticArrays methods,
+ColorTypesWrapper 212; wrapping ColorTypes shows ImageCore's `showarg` at
+other packages' types and PlotUtils' `convert(::Type{RGB}, ::Unsigned)`
+(both tolerated, by the wrapper and by the project). Demo 1 loads in 6.0 s
+without a piracy report; step 2 and 3 as before; X8 43-47 ms per type at a
+load average of 4.4 (35-41 before; load or the wrapper lookup, not
+separated); the trimmed binary 3.53 MB, 39 warnings, runs; `verify_main` of
+App unchanged (0 holes in the trait stack).
+
 ## Next
 
-1. Decision 1: who names a split package's implementations.
+1. Open: refuse mode's order dependence (read every wrapper's tolerations
+   from the manifest at TraitWorld's load); the remaining review items.
 2. The untrimmed build of `App`, only when the machine is free.
 3. Smaller: `App.pipeline` duplicates `Pipeline.pipeline` (the earlier
    in-App variant with `readdlm`), kept in App's workload; remove or label

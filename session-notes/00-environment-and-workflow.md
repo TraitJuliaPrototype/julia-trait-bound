@@ -15,9 +15,9 @@ A trait system for Julia, designed in the note "Traits for better Julia" (a Clau
 
 | Path | What |
 |---|---|
-| `TraitWorld/` | the current package: traits, implementations, trait modules, entries and workers, checks, audit, concrete mode, `verify_main`; since session 18 also keyword/default/vararg arguments, Callable modes, the one-line conformance, interface packages (`interface.jl`), the door check (`doors.jl`) and sealing (`sealing.jl`); 186 tests |
+| `TraitWorld/` | the current package: traits, implementations, trait modules, entries and workers, checks, audit, concrete mode, `verify_main`; since session 18 also keyword/default/vararg arguments, Callable modes, the one-line conformance, interface packages (`interface.jl`), the door check (`doors.jl`) sealing (`sealing.jl`), trait wrappers (`wrapper.jl`) and calls upward (`calls.jl`); 199 tests |
 | `poc/world/` | the proof of concept of the note at rev 105 on TraitWorld: Columns, Stats, UserTypes, BaseTraits, Pirate, App, the M1–M7 scripts, the trimmed binary (`trim/`), and `README.md` with all results |
-| `poc/interfaces/` | the current proof of concept (`writeup/poc3-plan.md`): Reports, DataFramesInterface, MakieInterface, App, Pipeline, the adversaries, the demo scripts, `build/`; results in its `README.md` |
+| `poc/interfaces/` | the current proof of concept (`writeup/poc3-plan.md`): Reports, DataFramesWrapper, StaticArraysCoreWrapper, ColorTypesWrapper, MakiePlots, App, Pipeline, the adversaries, the demo scripts, `build/`; results in its `README.md` |
 | `writeup/` | the note's local copy, the findings, the plans (`poc2-plan.md` is TraitWorld's architecture plan, done; `poc3-plan.md` is current) |
 | `session-notes/` | this file and one dated note per session |
 | `attic/` | the earlier design (TraitRegions, the ecosystem PoC, the patched Julia, spikes, reviews), kept for reference; see `attic/README.md`. Paths in documents written before 2026-10-14 map to `attic/<same path>` |
@@ -31,15 +31,18 @@ A trait system for Julia, designed in the note "Traits for better Julia" (a Clau
 
 ## Quick start (verified 2026-10-14)
 
-    julia +1.12.2 --startup-file=no --project=TraitWorld -e 'using Pkg; Pkg.test()'   # 186 tests, about three minutes
+    julia +1.12.2 --startup-file=no --project=TraitWorld -e 'using Pkg; Pkg.test()'   # 199 tests, about three minutes
     julia +1.12.2 --startup-file=no --project=poc/world/env poc/world/m1run.jl        # the note's example on TraitWorld
 
-The interfaces proof of concept (`writeup/poc3-plan.md`): M0–M8 done and
-measured (sessions 18–20), results in `poc/interfaces/README.md` and `writeup/design-findings.md` §13; the
-untrimmed juliac build of `App` did not fit in the free memory (session note
-20). M9 done: the Fable review is folded in, the note updated to rev 1022; two design
-questions were decided or explained in the note at rev 1022; who names a split package's implementations stays open (session note 20). Record results in `poc/interfaces/README.md` and a dated
-session note.
+The interfaces proof of concept (`writeup/poc3-plan.md`, folder
+`poc/interfaces/`): M0–M9 done (sessions 18–20) and reworked for the note at
+rev 1110: trait wrappers (`@trait_wrapper`) for code that comes into the
+trait world, declared calls in ordinary trait packages for code that stays
+outside, sealing over views, four rules. Results in
+`poc/interfaces/README.md` and `writeup/design-findings.md` §13; the
+untrimmed juliac build of `App` did not fit in the free memory. Open items
+are at the end of session note 20. Record results in
+`poc/interfaces/README.md` and a dated session note.
 
 ## Basic workflow
 

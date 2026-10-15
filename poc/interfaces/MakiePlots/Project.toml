@@ -1,4 +1,4 @@
-name = "MakieInterface"
+name = "MakiePlots"
 uuid = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
 version = "0.1.0"
 authors = ["Frank Hellmann"]
@@ -15,7 +15,3 @@ TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
 Columns = {path = "../../world/Columns"}
 Reports = {path = "../Reports"}
 TraitWorld = {path = "../../../TraitWorld"}
-
-[traits]
-# found by scripts/x7_trees.jl in Makie's tree with CairoMakie loaded (49 methods; Tables is in Makie's tree too)
-tolerate = ["CompositionsBase", "FFTA", "ImageCore", "Interpolations", "IntervalSets", "Makie", "OffsetArrays", "PlotUtils", "StatsBase", "Tables"]

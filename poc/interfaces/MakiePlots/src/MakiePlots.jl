@@ -1,11 +1,12 @@
-# MakieInterface: the interface package to Makie (writeup/poc3-plan.md §3.1,
-# §4), with CairoMakie as the backend. The ordinary half imports Makie and
-# holds the two adapters the declared calls need; the trait half, Plots, is a
-# trait module whose functions reach Makie only through declared calls, with
-# handles for the figure, the axis and the plots that come back. Nothing in
+# MakiePlots: a trait package that calls Makie (the note, "Calls upward"),
+# with CairoMakie as the backend. Makie is never wrapped: the ordinary module
+# imports Makie and holds the two adapters the declared calls need; the trait
+# module, Plots, reaches Makie only through declared calls, with handles for
+# the figure, the axis and the plots that come back. Nothing behind the calls
+# is in a worker's view, so nothing of Makie's tree is sealed or tolerated. Nothing in
 # the trait world reads a Makie global: the current figure is a handle, the
 # backend is this package's choice.
-module MakieInterface
+module MakiePlots
 using TraitWorld
 using PrecompileTools: @recompile_invalidations
 # Makie's dependency chain invalidates code at load; recompiling it while
@@ -13,9 +14,8 @@ using PrecompileTools: @recompile_invalidations
 @recompile_invalidations begin
     import Makie, CairoMakie
 end
-@interface_package Makie
 
-# --- the ordinary half: Makie's API in the shape the declared calls take ---------
+# --- the ordinary module: Makie's API in the shape the declared calls take ---------
 "An axis in the first cell of a figure: a handle is not indexed inside the trait world."
 axis(f::Makie.Figure; kws...) = Makie.Axis(f[1, 1]; kws...)
 "A full render without a display, for measurements: the image size."

@@ -9,7 +9,7 @@ Scripts of the two demonstrations (writeup/poc3-plan.md §1), all run in a fresh
 | `x5_redefine.jl` | demo 1 step 5: a worker redefined in the session; what it invalidates, per package |
 | `x8_types.jl recipe|trait|plainpre` | X8 ported: the marginal cost per additional user type, a warm-up type first |
 | `x6_pirate.jl refuse|refuse-first|tolerate|warn` | demo 1 step 6: a pirate of a sealed package (Pirate, or BasePirate loaded before the stack), refused by deletion, tolerated, or reported |
-| `x7_trees.jl` | the audit of DataFrames' and Makie's trees: a full scan after each interface loads, tolerations ignored; prints what the interfaces' `[traits] tolerate` lists must name |
+| `x7_trees.jl` | the audit of what is sealed: a full scan after each load (trait stack, DataFrames wrapper, Makie calls, the StaticArraysCore and ColorTypes wrappers), tolerations ignored, and for the two core wrappers what they would report without the implementations they name |
 | `verify_app.jl main|pipeline` | demo 2 step 1: `verify_main` on `App.main` or `Pipeline.pipeline`, targets by kind and normal-path holes by package |
 
 The juliac builds are in `../build/build.sh` (`full` or `trim`). Run one heavy job at a time: the machine is shared, and the untrimmed build with Makie needs more memory than is usually free (session note 20).

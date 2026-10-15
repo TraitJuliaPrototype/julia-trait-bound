@@ -1,10 +1,10 @@
 # App: the application of demo 2 (writeup/poc3-plan.md §1, §4), an ordinary
-# package that depends on the trait stack and both interfaces. `main` reads a
+# package that depends on the trait stack, the DataFrames wrapper and the Makie calls. `main` reads a
 # CSV into a DataFrame, summarizes it through Reports and plots it through
-# MakieInterface; `pipeline` is the trim variant: the same analysis fed by
+# MakiePlots; `pipeline` is the trim variant: the same analysis fed by
 # DelimitedFiles and writing text, with neither DataFrames nor Makie.
 module App
-using Columns, Stats, Reports, DataFramesInterface, MakieInterface
+using Columns, Stats, Reports, DataFramesWrapper, MakiePlots
 using DataFrames, CSV, DelimitedFiles
 using PrecompileTools: @compile_workload
 export main, pipeline, sinks

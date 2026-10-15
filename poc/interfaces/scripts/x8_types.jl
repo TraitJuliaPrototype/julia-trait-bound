@@ -4,13 +4,13 @@
 # then show the marginal cost, with the type's registration inside it.
 #   julia +1.12.2 --startup-file=no --project=poc/interfaces/env poc/interfaces/scripts/x8_types.jl <recipe|trait|plainpre>
 #   recipe   idiomatic Makie: convert_arguments per type (Makie's pipeline compiles per type)
-#   trait    the one-line conformance, Reports.histcounts in the trait world, bars through MakieInterface
+#   trait    the one-line conformance, Reports.histcounts in the trait world, bars through MakiePlots
 #   plainpre hand erasure: a generic bin-then-plot function with no trait machinery (compiles per type)
 using Printf
 const mode = ARGS[1]
 const K = 6
 if mode == "trait"
-    using TraitWorld, Columns, Reports, MakieInterface
+    using TraitWorld, Columns, Reports, MakiePlots
 else
     using CairoMakie
 end

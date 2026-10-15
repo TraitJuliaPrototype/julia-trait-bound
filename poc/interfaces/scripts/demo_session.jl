@@ -14,13 +14,14 @@ macro step(n)
     esc(:(@noinline $f(x::Int) = x + $n; $f(1); println("--- step ", $n)))
 end
 
-# --- step 1: the trait stack and both interfaces load ---------------------------
+# --- step 1: the trait stack, the DataFrames wrapper and the Makie calls load ---------------------------
 @step 1
-t1 = @timed @eval using TraitWorld, Columns, Stats, Reports, DataFramesInterface, MakieInterface
-println("using TraitWorld, Columns, Stats, Reports, DataFramesInterface, MakieInterface: ", round(t1.time; digits = 2), " s")
-println("interfaces registered: ", join(sort(string.(nameof.(keys(TraitWorld.INTERFACES)))), ", "),
-        "; declared calls: MakieInterface ", length(TraitWorld.declared_calls(MakieInterface)),
-        ", DataFramesInterface ", length(TraitWorld.declared_calls(DataFramesInterface)))
+t1 = @timed @eval using TraitWorld, Columns, Stats, Reports, DataFramesWrapper, MakiePlots
+println("using TraitWorld, Columns, Stats, Reports, DataFramesWrapper, MakiePlots: ", round(t1.time; digits = 2), " s")
+println("wrappers registered: ", join(sort(string.(nameof.(values(TraitWorld.WRAPPERS)))), ", "),
+        "; modules holding declared calls: ", join(sort(string.(nameof.(TraitWorld.declarers()))), ", "),
+        "; declared calls: MakiePlots ", length(TraitWorld.declared_calls(MakiePlots)),
+        ", DataFramesWrapper ", length(TraitWorld.declared_calls(DataFramesWrapper)))
 println("Reports imports: ", join(string.(nameof.(filter(m -> m isa Module, ccall(:jl_module_usings, Any, (Any,), Reports)))), ", "))
 using DataFrames, CSV                          # the session is ordinary code
 const SAMPLE = joinpath(@__DIR__, "..", "App", "data", "sample.csv")
@@ -44,7 +45,7 @@ p3 = @timed render(f)
 println("render(f):                ", ms(p3))
 savefig(joinpath(tempdir(), "demo_step2.png"), f)
 h = frame(names(df), df)
-println("frame(names, df) -> a handle with ", nrows_of(h), " rows, ", ncols_of(h), " columns (DataFramesInterface's declared calls)")
+println("frame(names, df) -> a handle with ", nrows_of(h), " rows, ", ncols_of(h), " columns (DataFramesWrapper's declared calls)")
 bad = DataFrame(x = [1.0, 2.0], n = [1, 2])
 try
     summarize(bad)

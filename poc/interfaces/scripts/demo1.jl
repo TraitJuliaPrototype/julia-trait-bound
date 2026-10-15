@@ -6,7 +6,7 @@
 const JL = Base.julia_cmd()
 const ENV_DIR = normpath(joinpath(@__DIR__, "..", "env"))
 const SESSION = joinpath(@__DIR__, "demo_session.jl")
-const STACK = ("Columns", "Stats", "Rows", "BaseTraits", "Reports", "DataFramesInterface", "MakieInterface", "TraitWorld", "UserTypes")
+const STACK = ("Columns", "Stats", "Rows", "BaseTraits", "Reports", "DataFramesWrapper", "MakiePlots", "TraitWorld", "UserTypes")
 trace = tempname()
 run(`$JL --startup-file=no --project=$ENV_DIR --trace-compile=$trace $SESSION`)
 lines = isfile(trace) ? filter(l -> startswith(l, "precompile("), readlines(trace)) : String[]

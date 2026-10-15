@@ -1,7 +1,7 @@
 # Reports: a trait package composing Columns and Stats (writeup/poc3-plan.md §4).
 # Its boundary shows keyword and default arguments (§3.5): defaults are
 # evaluated in the worker, after projection; a bounded keyword is projected at
-# the entry. Its histogram reduction is what MakieInterface plots: the worker
+# the entry. Its histogram reduction is what MakiePlots plots: the worker
 # reduces, Makie is called above with plain arrays (design B of the ecosystem
 # PoC, attic/ecosystem/ColPlots).
 module Reports

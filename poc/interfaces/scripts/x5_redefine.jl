@@ -6,7 +6,7 @@
 # own transform (`TraitWorld.@stmt` inside the module), so it replaces the
 # worker and keeps the entry.
 using SnoopCompileCore, Printf
-using TraitWorld, Columns, Stats, Reports, DataFramesInterface, MakieInterface
+using TraitWorld, Columns, Stats, Reports, DataFramesWrapper, MakiePlots
 using DataFrames, CSV
 const SAMPLE = joinpath(@__DIR__, "..", "App", "data", "sample.csv")
 df = CSV.read(SAMPLE, DataFrame)

@@ -1,0 +1,17 @@
+name = "ColorTypesWrapper"
+uuid = "ae48a317-9183-4f80-9e8e-7bc9d720ea49"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]
+ColorTypes = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
+ColorVectorSpace = "c3611d14-8923-5661-9e6a-0046d554d3a4"
+Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
+ImageCore = "a09fc81d-aa75-5fe9-8630-4744c3626534"
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+
+[sources]
+TraitWorld = {path = "../../../TraitWorld"}
+
+[traits]
+tolerate = ["ImageCore", "OffsetArrays"]   # ImageCore: showarg at FixedPointNumbers' and MappedArrays' types; OffsetArrays: getindex on Base's ranges

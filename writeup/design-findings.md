@@ -482,7 +482,7 @@ real DataFrames.jl 1.8 and CairoMakie 0.15. Every number is in
 | `using ChurnStorm` / `using CairoMakie`: trait-stack instances invalidated | 0 / 64, all check and macro code; no entry, worker or builder; next calls compile nothing | – |
 | a worker redefined in the session | its dependents in Reports and TraitWorld only; next call 0.86 s, mostly recompiling the check code | – |
 | a pirate of a sealed package, either load order | deleted at the load, `PiracyError` logged; tolerated: plain Julia's answer | – |
-| piratical methods in the wrapped trees | DataFrames' 4 (Tables); Makie's 49 from 10 packages after built-in implementer declarations, 1091 from 13 without them | – |
+| pirates of what is sealed | sealing Makie's whole tree (before the rework): 49 after built-in implementer declarations, 1091 without; sealing over views (after): 20 with DataFrames wrapped and Makie called (OffsetArrays 12, StatsBase 4, Tables 4), the core wrappers' delegates absorbing StaticArrays' 511 and 212 of Colors, ColorVectorSpace and ImageCore | – |
 | sealing scan per top-level `using`; demo load | 0.02–0.81 s (one global method table); 4.1 → 6.1 s | – |
 | `verify_main(App.main)` (CSV, DataFrames, Makie) | no hole in the trait stack, 5 declared targets (not walked); 140 holes in the ordinary code (CSV 112, Base 17, DataFrames 11) | – |
 | `juliac --trim` of the trait-world pipeline | 3.53 MB, 39 warnings (10 the entry's two dynamic steps to registered targets, 26 skipped paths, 3 `__init__`, none in the pipeline's code), runs | – |
@@ -502,7 +502,11 @@ Findings that change or sharpen the design:
   implementations (StaticArraysCore names StaticArrays), or an interface
   tolerates them, which would make the tolerations lists long and the
   sealing of real trees mostly nominal. Explained in the note at rev 1022
-  (Sealing, trade-off 2) as an open problem. The remaining 49 methods from 10
+  (Sealing, trade-off 2) as an open problem, and resolved at rev 1058: a
+  trait wrapper of the core names the implementations among its own
+  dependencies, so they are loaded whenever the core's types can enter the
+  trait world and count as the core's delegates. The PoC has
+  StaticArraysCoreWrapper and ColorTypesWrapper and no built-in list. The remaining 49 methods from 10
   packages are a sibling package's generic function on Base's types
   (DataAPI's `nrow` on `NamedTuple`, AbstractFFTs' plans on `Array`,
   `getindex` on Base's ranges), which the interfaces tolerate; a package
@@ -590,6 +594,22 @@ README and above; and gaps now listed as limits. Not fixed: refuse mode's
 order dependence, `_manifest_closure`'s silent fallback without a manifest
 entry, keyword-less declared targets, the Union cap in
 `_sig_alternatives`. The list is in `session-notes/2026-10-15-20-crash-recovery-and-m8.md`.
+
+**Rework for the note at rev 1110** (session 20). The PoC follows the note:
+`@interface_package` is gone; `@call` and `@handle` work in any trait module,
+the calls held by the ordinary module around it (MakiePlots); `@trait_wrapper
+Pkg Impl…` brings a package in, names its implementations as delegates,
+reads its tolerations and seals the package, the implementations and their
+dependencies (DataFramesWrapper, StaticArraysCoreWrapper, ColorTypesWrapper);
+a second wrapper for a package is refused at its load; trait packages and
+wrappers are the only things that seal, so Makie, behind declared calls, is
+not sealed. The scan audits 20 methods with DataFrames wrapped and Makie
+called. Wrapping ColorTypes surfaced two findings the closure-wide sealing
+had hidden among tolerations: ImageCore's `showarg` methods at other
+packages' types, which naming ImageCore does not cover, and PlotUtils, loaded
+with Makie as ordinary code, pirating ColorTypes once it is sealed; wrapping
+a core makes the pirates of it visible in every tree loaded beside the
+wrapper. 199 tests, one `@test_broken`.
 
 ## 14. Earlier forms of the design
 

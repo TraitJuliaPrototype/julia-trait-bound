@@ -1,13 +1,15 @@
-# DataFramesInterface: the interface package to DataFrames.jl (writeup/poc3-plan.md
-# §3.1, §4, §9). DataFrames is a data source: a DataFrame enters Columns' trait
+# DataFramesWrapper: the trait wrapper of DataFrames.jl (the note, "Trait
+# wrappers"). DataFrames is a data source: a DataFrame enters Columns' trait
 # through the projection in Columns' own extension, ColumnsDataFramesExt, which
-# loads with DataFrames (rule 5: an interface owns neither the trait nor the
-# type). This package wraps DataFrames' tree (sealing and tolerations, M6) and
-# declares the calls back: a constructor returning a handle, and queries on it.
-module DataFramesInterface
+# loads with DataFrames (rule 3: a wrapper owns neither the trait nor the
+# type), and the projection reads DataFrames' code, so DataFrames is in the
+# workers' view: the wrapper brings it in and seals its tree, with Tables
+# tolerated. Its trait module also declares calls back: a constructor
+# returning a handle, and queries on it.
+module DataFramesWrapper
 using TraitWorld
 import DataFrames
-@interface_package DataFrames
+@trait_wrapper DataFrames
 
 @trait_module module Frames
 using TraitWorld, Columns
