@@ -60,10 +60,24 @@ wrapped packages are not protected (their code is also ordinary code).
 exists; `JULIA_TW_FILTER=0` turns it off. Results in
 `poc/interfaces/README.md` ("Invalidation filter").
 
+The load-time half (session 21, clone commit 0bf9125,
+`trait_world_load_filter_v1.patch`, `base/staticdata.jl`): when a package
+image is validated, an edge of trait-world code is not failed by newcomer
+methods that are outside and owned (same predicate, in Julia), and a Base
+callee that fails only through such methods is kept for its trait-world
+caller (it stays invalid for ordinary code). Trait modules are recognized by
+`__trait_module__`, TraitWorld by `__trait_world_machinery__`, so images that
+load before TraitWorld are covered; on unless `JULIA_TW_FILTER=0`.
+`JULIA_TW_PROTECT=<names>` treats packages as trait-world code, for
+measurements only (x13). `Base.StaticData._tw_skipped` counts kept edges.
+
 Build notes: the clone was built at the old path `binary/julia`, so the
 standard library symlinks under `usr/share/julia/stdlib/v1.12` dangled after
 the attic move; they were re-pointed to `attic/binary/julia/stdlib`. A
-top-level `make` then tries to reinstall them and stops at the system image;
-rebuild only the C library instead: `nice -n 10 make -C src -j4`. Use an own
-depot for its package images:
-`JULIA_DEPOT_PATH=<dir>:~/.julia attic/binary/julia/julia …`.
+top-level `make` then tries to reinstall them and stops at the system image.
+The C library alone: `make -C src -j4`. The system image (after a change in
+`base/`): `make -j4 julia-sysimg-release` (about 5 min); it needed
+`base/JuliaSyntax` re-pointed to `attic/binary/julia/deps/scratch/JuliaSyntax-…`
+and the compiler stage rebuilt once (`touch Compiler/src/Compiler.jl`), whose
+old image still named the old source path. Use an own depot for its package
+images: `JULIA_DEPOT_PATH=<dir>:~/.julia attic/binary/julia/julia …`.

@@ -9,7 +9,7 @@ using TraitWorld
 @trait_module begin
 
 using Columns, Stats
-export ColSummary, summarize, zscores, histcounts, colstd
+export ColSummary, summarize, zscores, histcounts, colstd, report
 
 "Summary statistics of one column: a plain trait-world value."
 struct ColSummary
@@ -58,6 +58,24 @@ function histcounts(t::ColTable, i::Int; bins::Int = 24)
     return (centers, counts)
 end
 
+"""
+A one-line text report of the columns. Its parts are heterogeneous, so the
+worker calls `string` at `Any`: an abstract call into Base, which packages
+that define their own string types extend (x12: is a cached worker with such
+an edge still valid after they load?).
+"""
+function report(t::ColTable)
+    parts = Any[]
+    for i in 1:ncols(t)
+        push!(parts, i, ": mean ", round(colmean(t, i); digits = 2), ", range ", round(colrange(t, i); digits = 2), "; ")
+    end
+    buf = String[]
+    for p in parts
+        push!(buf, string(p))
+    end
+    return join(buf)
+end
+
 @workload begin
     v = [[1.0, 2.0, 4.0], [3.0, 5.0, 8.0]]
     m = [1.0 2.0; 3.0 4.0; 5.0 7.0]
@@ -65,7 +83,7 @@ end
         summarize(t); summarize(t; cols = 1:1); summarize(t; cols = [2])
         zscores(t, 1); zscores(t, 1; baseline = t)
         histcounts(t, 1); histcounts(t, 2; bins = 8)
-        colstd(t, 1)
+        colstd(t, 1); report(t)
     end
 end
 

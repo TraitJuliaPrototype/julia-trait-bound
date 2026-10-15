@@ -10,6 +10,11 @@ Scripts of the two demonstrations (writeup/poc3-plan.md §1), all run in a fresh
 | `x8_types.jl recipe|trait|plainpre` | X8 ported: the marginal cost per additional user type, a warm-up type first |
 | `x6_pirate.jl refuse|refuse-first|tolerate|warn` | demo 1 step 6: a pirate of a sealed package (Pirate, or BasePirate loaded before the stack), refused by deletion, tolerated, or reported |
 | `x7_trees.jl` | the audit of what is sealed: a full scan after each load (trait stack, DataFrames wrapper, Makie calls, the StaticArraysCore and ColorTypes wrappers), tolerations ignored, and for the two core wrappers what they would report without the implementations they name |
+| `x9_ttfp_blame.jl [plain]` | time to first plot: recompilation blamed on the package whose method insertion invalidated it |
+| `x10_load_validation.jl adhoc|app` | load-time validation of package images, instrumented: time and surviving cached code per image |
+| `x11_filter.jl` | the patched Julia's insertion filter, A/B (`JULIA_TW_FILTER=0`) |
+| `x12_viewcache.jl record|lean|before|after` | view caches: a representation Reports never saw, its first calls with and without the cache, CSV and Makie loaded before or after (stock or patched Julia) |
+| `x13_makie_protected.jl [csvfirst]` | the ad-hoc time to first plot on the patched Julia with Makie's tree treated as trait-world code (`JULIA_TW_PROTECT`, measurement only) |
 | `verify_app.jl main|pipeline` | demo 2 step 1: `verify_main` on `App.main` or `Pipeline.pipeline`, targets by kind and normal-path holes by package |
 
 The juliac builds are in `../build/build.sh` (`full` or `trim`). Run one heavy job at a time: the machine is shared, and the untrimmed build with Makie needs more memory than is usually free (session note 20).

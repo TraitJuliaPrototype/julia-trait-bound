@@ -624,3 +624,30 @@ Moved from the note's "Other options considered" at rev 1110, so that the note l
 - **Interface packages as one kind of package** (until rev 1022): a package that admitted another package's code, declared calls into it, sealed its whole dependency tree and tolerated its pirates. Split in two because the jobs differ: admitting decides what trait-world code compiles against and needs one authority per package, a trait wrapper; declaring calls decides nothing and needs no category. Sealing the whole tree behind declared calls bought policy only, not caching, AOT or identical results.
 - **Implementation packages declaring themselves** (the prototype's built-in list, StaticArrays implements StaticArraysCore and six more): a claim, which rule 3 forbids. Cores naming their implementations upstream is the right authority but not enough alone: a core cannot depend on its implementation, so nothing would load it when the core's types enter the trait world; the wrapper's dependency does.
 - **An allowlist of trait-compatible Base:** rejected; Base's functions call each other, so the list would be transitive and per version. The check on compiled code with a door list is automatic and follows each version by itself.
+
+## 15. Caching per representation, and Makie (session 21)
+
+The goal stated by the user: installing a package precompiles its
+trait-bound code; a representation it has never seen is compiled once and
+cached; every later session takes that code from the cache. Measured in
+`poc/interfaces/README.md` ("View caches", "Could a Makie in the trait world
+be cached fully?").
+
+| Finding | Evidence | Consequence |
+|---|---|---|
+| Rule 4 gives the cache key | a worker's view is the owners of what its signature names; `TWView_<hash>` packages depend on exactly those | caches are keyed by packages and versions, not by session or load order; recording needs no `--trace-compile` (the entry's check notes each new signature) |
+| Cached trait code survives every load order on stock Julia if its Base calls are concrete | `UserTypes.Ramp` through Reports: first calls 3.1–3.3 ms with CSV and Makie loaded before, after or not at all (106–1188 ms without the cache) | view caches work on stock Julia for code that keeps the machinery's discipline |
+| The machinery must keep that discipline too | `_witness`'s error message (`first.` over `Vector{Any}`) failed every builder at image validation when CSV loaded first (172 ms); fixed with an inference barrier | each such edge is found by tracing the validation log of `@snoop_invalidations` to its root signature |
+| An abstract call in a worker loses its cache in both orders on stock Julia | `report` (`push!(::Vector{String}, ::Any)`): 30 ms in both orders, by insertion when CSV loads after and by image validation when it loads before | the filter needs a load-time half |
+| The load-time half works, including Base callees | patched `base/staticdata.jl`: `report` 5.6–6.2 ms in both orders (lean 5.5 ms); a Base callee that fails only through outside, owned methods stays invalid for ordinary code but no longer takes its trait-world caller with it | the residual of §13 (Base code shared with ordinary code) is solved at the caller's edge, not by separate Base instances, for code compiled into images |
+| Makie's ad-hoc recompilation is an ownership problem | Makie's tree treated as trait-world code (x13): the first PNG 8.5–8.9 s instead of 15.7–16.2 s in both load orders; Makie recompiles nothing; what remains is CSV×DataFrames (2.4 s, a combination no image holds) and `barplot`'s first `plot!` (0.24 s, outside Makie's workload) | a Makie in the trait world could be cached fully, modulo coverage; its per-user-type cost goes to the projection at its boundary |
+| What a trait-world Makie must change | per-argument-type specialization of `_create_plot!`/`convert_arguments` (the projection instead), attribute values of trait-world types, Dates/Unitful/Categorical as implementations, user callbacks as calls upward, one pirate removed | ComputePipeline's typed edges and `invokelatest` need no change: inside the trait world their types form a closed set |
+| What caching cannot remove | the load (5.4–5.7 s, CairoMakie the bulk), `__init__` work (fonts, FreeType), GPU shader compilation | merged images or a system image are a separate question |
+
+Open: types of the session itself (modules under `Main`) and of package
+extensions get no view cache, because no package can depend on them (step 4,
+deferred by the user). Concurrent sessions flushing the same view: the last
+writer wins, and the other's new signatures are recorded again next time.
+The `JULIA_TW_PROTECT` experiment only grants Makie's tree the filter's
+protection; it does not rearchitect Makie. That is sound only because
+MakiePlots passes Makie plain vectors and strings.

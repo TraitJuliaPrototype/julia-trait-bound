@@ -344,6 +344,171 @@ the filter must not protect it. The design's answer is the other half of
 trade-off 8, trait-world instances of Base code compiled separately, which
 this patch does not attempt.
 
+**The load-time half** (session 21, `attic/binary/trait_world_load_filter_v1.patch`,
+`base/staticdata.jl`, a rebuilt system image). Julia also checks the cached
+code of every package image when it loads, against the methods present
+then; that check now applies the same rule to trait-world code. In addition,
+a Base method compiled for trait-world code (a callee in the image, shared
+with ordinary code) that fails only through outside, owned methods stays
+invalid for ordinary code but no longer takes its trait-world caller with
+it: the caller's compiled code calls the callee's compiled code directly, and
+only trait-world values reach it. Trait modules are recognized by a marker,
+so images loaded before TraitWorld are covered too. Effect in the view-cache
+measurements below.
+
+## View caches: a new representation compiled once (`scripts/x12_viewcache.jl`, session 21)
+
+The goal: a package's images hold its trait-bound code; a representation it
+has never seen is compiled once, cached, and taken from the cache by every
+later session. `TraitWorld/src/viewcache.jl` does this with rule 4: the
+worker compiled for a new representation lives in a package of its own that
+depends on exactly the owners of what the worker's signature names (the
+function's package, the traits', the representations'). Rule 4's view says
+the worker sees nothing else and sealing says nothing else may change what
+it sees, so the cache is keyed by those packages and their versions only,
+not by what else a session loads nor by load order (unlike `ComboCache`,
+which caches ordinary code and must key on the whole session).
+
+- **Recording, without `--trace-compile`:** the entry's per-signature check
+  notes each worker signature it checks; a signature an image holds was
+  checked when that image was built and is not noted.
+- **Flushing** (at exit, or `viewcache_flush()`): signatures are grouped by
+  view into `TWView_<hash>` packages under `<depot>/traitworld/views`, each
+  importing its owners in any order. Each is precompiled in a separate niced
+  process, whose precompilation runs the check and compiles the entry's call
+  at each signature.
+- **Loading:** after each top-level `using`, every built view cache whose
+  packages are all loaded is loaded, and its signatures count as checked. A
+  cache whose dependencies changed is stale (`Base.isprecompiled`), is not
+  loaded, and is rebuilt at exit.
+- **Off:** `JULIA_TW_VIEWCACHE=0`. Not cached: types of the session itself
+  (modules under `Main`) and of package extensions; no package can depend on
+  them.
+
+The measurement: `UserTypes.Ramp`, its own representation, which Reports has
+never seen. Session 1 calls Reports on it and builds the cache (1.7–3.5 s,
+one package). Later sessions call the same functions, and the "before" and
+"after" sessions also load CSV, DataFrames, the DataFrames wrapper and
+MakiePlots, before or after the view's packages.
+
+| first call in a new session | no cache | view cache, stock Julia | view cache, patched Julia (both halves of the filter) |
+|---|---|---|---|
+| `summarize(ramp)`, lean session | 106–139 ms | **3.1 ms** | 3.6 ms |
+| `summarize(ramp)`, CSV and Makie loaded after | 959 ms (839 ms recompiling) | **3.3 ms** | 3.6 ms |
+| `summarize(ramp)`, CSV and Makie loaded before | 1188 ms (1060 ms recompiling) | **3.3 ms** | 3.7 ms |
+| `histcounts`, `zscores`, `colstd` | 7–45 ms each | 0.1–0.6 ms | 0.1–0.6 ms |
+| `report(ramp)`, lean | 60–77 ms | 5.0 ms | 5.5 ms |
+| `report(ramp)`, CSV and Makie after | – | 30 ms (25 ms recompiling) | **6.2 ms** |
+| `report(ramp)`, CSV and Makie before | – | 30 ms (27 ms compiling) | **5.6 ms** |
+
+The four numeric workers survive every load order on stock Julia: their
+code calls Base only at concrete types. One fix was needed in TraitWorld
+itself: `_witness` formatted an error message with `first.(…)` over a
+`Vector{Any}`, an edge to `first(::Any)`, which DataStructures (CSV's) extends.
+Loading CSV before TraitWorld therefore failed every builder at load, 172 ms
+of recompiling on the first call; it now sits behind an inference barrier.
+`report` is written to make an abstract call (`string` of a heterogeneous
+part list, then `push!(::Vector{String}, ::Any)`), and CSV's dependencies
+extend those calls. On stock Julia its cached code is lost in both orders:
+at insertion when CSV loads after, at image validation when CSV loads
+before. The patched Julia keeps it in both orders: 41–154 edges kept at load
+and 32–89 invalidations skipped. The remaining 2–3 ms of `report` is Base's
+`string(::Int)` and the like, compiled in every session.
+
+## Could a Makie in the trait world be cached fully? (`scripts/x13_makie_protected.jl`, session 21)
+
+**The experiment.** The patched Julia's filter, both halves, is told to treat Makie's whole tree
+(CairoMakie's dependencies without standard libraries and JLLs, plus
+MakiePlots: 141 packages) as if it were trait-world code
+(`JULIA_TW_PROTECT`, measurement only). This is sound in this session
+because MakiePlots hands Makie only plain vectors and strings, never CSV's
+or the user's types: exactly what rule 2's boundary would guarantee for a
+Makie in the trait world. The ad-hoc session is the one from "Time to first
+plot": read `sample.csv`, summarize, histogram, save PNG, on a now-unloaded
+machine.
+
+| | filter off | filter on, trait stack only | Makie's tree as trait world |
+|---|---|---|---|
+| to the first PNG, Makie loaded first | 15.7–16.0 s | 15.8–16.1 s | **8.5–8.6 s** |
+| to the first PNG, CSV and DataFrames first | 16.1–16.2 s | 15.9–16.1 s | **8.7–8.9 s** |
+| read, summarize, plot, PNG after loading | 10.3–10.6 s | 10.4–10.8 s | **2.9–3.3 s** |
+| compiling during it (recompiling) | 10.2–10.5 s (5.1–5.4 s) | 10.4–10.7 s (5.1–5.3 s) | 2.9–3.3 s (0.6 s) |
+| image edges kept at load / invalidations skipped | – | 31–147 / 32–94 | 995–1166 / 29–142 |
+
+What remains with Makie protected (2.9 s, by `--trace-compile`):
+- **CSV, about 2.4 s.** `CSV.read` into a `DataFrame` is a combination of CSV
+  and DataFrames that neither image holds (1.8 s fresh), plus 0.6 s of CSV's
+  own code recompiling. CSV is not protected.
+- **Makie, 0.24 s, all fresh.** `plot!` for `barplot`, which Makie's
+  precompile workload does not cover.
+- **Makie recompiling: nothing.** The 5 s that Makie recompiled before is
+  gone, in both load orders.
+
+The load itself (5.4–5.7 s, CairoMakie the bulk) is unchanged; caching does
+not touch it.
+
+**What Makie would have to change** (from reading Makie 0.24.16,
+ComputePipeline 0.1.8, CairoMakie 0.15.16, Observables 0.5.5, with file and
+line references in the session-21 note):
+1. **The boundary.** `_create_plot!`, `Plot{F}(args::Tuple, …)`,
+   `convert_arguments`, `conversion_trait`, the dim converts and
+   `preferred_axis_type` all specialize on the user's argument types. This is
+   the 297 ms per table type of the recipe route (x8). In the trait world the
+   conversion is the projection: a user type projects at the entry onto one of
+   Makie's representations (for `barplot`, `PointBased` gives
+   `Vector{Point2d}`). Per user type only the builder compiles, and Makie's
+   code compiles per representation, in Makie's images or in view caches.
+   Users' `convert_arguments` methods for their own types are conformances
+   (rule 3 allows them).
+2. **Attribute values** (`Observable{Any}`, `Dict{Symbol,Any}`, the compute
+   graph's `RefValue{Any}` inputs) may stay untyped inside Makie only if
+   every value is a trait-world type, walked at the entry. A user's color
+   becomes `RGBAf`, a label becomes `String`.
+3. **ComputePipeline** compiles a `TypedEdge` per (closure, input types,
+   output types), about 190 edge sites, with types fixed by the first value.
+   Inside the trait world the closures are Makie's own and the value types
+   form a closed set, so the specializations can be enumerated: a workload
+   for the common ones, view caches for the rest. Neither `invokelatest` nor
+   runtime dispatch prevents caching.
+4. **Callbacks** (`on(f, obs)` and `lift` with user closures; Observables
+   calls listeners through `invokelatest`) are calls upward: `Callable`,
+   dynamic by default.
+5. **Integrations** for Dates, Unitful and Categorical are Makie's methods for
+   other packages' types. They become implementations in the trait world, or
+   extensions owned by Makie (whose triggers confer nothing). There is one
+   pirate (`GeometryBasics.collect_with_eltype` at ShaderAbstractions'
+   `Buffer`), which has to go.
+6. **Text and categorical code** call Base at `AbstractString` and `Any`
+   (`iterate`/`thisind` over label strings, `string.` over `Vector{Any}`
+   categories). That is what InlineStrings' `thisind` hit for 8.4 s. Once only
+   trait-world values reach that code, the filter makes it safe; projecting
+   labels to `String` makes it concrete as well.
+
+What caching cannot remove:
+- **The load:** 285 images, CairoMakie about 4 s. That would need merged
+  images or a system image.
+- **Per-session `__init__` work:** fonts, FreeType handles, the GridLayoutBase
+  getters.
+- **On GPU backends, shader compilation**, which is the driver's work, not
+  Julia's.
+- **Code compiled for user closures under `CompiledCall`**, and types defined
+  at the REPL (open step 4).
+
+**Answer: yes, modulo coverage.** With Makie's code immune to outside
+methods, nothing of Makie recompiles in either load order. What it still
+compiles fresh is what no image holds yet (`barplot`), which is what view
+caches are for. The 13 s of ad-hoc recompilation are an ownership problem,
+not a cost of Makie's dynamism.
+
+Two limits of the experiment:
+- **Makie is not rearchitected.** The experiment only grants its tree the
+  filter's protection, which is sound here only because of what MakiePlots
+  passes it.
+- **Shared Base code is still exposed.** Base code that Makie reaches through
+  runtime dispatch still recompiles if outside methods invalidate it (part of
+  the remaining 0.6 s). The design's answer is trait-world instances of Base
+  code (trade-off 8), which is not built.
+
 ## Demo 2, ahead of time (`scripts/verify_app.jl`, `build/build.sh`)
 
 **Step 1, `verify_main` on the full application**, `App.main` (CSV,
