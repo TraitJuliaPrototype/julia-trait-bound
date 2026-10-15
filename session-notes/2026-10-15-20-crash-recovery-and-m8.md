@@ -1,0 +1,138 @@
+# 2026-10-15 — Session 20: crash recovery, an ownership regression, the tolerations, demo 2
+
+Intent: the machine crashed at about 08:59 while session 19 was waiting on
+three background jobs; find out what was in flight, recover, and finish the
+remaining work of M6–M8 (the trimmed binary's run, the full build, the
+tolerations lists) before M9.
+
+## What session 19 did after its note (reconstructed)
+
+Session 19's note was written at 20:29 on 2026-10-14, before the usage limit
+cut it off. After the limit reset it continued until 08:13 on 2026-10-15
+without updating the note; its work is in the working tree and in
+`poc/interfaces/README.md` and plan §10:
+
+- the next-steps list of note 19: `_match` instead of `Base._which`, the
+  interface registration at load (a package root is its own `parentmodule`),
+  workload additions, the MakieInterface invalidation chain closed (plan
+  §10.1, the slow path's typed loops), the `demo1.jl` step markers;
+- M5 (`doors.jl`): the door lists, the check of globals, static module
+  access (§10.8); demo 1 step 7 in TraitWorld's tests;
+- M6 (`sealing.jl`): the scan by a walk over module names (§10.2), the
+  rescan rules (§10.3), interface closures (§10.4), extension ownership from
+  images (§10.5), scan state reset in `__init__` (the pirate-first order had
+  found nothing because precompilation serialized the scan cursor);
+  `BasePirate`; `x6_pirate.jl`, `x7_trees.jl`;
+- M7: `x4_churn.jl`, `x5_redefine.jl`, `x8_types.jl`, `m0_plain.jl` run;
+- M8: `verify_main` for keyword entries and declared calls (§10.9),
+  `verify_app.jl`, the `Pipeline` package (§10.7), `build/`.
+- 186 tests.
+
+## The crash
+
+The previous boot's journal shows memory pressure from 08:45 until the
+crash ("Under memory pressure, flushing caches" every minute). Running at the
+time, in parallel: the environment precompile followed by the measurement
+chain, the untrimmed juliac build of `App` (CairoMakie included, started
+about 08:06), and a third chain waiting to rebuild the trimmed binary. The
+logs were in `/tmp` and were lost with the reboot; the transcript kept the
+last results. The user runs other simulations on this machine: from now on
+one heavy job at a time, `JULIA_NUM_PRECOMPILE_TASKS=4`, `nice`, and the full
+build alone under a memory watchdog.
+
+## Finding: an uncached ownership lookup made sealing 7× slower
+
+The first rerun gave a demo 1 load of 29.4 s (README: 9.6 s) and a full
+scan with Makie loaded of 16.2 s (README: 2.4 s). Cause: session 19's last
+edit to `_extension_parent` (`ownership.jl`), which recognizes extensions
+loaded from images, ends with a walk over all loaded modules calling
+`Base.get_extension` for every package that is not an extension, and did
+not remember the negative answer; the scan looks up the owner once per
+method. Measured: 55 µs per lookup over 293 loaded modules; full scan 15.0 s,
+2.0 s with a negative cache, the same 49 pirates. Fixed with
+`_NOT_EXTENSIONS`, loaded package roots known not to be extensions, reset in
+`__init__` (plan §10.10). After the fix: full scan 2.9 s, demo 1 load 9.1 s,
+the one-line `@implement` 577 ms; 186 tests pass.
+
+## The tolerations
+
+`x7_trees.jl` (now emptying `TOLERATED` before each scan, so it shows the
+raw audit): DataFrames' tree, 4 methods of Tables (DataAPI's `nrow`/`ncol`
+on NamedTuples and vectors); Makie's tree with CairoMakie loaded, 49 methods
+of 10 packages. Written into `[traits] tolerate`: DataFramesInterface
+`["Tables"]`, MakieInterface the nine others (CompositionsBase, FFTA,
+ImageCore, Interpolations, IntervalSets, Makie, OffsetArrays, PlotUtils,
+StatsBase). Demo 1 also reported Durations (CSV's dependency; it defines
+`Dates.format`/`tryparsenext` for its own `DatePart{'n'}`), which is outside
+any wrapped tree: tolerated by the project, `env/Project.toml`. Plan §10.4
+said both lists stay empty; corrected.
+
+Open question for the design: CompositionsBase's InverseFunctions extension
+defines `InverseFunctions.inverse(::Base.Splat{typeof(∘)})`. Ownership
+treats an extension as its parent only, so this is piracy, though the
+extension exists because its trigger owns the function. Counting triggers as
+owners would make it legal, and would be the natural reading of "an
+extension is how an owner delegates" when the trigger is the owner of the
+function. Not changed; for the note.
+
+## Demo 2
+
+`verify_main` on `App.main` (unchanged by the fixes): 5 declared targets
+(`Figure`, `axis`, `vlines!`, `save`, `barplot!`), 1 entry, 2 workers; the
+trait part closed, the build-time checks and audit clean; 140 normal-path
+holes, all in the ordinary code: CSV 112, Base 17, DataFrames 11.
+
+The trimmed pipeline: the binary built from session 19's last `Pipeline`
+(with `readdlm`) died at its first dynamic call. With the concrete reader it
+still died, at `readlines`' `EachLine.ondone`, a closure field of type
+`Function`; `verify_main` had listed exactly that as a normal-path hole, as
+it had listed `rpad`'s `repeat` and the `show` of a vector. `Pipeline` now
+reads the file whole and prints one value per `print`. Result:
+`verify_main` one normal-path hole (the builtin `invoke_modify` in Base's
+scheduler `wait()`, which IO reaches and juliac handles); the binary
+3.53 MB, 39 trim verifier warnings, runs in 0.02 s (49 MB RSS) with the
+in-session result. The 39 warnings: 36 in TraitWorld's entry steps and
+per-signature checks (`enter`'s slow and error paths, `kwfallback`,
+`checked_kwcall`, `_check_once`, `_guard`, all behind barriers on paths the
+closed world and the filled entry caches skip), 3 in TraitWorld's `__init__`
+reading the project's tolerations (no active project in a binary), none in
+the pipeline's own code. M7 of `poc/world` had 2.09 MB and 47 warnings.
+
+The untrimmed build of `App` (demo 2 step 2) did not complete. Run alone,
+`nice`d, under a watchdog that kills it below 4 GB of available memory
+(`MemAvailable`; about 17 GB were available at the start, the other
+simulation holding the rest): killed after 326 s in LLVM's code generation
+for the whole image (`jl_dump_native`, lowest 2.9 GB available), and again
+after 1149 s with `JULIA_IMAGE_THREADS=1` (lowest 3.8 GB). So the build
+needs roughly 14 GB or more on top of what this machine has free while the
+simulation runs; it is very likely what took the machine down this morning,
+in parallel with the precompile and the measurements. Not retried; it needs
+the machine to itself, or a larger one.
+
+A last demo 1 run with the tolerations in place: no piracy report at all;
+load 10.3 s, the step 2 calls 2.8 ms, 1.0 ms, 0.2 ms, the one-line
+`@implement` 681 ms (run-to-run spread on the shared machine; the README
+gives ranges).
+
+## Verified in this session
+
+- `Pkg.test()` of TraitWorld: 186 pass, before and after the fix.
+- Every script rerun in fresh processes after the fix (logs in the session's
+  scratchpad, not kept): x6 in four modes (refuse in both orders, tolerate,
+  warn: as before), x7, x5, x4 storm and makie, x8 trait, demo 1 twice,
+  `verify_app.jl` pipeline and main; numbers in the README.
+- The trimmed binary built and ran three times; the full build killed twice
+  by the guard, the machine unaffected.
+
+## Next
+
+1. M9: the findings of sessions 18–20 into `writeup/design-findings.md`
+   (machinery without static edges into generic Base code; the sealing scan
+   and its cost; refusal by deletion; tolerations of real trees; the trimmed
+   pipeline and what `verify_main` predicts) and, with the user's go-ahead,
+   into the live note; the open question on extension triggers.
+2. A Fable review of the code and the claims, and its fixes.
+3. Smaller: `App.pipeline` duplicates `Pipeline.pipeline` (the earlier
+   in-App variant with `readdlm`), kept in App's workload; remove or label
+   it. `x6_pirate.jl` and `x7_trees.jl` are the regression checks for
+   sealing; a test for the negative ownership cache would be cheap.

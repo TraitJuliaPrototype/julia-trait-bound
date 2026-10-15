@@ -329,3 +329,128 @@ L a week of sessions.
 5. The capability traits move from `poc/world/BaseTraits` into
    BaseInterface, which makes them implicit everywhere.
 6. Parametric families stay out unless M4 finishes early.
+
+## 9. Review corrections (session 18, 2026-10-14)
+
+Reviewed against the note at rev 1019 and stock Julia 1.12.2; details and
+the verification in `session-notes/2026-10-14-18-poc3-review-and-m1-m4.md`.
+No blocker. The plan is executed with these changes:
+
+1. **§4 DataFramesInterface, decision 3.** `@implement ColTable DataFrame`
+   in DataFramesInterface is the orphan case of rule 5 (the interface owns
+   neither the trait nor the type). The conformance moves into a Columns
+   extension, `Columns/ext/ColumnsDataFramesExt.jl`, the delegate the note
+   prescribes; DataFramesInterface keeps the wrapping (sealing,
+   tolerations), the declared calls back and a workload.
+2. **§4, §7 risk 1, decision 3.** The projection returns a
+   `Vector{Vector{Float64}}` holding the DataFrame's own column vectors,
+   refusing any other column type by name, instead of
+   `Tables.columntable`, whose result type varies per value: the
+   representation must decide by type (rule 4), and a worker per
+   column-type tuple would compile at the first call, against demo 1 step
+   2. `DataFrame` therefore conforms to `ColTable`, not to a mutating trait.
+3. **§3.3 refusal.** Base swallows exceptions thrown by package callbacks
+   (`run_package_callbacks` logs "Error during package callback" and
+   continues), so neither `using Pirate` nor a sealing load can be made to
+   fail from a callback. The approximation: the callback deletes the
+   untolerated pirate methods in either load order and reports a
+   `PiracyError` through Base's error log. The scan runs once per
+   top-level `using` (`Base.toplevel_load[]` is `true` only in that
+   callback), over methods whose `primary_world` is past a cursor, with
+   `Base._methods_by_ftype(Tuple{Vararg{Any}}, -1, world)` (0.4 s in a
+   bare session; 1.12.2 has no `Core.GlobalMethods`).
+4. **§3.5.** The entry forwards the supplied keywords as a named tuple to
+   `checked_kwcall(nt, f, views...)`, which calls `Core.kwcall`; the
+   worker is an ordinary keyword method whose own sorter fills the
+   defaults. Done.
+5. **§3.4.** `@specialize` is retired; `Callable{A, S, M}`, `CompiledCall`,
+   `DynamicCall`, `compiled_call`, `dynamic_call` and the long form are
+   implemented. Done.
+6. **§2 Julia version.** 1.13 would simplify only the method-table scan of
+   item 3; 1.13.1 could not be installed (download reset twice). Stay on
+   1.12.2.
+
+## 10. Review corrections (session 19, 2026-10-14/15)
+
+Found while building the M3 packages and the machinery of M5–M8; details and
+numbers in `session-notes/2026-10-14-19-poc3-m3-packages.md` and
+`poc/interfaces/README.md`.
+
+1. **§3.1, the machinery must have no static edge into Base's generic code.**
+   Every entry of every trait module lost its cached code when DataFrames
+   loaded, and again when CSV and Makie loaded: the entry's error path
+   (`_rule3_error`) formatted its message by broadcasting over a
+   `Vector{Any}`, the fallback computed an `invoke` signature from an untyped
+   method object, and the slow path used `any`/`findfirst` on untyped vectors
+   and sliced `SimpleVector`s through `Any`. Each gave the entry, or the slow
+   path, an inference edge into `string`, `promote`, `convert` or
+   `mapreduce` at abstract types, which SentinelArrays, DataStrings,
+   ColorVectorSpace, StaticArrays extend. Rule for the machinery: message
+   formatting and reflection only behind `Base.inferencebarrier`
+   (`@noinline` is not enough), and typed loops instead of generic
+   reductions on untyped containers. After the sweep the entries survive the
+   loads of DataFrames, CSV and CairoMakie; checked by the CodeInstance world
+   ranges, and `--trace-compile` shows no `# recompile` of an entry.
+2. **§3.3 enumeration.** `_methods_by_ftype(Tuple{Vararg{Any}})` sorts every
+   method against every other: 0.5 s bare, 10 s with Makie loaded, at every
+   top-level `using`. Replaced by a walk over the functions and types bound
+   in the loaded modules and their submodules (Aqua's way), filtered by
+   `primary_world`: 0.23 s bare. A pirate's method is on a function or type
+   bound somewhere, so the walk sees it.
+3. **§3.3 rescans.** A trait package's own seal needs no rescan of what
+   loaded before it (nothing could have methods on its functions or types
+   yet); only an interface package's closure seal does, since packages in
+   the closure may have loaded long before. Julia is sealed from the start
+   (BaseInterface implicit), and the first scan after TraitWorld loads
+   covers everything loaded before it: the pirate-first order of step 6 is
+   `using BasePirate` (a package with no dependencies pirating
+   `Base.sum(::Vector{Int8})`) before any trait package.
+4. **§3.3 what an interface seals.** The dependency closure of the package
+   it wraps, read from the active manifest by name (`Base` and the standard
+   libraries map to Julia), plus the interface package itself.
+   `@interface_package Makie` therefore seals Makie's tree but not
+   CairoMakie, the backend the ordinary half chose. The audit of the trees
+   (`scripts/x7_trees.jl`, session 20) finds 4 methods of Tables in
+   DataFrames' tree (DataAPI's `nrow`/`ncol` on Base's types) and 49 methods
+   of 10 packages in Makie's (OffsetArrays, Makie, FFTA, ImageCore,
+   Interpolations, StatsBase, Tables, IntervalSets, PlotUtils,
+   CompositionsBase); these are the two interfaces' `[traits] tolerate`
+   lists. CSV's dependency Durations pirates `Dates`, which is Julia's and
+   sealed from the start, outside any wrapped tree: the project that loads
+   CSV tolerates it (`poc/interfaces/env/Project.toml`).
+5. **§3.3 extensions loaded from images.** `owner` mapped an extension to its
+   parent only through `Base.EXT_PRIMED`, which knows the extensions primed
+   in the session; one loaded from an image (Adapt's, Compat's, when their
+   triggers were loaded already) counted as its own package, so the sealing
+   scan reported it as a pirate of its parent. Now also recognized by its
+   source file in the parent's `ext/` directory (`Base.pkgorigins`).
+6. **§3.1 registration.** `@interface_package` and `@call` recorded their
+   facts in TraitWorld's globals at macro expansion, i.e. in the precompile
+   process; an interface package loaded from its image was unknown. The
+   declared calls live in the package's own module now, and the package
+   callback registers an interface package at its load. A package root is
+   its own `parentmodule`, which the first fix got wrong.
+7. **§1 demo 2 step 3.** `App.pipeline` lived in `App`, which imports
+   DataFrames, CSV and MakieInterface, so a trimmed build of it would carry
+   their images. The trim variant is its own package, `Pipeline`, depending
+   on Columns, Stats and Reports only. Its reader is a small concrete one,
+   not `DelimitedFiles.readdlm` as §1 planned: the first trimmed binary
+   (with `readdlm`) built but died at its first dynamic call, as did the
+   next one at `readlines`' `ondone` closure; `verify_main` had listed both
+   as normal-path holes of the ordinary code (session 20).
+8. **§3.2 static module access.** `Mod.name` with constants lowers to
+   `getproperty(::Module, ::Symbol)`, which the door check must not confuse
+   with the `getglobal` door: only a field name computed at run time is one.
+   A module-valued constant is an acceptable global read; a module as a
+   value is caught at the doors that take one.
+9. **§3.7.** `verify_main` had to learn `checked_kwcall`, `enter_kw`,
+   `enter_kw_callable`, `kwfallback`, and `DeclaredCall` sites, which it
+   lists as `:declared` targets with the declared signature (handles
+   unwrapped to `Any`) and does not walk; the call of a `DeclaredCall` is
+   `@noinline` so that it can be recognized.
+10. **§3.3 ownership cost.** Recognizing extensions loaded from images (item
+    5) added a walk over all loaded modules to `_extension_parent` for every
+    package that is not an extension, uncached; the scan asks once per
+    method, and the full scan with Makie loaded went from 2 s to 15 s, the
+    demo's load from 9 s to 29 s. A negative cache of loaded non-extension
+    roots (reset in `__init__`) restores 2–3 s (session 20).

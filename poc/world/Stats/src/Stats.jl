@@ -12,9 +12,9 @@ overview(t::(ColTable, RowTable)) = (colmean(t, 1), firstrow(t))
 "The same through the bundle trait."
 overview2(t::Table) = (colmean(t, 1), firstrow(t))
 
-# Callable: erased (compiled once per signature) or fast (compiled per function type)
+# Callable: a dynamic call (the default: compiled once per signature) or a compiled call (per function type)
 colmap(f::Callable{Tuple{Float64},Float64}, t::ColTable, i::Int) = map(f, col(t, i))
-colsum(@specialize(f::Callable{Tuple{Float64},Float64}), t::ColTable, i::Int) = sum(f, col(t, i))
+colsum(f::Callable{Tuple{Float64},Float64,CompiledCall}, t::ColTable, i::Int) = sum(f, col(t, i))
 
 "Weights by value; the library's generic rule (a target for the piracy scenario)."
 weight(x::Real) = 1.0

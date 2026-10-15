@@ -9,3 +9,9 @@ TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
 [sources]
 BaseTraits = {path = "../BaseTraits"}
 TraitWorld = {path = "../../../TraitWorld"}
+
+[weakdeps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+
+[extensions]
+ColumnsDataFramesExt = "DataFrames"

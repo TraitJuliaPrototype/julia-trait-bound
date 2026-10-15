@@ -1,2 +1,50 @@
-# the environment of the proof of concept: M0 of writeup/poc3-plan.md instantiates it
+# the environment of the proof of concept (writeup/poc3-plan.md §4, M0):
+# the real DataFrames.jl, CSV.jl and CairoMakie from the registry, and the
+# packages of poc/world and poc/interfaces developed by path
 [deps]
+App = "dbd75ed8-5414-4945-870e-dcdcb84b57ec"
+BasePirate = "5d1f0a3e-2b6c-4e7f-9a8b-1c2d3e4f5a6b"
+BaseTraits = "d3e2c5a4-6f7b-4c8d-9eaf-2a3b4c5d6e7f"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ChurnStorm = "66401319-38e2-4345-bbef-f46d24812cc9"
+Columns = "b1c0a3e2-4d5f-4a6b-9c7d-0e1f2a3b4c5d"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataFramesInterface = "344160c3-72ad-4ef2-a9e2-9b1e05c6db63"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+MakieInterface = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
+Pipeline = "9b2e4c1d-7f3a-4d5e-8a6b-0c1d2e3f4a5b"
+Pirate = "06b5f8d7-9cae-4fb0-a1c2-5d6e7f8091a2"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Reports = "4fd44446-36d9-4e81-a8a0-1d49ddb41a15"
+Rows = "e4f3d6b5-7a8c-4d9e-8fa0-3b4c5d6e7f80"
+SnoopCompile = "aa65fe97-06da-5843-b5b1-d5d13cad87d2"
+SnoopCompileCore = "e2b509da-e806-4183-be48-004708413034"
+Stats = "f5a4e7c6-8b9d-4eaf-90b1-4c5d6e7f8091"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+UserTypes = "c2d1b4f3-5e6a-4b7c-8d9e-1f2a3b4c5d6e"
+
+[sources]
+App = {path = "../App"}
+BasePirate = {path = "../BasePirate"}
+BaseTraits = {path = "../../world/BaseTraits"}
+ChurnStorm = {path = "../ChurnStorm"}
+Columns = {path = "../../world/Columns"}
+DataFramesInterface = {path = "../DataFramesInterface"}
+MakieInterface = {path = "../MakieInterface"}
+Pipeline = {path = "../Pipeline"}
+Pirate = {path = "../../world/Pirate"}
+Reports = {path = "../Reports"}
+Rows = {path = "../../world/Rows"}
+Stats = {path = "../../world/Stats"}
+TraitWorld = {path = "../../../TraitWorld"}
+UserTypes = {path = "../../world/UserTypes"}
+
+[compat]
+julia = "1.12"
+
+[traits]
+# CSV's dependency Durations defines Dates.format and Dates.tryparsenext for its own DatePart{'n'}:
+# not in a wrapped tree, so the project that loads CSV tolerates it
+tolerate = ["Durations"]

@@ -4,3 +4,14 @@ version = "0.1.0"
 authors = ["Frank Hellmann"]
 
 [deps]
+Columns = "b1c0a3e2-4d5f-4a6b-9c7d-0e1f2a3b4c5d"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
+
+[sources]
+Columns = {path = "../../world/Columns"}
+TraitWorld = {path = "../../../TraitWorld"}
+
+[traits]
+# found by scripts/x7_trees.jl: DataAPI's nrow/ncol on Base's NamedTuples and vectors
+tolerate = ["Tables"]

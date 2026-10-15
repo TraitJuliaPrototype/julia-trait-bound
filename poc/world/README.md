@@ -181,6 +181,10 @@ Tested in `TraitWorld/test`:
 
 ## M5: Callable
 
+(2026-10-14: `@specialize` is retired; the mode is the bound's third
+parameter, `Callable{A, S, CompiledCall}`, and the caller overrides with
+`compiled_call(f)` or `dynamic_call(f)`; session note 18.)
+
 Library's choice per argument: `f::Callable{A, S}` erases a function from
 above; `@specialize f::Callable{A, S}` compiles per function type. Functions of
 the trait world (Base's `abs2`) are always passed as themselves. A function

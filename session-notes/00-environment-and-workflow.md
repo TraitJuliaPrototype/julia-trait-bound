@@ -15,40 +15,42 @@ A trait system for Julia, designed in the note "Traits for better Julia" (a Clau
 
 | Path | What |
 |---|---|
-| `TraitWorld/` | the current package: traits, implementations, trait modules, entries and workers, checks, audit, concrete mode, `verify_main`; 117 tests |
+| `TraitWorld/` | the current package: traits, implementations, trait modules, entries and workers, checks, audit, concrete mode, `verify_main`; since session 18 also keyword/default/vararg arguments, Callable modes, the one-line conformance, interface packages (`interface.jl`), the door check (`doors.jl`) and sealing (`sealing.jl`); 186 tests |
 | `poc/world/` | the proof of concept of the note at rev 105 on TraitWorld: Columns, Stats, UserTypes, BaseTraits, Pirate, App, the M1–M7 scripts, the trimmed binary (`trim/`), and `README.md` with all results |
-| `poc/interfaces/` | the next proof of concept (`writeup/poc3-plan.md`): interface packages, Reports, App, scripts; folders prepared 2026-10-14 |
+| `poc/interfaces/` | the current proof of concept (`writeup/poc3-plan.md`): Reports, DataFramesInterface, MakieInterface, App, Pipeline, the adversaries, the demo scripts, `build/`; results in its `README.md` |
 | `writeup/` | the note's local copy, the findings, the plans (`poc2-plan.md` is TraitWorld's architecture plan, done; `poc3-plan.md` is current) |
 | `session-notes/` | this file and one dated note per session |
 | `attic/` | the earlier design (TraitRegions, the ecosystem PoC, the patched Julia, spikes, reviews), kept for reference; see `attic/README.md`. Paths in documents written before 2026-10-14 map to `attic/<same path>` |
 
 ## Environment (verified)
 
-- Julia via **juliaup** at `/home/hellmann/.juliaup/bin/julia`. Default channel **1.12.2**; also installed 1.10.0, 1.10.2, 1.11.0, 1.11.7, release (1.12.3). TraitWorld and `poc/world` run on 1.12.2; `juliac` is at `$(Sys.BINDIR)/../share/julia/juliac/juliac.jl` (see `poc/world/trim/build.sh`). The August measurements were made on 1.11.7 (attic).
+- Julia via **juliaup** at `/home/hellmann/.juliaup/bin/julia`. Default channel **1.12.2**; also installed 1.10.0, 1.10.2, 1.11.0, 1.11.7, release (1.12.3). TraitWorld and `poc/world` run on 1.12.2; `juliac` is at `$(Sys.BINDIR)/../share/julia/juliac/juliac.jl` (see `poc/world/trim/build.sh`). The August measurements were made on 1.11.7 (attic). Julia 1.13.1 is published but `juliaup add 1.13.1` failed twice on 2026-10-14 (download reset); the only simplification it would bring is one global method table for the sealing scan (session 18).
 - Depot `/home/hellmann/.julia`, writable. DataFrames, CSV, CairoMakie, Makie and Tables are in the depot already (several versions); `poc/interfaces/env` pins the ones it uses at M0.
 - **Network works** from the sandbox: pkg.julialang.org reachable, `Pkg.add` verified.
 - A Julia MCP server may appear in some sessions; do not rely on it. Run Julia via Bash.
 
 ## Quick start (verified 2026-10-14)
 
-    julia +1.12.2 --startup-file=no --project=TraitWorld -e 'using Pkg; Pkg.test()'   # 117 tests, about a minute
+    julia +1.12.2 --startup-file=no --project=TraitWorld -e 'using Pkg; Pkg.test()'   # 186 tests, about three minutes
     julia +1.12.2 --startup-file=no --project=poc/world/env poc/world/m1run.jl        # the note's example on TraitWorld
 
-The next proof of concept starts at `writeup/poc3-plan.md` §5, milestone M0:
-instantiate `poc/interfaces/env` (Julia 1.12.2 pinned; DataFrames, CSV,
-CairoMakie, PrecompileTools, SnoopCompileCore; the packages of `poc/world`
-and `poc/interfaces` developed by path), then the plain-twin baselines.
-Record results in `poc/interfaces/README.md` and a dated session note.
+The interfaces proof of concept (`writeup/poc3-plan.md`): M0–M8 done and
+measured (sessions 18–20), results in `poc/interfaces/README.md`; the
+untrimmed juliac build of `App` did not fit in the free memory (session note
+20). Next: M9, the findings into `writeup/design-findings.md` and the note,
+and a Fable review. Record results in `poc/interfaces/README.md` and a dated
+session note.
 
 ## Basic workflow
 
 1. Read this file, then the latest dated session note.
-2. Run Julia from Bash: `julia --project=<dir> -e '...'` or `julia --project=<dir> script.jl`, with absolute paths (the shell's cwd resets between calls).
+2. Run Julia from Bash: `julia --project=<dir> -e '...'` or `julia --project=<dir> script.jl`, with absolute paths (the shell's cwd resets between calls). Claude Code's Bash sandbox allows writes to the depot `~/.julia` since 2026-10-14 (`sandbox.filesystem.allowWrite` in the user settings; before that, `Pkg.test` and precompilation failed with EROFS inside the sandbox).
 3. Measurements are standalone `julia --project` scripts, one fresh process per mode, so compile-time numbers stay clean. `--trace-compile` and `@snoop_invalidations` through the harness `attic/poc/verifymain/observe.jl`, ported as TraitWorld's measurements use it.
 4. Packages live in this repository and are developed into environments by path (`Pkg.develop(path=...)`).
 5. Throwaway scripts and environments go in the session scratchpad, not the repository.
-6. The design lives in the note; findings that change the design go into the note first, then into `writeup/design-findings.md`; the session note records what was decided and why. Refresh `writeup/traits-for-better-julia.md` from the note when the note changes.
-7. At the end of a work chunk, update the dated session note: intent, done, next.
+6. **The machine is shared with other simulations** (30 GB, 16 cores). One heavy Julia job at a time, never parallel chains; `JULIA_NUM_PRECOMPILE_TASKS=4` and `nice -n 10`; a juliac build of anything containing Makie only alone and under a memory watchdog (kill below about 4 GB `MemAvailable`). A parallel chain took the machine down on 2026-10-15 (session note 20).
+7. The design lives in the note; findings that change the design go into the note first, then into `writeup/design-findings.md`; the session note records what was decided and why. Refresh `writeup/traits-for-better-julia.md` from the note when the note changes.
+8. At the end of a work chunk, update the dated session note: intent, done, next.
 
 ## Session notes
 
@@ -70,3 +72,7 @@ Record results in `poc/interfaces/README.md` and a dated session note.
 | `2026-10-13-14-layering-and-existing-julia.md` | 2026-10-13 — Session 14: layering, seven rules, working with existing Julia |
 | `2026-10-13-15-traitworld.md` | 2026-10-13 — Session 15: TraitWorld, the proof of concept of the new design |
 | `2026-10-14-16-adherence-and-module-structure.md` | 2026-10-14 — Session 16: conformance by field or methods; exported and internal functions; linked representations; parametric types; keywords |
+| `2026-10-14-17-fable-review-of-note-rev1010.md` | 2026-10-14 — Session 17: Fable review of the note at rev 1010 (16 findings, folded in at rev 1019) |
+| `2026-10-14-18-poc3-review-and-m1-m4.md` | 2026-10-14 — Session 18: review of the note (rev 1019) and the PoC plan, no blockers, six corrections; M0 environment, M1, M2, M4 and the M3 machinery on TraitWorld |
+| `2026-10-14-19-poc3-m3-packages.md` | 2026-10-14 — Session 19: review of session 18 (one bug: interface registration lost at precompile), the M3 packages written and run, demo 1 steps 1–3 once; finding: an error path gave every entry an inference edge that `using DataFrames` invalidated (fixed with barriers); the audit's `Base._which` recompile (prepared) |
+| `2026-10-15-20-crash-recovery-and-m8.md` | 2026-10-15 — Session 20: recovery after the machine crashed (memory, parallel jobs); session 19's unrecorded work reconstructed; an uncached ownership lookup made sealing 7× slower (fixed); the tolerations lists; the trimmed pipeline runs (3.53 MB, 39 warnings); the full build does not fit in the free memory |

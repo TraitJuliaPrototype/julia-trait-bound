@@ -1,0 +1,6 @@
+name = "BasePirate"
+uuid = "5d1f0a3e-2b6c-4e7f-9a8b-1c2d3e4f5a6b"
+version = "0.1.0"
+authors = ["Frank Hellmann"]
+
+[deps]

@@ -2,3 +2,8 @@
 *.jl.mem
 trace_*.txt
 attic/binary/julia/
+poc/interfaces/build/app_full
+poc/interfaces/build/app_trim
+poc/interfaces/build/*.log
+poc/interfaces/build/*.png
+poc/interfaces/build/.claude/
