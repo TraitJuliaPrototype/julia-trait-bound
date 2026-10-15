@@ -2,6 +2,8 @@
 
 *Layout note, 2026-10-14: `Background/`, `TraitRegions/`, `ecosystem/`, `binary/`, `rung2/`, `spike/`, `reviews/` and `poc/{concrete,errorsplit,reprparam,verifymain}` were moved to `attic/` with the same relative layout; paths below that start with them now live under `attic/`.*
 
+*Rule numbers, 2026-10-15: the note has four rules since rev 1110. Text below written earlier uses the seven: old 1 = 1 (layering); old 2, 3, 4 = 2 (the boundary translates, once per bound); old 5 = 3 (ownership); old 6 and 7 = 4 (what a call sees, and where its code lives).*
+
 Companion to the design note "Traits for better Julia"
 (https://claude.ai/code/artifact/4f98f689-d7c8-4487-a92b-282a77417d20).
 The note explains the design; this file holds the evidence, the proof-of-concept
@@ -588,3 +590,17 @@ README and above; and gaps now listed as limits. Not fixed: refuse mode's
 order dependence, `_manifest_closure`'s silent fallback without a manifest
 entry, keyword-less declared targets, the Union cap in
 `_sig_alternatives`. The list is in `session-notes/2026-10-15-20-crash-recovery-and-m8.md`.
+
+## 14. Earlier forms of the design
+
+Moved from the note's "Other options considered" at rev 1110, so that the note lists only the alternatives a new reader would propose. Rule numbers in this list are the note's current ones.
+
+- **Region blocks inside ordinary modules:** the first prototype's `@region`. Replaced by trait modules, because every rule of the design applies per module, and a block over one trait cannot declare the traits of several arguments.
+- **A closed trait world stated per module:** each trait module checked against its own imports. Replaced by layering, a property of the dependency graph that also says where compiled code lives.
+- **Making outside definitions invisible inside trait-bound code,** called sealed resolution in an earlier version: rejected because the same call would have two answers, and rejected again on 2026-10-14 as an immune trait world, because one method with two versions disagrees silently across the worlds through `hash`, `isless` or `convert` on values that cross. Sealing now names something else: the enforcement of ownership over what the trait world compiles against.
+- **A trait layer for all of Base:** wrap Base in traits before anything works. Unnecessary once Base joins the trait world by designation; capability traits cover only the interfaces that conformance needs.
+- **Linked representations per module:** `@trait_module Table{R} with ColTable{R}, RowTable{R}`, one representation for every function in a module. Rejected: a bundle trait links per function already, and a type links by one field whose type implements both; a module-wide link would make every function require conformance to both, which loses adoption one trait at a time, and a module generic over one representation cannot express a function over two, such as `meandiff(a::ColTable, b::ColTable)`.
+- **Poisoning pirated code at the call,** an earlier version of this note: the affected worker kept its code and raised when called. Rejected because it fails late and the retained code can never run; refusing at the load fails first.
+- **Interface packages as one kind of package** (until rev 1022): a package that admitted another package's code, declared calls into it, sealed its whole dependency tree and tolerated its pirates. Split in two because the jobs differ: admitting decides what trait-world code compiles against and needs one authority per package, a trait wrapper; declaring calls decides nothing and needs no category. Sealing the whole tree behind declared calls bought policy only, not caching, AOT or identical results.
+- **Implementation packages declaring themselves** (the prototype's built-in list, StaticArrays implements StaticArraysCore and six more): a claim, which rule 3 forbids. Cores naming their implementations upstream is the right authority but not enough alone: a core cannot depend on its implementation, so nothing would load it when the core's types enter the trait world; the wrapper's dependency does.
+- **An allowlist of trait-compatible Base:** rejected; Base's functions call each other, so the list would be transitive and per version. The check on compiled code with a door list is automatic and follows each version by itself.
