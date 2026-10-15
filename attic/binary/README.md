@@ -43,3 +43,27 @@ pre-pirate semantics while the live world takes the pirate.
   (`isdefined`-probe for the ccall) instead of the Stage-A interpreter.
 - P1c: enrollment bit on `jl_method_t` set from Project.toml metadata at
   load, replacing the hand-rooted module array.
+
+## The trait-world invalidation filter (2026-10-15, session 20)
+
+`trait_world_filter_v1.patch` (clone commit `72a6ee9`, on top of the patches
+above): `jl_set_trait_world_filter(mods, julia_names)` registers the trait
+modules and TraitWorld (rooted by TraitWorld, `wrapper.jl`) and the standard
+libraries' names. While `jl_method_table_activate` inserts a method, that
+method is the trigger, and `invalidate_code_instance`, which every
+invalidation path reaches, skips code of a registered module when the
+trigger comes from neither the trait world nor Julia and its definer owns a
+type or the function of its signature (Union arguments and extensions prove
+no ownership, so in doubt it invalidates). Pirates invalidate as before;
+wrapped packages are not protected (their code is also ordinary code).
+`jl_tw_skipped` counts the skips. TraitWorld turns it on when the symbol
+exists; `JULIA_TW_FILTER=0` turns it off. Results in
+`poc/interfaces/README.md` ("Invalidation filter").
+
+Build notes: the clone was built at the old path `binary/julia`, so the
+standard library symlinks under `usr/share/julia/stdlib/v1.12` dangled after
+the attic move; they were re-pointed to `attic/binary/julia/stdlib`. A
+top-level `make` then tries to reinstall them and stops at the system image;
+rebuild only the C library instead: `nice -n 10 make -C src -j4`. Use an own
+depot for its package images:
+`JULIA_DEPOT_PATH=<dir>:~/.julia attic/binary/julia/julia …`.

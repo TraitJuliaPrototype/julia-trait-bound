@@ -312,6 +312,21 @@ removed (superseded). Not yet: automatic recording and loading (today three
 explicit steps), keying caches by load order and package versions, and the
 Julia patch for trait-world code (the invalidation filter, attic 0a33fef).
 
+## The trait-world invalidation filter (patched Julia)
+
+Ported the August idea to the current design as `jl_set_trait_world_filter`
+in the attic clone's `src/gf.c` (`attic/binary/trait_world_filter_v1.patch`):
+an insertion skips invalidating code of trait modules and TraitWorld when the
+trigger is defined outside the trait world and Julia and owns a type or the
+function of its signature (pirates invalidate). The clone needed its
+standard library symlinks re-pointed after the attic move; build only `make
+-C src`. A/B (`x11_filter.jl`): 92 skips; a new type's first `summarize`
+54 ms instead of 227 ms (no recompiling); the first `@implement` 0.65-0.74 s
+instead of 0.85-0.99 s; a new keyword type 1.0 s instead of 1.26 s, the rest
+being Base/Compiler code the checks call, shared with ordinary code (needs
+trait-world instances of Base code, trade-off 8's other half). 199 tests pass
+on stock and on the patched build.
+
 ## Next
 
 1. Open: refuse mode's order dependence (read every wrapper's tolerations

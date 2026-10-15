@@ -286,6 +286,31 @@ data of each image (types, methods, method tables, the edges of cached code
 against the current method table) and running `__init__`, which a sysimage
 avoids by being one pre-merged, pre-validated world.
 
+## Invalidation filter on a patched Julia (`scripts/x11_filter.jl`)
+
+The attic's Julia 1.12.2 with `attic/binary/trait_world_filter_v1.patch`: a
+method insertion does not invalidate code of a trait module or of TraitWorld
+when the new method comes from outside the trait world and Julia and its
+definer owns a type or the function in its signature; pirates invalidate as
+before. A/B on the same build, after the stack, DataFramesWrapper, MakiePlots,
+CSV and DataFrames load:
+
+| | filter on | filter off |
+|---|---|---|
+| invalidations skipped | 92 | 0 |
+| first `summarize(m)` for a new type | **54 ms** (0 recompiling) | 227 ms (211 ms recompiling) |
+| first one-line `@implement` | 651–738 ms (166–189 ms recompiling) | 846–987 ms (257–295 ms) |
+| first call at a keyword type the images lack | 1010 ms (883 ms recompiling) | 1264 ms (1137 ms) |
+| a second new type | 24 ms | 29 ms |
+
+TraitWorld's tests pass on the patched build with the filter on (199). The
+trait modules' own code no longer recompiles; what still does is Base's and
+the Compiler's code that TraitWorld's checks call (`code_typed`, method
+lookup), which Makie's tree invalidates and which ordinary code shares, so
+the filter must not protect it. The design's answer is the other half of
+trade-off 8, trait-world instances of Base code compiled separately, which
+this patch does not attempt.
+
 ## Demo 2, ahead of time (`scripts/verify_app.jl`, `build/build.sh`)
 
 **Step 1, `verify_main` on the full application**, `App.main` (CSV,
