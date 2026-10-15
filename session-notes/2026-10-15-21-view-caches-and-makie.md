@@ -153,6 +153,35 @@ My answer: no fundamental reason.
 - Load time and eager images are engineering problems in Julia's loader, which
   sealed views make easier: no re-validation needed, and pre-merged images.
 
+## How close Makie is to a wrapper (the user: "Check how close Makie is to letting us wrap it")
+
+Before this, the user asked whether the full app still carries LLVM and compiles.
+- Yes: the untrimmed binary loads `libjulia-codegen` (81 MB) and LLVM (111 MB)
+  and compiled 60 methods. None of them is trait-bound code: 59 are Makie's
+  tree and 1 is CSV. The trimmed binary also loads both libraries (Julia
+  1.12's runtime does) but cannot compile.
+- Then: how would this work in Rust or Mojo? Rule 3 is Rust's orphan rule,
+  rule 4 is where Rust puts monomorphized code, and calls upward are `dyn`.
+  Mojo's `fn` versus Python objects is the layering. Neither has an open,
+  dynamic outside.
+- Then: `Dict{Symbol,Any}` in Rust: `dyn Any` only downcasts; Rust code
+  closes the set with a trait (`dyn AttrValue`) or an enum, which here is a
+  small `Union` or a trait object.
+
+x14 and x15 (README, "How close is Makie to a trait wrapper?"):
+- **Sealing with Makie wrapped:** 72 pirates instead of 26. The new 46 are
+  core/implementation pairs (StatsAPI←StatsBase 23, AbstractFFTs←FFTA 8,
+  ComputePipeline/Observables←Makie 8, AxisAlgorithms←Interpolations 5), two
+  extensions misattributed by the PoC, and one real pirate
+  (`collect_with_eltype`).
+- **`verify_main`:** stops after 4–246 instances per call (75 holes; Observables
+  26, Base show/logging 24, figureplotting 11).
+- **Traced dispatch:** 1,940 distinct targets on the first plot (ComputePipeline
+  656, Base 649, Makie 378), and 1 new Makie target on a second plot with
+  other data.
+- **Verdict:** sealing a few wrappers away; no run-time compilation by
+  construction far; in practice close.
+
 ## Next
 
 1. Step 4, if the user wants it: caching for types of the session (a cache

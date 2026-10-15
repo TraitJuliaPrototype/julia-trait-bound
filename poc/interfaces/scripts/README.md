@@ -15,6 +15,8 @@ Scripts of the two demonstrations (writeup/poc3-plan.md §1), all run in a fresh
 | `x11_filter.jl` | the patched Julia's insertion filter, A/B (`JULIA_TW_FILTER=0`) |
 | `x12_viewcache.jl record|lean|before|after` | view caches: a representation Reports never saw, its first calls with and without the cache, CSV and Makie loaded before or after (stock or patched Julia) |
 | `x13_makie_protected.jl [csvfirst]` | the ad-hoc time to first plot on the patched Julia with Makie's tree treated as trait-world code (`JULIA_TW_PROTECT`, measurement only) |
+| `x14_makie_wrap.jl` | how close Makie is to a trait wrapper: the sealing audit with Makie wrapped, and `verify_main` over the Makie calls MakiePlots makes |
+| `x15_makie_dispatch.jl` | the methods one plot reaches through dynamic dispatch (Julia's dispatch tracing), first plot and a second one |
 | `verify_app.jl main|pipeline` | demo 2 step 1: `verify_main` on `App.main` or `Pipeline.pipeline`, targets by kind and normal-path holes by package |
 
 The juliac builds are in `../build/build.sh` (`full` or `trim`). Run one heavy job at a time: the machine is shared, and the untrimmed build with Makie needs more memory than is usually free (session note 20).

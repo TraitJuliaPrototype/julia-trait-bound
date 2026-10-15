@@ -509,6 +509,77 @@ Two limits of the experiment:
   the remaining 0.6 s). The design's answer is trait-world instances of Base
   code (trade-off 8), which is not built.
 
+## How close is Makie to a trait wrapper? (`scripts/x14_makie_wrap.jl`, `scripts/x15_makie_dispatch.jl`, session 21)
+
+A trait wrapper would let trait-bound code call Makie directly instead of
+through declared calls. The wrapper would seal Makie's tree, and Makie's code
+would become part of what `verify_main` must close. Two checks.
+
+**Sealing** (x14: a wrapper `@trait_wrapper Makie CairoMakie` defined in the
+script, audit with tolerations ignored). Without it, the sealed region has 26
+pirates from 5 packages; with it, 72 from 10. The 46 new ones are almost all
+pairs of a core package and its implementation, which a wrapper resolves by
+naming the implementation:
+- **StatsBase (23):** `pairwise` keyword methods for `StatsAPI`'s functions.
+  A StatsAPI wrapper would name StatsBase.
+- **FFTA (8):** `plan_fft` and friends for AbstractFFTs. An AbstractFFTs
+  wrapper would name FFTA.
+- **Makie (8):** `to_value`, `notify` and `map_latest!` for ComputePipeline's
+  and Observables' types, and `add_input!` on a ShaderAbstractions type. One
+  project in three packages; a wrapper for ComputePipeline and Observables
+  would name Makie.
+- **Interpolations (5):** `A_ldiv_B_md!`, AxisAlgorithms' function.
+- **Two package extensions misattributed by the PoC's ownership lookup**
+  (`IntervalSetsMakieExt`, `CompositionsBaseInverseFunctionsExt`).
+- **One real pirate:** `GeometryBasics.collect_with_eltype` at
+  ShaderAbstractions' `Buffer`, already found by reading the source.
+
+Sealing is close: four more core wrappers, one method to move upstream.
+
+**Closure, statically** (x14: `verify_main` over the Makie calls MakiePlots
+makes, at the types it passes). The walk stops almost at once. Over the whole
+call sequence it reaches 319 method instances, with 75 dynamic calls whose
+targets cannot be listed. Walked one by one, with the concrete `Figure` and
+`Axis` types a wrapper's handles would give:
+- `Axis(…)`: 4 instances before it stops;
+- `barplot!`: 15;
+- `vlines!`: 15;
+- `Figure(…)`: 203;
+- `save`: 246.
+
+The blocking calls are in Observables (26: listeners and `getproperty`/`convert`
+on `Any`), in Base's `show` and logging (24, the PNG output path through
+FileIO), in Makie's `figureplotting.jl` (11) and in GridLayoutBase (5). The
+arguments there are mostly `Any` (88 of the abstract argument types). So no
+static analysis gets through Makie as it is.
+
+**Closure, as executed** (x15: dynamic dispatches traced with
+`jl_force_trace_dispatch_enable` during a plot). One first plot reaches
+**1,940 distinct methods through dynamic dispatch**:
+- ComputePipeline 656 (`add_input!` 205, `TypedEdge` 181, function wrappers 139);
+- Base 649 (`setindex!` 159, `map` 47);
+- Makie 378 (103 of them closures);
+- Observables 86, CairoMakie 30.
+
+502 of the targets are closures and 514 have `Any` in their signature. A
+second plot with other data, title and size adds 4, three of them from the
+test script itself; Makie's one new target is a `UInt32[…]` literal with more
+elements.
+
+**Verdict.**
+- **Sealing:** a few wrappers away.
+- **No run-time compilation by construction:** far. The targets are many, and
+  they pass through `Any` where inference cannot follow.
+- **No run-time compilation in practice:** close. For given plot types and
+  value types the target set is effectively closed, so a recorded workload
+  covers it (the binary's replay: 60 run-time compilations down to 2).
+
+What would make it closed by construction is the typed boundary from "Could
+a Makie in the trait world be cached fully?": values of a closed set of
+representation types into ComputePipeline. Its typed edges, a `TypedEdge` per
+Makie closure and value types, would then form a finite set that a workload,
+or a walk that follows the graph's own registrations, can list.
+
 ## Demo 2, ahead of time (`scripts/verify_app.jl`, `build/build.sh`)
 
 **Step 1, `verify_main` on the full application**, `App.main` (CSV,
