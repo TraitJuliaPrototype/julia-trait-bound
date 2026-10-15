@@ -277,6 +277,39 @@ are the session's order). The extension, which inherits the order of an
 extension precompile, kept 286 of its Makie CodeInstances invalid in the
 session (`x10_load_validation.jl`).
 
+**Automatic: `ComboCache.auto()` in `startup.jl`.** A combination is keyed by
+its packages, their versions and their load order (stored under
+`[combocache]` in the generated `Project.toml`); a `.built` marker next to the
+package says its image is complete. `auto()` registers a package callback
+that, after each top-level `using`, loads the largest built combination whose
+packages are all loaded in the session, in the same order and at the same
+versions. If the session was started with `--trace-compile=<file>`, it also
+records the session at exit: a `pending-<pid>.toml` names the trace, the
+packages and their order, and a detached, niced process waits for the session
+to end (the trace is complete only then), loads the packages in that order,
+generates the combination and builds it. The builder claims the record by
+renaming it (atomic), so two builders never work on the same session.
+
+    # ~/.julia/config/startup.jl
+    using ComboCache; ComboCache.auto()
+
+    julia --trace-compile=trace.jl …   # session 1: work as usual; built after exit
+    julia …                            # session 2: the combination loads after the `using`s
+
+End to end (session 1 recorded, its combination built, session 2 with the
+same `using`s): the combination loaded by itself, and the read, summary, plot
+and PNG took 0.21–0.24 s after loading, 0.18–0.19 s of it recompiling.
+
+Limits: recording needs the command-line flag (1.12 has no way to trace
+compilations to a file from inside a session without redirecting the process's
+stderr). The builder knows the session ended when its process id is gone,
+or, on Linux, when `/proc/<pid>/cmdline` no longer names the trace file
+(process ids are reused); inside the Claude Code sandbox `/proc` does not show
+the sandbox's processes, so only the id is checked there, and detached
+processes are killed when the command that started them ends, so the e2e run
+above ran the builder step by hand. A lock held by the session for its
+lifetime would work everywhere; not built.
+
 **The load.** `@time_imports using App`: 285 packages, 3.9 s of package
 loading with 0.02 s of compilation in it (Makie 1.06 s, MakiePlots 0.33 s,
 then a long tail); the rest of the 6 s, about 2 s, is outside the

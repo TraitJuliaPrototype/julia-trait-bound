@@ -308,9 +308,9 @@ cached code's validity depends on the load order, and a build in another
 order keeps Makie code valid that the session invalidates, so the replay
 stores nothing for it. Order-faithful: first PNG 7.5 s (22 s without), read
 to PNG 0.34 s after loading, as with App. The MakiePlots CSV extension is
-removed (superseded). Not yet: automatic recording and loading (today three
-explicit steps), keying caches by load order and package versions, and the
-Julia patch for trait-world code (the invalidation filter, attic 0a33fef).
+removed (superseded). Automatic recording and loading, keyed by load order
+and versions, came next (below), after the Julia patch for trait-world code
+(the invalidation filter, attic 0a33fef).
 
 ## The trait-world invalidation filter (patched Julia)
 
@@ -327,6 +327,33 @@ being Base/Compiler code the checks call, shared with ordinary code (needs
 trait-world instances of Base code, trade-off 8's other half). 199 tests pass
 on stock and on the patched build.
 
+## Combination caches, automatic (`ComboCache.auto()`, commits 71c9b68, ff3ca4f)
+
+The user: "Yes" (patch next, then automation), then "Commit what works and
+then finish". `auto()` in `startup.jl` registers a package callback that loads,
+after each top-level `using`, the largest built combination matching the
+session's packages, versions and load order (keyed in the generated
+`Project.toml` under `[combocache]`; a `.built` marker says the image is
+complete). Started with `--trace-compile`, a session writes
+`pending-<pid>.toml` at exit and spawns a detached, niced builder that waits
+for the session to end, loads the packages in its order, generates and builds.
+
+Problems on the way: the sandbox kills detached processes when the starting
+command ends, so the e2e run ran the builder by hand; a reused pid made the
+wait unreliable (`_session_running` now also checks `/proc/<pid>/cmdline` for
+the trace path, but inside the sandbox `/proc` does not show the sandbox's
+processes, so it falls back to the pid there); a surviving detached builder
+and the hand-run one collided (the builder now claims the record by an atomic
+rename, and removes it with `force = true`); `@call` warned about world age
+reading `__tw_declared__` defined during the same macro expansion
+(`declared_calls` reads it through `invokelatest`).
+
+End to end: session 2 loaded `Combo_d1b621a037d5c0ca` by itself; read,
+summary, plot and PNG 0.21–0.24 s after loading (0.18–0.19 s recompiling),
+against about 15 s without. 199 tests pass. Not built: a lock held by the
+session for its lifetime, which would replace the pid wait everywhere;
+programmatic tracing (1.12 can only trace to a file via the flag).
+
 ## Next
 
 1. Open: refuse mode's order dependence (read every wrapper's tolerations
@@ -335,3 +362,5 @@ on stock and on the patched build.
 3. Smaller: `App.pipeline` duplicates `Pipeline.pipeline` (the earlier
    in-App variant with `readdlm`), kept in App's workload; remove or label
    it. The not-fixed review items above.
+4. ComboCache: wait on a lock the session holds instead of its pid; check
+   the detached builder outside the sandbox.
