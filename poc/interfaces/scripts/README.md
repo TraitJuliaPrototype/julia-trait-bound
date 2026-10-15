@@ -17,6 +17,7 @@ Scripts of the two demonstrations (writeup/poc3-plan.md §1), all run in a fresh
 | `x13_makie_protected.jl [csvfirst]` | the ad-hoc time to first plot on the patched Julia with Makie's tree treated as trait-world code (`JULIA_TW_PROTECT`, measurement only) |
 | `x14_makie_wrap.jl` | how close Makie is to a trait wrapper: the sealing audit with Makie wrapped, and `verify_main` over the Makie calls MakiePlots makes |
 | `x15_makie_dispatch.jl` | the methods one plot reaches through dynamic dispatch (Julia's dispatch tracing), first plot and a second one |
+| `x16_makie_variety.jl` | the dispatch targets each new argument type or attribute shape adds (35–84; same types, other values: 1) |
 | `verify_app.jl main|pipeline` | demo 2 step 1: `verify_main` on `App.main` or `Pipeline.pipeline`, targets by kind and normal-path holes by package |
 
 The juliac builds are in `../build/build.sh` (`full` or `trim`). Run one heavy job at a time: the machine is shared, and the untrimmed build with Makie needs more memory than is usually free (session note 20).

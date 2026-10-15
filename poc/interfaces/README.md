@@ -566,6 +566,26 @@ second plot with other data, title and size adds 4, three of them from the
 test script itself; Makie's one new target is a `UInt32[…]` literal with more
 elements.
 
+**Variety across types** (`scripts/x16_makie_variety.jl`, the same tracing,
+seven phases in one process). x15's second plot changed values only. When
+types change, each new argument type or attribute shape adds 35–84 targets:
+
+| phase | new targets |
+|---|---|
+| A first plot, `Vector{Float64}` ×2, `[Float64]` | 1,879 |
+| B same types, other values | 1 |
+| C centers `Vector{Int}`, counts `Vector{Float32}` | 64 |
+| D centers `1:3`, `color = [:red, :blue]` on two lines | 35 |
+| E `color = RGBf(…)`, line positions `Vector{Int}` | 41 |
+| F bars with `color = Vector{Float64}`, `colormap = :viridis` | 84 |
+| G A's types again | 1 |
+
+Phase F's new targets are `TypedEdge`s and attribute conversions for
+`colormap`, `colorrange`, `colorscale`, `lowclip` and CairoMakie's
+`to_cairo_color(::Vector{Float64}, …)`: code per attribute shape. So `Any`
+hides a stable core of about 1,900 targets and a fringe of 2–4% per new type
+or shape.
+
 **Verdict.**
 - **Sealing:** a few wrappers away.
 - **No run-time compilation by construction:** far. The targets are many, and

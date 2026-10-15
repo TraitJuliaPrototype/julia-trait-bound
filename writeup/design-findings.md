@@ -653,3 +653,229 @@ writer wins, and the other's new signatures are recorded again next time.
 The `JULIA_TW_PROTECT` experiment only grants Makie's tree the filter's
 protection; it does not rearchitect Makie. That is sound only because
 MakiePlots passes Makie plain vectors and strings.
+
+## 16. Between nested types and `Any` (session 21)
+
+The question (the user's): typing everything in classic Julia leads to deeply
+nested parametric types, C++ template style, with massive compilation; keeping
+things at `Any` or abstract types keeps types sane but loses what a value
+carries. Does the trait system let a complex system such as Makie escape that
+choice? The note's answer is the section "Between nested types and `Any`" at
+the head of "How the concepts achieve the goals" (rev 1112, revised at rev
+1116 after a Fable review, below). This is the long form.
+
+**Answer.** It escapes the forced choice, not the trade-off. The position is
+chosen per conformance and per call mode instead of per field, and in every
+position the code above a bound keeps the contract. Nesting ends where a
+conformance projects or a position is dynamic. What stays is the cost, at
+each position, of having many representations: more compiled code, a copy,
+or an indirect call. What is new over plain Julia, which can reach the same
+shape by discipline, is enforcement, targets closed by ownership, and the
+placement of per-type code (16.3).
+
+### 16.1 The dilemma, counted
+
+A Julia type carries in one thing two things a trait bound separates: the
+contract (what can be done with a value, what comes back) and the
+representation (its data, what code is compiled for). Code is specialized
+on the concrete type. Take layers 1…k, where layer i adds a type that holds
+a value of layer i−1 as a parameter, and nᵢ variants occur at layer i:
+
+- **Parametric throughout:** code at layer k compiles for up to n₁·n₂·…·nₖ
+  types (those that occur). The types themselves grow with k.
+- **`Any` at layer j:** code above j compiles once, but a call on the value
+  is dynamic and its result is `Any` unless the function has at most
+  `max_methods` applicable methods or the caller asserts it. The targets
+  still compile, per runtime type, when first reached. Any load can add a
+  target, and no static analysis lists them.
+- **Trait world:** code at layer k compiles per tuple of the
+  representations at its own bounds. Within one function that is still a
+  product over its bounds (`meandiff` per pair). Across layers it is a sum:
+  a conformance that projects maps every variant below onto representations
+  the layer chose, a dynamic position onto one worker, so the product
+  restarts. It continues only by choice, in the chooser's image: a type
+  that is its own representation, a parametric family (one worker per
+  instantiation), a generic implementation (every conforming family becomes
+  a representation), a representation that is itself a family over lower
+  representations, a compiled call, and a dynamic call with an open result
+  type (part of the worker's key, inferred above).
+
+### 16.2 The positions
+
+| Position | Compiled | A call on the value | Compiled for | A load elsewhere | Measured on the prototype |
+|---|---|---|---|---|---|
+| Julia: a type parameter | per nested type | direct | the whole type | can invalidate it | session 20: an ad-hoc session recompiles about 13 s of Makie code that CSV's dependencies invalidate (an ownership problem, §15) |
+| Julia: an `Any` field | the caller once, each target per runtime type when first reached | dynamic, result `Any` unless asserted | nothing | can add targets | x15/x16: about 1,900 targets per first plot, 35–84 more per new argument type or attribute shape; compiled at run time unless a workload recorded them |
+| own representation (`@implement T` by methods) | the library per type, in the conformer's image | direct | the type, reached through its operations | changes nothing (rule 4; on stock Julia only for workers whose Base calls are concrete, §15) | `Ramp`: 1.7 ms first call from its image, 3 ms from a view cache |
+| projection (a field, a written projection) | the projection per type, the library per representation | direct | the representation | changes nothing (rule 4) | `Measurements`: 1.4 ms first call; x8: 35–47 ms per new type (the declaration's checks) |
+| dynamic operations (`@implement … dynamic`) | the library once per set of dynamic operations (`Dyn{NT, ops}`), in the conformer's image | indirect, declared result type | the shared representation | changes nothing (rule 4) | 6.3 ns per operation (7× plain Julia per element); `Reversed`: 107 ms first call in a fresh session (the pointers are made then), `colrange` outside the workload 84 ms |
+| dynamic call (`Callable`, the default) | the library once per signature, the function by its caller | indirect, declared result type | the signature | changes nothing (rule 4) | 4.0–4.4 ns per call; first call of a new closure 7–8 ms |
+| compiled call | per function type, in the caller's image | direct | the function's type | can invalidate it, as today | first call of a new closure 35–36 ms |
+
+One more position exists inside a trait module: a field of an abstract type
+or a union holding trait-world values the module made. It is allowed. Its
+dispatch is closed by ownership (rule 4's dispatch check: only owners and
+delegates of the function or the argument types), so no load from outside
+adds a target, and `verify_main` lists the targets where every method is for
+a concrete type. But results are not inferred, and concrete mode reports it
+on a normal path. It is `Any` without the openness, not without the
+information loss, and it is what a trait-world Makie would use for
+attributes with several representations (16.4).
+
+### 16.3 Why the dynamic positions are not `Any`, and what is new over discipline
+
+Design:
+1. **Results are declared.** A trait operation has a declared result type,
+   asserted at the call, and a `Callable` has `S`. The code after the call
+   infers concretely; the dynamic part is one call wide.
+2. **Targets are closed and listed.** The targets of a dynamic operation are
+   the conformances; of a dynamic call, the functions passed at the declared
+   signature. Both come only from owners and delegates (rule 3), so no load
+   from outside adds one, and a build can enumerate them.
+3. **Targets are compiled ahead.** An operation's code is compiled with its
+   conformance, in the conformer's image; a function's at its declared
+   signature by the caller.
+4. **What is lost** is the direct call: no inlining across the position, a
+   few nanoseconds per call. It belongs where calls are coarse.
+
+Prototype (verified in the review): items 2 and 3 hold for dynamic calls and
+not for dynamic operations. `verify_main` classifies a `Callable` site as a
+trait site with enumerated targets (the wrapper per function type), and in a
+closed world `enter_callable` passes the function itself, so a build compiles
+it as a direct call. A dynamic operation is an `Erased` `ccall` through a
+`@cfunction` pointer made at the type's first entry in each session
+(`implement.jl`, `core.jl`): `verify_main` skips the `:foreigncall`, so a
+`main` over `Reversed` is reported closed with the user's operations in no
+target list, and the first call costs 107 ms in a fresh session against
+1.4 ms for a projection. `poc/world/README.md` already says a closed world
+should use implementations. An image cannot hold such a pointer; compiling a
+dynamic operation into an image needs another mechanism (16.6).
+
+Plain Julia can reach the same shape by discipline: convert to a few
+concrete types first, assert results after dynamic calls. x8 measures it: a
+hand-written convert-then-plot function costs 36 ms per new table type, the
+trait route 35–47 ms, Makie's recipe route 297 ms because `_create_plot!`,
+`conversion_trait`, the dim converts and `preferred_axis_type` see the
+user's type before `convert_arguments`. So the per-type compile cost is not
+what the design adds. It adds:
+1. **Enforcement.** The bound is the only place the user's type is seen;
+   nothing before the projection can specialize on it.
+2. **Closed, listed targets** for the dynamic positions (rule 3), where an
+   assertion after a dynamic call in plain Julia leaves the targets open.
+3. **Placement.** Code compiled per type lives in the image of the package
+   that chose the type (rule 4), where no other load invalidates it, so the
+   per-type position costs build time and disk rather than session latency.
+
+"Sane types", the other half of the question, is not answered by the
+prototype: a worker's stack frame prints as
+`colrange(t::TObj{ColTable, Tuple{TraitWorld.View{ColTable, TraitWorld.Impl{(:firstcol,)}, Ramp}}}, i::Int64)`,
+and for dynamic operations the `Dyn{@NamedTuple{…Erased…}}` witness is
+longer. The design should print a worker as its bound and representation,
+as concrete mode's messages already do (`scaled_sum` at Series at
+Vector{Float64}).
+
+### 16.4 Makie as the worked case
+
+Makie keeps `Observable{Any}`, `Dict{Symbol,Any}`-style attributes and
+`invokelatest`, among other reasons because parametrizing them would compile
+per combination of user argument types, attribute value types and plot
+types, and because an attribute's value can change type over time
+(`plot.color = :red`, then a vector). x15 and x16 measure what that `Any`
+hides: a stable core of about 1,900 dynamic-dispatch targets per first plot,
+one more for other values of the same types, and 35–84 more for each new
+argument type or attribute shape (x16: `Vector{Int}` data 64, a range and a
+vector of colors 35, an `RGBf` 41, a numeric color with a colormap 84). The
+core is what a recorded workload covers today; the fringe is the per-type
+code a trait-world Makie must place.
+
+Makie computes on families of its own, not single types. Positions are
+`Point{N, Float64}` for `Float64` and integer data and `Point{N, Float32}` for
+`Float32` and small integers (`float_type`, conversions.jl), converted to
+`Float32` only at the backend with a linear rescaling (`Float32Convert`):
+Makie once converted everything to `Float32` and had to stop, for
+precision, which is 16.6 item 2 observed in the field. `to_color` returns
+five shapes (a `Float32` to colormap, `RGBA{Float32}`, `Vector{RGBAf}`,
+`Vector{Float32}`, or a pattern or palette), with different downstream
+semantics: a numeric color goes through `colorrange`, `colormap`, `lowclip`.
+One representation per attribute would lose that, and a concrete record per
+combination of shapes would be a product across forty attributes, worse
+than the product across layers. So an attribute with several shapes is the
+inside position of 16.2: a field whose type is a union of Makie's own
+representations, dynamic inside, closed by ownership, its code compiled per
+representation in Makie's images. ComputePipeline already works that way:
+each edge is compiled per its inputs' types and the graph is dynamic between
+edges.
+
+| Makie today | Variety | Trait-world position |
+|---|---|---|
+| `convert_arguments`, `_create_plot!` and the code before conversion, specialized per user argument types (297 ms per table type, x8) | user data types | bounds on data arguments that project onto Makie's position families (`Vector{Point{N, Float64}}`, `Vector{Point{N, Float32}}`, …); the projection compiles per user type in the conformer's image; Dates, Unitful, categorical values as implementations |
+| attributes and observables at `Any` (Base: `setindex!` 159 targets, `map` 47) | attribute shapes (`:red`, `"red"`, `RGBf`, a vector of colors, numbers with a colormap) | a bound per attribute projecting onto Makie's shapes; a field typed as a union of them, the inside position (16.2) |
+| ComputePipeline `TypedEdge` per Makie closure and value types (656 targets; 14–22 more per new type or shape, x16) | closures × representations | closures are Makie's, value types its representations: a finite list per representation, compiled into Makie's images (a conformer's for an own representation) |
+| recipes | user plot types | a downstream trait module's methods of `plot!` for its own plot type, selected at a dynamic site inside Makie and accepted by the dispatch check (rule 4), compiled in its image |
+| `on(f, obs)`, `lift`, user transforms and colormap functions | user functions | `Callable`s, dynamic calls by default |
+| backends (CairoMakie, GLMakie) | one per session | implementations a Makie wrapper names (x14 did this for CairoMakie) |
+| globals: theme stack, `current_figure`, font and FreeType handles | none | typed, deeply concrete state or declared calls (rule 1's check of globals) |
+| `show`/logging holes on the PNG path (24) | none | outward doors, outside Makie |
+
+With this, `verify_main` would follow Makie from the plot call to the
+backend: the 75 holes of x14 are in Observables (26), Base's output path
+(24), `figureplotting.jl` (11) and GridLayoutBase (5), on `Any`-typed values
+that the representations above replace or close. Not tested: Makie is
+unchanged, the prototype's MakiePlots only translates tables into plain
+vectors before its declared calls, and the note's trade-off 1 says Makie as
+written is reached by calls upward.
+
+### 16.5 Other languages
+
+| Language | Compiled per type | Type-erased, with a contract | Erased value storable | Erased, without a contract |
+|---|---|---|---|---|
+| C++ | templates (the nesting the question names); C++20 concepts check the contract, still per type | virtual functions; `std::function` for one signature | yes | `void*`, `std::any` |
+| Java | — in source (HotSpot specializes at run time) | generics (erased), interfaces | yes | `Object` |
+| Rust | generics, monomorphized; `impl Trait` hides the name, not the cost | `dyn Trait`, a vtable per (trait, type) | `Box<dyn Trait>` | `Box<dyn Any>` |
+| Swift | specialization, an optimization within a module or of `@inlinable` code | generics by default across modules (witness tables) | `any P` | `Any` |
+| Julia today | type parameters | abstract types with asserted results (informal contract, open targets); FunctionWrappers and opaque closures for one signature | yes, at `Any` | `Any`, abstract types |
+| Trait world | own representation, compiled call | dynamic operations, dynamic call | no (a trait object cannot be stored) | inside a module, closed by ownership |
+
+The trait world adds the projection as an enforced position, which the
+others leave to convention (Makie's `convert_arguments` is one), and
+placement by owner: code compiled per type lives in the image of the package
+that chose the type and is never invalidated from elsewhere. In Rust the
+orphan rule corresponds to rule 3 and the placement of monomorphized code to
+rule 4.
+
+### 16.6 Open
+
+1. **Storing erased values.** Rust's `Vec<Box<dyn Trait>>` and Swift's
+   `[any P]` keep values of different types with their operations. The trait
+   world forbids storing a trait object, so a library keeps projected
+   representations. A storable dynamic trait object (the representation plus
+   its operations, a trait-world value) would fill the gap; whether it fits
+   rule 2 is not worked out.
+2. **What a projection loses.** Dual numbers, units, `Float64` precision and
+   lazy ranges do not survive a projection onto `Float32` arrays; Makie's
+   own history shows it (16.4). Keeping them needs a representation that
+   carries them, compiled per type: the product continues, by choice.
+3. **Dynamic operations in an image.** The prototype's `@cfunction`
+   pointers are made per session and invisible to `verify_main`. The design
+   needs operation code compiled with the conformance and a dispatch the
+   walk can list, for example a witness of compiled methods instead of
+   pointers.
+4. **Printing.** A worker should print as its bound and representation;
+   the prototype prints the machinery's types.
+5. **The claim is structural, not measured at scale.** It follows from
+   workers being keyed by representation tuples (`TObj{T, V}`). x16 is the
+   cheap half of the Makie test (variety per type). Still open: a synthetic
+   stack of trait modules counting specializations against layers and
+   variants, and ComputePipeline restricted to Makie's representation
+   families with `verify_main` run through it.
+
+**Review.** A Fable review of rev 1112 (11 findings) corrected: the claim
+that `verify_main` counts dynamic operations as bounded and that they compile
+ahead (false on the prototype, 16.3); "how little variety" (true for values,
+not types: x16); Makie's types (`Point2f` → position families; `Float32` only
+at the backend); the "wide record fixed by the library" (attribute shapes
+need the inside position); "every bound ends the growth" (conformances do,
+and six things continue it); the missing comparison with plain-Julia
+discipline and the "sane types" half; table qualifications; the
+other-languages table (Julia's abstract types with assertions, C++
+`std::function` and concepts). Trade-off 1 now says "Makie as written".

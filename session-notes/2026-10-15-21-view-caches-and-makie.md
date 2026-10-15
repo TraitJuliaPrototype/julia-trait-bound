@@ -182,6 +182,39 @@ x14 and x15 (README, "How close is Makie to a trait wrapper?"):
 - **Verdict:** sealing a few wrappers away; no run-time compilation by
   construction far; in practice close.
 
+## Between nested types and `Any` (the user: "this analysis should be a rather central point")
+
+The user asked whether traits let a system like Makie escape the choice
+between deeply nested parametric types and `Any`. The answer went into the
+live note as a new first subsection of "How the concepts achieve the goals",
+"Between nested types and `Any`" (rev 1112), with the long form in
+design-findings §16. A Fable review (11 findings, two experiments) corrected
+it at rev 1116:
+- `verify_main` does not see dynamic operations (an `Erased` `ccall` through
+  a per-session `@cfunction`), and they are not compiled ahead: `Reversed`
+  first call 107 ms in a fresh session against 1.4 ms for a projection. The
+  note now says what is design and what the prototype does.
+- x16 (`scripts/x16_makie_variety.jl`, new): other values of the same types
+  add 1 dispatch target, each new argument type or attribute shape 35–84.
+  "`Any` hides little variety" became "a stable core and a per-type fringe".
+- Makie's positions are `Point{N, Float64}`/`Point{N, Float32}` by element
+  type, `Float32` only at the backend; `to_color` has five shapes, so
+  attributes need the "inside position" (a union of Makie's own
+  representations, dynamic, closed by ownership).
+- Growth ends at conformances, not bounds; within a function code still
+  multiplies over its bounds; six things continue the product by choice.
+- Added: what is new over plain-Julia discipline (x8: hand conversion 36 ms
+  per type, trait route 35–47 ms, Makie's recipe route 297 ms): enforcement,
+  closed listed targets, placement by owner. "Sane types": the prototype's
+  stack frames print `TObj{…View{…}}`; the design should print bound and
+  representation.
+- Trade-off 1 and the wrapper section now say "Makie as written"; "static,
+  inlined" in the conformance table became "static, direct".
+
+Open (findings §16.6): a storable dynamic trait object; dynamic operations
+compiled into images; printing; the synthetic-stack and restricted
+ComputePipeline experiments.
+
 ## Next
 
 1. Step 4, if the user wants it: caching for types of the session (a cache
