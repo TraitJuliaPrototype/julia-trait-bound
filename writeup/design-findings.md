@@ -492,7 +492,7 @@ Findings that change or sharpen the design:
   dependency closure that pirate what the interface seals, 1042 come from
   packages split into a core of types and functions and an implementation:
   StaticArrays on StaticArraysCore (794), ColorVectorSpace, Colors and
-  ImageCore on ColorTypes (231), StatsBase on StatsAPI. TraitWorld exempts
+  ImageCore on ColorTypes (226), StatsBase on StatsAPI (22). TraitWorld exempts
   them by implementer declarations it makes itself (`DEFAULT_IMPLEMENTS`),
   as this file's §3 once put it ("implementers declare the interface they
   implement"); the note's rule 5 allows only "a delegate one of them

@@ -197,6 +197,51 @@ The local copy `writeup/traits-for-better-julia.md` was patched with the same
 edits. Decision 1 (who declares implementations) stays open; TraitWorld's
 `DEFAULT_IMPLEMENTS` is unchanged until it is decided.
 
+## Design round: trait wrappers (note rev 1058)
+
+Decided by the user, after two Fable reviews (the core-interface idea, then
+the folded draft):
+
+- A library written with traits needs no special rules; the machinery for
+  split packages is for legacy code only.
+- **Trait wrappers** replace interface packages for legacy code that comes
+  into the trait world: one per package per environment, standing in for
+  its owner (rule 5's new clause), delegating to the implementation packages
+  it names among its dependencies (StaticArraysCore names StaticArrays),
+  holding conformances, doors and tolerations; it retires to a re-export
+  when the package adopts traits. BaseInterface became the Base wrapper.
+- **Interface packages are gone as a category.** Code that stays outside is
+  reached by **calls upward**, one mechanism for `Callable` arguments,
+  declared calls (`@call`, any trait package may declare them) and Base's
+  doors; handles come back. A shared package of Makie calls is a convention.
+- **Sealing follows rule 6's views:** every package in a worker's view is
+  sealed by the load that brings it there (trait packages; wrappers with
+  their packages, implementations and dependencies; Julia). What lies
+  behind calls upward is in no view: audited at build, never sealed.
+  Rule 6's view now says "trait-world dependencies"; the dispatch check
+  admits "an owner or a delegate".
+
+Why the dependency is needed (verified): with StaticArraysCore alone an
+`SVector` has no `size`, `length` throws, `a[1]` throws; a worker compiled
+then would keep a stale error under the design's filter. Core-side naming
+alone gives no load guarantee, since a core cannot depend on its
+implementation.
+
+The note was edited block by block (rev 1022 → 1058); the local copy follows
+it. Counts corrected: ColorTypes' group is 226 (172 + 42 + 12), StatsAPI's
+22; the Fable review's claim that no StatsBase method pirates Julia is wrong
+(the deprecated `quantile(::AbstractArray{<:Real})` does).
+
+Proposed by the review, not applied, for the user: rules 2–4 merged into one
+boundary rule (five rules; renumbering touches ~100 references in code,
+tests and docs); rule 7 as a consequence of rule 6; delete the "How common
+interactions resolve" table; move earlier forms of the design from "Other
+options" to design-findings; move "Generic implementations" and "Several
+traits, one projection" out of "Working with existing Julia"; open-typed
+arguments are described three ways (walked at the entry; "runs as ordinary
+code"; "must be concretely typed"), pick one. The PoC still has
+`@interface_package` and the built-in implementer list.
+
 ## Next
 
 1. Decision 1: who names a split package's implementations.
