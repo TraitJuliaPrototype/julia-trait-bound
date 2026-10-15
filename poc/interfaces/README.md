@@ -525,18 +525,74 @@ their keywords (`Tuple{Type{Figure}}` for `Figure(; size)`). The plan's
 implemented (`App.sinks()` is a placeholder). 3.7–5.4 s.
 
 **Step 2, the untrimmed juliac build of `App`** (session 21, the machine to
-itself): built in 398 s, a 1.17 GB executable (`build/app_full`, not
+itself): built in about 400 s, a 1.17 GB executable (`build/app_full`, not
 committed). Available memory fell to 5.4 GB from 22 GB, so the build needs
-about 16.5 GB. `app_full sample.csv out.png` reads the CSV with CSV.jl into a
-DataFrame, summarizes it in the trait world and draws the histogram with
-CairoMakie: **0.93–0.98 s from process start to the PNG**, peak resident
-memory 1.1 GB. The same work takes 16 s in an ad-hoc session and 6.4 s with
-`App`'s package image (most of it the load). Whether the binary compiles
-anything at run time was not measured. Its tail of 0.9 s is the image's
-startup plus the work. In session 20 the build was killed twice by the
-memory guard while another simulation held the rest of the memory; an
-earlier attempt, run in parallel with other jobs, took the machine down
-(session note 20).
+about 16.5 GB. `app_full sample.csv out.png` does what `App.main` does: reads
+the CSV with CSV.jl into a DataFrame, summarizes it in the trait world, and
+draws the histogram with CairoMakie. It runs in 0.89–0.98 s of wall time,
+peak memory 1.1 GB. The same work takes 16 s in an ad-hoc session and 6.4 s
+with `App`'s package image. In session 20 the build was killed twice by the
+memory guard while another simulation held the rest of the memory.
+
+**Does the build use the cached code?** juliac runs a non-incremental
+system-image build (`--output-o … --output-incremental=no`) that loads `App`
+and its dependencies from their package images, inferred code and native
+code both (checked in that mode: CSV's image loads in 0.14 s with native code
+attached). Writing the image, though, regenerates all machine code with LLVM
+(`JULIA_IMAGE_TIMINGS=1`: 134 s wall, 949 CPU-seconds over 8 shards); the
+packages' machine code is not copied into it.
+
+**Where the binary's time goes** (`build/app_prof.jl`, `./build.sh prof`:
+App.main's steps timed from process start, run-time compilation traced):
+
+| | `app_full` | with the recorded compilations replayed at build time |
+|---|---|---|
+| process start to `main` | 0.53–0.54 s | 0.54 s |
+| `CSV.read` | 0.033 s | 0.001 s |
+| `summarize` | 0.025 s | 0.014 s |
+| figure and axis | 0.19–0.24 s | 0.036 s |
+| bars and mean line | 0.017–0.026 s | 0.008 s |
+| render and save PNG | 0.067–0.077 s | 0.041 s |
+| compiling inside `main` | 0.27–0.32 s (60 methods) | 0.012 s (2 methods) |
+| wall time, whole process | 0.89 s | **0.69–0.70 s** |
+
+**Why the binary compiled at run time.** Of the 32 run-time compilations whose
+types could be resolved, 26 already had type-inferred code cached after
+`using App`, but no machine code:
+- 18 of them come from Julia's own system image.
+- The rest come from upstream package images (Observables and others).
+
+`App`'s workload runs this very path through runtime dispatch, which
+generates their machine code in the precompile process. But a package image
+saves only the code entries it created itself, so machine code added to an
+entry from an upstream image is not kept. juliac does not run `main`, so it
+never generates that code either. The rest of the run-time compilation is
+one 51 ms artifact lookup (Makie's fonts) and closures. Replaying the 60
+traced compilations as `precompile` statements in the build (58 resolved,
+`APP_PROF_REPLAY=1`, from `build/runtime_compiles.jl`) removes almost all of
+it. In rule 4's terms, this machine code belongs in the downstream package
+whose workload produced it, and Julia drops it.
+
+**Startup.** Plain Julia starts in 0.11 s, with its 312 MB system image. The
+binary reaches `main` after 0.54 s, so about 0.43 s goes to restoring the
+packages' share of the 1.17 GB image (strace: one 0.5 s stretch with no file
+access) and to their `__init__` work: 151 shared libraries opened and a scan
+of the system fonts. Loading just CSV and DataFrames from their separate
+images adds 0.72 s to plain Julia's start.
+
+**Python baseline** (`python/app.py`: pandas 3.0.6, matplotlib 3.11.2 with
+Agg, numpy 2.5.4, Python 3.13; the same summaries and the same histogram,
+1200×800 PNG): **0.57–0.67 s** of wall time:
+- imports 0.45 s;
+- read 1 ms, summaries 1 ms;
+- plot and PNG 0.10 s.
+
+The very first run took 3.9 s while matplotlib built its font cache and
+Python compiled its bytecode. Nothing is compiled per type, so a script and
+an interactive session cost the same, apart from the imports being paid once
+per session. Against the replayed binary, the work is on par (0.10 s against
+0.10 s) and the startup differs: Julia's 0.54 s to `main` against Python's
+0.45 s of imports.
 
 **Step 3, the trimmed pipeline**, `Pipeline.pipeline` (Columns, Stats and
 Reports, a small concrete CSV reader, text out):

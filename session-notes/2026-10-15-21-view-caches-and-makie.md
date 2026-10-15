@@ -115,12 +115,54 @@ histogram PNG, **0.93–0.98 s from process start to the PNG**, peak RSS
 Pipeline binary takes 0.02 s, with no DataFrames and no Makie. Run-time
 compilation of the full binary was not measured.
 
+## The binary's time, and a Python baseline
+
+The user asked what the pipeline timing is (the trimmed `Pipeline` binary,
+0.02 s: a concrete CSV reader, Reports' summary and histogram counts as text,
+no DataFrames, no Makie, no plot), whether the binary uses the cached code,
+for a Python baseline, and where the time goes.
+
+- **Cached code.** juliac's non-incremental `--output-o` build loads the
+  package images, inferred and native code both (probed in that mode). It
+  then regenerates all machine code with LLVM: `JULIA_IMAGE_TIMINGS=1` gives
+  134 s wall and 949 CPU-seconds over 8 shards, out of about 400 s.
+- **Python** (`poc/interfaces/python/app.py`; a uv environment in `$TMPDIR`,
+  not committed): 0.57–0.67 s.
+  - imports 0.45 s, work 0.10 s;
+  - first run ever 3.9 s (the font cache);
+  - without `MPLCONFIGDIR` in a writable place, 2.2–3.5 s every time.
+- **Run-time compilation in the binary** (`build/app_prof.jl`, `./build.sh
+  prof`): 0.27–0.32 s compiling inside `main`, 60 methods.
+  - 26 of the 32 resolvable ones already had inferred code cached after
+    `using App`, but no machine code: 18 from Julia's system image, the rest
+    from upstream package images.
+  - The mechanism: App's workload generates that machine code, but App's
+    image saves only the entries it created, and juliac does not run `main`.
+  - Replaying the 60 traced statements at build time (`APP_PROF_REPLAY=1`,
+    `build/runtime_compiles.jl`, 58 resolved) leaves 0.012 s of compiling:
+    the work is 0.10 s and the process 0.69–0.70 s, against Python's
+    0.57–0.67 s.
+- **Startup:** 0.54 s to `main`. Plain Julia starts in 0.11 s; the rest is
+  the packages' share of the 1.17 GB image (strace: 0.5 s without file access)
+  and `__init__` work (151 shared libraries, a system font scan).
+
+The user also asked whether trait-bound Julia could be as fast as Python.
+My answer: no fundamental reason.
+- Compiling per type is the one real difference, and the design turns it into
+  a cached, one-time cost per representation.
+- Load time and eager images are engineering problems in Julia's loader, which
+  sealed views make easier: no re-validation needed, and pre-merged images.
+
 ## Next
 
 1. Step 4, if the user wants it: caching for types of the session (a cache
    that depends on a script?).
 2. Concurrent flushes of the same view: a lock instead of last-writer-wins.
-3. Whether the full binary compiles anything at run time (its 0.9 s:
-   startup versus work).
+3. Julia: keep machine code that a downstream workload generates for an
+   upstream code entry, in the downstream image (rule 4's placement). This
+   would remove the binary's and `App`'s run-time compilation without
+   replaying traces.
+4. Startup: the 0.43 s of the packages' image share and `__init__`, split
+   further.
 4. From session 20: refuse mode's order dependence, ComboCache's session lock,
    remaining review items.
