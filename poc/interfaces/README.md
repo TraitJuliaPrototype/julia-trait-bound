@@ -249,6 +249,27 @@ guarantee that loads cannot invalidate it inside the trait world. What remains
 is the load: CairoMakie's image alone takes about 4.2 s, the trait stack and
 its scans about 1 s.
 
+**Rule 4's extension for an ad-hoc session.** `MakiePlots/ext/MakiePlotsCSVExt.jl`
+(triggered by CSV and DataFrames) defines no methods; its workload reads a
+CSV, summarizes it and plots it with CSV loaded. In the ad-hoc session it
+loads, and the first PNG comes at 10.3–11.7 s instead of 21 s (`CSV.read` 0.4
+s instead of 3.2 s), but Makie's axis path still recompiles for about 2.8 s
+(SentinelArrays' `axes(::SentinelArray, i)` and InlineStrings' `thisind`
+invalidating it), while with `App` loaded the same ad-hoc calls reach the PNG
+0.36 s after the load with nothing recompiled. So an extension's image does
+not supply valid code for those Makie methods where an ordinary package's
+image does; why is open (how Julia stores and validates external code in an
+extension image).
+
+**The load.** `@time_imports using App`: 285 packages, 3.9 s of package
+loading with 0.02 s of compilation in it (Makie 1.06 s, MakiePlots 0.33 s,
+then a long tail); the rest of the 6 s, about 2 s, is outside the
+per-package timer and not broken down here. The native code is linked in
+already; the time is deserializing, uniquing and validating the Julia-level
+data of each image (types, methods, method tables, the edges of cached code
+against the current method table) and running `__init__`, which a sysimage
+avoids by being one pre-merged, pre-validated world.
+
 ## Demo 2, ahead of time (`scripts/verify_app.jl`, `build/build.sh`)
 
 **Step 1, `verify_main` on the full application**, `App.main` (CSV,

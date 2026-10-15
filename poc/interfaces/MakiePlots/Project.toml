@@ -11,6 +11,13 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Reports = "4fd44446-36d9-4e81-a8a0-1d49ddb41a15"
 TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
 
+[weakdeps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+
+[extensions]
+MakiePlotsCSVExt = ["CSV", "DataFrames"]
+
 [sources]
 Columns = {path = "../../world/Columns"}
 Reports = {path = "../Reports"}

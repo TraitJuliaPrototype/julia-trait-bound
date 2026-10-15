@@ -1060,6 +1060,10 @@ deps = ["CairoMakie", "Columns", "Makie", "PrecompileTools", "Reports", "TraitWo
 path = "../MakiePlots"
 uuid = "ea7b7a6f-de07-4bae-baa8-a45a26470d0b"
 version = "0.1.0"
+weakdeps = ["CSV", "DataFrames"]
+
+    [deps.MakiePlots.extensions]
+    MakiePlotsCSVExt = ["CSV", "DataFrames"]
 
 [[deps.MappedArrays]]
 git-tree-sha1 = "0ee4497a4e80dbd29c058fcee6493f5219556f40"
