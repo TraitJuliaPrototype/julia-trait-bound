@@ -277,6 +277,20 @@ load average of 4.4 (35-41 before; load or the wrapper lookup, not
 separated); the trimmed binary 3.53 MB, 39 warnings, runs; `verify_main` of
 App unchanged (0 holes in the trait stack).
 
+## Time to first plot (the user: "in 100s of milliseconds?")
+
+No, for an ad-hoc session: 21 s to the first PNG (plain Julia 27 s), 15 s of
+it compiling, of which, by `scripts/x9_ttfp_blame.jl`, almost all re-infers
+code invalidated by loads: `Base.thisind(::InlineString, ::Int)` from CSV's
+dependency InlineStrings alone 8.4 s, SentinelArrays 3.8 s, Makie's tree
+the rest; not piracy, not the trait stack, not load order. Yes, through the
+application's image: `using App` 6.0-6.3 s, then read, summarize, plot and
+PNG in 0.35 s with nothing recompiled (rule 4: the package that depends on
+all of them holds the code). The remaining cost is the load (CairoMakie's
+image about 4.2 s). For interactive sessions the design's answer is rule 4's
+package extension: e.g. an extension of MakiePlots triggered by CSV whose
+workload holds Makie's code compiled with InlineStrings present (not tried).
+
 ## Next
 
 1. Open: refuse mode's order dependence (read every wrapper's tolerations

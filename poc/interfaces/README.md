@@ -214,6 +214,41 @@ tests). The standard libraries count as Julia, so `Pkg`, `REPL`,
 `InteractiveUtils` and `Test` are in the trait world here, though the note
 counts them as ordinary code.
 
+## Time to first plot, end to end (`scripts/x9_ttfp_blame.jl`)
+
+A fresh process, reading `sample.csv`, summarizing it and saving a histogram
+as PNG, measured with `time()` laps (session 20, niced, shared machine):
+
+| | ad-hoc session: `using` the trait stack, DataFramesWrapper, MakiePlots, CSV, DataFrames | plain Julia, the same calls | `using App`, then `App.main` |
+|---|---|---|---|
+| load | 6.6–7.2 s | 5.2 s | 6.0–6.3 s |
+| read, summarize, plot, PNG | 14.4–15.1 s | 22.2 s | **0.35 s** |
+| to the first PNG | 21.2–21.7 s | 27.4 s | **6.4–6.6 s** |
+| compiling during the work (of which recompiling) | 14.5–15.1 s (7.2–7.7 s) | 22.3 s (7.7 s) | 0.45 s (0) |
+
+`x9_ttfp_blame.jl` joins `@snoop_invalidations` of the loads with
+`@snoop_inference` of the work: in the ad-hoc session 14 of the 15 s of
+inference (profiled, so inflated) re-infer code that a load invalidated, and
+1.3 s is fresh. The cause is not piracy and not the trait stack: one method,
+`Base.thisind(::InlineStrings.InlineString, ::Int)`, a legitimate method for
+InlineStrings' own type (a dependency of CSV), invalidates Makie's text code
+that calls `thisind` on abstract strings: 8.4 s; SentinelArrays (CSV's) adds
+about 3.8 s, Makie's tree invalidating itself (`broadcasted` for
+`Makie.EndPoints`, GeometryBasics, FreeTypeAbstraction, FilePathsBase) the
+rest. Load order changes nothing: a package image is checked against the
+method table when it loads.
+
+`App` depends on all of them and its workload runs this path, so its image
+holds Makie's code compiled with InlineStrings present: after the load, the
+read and the plot take 0.35 s and compile nothing again. That is rule 4: code
+for a combination of packages lives in a package that depends on all of them,
+and an ad-hoc session, where nothing does, compiles the combination itself.
+Plain Julia gets the same from an application package with a workload; the
+design's contribution is the rule that says where such code lives, and the
+guarantee that loads cannot invalidate it inside the trait world. What remains
+is the load: CairoMakie's image alone takes about 4.2 s, the trait stack and
+its scans about 1 s.
+
 ## Demo 2, ahead of time (`scripts/verify_app.jl`, `build/build.sh`)
 
 **Step 1, `verify_main` on the full application**, `App.main` (CSV,
