@@ -145,6 +145,13 @@ The reviewer read this plan (findings ranked, two blocking). Decisions:
    - An explicit mapping reads by `getfield`, so the conformance message says that plain `x.name` may differ when `getproperty` is overloaded.
    - Measurements cited from `experiments/interfaces` (sealing audits, 3 ms view caches, binaries) are marked as taken before keys.
 
+## 4b. The implementing type, defaults and overrides (the user's `HDAM` example)
+
+- **The implementing type** is the type whose own methods serve at least one operation. A conformance that keeps every default has none, so its key is its declared fields' types alone, and workers are shared across types. An override makes the conforming type the implementing type.
+- **An override belongs to the conformance.** A later method of a trait operation, for a type whose conformance serves that operation by a default, is refused when it is defined.
+- **A field defines the parameters its declared type mentions,** by matching (`data::Vector{T}` against `Vector{Float64}` gives `T = Float64`).
+- **TraitWorld:** none of the three is implemented yet. The key builder takes the implementing type from the witness's defaults; the refusal goes in the method-definition hook the sealing scan uses; the matching goes in `param` for fields.
+
 ## 5. The reference layout replaces the held layout (the user's question, measured)
 
 - **The question** (the user): "f(t::Trait{U,T}) … could just desugar to f{U,T}(t::Any) t.data::U + t.data2::T". Measured in `experiments/lens/layout.md`: with Julia's alias metadata on the loads (through `llvmcall` on stock Julia), the reference layout matches plain Julia in every loop measured, at about 2 ns per call. The user: "measure and if everything works go for it."

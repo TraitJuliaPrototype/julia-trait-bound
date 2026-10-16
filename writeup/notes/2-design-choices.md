@@ -82,7 +82,7 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 ## 3. Compiled for what the bound can see
 
 **The choice.** Julia compiles a method for the full concrete type of each argument. A trait-bound function is compiled for its bounds' *keys* instead: the types its bounds can see.
-- **The type that implements the operations.** That is the conforming type itself, or the field it forwards the trait to, `@implement ColTable Measurements` with `data::Vector{Vector{Float64}}`.
+- **The implementing type,** whose own methods serve at least one operation: the conforming type itself, or the field it forwards the trait to, `@implement ColTable Measurements` with `data::Vector{Vector{Float64}}`. A conformance whose operations are all served by the trait's defaults, written over declared fields, has none.
 - **The types of the declared fields.** A field typed by an associated type, `u::U` in `Integrator{U, P}`, puts that type in the key, whatever else the conforming type holds.
 
 Library code reaches a value only through its bound, so this is all it can depend on. Types that differ elsewhere share compiled code.

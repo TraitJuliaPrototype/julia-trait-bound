@@ -47,11 +47,11 @@ The declaration is checked: every operation and field exists, with the declared 
 
 **Compiled for what the bound can see.**
 - A function bounded by a trait reaches its argument only through the trait's operations and fields.
-- So it is compiled for the types those involve, not for the argument's own type. These types are the bound's *key*: the type that implements the operations, and the types of the declared fields.
+- So it is compiled for the types those involve, not for the argument's own type. These types are the bound's *key*: the *implementing type*, whose methods serve the operations (the argument's type, or the field it forwards to; none when the trait's defaults serve them all), and the types of the declared fields.
 - Types that differ only in what the trait cannot see share compiled code:
   - every table type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code the library compiled for `Vector{Vector{Float64}}`;
   - a solver step bounded by an `Integrator` trait is compiled per the types of what the trait declares (state, parameters, step size, cache, options), so a new callback, which the trait does not declare, compiles nothing.
-- A type that implements the operations itself is part of the key, by its own choice.
+- A type that implements the operations itself, or overrides a default, is part of the key, by its own choice; a type that keeps the defaults is not.
 
 **Reading like abstract types.** Where a trait is used, it reads like an abstract type:
 - an argument `t::ColTable` is compiled for what its bound can see;

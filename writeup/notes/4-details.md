@@ -9,9 +9,10 @@ The macros below stand for syntax a language feature would provide. The prototyp
 - **Trait.** An abstract type with behaviour: operations and fields, declared by `@trait ColTable begin … end`. A trait's parameters are its *associated types*, `@trait Integrator{U, P}`.
 - **Trait module.** A module whose code is written against traits, declared `@trait_module module M … end`. Its code is *trait-bound*. Its exported functions take arguments bounded by traits; its internal functions need no bounds.
 - **Trait world.** Every trait module and every wrapped package, Base included. *Ordinary code* is everything else: all of Julia today.
-- **Implementation.** The methods of a trait's operations for an *implementing type*: `@implement ColTable Vector{Vector{Float64}} begin … end`, or existing methods declared. It says nothing about fields.
-- **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. The operations come from `T` itself, which then must have an implementation, or `T` *forwards* them to one of its fields whose type has one. The trait's declared fields map to stored fields of `T`, by name or as written.
-- **Key.** What a bound can see: the implementing type, when the trait has operations, and the types of the fields the trait declares. Workers are compiled per tuple of their bounds' keys, never per conforming type unless it is the implementing type.
+- **Implementation.** The methods of a trait's operations for a type: `@implement ColTable Vector{Vector{Float64}} begin … end`, or existing methods declared. It may be generic, one implementation for a family of types. It says nothing about fields.
+- **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. The operations come from `T` itself, which then must have an implementation, or `T` *forwards* them to one of its fields whose type has one; operations neither provides are served by the trait's defaults. The trait's declared fields map to stored fields of `T`, by name or as written. `T` is the *conforming type*.
+- **Implementing type.** The type whose own methods serve at least one of the trait's operations for a conformance: the conforming type, or the field it forwards to. A trait declaration spells it `Self`. When every operation is served by a default written over declared fields and other operations, or the trait has no operations, there is no implementing type. Many conforming types share one implementing type by forwarding to a field of that type, and so share compiled code; it is close to `Self` in Rust and Swift, which have no forwarding, so there the two coincide.
+- **Key.** What a bound can see, and what a worker is compiled for: the implementing type, if there is one, and the types of the fields the trait declares. Workers are compiled per tuple of their bounds' keys. The conforming type is in a key only when it is the implementing type.
 - **Trait object.** What library code receives for a bounded argument: the user's object itself, with one *view* per trait that gives the byte offsets of the implementing value and of the declared fields in the user's type, and a *witness* that says where the operations come from. Every access reads the user's object, so a trait object sees exactly what plain Julia sees. Its layout depends on the trait and the key, never on the user's type. A trait object has methods for its traits' operations and fields and nothing else.
 - **Entry and worker.** A bounded function has an *entry*: ordinary code that translates each argument by its bound and does nothing else. It also has a body compiled per key, the *worker*.
 - **View.** A package's view is what its compiled code is compiled against (rule 4).
@@ -181,7 +182,19 @@ end
 - An operation is a generic function declared at the trait, its first argument the trait itself, as `length(x::AbstractArray)` is declared at an abstract type. A conformance implements it with methods at the implementing type.
 - Calls to it are checked: the arguments against the declaration, the result asserted to the declared type.
 - An operation may be an existing generic function, such as `Base.length` ([code written without traits](3-wrapping.md#traits-over-existing-functions)).
-- A default is written in terms of the other operations, and an implementation may override it. A default never throws "not implemented": a missing operation is an error when the conformance is declared, not when it is called.
+- A default is written in terms of the other operations and the declared fields, and an implementation may override it. A default never throws "not implemented": a missing operation is an error when the conformance is declared, not when it is called.
+- **Defaults over fields are how record-like traits share code.** A conformance that keeps every default has no implementing type, so its key is its declared fields' types: every conforming type with fields of those types runs one worker, compiled in the library's image. A type that overrides an operation becomes the implementing type, and that code compiles once for it, in its own image.
+
+  ```julia
+  @trait HDAM{T} begin
+      data::Vector{T}                          # a field; its type defines T (T = Float64 for a Vector{Float64})
+      mean_data(s::HDAM)::T = mean(s.data)     # a default over the field
+  end
+  @implement HDAM Sample                       # keeps the default: key (data::Vector{Float64},), shared
+  HDAM.mean_data(s::Sorted) = …                # an override by Sorted's owner, a stakeholder
+  @implement HDAM Sorted                       # implementing type Sorted: key (Sorted; data::Vector{Float64})
+  ```
+- **An override belongs to the conformance.** Which operations a conformance serves by defaults is decided when it is declared, and compiled code relies on it. A method of a trait's operation for a type whose conformance already serves that operation by a default is refused when it is defined, naming the fix: define the override before the `@implement`, or inside its block. Plain Julia would call the later method, so accepting it would break "identical or error".
 - An operation may mutate its argument. The trait object refers to the user's object, so the user sees the change, as in plain Julia.
 
 **Fields.** A trait may declare fields as well as operations, as a struct declares them. A field is a property:
@@ -198,7 +211,7 @@ end
 ```
 
 - **Fields are stored fields of the conforming type.** A declared field maps to a stored field of the conforming type, of the same name unless the conformance writes another (`name => label`), also when the type forwards its operations to a field. It is read with `getfield`. A type with a `getproperty` method of its own conforms only with every declared field mapped explicitly, and the conformance says that plain `x.name` may then differ from `t.name`. Computed properties are not declared fields; a conversion is the way (Types that only convert).
-- **Field types are part of the key.** A field typed by an associated type, `u::U`, makes the field's type part of the key, so a worker compiles per state type, whatever else the conforming type holds. A field of a fixed type adds nothing to the key.
+- **Field types are part of the key.** A field's type in the conforming type is part of the key, so a worker compiles per state type, whatever else the conforming type holds.
 - **A field is a pair of operations.** Reading is `getproperty(t, :name)::String`, writing `setproperty!(t, :name, v::String)`. Scala desugars a trait's `var` the same way, and Swift's protocols require properties `{ get set }`.
 - **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused. A `Dynamic` value reads and writes its declared fields by dispatch.
 - **Every access reads the user's object.** `t.u` is a load at the field's byte offset in the user's object, the offset a value in the view, so a worker compiled per key serves every user type whatever its field order, mutable or immutable. Writing `i.u = v` stores there, as `u.u = v` does in plain Julia. So a read always sees the current value, as every holder of the object does: nothing is held, nothing goes stale, and nothing needs checking.
@@ -212,7 +225,7 @@ end
 
 **Parameters: associated types.** A trait may take parameters, as `AbstractArray{T, N}` does: `@trait ArrayLike{T, N}`, `@trait Integrator{U, P}`.
 - **They are associated types:** one value per conformance, functions of what the conforming type holds. A type conforms at one value of each, as a Julia type has one `AbstractArray` supertype.
-- **A field defines its type's parameter:** `u::U` makes `U` the type of the conforming type's field `u`. A parameter is defined by a field or by an equation, never both, which would be an equation between type functions.
+- **A field defines the parameters its declared type mentions,** by matching the declared type against the conforming type's field type, as Julia matches a `where` clause: `u::U` makes `U` the field's type, and `data::Vector{T}` against a `Vector{Float64}` field gives `T = Float64`. A field type that does not match is refused at the conformance. A parameter is defined by a field or by an equation, never both, which would be an equation between type functions.
 - **A trait may define them by a type function** of the implementing type, written `Self` in the declaration: `T = eltype(Self)`. The conformance then need not state them, and a stated value is checked against the definition. Without a definition, the conformance states them: `@implement ArrayLike{Float64, 1} MyVector`.
 - **Operations name them:** `Base.getindex(a::ArrayLike{T}, i::Int)::T`.
 - **A parameter may be bounded** by a trait or a type, `ArrayLike{T <: NumberLike, N}`, `Integrator{U <: StateVector, P}`, checked at the conformance. A trait bound on a parameter is what lets definition checking cover code that computes with it, and lets library code call the bound's operations on `i.u`.
