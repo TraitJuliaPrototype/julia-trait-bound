@@ -675,10 +675,16 @@ placement of per-type code (16.3).
 
 ### 16.1 The dilemma, counted
 
-A Julia type carries in one thing two things a trait bound separates: the
-contract (what can be done with a value, what comes back) and the
-representation (its data, what code is compiled for). Code is specialized
-on the concrete type. Take layers 1…k, where layer i adds a type that holds
+A concrete Julia type is data; what can be done with a value lives in
+methods that any package can add or change, and an abstract type names
+intended behaviour without checking it (the user's correction, session 22,
+of the first framing here, "a type carries contract and representation in
+one"). Code is fast where it is compiled for concrete types, so the
+concrete type must be known where the inner loop is compiled, and every
+signature and type parameter above carries it. A trait bound is an abstract
+type that guarantees concreteness: the conformance chooses a deeply concrete
+representation and the worker is compiled for it, so the signature need not
+carry the concrete type. Take layers 1…k, where layer i adds a type that holds
 a value of layer i−1 as a parameter, and nᵢ variants occur at layer i:
 
 - **Parametric throughout:** code at layer k compiles for up to n₁·n₂·…·nₖ
@@ -879,3 +885,172 @@ and six things continue it); the missing comparison with plain-Julia
 discipline and the "sane types" half; table qualifications; the
 other-languages table (Julia's abstract types with assertions, C++
 `std::function` and concepts). Trade-off 1 now says "Makie as written".
+
+## 17. Where unreadable errors come from, and what bounds change (session 22)
+
+The user's question: where do the unreadable error messages of C++
+templates and SciML come from, and how would C++ concepts and our trait
+system solve them? Measurements in `poc/errors/` (GCC 14.2; Julia 1.12.2
+with the current OrdinaryDiffEq):
+
+| case | lines | bytes (REPL / full) | path printed | longest line |
+|---|---|---|---|---|
+| C++ `std::sort` on `std::list` | 28 | 2,704 | 1 instantiation step | — |
+| C++ `std::ranges::sort` on `std::list` (concepts) | 29 | 3,367 | the concept hierarchy | — |
+| C++ `std::sort` of `vector<pair<string, Point>>`, `Point` without `<` | 33 | 3,938 | 6 instantiation steps | — |
+| SciML, parameters used but never passed | 71 | 5,602 / 10,583 | 29 frames | 3,789 |
+| SciML, a `Float64` cache under `ForwardDiff.gradient` | 101 | 6,559 / 13,811 | 44 frames | 5,574 |
+| SciML, the same cache under `Rodas5()`'s automatic Jacobian | 81 | 4,704 / 89,627 | 22 frames | 33,673 |
+
+The integrator's type for `Tsit5` on a 3-vector is 3,553 characters with 75
+type-parameter lists: the algorithm, the state, time and parameter types,
+the solution, which holds the problem, which holds the `ODEFunction`, which
+holds the wrapped user function with its call signatures, the caches and the
+options.
+
+### 17.1 Anatomy: three ingredients
+
+An unreadable message needs all three:
+
+1. **The failure is detected deep, where an operation is missing.** The
+   library never states what it requires of its arguments; the requirement
+   is whatever its body happens to call, and it surfaces when that call
+   fails, in the library's internals. The message therefore describes the
+   internals, not the user's mistake:
+   - "no match for `operator-`" in `std::__sort` instead of "a list is not
+     random access";
+   - "no match for `operator<` (`const Point`)" in `std::pair`'s comparison,
+     six instantiation steps below `std::sort`, instead of "`Point` is not
+     ordered";
+   - `Float64(::ForwardDiff.Dual{…})` inside `copyto!` and `materialize!`
+     instead of "your function is called with dual numbers and stores them
+     in a `Float64` buffer".
+2. **The path is printed.** Because the failure point says nothing about
+   the cause, the compiler or runtime prints the path from the user's call
+   to it: C++'s "required from" chain, Julia's stack trace (22–44 frames
+   above, through `solve`, `__solve`, `__init`, `_ode_init`, `initialize!`,
+   the function wrappers, broadcasting).
+3. **Every step is printed at its full concrete type.** Code is compiled
+   per concrete type, so each step is identified by its concrete arguments.
+   And because fast code needs the concrete type where it runs, every type
+   above the inner loop carries the types below as parameters: the
+   integrator holds the solution holds the problem holds the function. Each
+   frame is as long as the nesting is deep: C++ prints
+   `__normal_iterator<pair<basic_string<char>, Point>*, vector<pair<…>>>`
+   in every step, Julia prints one frame line of 33,673 characters.
+
+C++ adds a fourth, overload candidates with the reason each failed; Julia's
+"closest candidates" are its version.
+
+Ingredient 3 is the user's observation about Julia types: a concrete type
+is data, behaviour lives in methods anywhere, so the only way to make the
+inner loop fast is to carry the concrete type all the way down, through
+every signature and type parameter above it.
+
+### 17.2 What SciML does today: contracts written by hand
+
+- **Guidance messages.** For parameters never passed (`NullParameters`), a
+  tuple used as a state, and "First call to automatic differentiation for
+  the Jacobian failed", SciML catches or intercepts the failure and prints
+  what the user probably did wrong and how to fix it. Each is a requirement
+  of the library, stated after the fact, by hand, for one failure the
+  maintainers have seen often.
+- **AutoSpecialize.** The user's function is wrapped in a
+  `FunctionWrappersWrapper` at fixed call signatures (visible in every trace
+  above), so the solver is not compiled per function type: a dynamic call at
+  a declared signature, by hand.
+- **Julia's type abbreviation** (since 1.10, `{…}` in REPL stack traces):
+  13.8 kB to 6.6 kB, 89.6 kB to 4.7 kB. It treats ingredient 3 by hiding,
+  including the parameter that is sometimes the clue.
+
+### 17.3 What C++ concepts change
+
+- **Ingredient 1, at the use site.** `std::ranges::sort(list)` fails at the
+  user's call, before the body is instantiated, naming the requirement:
+  `random_access_range`, because "`std::random_access_iterator_tag` is not a
+  base of `std::bidirectional_iterator_tag`".
+- **Not shorter.** GCC 14 explains the failure by walking the concept
+  hierarchy and the library's internal helper concepts
+  (`__iter_concept_impl`, `derived_from`): 29 lines against 28 for the
+  unconstrained `std::sort`, whose message GCC has meanwhile trimmed.
+- **No definition checking.** A constrained library whose constraints are
+  incomplete still fails deep inside, as before (§ other-languages 2). The
+  `Point` case is unchanged under concepts if the constraint omits the
+  element's ordering.
+- **Ingredient 3 untouched.** Types are printed in full
+  (`std::__cxx11::list<int, std::allocator<int> >&`); C++20's abbreviated
+  `std::sortable auto&` changes how a signature is written, not what is
+  compiled or printed.
+- **Structural satisfaction** can accept a type by accident, which then
+  fails deep inside.
+
+Rust checks bounds at both ends and its errors are short ("the trait bound
+`X: Ord` is not satisfied"), except where nested types must be printed:
+RFC 2397 cites a Diesel error naming a "30 page long type". `impl Trait` is
+Rust's way of keeping the concrete type out of the signature: concrete for
+the compiler, known to the reader by its bound.
+
+### 17.4 What trait bounds change
+
+**Ingredient 3, the user's point.** A trait bound is an abstract type that
+guarantees concreteness: whatever conforms becomes a deeply concrete
+representation before code runs on it, and the worker is compiled for that.
+Because the bound determines how a value becomes concrete, the signature
+does not have to carry the concrete type. A solver's state, parameters and
+right-hand side would be fields and arguments declared by bounds; the
+concrete types are the worker's key, which the compiler needs and a reader
+does not. A frame prints as its bound and representation,
+
+    perform_step!(integrator::ODEIntegrator, u::StateVector at Vector{Float64}, f::Callable{…} at DynamicCall, p::Parameters at Vector{Float64})
+
+and the representations are flat, chosen by their owners, not built from
+how the user assembled the value. Two caveats: a type that is its own
+representation prints as itself, nested if it is nested, by its owner's
+choice; and the prototype prints the machinery (`TObj{…View{…}}`), so this
+is design.
+
+**Ingredient 1.** Requirements are stated and checked where they belong:
+- **at the conformance** (`@implement`): a missing operation, a wrong
+  result type, a representation that is not deeply concrete, reported where
+  the user declares it, before any call; earlier than concepts, which check
+  at each use;
+- **at the library's build**: library code may use only the operations its
+  bounds declare, reported at its line, so the class "the constraints were
+  incomplete, it fails deep inside" cannot reach a user; C++20 cannot do
+  this;
+- **at the entry**: a value that cannot become its representation fails at
+  the projection, naming the bound;
+- **for functions from above**: a `Callable` bound declares the signatures
+  the library calls them at. A solver that differentiates `f` calls it at
+  two signatures, so it declares two bounds (rule 2), and "`f` is called
+  with dual numbers" becomes part of its signature instead of a guidance
+  message.
+
+**Ingredient 2.** A failure at a declaration or an entry has a path of one
+or two steps. A failure at run time inside user code above the trait world,
+which is what all three SciML cases are (the bug is in `lorenz!` or the
+cache), is still found at run time: the bounds pass because the user's
+methods exist for any argument type. The trace then runs through the user's
+function, the call upward, and frames of library code printed by bound, a
+few lines instead of 22–44 frames at full concrete types.
+
+So, for the SciML cases: the contract that SciML writes by hand in guidance
+messages becomes part of the solver's signature; the failure is still found
+at run time, because it is in user code; the message is short because every
+frame inside the solver prints by bound. For the C++ class, where the
+library's own requirements are unstated or incomplete, detection moves to
+the conformance or the library's build.
+
+### 17.5 Open
+
+1. The printing policy (frames by bound and representation) is not
+   implemented; the prototype's frames print `TObj{ColTable, Tuple{View{…}}}`.
+2. Struct fields declared by a bound, with the representation types as
+   implicit parameters that the compiler keys on and the printer omits, are
+   not in the note. They are what "the signature does not have to carry the
+   concrete type" needs for stored state such as an integrator; today a
+   trait object cannot be stored, and a struct of representations carries
+   them as ordinary type parameters.
+3. Whether the explanation of a failed conformance stays short when traits
+   refine traits (GCC's concept explanations walk the hierarchy) is
+   untested.
