@@ -336,7 +336,7 @@ The design restricts what trait-bound code may do, and only there.
    Inward doors (eval, deserialization, reflection) are available only as declared calls with a checked result.
 4. **Trait objects go in, translated.**
    - Code in a trait module never sees the user's type, so it cannot build a new value of it without a constructor operation.
-   - A value kept beyond a call is translated once, when kept.
+   - A value kept beyond a call follows the user's field where it was projected from one that can be rebound (a lens), and is translated once, when kept, otherwise.
    - A value used under two traits is projected twice unless its type declares one projection for both.
 5. **Types come first.** A type that matches a type-annotated method takes it, even when it also conforms to a trait bound of the same function. Reaching the trait method needs a type that no type method catches, or a newtype.
 6. **Code written without traits is curated.** Capability traits with their conformances for Base's families, and each wrapper's implementations and conformances, are declared by hand. A package has one wrapper per environment.

@@ -118,7 +118,7 @@ The rest follows:
   The translation is the same wherever the bound stands: a positional argument, a keyword, an element of a vararg, a field, the result of a call upward.
 - **Everything in a call that is not a value stays inside.** Defaults, keyword sorting, splatting and dispatch are plain Julia, run in the worker after translation. The entry translates and does nothing else.
 - **A bound is a crossing point and has an entry,** on a named function or a closure alike.
-- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, is translated once, when kept (Dynamic values).
+- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, follows the user's field where it was projected from one that can be rebound, and is translated once, when kept, otherwise (Dynamic values).
 
 ## What code in a trait module may do
 
@@ -512,7 +512,7 @@ colmaker(f::Callable{Tuple{Int}, Callable{Tuple{Float64}, Float64}}, t::ColTable
 tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from above that returns tables: each result projected
 ```
 
-- **Functions returned up** are trait-world values and go up as themselves. A closure keeps the trait objects it captured: translated once, when captured, and keeping the user's object alive where the projection shares. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
+- **Functions returned up** are trait-world values and go up as themselves. A closure keeps the trait objects it captured as a `Dynamic` keeps them: a field projection of a mutable user type as a lens, any other translated once, when captured, and keeping the user's object alive where the projection shares. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
 - **Results of a function from above** are values crossing downward, so the result bound translates them as an argument's bound would.
 - **Trait objects never go up bare.** What goes up is what operations return, trait-world values, and a trait object only inside a `Dynamic` value.
 - **AOT.** A returned closure is a trait-world type, so calls to it from ordinary code are calls into the trait world that `verify_main` lists.
@@ -534,15 +534,17 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
   - A bound in a field, a container or a result projects the value and keeps the trait object.
   - Inside, storing a trait object of `X` where an `X` is declared keeps it, as Julia converts a value stored in a typed field; `Dynamic{X}(t)` does so explicitly.
   - Nothing else makes one, so its type decides it: the entry admits it by type, and inward doors such as deserialization check its content.
-- **Translated once, when made,** unless the projection is a lens. Keeping a value is a crossing.
-  - A later change to the user's object is seen as far as the projection shares data, as a typed field in Julia converts at construction.
-  - A `Dynamic` made from a sharing projection keeps the user's object alive, so shared data cannot be freed under it.
-- **Lenses stay lenses.** A `Dynamic` made from a trait object whose projection is a lens (a writable `data::R`) keeps the lens.
-  - **Liveness:** it sees the user rebind the field, as every holder of the object does, and writes through it reach the user's object.
-  - **No reopening:** the field is declared with exactly the type `R`, so the stored value's representation type never changes, and the dispatch that opens it never needs to be redone.
-  - **Equality:** a lens compares and hashes by the user's object and the field, so a write never changes its hash, as for a mutable object in Julia.
-  - **Serialization:** it serializes the user's object and the field's index, and inward doors re-check both.
-  - **Compiled code:** a worker can receive a lens view or a held view of the same representation, so it is compiled once for each kind that occurs.
+- **Kept values follow the user's fields.** Keeping a value is a crossing, and what is kept depends on the projection.
+  - **A field projection is kept as a lens** when the user's type is mutable and the field can be rebound: not `const`, and declared with exactly the representation's type. This holds whether or not the trait writes the field. The kept value sees the user rebind the field, as every holder of the object does in plain Julia; within a call, the entry still projects once (rule 2).
+  - **A field of an immutable type, or a `const` field,** cannot be rebound, so holding its value is the same as following it.
+  - **Any other projection is translated once, when made:** a computed projection, a copying one, or a field declared with an abstract type. A later change to the user's object is then seen as far as the projection shares data, as a typed field in Julia converts at construction.
+  - **The user's object stays alive.** A lens, and a `Dynamic` made from a sharing projection, keep the user's object alive, so shared data cannot be freed under them.
+- **A kept lens:**
+  - **Writes reach the user.** Writes through a lens, where the trait declares the field writable, reach the user's object.
+  - **No reopening.** The field is declared with exactly the type `R`, so the stored value's representation type never changes, and the dispatch that opens it never needs to be redone.
+  - **Equality.** A lens compares and hashes by the user's object and the field, so a rebinding never changes its hash, as for a mutable object in Julia.
+  - **Serialization.** It serializes the user's object and the field's index, and inward doors re-check both.
+  - **Compiled code.** A worker can receive a lens view or a held view of the same representation, so it is compiled once for each kind that occurs.
 - **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose representations reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
 - **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its representation once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
@@ -680,7 +682,7 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - Element types that Julia derives from inference, such as that of `map` over an empty collection, are answered within the trait world. They can differ from plain Julia's where Julia documents them as inference-dependent.
 - An open `Callable` result type, inferred at the boundary in ordinary code, depends on what is loaded there. It is part of the worker's key and checked at every call.
 
-**Stored values.** A value kept in a dynamic value is translated once, when kept. That is the semantics of the projection, which runs in both modes, like the conversion of a typed field.
+**Kept values.** A value kept in a dynamic value follows the user's field where it was projected from one that can be rebound, as plain Julia's holders of a mutable object do. Otherwise it is translated once, when kept: that is the semantics of the projection, which runs in both modes, like the conversion of a typed field.
 
 ## Possible extensions
 
@@ -696,6 +698,6 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - Numeric traits: numbers that conform after the fact or project, and promotion across representations.
 - Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
-- Whether every field projection of a mutable user type should be a lens when it is kept in a `Dynamic` value, not only writable ones. A lens makes a kept value see the user rebind its field, as plain Julia's holders do (the review's first stale-value case), at 0.15–3.6 ns per read.
+- A kept value projected from a mutable field declared with an abstract type is translated once. A lens there would need to dispatch again when the user rebinds the field to another type; whether that is worth its cost is open.
 - Computed properties (a `getproperty` method) as projections: a lens needs a field; a computed projection stays translated once.
 - Prototype work: lenses (a field reference); named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.

@@ -6,6 +6,7 @@ Proposal, revision 2 of 2026-10-16 (session 22), for the note "Traits for better
 - **D2 adopted:** `Dynamic{X}`, with the stored-value semantics of §2 that it needs (D1). It is in the note at rev 1125, as the Finer points subsection "Dynamic values".
 - **D3 rejected:** "Hidden type parameters seem antithetical to Julia." Fields declared by a bound are not pursued. Stored state with a fixed representation uses explicit type parameters, as today.
 - **D4 postponed:** solvers.
+- **D1 amended** (2026-10-16): a field projection of a mutable user type is kept as a lens, following the user's field (`writeup/notes/4-details.md`, Dynamic values; findings §18). Only other projections are translated once.
 
 Revision 1 was reviewed by the fable-critic agent running on Opus; the Fable model's limit was reached. The review ran experiments on Julia 1.12.2 and on the prototype; its scripts are in the session scratchpad and its numbers are quoted below. What changed is listed in §9.
 

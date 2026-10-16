@@ -1094,6 +1094,6 @@ The user asked for writable trait fields ("something people would expect. Its ho
 One compiled loop served lenses into two different user types. A rebinding of the field from above is seen through the lens (10.0) and not through the snapshot (1.0). On stock Julia a lens costs 4–5 ns per read and about 14 ns per write. A runtime that emits a typed load and store at the field's offset, with the write barrier, makes it nearly free.
 
 **Open:**
-- whether every field projection of a mutable user type should be a lens when kept in a `Dynamic`, which would remove the first stale-value case of the stored-values review;
+- *Decided (the user, 2026-10-16):* every field projection of a mutable user type, from a field that can be rebound and is declared with exactly the representation's type, is kept as a lens. That removes the first stale-value case of the stored-values review. A field declared with an abstract type stays translated once, which is open;
 - several views of one object, where a lens and a view computed from the same field must not diverge;
 - computed properties as projections.
