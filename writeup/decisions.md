@@ -58,6 +58,7 @@ Every design decision with its status, as of 2026-10-16 (end of session 23). The
 | Printing trait objects by bound and key (`ColTable at Vector{Vector{Float64}}`). | adopted | 2-design-choices §9 | yes (types; stack frames inherit it) |
 | `conforms(T, X)` as the package's stand-in for membership as subtyping. | adopted (prototype only) | README plan | yes |
 | Stored functions from above as `DynamicFn{A, S}` (a `Callable` in `DynamicCall` mode as a value of fixed type), made by `dynamic_fn` in ordinary code: a library's model or callback types hold them. | adopted (s23, D5) | session note 23; TraitDifferentialEquations | yes |
+| Automatic differentiation in TraitDifferentialEquations for now by a dual number type owned by the library (`LDual{N}`, option 2); ForwardDiff joins the trait world later through a trait wrapper. | adopted (s23, the user: "Go with option 2 for now") | session note 23; TraitDifferentialEquations step 3 | yes (Rodas5) |
 | Automatic-differentiation tags labelled by a `Callable`'s primal signature (`Tag{Sig{A, S}, V}`), so that loss closures of one signature share the solver's code; a closure that captures duals keeps its own tag. | adopted (s23, the user's question); tested with ForwardDiff | session note 23 | not yet in TraitDifferentialEquations |
 
 ## Code written without traits
