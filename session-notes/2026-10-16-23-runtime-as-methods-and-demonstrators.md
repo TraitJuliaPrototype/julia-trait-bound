@@ -130,3 +130,40 @@ Measured (three fresh runs per order):
   - TraitMakie with CSV and DataFrames loaded after still invalidates no PlotCore code (first PNG 78 ms).
 - **What Julia must provide, in order** (the user's question): `writeup/explorations/julia-support.md`. The method-definition hook first, then an invalidation policy hook, field intrinsics, compile-time checks, native code in downstream images, the dispatch check, and traits in the type system with syntax last.
 - **The review's nine decisions** are listed in the review. Recommended defaults were given to the user (session reply).
+
+## Wrapping by facts, prototyped (end of session 23)
+
+**Adopted** by the user ("Full go-ahead"): `writeup/explorations/wrapping-by-facts.md`, a synthesis of three fresh designs. Evidence E0–E3 in `experiments/facts/README.md`:
+- stock invalidation is exact at concrete signatures;
+- no pirate in the CSV, DataFrames and Makie stack wins at a signature the demonstrators use;
+- the demonstrators' abstract call sites are cold.
+
+**Merged:** the agent's work on Julia pieces 1–5 and the compiler policy.
+- julia-1.13 `trait-world-1.13` at 9af2f27786: definition hooks, invalidation policy hook, field-offset intrinsics, post-inference checks, native code in images for upstream and foreign-owner CodeInstances.
+- TraitWorld `main` at c62efbf: the hooks used; `FactsInterp`, the trait world's compiler policy, with its own cache; rule 1 off (`JULIA_TW_LAYERING=1` restores it).
+
+**Verified after the merge:**
+- `experiments/facts/acceptance.jl`: 5 of 5 on stock and on patched 1.13.2 (4 of 5 before: the old layering rule refused a winning pirate);
+- TraitWorld: 353 tests (patched).
+
+**Measured by the agent** (fresh sessions; policy on, patched unless stated):
+
+| | measurement | before the policy |
+|---|---|---|
+| typed `total(t,16)` | 42 ns | 32.7 ns policy off; 29.9 ns plain |
+| untyped | 105 ns | |
+| TraitDifferentialEquations row 1 / row 2 / row 4 | 49–51 / 14 / 12–13 ms | |
+| Rodas5 first solve | 69–70 ms | |
+| row 7, CSV, DataFrames, CairoMakie after | first solve 53 ms, nothing invalidated | 0.7–1.05 s |
+| row 7, before | 0.56 s | |
+| TraitMakie first PNG: alone / after / before | 83 / 83 / 141 ms | |
+
+**On stock Julia,** which has no native code for the policy's cache: row 1 takes 441 ms and the first PNG 222–462 ms.
+
+**Open:**
+- the 10 ns per typed call under the policy;
+- abstract edges in TraitWorld's own printing and promotion code;
+- row 7 "before" at 0.56 s;
+- removing what the design no longer needs (filter policy, sealing, wrappers, declared calls);
+- the policy in closed-world builds (it is off for trimmed binaries);
+- the demonstrators using ForwardDiff and Cairo directly.
