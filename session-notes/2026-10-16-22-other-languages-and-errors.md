@@ -164,7 +164,28 @@ Four explorations (`writeup/explorations/`, commit a04e2f0):
   a second AD loss 2.48 s (full recompile), Rodas5 integrator type 24,426
   characters; demonstrator Tsit5 + Rodas5 with AD + callbacks.
 
+Workspace restructure (the user: "Yes on all decisions. Set up the folder in a
+way that matches the plan ... We are focusing on demonstrating a trait world
+viability, we will look at wrapping and sealing later"): the design
+repository keeps writeup/, session-notes/, attic/ and a README with the plan;
+inside it, ignored by it, five repositories: `julia/` (moved from
+attic/binary/julia; new branch `trait-world-1.13` = v1.13.2 + both filter
+halves + TRAITWORLD.md, not built; `trait-universe` = the 1.12 build),
+`TraitWorld/` (split with history), `experiments/` (formerly poc/, split with
+history), `TraitDifferentialEquations/` and `TraitMakie/` (skeletons with
+plans and measurement tables). Paths in current docs updated (poc/ to
+experiments/). Notes: associated types adopted in first-order form (R last,
+defining equations, parameter bounds, family conformances, parameter
+archetypes), the explorations' gaps as open points, Makie correction.
+
 ## Next
+- Build the patched 1.13.2 (needs network, ~1 h alone); move TraitWorld to
+  1.13 with the injected load filter as its stock mode; re-baseline.
+- TraitWorld features for the demonstrators: Dynamic{X}, fields and lenses,
+  associated types with parameter archetypes, constructor operations and
+  inverses, printing by bound, the pinned model mode.
+- TraitDifferentialEquations step 1 (Tsit5, a trait-world model, rows 1, 2,
+  4, 7, 10), then TraitMakie.
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
 - Prototype `Dynamic{X}` in TraitWorld (dispatch on a boxed trait object;
