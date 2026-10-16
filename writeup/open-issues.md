@@ -65,7 +65,7 @@ State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and o
 
 **Performance**
 
-9. Typed calls cost 33 ns against 30 ns for plain Julia (`total(t, 16)`), without allocation; the worker alone runs at plain speed. Untyped calls (the caller does not know the argument's type) cost 270–450 ns: three dynamic calls (entry, `enter`, `checked_call`) at about 15 ns each do not explain it; not yet found.
+9. Typed calls cost 33 ns against 30 ns for plain Julia (`total(t, 16)`), without allocation. Untyped calls (the caller does not know the argument's type) cost 105–117 ns and 64 bytes (270–295 ns before TraitWorld 5efbb4c: the entry built the tuples for a result like the input on every call). What remains is two dynamic calls (`enter`, `checked_call`), the boxed trait object and the boxed result; removing them would compile part of the entry per user type.
 10. A worker that has not been called in a session runs `_check_once` and the piracy guard at its first call; after any world change the guard audits the signature again (the PoC's stand-in for rule 4), which costs tens to hundreds of milliseconds after large loads.
 11. A fresh session's `@implement` of a forwarding type: not re-measured since the rewrite (it was about 470 ms).
 
