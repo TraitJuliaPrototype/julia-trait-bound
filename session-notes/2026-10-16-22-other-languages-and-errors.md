@@ -186,9 +186,5 @@ archetypes), the explorations' gaps as open points, Makie correction.
   inverses, printing by bound, the pinned model mode.
 - TraitDifferentialEquations step 1 (Tsit5, a trait-world model, rows 1, 2,
   4, 7, 10), then TraitMakie.
-- Note: say explicitly that wrappers/calls upward and outward doors answer
-  the C++0x objections; present rule 4's early binding as deliberate.
-- Prototype `Dynamic{X}` in TraitWorld (dispatch on a boxed trait object;
-  verify_main bounded sites; measurements in the proposal's §7).
-- Prototype named implementations (`via`), and archetype checks for keyword,
-  vararg and `Callable` workers with declared results.
+- Later (wrapping is paused): named implementations (`via`); archetype
+  checks for keyword, vararg and `Callable` workers with declared results.
