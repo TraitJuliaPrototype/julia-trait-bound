@@ -20,7 +20,7 @@ describe(t::ColTable) = …            # new: every other type that conforms to 
 describe(x) = …                      # the old fallback, for everything else
 ```
 
-Adding the trait method changes only calls that used to reach the fallback or raise a `MethodError`. So a library can adopt traits one function at a time, and every existing call keeps its meaning: a value that does not conform reaches the most specific ordinary method that applies. A value of a user type that reaches a type-annotated method, such as a user's subtype of `AbstractMatrix`, is not projected; that call runs as ordinary code, with today's semantics and today's speed. The ranking rules among traits are in [the design in detail](4-details.md#dispatch-types-first-then-traits).
+Adding the trait method changes only calls that used to reach the fallback or raise a `MethodError`. So a library can adopt traits one function at a time, and every existing call keeps its meaning: a value that does not conform reaches the most specific ordinary method that applies. A value of a user type that reaches a type-annotated method, such as a user's subtype of `AbstractMatrix`, is not translated by a bound; that call runs as ordinary code, with today's semantics and today's speed. The ranking rules among traits are in [the design in detail](4-details.md#dispatch-types-first-then-traits).
 
 **Conversion goes bottom-up, by module.** A package converts its own modules one at a time, from the bottom of its dependencies up. Using packages written without traits, wrapped or through calls upward, is not converting them.
 
@@ -29,12 +29,13 @@ Adding the trait method changes only calls that used to reach the fallback or ra
 A trait's operations may be existing generic functions. Capability traits then state Base's informal interfaces as contracts, without rewriting Base:
 
 ```julia
-@trait Indexable{R} begin                          # the operations are Base's own functions
-    Base.length(r::R)::Int
-    Base.getindex(r::R, i::Int)::eltype(R)
+@trait Indexable{T} begin                          # the operations are Base's own functions
+    T = eltype(Self)
+    Base.length(a::Indexable)::Int
+    Base.getindex(a::Indexable, i::Int)::T
 end
 
-@implement Indexable{A} where {A <: AbstractVector}   # no body: Base's methods, checked when declared
+@implement Indexable A where {A <: AbstractVector}   # no body: Base's methods, checked when declared
 ```
 
 **Conformance is declared, never derived from the methods that happen to exist.** Deriving it would be unsound three ways:
@@ -128,9 +129,9 @@ module Plots                            # a trait package that calls Makie; the 
 using Makie
 @trait_module module Surface
     export figure, scatter!, save
-    @trait PointSeries{R} begin
-        xs(r::R)::Vector{Float64}
-        ys(r::R)::Vector{Float64}
+    @trait PointSeries begin
+        xs(s::PointSeries)::Vector{Float64}
+        ys(s::PointSeries)::Vector{Float64}
     end
     @handle Figure                                            # a value from Makie, opaque inside
     figure() = @call Makie.Figure()::Figure                    # declared calls: no inference into Makie
@@ -154,7 +155,7 @@ end
 - **One surface, by convention.** A handle type belongs to the package that declares it. So trait packages that pass figures to each other share one package of declared calls into Makie, whose image then holds Makie's code at those signatures once. That is a convention among trait packages, not a kind of package.
 - **Audited, not sealed.** What lies behind declared calls is in no view, so its pirates change no trait-world code. The package's build reports the pirates in Makie's tree, as Aqua does today, as the place to push fixes upstream, and sealing leaves them alone.
 
-A Makie rewritten in the trait world, with traits for colors, observables and recipes that users conform to, is sketched in [design choices](2-design-choices.md#3-representations-between-nested-types-and-any).
+A Makie rewritten in the trait world, with traits for colors, observables and recipes that users conform to, is sketched in [design choices](2-design-choices.md#3-compiled-for-what-the-bound-can-see).
 
 ## Sealing
 

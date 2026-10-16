@@ -11,7 +11,8 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 | What a trait is | concept: a predicate on types (C++20) | trait: not a type, except as `dyn Trait` | protocol: also a type (`any P`) | trait: not a type | an abstract type with behaviour |
 | Conformance | structural (C++20); C++0x had declared concept maps, then dropped them | declared `impl` | declared, global, retroactive allowed | declared (structural added 2024, removed 2025) | declared `@implement`, never derived from methods |
 | Generic code checked | at instantiation only | at definition, against bounds | at definition | before instantiation | at definition, at archetypes; open parameters per signature |
-| Code generated | per type (templates) | per type (monomorphization) | once, dictionary passing; specialization an optimization | per type, whole program | per representation; per type only by choice |
+| Code generated | per type (templates) | per type (monomorphization) | once, dictionary passing; specialization an optimization | per type, whole program | per key: what a bound can see; per type only by choice |
+| Conformance through a field | — | by hand, or `Deref` | by hand | — | forwarding, compiled per the field's type |
 | Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | dynamic operations, dynamic calls (the caller overrides), `Dynamic{X}` |
 | Storable dynamic value | yes | `Box<dyn Trait>` | `any P` | `Variant`, `PythonObject` | `Dynamic{X}` |
 | Who may add a conformance | anyone (structural) | owner of trait or type (orphan rule) | anyone, warned since Swift 6 | the struct's author; extensions proposed | owner or delegate; anyone for a named implementation |
@@ -25,9 +26,9 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 - `x isa ColTable` and `T <: ColTable` mean conformance;
 - a trait takes parameters, as `AbstractArray{T, N}` does;
 - by position, a trait reads as an abstract type reads:
-  - an argument is compiled per representation, as an abstract-typed argument is compiled per type;
+  - an argument is compiled for what its bound can see, as an abstract-typed argument is compiled per type;
   - a field or container holds any conforming value behind the trait's operations, as an abstract-typed field holds a boxed value;
-  - `Vector{<:ColTable}` has one representation for all elements, as `Vector{<:AbstractFloat}` has one element type.
+  - `Vector{<:ColTable}` has one key for all elements, as `Vector{<:AbstractFloat}` has one element type.
 
 **How other languages place it:**
 - **Rust's traits are not types,** except as `dyn Trait`.
@@ -39,21 +40,21 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 **What traits add over abstract types** is in the declaration, not at the use:
 - A type joins a trait after it is defined, and joins several. Julia fixes a type's supertypes when it is defined, because subtyping must not change under compiled code. A conformance can come later because only an owner or a delegate declares it, loaded with the type's or the trait's package (rule 3), so once both are loaded no load changes it.
 - The contract is checked at the conformance and at the library's build.
-- A member is translated to a representation, so types that project share compiled code.
+- Code is compiled for what the bound can see, so types that forward to fields of one type share compiled code (§3).
 
 | Use of an abstract type | Trait form |
 |---|---|
-| dispatch on a family, `f(x::AbstractArray)` | a bound, `f(x::ArrayLike)`: compiled per type for a type that is its own representation, as today, per representation for one that projects |
+| dispatch on a family, `f(x::AbstractArray)` | a bound, `f(x::ArrayLike)`: compiled per type for a type that implements the operations, as today, per field type for one that forwards |
 | fallback methods for subtypes that define a few | default operations and generic implementations |
 | a field or container of mixed types, `Vector{Number}` | `Vector{NumberLike}`, dynamic values: targets closed by ownership, results declared |
-| one concrete element type, `Vector{<:AbstractFloat}` | `Vector{<:ColTable}`, one representation for all elements |
+| one concrete element type, `Vector{<:AbstractFloat}` | `Vector{<:ColTable}`, one key for all elements |
 | a constraint on a type parameter, `struct S{T <: Real}` | a type parameter constrained to conforming types |
-| required fields (not expressible in Julia today) | fields declared by the trait |
+| required fields (not expressible in Julia today) | fields declared by the trait, typed by its associated types |
 | documentation of intent | operations with declared result types, checked |
 
-**Numbers need no trait.** `Float64` and `Measurement{Float64}` are trait-world values by their types, and Base's numeric tower stays. Promotion runs on concrete types in Base. A numeric *trait*, for numbers that conform after the fact or project, would need operations across two representations, which is promotion; that is open.
+**Numbers need no trait.** `Float64` and `Measurement{Float64}` are trait-world values by their types, and Base's numeric tower stays. Promotion runs on concrete types in Base. A numeric *trait*, for numbers that conform after the fact or forward to a field, would need operations across two implementing types, which is promotion; that is open.
 
-**Rejected:** hidden type parameters, a struct implicitly parametric in the representations of fields declared by bounds. "Hidden type parameters seem antithetical to Julia" (the user, 2026-10-16). Stored state with a fixed representation uses explicit type parameters; with a changing one, dynamic values.
+**Rejected:** hidden type parameters, a struct implicitly parametric in the types of fields declared by bounds. "Hidden type parameters seem antithetical to Julia" (the user, 2026-10-16). Stored state with a fixed representation uses explicit type parameters; with a changing one, dynamic values.
 
 ## 2. Conformance is declared
 
@@ -75,29 +76,36 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 
 **The cost, and the answer.** The C++ debate predicts the objection that explicit conformance is "viral". The answers:
 - the one-line `@implement`;
-- family declarations through Base's abstract types (`@implement Indexable{A} where {A <: AbstractVector}`), C++0x's templated concept maps;
+- family declarations through Base's abstract types (`@implement Indexable A where {A <: AbstractVector}`), C++0x's templated concept maps;
 - trait wrappers that declare for a whole package ([Code written without traits](3-wrapping.md)).
 
-## 3. Representations: between nested types and `Any`
+## 3. Compiled for what the bound can see
 
-**The choice.** Julia code today chooses, field by field, between types that carry the types of all their parts and `Any`. The trait world makes that choice per conformance and per call mode instead, and code above a bound keeps the trait's contract whichever way it goes.
+**The choice.** Julia compiles a method for the full concrete type of each argument. A trait-bound function is compiled for its bounds' *keys* instead: the types its bounds can see.
+- **The type that implements the operations.** That is the conforming type itself, or the field it forwards the trait to, `@implement ColTable Measurements` with `data::Vector{Vector{Float64}}`.
+- **The types of the declared fields.** A field typed by an associated type, `u::U` in `Integrator{U, P}`, puts that type in the key, whatever else the conforming type holds.
+
+Library code reaches a value only through its bound, so this is all it can depend on. Types that differ elsewhere share compiled code.
+
+**Between nested types and `Any`.** Julia code today chooses, field by field, between types that carry the types of all their parts and `Any`. The trait world makes that choice per conformance and per call mode instead, and code above a bound keeps the trait's contract whichever way it goes.
 
 | Position | Compiled | A call on the value | Compiled for | A load elsewhere |
 |---|---|---|---|---|
 | Julia: a type parameter | per nested type | direct | the whole type | can invalidate it |
 | Julia: an `Any` field | the caller once, each target per runtime type when first reached | dynamic, result `Any` unless asserted | nothing | can add targets |
-| own representation | the library per type, in the conformer's image | direct | the type, reached through its operations | changes nothing (rule 4) |
-| projection | the projection per type, the library per representation | direct | the representation | changes nothing (rule 4) |
-| dynamic operations | the library once per set of dynamic operations, in the conformer's image | indirect, result type declared | the shared representation | changes nothing (rule 4) |
+| the type implements the operations | the library per type, in the conformer's image | direct | the type, reached through its operations | changes nothing (rule 4) |
+| forwarding to a field | the library per field type | direct | the field's type | changes nothing (rule 4) |
+| declared fields | the library per tuple of field types | direct field access | the fields' types | changes nothing (rule 4) |
+| dynamic operations | the library once per field type, in the conformer's image | indirect, result type declared | the field's type | changes nothing (rule 4) |
 | dynamic call | the library once per signature, the function by its caller | indirect, result type declared | the signature | changes nothing (rule 4) |
 | compiled call | per function type, in the caller's image | direct | the function's type | can invalidate it, as today |
-| `Dynamic{X}` | each operation with its conformance; the library per representation where it is opened | a dispatch on the stored value, result type declared | the operations, until opened | changes nothing (rule 4) |
+| `Dynamic{X}` | each operation with its conformance; the library per key where it is opened | a dispatch on the stored value, result type declared | the operations, until opened | changes nothing (rule 4) |
 
-**Growth ends where it is chosen to.** A conformance that projects, and a dynamic position, end the growth there: code above compiles per tuple of the representations at its own bounds, whatever was built below.
+**Growth ends where it is chosen to.** Forwarding, declared fields and dynamic positions end the growth there: code above compiles per tuple of the keys at its own bounds, whatever was built below.
 - **Within one function** the compiled code still multiplies over that function's bounds, as `meandiff` does over its pair.
-- **Across layers** it adds up, because each layer's representations are chosen by that layer, not assembled from the layers beneath.
+- **Across layers** it adds up, because each layer's keys are the types that layer declares, not the types assembled from the layers beneath.
 - **It continues only by choice, in the chooser's image:**
-  - a type that is its own representation;
+  - a type that implements the operations itself;
   - a parametric family;
   - a generic implementation;
   - a compiled call;
@@ -105,36 +113,44 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 
 The argument is structural; it is not yet measured on a stack of trait modules.
 
+**Why keys and not representations.** Until session 22 the design translated a value to a *representation*: plain data produced by a projection, a field read or any computed function, with an inverse to rebuild the user's type. Keys keep what that bought and drop the rest:
+- **Sharing stays.** A field's type is the key, so every type forwarding to a `Vector{Vector{Float64}}` shares the library's code, as every type projecting onto it did.
+- **Nothing is copied.** The trait object refers to the user's object and its fields, so writes are seen as in plain Julia, two views of one object always agree, and the inverse for a result like the input is the user's object with a field replaced.
+- **Several fields.** A key is the types of all declared fields, not one representation that a solver's state, parameters and time would have to be packed into.
+- **Lost:** computed projections, a lazily derived representation or a foreign type converted on the way in. A library that wants shared code for such types converts explicitly, and a foreign type conforms by an implementation its wrapper's delegates write ([code written without traits](3-wrapping.md)).
+
+**Precedents, not researched for this note (from memory).** Haskell's `deriving via` gives a newtype the instance of the type it wraps, so that code exists once, as a forwarded trait's library code does. Go's struct embedding and Kotlin's `by` forward an interface's methods to a field. Go compiles one generic instance per memory layout ("GC shape"), a key that ignores what the code does not distinguish. None of them uses the forwarded field as a compile key, because they compile ahead of time: the cost per type is build time there, and session latency in Julia.
+
 **The dynamic positions are not `Any`.**
 - Result types are declared and asserted, so code after a call infers concretely.
 - The targets are conformances and declared signatures, which only owners and delegates add, so no load from outside adds one and a build can list them.
 - The cost is the direct call: about 4 ns for a dynamic call and 6.3 ns (7× plain Julia) for a per-element dynamic operation on the prototype, and 20–80 ns for a dispatch on a `Dynamic` value. These positions suit calls made per plot, per attribute or per callback, not per element.
 
-**What is new over discipline.** Plain Julia can reach the same shape by discipline: convert to a few concrete types first, assert results after dynamic calls. On the prototype, a hand-written convert-then-plot function costs 36 ms per new table type, the trait route 35–47 ms. Three things are new:
-1. **The bound is enforced,** so nothing before the projection specializes on the user's type.
+**What is new over discipline.** Plain Julia can reach the same shape by discipline: convert to a few concrete types first, pass only the fields a function needs, assert results after dynamic calls. On the prototype, a hand-written convert-then-plot function costs 36 ms per new table type, the trait route 35–47 ms. Three things are new:
+1. **The bound is enforced,** so nothing in library code specializes on the user's type or on fields its bound does not declare.
 2. **The targets of the dynamic positions are closed** by ownership and listed for a build.
 3. **Code compiled per type lives in the image of the package that chose the type,** where no other load invalidates it, so that position costs build time and disk rather than session latency.
 
 **Makie as the case in point.**
 - **Today:**
-  - Its pipeline specializes on the user's argument types before `convert_arguments` reaches its own representations: 297 ms per new table type on the prototype.
+  - Its pipeline specializes on the user's argument types before `convert_arguments` reaches its own types: 297 ms per new table type on the prototype.
   - At its inputs and recipe attributes it keeps values at `Any`. Inside its compute graph a node's type is fixed by its first value, so changing a colour from `:red` to a vector of colours fails in Makie 0.24 (`writeup/explorations/makie-rewrite.md` §1).
   - Julia's dispatch tracing shows what that `Any` hides. A first bar chart with a line reaches 1,940 distinct methods; other values of the same types add one; each new argument type or attribute shape adds 35–84.
 - **In a trait world:**
-  - the conversion is the projection, onto families of Makie's own: positions as `Point{N, Float64}` or `Point{N, Float32}` by the data's element type, colors as `RGBAf`;
+  - user data reaches Makie through data traits, which user types implement or forward to a field; the conversion to Makie's own types, positions as `Point{N, Float64}` or `Point{N, Float32}` by the data's element type and colors as `RGBAf`, is library code bounded by those traits;
   - Makie owns traits for what users extend (colors, observables, recipes), held as dynamic values in scenes;
   - each compute step is a function bounded by its inputs.
 
   This is a sketch of a rewrite. Makie as written is reached by calls upward.
 
 **What stays** is the trade-off at each position, as in every language with both generics and dynamic dispatch:
-- more representations cost compiled code;
-- a projection costs a copy where it does not share, and loses what its representation cannot hold (dual numbers through a `Float32` pipeline);
+- more keys cost compiled code;
+- a conversion the library writes costs a copy, and loses what its target cannot hold (dual numbers through a `Float32` pipeline);
 - a dynamic position costs an indirect call or a dispatch.
 
 ## 4. Generic code is checked at its definition
 
-**The choice.** Library code is checked once, where it is defined, against its bounds alone, at archetypes: stand-in representations whose operations return values of their declared types and nothing more. Bounds with open parameters, and functions from above with open result types, are checked per signature at the first call.
+**The choice.** Library code is checked once, where it is defined, against its bounds alone, at archetypes: stand-in keys whose operations and fields return values of their declared types and nothing more. Bounds with open parameters, and functions from above with open result types, are checked per signature at the first call.
 
 **Other languages.**
 - **C++0x** checked definitions through archetypes.
@@ -146,7 +162,7 @@ The argument is structural; it is not yet measured on a stack of trait modules.
 - **Doug Gregor's prediction** came true: without definition checking at the start "we will never get separate type checking", because every constrained template written before has incomplete requirements ([P0240R0](https://open-std.org/JTC1/SC22/WG21/docs/papers/2016/p0240r0.html)).
 - **Rust, Swift and Mojo** check generic bodies before instantiation.
 
-**Why it is cheap for us.** Two facts make a worker's code the same for every representation:
+**Why it is cheap for us.** Two facts make a worker's code the same for every key:
 1. A trait object has no methods but its traits' operations.
 2. Every operation declares its result type.
 
@@ -156,11 +172,11 @@ The C++0x obstacles do not arise:
 - **Implicit conversions** happen on declared concrete result types.
 
 **Measured.** On the prototype the check reuses the existing worker checks unchanged.
-- It finds `size(t)`, `typeof(t)` and `sum(t)` in a library before any representation exists.
+- It finds `size(t)`, `typeof(t)` and `sum(t)` in a library before any type conforms.
 - It checks a library of five functions in under 200 ms in a cold session.
-- It takes only 3–4 ms off a new representation's first call; most of a first call is compilation.
+- It takes only 3–4 ms off a new key's first call; most of a first call is compilation.
 
-The gain is errors at the library's build, independent of representations, not latency.
+The gain is errors at the library's build, independent of conforming types, not latency.
 
 ## 5. Layering: trait-bound code calls only trait-bound code
 
@@ -228,8 +244,8 @@ Code outside the trait world runs for it only as a call upward, through a pointe
 
 **The choice.**
 - Compiled code is compiled against exactly the methods its owners' view holds (rule 4).
-- It lives in the image of the package that chose the type: the trait module for its own representations, the conformer for its own, a package depending on all of them for a combination, the session last.
-- It is bound early: library code compiled for a representation does not pick up a more specific method defined later downstream.
+- It lives in the image of the package that chose the type: the trait module for the types it implements its traits for, the conformer for its own, a package depending on all of them for a combination, the session last.
+- It is bound early: library code compiled for a key does not pick up a more specific method defined later downstream.
 
 **Other languages.**
 - **C++ `export`** (1996–2010) tried to compile templates separately and failed.
@@ -248,8 +264,8 @@ Code outside the trait world runs for it only as a call upward, through a pointe
 **Why ours.**
 - **Export's meaning problem is removed.** Rule 4 makes compiled code mean what its owners' methods say, and a load that would change it is a refused pirate: consistency across packages is diagnosed.
 - **No duplication.** Code lives where the type was chosen, once, not per sibling as in Rust.
-- **No cliffs.** Projection gives per-representation specialization by construction, not by heuristic, so there is no slow fallback path as in Swift.
-- **Early binding is deliberate.** A type that needs its own behaviour is its own representation, or names an implementation.
+- **No cliffs.** A bound gives specialization for what it can see by construction, not by heuristic, so there is no slow fallback path as in Swift.
+- **Early binding is deliberate.** A type that needs its own behaviour implements the operations itself, or names an implementation.
 
 **What we give up.**
 - Code compiled once in its owner's image is never inlined into other packages, which is why Rust turns sharing off in optimized builds.
@@ -258,7 +274,7 @@ Code outside the trait world runs for it only as a call upward, through a pointe
 ## 8. Static and dynamic positions, and their defaults
 
 **The choice.**
-- **Data** is compiled per representation, statically.
+- **Data** is compiled per key, statically.
 - **Functions from above** are dynamic by default (`DynamicCall`); the library sets the default and the caller overrides it per value, with `compiled_call(f)` or `dynamic_call(f)`.
 - **Data made dynamic** is chosen explicitly:
   - by the conformance (dynamic operations);
@@ -273,19 +289,19 @@ Code outside the trait world runs for it only as a call upward, through a pointe
 | Swift | compiled once, witness tables; specialization an optimization | indirect unless inlined | `@inlinable`, cross-module optimization, `@specialized` |
 | Mojo | compiled per type | compiled per closure type | none inside Mojo |
 | Julia today | compiled per concrete type | compiled per function type if called in the body | `@nospecialize`, `Any` fields, FunctionWrappers |
-| Ours | per representation | dynamic by default; the caller overrides | dynamic operations, `Dynamic{X}` |
+| Ours | per key: what a bound can see | dynamic by default; the caller overrides | dynamic operations, `Dynamic{X}` |
 
-Not researched for this note (from memory): Go compiles one generic instance per memory layout with dictionaries for operations, the closest relative of "per representation"; method calls through the dictionary are dynamic and not inlined. Haskell passes dictionaries by default, with `SPECIALIZE` pragmas.
+Not researched for this note (from memory): Go compiles one generic instance per memory layout with dictionaries for operations, the closest relative of compiling per key; method calls through the dictionary are dynamic and not inlined. Haskell passes dictionaries by default, with `SPECIALIZE` pragmas.
 
 **Why.**
 - **Functions dynamic by default.** That is what Swift chose by design and Rust's practitioners recommend by experience ("prefer `&dyn Fn()` over `impl Fn()`", [matklad](https://matklad.github.io/2021/09/04/fast-rust-builds.html)), because compiling per closure costs much and rarely pays. Unlike Rust, the caller can override, so the choice does not leak into the library's API.
-- **Data static per representation.** Operations are direct calls, with no dictionary at run time.
+- **Data static per key.** Operations are direct calls, with no dictionary at run time.
 - **Explicit dynamic data.** It follows Swift's lesson to spell the slow path where it is used, never implied, and to decide it before the ecosystem grows.
 - **Dynamic values by dispatch, not pointer tables.** The review of the stored-values proposal measured pointer tables:
   - they break under world age and serialization, and under racing writes;
   - they cost 9 ns per call against 22–78 ns for dispatch, which closes its targets by ownership and needs no compilation for a first call from an image.
 
-**Dynamic compatibility.** Rust restricts `dyn Trait` to traits without generic methods, `Self` results or `async fn`. Our operations are concrete signatures on a representation, and a dynamic value dispatches rather than using a table, so these restrictions hardly bind. They would if operations became generic over other bounds.
+**Dynamic compatibility.** Rust restricts `dyn Trait` to traits without generic methods, `Self` results or `async fn`. Our operations are concrete signatures on the implementing type, and a dynamic value dispatches rather than using a table, so these restrictions hardly bind. They would if operations became generic over other bounds.
 
 ## 9. Error messages
 
@@ -301,7 +317,7 @@ Not researched for this note (from memory): Go compiles one generic instance per
 
 **Ours:**
 - **Detection moves earlier,** to the conformance (missing operations, wrong result types) and to the library's build (definition checking).
-- **Frames inside the trait world print by bound and representation.** That is design; the prototype still prints its machinery types.
+- **Frames inside the trait world print by bound and key,** `step!(i::Integrator{Vector{Float64}, Params}, dt::Float64)`, not by the integrator's full type. The prototype prints bounds and keys for its trait objects.
 - **The limit:** bugs in user code above the trait world, as in all three SciML cases, are still found at run time. The traces get shorter, and requirements like "`f` is called with dual numbers" become part of the signature, as a second `Callable` bound.
 
 ## 10. The complexity budget
@@ -313,7 +329,7 @@ Not researched for this note (from memory): Go compiles one generic instance per
 | Swift | recursive associated-type constraints, overloading in the type checker | generic signatures undecidable; "unable to type-check this expression in reasonable time" |
 | Mojo | (avoided by design) | no inference from result types: "don't do it again" (Lattner) |
 
-The expensive features were type-level computation in traits: associated types, recursion among them, higher-ranked bounds, overlap and negative reasoning. Traits as "operations and fields on a representation, with declared concrete types" stay out of most of that space. Associated types are not the expensive part; reasoning about them symbolically is. Rust and Swift check a generic body once against its where-clauses, so an associated type is an unknown to normalize, equate and solve for, and recursion among them makes that undecidable. Our workers compile per concrete representation, where an associated type is a type function evaluated on a concrete type. Only definition checking reasons about them symbolically, and there they are first order: named variables with trait bounds, equal only through a shared variable, never recursive. Parameters are associated types, one value per conformance, as Rust's RFC 195 argued (`writeup/explorations/associated-types.md`).
+The expensive features were type-level computation in traits: associated types, recursion among them, higher-ranked bounds, overlap and negative reasoning. Traits as "operations and fields with declared concrete types" stay out of most of that space. Associated types are not the expensive part; reasoning about them symbolically is. Rust and Swift check a generic body once against its where-clauses, so an associated type is an unknown to normalize, equate and solve for, and recursion among them makes that undecidable. Our workers compile per concrete key, where an associated type is a field's type or a type function evaluated on a concrete type. Only definition checking reasons about them symbolically, and there they are first order: named variables with trait bounds, equal only through a shared variable, never recursive. Parameters are associated types, one value per conformance, as Rust's RFC 195 argued (`writeup/explorations/associated-types.md`).
 
 ## What the choices cost
 
@@ -334,17 +350,16 @@ The design restricts what trait-bound code may do, and only there.
    - values of trait-world types: a type that decides is admitted by its type, any other is walked at the entry.
 
    Inward doors (eval, deserialization, reflection) are available only as declared calls with a checked result.
-4. **Trait objects go in, translated.**
-   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse of its projection ([the design in detail: Results like the input](4-details.md#results-like-the-input)); a computed projection without an inverse cannot be rebuilt.
-   - A value kept beyond a call follows the user's field where it was projected from one that can be rebound (a lens), and is translated once, when kept, otherwise.
-   - A value used under two traits is projected twice unless its type declares one projection for both.
+4. **Trait objects see only their keys.**
+   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse, the user's object with a field replaced ([the design in detail: Results like the input](4-details.md#results-like-the-input)).
+   - A value kept beyond a call follows the user's fields where they can be rebound (lenses), as every holder of the object does in plain Julia.
+   - A type converted on the way in, a computed view of its data, is not a conformance: the library converts explicitly, and the result does not follow the user's object.
 5. **Types come first.** A type that matches a type-annotated method takes it, even when it also conforms to a trait bound of the same function. Reaching the trait method needs a type that no type method catches, or a newtype.
 6. **Code written without traits is curated.** Capability traits with their conformances for Base's families, and each wrapper's implementations and conformances, are declared by hand. A package has one wrapper per environment.
 7. **Dynamic positions are indirect.**
    - About 4 ns for a dynamic call.
    - 6.3 ns (7× plain Julia per element) for a dynamic operation.
    - 20–80 ns for an operation on a `Dynamic` value.
-   - Traits that require concrete representations get views materialized.
 8. **Runtime work, not yet proven.**
    - Trait-bound code needs its own compiled instances, so Base code used by both worlds compiles twice.
    - It also needs an invalidation filter, a dispatch check, a hook that refuses a pirate before an image's methods enter the method table, and the check of globals and doors on compiled code.
@@ -359,7 +374,8 @@ The design restricts what trait-bound code may do, and only there.
 
 ## Other options considered
 
-- **One representation per type:** each type projects once, for every trait it joins. Rejected as too restrictive: what a type means differs between traits.
+- **One forwarding field per type,** for every trait it joins. Rejected as too restrictive: what a type means differs between traits.
+- **Representations reached by any projection,** computed or copied, with a written inverse (the design until session 22). Replaced by keys (§3): computed projections copied, needed inverses and stale views, and packed several fields into one type.
 - **The edge-level rule:** let trait-bound code call ordinary packages freely, compile only concrete calls against the current methods, and make abstract ones dynamic. Rejected for its built-in cliff at abstract calls, copies of much library code, and no closed world for AOT.
 - **Absorbing dependencies:** each package brings its ordinary dependencies into its own world. Rejected because two packages that absorb Makie conflict as soon as one defines a recipe.
 - **Deriving conformance from the methods that exist.** Rejected (§2).

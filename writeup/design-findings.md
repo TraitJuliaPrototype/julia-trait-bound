@@ -1097,3 +1097,21 @@ One compiled loop served lenses into two different user types. A rebinding of th
 - *Decided (the user, 2026-10-16):* every field projection of a mutable user type, from a field that can be rebound and is declared with exactly the representation's type, is kept as a lens. That removes the first stale-value case of the stored-values review. A field declared with an abstract type stays translated once, which is open;
 - several views of one object, where a lens and a view computed from the same field must not diverge;
 - computed properties as projections.
+
+## 19. Keys replace representations (session 22)
+
+**The question (the user, 2026-10-16):** "Every other language doesn't tackle representations … Do we really need this to make the caches work? Or is the only real reason we have it is to enable concreteness guarantees?" Then: "because f is trait bound, we know it can only access fields that are in the trait … in principle we can compile per collection of associated types of the fields."
+
+**What the analysis found:**
+- **Cache validity** (no invalidation by unrelated loads) never needed representations: it comes from layering, ownership and the load filter.
+- **Cache reuse** (a new user type costs no compile) needs a compile key that excludes the user's type. In Julia a method compiles per full argument type, so the call must pass the parts the code may touch, not the object: the entry and the trait object. That is a calling convention, not a change to inference or codegen.
+- **Concreteness** was always a property of the key, never of the user's type.
+- So the representation's job is done by the *key*: the types a bound can see, the implementing type (the conforming type, or the field it forwards the trait to) and the types of the declared fields, typed by associated types.
+
+**What changed in the design (notes rewritten, `writeup/notes/`):**
+- Traits declare operations at the trait (`ncols(t::ColTable)::Int`) and fields typed by associated types (`@trait Integrator{U, P}`, `u::U`); `Self` names the implementing type in defining equations and constructor results. The trait parameter `R` is gone.
+- A type conforms by implementing the operations, or by forwarding them to a field (`@implement ColTable Halves by left`), as Go's embedding, Kotlin's `by` and Haskell's `deriving via` do. Computed and copying projections are gone; the inverse for results like the input is the identity or a field replaced; kept values follow the user's fields and are never stale; several views of one object always agree.
+- The motivation now starts from "Julia compiles a function for the whole type of each argument", and the core idea is "compiled for what the bound can see".
+- **Lost:** lazily derived representations and foreign types converted on the way in. They become explicit conversions in library code or implementations written by a wrapper's delegates.
+
+**Prototype:** TraitWorld still has the earlier spelling (`R` last, computed projections, one field per key); multi-field keys are the next prototype step.

@@ -2,16 +2,17 @@
 
 The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers wrappers, calls upward and sealing.
 
-The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs what is not marked as a sketch.
+The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs what is not marked as a sketch, in an earlier spelling: it writes the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), keys on one field at a time, and still offers computed projections, which the design no longer has (design choices §3).
 
 ## Terms
 
-- **Trait.** An abstract type with behaviour: operations, optionally fields, declared by `@trait ColTable{R} begin … end`. `R` is the *representation*, the data the operations work on.
+- **Trait.** An abstract type with behaviour: operations and fields, declared by `@trait ColTable begin … end`. A trait's parameters are its *associated types*, `@trait Integrator{U, P}`.
 - **Trait module.** A module whose code is written against traits, declared `@trait_module module M … end`. Its code is *trait-bound*. Its exported functions take arguments bounded by traits; its internal functions need no bounds.
 - **Trait world.** Every trait module and every wrapped package, Base included. *Ordinary code* is everything else: all of Julia today.
-- **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. An *implementation* defines the trait's operations for a representation. A *projection* maps a value of the type to its representation.
-- **Trait object.** What library code receives for a bounded argument: the value's representation, with a *witness* that says where its operations come from. A trait object has methods for its traits' operations and nothing else.
-- **Entry and worker.** A bounded function has an *entry*: ordinary code that translates each argument by its bound and does nothing else. It also has a body compiled per representation, the *worker*.
+- **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. The type implements the operations itself, or *forwards* them to one of its fields whose type implements them. The *implementing type* is the type or that field's type; an *implementation* is its methods for the trait's operations.
+- **Key.** What a bound can see: the implementing type, when the trait has operations, and the types of the fields the trait declares. Workers are compiled per tuple of their bounds' keys, never per conforming type unless it is the implementing type.
+- **Trait object.** What library code receives for a bounded argument: the implementing value (the value itself, or its forwarding field) and the declared fields, with a *witness* that says where the operations come from. A trait object has methods for its traits' operations and fields and nothing else.
+- **Entry and worker.** A bounded function has an *entry*: ordinary code that translates each argument by its bound and does nothing else. It also has a body compiled per key, the *worker*.
 - **View.** A package's view is what its compiled code is compiled against (rule 4).
 
 ## Ownership
@@ -77,26 +78,26 @@ Rule 1 is layering; rule 2 says how a value crosses into the trait world and wha
    - **Code from above** reaches the trait world only as values handed down: values translated by a bound, functions bounded by `Callable`, and `Dynamic` values.
    - A package can pair a trait module with an ordinary module that uses both.
 2. **The boundary translates, once per bound.** A value enters the trait world where ordinary code calls in, at a bound, translated by it:
-   - a trait bound projects the value through its type's projection for that trait;
+   - a trait bound takes what it can see: the implementing value and the declared fields, referring to the user's object where a field can be rebound;
    - a declared type asserts;
    - a `Callable` bound makes a function a call upward.
 
-   **Inside**, a trait object is its trait's representation and nothing else. It is passed to functions without a bound, which are compiled for it like any argument. It is passed to a bounded argument only where its own trait is expected, or a supertrait whose declared representation map derives the other view.
+   **Inside**, a trait object is what its bound can see and nothing else. It is passed to functions without a bound, which are compiled for it like any argument. It is passed to a bounded argument only where its own trait is expected, or a supertrait.
 
-   **Two traits, two views.** A function that uses a value under two traits, itself or through what it calls, declares both bounds at its boundary. The ordinary caller's one value is then projected once per bound: two views, which share data only where both projections share the user's data, or where the type declares one projection for both.
+   **Two traits, two views.** A function that uses a value under two traits, itself or through what it calls, declares both bounds at its boundary. The ordinary caller's one value is then translated once per bound: two views of the same object, which agree because nothing is copied.
 3. **One ownership rule.**
    - A package may add a method to the trait world only where it owns the function, or one of the types, in every signature the method applies to (Ownership). A `Union` with a foreign type is no way around this.
-   - Implementations and projections are methods too. An operation that is someone else's function, such as `Base.size`, is implemented for someone else's type only by an owner of one of them, while the trait's owner declares the existing methods instead.
+   - Implementations are methods too. An operation that is someone else's function, such as `Base.size`, is implemented for someone else's type only by an owner of one of them, while the trait's owner declares the existing methods instead.
    - Ownership can be delegated by its owner, never claimed.
    - A package written without traits is owned in the trait world by its trait wrapper, at most one per package, which delegates to the implementation packages it names. Julia is one such package, owned by the Base wrapper.
    - A named implementation may be written by anyone.
 4. **What a call sees, and where its code lives.**
-   - **A call sees** the owners of its function and of the representations involved, with their trait-world dependencies: trait packages, wrappers with the packages and implementations they bring in and the dependencies of those, and Julia always. A package reached only by calls upward is in no view.
+   - **A call sees** the owners of its function and of the types in its keys, with their trait-world dependencies: trait packages, wrappers with the packages and implementations they bring in and the dependencies of those, and Julia always. A package reached only by calls upward is in no view.
    - **Its code is compiled against exactly the methods it sees.** For an implementation written in the session, the view is the trait package's view plus the implementation's own methods, not the session's imports. What is redefined at the prompt recompiles as today.
    - **At a dynamic site,** the method selected at run time must come from an owner or a delegate of the function or of one of the argument types. A downstream trait module's method for its own type is accepted; a method from above or a pirate raises.
    - **Where compiled code lives.** Compiled code for a combination of packages lives in a package that depends on all of them:
-     - the trait module, for its own representations;
-     - a conformer, for the representations it brings;
+     - the trait module, for the types it implements its traits for;
+     - a conformer, for its own types;
      - a package extension or the application, when packages meet only there;
      - the session, when nothing depends on all of them.
 
@@ -110,7 +111,7 @@ Rules 1 and 2 read operationally:
 
 The rest follows:
 - **A bound is a translation.**
-  - A trait bound projects.
+  - A trait bound takes what it can see.
   - A declared type asserts.
   - A `Callable` bound makes a function a dynamic call (a pointer at a declared signature) or a compiled call (a worker compiled above on the function's type), as the mode in the bound or on the value says.
   - No bound means a trait-world value.
@@ -118,17 +119,17 @@ The rest follows:
   The translation is the same wherever the bound stands: a positional argument, a keyword, an element of a vararg, a field, the result of a call upward.
 - **Everything in a call that is not a value stays inside.** Defaults, keyword sorting, splatting and dispatch are plain Julia, run in the worker after translation. The entry translates and does nothing else.
 - **A bound is a crossing point and has an entry,** on a named function or a closure alike.
-- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, follows the user's field where it was projected from one that can be rebound, and is translated once, when kept, otherwise (Dynamic values).
+- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, follows the user's fields where they can be rebound and holds them where they cannot (Dynamic values).
 
 ## What code in a trait module may do
 
 A trait object is a view of the user's data. Code reaches that data only through the trait's operations and fields, and reaches a function from above only by calling it as a `Callable`. Every other value is an ordinary Julia value of a trait-world type.
 
-**Exported functions are the boundary.** Their trait-object arguments carry bounds, which say what an ordinary caller's value must conform to and what the entry projects.
+**Exported functions are the boundary.** Their trait-object arguments carry bounds, which say what an ordinary caller's value must conform to and what the entry takes from it.
 
 **Internal functions need no bounds.**
 - A trait object passed to one is inferred like any other argument, and the function is compiled for it as part of the worker that calls it.
-- Helpers of an implementation take the representation itself, `r::R`.
+- Helpers of an implementation take the implementing type itself.
 - Unexported types are ordinary trait-world types.
 - The trait object still admits only its traits' operations, so an internal use that the exported bounds do not cover is reported at its line, with the bound to add (Definition checking).
 - A bound no path uses can be warned.
@@ -140,16 +141,16 @@ An exported function's argument without a bound takes trait-world values only, s
 |---|---|---|
 | the trait's operations on a trait object: `col(t, i)`, `ncols(t)` | yes | the way to reach the user's data |
 | a field the trait declares: `t.name`, and `t.name = x` unless it is `@const` | yes | a declared field is a pair of operations, `getproperty` and `setproperty!` (Declaring a trait) |
-| several trait objects in one function, of one trait or several | yes | compiled once per tuple of representations |
-| an argument with several bounds, `t::(ColTable, RowTable)` | yes | one projection per bound (rule 2) |
+| several trait objects in one function, of one trait or several | yes | compiled once per tuple of keys |
+| an argument with several bounds, `t::(ColTable, RowTable)` | yes | one view per bound (rule 2) |
 | passing a trait object to the module's own functions, or on where its own trait is expected | yes | statically within the module, through the entry otherwise (rule 2) |
 | methods with type annotations beside trait-bounded ones: `f(m::AbstractMatrix)`, `f(t::ColTable)` | yes | types first, then traits |
 | a call upward: a `Callable` argument, a declared call into a package that stays outside, an outward door such as printing to `stdout` | yes | through a pointer at a declared signature, no inference edge, the result checked, handles for what comes back |
-| any code on values of trait-world types: loops, arrays, closures, `try`, the module's other functions | yes | ordinary Julia, compiled per representation |
+| any code on values of trait-world types: loops, arrays, closures, `try`, the module's other functions | yes | ordinary Julia, compiled per key |
 | importing and calling Base, a standard library, a trait module or a wrapped package | yes | checked on the compiled code: globals of trait-world types, no undeclared door |
-| methods of functions or for types the package owns, implementations and projections among them | yes | ownership (rule 3) |
-| a trait object kept beyond the call: made into a `Dynamic{X}` and stored, returned or put in a collection | yes | translated once, when made; operations dispatch, with declared results (Dynamic values) |
-| passing a trait object where a different trait is expected | no | declare both bounds, so the caller projects each (rule 2) |
+| methods of functions or for types the package owns, implementations among them | yes | ownership (rule 3) |
+| a trait object kept beyond the call: made into a `Dynamic{X}` and stored, returned or put in a collection | yes | follows the user's fields; operations dispatch, with declared results (Dynamic values) |
+| passing a trait object where a different trait is expected | no | declare both bounds, so the entry translates for each (rule 2) |
 | a trait object anywhere else, as a bare value: passed to an ordinary function, stored or returned bare, `typeof(t)`, a field the trait does not declare | no | code must not depend on the user's type |
 | two methods with unrelated trait bounds on one position and no method for both | no | ambiguous for a type with both; checked when the function is defined |
 | calling a package written without traits directly, unwrapped | no | rule 1: wrap it, or declare the calls |
@@ -168,20 +169,20 @@ An exported function's argument without a bound takes trait-world values only, s
 ## Declaring a trait
 
 ```julia
-@trait ColTable{R} begin
-    ncols(r::R)::Int                                  # an operation: argument types and a result type
-    col(r::R, i::Int)::Vector{Float64}
-    firstcol(r::R)::Vector{Float64} = col(r, 1)       # a default, written in terms of the others
-    name::String                                      # a field (a sketch of the syntax)
+@trait ColTable begin
+    ncols(t::ColTable)::Int                                  # an operation: argument types and a result type
+    col(t::ColTable, i::Int)::Vector{Float64}
+    firstcol(t::ColTable)::Vector{Float64} = col(t, 1)       # a default, written in terms of the others
+    @const name::String                                      # a field, read-only
 end
 ```
 
 **Operations.**
-- An operation is a function with declared argument and result types, the representation first.
+- An operation is a generic function declared at the trait, its first argument the trait itself, as `length(x::AbstractArray)` is declared at an abstract type. A conformance implements it with methods at the implementing type.
 - Calls to it are checked: the arguments against the declaration, the result asserted to the declared type.
 - An operation may be an existing generic function, such as `Base.length` ([code written without traits](3-wrapping.md#traits-over-existing-functions)).
 - A default is written in terms of the other operations, and an implementation may override it. A default never throws "not implemented": a missing operation is an error when the conformance is declared, not when it is called.
-- An operation that mutates its representation is marked, and such a trait accepts only projections that share the user's data.
+- An operation may mutate its argument. The trait object refers to the user's object, so the user sees the change, as in plain Julia.
 
 **Fields.** A trait may declare fields as well as operations, as a struct declares them. A field is a property:
 - `t.name` is `getproperty(t, :name)` and `t.name = x` is `setproperty!(t, :name, x)`, as everywhere in Julia;
@@ -189,43 +190,32 @@ end
 - following `mutable struct`, a field is writable unless declared `@const` (the macro form of a struct's `const`, which Julia parses only inside a struct).
 
 ```julia
-@trait HasData{R} begin
-    data::R                  # the representation lives in the field `data`: a lens, readable and writable
-end
-@trait Named{R} begin
-    @const name::String      # read-only: every representation has a property `name` of type String
-    count::Int               # readable and writable
-    ncols(r::R)::Int
+@trait Integrator{U, P} begin
+    u::U                     # the state: readable and writable, its type an associated type
+    @const p::P              # the parameters: read-only
+    t::Float64               # the time: writable, a fixed type
 end
 ```
 
-- **A field is a pair of operations.** Reading is `getproperty(r, :name)::String` on the representation, writing `setproperty!(r, :name, x::String)`. Scala desugars a trait's `var` the same way, and Swift's protocols require properties `{ get set }`.
-  - A stored field satisfies them, and so does a computed property: a `getproperty` method defined by the representation's owner.
-  - At a known representation, a stored field compiles to the field load or store.
-- **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused, as before. A `Dynamic` value reads and writes its declared fields by dispatch.
-- **Writes are seen as in Julia.** Julia passes arguments by sharing, so `t.count = 6` on a mutable argument is seen by the caller. Through a trait, a write is seen when the representation is the user's object or shares its data: a type that is its own representation, or a sharing projection.
-  - A trait with writable fields therefore refuses copying projections, as a trait with mutating operations does. A write into a copy would silently miss the user's object.
-  - A conforming representation must be mutable, with those fields of exactly the declared types, so that a write never changes a type that compiled code relies on.
-- **Other fields are fields of the representation.**
-  - For a type that is its own representation, they are the type's own fields.
-  - A type that projects needs a representation that has them.
-  - Their declared types are checked at the conformance as an operation's result types are, and must be concrete if the trait requires concreteness.
-- **A field of type `R` names the projection, and is a lens.** `data::R` says that a conforming type holds its representation in its field `data`. `@implement HasData T` then needs nothing more, and the one-line form's convention (the field named `data`, or the one conforming field) becomes something a trait states.
-  - **Reading** `t.data` is the trait object's representation.
-  - **Writing** `t.data = v` rebinds the user's field, as `t.data = v` does in plain Julia. So the trait object cannot just hold the field's value: it holds a reference to the field, the user's object and the field's index, and reads the representation through it. Every copy of the trait object, and every `Dynamic` made from it, then sees the new value, as every holder of a mutable object does.
-  - The field must be declared with exactly the type `R`, so that rebinding never changes the representation's type. An `@const data::R` is an ordinary read-only projection.
-  - Workers stay compiled per representation, because the reference carries the field's index, not the user's type.
-  - The reference keeps the user's object alive, so shared data cannot be freed under it.
+- **Fields are the conforming type's own.** A field is read from the conforming type, also when the type forwards its operations to another field. A stored field satisfies the declaration, and so does a computed property: a `getproperty` method defined by the type's owner.
+- **Field types are part of the key.** A field typed by an associated type, `u::U`, makes the field's type part of the key, so a worker compiles per state type, whatever else the conforming type holds. A field of a fixed type adds nothing to the key.
+- **A field is a pair of operations.** Reading is `getproperty(x, :name)::String`, writing `setproperty!(x, :name, v::String)`. Scala desugars a trait's `var` the same way, and Swift's protocols require properties `{ get set }`. At a known key a stored field compiles to the field load or store.
+- **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused. A `Dynamic` value reads and writes its declared fields by dispatch.
+- **A writable field is a lens.** Writing `i.u = v` rebinds the user's field, as in plain Julia. So the trait object holds a reference to that field, the user's object and the field's index, and reads through it; every copy of the trait object, and every `Dynamic` made from it, sees the new value, as every holder of a mutable object does.
+  - The conforming type must be mutable, with the field declared `const` nowhere and with exactly the field's type in the key, so that a write never changes a type compiled code relies on.
+  - Workers stay compiled per key, because the reference carries the field's index, not the user's type.
+  - The reference keeps the user's object alive, so its data cannot be freed under it.
+- **Read-only fields are held.** An `@const` field, or any field of an immutable type, cannot be rebound, so the trait object holds its value.
 - **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `@const`.
 - **New over Julia.** Julia's abstract types cannot require fields, a long-standing request. A trait can, because conformance is declared and checked.
 
-**Parameters: associated types.** A trait may take parameters besides the representation, as `AbstractArray{T, N}` does. The representation comes last: `@trait ArrayLike{T, N, R}`, `@trait Source{T, R}`.
-- **They are associated types:** functions of the representation, one value per conformance. A type conforms at one value of each, as a Julia type has one `AbstractArray` supertype.
-- **A trait may define them** by a type function, `T = eltype(R)`. The conformance then need not state them, and a stated value is checked against the definition. Without a definition, the conformance states them: `@implement ArrayLike{Float64, 1} MyVector`.
-- **Operations name them:** `Base.getindex(r::R, i::Int)::T`.
-- **A parameter may be bounded** by a trait or a type, `ArrayLike{T <: NumberLike, N}`, checked at the conformance. A trait bound on a parameter is what lets definition checking cover code that computes with it.
+**Parameters: associated types.** A trait may take parameters, as `AbstractArray{T, N}` does: `@trait ArrayLike{T, N}`, `@trait Integrator{U, P}`.
+- **They are associated types:** one value per conformance, functions of what the conforming type holds. A type conforms at one value of each, as a Julia type has one `AbstractArray` supertype.
+- **A field defines its type's parameter:** `u::U` makes `U` the type of the conforming type's field `u`.
+- **A trait may define them by a type function** of the implementing type, written `Self` in the declaration: `T = eltype(Self)`. The conformance then need not state them, and a stated value is checked against the definition. Without a definition, the conformance states them: `@implement ArrayLike{Float64, 1} MyVector`.
+- **Operations name them:** `Base.getindex(a::ArrayLike{T}, i::Int)::T`.
+- **A parameter may be bounded** by a trait or a type, `ArrayLike{T <: NumberLike, N}`, `Integrator{U <: StateVector, P}`, checked at the conformance. A trait bound on a parameter is what lets definition checking cover code that computes with it, and lets library code call the bound's operations on `i.u`.
 - **A bound may fix them or leave them open,** `x::ArrayLike{Float64}`. A shared variable, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, requires equal values.
-- **A bound on the representation,** `@trait MyTrait{R <: Hashable}`, is a supertrait whose representation map is the identity: every representation of `MyTrait` conforms to `Hashable`, and library code may use `Hashable`'s operations on it.
 - **A more specific implementation declares the same values** as a generic one.
 - **Not offered:**
   - a type conforming at several values of a parameter (input parameters; `Callable` is the one trait that has them);
@@ -235,99 +225,92 @@ end
   These are what made Rust's and Swift's checking hard or undecidable ([design choices §10](2-design-choices.md#10-the-complexity-budget)).
 
 **Supertraits and bundles.**
-- `@trait B{R} <: A{R}` makes `A`'s operations part of `B`'s; the views of a supertrait travel with every view of the trait. The syntax of the representation map, by which `B`'s operations call `A`'s statically, is open.
-- A bundle trait names a combination on the library side, `@trait Table{R} <: (ColTable{R}, RowTable{R})`, so that `summary(t::Table)` needs one bound.
+- `@trait B <: A` makes `A`'s operations and fields part of `B`'s. A type conforms to both through one conformance, forwarding both to the same field or implementing both, so `B`'s operations call `A`'s statically.
+- A bundle trait names a combination on the library side, `@trait Table <: (ColTable, RowTable)`, so that `summary(t::Table)` needs one bound.
 
-**Concreteness.** A trait may require that its representations be deeply concrete, guaranteeing that whatever conforms becomes concrete with respect to the behaviour the trait carries. It is opt-in, and a trait decides it when it is published: requiring it later breaks conformers whose representation is abstract, as adding an operation without a default does.
+**Concreteness.** A trait may require that its key be deeply concrete: the implementing type and the associated types. That guarantees that whatever conforms becomes concrete with respect to the behaviour the trait carries, and it constrains only what library code sees: the conforming type may hold abstract fields the trait does not declare. It is opt-in, and a trait decides it when it is published: requiring it later breaks conformers whose key is abstract, as adding an operation without a default does.
 
 ## How a type conforms to a trait
 
-The one-line form covers a type that holds a representation or is one. The written-out forms:
-- name the projection;
-- give a type operations of its own at a shared representation;
+The one-line form covers a type that implements the operations or holds one field that does. The written-out forms:
+- name the forwarding field;
+- give a type operations of its own, called indirectly, at a field's type;
 - join several traits;
-- implement a trait for a representation the author does not own.
+- implement a trait for a type the author does not own.
 
-Every form defines methods, so ownership says who may write it, and the methods are trait-bound code wherever they are written. The prototype runs every form for concrete types; parametric families are design.
+Every form defines methods, so ownership says who may write it, and the methods are trait-bound code wherever they are written. The prototype runs the forms for concrete types in an earlier spelling, with the implementing type as the trait's last parameter; parametric families are design.
 
 ```julia
-# 1. A field, inferred: the field the trait declares for its representation (data::R), else the
-#    field named data, else the one field whose type conforms
-struct Measurements; data::Vector{Vector{Float64}}; end
+# 1. Forwarding, inferred: the one field whose type implements the trait, else the field named data
+struct Measurements; label::String; data::Vector{Vector{Float64}}; end
 @implement ColTable Measurements
 
-# 2. Methods, inferred: the type is its own representation
+# 2. Methods, inferred: the type implements the operations itself
 import Columns: ncols, col
 ncols(r::Ramp) = r.n
 col(r::Ramp, i::Int) = r.base .* i
 @implement ColTable Ramp
 
-# 3. A projection written out: when two fields conform, when the representation is computed,
-#    or when it must be copied
+# 3. Forwarding written out, when two fields conform
 struct Halves; left::Vector{Vector{Float64}}; right::Vector{Vector{Float64}}; end
-@implement ColTable Halves project(t) = t.left
-struct Window; v::Vector{Float64}; lo::Int; hi::Int; end
-@implement ColTable Window copies project(t) = [t.v[t.lo:t.hi]]   # refused by a trait with mutating operations
+@implement ColTable Halves by left
 
-# 4. The operations in one block: for the author's own type, the same as 2; for a representation
-#    the author does not own, only the trait's owner or a delegate (rule 3)
-@implement ColTable{Ramp} begin
+# 4. The operations in one block: for the author's own type, the same as 2; for a type the author
+#    does not own, only the trait's owner or a delegate (rule 3)
+@implement ColTable Ramp begin
     ncols(r) = r.n
     col(r, i) = r.base .* i
 end
-@implement ColTable{Matrix{Float64}} begin      # in Columns, or in an extension Columns names
-    ncols(r) = size(r, 2)
-    col(r, i) = r[:, i]
+@implement ColTable Matrix{Float64} begin       # in Columns, or in an extension Columns names
+    ncols(m) = size(m, 2)
+    col(m, i) = m[:, i]
 end
 
-# 5. One projection for several traits; a bundle trait names the combination on the library side
+# 5. Several traits at once, each forwarded to the same field
 struct Grid; data::Matrix{Float64}; end         # Matrix{Float64} implements ColTable and RowTable
 @implement (ColTable, RowTable) Grid
-@implement Table Grid
 
-# 6. Operations of the type's own at a shared representation: the library's compiled worker,
-#    calling these operations indirectly
+# 6. Operations of the type's own, called indirectly, on its field: the library's worker for the
+#    field's type, compiled once
 struct Reversed; data::Vector{Vector{Float64}}; end
-@implement ColTable Reversed dynamic begin
-    project(t) = t.data
-    ncols(r) = length(r)
-    col(r, i) = r[end - i + 1]
+@implement ColTable Reversed dynamic by data begin
+    ncols(d) = length(d)
+    col(d, i) = d[end - i + 1]
 end
 
 # 7. Existing methods declared for a family, by the trait's owner or Julia: no body
-@implement Indexable{A} where {A <: AbstractVector}
+@implement Indexable A where {A <: AbstractVector}
 ```
 
-Form 4 may be generic over a family of representations (Generic implementations). What each form compiles:
+Form 4 may be generic over a family of types (Generic implementations). What each form compiles:
 
 | Form | Compiled anew | Operation calls |
 |---|---|---|
-| a field or a written projection (1, 3, 5) | the projection | static, the representation's implementation |
-| an own representation (2, 4) | the library's functions, once for the type | static, direct |
+| forwarding (1, 3, 5) | the field read; the library's code for the field's type exists | static, the field type's implementation |
+| the type implements the operations (2, 4) | the library's functions, once for the type | static, direct |
 | dynamic operations (6) | the type's own operations | indirect, 7× plain Julia per element on the prototype |
 | a family declaration (7) | nothing | the existing methods, static |
 
 **Every check runs at the declaration, never at a call:**
 - **Ownership:** the author owns the type or the trait, or is a delegate one of them names (rule 3).
-- **Concreteness,** for a trait that requires it: the representation is deeply concrete, whether it is the field's type, the projection's result, or the type itself. A field declared `AbstractVector` is refused with the field named; the fix is a concrete field, or a projection that materializes.
-- **Completeness:** every operation has a method or a default, and every declared field exists, with the declared types; writable fields on a mutable representation, with exactly the declared types.
-- **Sharing:** a projection declares whether it shares the user's data or copies it, and a trait with mutating operations or writable fields accepts only projections that share.
+- **Concreteness,** for a trait that requires it: the key is deeply concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. A field declared `AbstractVector` is refused with the field named; the fix is a concrete field.
+- **Completeness:** every operation has a method or a default, and every declared field exists, with the declared types; writable fields on a mutable type, not `const`, with exactly the declared types.
 - **Layering:** the methods' code stays in the trait world (rule 1).
-- **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the trait's declared field, the name `data`, or a written projection.
+- **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the field named `data` or `by`.
 
 ## Generic implementations
 
-An implementation may cover a family of representations, or every representation that implements other traits. Workers are still compiled per concrete representation, so calls stay static.
+An implementation may cover a family of types, or every type that implements other traits. Workers are still compiled per concrete key, so calls stay static.
 
 ```julia
-# every Indexable representation whose elements are Vector{Float64}: a pattern on Indexable's parameter (a sketch)
-@implement ColTable{R} where {R <: Indexable{Vector{Float64}}} begin
-    ncols(r) = length(r)
-    col(r, i) = r[i]
+# every Indexable type whose elements are Vector{Float64}: a pattern on Indexable's parameter (a sketch)
+@implement ColTable A where {A <: Indexable{Vector{Float64}}} begin
+    ncols(a) = length(a)
+    col(a, i) = a[i]
 end
 ```
 
-With this, `Vector{Vector{Float64}}` is a `ColTable` because it is `Indexable`, and so is any representation a user implements `Indexable` for. ColTable follows from the capability traits, through declarations. Predicates are patterns on the constraints' parameters, never conditions computed by functions, so overlap between generic implementations is decided when they are declared.
+With this, `Vector{Vector{Float64}}` is a `ColTable` because it is `Indexable`, and so is any type a user implements `Indexable` for, and any type forwarding to one. ColTable follows from the capability traits, through declarations. Predicates are patterns on the constraints' parameters, never conditions computed by functions, so overlap between generic implementations is decided when they are declared.
 
 **Overlap.**
 - A more specific implementation beats a generic one.
@@ -348,7 +331,7 @@ colmean(via(Fast, m), 1)                             # this call uses Fast's imp
 ```
 
 - **The choice travels with the value.** A trait object carries its witness, so the implementation is chosen once, at the crossing, the entry stripping `via` as it strips `compiled_call`.
-  - Workers are compiled per representation and witness.
+  - Workers are compiled per key and witness.
   - A `Dynamic` keeps the implementation it was made with.
   - A value is never built with one implementation and queried with another, the problem that makes Rust allow one implementation per trait and type.
 - **It is not piracy.** A named implementation changes no code that does not name it. Its methods are keyed by a witness type its module owns, and its compiled code lives in its own package, which depends on the trait's and the type's.
@@ -357,24 +340,17 @@ colmean(via(Fast, m), 1)                             # this call uses Fast's imp
   - Two unnamed implementations that apply without one being more specific are reported when the later is defined, if it sees the earlier.
   - Otherwise an unnamed call that meets both raises an error naming both modules and the fix, `via(A, x)`, as Julia asks for `A.f` when two modules export `f`.
   - Code where the earlier choice is more specific keeps working.
-- **Equality and printing name the choice.** Two `Dynamic` values of one representation with different implementations are unequal, and they print as `ColTable via Fast`.
+- **Equality and printing name the choice.** Two `Dynamic` values of one key with different implementations are unequal, and they print as `ColTable via Fast`.
 - **No selection by scope.** A module-wide preference is not offered: an entry is compiled once and does not know its caller's module.
 
-## Several traits, one projection
+## Several traits, one object
 
-A representation can implement several traits, and a type can be projected once for several of them:
+A type can conform to several traits, each through its own field or by its own methods, and a function bounded by several receives one trait object with a view per trait:
+- each view refers to the user's object or holds a field that cannot be rebound, so the views always agree, and a write through one is seen by the others;
+- workers compile per tuple of the views' keys;
+- a view is passed on statically to a function with any of the bounds.
 
-```julia
-@implement (ColTable, RowTable) Measurements     # one projection for both
-```
-
-A function bounded by both then receives one value:
-- one projection instead of two;
-- views that share data by construction;
-- workers compiled per representation instead of per pair;
-- a static call when the value is passed on to a function with either bound.
-
-Rule 2 remains the general case for types projected separately.
+`@implement (ColTable, RowTable) Grid` declares both conformances at once. A bundle trait, `@trait Table <: (ColTable, RowTable)`, names the combination on the library side.
 
 ## Parametric user types
 
@@ -383,14 +359,14 @@ A parametric type conforms as a family, declared with `where` as Base's families
 ```julia
 struct Series{T}; data::Vector{Vector{T}}; end
 @implement ColTable Series{Float64}                 # one instantiation
-@implement ColTable Series{T} where {T <: Real}     # a family: refused here, Columns implements Vector{Vector{Float64}} only; the message names Series{Float64}
+@implement ColTable Series{T} where {T <: Real}     # a family forwarding to data: refused here, Columns implements Vector{Vector{Float64}} only; the message names Series{Float64}
 @implement ColTable Series                          # the whole family, Series{T} where {T}: the same check
 ```
 
 The ownership and method checks run at the declaration, for the family as a whole:
-- **A field:** the family of field types must be covered by one implementation's or projection's family, which subtyping decides. A generic implementation's predicate must be decidable on the family's structure, else the declaration is refused.
+- **Forwarding:** the family of field types must be covered by one implementation's family, which subtyping decides. A generic implementation's predicate must be decidable on the family's structure, else the declaration is refused.
 - **Methods:** the operations' methods must cover the family, with results that infer to the declared types at the family's signature.
-- **Concreteness:** field types may depend on the parameters but are abstract in no other way, so every instantiation with concrete parameters is a concrete representation. An instantiation with an abstract parameter, `Series{Real}`, is refused at the entry by its type.
+- **Concreteness:** field types may depend on the parameters but are abstract in no other way, so every instantiation with concrete parameters has a concrete key. An instantiation with an abstract parameter, `Series{Real}`, is refused at the entry by its type.
 - **A refusal names the instantiations that would conform.**
 
 **Families with associated types.** A family conforms jointly, the trait's parameters tied to the type's: `@implement ArrayLike{T, 1} Series{T} where {T}`.
@@ -406,9 +382,9 @@ Workers compile per instantiation, and `verify_main` enumerates the instantiatio
 
 A trait reads like an abstract type wherever it is used. Why that is the right choice is in [design choices](2-design-choices.md#1-a-trait-is-an-abstract-type-with-behaviour).
 
-- **In an argument,** `t::ColTable` is a bound: projected at the entry, compiled per representation.
+- **In an argument,** `t::ColTable` is a bound: translated at the entry, compiled per key.
 - **In a field or a container,** a trait's name means its dynamic value, as an abstract type's name there means a boxed value: `plots::Vector{Plot}` is a `Vector{Dynamic{Plot}}`, and `background::ColorSpec` is a `Dynamic{ColorSpec}`.
-- **`Vector{<:ColTable}`** in an argument is a vector whose elements share one representation, compiled per representation. How a user's vector is projected (element by element into a new vector, or as a whole) is open.
+- **`Vector{<:ColTable}`** in an argument is a vector whose elements share one key, compiled per key. How a user's vector is passed (element by element into a new vector of trait objects, or as a whole) is open.
 - **Membership is subtyping.**
   - `x isa ColTable` is true when the type of `x` conforms through an unnamed implementation.
   - `T <: ColTable` in a `where` clause or a type parameter constrains `T` to conforming types.
@@ -417,7 +393,7 @@ A trait reads like an abstract type wherever it is used. Why that is the right c
 
 ## Dispatch: types first, then traits
 
-**A trait bound ranks above `Any` and below every type** of the other kind (concrete or abstract). A value without a conformance reaches the most specific ordinary method that applies; a value of a type caught by a type-annotated method takes that method and is not projected. How this lets a library adopt traits one function at a time is in [code written without traits](3-wrapping.md#adopting-traits-one-function-at-a-time).
+**A trait bound ranks above `Any` and below every type** of the other kind (concrete or abstract). A value without a conformance reaches the most specific ordinary method that applies; a value of a type caught by a type-annotated method takes that method and is not translated. How this lets a library adopt traits one function at a time is in [code written without traits](3-wrapping.md#adopting-traits-one-function-at-a-time).
 
 **Among trait bounds:**
 - A subtrait beats its supertrait, and more bounds beat fewer.
@@ -429,11 +405,11 @@ A trait reads like an abstract type wherever it is used. Why that is the right c
 
 ## Definition checking
 
-Library code is checked once, where it is defined, for every representation at once.
+Library code is checked once, where it is defined, for every conforming type at once.
 
-**Why one check suffices.** A trait object has no methods but its traits' operations and fields, and every operation declares its result type. So a worker's code is the same for every representation, except for the operations' implementations, which are checked at their conformance.
+**Why one check suffices.** A trait object has no methods but its traits' operations and fields, and every operation declares its result type. So a worker's code is the same for every key, except for the operations' implementations, which are checked at their conformance.
 
-**How it checks.** The check infers each bounded method once at archetypes: a stand-in representation per bound, whose operations return values of their declared types and nothing more. Rule 2, the escapes, layering, globals and doors are checked on that code at the library's build. A mistake is reported at its line before any representation exists:
+**How it checks.** The check infers each bounded method once at archetypes: a stand-in key per bound, whose operations and fields return values of their declared types and nothing more. Rule 2, the escapes, layering, globals and doors are checked on that code at the library's build. A mistake is reported at its line before any type conforms:
 
 ```julia
 spread(t::ColTable) = size(t)    # at the library's build: `size` has no method for a trait object carrying ColTable
@@ -442,7 +418,7 @@ leak(t::ColTable) = typeof(t)    # `typeof(t)`: code must not depend on the user
 
 **Parameters have archetypes too.**
 - The archetype carries one archetype per parameter variable, built from the parameter's trait bounds.
-- A trait's defining equations (`T = eltype(R)`) get archetype methods, so `eltype` of an archetype is the parameter's archetype, not `Any`.
+- A trait's defining equations (`T = eltype(Self)`) get archetype methods, so `eltype` of an archetype is the parameter's archetype, not `Any`.
 
 **Checked per signature instead,** at a worker's first call or while an image is built:
 - a parameter left open whose bound is not a trait, `x::ArrayLike{T}` with `T` free or `T <: Real`. With a trait bound, `T <: NumberLike`, the code is checked once, at the parameter's archetype;
@@ -450,9 +426,9 @@ leak(t::ColTable) = typeof(t)    # `typeof(t)`: code must not depend on the user
 - concrete mode's findings for a trait that does not require concreteness, which depend on its implementations.
 
 **On the prototype** (`TraitWorld/src/defcheck.jl`), the check reuses the worker checks unchanged.
-- It finds such mistakes with no representation present.
+- It finds such mistakes with no conforming type present.
 - It checks a library of five functions in under 200 ms in a cold session.
-- It takes 3–4 ms off a new representation's first call; most of a first call is compilation.
+- It takes 3–4 ms off a new key's first call; most of a first call is compilation.
 - It still defers keyword, vararg and every `Callable` worker, which the design defers only for open result types.
 
 ## Function arguments: Callable
@@ -494,7 +470,7 @@ colsum(abs2, Measurements([[1.0, 2.0]]), 1)                    # 5.0: abs2 is Ba
 
 ## Keyword, default and variable arguments
 
-Keyword, default and variable arguments work as in plain Julia, with one placement rule: a default is trait-world code, evaluated in the worker after projection, never at the entry. The prototype runs keyword and optional arguments in trait-bounded functions.
+Keyword, default and variable arguments work as in plain Julia, with one placement rule: a default is trait-world code, evaluated in the worker after translation, never at the entry. The prototype runs keyword and optional arguments in trait-bounded functions.
 
 ```julia
 @trait_module module Columns
@@ -508,18 +484,18 @@ colzscore(t::ColTable, i::Int; baseline::ColTable = t, tol::Float64 = eps()) =
 end
 
 colzscore(m, 1)                     # one worker: baseline is t, tol is eps(), both filled inside
-colzscore(m, 1; baseline = r)       # r is projected for ColTable at the entry, as a positional argument would be
+colzscore(m, 1; baseline = r)       # r is translated for ColTable at the entry, as a positional argument would be
 colzscore(m, 1; tol = 1)            # an error at the entry: tol is declared Float64, as in plain Julia
 ```
 
-- **Defaults are evaluated inside,** in the worker, after projection. So `baseline = t` sees the trait object, and `i = ncols(t)` may call an operation. A positional default is what Julia makes of it: a shorter exported method whose body calls the full one with its own trait object.
-- **The entry projects, the worker sorts.** The entry projects every bounded argument, positional or keyword, and passes the supplied keywords on as a named tuple. The worker fills the defaults and calls the body. The sorter is compiled per set of supplied keywords, by name and type, and the body once per full signature, as Julia does it.
+- **Defaults are evaluated inside,** in the worker, after translation. So `baseline = t` sees the trait object, and `i = ncols(t)` may call an operation. A positional default is what Julia makes of it: a shorter exported method whose body calls the full one with its own trait object.
+- **The entry translates, the worker sorts.** The entry translates every bounded argument, positional or keyword, and passes the supplied keywords on as a named tuple. The worker fills the defaults and calls the body. The sorter is compiled per set of supplied keywords, by name and type, and the body once per full signature, as Julia does it.
 - **A keyword is typed like a positional argument:** by a trait bound, a declared type, or the value supplied. A bounded keyword without a default is required.
-- **No dispatch on keywords,** as in plain Julia. A trait bound on a keyword projects and restricts; it chooses no method.
-- **A default for a bounded parameter** is a trait object of that trait, or a value of a representation the trait is implemented for. Its type is inferred when the worker is compiled.
+- **No dispatch on keywords,** as in plain Julia. A trait bound on a keyword translates and restricts; it chooses no method.
+- **A default for a bounded parameter** is a trait object of that trait, or a value of a type that conforms. Its type is inferred when the worker is compiled.
 - **Functions from above with keywords.** `Callable{A, S, M, K}` names them in a fourth parameter, a named tuple type: `Callable{Tuple{Float64}, Float64, DynamicCall, @NamedTuple{tol::Float64}}`.
 - **AOT.** Each set of supplied keywords is a signature, so `verify_main` lists the sets a program passes.
-- **Varargs.** A vararg is several crossing points with one bound, read per element as plain Julia reads `xs::Int...`. A vararg of trait objects is compiled per tuple of representations.
+- **Varargs.** A vararg is several crossing points with one bound, read per element as plain Julia reads `xs::Int...`. A vararg of trait objects is compiled per tuple of keys.
 
 ## Functions that cross the boundary
 
@@ -529,10 +505,10 @@ A function is code, and code never crosses. A function from above enters only as
 colfun(t::ColTable, i::Int) = x -> x * colmean(t, i)      # returned up: a trait-world closure, called from above on Float64
 scaler(t::ColTable) = (u::ColTable) -> meandiff(t, u, 1)   # a bounded closure: it has an entry, so the caller passes its own objects
 colmaker(f::Callable{Tuple{Int}, Callable{Tuple{Float64}, Float64}}, t::ColTable)   # a function from above that returns a function
-tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from above that returns tables: each result projected
+tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from above that returns tables: each result translated
 ```
 
-- **Functions returned up** are trait-world values and go up as themselves. A closure keeps the trait objects it captured as a `Dynamic` keeps them: a field projection of a mutable user type as a lens, any other translated once, when captured, and keeping the user's object alive where the projection shares. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
+- **Functions returned up** are trait-world values and go up as themselves. A closure keeps the trait objects it captured as a `Dynamic` keeps them: following the user's fields where they can be rebound, holding them where they cannot, and keeping the user's object alive. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
 - **Results of a function from above** are values crossing downward, so the result bound translates them as an argument's bound would.
 - **Trait objects never go up bare.** What goes up is what operations return, trait-world values, and a trait object only inside a `Dynamic` value.
 - **AOT.** A returned closure is a trait-world type, so calls to it from ordinary code are calls into the trait world that `verify_main` lists.
@@ -540,49 +516,49 @@ tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from abo
 ## Results like the input
 
 A function that returns "a table like the input", such as `similar(x)` or `map` over a user's container, needs two things the trait world does not have by itself:
-- **a new value of the same kind of representation,** which is a constructor operation in the trait;
-- **the way back from a representation to the user's type,** which is the inverse of the conformance's projection.
+- **a new value of the implementing type,** which is a constructor operation in the trait;
+- **the way back to the user's type,** which is the conformance's inverse.
 
 So the boundary translates in both directions.
 
 ```julia
-@trait ColTable{R} begin
-    ncols(r::R)::Int
-    col(r::R, i::Int)::Vector{Float64}
-    withcols(r::R, cs::Vector{Vector{Float64}})::R     # a table of the same kind, holding these columns
+@trait ColTable begin
+    ncols(t::ColTable)::Int
+    col(t::ColTable, i::Int)::Vector{Float64}
+    withcols(t::ColTable, cs::Vector{Vector{Float64}})::Self     # a table of the same kind, holding these columns
 end
 
 colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable)::Like{t} =        # a sketch of the syntax
     withcols(t, [map(f, col(t, i)) for i in 1:ncols(t)])
 
-colmap(x -> 2x, Measurements([[1.0, 2.0]]))      # a Measurements, rebuilt by Measurements' conformance
+colmap(x -> 2x, Measurements("run 1", [[1.0, 2.0]]))      # a Measurements, label kept, data replaced
 ```
 
-- **Constructor operations return the representation.** An operation declared with the result type `R` makes a new representation of the same kind.
-  - It is implemented per representation and checked at the conformance like any other operation.
+- **Constructor operations return `Self`,** a new value of the implementing type.
+  - It is implemented per implementing type and checked at the conformance like any other operation.
   - At an archetype it returns the archetype, so definition checking covers code that uses it.
-  - This is Rust's `-> Self` and Swift's `init` requirements in protocols. Rust excludes such methods from `dyn Trait`; here an operation on a `Dynamic` value that returns `R` returns a `Dynamic` value of the same conformance.
-- **The conformance inverts its projection.** Only the conformance knows the user's type:
-  - **A type that is its own representation:** the inverse is the identity.
-  - **A field projection:** the inverse is the lens's other half. It copies the user's object with the field replaced, for immutable and mutable types alike, as ConstructionBase.jl's `setproperties` and Accessors.jl's `@set` do today. A written projection that only reads a field, `project(t) = t.cols`, is a field projection too.
-  - **A computed projection:** the conformer writes the inverse, `unproject(t, r)`, next to `project(t)` in the conformance's block. Without one the type cannot be rebuilt, and a call that needs it raises at the entry, naming the conformance. `Ramp`, computed from a base vector, cannot hold arbitrary columns.
-- **The entry translates on the way out.** A result declared `Like{t}` must be a representation of the type `t` has; the check runs at the definition, at archetypes. A type that is its own representation must come back as the same type: a `Series{T}` that conforms as itself cannot hold a `Vector{Float32}`.
-  - The worker, compiled per representation, computes it.
+  - This is Rust's `-> Self` and Swift's `init` requirements in protocols. Rust excludes such methods from `dyn Trait`; here an operation on a `Dynamic` value that returns `Self` returns a `Dynamic` value of the same conformance.
+- **The conformance inverts itself.** Only the conformance knows the user's type:
+  - **A type that implements the operations:** the inverse is the identity, and the result must be of the same type: a `Series{T}` that implements a trait itself cannot come back as a `Vector{Float32}`.
+  - **A forwarding type:** the inverse is the user's object with the field replaced, for immutable and mutable types alike, as ConstructionBase.jl's `setproperties` and Accessors.jl's `@set` do today. The type's constructor rebuilds it, so its parameters follow the new field.
+  - **Declared fields** given new values are replaced the same way.
+- **The entry translates on the way out.** A result declared `Like{t}` must be a value of `t`'s implementing type; the check runs at the definition, at archetypes.
+  - The worker, compiled per key, computes it.
   - The entry applies `t`'s inverse and returns a value of the caller's type.
-  - The inverse is compiled per user type next to the projection, in the conformer's image, so library code still never depends on the user's type.
+  - The inverse is compiled per user type next to the field read, in the conformer's image, so library code still never depends on the user's type.
   - Called with a `Dynamic` value, the function returns a `Dynamic` value of the same conformance.
-- **Copying needs no trait of its own.** `copy(t)` is a constructor operation that copies the representation, followed by the inverse.
-- **AOT.** The inverses are listed with the projections, one per conformance a program passes.
-- **Changing the representation's type** is the hard case: `similar(x, Float32)`, or a `map` whose result has another element type. The user's `Series{Float64}` would become a `Series{Float32}`. A family conformance (Parametric user types) supplies it. A constructor operation may return a sibling of the representation, the same family at another parameter value, and the conformance's inverse rebuilds the user's type at that value: `Series{Float32}` from a `Vector{Vector{Float32}}`. The same mechanism makes dual-number caches for automatic differentiation and keeps GPU arrays on the device.
+- **Copying needs no trait of its own.** `copy(t)` is a constructor operation that copies the implementing value, followed by the inverse.
+- **AOT.** The inverses are listed with the conformances, one per conformance a program passes.
+- **Changing the key's type** is the hard case: `similar(x, Float32)`, or a `map` whose result has another element type. A constructor operation may return a sibling of the implementing type, the same family at another parameter value, and the inverse rebuilds the user's type at that value: a `Series{Float32}` from a `Vector{Vector{Float32}}` in its field. A family conformance (Parametric user types) makes the sibling conform too. The same mechanism makes dual-number caches for automatic differentiation and keeps GPU arrays on the device.
 
 **Precedents in Julia:**
 - Tables.jl's `materializer(table)` returns a function that builds a table of the input's type from columns.
-- Base's `similar` is the representation-level half.
-- ConstructionBase.jl and Accessors.jl provide the inverse of a field projection.
+- Base's `similar` is the implementing type's half.
+- ConstructionBase.jl and Accessors.jl provide the inverse of a forwarding field.
 
 ## Dynamic values
 
-A trait object lives for one call. A value that must outlive the call, or an element of a collection whose elements have different representations, or a field whose representation changes, is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields. A trait's name in a field or a container means its `Dynamic` (Traits as abstract types).
+A trait object lives for one call. A value that must outlive the call, or an element of a collection whose elements have different keys, or a field whose key changes, is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields. A trait's name in a field or a container means its `Dynamic` (Traits as abstract types).
 
 ```julia
 struct Scene
@@ -590,38 +566,38 @@ struct Scene
     background::ColorSpec                      # Dynamic{ColorSpec}: :white now, an image later
 end
 add!(s::Scene, p::Plot) = push!(s.plots, p)    # an argument: a bound; stored, it becomes a Dynamic{Plot}
-render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per plot, then compiled per representation
+render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per plot, then compiled per key
 ```
 
 - **Made at a bound or by storing.**
-  - A bound in a field, a container or a result projects the value and keeps the trait object.
+  - A bound in a field, a container or a result translates the value and keeps the trait object.
   - Inside, storing a trait object of `X` where an `X` is declared keeps it, as Julia converts a value stored in a typed field; `Dynamic{X}(t)` does so explicitly.
   - Nothing else makes one, so its type decides it: the entry admits it by type, and inward doors such as deserialization check its content.
-- **Kept values follow the user's fields.** Keeping a value is a crossing, and what is kept depends on the projection.
-  - **A field projection is kept as a lens** when the user's type is mutable and the field can be rebound: not `const`, and declared with exactly the representation's type. This holds whether or not the trait writes the field. The kept value sees the user rebind the field, as every holder of the object does in plain Julia; within a call, the entry still projects once (rule 2).
+- **Kept values follow the user's fields.** Keeping a value is a crossing, and a trait object is already made of the user's object and its fields:
+  - **A field that can be rebound,** the forwarding field or a declared one of a mutable type, not `const` and declared with exactly its type in the key, is kept as a lens, whether or not the trait writes it. The kept value sees the user rebind the field, as every holder of the object does in plain Julia; within a call, the entry still reads it once (rule 2).
   - **A field of an immutable type, or a `const` field,** cannot be rebound, so holding its value is the same as following it.
-  - **Any other projection is translated once, when made:** a computed projection, a copying one, or a field declared with an abstract type. A later change to the user's object is then seen as far as the projection shares data, as a typed field in Julia converts at construction.
-  - **The user's object stays alive.** A lens, and a `Dynamic` made from a sharing projection, keep the user's object alive, so shared data cannot be freed under them.
+  - **A type that implements the operations** is kept as itself, as any holder keeps a value.
+  - **The user's object stays alive.** A lens keeps it alive, so its data cannot be freed under it.
+
+  So a kept value sees what a plain-Julia holder of the user's object sees, and nothing is ever stale.
 - **A kept lens:**
   - **Writes reach the user.** Writes through a lens, where the trait declares the field writable, reach the user's object.
-  - **No reopening.** The field is declared with exactly the type `R`, so the stored value's representation type never changes, and the dispatch that opens it never needs to be redone.
+  - **No reopening.** The field is declared with exactly its type in the key, so the kept value's key never changes, and the dispatch that opens it never needs to be redone.
   - **Equality.** A lens compares and hashes by the user's object and the field, so a rebinding never changes its hash, as for a mutable object in Julia.
   - **Serialization.** It serializes the user's object and the field's index, and inward doors re-check both.
-  - **Compiled code.** A worker can receive a lens view or a held view of the same representation, so it is compiled once for each kind that occurs.
-- **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose representations reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
-- **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its representation once, and the worker runs compiled.
+  - **Compiled code.** A worker can receive a lens or a held value for the same key, so it is compiled once for each kind that occurs.
+- **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose types reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
+- **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its key once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
-  - Two `Dynamic` arguments select a worker per pair of representations.
+  - Two `Dynamic` arguments select a worker per pair of keys.
 - **Parameters.** A `Dynamic` of a parametric trait fixes the parameters its operations' result types use, `Dynamic{ArrayLike{Float64, 1}}`, so code after a call infers.
-- **Equality.** Values of different representation types, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the trait objects, so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
-- **Several traits.** `Dynamic{(ColTable, RowTable)}` holds a trait object with both views and converts explicitly to `Dynamic{ColTable}`. `Dynamic{Sub}` converts to `Dynamic{Super}` through the declared representation map. A `Callable` in `DynamicCall` mode is already the dynamic value of a function.
+- **Equality.** Values of different keys, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the trait objects, so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
+- **Several traits.** `Dynamic{(ColTable, RowTable)}` holds a trait object with both views and converts explicitly to `Dynamic{ColTable}`. `Dynamic{Sub}` converts to `Dynamic{Super}`, whose view comes with the subtrait's conformance. A `Callable` in `DynamicCall` mode is already the dynamic value of a function.
 - **Up and down.** A `Dynamic` is a trait-world value: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
 
 A `Dynamic` costs an allocation when made, and a dispatch per operation: about 20–80 ns in a measurement of Julia's dispatch on boxed values. First calls from package images need no compilation.
 
-**Several views of one object.** A value that carries a lens view and another view computed from the same field goes wrong on a write: the write through the lens leaves the computed view stale. So a type whose writable projection field also feeds another trait's projection must project both from the field, one lens shared by both views, or the conformance is refused.
-
-**What a lens costs** (measured on Julia 1.12, per access, a worker reading its representation once per operation call; `writeup/design-findings.md` §18):
+**What a lens costs** (measured on Julia 1.12, per access, a worker reading the field once per operation call; `writeup/design-findings.md` §18):
 - **Reads:**
   - a held value: 1.0 ns, as a direct field read;
   - a lens through Julia's builtin `getfield` on an untyped object: 4.6 ns;
@@ -630,27 +606,27 @@ A `Dynamic` costs an allocation when made, and a dispatch per operation: about 2
   - through the builtin `setfield!`: 13.6 ns;
   - direct: 0.6 ns.
 
-Loops over the representation's contents pay nothing extra, and an operation called per element pays the read each time.
+Loops over the field's contents pay nothing extra, and an operation called per element pays the read each time.
 
 ## Caching: compiled once, reused everywhere
 
-Cached code is reusable because it is compiled per representation, not per type, and it survives because of layering: only the packages it depends on can change it.
+Cached code is reusable because it is compiled per key, for what a bound can see, not per type, and it survives because of layering: only the packages it depends on can change it.
 
 ```julia
 using Columns                                   # Columns' workers come from its package image
 struct Mine; data::Vector{Vector{Float64}}; end
-@implement ColTable Mine                        # conforms through its field: the projection is the only new code
+@implement ColTable Mine                        # forwards to its field: no new library code
 colmean(Mine([[1.0, 2.0]]), 1)                  # runs the compiled worker
 using CairoMakie                                # outside the trait world Columns depends on: changes none of its code
 ```
 
-- **Per representation.** `Mine` shares its representation with every type that projects onto it, so `colmean` runs code that Columns compiled when it was built. On the prototype, the first calls of a new own representation take 10–60 ms, mostly compilation. Caches per representation reduce them to about 3 ms in every load order (`experiments/interfaces/README.md`, view caches).
+- **Per key.** `Mine` shares its key with every type that forwards to a `Vector{Vector{Float64}}`, so `colmean` runs code that Columns compiled when it was built. On the prototype, the first calls at a new key take 10–60 ms, mostly compilation. Caches per key reduce them to about 3 ms in every load order (`experiments/interfaces/README.md`, view caches).
 - **Compiled against what it sees.** Each specialization is compiled against the methods of the packages it depends on only (rule 4), so inference, union splitting and return-type queries see nothing else.
   - A later definition by one of those packages recompiles it.
   - A definition elsewhere, for the definer's own types, can never apply.
   - A definition that would apply is piracy, and the load that brings it is refused.
 - **Every combination has an owner image.**
-  - The entry lives in the trait module's package image; the projection and a worker at a new representation live in the conformer's.
+  - The entry lives in the trait module's package image; the field read and a worker at a new key live in the conformer's.
   - Code for packages that meet only in an application lives in a package extension or the application, and the session comes last.
   - Each piece is compiled where it lives, because a downstream image cannot add native code to an upstream one.
 - **Leaks become errors.** Layering holds only if no value of an outside type leaks in. Dynamic dispatch from trait-bound code therefore checks that the selected method comes from what the call sees, and raises an error otherwise: a leak becomes an error, never a wrong result.
@@ -675,7 +651,7 @@ verify_main(main, (Vector{String},); entrypoints = true)   # lists every target 
 
 **Here the list exists:**
 - a function passed as a `Callable` argument adds one target at its declared signature;
-- a `Dynamic` value adds the conformances whose representations reach the place it is made.
+- a `Dynamic` value adds the conformances whose types reach the place it is made.
 
 On the prototype, `verify_main` enumerates the entries' targets from the types the program can pass (here 8 targets), and the program compiles to a 2.09 MB trimmed executable. Without the list, the binary dies at its first trait call.
 
@@ -684,21 +660,21 @@ On the prototype, `verify_main` enumerates the entries' targets from the types t
 Four cliffs disappear by construction, and the fifth becomes a report at build time.
 
 - **Loads cannot change speed.** The methods at an abstract call site change only with their owners (rule 4), so an unrelated load cannot push inference over `max_methods` and turn a fast call dynamic. Return-type queries fold at compile time.
-- **Types cannot multiply compile cost.** Code compiles per representation, not per user type. A type that conforms by projection adds no compiled code; a type that is its own representation compiles the library once for itself, by its own choice.
+- **Types cannot multiply compile cost.** Code compiles per key, not per user type. A type that forwards to a field of a known type adds no compiled code; a type that implements the operations compiles the library once for itself, by its own choice.
 - **Nothing recompiles under you.** No unrelated load invalidates the trait world's cache. A compiled-call worker, which lives in the caller's image, and code redefined at the prompt recompile as today.
 - **Trait operations cost nothing.**
-  - Implemented per representation, they are direct calls that the compiler may inline. On the prototype, library code making one operation call per element ran at 1.00–1.01× plain Julia at 4096 elements, and through a generic implementation at 1.00–1.03×.
+  - Implemented per type, they are direct calls that the compiler may inline. On the prototype, library code making one operation call per element ran at 1.00–1.01× plain Julia at 4096 elements, and through a generic implementation at 1.00–1.03×.
   - The entry adds a fixed cost of about 110 ns per call on the prototype: 2.8–3× at 16 elements and nothing at 4096.
   - Only dynamic operations, dynamic calls and operations on `Dynamic` values are indirect.
-- **Abstract types in hot loops are found at their root cause.** Code in a trait module sees only representations (deeply concrete where its traits require it) and operation results asserted to their declared types. An abstract value in a hot loop can therefore only come from a trait that does not require concreteness, from the module's own code, or from the code it calls. Concrete mode traces it there, through any number of layers.
+- **Abstract types in hot loops are found at their root cause.** Code in a trait module sees only its keys (deeply concrete where its traits require it), declared fields and operation results asserted to their declared types. An abstract value in a hot loop can therefore only come from a trait that does not require concreteness, from the module's own code, or from the code it calls. Concrete mode traces it there, through any number of layers.
 
 ```julia
 @warn_on_abstract @trait_module module CTop
 using CBottom: Config                  # a trait module too (rule 1); Config has a field declared Real
 using CMid2: factor                    # factor reaches that field through two packages
 
-@trait Series{R} begin
-    vals(r::R)::Vector{Float64}
+@trait Series begin
+    vals(s::Series)::Vector{Float64}
 end
 
 function scaled_sum(t::Series, c::Config)
@@ -735,7 +711,7 @@ Under layering, a load can affect code in the trait world only through a method 
 So no call sees a pirate that was not tolerated, and no call errors on one. The opt-out restores plain Julia.
 
 ```julia
-using MyTable                         # projects MyTab; Stats' worker calls weight(::Float32); Stats and Base are sealed
+using MyTable                         # MyTab conforms; Stats' worker calls weight(::Float32); Stats and Base are sealed
 using Pirate                          # defines Stats.weight(::Float32), owning neither: refused, naming the method and Stats
 tolerate!(:Pirate)                    # opt out for this session (a sketch): plain Julia, the pirate applies
 using Pirate                          # loads; Stats' worker for Float32 recompiles against it, with a warning
@@ -746,19 +722,18 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - Element types that Julia derives from inference, such as that of `map` over an empty collection, are answered within the trait world. They can differ from plain Julia's where Julia documents them as inference-dependent.
 - An open `Callable` result type, inferred at the boundary in ordinary code, depends on what is loaded there. It is part of the worker's key and checked at every call.
 
-**Kept values.** A value kept in a dynamic value follows the user's field where it was projected from one that can be rebound, as plain Julia's holders of a mutable object do. Otherwise it is translated once, when kept: that is the semantics of the projection, which runs in both modes, like the conversion of a typed field.
+**Kept values.** A value kept in a dynamic value follows the user's fields where they can be rebound and holds them where they cannot, which is what a plain-Julia holder of the user's object sees.
 
 ## Possible extensions
 
-- **Representation maps for supertraits.** `@trait B <: A` is relied on by rule 2, by dispatch and by bundle traits; the syntax of the map by which `B`'s operations call `A`'s statically is open.
-- **Inline entries.** Callers that already know the type inline the projection lookup and call the worker directly.
+- **Inline entries.** Callers that already know the type inline the conformance lookup and call the worker directly.
 - **Concrete mode by default.** Warnings for every worker, so the cliff is caught before anyone opts in.
 
 ## Open points
 
-- How `Vector{<:ColTable}` projects a user's vector: element by element into a new vector, or as a whole.
+- How `Vector{<:ColTable}` takes a user's vector: element by element into a new vector of trait objects, or as a whole.
 - Input parameters (several values per type), associated type constructors beyond one family, and results bounded by their own trait (`view`, Swift's `SubSequence`).
-- Projections that build one representation from several arguments, `lines(x, y)`; this ties to promotion.
+- Bounds over several arguments at once, `lines(x, y)`, where today a conversion builds one value from both; this ties to promotion.
 - "Live" bounds: an argument that is a value or a source of values.
 - Whether an operation may return a small `Union` of concrete types.
 - How a closure created inside a trait module is kept as a dynamic function.
@@ -766,14 +741,14 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - The joint-method rule for a call like `plot(x)` when a type conforms to several data traits.
 - A dynamic mode for a user's own operations, pinned per integrator with a world-age rule (the solvers' model mode), beside dispatch-based `Dynamic` values.
 - Opening a `Dynamic` at the conformer's own concrete type, a checked downcast, for callbacks that change parameters.
-- Automatic-differentiation tags as part of a representation; units; mutable and immutable state families.
+- Automatic-differentiation tags as part of a key; units; mutable and immutable state families.
 - `Callable` signatures chosen by a library, and reporting a function from above that always throws when its pointer is made.
 - The compile cost of recipes and models defined at the prompt.
-- Numeric traits: numbers that conform after the fact or project, and promotion across representations.
+- Numeric traits: numbers that conform after the fact or forward to a field, and promotion across implementing types.
 - Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
-- A kept value projected from a mutable field declared with an abstract type is translated once. A lens there would need to dispatch again when the user rebinds the field to another type; whether that is worth its cost is open.
-- Computed properties (a `getproperty` method) as projections: a lens needs a field; a computed projection stays translated once.
-- A field projection for a whole family of user types, `project(s::Series{T}) = s.data` for every `T`: today each parameter value conforms on its own, so a sibling result rebuilds only a `Series{Float32}` that has its own conformance.
-- AOT for results like the input: the inverse per user type is not yet listed with the projections, and `verify_main` reports it as open.
-- Prototype work still to do (TraitWorld has Dynamic values, trait fields and lenses, associated types with parameter archetypes, constructor operations and inverses): named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.
+- A field declared with an abstract type in a trait that does not require concreteness: a kept value holds what the field held when kept, because a lens would need to dispatch again when the user rebinds the field to another type. Whether that is worth its cost is open.
+- Computed properties (a `getproperty` method) as declared fields: read when the trait object is made, or on each access through the user's object.
+- Types whose data a library can only use converted (a lazily derived table, a foreign type in another layout): whether a trait wrapper should offer conversions that share code, now that conformance never converts ([code written without traits](3-wrapping.md)).
+- AOT for results like the input: the inverse per user type is not yet listed with the conformances on the prototype, and `verify_main` reports it as open.
+- Prototype work still to do (TraitWorld has Dynamic values, trait fields and lenses, associated types with parameter archetypes, constructor operations and inverses): keys over the forwarding field and every declared field, with `Self` and without computed projections; forwarding for a whole family of user types; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.

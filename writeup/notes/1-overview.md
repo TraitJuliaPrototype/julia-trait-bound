@@ -18,13 +18,13 @@ Measurements and prototypes are under "Further reading" below.
 
 On the prototype, an ad-hoc session took 22 s to its first plot, about 13 s of it recompiling Makie code that the dependencies of a CSV reader had invalidated.
 
-**Julia's types force a choice in large systems.**
+**Julia compiles a function for the whole type of each argument.**
 - **A concrete type is data:** its fields and the types of its parts. What a value can do is not in its type but in the methods that apply to it, which any package can add or change.
-- **An abstract type** can name intended behaviour, but nothing checks it.
-- **Fast code needs concrete types where it runs.** So the concrete type must be known where the inner loop is compiled, and every signature and type parameter above it carries that type.
+- **A method is compiled for the argument's full concrete type,** even when its body reads one field of it. A solver step that reads the state, the parameters and the time is compiled for the integrator's whole type, which in SciML is 3,553 characters, most of it the solver's own options, caches and solution.
+- **An abstract type** can name intended behaviour, but nothing checks it, and fast code needs the concrete type where it runs. So every signature and type parameter above the inner loop carries that type.
 
 A value built in layers, a plot holding an observable holding a user's array, therefore has a type that grows with every layer:
-- code is compiled per combination of what lies below;
+- code is compiled per combination of what lies below, including the parts it never reads;
 - error messages print those types in full: one SciML stack frame line measured 33,673 characters.
 
 The way out is a field typed `Any`, which stops the growth by giving up everything the type said: what the value can do, what a call returns, which methods it may reach. Makie keeps its attributes at `Any`; SciML carries the full types.
@@ -35,18 +35,22 @@ The way out is a field typed `Any`, which stops the growth by giving up everythi
 
 **Traits.** A trait declares what a value can do:
 - **operations,** functions with declared argument and result types;
-- **optionally fields,** with declared types.
+- **fields,** with declared types, readable, and writable unless declared `@const`.
 
-Optionally, it guarantees that whatever conforms becomes concrete with respect to that behaviour. It is what abstract types should have been. Abstract types stay in Julia, and traits are a kind of them.
+A field's type may be a parameter of the trait, an *associated type*: `@trait Integrator{U, P}` declares the fields `u::U` and `p::P`. Optionally, a trait guarantees that whatever conforms becomes concrete with respect to that behaviour: that its associated types are concrete. A trait is what abstract types should have been. Abstract types stay in Julia, and traits are a kind of them.
 
-**Conformance.** A type joins a trait by declaring it, `@implement ColTable MyType`, also after the type was defined. The declaration is checked: every operation exists with the declared result types.
+**Conformance.** A type joins a trait by declaring it, `@implement ColTable MyType`, also after the type was defined. The type implements the trait's operations itself, or forwards them to one of its fields whose type implements them. The declaration is checked: every operation and field exists, with the declared types.
 
-**The representation.**
-- A conforming value is translated to a representation, plain data that library code works on, like `Vector{Vector{Float64}}`. It is either the value itself or the projection of one of its fields.
-- Library code is compiled once per representation, not per user type. Many types share one representation, and so they share compiled code.
+**Compiled for what the bound can see.**
+- A function bounded by a trait reaches its argument only through the trait's operations and fields.
+- So it is compiled for the types those involve, not for the argument's own type. These types are the bound's *key*: the type that implements the operations, and the types of the declared fields.
+- Types that differ only in what the trait cannot see share compiled code:
+  - every table type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code the library compiled for `Vector{Vector{Float64}}`;
+  - a solver step bounded by `Integrator` is compiled per state and parameter type, whatever else the integrator holds.
+- A type that implements the operations itself is part of the key, by its own choice.
 
 **Reading like abstract types.** Where a trait is used, it reads like an abstract type:
-- an argument `t::ColTable` is compiled per representation;
+- an argument `t::ColTable` is compiled for what its bound can see;
 - a field or container `plots::Vector{Plot}` holds values of any conforming type, behind the trait's operations.
 
 The bound determines how a value becomes concrete, so signatures do not carry concrete types.
@@ -67,9 +71,9 @@ Julia treats piracy as bad practice; the trait world makes it an error where tra
 ## The pay-offs
 
 1. **Interactivity through cached code.**
-   - Library code is compiled once, stored with the package that owns it, and reused in every session and every combination of packages.
+   - Library code is compiled once per key, stored with the package that owns it, and reused in every session and every combination of packages.
    - Loading another package never discards it.
-   - A new type that conforms by projection costs only the little code specific to that type.
+   - A new type that forwards to a field of a known type costs no new library code.
 2. **Simple ahead-of-time compilation.**
    - Dispatch over the types a program meets at run time goes through declared conformances, whose targets are listed.
    - A build can compile exactly the code the program can reach, and a trimmed binary does not die at its first generic call.
@@ -77,7 +81,7 @@ Julia treats piracy as bad practice; the trait world makes it an error where tra
 3. **No performance cliffs.**
    - The speed of compiled code does not depend on what else is loaded.
    - An abstract type that reaches a hot loop is reported when the package is built, at its root cause.
-   - Library code is checked once, where it is defined, for every representation; a mistake is reported at its line before any user type exists.
+   - Library code is checked once, where it is defined, for every type that will ever conform; a mistake is reported at its line before any user type exists.
 4. **Minimal changes to semantics.**
    - A call computes exactly what it computes in Julia today, or raises an error: "identical or error".
    - Piracy is refused where traits are in effect. Whoever loads a pirate can opt out for it, and gets plain Julia for what it touches.
@@ -87,20 +91,20 @@ How each pay-off follows from the rules is in [The design in detail](4-details.m
 
 ## An example: a library and its user
 
-The library is a trait module. The macros stand for syntax a language feature would provide; the prototype, TraitWorld, runs this code.
+The library is a trait module. The macros stand for syntax a language feature would provide; the prototype, TraitWorld, runs this code in an earlier spelling (Status).
 
 ```julia
 @trait_module module Columns
 export ColTable, colmean, colrange, meandiff
 
-@trait ColTable{R} begin                        # what the library needs from a table
-    ncols(r::R)::Int
-    col(r::R, i::Int)::Vector{Float64}
+@trait ColTable begin                               # what the library needs from a table
+    ncols(t::ColTable)::Int
+    col(t::ColTable, i::Int)::Vector{Float64}
 end
 
-@implement ColTable{Vector{Vector{Float64}}} begin   # the library's own representation
-    ncols(r) = length(r)
-    col(r, i) = r[i]
+@implement ColTable Vector{Vector{Float64}} begin   # the library's own implementation
+    ncols(t) = length(t)
+    col(t, i) = t[i]
 end
 
 colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
@@ -115,13 +119,14 @@ A user of the library, in ordinary Julia:
 using Columns
 import Columns: ncols, col
 
-# 1. A type that holds a representation: conform through a field.
+# 1. A type that holds a table: it forwards the trait to its field.
 struct Measurements
+    label::String
     data::Vector{Vector{Float64}}
 end
-@implement ColTable Measurements      # the projection is t.data, the only new code
+@implement ColTable Measurements      # data's type implements ColTable; label is invisible to Columns
 
-# 2. A type that is its own representation: conform through methods.
+# 2. A type that implements the operations itself.
 struct Ramp                           # column i is base .* i, never stored
     base::Vector{Float64}
     n::Int
@@ -130,17 +135,28 @@ ncols(r::Ramp) = r.n
 col(r::Ramp, i::Int) = r.base .* i
 @implement ColTable Ramp              # checks the methods; Columns' functions compile once for Ramp
 
-m, r = Measurements([[1.0, 2.0], [3.0, 5.0]]), Ramp([1.0, 2.0], 2)
+m, r = Measurements("run 1", [[1.0, 2.0], [3.0, 5.0]]), Ramp([1.0, 2.0], 2)
 colmean(m, 1)                         # 1.5, in the code Columns compiled when it was built
 colmean(r, 1)                         # 1.5, in code compiled once for Ramp
-meandiff(m, r, 1)                     # 0.0, compiled for this pair of representations
+meandiff(m, r, 1)                     # 0.0, compiled for this pair of keys
 ```
 
 **What happens:**
-- **Measurements.** It projects onto the library's own representation, so `colmean(m, 1)` runs code that was compiled and cached when Columns was built. Loading CairoMakie afterwards changes none of it.
-- **Ramp.** It is its own representation, so Columns' functions are compiled once for it, in the user's session or package.
-- **Inside `colmean`.** The argument is a *trait object*. Library code can call `ncols` and `col` on it and nothing else, which is why it can be checked once for every type that will ever conform.
+- **Measurements.** Its bound sees `Vector{Vector{Float64}}`, the type of the field it forwards to, so `colmean(m, 1)` runs code that was compiled and cached when Columns was built. Any other type holding such a field shares it. Loading CairoMakie afterwards changes none of it.
+- **Ramp.** It implements the operations, so its bound sees `Ramp`, and Columns' functions are compiled once for it, in the user's session or package.
+- **Inside `colmean`.** The argument is a *trait object*: what the bound can see, and nothing else. Library code can call `ncols` and `col` on it, which is why it can be checked once for every type that will ever conform.
 - **Errors at the library's build.** A mistake such as `size(t)` is reported when Columns is built: "`size` has no method for a trait object carrying ColTable".
+
+**Fields as the key.** A trait whose fields are typed by its associated types compiles per those types:
+
+```julia
+@trait Integrator{U, P} begin
+    u::U                              # the state, writable
+    @const p::P                       # the parameters
+    t::Float64
+end
+step!(i::Integrator, dt::Float64) = …   # compiled per (U, P): a solver's options, caches and solution are not in the key
+```
 
 ## What it costs
 
@@ -153,13 +169,16 @@ Each cost is discussed in [Design choices](2-design-choices.md#what-the-choices-
 
 ## Status
 
-TraitWorld, the prototype on Julia 1.12, runs:
-- traits, conformances, entries and workers;
+TraitWorld, the prototype, runs on stock Julia 1.13.2:
+- traits with operations, fields and associated types; conformances; entries and workers;
 - the checks, including definition checking at archetypes;
+- dynamic values, lenses, results like the input;
 - sealing;
-- caches per representation;
+- caches per key;
 - `verify_main` for trimmed binaries;
 - prototypes around DataFrames and Makie.
+
+It predates the formulation by keys: it spells the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`), still offers computed projections, and keys on one field at a time.
 
 The runtime pieces it needs exist as experiments: a patched Julia with an invalidation filter at method insertion and at image load.
 
