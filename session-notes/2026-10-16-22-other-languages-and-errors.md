@@ -192,6 +192,21 @@ and the inverse is not listed for AOT (`verify_main` reports it). 283 tests.
 I ran the test suite while the re-baseline agent was timing; asked it to
 re-take the overlapping numbers.
 
+Keys replace representations (the user: "Do we really need this to make the
+caches work? Or is the only real reason we have it is to enable concreteness
+guarantees?"; then "in principle we can compile per collection of associated
+types of the fields"; "I think the motivation also needs a big change with
+removing representation as a concept"). Answer: cache validity never needed
+representations; reuse needs a key without the user's type, which in Julia
+means an entry that passes the parts code may touch (a calling convention, not
+a compiler rewrite). Notes rewritten (6c7f088): operations declared at the
+trait, `Self` for the implementing type, forwarding to a field (`by`), key =
+implementing type + declared field types (associated types), computed
+projections removed, motivation now "Julia compiles for the whole type of each
+argument" / "compiled for what the bound can see"; findings §19. Sent to
+fable-critic for review. TraitWorld not yet changed (R last, computed
+projections); feature 5 (printing) and `conforms` written, not yet run.
+
 ## Next
 - Build the patched 1.13.2 (needs network, ~1 h alone); move TraitWorld to
   1.13 with the injected load filter as its stock mode; re-baseline.

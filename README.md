@@ -1,6 +1,6 @@
 # Trait-bound Julia
 
-A design for traits in Julia: abstract types with behaviour, so that library code compiled once per representation is cached, never invalidated by unrelated loads, checked where it is defined, and closed for ahead-of-time compilation. Start with the overview: [`writeup/notes/1-overview.md`](writeup/notes/1-overview.md).
+A design for traits in Julia: abstract types with behaviour, so that library code compiled once for what its bounds can see is cached, never invalidated by unrelated loads, checked where it is defined, and closed for ahead-of-time compilation. Start with the overview: [`writeup/notes/1-overview.md`](writeup/notes/1-overview.md).
 
 ## This workspace
 
@@ -26,8 +26,9 @@ The aim now is to demonstrate that the trait world is viable: that large librari
    2. trait fields as properties, lenses, and kept values that follow the user's fields (done);
    3. associated types: parameters with `R` last, defining equations, bounds, family conformances, parameter archetypes in definition checking (done);
    4. constructor operations, the conformance's inverse, `Like{t}` results (done; a field projection for a whole family of user types is still missing);
-   5. printing frames by bound and representation;
-   6. a pinned dynamic mode for models, when the solver needs it.
+   5. printing frames by bound and key (written, not yet run);
+   6. keys (design, session 22): operations declared at the trait with `Self`, forwarding to a field (`by`), every declared field's type in the key, computed projections removed;
+   7. a pinned dynamic mode for models, when the solver needs it.
 
    Two parts of the design need the language and are approximated in the package: membership as subtyping (an explicit `conforms(T, X)`), and a trait name in a field meaning its `Dynamic` (field types rewritten inside `@trait_module` only). Design: `writeup/notes/4-details.md`.
 2. **Julia 1.13.2, alongside.** TraitWorld's tests pass on stock 1.13.2. The measurements are re-baselined there (`experiments/baseline-1.13.md`), and the load filter is injected into stock Julia (`experiments/runtime-injection/`). The patched build (`julia/TRAITWORLD.md`) is postponed. Reasons and porting costs: `writeup/explorations/runtime.md`.
