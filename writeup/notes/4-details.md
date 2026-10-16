@@ -219,11 +219,20 @@ end
 - **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `const`.
 - **New over Julia.** Julia's abstract types cannot require fields, a long-standing request. A trait can, because conformance is declared and checked.
 
-**Parameters.** A trait may take parameters besides the representation, as `AbstractArray{T, N}` does: `ArrayLike{T, N}`, `Source{T}`.
-- The conformance declares them, `@implement ArrayLike{Float64, 1} MyVector`.
-- A bound may fix them or leave them open, `x::ArrayLike{Float64}`.
-- A more specific implementation declares the same values as a generic one.
-- Whether a type may conform at several values of a parameter, as a function conforms to `Callable` at several signatures, is open. Rust's experience with associated types argues for one value per type.
+**Parameters: associated types.** A trait may take parameters besides the representation, as `AbstractArray{T, N}` does. The representation comes last: `@trait ArrayLike{T, N, R}`, `@trait Source{T, R}`.
+- **They are associated types:** functions of the representation, one value per conformance. A type conforms at one value of each, as a Julia type has one `AbstractArray` supertype.
+- **A trait may define them** by a type function, `T = eltype(R)`. The conformance then need not state them, and a stated value is checked against the definition. Without a definition, the conformance states them: `@implement ArrayLike{Float64, 1} MyVector`.
+- **Operations name them:** `Base.getindex(r::R, i::Int)::T`.
+- **A parameter may be bounded** by a trait or a type, `ArrayLike{T <: NumberLike, N}`, checked at the conformance. A trait bound on a parameter is what lets definition checking cover code that computes with it.
+- **A bound may fix them or leave them open,** `x::ArrayLike{Float64}`. A shared variable, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, requires equal values.
+- **A bound on the representation,** `@trait MyTrait{R <: Hashable}`, is a supertrait whose representation map is the identity: every representation of `MyTrait` conforms to `Hashable`, and library code may use `Hashable`'s operations on it.
+- **A more specific implementation declares the same values** as a generic one.
+- **Not offered:**
+  - a type conforming at several values of a parameter (input parameters; `Callable` is the one trait that has them);
+  - equations between type functions;
+  - a parameter bound that names its own trait.
+
+  These are what made Rust's and Swift's checking hard or undecidable ([design choices §10](2-design-choices.md#10-the-complexity-budget)).
 
 **Supertraits and bundles.**
 - `@trait B{R} <: A{R}` makes `A`'s operations part of `B`'s; the views of a supertrait travel with every view of the trait. The syntax of the representation map, by which `B`'s operations call `A`'s statically, is open.
@@ -311,14 +320,14 @@ Form 4 may be generic over a family of representations (Generic implementations)
 An implementation may cover a family of representations, or every representation that implements other traits. Workers are still compiled per concrete representation, so calls stay static.
 
 ```julia
-# every Indexable representation whose elements are Vector{Float64} (a sketch of the syntax)
-@implement ColTable{R} where {R: Indexable, eltype(R) == Vector{Float64}} begin
+# every Indexable representation whose elements are Vector{Float64}: a pattern on Indexable's parameter (a sketch)
+@implement ColTable{R} where {R <: Indexable{Vector{Float64}}} begin
     ncols(r) = length(r)
     col(r, i) = r[i]
 end
 ```
 
-With this, `Vector{Vector{Float64}}` is a `ColTable` because it is `Indexable`, and so is any representation a user implements `Indexable` for. ColTable follows from the capability traits, through declarations.
+With this, `Vector{Vector{Float64}}` is a `ColTable` because it is `Indexable`, and so is any representation a user implements `Indexable` for. ColTable follows from the capability traits, through declarations. Predicates are patterns on the constraints' parameters, never conditions computed by functions, so overlap between generic implementations is decided when they are declared.
 
 **Overlap.**
 - A more specific implementation beats a generic one.
@@ -384,6 +393,13 @@ The ownership and method checks run at the declaration, for the family as a whol
 - **Concreteness:** field types may depend on the parameters but are abstract in no other way, so every instantiation with concrete parameters is a concrete representation. An instantiation with an abstract parameter, `Series{Real}`, is refused at the entry by its type.
 - **A refusal names the instantiations that would conform.**
 
+**Families with associated types.** A family conforms jointly, the trait's parameters tied to the type's: `@implement ArrayLike{T, 1} Series{T} where {T}`.
+- **Each member conforms at one value,** so the parameters stay associated types.
+- **Membership is subtyping:** `Series{Float32} <: ArrayLike{Float32, 1}`, as `struct MyArr{T, N} <: AbstractArray{T, N}` reads today.
+- **Every variable of the trait's parameters occurs in the type,** which is Rust's rule E0207.
+- **Parameter expressions are variables, constants and type constructors,** never function calls.
+- **The family is checked at an archetype instance,** `Series{ArchT}`, because inference at the family's `UnionAll` gives `Any`.
+
 Workers compile per instantiation, and `verify_main` enumerates the instantiations a program passes.
 
 ## Traits as abstract types
@@ -424,8 +440,12 @@ spread(t::ColTable) = size(t)    # at the library's build: `size` has no method 
 leak(t::ColTable) = typeof(t)    # `typeof(t)`: code must not depend on the user's type
 ```
 
+**Parameters have archetypes too.**
+- The archetype carries one archetype per parameter variable, built from the parameter's trait bounds.
+- A trait's defining equations (`T = eltype(R)`) get archetype methods, so `eltype` of an archetype is the parameter's archetype, not `Any`.
+
 **Checked per signature instead,** at a worker's first call or while an image is built:
-- a bound whose parameters are left open, `x::ArrayLike{T}` with `T` free, since code computing with `T` would need a bound on it;
+- a parameter left open whose bound is not a trait, `x::ArrayLike{T}` with `T` free or `T <: Real`. With a trait bound, `T <: NumberLike`, the code is checked once, at the parameter's archetype;
 - a function from above whose result type is open;
 - concrete mode's findings for a trait that does not require concreteness, which depend on its implementations.
 
@@ -553,7 +573,7 @@ colmap(x -> 2x, Measurements([[1.0, 2.0]]))      # a Measurements, rebuilt by Me
   - Called with a `Dynamic` value, the function returns a `Dynamic` value of the same conformance.
 - **Copying needs no trait of its own.** `copy(t)` is a constructor operation that copies the representation, followed by the inverse.
 - **AOT.** The inverses are listed with the projections, one per conformance a program passes.
-- **Changing the representation's type** is the hard case: `similar(x, Float32)`, or a `map` whose result has another element type. The user's `Series{Float64}` would become a `Series{Float32}`. That needs the conformance to cover a family, with the trait's parameters tied to the type's (associated types), and an inverse at another member of the family. It is being explored (`writeup/explorations/associated-types.md`).
+- **Changing the representation's type** is the hard case: `similar(x, Float32)`, or a `map` whose result has another element type. The user's `Series{Float64}` would become a `Series{Float32}`. A family conformance (Parametric user types) supplies it. A constructor operation may return a sibling of the representation, the same family at another parameter value, and the conformance's inverse rebuilds the user's type at that value: `Series{Float32}` from a `Vector{Vector{Float32}}`. The same mechanism makes dual-number caches for automatic differentiation and keeps GPU arrays on the device.
 
 **Precedents in Julia:**
 - Tables.jl's `materializer(table)` returns a function that builds a table of the input's type from columns.
@@ -592,6 +612,7 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
 - **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its representation once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
   - Two `Dynamic` arguments select a worker per pair of representations.
+- **Parameters.** A `Dynamic` of a parametric trait fixes the parameters its operations' result types use, `Dynamic{ArrayLike{Float64, 1}}`, so code after a call infers.
 - **Equality.** Values of different representation types, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the trait objects, so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
 - **Several traits.** `Dynamic{(ColTable, RowTable)}` holds a trait object with both views and converts explicitly to `Dynamic{ColTable}`. `Dynamic{Sub}` converts to `Dynamic{Super}` through the declared representation map. A `Callable` in `DynamicCall` mode is already the dynamic value of a function.
 - **Up and down.** A `Dynamic` is a trait-world value: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
@@ -736,10 +757,21 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 ## Open points
 
 - How `Vector{<:ColTable}` projects a user's vector: element by element into a new vector, or as a whole.
-- Whether a type may conform at several values of a trait parameter.
+- Input parameters (several values per type), associated type constructors beyond one family, and results bounded by their own trait (`view`, Swift's `SubSequence`).
+- Projections that build one representation from several arguments, `lines(x, y)`; this ties to promotion.
+- "Live" bounds: an argument that is a value or a source of values.
+- Whether an operation may return a small `Union` of concrete types.
+- How a closure created inside a trait module is kept as a dynamic function.
+- Tasks and concurrency: trait objects and `Dynamic` values across tasks.
+- The joint-method rule for a call like `plot(x)` when a type conforms to several data traits.
+- A dynamic mode for a user's own operations, pinned per integrator with a world-age rule (the solvers' model mode), beside dispatch-based `Dynamic` values.
+- Opening a `Dynamic` at the conformer's own concrete type, a checked downcast, for callbacks that change parameters.
+- Automatic-differentiation tags as part of a representation; units; mutable and immutable state families.
+- `Callable` signatures chosen by a library, and reporting a function from above that always throws when its pointer is made.
+- The compile cost of recipes and models defined at the prompt.
 - Numeric traits: numbers that conform after the fact or project, and promotion across representations.
 - Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
 - A kept value projected from a mutable field declared with an abstract type is translated once. A lens there would need to dispatch again when the user rebinds the field to another type; whether that is worth its cost is open.
 - Computed properties (a `getproperty` method) as projections: a lens needs a field; a computed projection stays translated once.
-- Prototype work: lenses (a field reference); named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.
+- Prototype work: associated types with parameter archetypes; constructor operations and inverses; lenses (a field reference); named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.

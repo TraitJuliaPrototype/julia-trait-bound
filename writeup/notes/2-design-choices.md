@@ -118,7 +118,7 @@ The argument is structural; it is not yet measured on a stack of trait modules.
 **Makie as the case in point.**
 - **Today:**
   - Its pipeline specializes on the user's argument types before `convert_arguments` reaches its own representations: 297 ms per new table type on the prototype.
-  - Between compute steps it keeps attributes and observables at `Any`, among other reasons because an attribute can change type over time.
+  - At its inputs and recipe attributes it keeps values at `Any`. Inside its compute graph a node's type is fixed by its first value, so changing a colour from `:red` to a vector of colours fails in Makie 0.24 (`writeup/explorations/makie-rewrite.md` §1).
   - Julia's dispatch tracing shows what that `Any` hides. A first bar chart with a line reaches 1,940 distinct methods; other values of the same types add one; each new argument type or attribute shape adds 35–84.
 - **In a trait world:**
   - the conversion is the projection, onto families of Makie's own: positions as `Point{N, Float64}` or `Point{N, Float32}` by the data's element type, colors as `RGBAf`;
@@ -313,7 +313,7 @@ Not researched for this note (from memory): Go compiles one generic instance per
 | Swift | recursive associated-type constraints, overloading in the type checker | generic signatures undecidable; "unable to type-check this expression in reasonable time" |
 | Mojo | (avoided by design) | no inference from result types: "don't do it again" (Lattner) |
 
-The expensive features were type-level computation in traits: associated types, recursion among them, higher-ranked bounds, overlap and negative reasoning. Traits as "operations and fields on a representation, with declared concrete types" stay out of most of that space. Trait parameters are declared by the conformance, one value per type where possible, as Rust's associated types argue. Every step toward associated types should be weighed against this table.
+The expensive features were type-level computation in traits: associated types, recursion among them, higher-ranked bounds, overlap and negative reasoning. Traits as "operations and fields on a representation, with declared concrete types" stay out of most of that space. Associated types are not the expensive part; reasoning about them symbolically is. Rust and Swift check a generic body once against its where-clauses, so an associated type is an unknown to normalize, equate and solve for, and recursion among them makes that undecidable. Our workers compile per concrete representation, where an associated type is a type function evaluated on a concrete type. Only definition checking reasons about them symbolically, and there they are first order: named variables with trait bounds, equal only through a shared variable, never recursive. Parameters are associated types, one value per conformance, as Rust's RFC 195 argued (`writeup/explorations/associated-types.md`).
 
 ## What the choices cost
 
@@ -387,4 +387,4 @@ The design restricts what trait-bound code may do, and only there.
 | 9 | Shared code not inlined across packages | Rust | stated (cost 10) |
 | 10 | Early binding misses a more specific method | C++0x | stated: deliberate, with escapes (§7) |
 | 11 | Implicit defaults added later break things | Swift | decided: concreteness is opt-in per trait and decided when a trait is published |
-| 12 | Type-level computation in traits | all four | kept out: declared concrete types; parameters declared by the conformance |
+| 12 | Type-level computation in traits | all four | kept out: symbolic reasoning about associated types; associated types themselves adopted in first-order form |
