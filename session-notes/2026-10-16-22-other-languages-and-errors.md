@@ -90,9 +90,27 @@ the trait requires it" (the trait concept, the bound paragraph of "Between
 nested types and Any", the hot-loop cliff, "Traits and abstract types", the
 conformance checks, the one-line form, trade-off 7).
 
+Definition checking and named implementations (the user: "I like the
+proposal. Open Parameters defer checking sounds pragmatic"; "Liberal it is.
+Go for it and then fold 2-5 into the note after you checked the archetype
+check"). `writeup/proposal-definition-checking.md`. Prototype:
+`TraitWorld/src/defcheck.jl` (`Archetype{X}`, `ArchWit`, `archetype_tobj`,
+`archetype_sig`, `check_definitions`; a worker's first call skips its
+per-signature check when its method was checked at definition), demo
+`poc/world/defcheck_demo.jl`, 10 new tests (all pass). Results: Columns
+checked in 184–199 ms cold; mistakes in a library found with no
+representation (`size(t)`, `typeof(t)`, `sum(t)`, rule 2), at their lines;
+first calls of a new own representation 3–4 ms faster (colrange 24.8–25.5 →
+21.4–21.6 ms): the checks are a small part of a first call, the gain is early
+errors. Named implementations (liberal: anyone, used only via `via(M, x)`).
+Note rev 1146: both subsections, rule 3, generic overlap in both orders, the
+check paragraph, concreteness as a commitment, trade-off 1 (C++0x's
+objections answered), trade-offs 9 and 10 (early binding, shared code).
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
 - Prototype `Dynamic{X}` in TraitWorld (dispatch on a boxed trait object;
   verify_main bounded sites; measurements in the proposal's §7).
-- Check overlap when a generic implementation is added after a specific one.
+- Prototype named implementations (`via`), and archetype checks for keyword,
+  vararg and `Callable` workers with declared results.
