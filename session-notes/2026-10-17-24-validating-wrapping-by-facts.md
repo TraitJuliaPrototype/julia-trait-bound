@@ -103,3 +103,25 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
   - **Edge patch, corner case.** A `CachedGenerator`'s cached output (owner `:uninferred`) may depend on any owner's result, so it matches every owner (in the rebuild).
   - **Open (threads only).** The generator runs inference in a pure callback, where `jl_get_world_counter()` is `~0`. That defeats the lock-checked world validation, so a method inserted concurrently on another thread could leave a stale facts CodeInstance. Single-threaded it is sound. The clean cure is a runtime entry point for "compile this call under owner X", not a generator: a Julia piece to add to `julia-support.md`.
   - **Latent.** `CompilerPlugins.typeinf_edge(::FactsOwner)` is never called by 1.13; if it were, a facts frame could join a native call stack, and the edge patch's argument would need revisiting.
+- **Rebuild** (julia 5b5b98758f): the filter is opt-in (`JULIA_TW_FILTER=1`); `:uninferred` callers match every owner.
+- **The machinery's slow paths, wrapped by facts** (TraitWorld f073de0).
+  - `_check_once`, `_builder_for`, `worker_problems` and `_check_concrete` run through `_latest_under_policy`: `invokelatest(_facts_call, f, args...)`. Their facts CodeInstances are compiled into TraitWorld's own image; without that, TraitMakie paid 830–1700 ms on first use.
+  - `Dynamic{X}(::TObj)` checks the traits it carries through a generated constant (`_carries_static`). This is a pure computation on types, so the code holds no edge to the reflective code.
+  - **Lesson, `return_type` × G2.** Folding native inference into facts code brings plain Julia's *abstract* dependence with it. Here: an error path's `collect` over a generator of strings depended on `string(::Any)`, and InlineStrings' new `string` method invalidated `_check_once`. So the fold now happens only when the native answer rests on concrete facts (`_concrete_deps`: no method-table edge within 2000 CodeInstances); otherwise the call runs at run time, which is plain Julia's answer in the current world. G1 holds either way; G2 holds for the fold.
+- **Results** (patched build, no filter; every number below is a rerun after the images were rebuilt):
+
+  | | no loads | CSV, DataFrames, CairoMakie after | before |
+  |---|---|---|---|
+  | TDE first solve | 57 ms | 59 ms | 59 ms |
+  | TDE second model function / new callback | 15 / 22 ms | 15 / 22 ms | 15 / 23 ms |
+  | TraitMakie first PNG (CSV, DataFrames) | 87 ms | 89–93 ms | 90–93 ms |
+
+  - **Invalidated by the loads:** facts-owned 0, ODECore 0, the ordinary layer 0, PlotCore 0. What remains is TraitWorld's *definition-time* machinery (`_analyze_keeps`, `seal!`, …; 440–655 instances), on no call path.
+  - Typed calls 37–39 ns (plain 30); untyped 109–119 ns. Acceptance 9/9. The TraitWorld suite, TDE and TraitMakie tests pass.
+  - **G2 holds for both demonstrators, with no skip predicate (rule P).** Load order no longer matters for first calls.
+- **Still to do for "completely validated":**
+  - a review of the slow-path wrapping and of the `return_type` rule;
+  - broader G1 adversarial cases (other tfuncs that read the method table: `hasmethod`, `applicable`; `invoke`; generated functions; keyword workers);
+  - the cost of defining a trait module after big loads (definition-time machinery);
+  - larger code and other stacks;
+  - the policy's compile cost when no image holds its code.
