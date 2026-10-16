@@ -130,22 +130,33 @@ None of these affects G1:
 - **Piece 1,** the definition hook, is needed only for the optional strict mode and for diagnostics.
 - **Pieces 3, 4 and 5** stay useful, and piece 5 grows to cover the trait world's own cache.
 
-## Evidence so far, and the experiments that decide it
+## Evidence (2026-10-16, stock Julia 1.13.2; `experiments/facts/README.md`)
 
-**E0 (done, 2026-10-16, stock 1.13.2).**
-- **Setup:** CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations.
-- **ODECore:** the invalidations reached it through two chains. Both started at **abstract** edges: `_show_key(::IOBuffer, ::Any)`, which is TraitWorld's printing machinery, and `promote_type(::Type{Int64}, ::Type)`. Neither started at a concrete fact.
-- **TraitMakie:** with the same packages loaded, no PlotCore code was invalidated, on stock or patched Julia. Its code is mostly concrete.
+**E0: what invalidated ODECore.** With CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations, the two chains that reached ODECore started at abstract edges: TraitWorld's printing (`_show_key(::IOBuffer, ::Any)`) and `promote_type(::Type{Int64}, ::Type)`. No chain started at a concrete fact. TraitMakie's mostly concrete code was not invalidated at all.
 
-All three designs predict exactly this.
+**E3: is stock invalidation exact at concrete signatures?** Yes, in all nine cases tested:
+- a new method invalidates the caller if it wins at the signature (more specific, `AbstractFloat`, a `Union`) or makes the call ambiguous;
+- it invalidates nothing if it loses or does not apply.
 
-**E1.** Compile the demonstrators' trait code and callees under R, and count the abstract sites that end up on hot paths, with their run-time cost. If many hot sites become dynamic, the default cost knob must change.
+So rule P is Julia's own behaviour, and no predicate is needed.
 
-**E2.** In the D stack, count the pirates that *win* at a concrete signature trait-world code uses. If there are many, the strict-pirate mode becomes the default.
+**E2: winning pirates.** The demonstrators' closure, after their workloads ran with the D stack loaded first, has:
+- 3,533 CodeInstances, 3,043 concrete facts and 207 abstract facts;
+- **0** concrete facts at which dispatch selects a pirate from outside Julia.
 
-**E3.** Check that stock Julia's invalidation of concrete-signature edges is exact, that is, it invalidates only when a definition wins at the signature. If it is not, P needs a small runtime predicate after all, and that predicate must stay exact.
+The stack brings OffsetArrays' 12 pirates of Base, and StatsBase's and Durations'. None of them wins anywhere the demonstrators' code calls. Following plain Julia costs nothing here, so the strict mode is not needed as a default.
 
-The FFI design states the success criterion: if E1 and E2 give small numbers, wrapping reduces to one rule, and its proof of G1 does not depend on any declaration being right.
+**E1: abstract sites on hot paths.** 42 methods hold the abstract facts, and 6 of them were sampled at all (94,426 samples over 30 runs of the work).
+- The only measurable one, at 1.6%, is TraitWorld's declared-call path to Cairo (`invokelatest` plus a result wrapper). Under this design Cairo calls become direct, so that site disappears.
+- The rest is cold machinery (building `Dynamic` values) and reflection or printing paths in Base.
+
+The demonstrators' hot loops consist of concrete facts only.
+
+**Limits:**
+- two small libraries and one stack of packages;
+- "hot" means sampled time in these workloads.
+
+E2 should be repeated with larger trait-world code (more of Base) and other stacks, before the strict mode is ruled out for good.
 
 ## Decisions for the user
 
