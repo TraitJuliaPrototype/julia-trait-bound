@@ -139,6 +139,31 @@ lens in `Dynamic` values. Measured (`poc/lens/lens_bench.jl`, findings §18):
 lens read 4.6 ns via builtin getfield on Any, 1.15 ns as a pointer load at the
 offset, 1.0 ns held; write 13.6 ns vs 0.6 direct.
 
+Results like the input (constructor operations returning `R`; the
+conformance's inverse: identity, the lens's other half, or `unproject`; the
+entry translates on the way out), in `4-details.md`.
+
+Four explorations (`writeup/explorations/`, commit a04e2f0):
+- associated-types.md: the design already has associated types (output
+  parameters, `eltype(R)`); Rust's/Swift's pain came from symbolic reasoning,
+  which arises for us only at definition checking, overlap/coverage and
+  Dynamic; adopt output parameters, joint family conformance
+  (`@implement ArrayLike{T,1} Series{T} where {T}`), bounds on parameters, the
+  `R` bound as a supertrait; forbid recursive bounds and type-function
+  equations; `Archetype{X, P}`.
+- runtime.md: move to Julia 1.13.2 (tagged 14 Oct 2026; 1.12 unmaintained);
+  gf.c patch applies, load patch rewritten (`Compiler/src/reinfer.jl`); the
+  load-time half works by injection on stock 1.12.2/1.13.2 (x12: 4.9 vs 29 ms);
+  owner-tagged CodeInstances keep no machine code in images (no demonstrator
+  vehicle); the critical path is a vertical-slice rewrite (2–4 months).
+- makie-rewrite.md: eight traits; Makie 0.24 nodes have fixed types (a colour
+  shape change fails), so the notes' reason for Any holds only at inputs;
+  demonstrator PlotCore + CairoBackend, baseline PlainPlots, ten measurements.
+- solvers.md: seven traits (StateVector{T}, ODEModel, IntegratorView via a lens,
+  Integrator, Callback, …); stock baseline: a new callback closure 0.84–0.96 s,
+  a second AD loss 2.48 s (full recompile), Rodas5 integrator type 24,426
+  characters; demonstrator Tsit5 + Rodas5 with AD + callbacks.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
