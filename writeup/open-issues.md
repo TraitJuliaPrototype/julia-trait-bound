@@ -4,7 +4,8 @@ Everything known to be open, as of 2026-10-16 (end of session 23): the design, t
 
 ## 1. Decisions waiting for the user
 
-1. **Conversions in trait wrappers:** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
+1. **Keeping, detected or declared:** a function that may keep a trait object now receives the whole object, detected from its code (TraitWorld 52cbca3; 4-details "Dynamic values"). The alternative is a bound that says so (`Keep{X}`). The detection is the recommendation.
+2. **Conversions in trait wrappers:** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
 
 (Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
 
@@ -55,7 +56,7 @@ State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and o
 
 **Behind the notes**
 1. Overrides after a conformance are refused at checkpoints (declarations, a trait module's end, a signature's first call), not when the method is defined: that needs a hook at method insertion.
-2. A `Dynamic` of an immutable type keeps the parts its trait sees, not the whole object, so a result like the input cannot be rebuilt from it (an error says so), and its equality is by those parts.
+2. Which functions keep a trait object is decided once, when the trait module is complete. A method added at the prompt to a callee that keeps does not update its callers' flags; the error in the "results like the input" path is the safety net. Operations on a kept value of a mutable type cost about 900 ns (`keepsum`), mostly the dynamic operation.
 3. Field mappings (`name => stored`) work. Agreement of a subtrait's conformance with its supertrait's is not checked.
 4. Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
 5. AOT for results like the input: the inverse per user type is not listed for `verify_main`.
