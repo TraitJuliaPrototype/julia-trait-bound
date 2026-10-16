@@ -18,6 +18,8 @@ Everything here is current as of 2026-10-16 (end of session 23). Superseded docu
 | `other-languages.md` | research: how C++, Rust, Swift and Mojo arrived at their trait designs, with criticisms and sources | current |
 | `design-findings.md` | the evidence log: measurements, prototype results, earlier forms of the design and why they changed, in session order | current evidence in §1, 5, 6, 13, 15–19; history elsewhere (its header) |
 | `explorations/keys-plan.md` | how TraitWorld implements keys: two reviews' decisions, phases, the reference layout, the runtime as methods (§6) | implemented (session 23); the session note records what changed in implementing it |
+| `explorations/julia-support.md` | what TraitWorld needs from Julia proper (eight pieces) and the order to implement them | current (session 23) |
+| `reviews/2026-10-16-wrapping-under-keys.md` | review of code written without traits under keys (F1–F11, nine decisions) | current; F1 fixed in the patched build |
 | `explorations/runtime.md` | the runtime the design needs, Julia 1.13, the load filter, the minimal runtime for the demonstrators | current, recommendation adopted |
 | `explorations/runtime_load_filter_1.13.2.patch` | the load half of the invalidation filter, ported to 1.13.2 | current |
 | `explorations/associated-types.md` | associated types: whether Rust's and Swift's experience applies, joint parametrization, bounds | adopted in first-order form; written before keys |
