@@ -58,9 +58,9 @@ The bound determines how a value becomes concrete, so signatures do not carry co
 Compiled code in the trait world depends only on what lies below it, so nothing that happens above can change what it computes.
 
 **Ownership.** Only one thing could reach into the trait world from above: a method that changes what a call inside selects. Julia already has a name for it, *type piracy*: adding a method to a function you do not own, for types you do not own.
-- A function belongs to the module that creates it, wherever its methods come from: `Base.show` is Base's.
-- A type belongs to the module that defines it.
-- A method belongs to whoever owns its function or one of its types. `Base.show(io::IO, x::MyType)` in MyPackage is MyPackage's method on Base's function, and many packages own methods of one function.
+- Owners are packages. A function belongs to the package that creates it, wherever its methods come from: `Base.show` is Julia's.
+- A type belongs to the package that defines it.
+- A method may be defined only by a package that owns its function or one of its types: its stakeholders. `Base.show(io::IO, x::MyType)` in MyPackage is allowed because MyPackage owns `MyType`; many packages define methods of one function, each as a stakeholder of its own methods.
 
 Julia treats piracy as bad practice; the trait world makes it an error where traits are in effect. That is the one change to Julia's semantics the design depends on. ([The design in detail: Ownership](4-details.md#ownership).)
 

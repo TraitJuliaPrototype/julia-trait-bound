@@ -16,34 +16,45 @@ The macros below stand for syntax a language feature would provide. The prototyp
 
 ## Ownership
 
-Julia has the idea already, under its negative name. The manual calls *type piracy* "extending or redefining methods in Base or other packages on types that you have not defined", and Aqua.jl checks for it. The design turns the convention into a rule, because a method nobody owns is the one way a load could change what compiled code computes.
+Julia has the idea already, under its negative name. The manual calls *type piracy* "extending or redefining methods in Base or other packages on types that you have not defined", and Aqua.jl checks for it. The design turns the convention into a rule, because a method defined by the wrong package is the one way a load could change what compiled code computes.
 
-**A function has one owner, however many packages add methods to it.**
-- A generic function belongs to the module that creates it: the module where `function f end`, or its first method, defines the name.
-  - `Base.show` is Base's, whatever package adds a `show` method.
-  - A trait's operations belong to the trait's module.
-- A function's methods come from many places, but each method is justified on its own, not by the function.
+**Owners are packages.**
+- A package owns everything in its top-level module and its submodules.
+- A package extension belongs to its parent package.
+- Julia (Core, Base and the standard libraries of the system image) is one owner.
+- The session owns what is defined at the prompt.
 
-**A type has one owner:** the module that defines it. A type counts wherever it appears in a signature, also as a parameter. In `Base.sum(v::Vector{MyType})`, `MyType` is MyPackage's.
+**Functions and types have one owner each.**
+- A generic function belongs to the package that creates it: the package where `function f end`, or its first method, defines the name. `Base.show` is Julia's, whichever packages add `show` methods. A trait's operations belong to the trait's package.
+- A type belongs to the package that defines it. A type counts wherever it appears in a signature, also as a parameter: in `Base.sum(v::Vector{MyType})`, `MyType` is MyPackage's.
 
-**A method is owned by whoever owns its function or one of its types.** A package may add a method only where it owns the function, or one of the types, in every signature the method applies to.
+**A method has no single owner; it has stakeholders.** They are the owner of its function plus the owners of every type in its signature. A package may define a method only if it is a stakeholder, or a delegate of one, in every signature the method applies to.
 
-| Method, defined in MyPackage | Owned? | Why |
+Take a function owned by package A, with argument types owned by B, C and D, and a method defined in package E:
+- If E is A, B, C or D, or a delegate of one of them, the method is allowed.
+- Otherwise it is piracy, refused once the stakeholders are sealed.
+- The definer is the method's author. It does not take over the function or the types: A still owns the function, and B, C and D their types.
+
+| Method, defined in MyPackage | Allowed? | Why |
 |---|---|---|
-| `MyPackage.f(x::Vector{Float64})` | yes | the function is MyPackage's |
-| `Base.show(io::IO, x::MyType)` | yes | `MyType` is MyPackage's |
+| `MyPackage.f(x::Vector{Float64})` | yes | MyPackage owns the function |
+| `Base.show(io::IO, x::MyType)` | yes | MyPackage owns `MyType`, a stakeholder |
 | `Base.sum(v::Vector{MyType})` | yes | `MyType` appears in the signature |
-| `Base.length(x::Tuple{Int, Int})` | no | Base owns the function and all the types: piracy |
-| `Base.convert(::Type{RGB}, x::Unsigned)` | no | ColorTypes owns `RGB`, Base the rest: piracy (PlotUtils does this) |
-| `Base.length(x::Union{MyType, Int})` | no | it also applies to `Int`, where MyPackage owns nothing |
+| `Base.length(x::Tuple{Int, Int})` | no | Julia owns the function and all the types: piracy |
+| `Base.convert(::Type{RGB}, x::Unsigned)` | no | ColorTypes owns `RGB` and Julia the rest: piracy (PlotUtils does this) |
+| `Base.length(x::Union{MyType, Int})` | no | it also applies to `length(::Int)`, where MyPackage has no stake |
 
-**Julia counts as one owner:** Core, Base and the standard libraries of the system image. LinearAlgebra's methods on Base's functions are Julia's own.
+**Why stakeholders, and why every signature.** A call is compiled against the owners of its function and of its argument types (rule 4), which are exactly the stakeholders of any method that could apply to it.
+- A method defined by a stakeholder is therefore in the view of every call it can change.
+- A method defined by anyone else is in the view of none of them. It could change what a call selects without that call's compiled code ever having seen it: piracy, and the invalidation that comes with it.
+
+**Two stakeholders defining the same signature conflict.** If A and B both define `f(::BType, ::CType)`, that is a conflict. Julia already refuses to overwrite another module's method during precompilation; the design reports it at load.
 
 **Ownership is delegated, never claimed.** An owner may name packages that add methods on its behalf:
 - **Package extensions.** An extension owns what its parent owns. Its triggers confer nothing; otherwise two parents' extensions with the same trigger could both implement one method. An extension is loaded whenever a call could use it, because its triggers are the packages its methods mention.
 - **Implementation packages of a split core,** named by the core's wrapper ([code written without traits](3-wrapping.md#trait-wrappers)). StaticArraysCore defines `SArray`; StaticArrays defines `Base.size(::SArray)`, and owns neither the function nor the type. That method is a pirate unless the core's owner, or its wrapper, names StaticArrays as a delegate.
 
-**Implementations are methods.** So ownership is also the rule for who may implement a trait for a type: the trait's owner, the type's owner, or a delegate of either. A *named* implementation is the exception: used only where a caller names it, it may be written by anyone (Named implementations).
+**Implementations are methods.** So the same rule says who may implement a trait for a type: a stakeholder (the trait's owner or the type's owner) or a delegate of either. A *named* implementation is the exception: used only where a caller names it, it may be written by anyone (Named implementations).
 
 **What ownership buys.** With layering, a load can do only two things:
 1. **Add methods for its own functions and types.** Code compiled elsewhere does not reach them, unless it depends on the package, in which case the package is in its view and its changes recompile it, as an upgrade does.
