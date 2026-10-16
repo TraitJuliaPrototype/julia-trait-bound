@@ -88,3 +88,18 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
     - **Other cross-owner reads are exact:** `InvokeCICallInfo` records the CodeInstance; the inliner bug records the native CodeInstance it inlined; concrete evaluation needs foldable effects, which a run-time site rules out.
     - **Status:** building now; to be reviewed by a subagent.
   - **The rest is native machinery.** First calls after loads re-infer TraitWorld's reflective slow paths (`witness`, `proj_lookup`, `_field_problems`, `_builder_for`, `Dynamic{…}`, printing of a `MethodError` inside `which`). The loads invalidate their native code (about 250 instances); the "before" order drops it at load. These are plain Julia's invalidations of TraitWorld's own abstractly typed implementation code. Cure options: type-level computations as generated functions (no edges, constant results); concrete slow paths; or slow-path results kept in images.
+- **Owner-aware bare edges: measured.** With the patch built, facts-owned code lost to the loads: **0** (was 3). TDE row 4 after the loads is 23 ms (was 244–1458 ms).
+- **Review of the entry and the edge patch** (subagent, code reading). It confirmed the edge patch and found four G1 problems in the entry, each now reproduced and fixed:
+
+  | Problem | Reproduced as | Fix |
+  |---|---|---|
+  | **A1, dispatch at the call signature not tracked.** `InvokeCICallInfo` records `(method sig, ci)`, which only the method's replacement breaks. | G1.6 (on `_facts_call` directly): stayed 1, plain 2 | The generator adds `(sig, ci)` (the dispatch fact at the concrete signature, as native code records) and the lookup's world bounds |
+  | **Recursion through an entry.** The generator infers the worker while it is being inferred. | G1.7: passed only after stack overflows | A per-task "generating" list; on re-entry the call is left to run time |
+  | **`return_type` folded under the policy gives `Any`**, even at a concrete signature: `_iterator_upper_bound(::Generator{Vector{Integer},…})` has an abstract site inside. | G1.8: `map(x -> c, Integer[])` gave `Vector{Any}`, plain `Vector{Int}` | Plain Julia's answer: at a concrete signature folded from *native* inference, with the edge `(sig, native ci)` (`_NativeRT`); at an abstract one left to run time. G1.9: the fold follows a redefinition |
+  | **The skip filter was on by default** (rule P) | — | Opt-in with `JULIA_TW_FILTER=1`, in TraitWorld and `reinfer.jl` (rebuild running) |
+
+  Acceptance: **9/9**.
+  - **Correction to my note above.** Without the call-site `@noinline`, a native caller inlining the native code would **not** be sound. `add_inlining_edge!` drops the native CodeInstance as a duplicate of `ci`, since it compares `.def` and ignores the owner. That would be a stale-code hole, so `@noinline` is required.
+  - **Edge patch, corner case.** A `CachedGenerator`'s cached output (owner `:uninferred`) may depend on any owner's result, so it matches every owner (in the rebuild).
+  - **Open (threads only).** The generator runs inference in a pure callback, where `jl_get_world_counter()` is `~0`. That defeats the lock-checked world validation, so a method inserted concurrently on another thread could leave a stale facts CodeInstance. Single-threaded it is sound. The clean cure is a runtime entry point for "compile this call under owner X", not a generator: a Julia piece to add to `julia-support.md`.
+  - **Latent.** `CompilerPlugins.typeinf_edge(::FactsOwner)` is never called by 1.13; if it were, a facts frame could join a native call stack, and the edge patch's argument would need revisiting.
