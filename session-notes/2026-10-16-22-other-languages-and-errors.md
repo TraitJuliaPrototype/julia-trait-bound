@@ -73,6 +73,15 @@ abstract types the rule is concrete types first, then traits by refinement;
 open: isa and <: as conformance, traits with parameters, numeric tower); the
 trait concept bullet; the rejected competing-ranking option reread.
 
+Open points decided (the user: "yes, yes, and needs detailed investigation.
+We are not removing AbstractTypes, in fact AbstractTypes that can become
+concrete are a key design point"), note rev 1131: a trait is an abstract
+type guaranteed to become concrete (abstract types stay; traits are a kind
+of them); membership is subtyping (`isa`, `<:` mean conformance); traits take
+parameters declared by the conformance (several values per type open);
+numbers need no trait (the tower stays; promotion on concrete types in Base);
+numeric traits and cross-representation promotion open.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
