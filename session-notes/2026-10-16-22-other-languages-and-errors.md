@@ -60,6 +60,19 @@ results, opened by a bound, equality as Swift's AnyHashable, several traits,
 up and down as a trait-world value), the table rows, the Makie paragraph,
 closures, AOT and trade-off 7.
 
+Traits and abstract types (the user: "our Traits are what AbstractTypes
+should have been. There should be no reason to use AbstractTypes anymore if
+Traits succeed"; "I like the AbstractType sugar"), note rev 1128: a trait's
+name in a field or container means its Dynamic, in an argument a bound,
+`Vector{<:ColTable}` one representation (projection of user vectors open);
+new subsection "Traits and abstract types" in "Working with existing Julia"
+(every use of an abstract type has a trait form; what traits add is in the
+declaration: membership after the fact by owners, checked contract,
+translation; "types first, then traits" settles the transition, and without
+abstract types the rule is concrete types first, then traits by refinement;
+open: isa and <: as conformance, traits with parameters, numeric tower); the
+trait concept bullet; the rejected competing-ranking option reread.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
