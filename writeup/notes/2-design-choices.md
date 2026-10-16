@@ -335,7 +335,7 @@ The design restricts what trait-bound code may do, and only there.
 
    Inward doors (eval, deserialization, reflection) are available only as declared calls with a checked result.
 4. **Trait objects go in, translated.**
-   - Code in a trait module never sees the user's type, so it cannot build a new value of it without a constructor operation.
+   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse of its projection ([the design in detail: Results like the input](4-details.md#results-like-the-input)); a computed projection without an inverse cannot be rebuilt.
    - A value kept beyond a call follows the user's field where it was projected from one that can be rebound (a lens), and is translated once, when kept, otherwise.
    - A value used under two traits is projected twice unless its type declares one projection for both.
 5. **Types come first.** A type that matches a type-annotated method takes it, even when it also conforms to a trait bound of the same function. Reaching the trait method needs a type that no type method catches, or a newtype.

@@ -517,6 +517,49 @@ tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from abo
 - **Trait objects never go up bare.** What goes up is what operations return, trait-world values, and a trait object only inside a `Dynamic` value.
 - **AOT.** A returned closure is a trait-world type, so calls to it from ordinary code are calls into the trait world that `verify_main` lists.
 
+## Results like the input
+
+A function that returns "a table like the input", such as `similar(x)` or `map` over a user's container, needs two things the trait world does not have by itself:
+- **a new value of the same kind of representation,** which is a constructor operation in the trait;
+- **the way back from a representation to the user's type,** which is the inverse of the conformance's projection.
+
+So the boundary translates in both directions.
+
+```julia
+@trait ColTable{R} begin
+    ncols(r::R)::Int
+    col(r::R, i::Int)::Vector{Float64}
+    withcols(r::R, cs::Vector{Vector{Float64}})::R     # a table of the same kind, holding these columns
+end
+
+colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable)::Like{t} =        # a sketch of the syntax
+    withcols(t, [map(f, col(t, i)) for i in 1:ncols(t)])
+
+colmap(x -> 2x, Measurements([[1.0, 2.0]]))      # a Measurements, rebuilt by Measurements' conformance
+```
+
+- **Constructor operations return the representation.** An operation declared with the result type `R` makes a new representation of the same kind.
+  - It is implemented per representation and checked at the conformance like any other operation.
+  - At an archetype it returns the archetype, so definition checking covers code that uses it.
+  - This is Rust's `-> Self` and Swift's `init` requirements in protocols. Rust excludes such methods from `dyn Trait`; here an operation on a `Dynamic` value that returns `R` returns a `Dynamic` value of the same conformance.
+- **The conformance inverts its projection.** Only the conformance knows the user's type:
+  - **A type that is its own representation:** the inverse is the identity.
+  - **A field projection:** the inverse is the lens's other half. It copies the user's object with the field replaced, for immutable and mutable types alike, as ConstructionBase.jl's `setproperties` and Accessors.jl's `@set` do today.
+  - **A computed projection:** the conformer writes the inverse, `unproject(t, r)`. Without one the type cannot be rebuilt, and a call that needs it raises at the entry, naming the conformance. `Ramp`, computed from a base vector, cannot hold arbitrary columns.
+- **The entry translates on the way out.** A result declared `Like{t}` must be a representation of the type `t` has; the check runs at the definition, at archetypes.
+  - The worker, compiled per representation, computes it.
+  - The entry applies `t`'s inverse and returns a value of the caller's type.
+  - The inverse is compiled per user type next to the projection, in the conformer's image, so library code still never depends on the user's type.
+  - Called with a `Dynamic` value, the function returns a `Dynamic` value of the same conformance.
+- **Copying needs no trait of its own.** `copy(t)` is a constructor operation that copies the representation, followed by the inverse.
+- **AOT.** The inverses are listed with the projections, one per conformance a program passes.
+- **Changing the representation's type** is the hard case: `similar(x, Float32)`, or a `map` whose result has another element type. The user's `Series{Float64}` would become a `Series{Float32}`. That needs the conformance to cover a family, with the trait's parameters tied to the type's (associated types), and an inverse at another member of the family. It is being explored (`writeup/explorations/associated-types.md`).
+
+**Precedents in Julia:**
+- Tables.jl's `materializer(table)` returns a function that builds a table of the input's type from columns.
+- Base's `similar` is the representation-level half.
+- ConstructionBase.jl and Accessors.jl provide the inverse of a field projection.
+
 ## Dynamic values
 
 A trait object lives for one call. A value that must outlive the call, or an element of a collection whose elements have different representations, or a field whose representation changes, is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields. A trait's name in a field or a container means its `Dynamic` (Traits as abstract types).
@@ -686,7 +729,6 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 
 ## Possible extensions
 
-- **Constructor operations.** A trait may declare how to build a value of the user's type from a representation, so trait modules can return values like their inputs.
 - **Representation maps for supertraits.** `@trait B <: A` is relied on by rule 2, by dispatch and by bundle traits; the syntax of the map by which `B`'s operations call `A`'s statically is open.
 - **Inline entries.** Callers that already know the type inline the projection lookup and call the worker directly.
 - **Concrete mode by default.** Warnings for every worker, so the cliff is caught before anyone opts in.
