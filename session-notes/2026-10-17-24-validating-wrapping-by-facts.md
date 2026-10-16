@@ -159,3 +159,28 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
     - Rodas5 first solve: 72–77 ms with no loads, loads after or loads before (CSV, DataFrames, CairoMakie);
     - a second model function: 65–92 ms (`LDual`: 49 ms; the user's function is now compiled for ForwardDiff's duals).
     - G2 holds with a generic-heavy library called from trait code.
+- **Final hostile review of the verdict** (subagent): "justified with caveats". Its findings and what I did:
+  1. **Threads** (major). The generator's inference runs in a pure callback, where the world counter reads `~0`, so a definition concurrent with compilation could leave stale code. This threatens G1, not only cost. **Response:** G1 now states the assumption "no method definition concurrent with compiling trait code"; Julia piece 11 removes it. Not fixed in TraitWorld.
+  2. **The `_SLOW` cache keyed by `GENERATION`, and latest-world decisions** (major). **Fixed** (TraitWorld 37e27e9): conformances are decided in the caller's world (`tls_world_age()`, carried by a `ScopedValue` through the machinery's lookups and witness caches), and the cache is keyed per world.
+     - G1.13: a plain redefinition flips a generic conformance's predicate. Now a `MethodError`, as in a fresh session; before, a stale builder's `TypeError`.
+     - G1.14: an older world does not see a later `@implement`. This failed before the fix.
+  3. **The proof's model** (major):
+     - (a) bare edges to an uncached callee: tested in G1.15 (a cycle, native partner present, deep redefinition): passes;
+     - (b)–(e) native `return_type` fold, compile-time evaluation, generator purity, machinery exemption: to be written into the design as explicit rules and assumptions;
+     - `_has_runtime_sites` treating missing IR as "no code" is noted (conservative handling still to do).
+  4. **G2 counts** (major). New `g2all.jl`:
+     - both trait libraries work; then CSV, DataFrames, CairoMakie, ChurnStorm, BasePirate, OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations and StaticArrays load one at a time, with work after each;
+     - every `FactsOwner` CodeInstance in any module is counted: **0 lost after every load**, work 9–15 ms;
+     - "before" order: the same 7871 facts-owned instances are valid as without loads.
+     - Found and fixed on the way: in the "before" order the first work took 1.65 s, because the compiler's code for `FactsInterp` from TraitWorld's image failed verification. A cache hit now goes through `jl_rettype_inferred` (C, no compiler code): 147–153 ms, as without loads (4d0c7c2).
+     - A *new key* after big loads still costs 855 ms against 360 ms: definition-time machinery, plus the compiler's code once per session (Julia piece 12: a frozen world for an external interpreter's compiler).
+  5. **Image load** (major). New FoldPkg, a precompiled trait package: a winning `Base.clamp(::Int,::Int,::Int)` defined before `using FoldPkg` gives trait = plain `(Float64, 1.5)` in all orders.
+     - But no fold was in the image: the return_type was left to run time. That exposed a **performance bug**: small broadcasts took 176 ns under the policy (native 15) and `map(sin, v)` 1216 ns (23), because the stricter `_concrete_deps` rejected most native answers.
+     - **Fixed** (8ad7661): the policy's own concrete answer is used first. Native inference is at least as precise, so plain Julia's answer is that type or `Union{}`, which A3 allows.
+     - **Kinds as facts:** signatures whose non-leaf parts are `DataType`, `UnionAll` or `Union` (the broadcast's `TupleOrBottom` called a closure on `DataType`s). Broadcast 15.5 ns, `map(sin)` 27 ns.
+     - The hunt's C16 now matches too. A review of these two rules is running.
+  6–8. **Minor:** A3's scope (all `promote_op` element types), depth 8, stale claims in the writeup. To fix in the design text.
+- **State** (TraitWorld 8ad7661):
+  - acceptance 15/15; the hunt passes but C24b (the harness bug);
+  - the suite, TDE and TraitMakie pass;
+  - typed calls 37 ns; DataFrames workload under the policy 0.60 s first call against 0.45 s.
