@@ -107,6 +107,25 @@ Note rev 1146: both subsections, rule 3, generic overlap in both orders, the
 check paragraph, concreteness as a commitment, trade-off 1 (C++0x's
 objections answered), trade-offs 9 and 10 (early binding, shared code).
 
+Restructure (the user: "the note has grown out of proportion"; "Everything
+as markdown locally"): four notes in `writeup/notes/`:
+1-overview (motivation, pay-offs, the idea, the Columns example, costs,
+status, further reading; no wrapping), 2-design-choices (the comparison with
+C++, Rust, Swift, Mojo by decision, lessons, reasoning, costs, rejected
+options, predictions and their status), 3-wrapping (adopting traits, traits
+over existing functions, wrappers, Base, calls upward, sealing), 4-details
+(terms, ownership, the four rules, boundary principle, declaring traits,
+conformance forms, generic and named implementations, traits as abstract
+types, dispatch, definition checking, Callable, keywords, crossing
+functions, Dynamic values, caching, AOT, performance, identical or error,
+extensions, open points). New: an ownership introduction from Julia's own
+notion of type piracy (who owns a function that gets methods from many
+places, with a table of examples); trait fields (`data::R` names the
+projection; other fields are fields of the representation, read-only, a
+field being an operation with a fixed implementation). The single note's
+local copy is archived with a banner; the live Claude Doc is unchanged
+(rev 1146).
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
