@@ -1,17 +1,12 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-16 (end of session 22): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
+Everything known to be open, as of 2026-10-16 (end of session 23): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
 
 ## 1. Decisions waiting for the user
 
-1. **TraitWorld's runtime as methods** (`explorations/keys-plan.md` §6, `experiments/keys-proto/`).
-   - **The proposal:**
-     - conformances become methods, `view(::Type{X}, u::U)`;
-     - entries become ordinary `@inline` methods that are `@nospecialize` on trait arguments;
-     - the entry caches, builders and the generation counter are removed.
-   - **Measured** in the prototype: 26–30 ns per call against 25–29 ns for plain Julia, with no allocation and one worker for all user types. TraitWorld now costs 209–460 ns.
-   - It rewrites about a third of TraitWorld. Users see only the speed.
-2. **Conversions in trait wrappers:** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert").
+1. **Conversions in trait wrappers:** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
+
+(Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
 
 ## 2. Design
 
@@ -56,38 +51,39 @@ Everything known to be open, as of 2026-10-16 (end of session 22): the design, t
 
 ## 3. TraitWorld (the prototype)
 
-State: commit `3e4bd5a` on `main`, 311 tests plus 1 broken (pre-existing), on stock Julia 1.13.2.
+State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and on patched Julia 1.13.2. The runtime as methods, keys in the reference layout, no implementing type under defaults, overrides refused at checkpoints, fields matching parameters and immutable types held are in (session note 23).
 
 **Behind the notes**
-1. The implementing type is always present in the key; the notes say none when defaults serve every operation (329e945).
-2. Overrides after a conformance are not refused.
-3. Fields define parameters only in the form `u::U`, not by matching (`data::Vector{T}`).
-4. Immutable user types are read through the boxed object rather than held, which costs a box per call from typed code.
-5. Field mappings (`name => stored`) work. Agreement of a subtrait's conformance with its supertrait's is not checked.
-6. Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
-7. AOT for results like the input: the inverse per user type is not listed for `verify_main`.
-8. Concrete mode does not yet trace field types of keys as root causes.
+1. Overrides after a conformance are refused at checkpoints (declarations, a trait module's end, a signature's first call), not when the method is defined: that needs a hook at method insertion.
+2. A `Dynamic` of an immutable type keeps the parts its trait sees, not the whole object, so a result like the input cannot be rebuilt from it (an error says so), and its equality is by those parts.
+3. Field mappings (`name => stored`) work. Agreement of a subtrait's conformance with its supertrait's is not checked.
+4. Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
+5. AOT for results like the input: the inverse per user type is not listed for `verify_main`.
+6. Concrete mode does not yet trace field types of keys as root causes.
+7. Bounds cannot use a method's `where` variables (`f(s::Sampled{T}) where {T}`): such an annotation is read as a plain type. Results through an opened `Dynamic` are not inferred; library code asserts them.
+8. Family conformances (`@implement X{T} S{T} where {T}`, and by fields) go through the slow path: a builder per type per session, cached.
 
 **Performance**
 
-9. The fixed cost per call of an entry is 209–230 ns for a type that implements the operations and 424–460 ns for a forwarding type (`total(t, 16)`). Plain Julia is 33 ns. It was 108–119 ns at 2830a19. It grew with associated types, results like the input and the key layout. The rewrite of section 1, item 1, removes the path that costs it.
-10. A worker reached directly allocates 48 bytes per call under the current layout (the prototype's layout does not).
-11. A fresh session's `@implement` of a forwarding type takes about 470 ms against 145–157 ms before (`bench_m1`); not yet investigated.
+9. Typed calls cost 33 ns against 30 ns for plain Julia (`total(t, 16)`), without allocation; the worker alone runs at plain speed. Untyped calls (the caller does not know the argument's type) cost 270–450 ns: three dynamic calls (entry, `enter`, `checked_call`) at about 15 ns each do not explain it; not yet found.
+10. A worker that has not been called in a session runs `_check_once` and the piracy guard at its first call; after any world change the guard audits the signature again (the PoC's stand-in for rule 4), which costs tens to hundreds of milliseconds after large loads.
+11. A fresh session's `@implement` of a forwarding type: not re-measured since the rewrite (it was about 470 ms).
 
 **Dependent code**
 
-12. `experiments/world` benchmarks and packages use the old `{R}` spelling, which still works. `experiments/interfaces` (the DataFrames and Makie prototype) uses computed projections and is pinned to TraitWorld before keys; its measurements (sealing audits, 3 ms view caches, binaries) were taken before keys.
-13. The old `{R}` spelling of traits is still accepted; removing it, and converting the 23 traits in the tests, is phase 4 of the plan.
+12. `experiments/world` benchmarks and packages use the old `{R}` spelling, which still works. `experiments/interfaces` (the DataFrames and Makie prototype) uses computed projections and is pinned to TraitWorld before keys.
+13. The old `{R}` spelling of traits is still accepted; removing it, and converting the 23 traits in the tests, is phase 4 of the plan (D2, not done in session 23).
 
 ## 4. Runtime and measurements
 
 1. With a view cache on stock 1.13.2, `summarize` recompiles for 71–74 ms once CSV and Makie are loaded (3.3 ms in session 21 on 1.12). It is unclear whether 1.13 or TraitWorld causes this (`experiments/baseline-1.13.md`).
-2. The injected load filter does not help when outside packages load after the trait code; that needs the insertion half in C, i.e. the patched 1.13 build (postponed).
+2. The patched 1.13.2 build exists (`julia-1.13/`). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
 3. Not yet measured on 1.13: plain-Julia time to first PNG, ComboCache end to end, an x12 control on 1.12.2 with the pinned TraitWorld.
 4. The trimmed-binary acceptance build (2.09 MB `verify_main` program) has not been rebuilt since keys; run it alone, under a memory guard.
+5. The first call after large loads: TraitDifferentialEquations' first solve takes 0.7–1.05 s with CSV, DataFrames and CairoMakie loaded (73 ms without); TraitMakie's first PNG takes 0.31–0.37 s with CSV and DataFrames before (0.1–0.2 s without; 0.09 s after, patched).
 
 ## 5. Documents
 
-1. `explorations/makie-rewrite.md` and `explorations/solvers.md` were written with representations and projections. Their trait sketches are to be read with keys (each has a banner). Rewrite them when the demonstrators start.
+1. `explorations/makie-rewrite.md` and `explorations/solvers.md` were written with representations and projections. Their trait sketches are to be read with keys (each has a banner); the demonstrators' code (TraitDifferentialEquations, TraitMakie step 1) now shows the keys form.
 2. `design-findings.md` is the evidence log in session order. Sections 3, 7, 9–12 and 14 describe earlier forms of the design (its status header says which sections are current).
 3. The live Claude Doc is frozen at revision 1146; its export is in `attic/writeup/`.

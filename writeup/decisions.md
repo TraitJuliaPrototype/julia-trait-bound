@@ -1,6 +1,6 @@
 # Design decisions: the register
 
-Every design decision with its status, as of 2026-10-16 (end of session 22). The notes say what the design is; this file says what was decided, when, and where it is written down. Statuses:
+Every design decision with its status, as of 2026-10-16 (end of session 23). The notes say what the design is; this file says what was decided, when, and where it is written down. Statuses:
 - **adopted:** in the design notes;
 - **rejected:** considered and not taken;
 - **deferred:** designed or agreed, but not worked on now;
@@ -25,20 +25,21 @@ Every design decision with its status, as of 2026-10-16 (end of session 22). The
 
 | Decision | Status | Where | Prototype |
 |---|---|---|---|
-| Keys replace representations: code is compiled for what the bound can see. The key is the implementing type, if any, plus the declared fields' types. | adopted (6c7f088) | 1-overview; 2-design-choices §3; findings §19 | partly: one field per key, and the implementing type always present |
-| The implementing type: the type whose own methods serve at least one operation (the conforming type, or the field it forwards to). There is none when defaults serve every operation. | adopted (329e945) | 4-details "Terms", "Declaring a trait" | no |
+| Keys replace representations: code is compiled for what the bound can see. The key is the implementing type, if any, plus the declared fields' types. | adopted (6c7f088) | 1-overview; 2-design-choices §3; findings §19 | yes (s23) |
+| The implementing type: the type whose own methods serve at least one operation (the conforming type, or the field it forwards to). There is none when defaults serve every operation. | adopted (329e945) | 4-details "Terms", "Declaring a trait" | yes (s23; kept when the declarations name `Self` or a parameter is not field-defined) |
 | Implementation is separate from conformance: an implementation gives operations for a type; a conformance gives how a type joins, fields included. | adopted (second review) | 4-details "How a type conforms" | yes |
 | Forwarding to a field (`by f`) replaces projections. | adopted | 4-details "How a type conforms" | yes |
 | Computed and copying projections and `unproject` are removed. Types whose data needs another layout are converted explicitly by the library. | adopted | 4-details "Types that only convert"; 2-design-choices §3 | yes (refused with an `ImplementError`) |
 | Declared fields are stored fields of the conforming type, by name or mapped (`name => stored`). A type with its own `getproperty` maps every field. Computed properties are not declared fields. | adopted | 4-details "Declaring a trait" | yes |
-| The reference layout: a trait object reads the user's object. A mutable object is read through with Julia's alias metadata; an immutable type's parts are held, which is equivalent. No snapshots, no exit check. | adopted (dda875f; layout fixed by `experiments/keys-proto`) | 4-details "Declaring a trait", "What a field access costs" | partly: TraitWorld reads every part through the object, including immutable types |
-| Overrides belong to the conformance: a later method of an operation that a default serves is refused. | adopted (329e945) | 4-details "Declaring a trait" | no |
-| Fields define the parameters their declared types mention, by matching (`data::Vector{T}`). A parameter is defined by a field or by an equation, never both. | adopted (329e945) | 4-details "Parameters" | partly: `u::U` only |
+| The reference layout: a trait object reads the user's object. A mutable object is read through with Julia's alias metadata; an immutable type's parts are held, which is equivalent. No snapshots, no exit check. | adopted (dda875f; layout fixed by `experiments/keys-proto`) | 4-details "Declaring a trait", "What a field access costs" | yes (s23); a `Dynamic` of an immutable type keeps its parts, not the whole object (open-issues §3) |
+| Overrides belong to the conformance: a later method of an operation that a default serves is refused. | adopted (329e945) | 4-details "Declaring a trait" | yes, at checkpoints: declarations, a module's end, first calls (`check_overrides`); refusing at the definition needs the runtime |
+| Fields define the parameters their declared types mention, by matching (`data::Vector{T}`). A parameter is defined by a field or by an equation, never both. | adopted (329e945) | 4-details "Parameters" | yes (s23) |
 | Membership through a generic implementation only for traits without declared fields. | adopted (second review) | 4-details "Generic implementations" | yes |
 | Forwarding carries through generic implementations: the key stays the field's type. | adopted | 4-details "Generic implementations" | untested |
 | Forwarding does not chain (a field whose type itself forwards). | adopted (implementation decision) | 4-details "How a type conforms" (implied) | yes |
 | A subtrait's conformance must agree with its supertrait's, field mappings included. | adopted | 4-details "Supertraits" | no |
 | The held/lens split, the exit check, and the re-entering `Dynamic` from the keys plan's sections 1 and 4. | withdrawn (replaced by the reference layout) | explorations/keys-plan.md §5 | — |
+| Internal functions of a trait module take trait objects without bounds; the check follows the trait object through their bodies. | adopted (rev 988); implemented s23 | 4-details "What code in a trait module may do" | yes |
 
 ## Parameters, checking, dynamic values
 
@@ -56,6 +57,8 @@ Every design decision with its status, as of 2026-10-16 (end of session 22). The
 | Selecting implementations by imported scope. | rejected | 4-details "Named implementations" | — |
 | Printing trait objects by bound and key (`ColTable at Vector{Vector{Float64}}`). | adopted | 2-design-choices §9 | yes (types; stack frames inherit it) |
 | `conforms(T, X)` as the package's stand-in for membership as subtyping. | adopted (prototype only) | README plan | yes |
+| Stored functions from above as `DynamicFn{A, S}` (a `Callable` in `DynamicCall` mode as a value of fixed type), made by `dynamic_fn` in ordinary code: a library's model or callback types hold them. | adopted (s23, D5) | session note 23; TraitDifferentialEquations | yes |
+| Automatic-differentiation tags labelled by a `Callable`'s primal signature (`Tag{Sig{A, S}, V}`), so that loss closures of one signature share the solver's code; a closure that captures duals keeps its own tag. | adopted (s23, the user's question); tested with ForwardDiff | session note 23 | not yet in TraitDifferentialEquations |
 
 ## Code written without traits
 
@@ -68,7 +71,8 @@ Every design decision with its status, as of 2026-10-16 (end of session 22). The
 
 | Decision | Status | Where |
 |---|---|---|
-| Move to Julia 1.13.2. TraitWorld runs on stock 1.13.2; the load filter is injected into stock Julia; the patched 1.13 build (`julia/` branch `trait-world-1.13`) is postponed. | adopted | explorations/runtime.md; `experiments/baseline-1.13.md` |
+| Move to Julia 1.13.2. TraitWorld runs on stock 1.13.2 and on the patched 1.13.2 build (`julia-1.13/`, a worktree of `julia/` on `trait-world-1.13`, built in session 23). | adopted | explorations/runtime.md; `experiments/baseline-1.13.md`; session note 23 |
+| The machinery's registries (`trait_fields`, `projection`, `op_*`, …) declared with `@max_methods 1` and sentinel methods, so code compiled at abstract types holds no edge to them; then TraitWorld's machinery is protected by the filter like a trait module. Trait modules register with the filter when they start. | adopted (s23, implementation) | session note 23 | yes |
 | Workspace: the design repository with separate repositories inside it (`julia/`, `TraitWorld/`, `experiments/`, `TraitDifferentialEquations/`, `TraitMakie/`); local only, no remotes. | adopted | README.md |
 | The plan: TraitWorld at the current design, then the demonstrators (TraitDifferentialEquations, then TraitMakie), then an upstream proposal; wrapping and sealing later. | adopted | README.md |
-| **TraitWorld's runtime as methods:** a conformance is a method `view(::Type{X}, u::U)`; the entry is an ordinary `@inline` method that is `@nospecialize` on the trait argument; the worker is compiled per key. This replaces entry caches, builders and the generation counter. The prototype runs at plain-Julia speed per call. | **pending: waiting for the user's go-ahead** | explorations/keys-plan.md §6; `experiments/keys-proto/README.md` |
+| **TraitWorld's runtime as methods:** a conformance is a method `conformance(As{X}(), u::U)` (`@max_methods 1` and a fallback, so a new conformance invalidates no entry); the entry is an ordinary `@inline` method, `@nospecialize` on the trait argument; the worker is compiled per key; trait sets are families plus parameter tags, so workers are specialized calls. Typed calls: 33 ns against 30 ns plain. | adopted (s23, the user: "go"); implemented (TraitWorld e26683a) | explorations/keys-plan.md §6; session note 23 |

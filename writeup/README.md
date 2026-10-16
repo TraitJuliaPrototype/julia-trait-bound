@@ -1,6 +1,6 @@
 # writeup/
 
-Everything here is current as of 2026-10-16 (end of session 22). Superseded documents are in `attic/writeup/`.
+Everything here is current as of 2026-10-16 (end of session 23). Superseded documents are in `attic/writeup/`.
 
 ## Read in this order
 
@@ -17,7 +17,7 @@ Everything here is current as of 2026-10-16 (end of session 22). Superseded docu
 |---|---|---|
 | `other-languages.md` | research: how C++, Rust, Swift and Mojo arrived at their trait designs, with criticisms and sources | current |
 | `design-findings.md` | the evidence log: measurements, prototype results, earlier forms of the design and why they changed, in session order | current evidence in §1, 5, 6, 13, 15–19; history elsewhere (its header) |
-| `explorations/keys-plan.md` | how TraitWorld implements keys: two reviews' decisions, phases, the reference layout, the proposed runtime as methods (§6) | the working plan; §6 pending |
+| `explorations/keys-plan.md` | how TraitWorld implements keys: two reviews' decisions, phases, the reference layout, the runtime as methods (§6) | implemented (session 23); the session note records what changed in implementing it |
 | `explorations/runtime.md` | the runtime the design needs, Julia 1.13, the load filter, the minimal runtime for the demonstrators | current, recommendation adopted |
 | `explorations/runtime_load_filter_1.13.2.patch` | the load half of the invalidation filter, ported to 1.13.2 | current |
 | `explorations/associated-types.md` | associated types: whether Rust's and Swift's experience applies, joint parametrization, bounds | adopted in first-order form; written before keys |
@@ -26,7 +26,7 @@ Everything here is current as of 2026-10-16 (end of session 22). Superseded docu
 
 ## Where the rest lives
 
-- **`session-notes/`:** one note per working session. The latest is `2026-10-16-22-other-languages-and-errors.md`; its "Next" list is the starting point for the next session.
+- **`session-notes/`:** one note per working session. The latest is `2026-10-16-23-runtime-as-methods-and-demonstrators.md`; its "Next" list is the starting point for the next session.
 - **The repositories inside the design repository** (`README.md` at the root): `TraitWorld/` (the prototype), `experiments/` (measurements and prototypes), `julia/` (patched Julia), `TraitDifferentialEquations/` and `TraitMakie/` (demonstrator skeletons).
 - **`attic/`:** the earlier phases: TraitRegions, the ecosystem proof of concept, the frozen live note (revision 1146), the proposals and plans of sessions 14–22.
 

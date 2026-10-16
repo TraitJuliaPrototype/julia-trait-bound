@@ -3,6 +3,7 @@
 trace_*.txt
 # separate repositories in this workspace (see README.md)
 /julia/
+/julia-1.13/
 /TraitWorld/
 /TraitDifferentialEquations/
 /TraitMakie/
