@@ -21,17 +21,16 @@ These repositories have no remotes yet. Turning them into submodules of this one
 
 The aim now is to demonstrate that the trait world is viable: that large libraries written in it get the pay-offs, measured against their stock versions and against the same code without traits. Wrapping existing packages and sealing come later.
 
-1. **Julia 1.13.2.**
-   - Build the patched branch (`julia/TRAITWORLD.md`; a cold build needs the network and about an hour alone on the machine).
-   - Move TraitWorld to 1.13, with the injected load filter as its mode on stock Julia (`experiments/runtime-injection/`).
-   - Re-run its tests and re-baseline the measurements. Reasons and porting costs: `writeup/explorations/runtime.md`.
-2. **TraitWorld features the demonstrators need,** each prototyped and measured. Design: `writeup/notes/4-details.md`.
-   - `Dynamic{X}`;
-   - trait fields as properties, and lenses;
-   - associated types: output parameters, family conformances, bounds on parameters, archetypes for parameters (`writeup/explorations/associated-types.md`);
-   - constructor operations and the conformance's inverse;
-   - printing stack frames by bound and representation;
-   - a pinned dynamic mode for models.
+1. **TraitWorld at the current design,** for what a trait world needs (not wrapping or sealing), in the order TraitDifferentialEquations needs it. Each feature gets small solver-shaped acceptance tests.
+   1. `Dynamic{X}`;
+   2. trait fields as properties, lenses, and kept values that follow the user's fields;
+   3. associated types: parameters with `R` last, defining equations, bounds, family conformances, parameter archetypes in definition checking;
+   4. constructor operations, the conformance's inverse, `Like{t}` results;
+   5. printing frames by bound and representation;
+   6. a pinned dynamic mode for models, when the solver needs it.
+
+   Two parts of the design need the language and are approximated in the package: membership as subtyping (an explicit `conforms(T, X)`), and a trait name in a field meaning its `Dynamic` (field types rewritten inside `@trait_module` only). Design: `writeup/notes/4-details.md`.
+2. **Julia 1.13.2, alongside.** TraitWorld's tests pass on stock 1.13.2. The measurements are re-baselined there (`experiments/baseline-1.13.md`), and the load filter is injected into stock Julia (`experiments/runtime-injection/`). The patched build (`julia/TRAITWORLD.md`) is postponed. Reasons and porting costs: `writeup/explorations/runtime.md`.
 3. **TraitDifferentialEquations:** Tsit5, then Rodas5 with automatic differentiation, user models and callbacks, against stock SciML and a plain-Julia copy. Thirteen measurements, in its README.
 4. **TraitMakie:** PlotCore with a Cairo backend, against Makie, a plain-Julia copy and matplotlib. Ten measurements, in its README.
 5. **An upstream proposal** for the deep runtime pieces, backed by the demonstrators' numbers:
