@@ -14,7 +14,7 @@ Every design decision with its status, as of 2026-10-16 (end of session 23). The
 |---|---|---|---|
 | A trait is an abstract type with behaviour: operations and fields. A concreteness guarantee is opt-in per trait. Abstract types stay in Julia; traits are a kind of them. | adopted (s22) | 1-overview "The idea"; 2-design-choices §1 | yes |
 | Conformance is declared (`@implement`), never derived from the methods that exist. | adopted | 2-design-choices §2 | yes |
-| Layering: ordinary code may use the trait world; the trait world uses only itself. | adopted (rule 1, rev 1110) | 4-details "The four rules" | yes |
+| Layering: ordinary code may use the trait world; the trait world uses only itself. | superseded for calls by wrapping by facts (s23): the trait world may call any Julia code; cache validity comes from concrete facts | 4-details "The four rules" | yes |
 | The boundary translates once per bound; only values cross, code never crosses. | adopted (rule 2) | 4-details "The boundary principle" | yes |
 | Ownership: owners are packages; a method's stakeholders are the owner of its function and the owners of its types; delegation by the owner only. | adopted (rule 3, s22 wording) | 4-details "Ownership" | yes |
 | Views and placement: compiled code is compiled against its owners' view and lives where the type was chosen. | adopted (rule 4) | 4-details "The four rules"; 2-design-choices §7 | yes (view caches) |
@@ -66,7 +66,11 @@ Every design decision with its status, as of 2026-10-16 (end of session 23). The
 
 | Decision | Status | Where | Prototype |
 |---|---|---|---|
-| Trait wrappers (one per package, implementations as delegates); calls upward (`@call`, `@handle`); sealing over views (pirates refused at load). | adopted, deferred while the demonstrators are built | 3-wrapping | yes, in the representation form (`experiments/interfaces`, pinned before keys) |
+| **Wrapping by facts** replaces trait wrappers, delegates, sealing regions, doors and declared calls. Code compiled for the trait world, and every callee compiled for it, depends on the method table only through dispatch facts at concrete signatures; calls with non-concrete argument types dispatch at run time; no invalidation is skipped. The layering rule for calls goes: the trait world may call any Julia code. Each callee is compiled into the trait world's cache or called through a pointer into plain Julia's code, a choice that affects speed only. On pirates, the trait world follows plain Julia; a strict mode (outside pirates raise where they would win) is optional. | adopted (s23, the user: "Full go-ahead for the 'wrap by facts' strategy"); evidence E0–E3 | explorations/wrapping-by-facts.md; experiments/facts | in progress (the compiler policy on the julia-hooks branches) |
+
+| Decision | Status | Where | Prototype |
+|---|---|---|---|
+| Trait wrappers (one per package, implementations as delegates); calls upward (`@call`, `@handle`); sealing over views (pirates refused at load). | superseded by wrapping by facts (s23) | 3-wrapping | yes, in the representation form (`experiments/interfaces`, pinned before keys) |
 | Whether wrappers offer conversions for foreign types, now that conformance never converts. | pending | open-issues.md | — |
 
 ## Runtime and workspace

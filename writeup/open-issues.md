@@ -4,7 +4,8 @@ Everything known to be open, as of 2026-10-16 (end of session 23): the design, t
 
 ## 1. Decisions waiting for the user
 
-1. **Conversions in trait wrappers:** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
+1. ~~Conversions in trait wrappers~~: dissolved by wrapping by facts (s23).
+2. **Conversions in trait wrappers (old wording):** whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
 
 (Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
 
