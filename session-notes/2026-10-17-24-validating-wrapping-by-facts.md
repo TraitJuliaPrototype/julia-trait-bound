@@ -125,3 +125,26 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
   - the cost of defining a trait module after big loads (definition-time machinery);
   - larger code and other stacks;
   - the policy's compile cost when no image holds its code.
+- **New trait code defined after big loads** (`$TMPDIR/g2/newmod.jl`):
+  - defining a small trait module takes 0.96 s without loads and 2.7 s with them; its first call 89 ms and 790 ms.
+  - **The policy's compiler.** It ran in the latest world, so the loads invalidated its native code specialized for `FactsInterp` (670 instances, 7 s). Now it runs in a world fixed at TraitWorld's `__init__`, as Julia's own compiler does (`_in_compiler_world`).
+  - **The rest is the machinery's checks** (rule 2, doors, concrete mode), still native. The facts-compiled checks reach them through run-time dispatch: inference limits the mutual recursion `_worker_problems` → `_layering!` → `worker_problems` at abstract types, so the calls stay dynamic, and a run-time call runs native code, which the loads invalidated.
+  - Pointing the checks at the facts code broke rule 2's error-path recognition (the facts code types `kwerr` `Any`, not `Union{}`) and gained little, so it was reverted.
+  - **Verdict:** an implementation cost of TraitWorld's reflective checks, outside the design's claims (G2 is about trait-world code, and that is not invalidated). The cure is the checks in the compiler (Julia piece 7) or a non-recursive walk.
+- **Adversarial G1 hunt** (subagent, 48 cases, ~125 checks; suite in `experiments/facts/hunt/`). It covered `hasmethod`, `applicable`, `which`, `invoke`, generated functions, keyword calls, varargs, `Type{T}`, union splitting, concrete and semi-concrete evaluation, closures, `invokelatest`, `eval`, rebound globals, struct redefinition, ambiguities, `delete_method`, and Base methods for new types. It found **two failure classes**:
+  1. **Asserted effects over a run-time site.** `@assume_effects :foldable` (or `Base.@pure`) let compile-time evaluation fold a value whose run-time site the policy's code holds no fact for. It went stale after a redefinition, both inside facts code and in the native entry caller. Fix:
+     - FactsInterp refuses concrete and semi-concrete evaluation of a callee whose facts code has a run-time call (`_has_runtime_sites`, an IR scan);
+     - the entry passes such a worker's result through `compilerbarrier(:const)`.
+  2. **`return_type` folded at the compilation signature** (widened for `@nospecialize`, `Function`, `Type`, long Vararg). Fix: infer at `specialize_method(match)`.
+- **Second review** (subagent):
+  - **C4 (`_carries_static` pure) and C5 (`:uninferred`): hold.**
+  - **C2 failed on G2.** `_concrete_deps` missed abstract dispatch recorded as bare edges with abstract `specTypes`, or as match groups. Now it rejects those, and bare MethodInstances too.
+  - **C1:** recursion with growing types nested generators without bound; and output emitted on re-entry could be cached for the native owner. Now the generator throws on re-entry and beyond depth 8, so inference gives up without caching.
+  - **C3:** the machinery exemption's docstring was too strong (trait modules extend `param` and `implementation`): sound, but a G2 cost for the machinery when a trait library loads. Docstring corrected.
+  - `_NativeRT` is now wrapped in `MethodResultPure`.
+- **A G1 carve-out found:** plain Julia itself gives different answers for the same inference query. `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` folded in compiled code. Values that depend on inference precision (`return_type`, `promote_op`, element types of empty collections and broadcasts) have no single plain answer. The policy matches them where practical (G1.8, G1.9, G1.11); the design should say so.
+- **State** (TraitWorld f558180, experiments 9a35d14):
+  - acceptance **12/12**;
+  - the hunt suite passes but for C16 (the carve-out) and C24b (a harness bug);
+  - the suite, TDE and TraitMakie pass;
+  - TDE first solve 59–60 ms in every load order; TraitMakie first PNG 93–96 ms; typed 37 ns.
