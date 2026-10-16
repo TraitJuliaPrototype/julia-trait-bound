@@ -184,3 +184,15 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
   - acceptance 15/15; the hunt passes but C24b (the harness bug);
   - the suite, TDE and TraitMakie pass;
   - typed calls 37 ns; DataFrames workload under the policy 0.60 s first call against 0.45 s.
+- **Review of the kinds and `return_type` rules** (subagent):
+  - **R1, kinds as facts: G1 holds, G2 fails.** A fact at a `DataType` argument is broken by any method of the function admitting a type value, so a package's trait function extended by an unrelated module would invalidate trait code.
+    - **Fixed:** kind-typed facts only for closures, since only a closure's owner adds methods to it. Closure detection: the module does not bind the type's name to its instance; my first test, `#` in the name, also matched named functions.
+    - New acceptance G2.1. The broadcast stays at 16 ns.
+  - **R2:** edges and effects hold. "At least as precise" holds only up to A3: a nested `return_type`, or `Union{}` from throwing abstract sites, can differ. The docstring and the design now say so.
+  - The native fallback now folds `typeof` of a constant result, as compiled code does.
+- **Final state:**
+  - acceptance **16/16**; the hunt passes but C24b (the harness bug);
+  - the TraitWorld suite, TDE and TraitMakie pass;
+  - `g2all`: 0 facts-owned lost after each of 12 loads, two stacks, interleaved; first work 148–158 ms in every order;
+  - TraitMakie first PNG 93–95 ms in every order;
+  - typed calls 38–39 ns; broadcast under the policy 16 ns against 16 natively.

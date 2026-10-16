@@ -160,7 +160,7 @@ E2 should be repeated with larger trait-world code (more of Base) and other stac
 
 ## Validation (session 24, 2026-10-17; patched 1.13.2, no skip predicate)
 
-Running notes: `session-notes/2026-10-17-24-validating-wrapping-by-facts.md`. Implementation: TraitWorld ac62d63, julia `trait-world-1.13` 5b5b98758f. Experiments: `experiments/facts/`.
+Running notes: `session-notes/2026-10-17-24-validating-wrapping-by-facts.md`. Implementation: TraitWorld (final commit of session 24), julia `trait-world-1.13` 5b5b98758f. Experiments: `experiments/facts/`.
 
 **Verdict.** The design holds, under the assumptions and rules below.
 - **G1** holds up to A3 and A4.
@@ -180,14 +180,16 @@ Running notes: `session-notes/2026-10-17-24-validating-wrapping-by-facts.md`. Im
    - The call is `@noinline`. Julia's inliner resolves `:invoke ci` in the caller's own cache, and would inline native code while dropping its edge (piece 10).
 2. **A bare MethodInstance edge belongs to its owner.** It can be broken only by a CodeInstance of the caller's own owner; replacing the method still reaches every owner (piece 9). *Lemma:* an interpreter consults only its own cache, so a bare edge, recorded for a cycle partner or an uncached result, stands for a result of the same owner. Tested in G1.15.
 3. **`return_type` is plain Julia's question.** It is answered in this order:
-   - the policy's own answer, with its facts as edges, when that is a concrete type or `Union{}`. Native inference is at least as precise, so plain Julia's answer is the same type or `Union{}`.
+   - the policy's own answer, with its facts as edges, when that is a concrete type or `Union{}`. It can differ from plain Julia's answer only through values inference decides (A3): `Union{}` where an abstract site's methods all throw, or a nested `return_type` in the callee.
    - otherwise plain Julia's answer from native inference at the match's own signature, folded with the edge `(sig, native ci)` only when it rests on concrete facts;
    - otherwise the call is left to run time.
 4. **No compile-time evaluation over a run-time site.**
    - Asserted effects (`@assume_effects`, `Base.@pure`) can claim foldability over a site the policy dispatches at run time. A fold would then hold no fact for that site.
    - So FactsInterp refuses concrete and semi-concrete evaluation of a callee whose code under the policy has a run-time call. Missing IR, or code not owned by the policy, counts as unknown.
    - The entry also passes such a worker's result through `compilerbarrier(:const)`.
-5. **Kinds are facts.** A signature whose non-leaf parts are kinds (`DataType`, `UnionAll`, `Union`: types passed as values) counts as concrete. Only a method of the same function with a `Type{...}` argument breaks such a fact. Without this, every broadcast had a run-time call in its element-type computation.
+5. **Kinds are facts for closures.** A closure called with kinds (`DataType`, `UnionAll`, `Union`: types passed as values) counts as concrete. Only the closure's owner adds methods to it.
+   - Without this, every broadcast had a run-time call in its element-type computation: 176 ns against 15.
+   - For other functions a kind-typed fact would be broken by any method admitting a type value (`f(::Type{X})` for any `X`), so unrelated packages could invalidate trait code. Those calls stay run-time sites (G2.1).
 6. **The machinery is wrapped by facts too.**
    - Conformances are decided in the caller's world and cached per world. Plain redefinitions and older worlds are followed (G1.13, G1.14).
    - Its slow paths are compiled under the policy and kept in TraitWorld's image.
@@ -196,7 +198,7 @@ Running notes: `session-notes/2026-10-17-24-validating-wrapping-by-facts.md`. Im
 7. **The machinery exemption** (TraitWorld's own functions inferred as usual) is sound by rule P. Theorem 2's premise does not hold for those CodeInstances, so G2 for the machinery is empirical: 0 lost when a second trait library loads (`twolibs.jl`).
 
 **G1 evidence:**
-- `acceptance.jl`: 15 of 15. It covers:
+- `acceptance.jl`: 16 of 16 (with G2.1). It covers:
   - redefinitions;
   - winning pirates;
   - Base, LinearAlgebra and Printf;
