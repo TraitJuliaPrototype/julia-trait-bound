@@ -20,7 +20,7 @@ On the prototype, an ad-hoc session took 22 s to its first plot, about 13 s of i
 
 **Julia compiles a function for the whole type of each argument.**
 - **A concrete type is data:** its fields and the types of its parts. What a value can do is not in its type but in the methods that apply to it, which any package can add or change.
-- **A method is compiled for the argument's full concrete type,** even when its body reads one field of it. A solver step that reads the state, the parameters and the time is compiled for the integrator's whole type, which in SciML is 3,553 characters, most of it the solver's own options, caches and solution.
+- **A method is compiled for the argument's full concrete type,** even when its body never reads some of its parts. In SciML a callback's type is part of the integrator's type, so a new callback closure recompiles the solver, 0.84–0.96 s, although the step never reads the callback.
 - **An abstract type** can name intended behaviour, but nothing checks it, and fast code needs the concrete type where it runs. So every signature and type parameter above the inner loop carries that type.
 
 A value built in layers, a plot holding an observable holding a user's array, therefore has a type that grows with every layer:
@@ -39,14 +39,18 @@ The way out is a field typed `Any`, which stops the growth by giving up everythi
 
 A field's type may be a parameter of the trait, an *associated type*: `@trait Integrator{U, P}` declares the fields `u::U` and `p::P`. Optionally, a trait guarantees that whatever conforms becomes concrete with respect to that behaviour: that its associated types are concrete. A trait is what abstract types should have been. Abstract types stay in Julia, and traits are a kind of them.
 
-**Conformance.** A type joins a trait by declaring it, `@implement ColTable MyType`, also after the type was defined. The type implements the trait's operations itself, or forwards them to one of its fields whose type implements them. The declaration is checked: every operation and field exists, with the declared types.
+**Conformance.** A type joins a trait by declaring it, `@implement ColTable MyType`, also after the type was defined.
+- **The operations** are implemented by the type itself, or forwarded to one of its fields whose type implements them.
+- **The declared fields** are stored fields of the type, by name or mapped, `name => label`.
+
+The declaration is checked: every operation and field exists, with the declared types.
 
 **Compiled for what the bound can see.**
 - A function bounded by a trait reaches its argument only through the trait's operations and fields.
 - So it is compiled for the types those involve, not for the argument's own type. These types are the bound's *key*: the type that implements the operations, and the types of the declared fields.
 - Types that differ only in what the trait cannot see share compiled code:
   - every table type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code the library compiled for `Vector{Vector{Float64}}`;
-  - a solver step bounded by `Integrator` is compiled per state and parameter type, whatever else the integrator holds.
+  - a solver step bounded by an `Integrator` trait is compiled per the types of what the trait declares (state, parameters, step size, cache, options), so a new callback, which the trait does not declare, compiles nothing.
 - A type that implements the operations itself is part of the key, by its own choice.
 
 **Reading like abstract types.** Where a trait is used, it reads like an abstract type:
@@ -73,7 +77,7 @@ Julia treats piracy as bad practice; the trait world makes it an error where tra
 1. **Interactivity through cached code.**
    - Library code is compiled once per key, stored with the package that owns it, and reused in every session and every combination of packages.
    - Loading another package never discards it.
-   - A new type that forwards to a field of a known type costs no new library code.
+   - A new type that forwards to a field of a known type costs no new library code, and a new value that the bound does not see, such as a callback, costs none either.
 2. **Simple ahead-of-time compilation.**
    - Dispatch over the types a program meets at run time goes through declared conformances, whose targets are listed.
    - A build can compile exactly the code the program can reach, and a trimmed binary does not die at its first generic call.
@@ -150,13 +154,18 @@ meandiff(m, r, 1)                     # 0.0, compiled for this pair of keys
 **Fields as the key.** A trait whose fields are typed by its associated types compiles per those types:
 
 ```julia
-@trait Integrator{U, P} begin
+@trait Integrator{U, P, C} begin
     u::U                              # the state, writable
-    @const p::P                       # the parameters
+    p::P                              # the parameters, writable: a callback may rebind them
     t::Float64
+    dt::Float64
+    @const cache::C                   # the algorithm's cache
 end
-step!(i::Integrator, dt::Float64) = …   # compiled per (U, P): a solver's options, caches and solution are not in the key
+step!(i::Integrator) = …              # compiled per (U, P, C): callbacks, the solution and anything else
+                                      # the integrator holds are not in the key
 ```
+
+Keys do not remove every recompile. A `Float32` state, or a new loss under automatic differentiation (its dual numbers' tag carries the loss's type), changes `U`, and compiles the step again, as today.
 
 ## What it costs
 
@@ -178,7 +187,7 @@ TraitWorld, the prototype, runs on stock Julia 1.13.2:
 - `verify_main` for trimmed binaries;
 - prototypes around DataFrames and Makie.
 
-It predates the formulation by keys: it spells the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`), still offers computed projections, and keys on one field at a time.
+It predates the formulation by keys: it spells the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`), still offers computed projections, and keys on one field at a time. The move to keys is planned in `writeup/explorations/keys-plan.md`. Measurements in `experiments/interfaces` were taken before keys.
 
 The runtime pieces it needs exist as experiments: a patched Julia with an invalidation filter at method insertion and at image load.
 

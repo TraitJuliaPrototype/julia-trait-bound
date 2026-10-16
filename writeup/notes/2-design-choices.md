@@ -54,7 +54,7 @@ The research behind this note is in `writeup/other-languages.md`, from primary s
 
 **Numbers need no trait.** `Float64` and `Measurement{Float64}` are trait-world values by their types, and Base's numeric tower stays. Promotion runs on concrete types in Base. A numeric *trait*, for numbers that conform after the fact or forward to a field, would need operations across two implementing types, which is promotion; that is open.
 
-**Rejected:** hidden type parameters, a struct implicitly parametric in the types of fields declared by bounds. "Hidden type parameters seem antithetical to Julia" (the user, 2026-10-16). Stored state with a fixed representation uses explicit type parameters; with a changing one, dynamic values.
+**Rejected:** hidden type parameters, a struct implicitly parametric in the types of fields declared by bounds. "Hidden type parameters seem antithetical to Julia" (the user, 2026-10-16). Stored state with a fixed type uses explicit type parameters; with a changing one, dynamic values.
 
 ## 2. Conformance is declared
 
@@ -95,8 +95,8 @@ Library code reaches a value only through its bound, so this is all it can depen
 | Julia: an `Any` field | the caller once, each target per runtime type when first reached | dynamic, result `Any` unless asserted | nothing | can add targets |
 | the type implements the operations | the library per type, in the conformer's image | direct | the type, reached through its operations | changes nothing (rule 4) |
 | forwarding to a field | the library per field type | direct | the field's type | changes nothing (rule 4) |
-| declared fields | the library per tuple of field types | direct field access | the fields' types | changes nothing (rule 4) |
-| dynamic operations | the library once per field type, in the conformer's image | indirect, result type declared | the field's type | changes nothing (rule 4) |
+| declared fields | the library per tuple of field types | a held value, or a lens for a writable field | the fields' types | changes nothing (rule 4) |
+| dynamic operations | the library once per conformer, in the conformer's image | indirect, result type declared | the field's type | changes nothing (rule 4) |
 | dynamic call | the library once per signature, the function by its caller | indirect, result type declared | the signature | changes nothing (rule 4) |
 | compiled call | per function type, in the caller's image | direct | the function's type | can invalidate it, as today |
 | `Dynamic{X}` | each operation with its conformance; the library per key where it is opened | a dispatch on the stored value, result type declared | the operations, until opened | changes nothing (rule 4) |
@@ -114,12 +114,19 @@ Library code reaches a value only through its bound, so this is all it can depen
 The argument is structural; it is not yet measured on a stack of trait modules.
 
 **Why keys and not representations.** Until session 22 the design translated a value to a *representation*: plain data produced by a projection, a field read or any computed function, with an inverse to rebuild the user's type. Keys keep what that bought and drop the rest:
-- **Sharing stays.** A field's type is the key, so every type forwarding to a `Vector{Vector{Float64}}` shares the library's code, as every type projecting onto it did.
-- **Nothing is copied.** The trait object refers to the user's object and its fields, so writes are seen as in plain Julia, two views of one object always agree, and the inverse for a result like the input is the user's object with a field replaced.
+- **Sharing narrows to forwarding.** A field's type is the key, so every type forwarding to a `Vector{Vector{Float64}}` shares the library's code. Types that a computed projection used to map onto it now convert explicitly (below).
+- **Nothing is copied.** A view holds the parts its trait reads and reads writable fields through the user's object, in one layout per trait and key. Writes are seen as in plain Julia; a read-only part rebound during a call raises at the entry's exit instead of going stale; the inverse for a result like the input is the user's object with fields replaced.
 - **Several fields.** A key is the types of all declared fields, not one representation that a solver's state, parameters and time would have to be packed into.
-- **Lost:** computed projections, a lazily derived representation or a foreign type converted on the way in. A library that wants shared code for such types converts explicitly, and a foreign type conforms by an implementation its wrapper's delegates write ([code written without traits](3-wrapping.md)).
+- **Lost:** computed projections, a lazily derived representation or a foreign type converted on the way in. A library that wants shared code for such types converts explicitly, at the cost of a copy, no `Like{t}` and no write-through ([the design in detail: Types that only convert](4-details.md#types-that-only-convert)); a foreign type may also conform by an implementation its wrapper's delegates write, compiled per foreign type ([code written without traits](3-wrapping.md)).
 
-**Precedents, not researched for this note (from memory).** Haskell's `deriving via` gives a newtype the instance of the type it wraps, so that code exists once, as a forwarded trait's library code does. Go's struct embedding and Kotlin's `by` forward an interface's methods to a field. Go compiles one generic instance per memory layout ("GC shape"), a key that ignores what the code does not distinguish. None of them uses the forwarded field as a compile key, because they compile ahead of time: the cost per type is build time there, and session latency in Julia.
+**Precedents** (from memory and the review of the keys plan; not in `writeup/other-languages.md`):
+- **Haskell's** newtype deriving and `DerivingVia` give a type the instance of a type with the same runtime representation, a `Coercible` one. That is closer to the earlier representations than to forwarding one field of a record with other fields, which neither supports. The instance's code exists once because Haskell passes dictionaries, not because of deriving.
+- **Go's** struct embedding satisfies an interface through methods the compiler generates per outer type, the analogue of our entry. Go 1.18 compiles one generic instance per "GC shape", grouping types by underlying type and all pointers together: a key that ignores what the generated code does not distinguish.
+- **Kotlin's** `by` forwards an interface's methods to a field.
+- **.NET** shares generic code among reference types.
+- **Julia's own** function-barrier idiom, passing only the fields an inner function needs, and SciML's AutoSpecialize, which wraps the user's function to stop specialization, are the closest relatives.
+
+None of them makes a forwarded field the compile key, because none specializes generic code per type the way Julia does.
 
 **The dynamic positions are not `Any`.**
 - Result types are declared and asserted, so code after a call infers concretely.
@@ -317,7 +324,7 @@ Not researched for this note (from memory): Go compiles one generic instance per
 
 **Ours:**
 - **Detection moves earlier,** to the conformance (missing operations, wrong result types) and to the library's build (definition checking).
-- **Frames inside the trait world print by bound and key,** `step!(i::Integrator{Vector{Float64}, Params}, dt::Float64)`, not by the integrator's full type. The prototype prints bounds and keys for its trait objects.
+- **Frames inside the trait world print by bound and key,** `step!(i::Integrator{Vector{Float64}, Params, Tsit5Cache})`, not by the integrator's full type. This is design: the prototype's printing of trait-object types by bound is written but not yet run, and its stack frames still show its machinery types (`writeup/design-findings.md` §17).
 - **The limit:** bugs in user code above the trait world, as in all three SciML cases, are still found at run time. The traces get shorter, and requirements like "`f` is called with dual numbers" become part of the signature, as a second `Callable` bound.
 
 ## 10. The complexity budget
@@ -351,8 +358,9 @@ The design restricts what trait-bound code may do, and only there.
 
    Inward doors (eval, deserialization, reflection) are available only as declared calls with a checked result.
 4. **Trait objects see only their keys.**
-   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse, the user's object with a field replaced ([the design in detail: Results like the input](4-details.md#results-like-the-input)).
-   - A value kept beyond a call follows the user's fields where they can be rebound (lenses), as every holder of the object does in plain Julia.
+   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse, the user's object with fields replaced ([the design in detail: Results like the input](4-details.md#results-like-the-input)).
+   - Within a call, read-only parts are held, and a rebinding during the call raises at the entry's exit; a field that callbacks may rebind is declared writable, read through the user's object at 1–5 ns per access.
+   - A value kept beyond a call keeps a mutable user's object and rebuilds its view at each use, so it follows the user's fields, at about the cost of an entry per operation.
    - A type converted on the way in, a computed view of its data, is not a conformance: the library converts explicitly, and the result does not follow the user's object.
 5. **Types come first.** A type that matches a type-annotated method takes it, even when it also conforms to a trait bound of the same function. Reaching the trait method needs a type that no type method catches, or a newtype.
 6. **Code written without traits is curated.** Capability traits with their conformances for Base's families, and each wrapper's implementations and conformances, are declared by hand. A package has one wrapper per environment.

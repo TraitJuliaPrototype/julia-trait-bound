@@ -1104,7 +1104,7 @@ One compiled loop served lenses into two different user types. A rebinding of th
 
 **What the analysis found:**
 - **Cache validity** (no invalidation by unrelated loads) never needed representations: it comes from layering, ownership and the load filter.
-- **Cache reuse** (a new user type costs no compile) needs a compile key that excludes the user's type. In Julia a method compiles per full argument type, so the call must pass the parts the code may touch, not the object: the entry and the trait object. That is a calling convention, not a change to inference or codegen.
+- **Cache reuse** (a new user type costs no compile) needs a compile key that excludes the user's type. In Julia a method compiles per full argument type, so the call must pass the parts the code may touch, not the object: the entry and the trait object. That is a calling convention for held parts; lenses at full speed need the runtime to emit offset loads and stores (with a write barrier for boxed fields), which stock Julia offers only for isbits fields (`unsafe_load` at `fieldoffset`).
 - **Concreteness** was always a property of the key, never of the user's type.
 - So the representation's job is done by the *key*: the types a bound can see, the implementing type (the conforming type, or the field it forwards the trait to) and the types of the declared fields, typed by associated types.
 
@@ -1115,3 +1115,21 @@ One compiled loop served lenses into two different user types. A rebinding of th
 - **Lost:** lazily derived representations and foreign types converted on the way in. They become explicit conversions in library code or implementations written by a wrapper's delegates.
 
 **Prototype:** TraitWorld still has the earlier spelling (`R` last, computed projections, one field per key); multi-field keys are the next prototype step.
+
+**Two reviews (fable-critic on Opus, 2026-10-16; `writeup/explorations/keys-plan.md` records the decisions):**
+- *Of the notes:*
+  - The first version mixed held and lens layouts, so a mutable user type missed the cached worker, and it paid 4× per element.
+  - It reused the withdrawn 3,553-character integrator argument.
+  - It left forwarding undefined for traits with operations and fields.
+  - The fixes:
+    - one view layout per trait and key: held parts, plus the user's object and lens indices for writable fields;
+    - the motivation rebuilt on the callback measurement, with what keys do not help (a `Float32` state, AD tags);
+    - implementation separated from conformance, with field mappings.
+- *Of the plan:*
+  - A held part can go stale inside a solver: a callback rebinding `integrator.p`. Held parts are now compared with the user's fields at the entry's exit, and a mismatch raises.
+  - A lens over an isbits field allocates through the builtins (about 20 ns, 16 bytes): isbits lenses use the field's offset.
+  - Also decided:
+    - the forwarding field may not be writable;
+    - `like` and `withfields` give pending results that only the entry inverts;
+    - membership through a generic implementation only for traits without fields;
+    - the key holds every declared field's type.
