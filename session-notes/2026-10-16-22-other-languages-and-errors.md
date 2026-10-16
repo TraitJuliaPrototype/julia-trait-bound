@@ -126,6 +126,19 @@ field being an operation with a fixed implementation). The single note's
 local copy is archived with a banner; the live Claude Doc is unchanged
 (rev 1146).
 
+Ownership by stakeholders (the user: "owners are always modules? ... How is
+ownership decided here?"): owners are packages; a method has stakeholders
+(the owner of its function and of every type in its signature) and may be
+defined only by one of them or a delegate; why: stakeholders are exactly the
+owners a call is compiled against (rule 4). Writable fields (the user:
+"desugar data::R to requiring two methods"; "write the lens version"): trait
+fields are properties (`getproperty`/`setproperty!` on the representation),
+writable unless `const`; copying projections refused; the projection field
+`data::R` is a lens (the user's object and the field's index), live, kept as a
+lens in `Dynamic` values. Measured (`poc/lens/lens_bench.jl`, findings §18):
+lens read 4.6 ns via builtin getfield on Any, 1.15 ns as a pointer load at the
+offset, 1.0 ns held; write 13.6 ns vs 0.6 direct.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.

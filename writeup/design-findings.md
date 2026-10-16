@@ -1068,3 +1068,32 @@ the conformance or the library's build.
 3. Whether the explanation of a failed conformance stays short when traits
    refine traits (GCC's concept explanations walk the hierarchy) is
    untested.
+
+## 18. Writable fields and lenses (session 22)
+
+The user asked for writable trait fields ("something people would expect. Its how traits elsewhere work") and proposed desugaring a field to a getter and a setter. The design, in `writeup/notes/4-details.md` ("Declaring a trait", "Dynamic values"):
+
+- **Properties.** A trait field is a property: `getproperty` and `setproperty!` on the representation, as Scala desugars a trait's `var` and Swift requires `{ get set }`. Fields are writable unless declared `const`, as in a `mutable struct`.
+- **When writes are seen.** Julia passes by sharing, so `t.d = 6` on a mutable argument is seen by the caller. Through a trait, a write is seen when the representation is the user's object or shares its data. Copying projections are refused for traits with writable fields.
+- **The projection field.** A field of type `R` (`data::R`) names the projection. Writing it rebinds the user's field, so the trait object holds a lens, the user's object and the field's index, not the field's value.
+  - Its type is fixed by declaring the field as exactly `R`.
+  - Workers stay compiled per representation, since the lens carries an index, not the user's type.
+  - A `Dynamic` made from a lens keeps it: it is live, and compares by identity.
+
+**Cost** (`poc/lens/lens_bench.jl`, Julia 1.12.2, -O2, 10^8 accesses, best of three; a loop that reads the representation once per iteration):
+
+| access | ns |
+|---|---|
+| read, direct field (compiled per user type) | 1.04 |
+| read, held value (snapshot) | 1.03 |
+| read, lens via builtin `getfield(obj::Any, i)::R` | 4.6–4.7 |
+| read, lens via a load at the field's byte offset (`pointer_from_objref` + offset) | 1.15 |
+| write, direct field | 0.6 |
+| write, lens via builtin `setfield!(obj::Any, i, x)` | 13.6 |
+
+One compiled loop served lenses into two different user types. A rebinding of the field from above is seen through the lens (10.0) and not through the snapshot (1.0). On stock Julia a lens costs 4–5 ns per read and about 14 ns per write. A runtime that emits a typed load and store at the field's offset, with the write barrier, makes it nearly free.
+
+**Open:**
+- whether every field projection of a mutable user type should be a lens when kept in a `Dynamic`, which would remove the first stale-value case of the stored-values review;
+- several views of one object, where a lens and a view computed from the same field must not diverge;
+- computed properties as projections.

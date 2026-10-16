@@ -139,7 +139,7 @@ An exported function's argument without a bound takes trait-world values only, s
 | In a trait module | Allowed | Why |
 |---|---|---|
 | the trait's operations on a trait object: `col(t, i)`, `ncols(t)` | yes | the way to reach the user's data |
-| a field the trait declares: `t.name` | yes | a declared field is an operation with a fixed implementation (Declaring a trait) |
+| a field the trait declares: `t.name`, and `t.name = x` unless it is `const` | yes | a declared field is a pair of operations, `getproperty` and `setproperty!` (Declaring a trait) |
 | several trait objects in one function, of one trait or several | yes | compiled once per tuple of representations |
 | an argument with several bounds, `t::(ColTable, RowTable)` | yes | one projection per bound (rule 2) |
 | passing a trait object to the module's own functions, or on where its own trait is expected | yes | statically within the module, through the entry otherwise (rule 2) |
@@ -183,27 +183,40 @@ end
 - A default is written in terms of the other operations, and an implementation may override it. A default never throws "not implemented": a missing operation is an error when the conformance is declared, not when it is called.
 - An operation that mutates its representation is marked, and such a trait accepts only projections that share the user's data.
 
-**Fields.** A trait may require fields as well as operations, as a struct declares them:
+**Fields.** A trait may declare fields as well as operations, as a struct declares them. A field is a property:
+- `t.name` is `getproperty(t, :name)` and `t.name = x` is `setproperty!(t, :name, x)`, as everywhere in Julia;
+- a trait field requires both to work with the declared type;
+- following `mutable struct`, a field is writable unless declared `const`.
 
 ```julia
 @trait HasData{R} begin
-    data::R                  # conforming types keep their representation in the field `data`
+    data::R                  # the representation lives in the field `data`: a lens, readable and writable
 end
 @trait Named{R} begin
-    name::String             # every representation has a field `name` of type String
+    const name::String       # read-only: every representation has a property `name` of type String
+    count::Int               # readable and writable
     ncols(r::R)::Int
 end
 ```
 
-- **A field is an operation with a fixed implementation.** On a trait object of `Named`, `t.name` reads the field of its representation and has the declared type, as an operation's result does. At a known representation it compiles to the field load.
-- **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused, as before. A `Dynamic` value reads its declared fields by dispatch, as it calls its operations.
-- **A field of type `R` names the projection.** `data::R` says that a conforming type holds its representation in the field `data`. `@implement HasData T` then needs nothing more, and inside, the trait object is that field's value. The one-line form's convention (the field named `data`, or the one conforming field) becomes something a trait states.
+- **A field is a pair of operations.** Reading is `getproperty(r, :name)::String` on the representation, writing `setproperty!(r, :name, x::String)`. Scala desugars a trait's `var` the same way, and Swift's protocols require properties `{ get set }`.
+  - A stored field satisfies them, and so does a computed property: a `getproperty` method defined by the representation's owner.
+  - At a known representation, a stored field compiles to the field load or store.
+- **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused, as before. A `Dynamic` value reads and writes its declared fields by dispatch.
+- **Writes are seen as in Julia.** Julia passes arguments by sharing, so `t.count = 6` on a mutable argument is seen by the caller. Through a trait, a write is seen when the representation is the user's object or shares its data: a type that is its own representation, or a sharing projection.
+  - A trait with writable fields therefore refuses copying projections, as a trait with mutating operations does. A write into a copy would silently miss the user's object.
+  - A conforming representation must be mutable, with those fields of exactly the declared types, so that a write never changes a type that compiled code relies on.
 - **Other fields are fields of the representation.**
   - For a type that is its own representation, they are the type's own fields.
   - A type that projects needs a representation that has them.
-  - The field's declared type is checked at the conformance as an operation's result type is, and must be concrete if the trait requires concreteness.
-- **Fields are read through a trait, not written.** A representation may share the user's data, so writing goes through a mutating operation the trait declares. Whether a trait may declare a settable field is open.
-- **Definition checking covers them.** A trait's archetype has its declared fields with their declared types.
+  - Their declared types are checked at the conformance as an operation's result types are, and must be concrete if the trait requires concreteness.
+- **A field of type `R` names the projection, and is a lens.** `data::R` says that a conforming type holds its representation in its field `data`. `@implement HasData T` then needs nothing more, and the one-line form's convention (the field named `data`, or the one conforming field) becomes something a trait states.
+  - **Reading** `t.data` is the trait object's representation.
+  - **Writing** `t.data = v` rebinds the user's field, as `t.data = v` does in plain Julia. So the trait object cannot just hold the field's value: it holds a reference to the field, the user's object and the field's index, and reads the representation through it. Every copy of the trait object, and every `Dynamic` made from it, then sees the new value, as every holder of a mutable object does.
+  - The field must be declared with exactly the type `R`, so that rebinding never changes the representation's type. A `const data::R` is an ordinary read-only projection.
+  - Workers stay compiled per representation, because the reference carries the field's index, not the user's type.
+  - The reference keeps the user's object alive, so shared data cannot be freed under it.
+- **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `const`.
 - **New over Julia.** Julia's abstract types cannot require fields, a long-standing request. A trait can, because conformance is declared and checked.
 
 **Parameters.** A trait may take parameters besides the representation, as `AbstractArray{T, N}` does: `ArrayLike{T, N}`, `Source{T}`.
@@ -288,8 +301,8 @@ Form 4 may be generic over a family of representations (Generic implementations)
 **Every check runs at the declaration, never at a call:**
 - **Ownership:** the author owns the type or the trait, or is a delegate one of them names (rule 3).
 - **Concreteness,** for a trait that requires it: the representation is deeply concrete, whether it is the field's type, the projection's result, or the type itself. A field declared `AbstractVector` is refused with the field named; the fix is a concrete field, or a projection that materializes.
-- **Completeness:** every operation has a method or a default, and every declared field exists, with the declared types.
-- **Sharing:** a projection declares whether it shares the user's data or copies it, and a trait with mutating operations accepts only projections that share.
+- **Completeness:** every operation has a method or a default, and every declared field exists, with the declared types; writable fields on a mutable representation, with exactly the declared types.
+- **Sharing:** a projection declares whether it shares the user's data or copies it, and a trait with mutating operations or writable fields accepts only projections that share.
 - **Layering:** the methods' code stays in the trait world (rule 1).
 - **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the trait's declared field, the name `data`, or a written projection.
 
@@ -521,9 +534,15 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
   - A bound in a field, a container or a result projects the value and keeps the trait object.
   - Inside, storing a trait object of `X` where an `X` is declared keeps it, as Julia converts a value stored in a typed field; `Dynamic{X}(t)` does so explicitly.
   - Nothing else makes one, so its type decides it: the entry admits it by type, and inward doors such as deserialization check its content.
-- **Translated once, when made.** Keeping a value is a crossing.
+- **Translated once, when made,** unless the projection is a lens. Keeping a value is a crossing.
   - A later change to the user's object is seen as far as the projection shares data, as a typed field in Julia converts at construction.
   - A `Dynamic` made from a sharing projection keeps the user's object alive, so shared data cannot be freed under it.
+- **Lenses stay lenses.** A `Dynamic` made from a trait object whose projection is a lens (a writable `data::R`) keeps the lens.
+  - **Liveness:** it sees the user rebind the field, as every holder of the object does, and writes through it reach the user's object.
+  - **No reopening:** the field is declared with exactly the type `R`, so the stored value's representation type never changes, and the dispatch that opens it never needs to be redone.
+  - **Equality:** a lens compares and hashes by the user's object and the field, so a write never changes its hash, as for a mutable object in Julia.
+  - **Serialization:** it serializes the user's object and the field's index, and inward doors re-check both.
+  - **Compiled code:** a worker can receive a lens view or a held view of the same representation, so it is compiled once for each kind that occurs.
 - **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose representations reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
 - **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its representation once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
@@ -533,6 +552,19 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
 - **Up and down.** A `Dynamic` is a trait-world value: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
 
 A `Dynamic` costs an allocation when made, and a dispatch per operation: about 20–80 ns in a measurement of Julia's dispatch on boxed values. First calls from package images need no compilation.
+
+**Several views of one object.** A value that carries a lens view and another view computed from the same field goes wrong on a write: the write through the lens leaves the computed view stale. So a type whose writable projection field also feeds another trait's projection must project both from the field, one lens shared by both views, or the conformance is refused.
+
+**What a lens costs** (measured on Julia 1.12, per access, a worker reading its representation once per operation call; `writeup/design-findings.md` §18):
+- **Reads:**
+  - a held value: 1.0 ns, as a direct field read;
+  - a lens through Julia's builtin `getfield` on an untyped object: 4.6 ns;
+  - a lens as a load at the field's byte offset, which a runtime can emit: 1.15 ns.
+- **Writes:**
+  - through the builtin `setfield!`: 13.6 ns;
+  - direct: 0.6 ns.
+
+Loops over the representation's contents pay nothing extra, and an operation called per element pays the read each time.
 
 ## Caching: compiled once, reused everywhere
 
@@ -654,7 +686,6 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 
 - **Constructor operations.** A trait may declare how to build a value of the user's type from a representation, so trait modules can return values like their inputs.
 - **Representation maps for supertraits.** `@trait B <: A` is relied on by rule 2, by dispatch and by bundle traits; the syntax of the map by which `B`'s operations call `A`'s statically is open.
-- **Settable fields.** A trait that declares a field writable, for representations that share the user's data.
 - **Inline entries.** Callers that already know the type inline the projection lookup and call the worker directly.
 - **Concrete mode by default.** Warnings for every worker, so the cliff is caught before anyone opts in.
 
@@ -665,4 +696,6 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - Numeric traits: numbers that conform after the fact or project, and promotion across representations.
 - Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
-- Prototype work: named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.
+- Whether every field projection of a mutable user type should be a lens when it is kept in a `Dynamic` value, not only writable ones. A lens makes a kept value see the user rebind its field, as plain Julia's holders do (the review's first stale-value case), at 0.15–3.6 ns per read.
+- Computed properties (a `getproperty` method) as projections: a lens needs a field; a computed projection stays translated once.
+- Prototype work: lenses (a field reference); named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.
