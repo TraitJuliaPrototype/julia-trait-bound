@@ -69,7 +69,7 @@ So loading a package can never change what code in the trait world computes. Tod
 
 Rule 1 is layering; rule 2 says how a value crosses into the trait world and what it is there; rules 3 and 4 say who may change code in the trait world, what a call sees, and where compiled code lives.
 
-1. **Layering.** Ordinary code may use the trait world; the trait world uses only itself.
+1. **Layering.** Ordinary code may use the trait world; the trait world uses only itself. *(Session 23: superseded for calls by wrapping by facts, `explorations/wrapping-by-facts.md`. The trait world may call any Julia code; what keeps its compiled code valid is that it depends on the method table only through dispatch facts at concrete signatures. This section is rewritten once the prototype confirms the design.)*
    - **What trait modules call:** trait modules and wrapped packages, checked on the compiled code. They accept only values of trait-world types.
    - **Code outside** runs for the trait world only as a call upward: at a declared signature, through a pointer, with no inference edge, its result translated by its bound. Calls upward are:
      - a function handed down from above as a `Callable` argument, unless it is compiled with the caller, above the trait world's cache;

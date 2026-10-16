@@ -63,6 +63,8 @@ The bound determines how a value becomes concrete, so signatures do not carry co
 
 > **Ordinary code may use the trait world; the trait world uses only itself.**
 
+*(Session 23: replaced for calls by wrapping by facts, `explorations/wrapping-by-facts.md`: the trait world may call any Julia code, and its compiled code depends on the method table only through dispatch facts at concrete signatures. To be rewritten once the prototype confirms it.)*
+
 Compiled code in the trait world depends only on what lies below it, so nothing that happens above can change what it computes.
 
 **Ownership.** Only one thing could reach into the trait world from above: a method that changes what a call inside selects. Julia already has a name for it, *type piracy*: adding a method to a function you do not own, for types you do not own.

@@ -1,5 +1,8 @@
 # Traits for better Julia: code written without traits
 
+> **Status (2026-10-16, session 23).** Superseded by **wrapping by facts** (`writeup/explorations/wrapping-by-facts.md`), adopted by the user. Code written without traits is called directly; compiled trait-world code depends on the method table only through dispatch facts at concrete signatures, and nothing is skipped. Trait wrappers, delegates, sealing, doors and declared calls are no longer needed. This note is kept until it is rewritten after the prototype has shown whether the design lives up to its promise.
+
+
 Base, the standard libraries and nearly every package were written without traits. This note covers how trait modules use that code, and how a library adopts traits without breaking its callers:
 - **Adopting traits:** a library adopts them one function at a time, its type-based methods keeping their meaning.
 - **Traits over existing functions:** state Base's informal interfaces as contracts, with conformances declared for Base's families.
