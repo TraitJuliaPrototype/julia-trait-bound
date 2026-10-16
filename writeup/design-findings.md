@@ -1133,3 +1133,15 @@ One compiled loop served lenses into two different user types. A rebinding of th
     - `like` and `withfields` give pending results that only the entry inverts;
     - membership through a generic implementation only for traits without fields;
     - the key holds every declared field's type.
+
+**The reference layout (the user: "f(t::Trait{U,T}) … could just desugar to f{U,T}(t::Any) t.data::U + t.data2::T"; measured in `experiments/lens/layout.md`).**
+- **What the trait object is now.** The user's object, with the byte offsets of what the bound sees, read at every access. A worker per key serves every user type.
+- **Measured** on stock 1.13.2: loads and stores carrying Julia's alias metadata (TBAA `jtbaa_mutab`, through `llvmcall`) match plain Julia in every loop shape measured, at about 2 ns per call.
+  - Without the metadata, a loop storing into another array loses vectorization, 5×.
+- **What this replaces:**
+  - the held/lens split and the exit check, because nothing is held;
+  - the rebuilding `Dynamic`, because a kept value is the trait object itself;
+  - the snapshot exception to "identical or error".
+- **Still open:**
+  - fields stored inline that are not isbits;
+  - GPU kernels, which need an opt-in layout that copies the fields.

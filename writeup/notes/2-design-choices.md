@@ -95,7 +95,7 @@ Library code reaches a value only through its bound, so this is all it can depen
 | Julia: an `Any` field | the caller once, each target per runtime type when first reached | dynamic, result `Any` unless asserted | nothing | can add targets |
 | the type implements the operations | the library per type, in the conformer's image | direct | the type, reached through its operations | changes nothing (rule 4) |
 | forwarding to a field | the library per field type | direct | the field's type | changes nothing (rule 4) |
-| declared fields | the library per tuple of field types | a held value, or a lens for a writable field | the fields' types | changes nothing (rule 4) |
+| declared fields | the library per tuple of field types | a load at the field's offset in the user's object | the fields' types | changes nothing (rule 4) |
 | dynamic operations | the library once per conformer, in the conformer's image | indirect, result type declared | the field's type | changes nothing (rule 4) |
 | dynamic call | the library once per signature, the function by its caller | indirect, result type declared | the signature | changes nothing (rule 4) |
 | compiled call | per function type, in the caller's image | direct | the function's type | can invalidate it, as today |
@@ -115,7 +115,7 @@ The argument is structural; it is not yet measured on a stack of trait modules.
 
 **Why keys and not representations.** Until session 22 the design translated a value to a *representation*: plain data produced by a projection, a field read or any computed function, with an inverse to rebuild the user's type. Keys keep what that bought and drop the rest:
 - **Sharing narrows to forwarding.** A field's type is the key, so every type forwarding to a `Vector{Vector{Float64}}` shares the library's code. Types that a computed projection used to map onto it now convert explicitly (below).
-- **Nothing is copied.** A view holds the parts its trait reads and reads writable fields through the user's object, in one layout per trait and key. Writes are seen as in plain Julia; a read-only part rebound during a call raises at the entry's exit instead of going stale; the inverse for a result like the input is the user's object with fields replaced.
+- **Nothing is copied.** A trait object is the user's object with the offsets of what its bound sees, in one layout per trait and key, so every read sees the current value and every write reaches the user, as in plain Julia; the inverse for a result like the input is the user's object with fields replaced. With the alias metadata Julia's own loads carry, loops run as in plain Julia; the cost is about 2 ns per call (`experiments/lens/layout.md`).
 - **Several fields.** A key is the types of all declared fields, not one representation that a solver's state, parameters and time would have to be packed into.
 - **Lost:** computed projections, a lazily derived representation or a foreign type converted on the way in. A library that wants shared code for such types converts explicitly, at the cost of a copy, no `Like{t}` and no write-through ([the design in detail: Types that only convert](4-details.md#types-that-only-convert)); a foreign type may also conform by an implementation its wrapper's delegates write, compiled per foreign type ([code written without traits](3-wrapping.md)).
 
@@ -359,8 +359,8 @@ The design restricts what trait-bound code may do, and only there.
    Inward doors (eval, deserialization, reflection) are available only as declared calls with a checked result.
 4. **Trait objects see only their keys.**
    - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse, the user's object with fields replaced ([the design in detail: Results like the input](4-details.md#results-like-the-input)).
-   - Within a call, read-only parts are held, and a rebinding during the call raises at the entry's exit; a field that callbacks may rebind is declared writable, read through the user's object at 1–5 ns per access.
-   - A value kept beyond a call keeps a mutable user's object and rebuilds its view at each use, so it follows the user's fields, at about the cost of an entry per operation.
+   - A trait object reads the user's object at every access, about 2 ns per call over plain Julia, loops unchanged.
+   - A value kept beyond a call keeps the user's object, so it follows the user's fields.
    - A type converted on the way in, a computed view of its data, is not a conformance: the library converts explicitly, and the result does not follow the user's object.
 5. **Types come first.** A type that matches a type-annotated method takes it, even when it also conforms to a trait bound of the same function. Reaching the trait method needs a type that no type method catches, or a newtype.
 6. **Code written without traits is curated.** Capability traits with their conformances for Base's families, and each wrapper's implementations and conformances, are declared by hand. A package has one wrapper per environment.

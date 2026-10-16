@@ -2,7 +2,7 @@
 
 The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers wrappers, calls upward and sealing.
 
-The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs this design in its earlier form, with representations: it writes the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), reads declared fields from the representation, keys on one field at a time, and still offers computed projections. What keys add (operations declared at the trait, `Self`, forwarding with `by`, field mappings, keys over several fields, the one view layout, the exit check, `withfields`) is not yet in it; `writeup/explorations/keys-plan.md` plans it.
+The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs this design in its earlier form, with representations: it writes the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), reads declared fields from the representation, keys on one field at a time, and still offers computed projections. What keys add (operations declared at the trait, `Self`, forwarding with `by`, field mappings, keys over several fields, the reference layout, `withfields`) is not yet in it; `writeup/explorations/keys-plan.md` plans it.
 
 ## Terms
 
@@ -12,7 +12,7 @@ The macros below stand for syntax a language feature would provide. The prototyp
 - **Implementation.** The methods of a trait's operations for an *implementing type*: `@implement ColTable Vector{Vector{Float64}} begin … end`, or existing methods declared. It says nothing about fields.
 - **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. The operations come from `T` itself, which then must have an implementation, or `T` *forwards* them to one of its fields whose type has one. The trait's declared fields map to stored fields of `T`, by name or as written.
 - **Key.** What a bound can see: the implementing type, when the trait has operations, and the types of the fields the trait declares. Workers are compiled per tuple of their bounds' keys, never per conforming type unless it is the implementing type.
-- **Trait object.** What library code receives for a bounded argument, one *view* per trait: the implementing value and the read-only declared fields, held; the user's object, through which writable declared fields are read and written; and a *witness* that says where the operations come from. Its layout depends on the trait and the key, never on the user's type. A trait object has methods for its traits' operations and fields and nothing else.
+- **Trait object.** What library code receives for a bounded argument: the user's object itself, with one *view* per trait that gives the byte offsets of the implementing value and of the declared fields in the user's type, and a *witness* that says where the operations come from. Every access reads the user's object, so a trait object sees exactly what plain Julia sees. Its layout depends on the trait and the key, never on the user's type. A trait object has methods for its traits' operations and fields and nothing else.
 - **Entry and worker.** A bounded function has an *entry*: ordinary code that translates each argument by its bound and does nothing else. It also has a body compiled per key, the *worker*.
 - **View.** A package's view is what its compiled code is compiled against (rule 4).
 
@@ -79,7 +79,7 @@ Rule 1 is layering; rule 2 says how a value crosses into the trait world and wha
    - **Code from above** reaches the trait world only as values handed down: values translated by a bound, functions bounded by `Callable`, and `Dynamic` values.
    - A package can pair a trait module with an ordinary module that uses both.
 2. **The boundary translates, once per bound.** A value enters the trait world where ordinary code calls in, at a bound, translated by it:
-   - a trait bound takes what it can see: the implementing value and the read-only declared fields, held, and the user's object for the writable ones;
+   - a trait bound takes the user's object, and the offsets of what the bound can see in it;
    - a declared type asserts;
    - a `Callable` bound makes a function a call upward.
 
@@ -120,7 +120,7 @@ The rest follows:
   The translation is the same wherever the bound stands: a positional argument, a keyword, an element of a vararg, a field, the result of a call upward.
 - **Everything in a call that is not a value stays inside.** Defaults, keyword sorting, splatting and dispatch are plain Julia, run in the worker after translation. The entry translates and does nothing else.
 - **A bound is a crossing point and has an entry,** on a named function or a closure alike.
-- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, keeps the user's object when it is mutable and rebuilds its view at each use, so it follows the user's fields (Dynamic values).
+- **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, keeps the user's object, so it follows the user's fields (Dynamic values).
 
 ## What code in a trait module may do
 
@@ -201,13 +201,12 @@ end
 - **Field types are part of the key.** A field typed by an associated type, `u::U`, makes the field's type part of the key, so a worker compiles per state type, whatever else the conforming type holds. A field of a fixed type adds nothing to the key.
 - **A field is a pair of operations.** Reading is `getproperty(t, :name)::String`, writing `setproperty!(t, :name, v::String)`. Scala desugars a trait's `var` the same way, and Swift's protocols require properties `{ get set }`.
 - **Field access is narrowed, not opened.** `t.name` is allowed for fields its traits declare, and any other field access is refused. A `Dynamic` value reads and writes its declared fields by dispatch.
-- **A writable field is a lens.** Writing `i.u = v` rebinds the user's field, as in plain Julia. So the view holds the user's object and the field's index, and reads and writes through them; every copy of the trait object, and every `Dynamic` made from it, sees the new value, as every holder of a mutable object does.
-  - The conforming type must be mutable, with the field not `const` and declared with exactly the field's type in the key, so that a write never changes a type compiled code relies on.
-  - Workers stay compiled per key, because the index is a value in the view, not part of its type.
-  - An isbits field is read and written at its byte offset, which needs no write barrier; a boxed field through Julia's `getfield` and `setfield!` (What a lens costs).
-  - The reference keeps the user's object alive, so its data cannot be freed under it.
-  - The forwarding field may not be a writable declared field: operations run on the held implementing value, which a write would leave behind.
-- **Read-only fields are held, and checked.** An `@const` field, and every field of an immutable type, cannot be rebound, so the view holds its value. A read-only declared field of a mutable type is held for the call too, and the forwarding field likewise. Code running during the call, a call upward such as a callback, could rebind it, so at the entry's exit each held part is compared with the user's field by `===`, and a mismatch raises, naming the field and the fix: declare it writable in the trait. A solver whose callbacks may rebind `integrator.p` declares `p` writable.
+- **Every access reads the user's object.** `t.u` is a load at the field's byte offset in the user's object, the offset a value in the view, so a worker compiled per key serves every user type whatever its field order, mutable or immutable. Writing `i.u = v` stores there, as `u.u = v` does in plain Julia. So a read always sees the current value, as every holder of the object does: nothing is held, nothing goes stale, and nothing needs checking.
+  - A writable field needs a mutable conforming type, with the field not `const` and declared with exactly the field's type in the key, so that a write never changes a type compiled code relies on.
+  - The loads carry the alias information Julia's own field loads carry, so a loop that reads `t.data[i]` while storing into another array vectorizes as in plain Julia (`experiments/lens/layout.md`).
+  - An isbits field is stored at its offset; a reference field goes through Julia's `setfield!`, which applies the write barrier.
+  - The trait object keeps the user's object alive, so its data cannot be freed under it.
+  - The forwarding field is read the same way, so an operation called after the library rebinds a field sees the new value. A forwarding field may also be declared writable.
 - **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `@const`.
 - **New over Julia.** Julia's abstract types cannot require fields, a long-standing request. A trait can, because conformance is declared and checked.
 
@@ -355,7 +354,7 @@ colmean(via(Fast, m), 1)                             # this call uses Fast's imp
 ## Several traits, one object
 
 A type can conform to several traits, each through its own field or by its own methods, and a function bounded by several receives one trait object with a view per trait:
-- the views of one call hold the same parts of the user's object and write through the same object, so they agree, and a write through one is seen by the others;
+- every view reads the same user's object, so the views always agree, and a write through one is seen by the others;
 - workers compile per tuple of the views' keys;
 - a view is passed on statically to a function with any of the bounds.
 
@@ -598,36 +597,28 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
   - A bound in a field, a container or a result translates the value and keeps the trait object.
   - Inside, storing a trait object of `X` where an `X` is declared keeps it, as Julia converts a value stored in a typed field; `Dynamic{X}(t)` does so explicitly.
   - Nothing else makes one, so its type decides it: the entry admits it by type, and inward doors such as deserialization check its content.
-- **Kept values follow the user's fields.** Keeping a value is a crossing.
-  - **A value of a mutable type is kept as the user's object and its conformance,** and every use rebuilds the view from the object, as an entry does. So a kept value sees the user rebind any field, as every holder of the object does in plain Julia, writes through it reach the user's object, and the view, of the same layout as at an entry, runs the same worker.
-  - **A value of an immutable type is kept as its view,** because none of its fields can be rebound.
+- **Kept values follow the user's fields.** A `Dynamic` keeps the trait object, which is the user's object with its views, so it sees the user rebind any field, as every holder of the object does in plain Julia, and writes through it reach the user's object. It runs the same workers as a fresh call, because the layout is the same.
   - **The user's object stays alive** as long as the kept value.
-  - **Equality.** A kept value of a mutable type compares and hashes by the identity of the user's object and the conformance, as a mutable object does in Julia.
+  - **Equality.** A kept value compares and hashes by the identity of the user's object for a mutable type and by its value otherwise, with the conformance, as Julia compares the objects themselves.
   - **Serialization.** It serializes the user's object, and inward doors re-check its conformance.
 - **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose types reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
 - **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its key once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
   - Two `Dynamic` arguments select a worker per pair of keys.
 - **Parameters.** A `Dynamic` of a parametric trait fixes the parameters its operations' result types use, `Dynamic{ArrayLike{Float64, 1}}`, so code after a call infers.
-- **Equality.** Values of different keys, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the kept values (the user's object for a mutable type, the view otherwise), so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
+- **Equality.** Values of different keys, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the user's objects, so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
 - **Several traits.** `Dynamic{(ColTable, RowTable)}` holds a trait object with both views and converts explicitly to `Dynamic{ColTable}`. `Dynamic{Sub}` converts to `Dynamic{Super}`, whose view comes with the subtrait's conformance. A `Callable` in `DynamicCall` mode is already the dynamic value of a function.
 - **Up and down.** A `Dynamic` is a trait-world value: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
 
-A `Dynamic` costs an allocation when made, and a dispatch per operation: about 20–80 ns in a measurement of Julia's dispatch on boxed values, and for a mutable type the view's rebuild on top, about one entry, so 100–200 ns are expected (to be measured). A refresher per conformance that re-reads only the held parts is the fallback. First calls from package images need no compilation.
+A `Dynamic` costs an allocation when made, and a dispatch per operation: about 20–80 ns in a measurement of Julia's dispatch on boxed values. First calls from package images need no compilation.
 
-**What a lens costs** (per access, a worker reading the field once per operation call; `writeup/design-findings.md` §18 on Julia 1.12, the isbits case from the second review of the keys plan on 1.13.2):
-- **Reads:**
-  - a held value: 1.0 ns, as a direct field read;
-  - a boxed field through Julia's builtin `getfield` on an untyped object: 4.6 ns;
-  - an isbits field through the builtin: about 20 ns and 16 bytes allocated, so isbits fields are read at their byte offset instead, which stock Julia allows (`fieldoffset`, `unsafe_load` under `GC.@preserve`): about 1.15 ns.
-- **Writes:**
-  - a boxed field through the builtin `setfield!`: 13.6 ns, with the write barrier;
-  - an isbits field at its offset (`unsafe_store!`), which needs no write barrier;
-  - direct: 0.6 ns.
+**What a field access costs** (`experiments/lens/layout.md`, stock Julia 1.13.2; loads and stores with Julia's alias metadata through `llvmcall`, as a runtime would emit them):
+- **Loops:** the same as plain Julia, per element, for reductions, loops storing into another array, and field writes per iteration.
+- **Per call:** about 2 ns more than plain Julia for a short call reading three fields and writing one (2.9 against 0.9 ns), against a fixed entry cost of about 215 ns.
+- **Without the alias metadata** a loop that stores into another array loses vectorization, 5× (0.64 against 0.13 ns per element), so the metadata is part of the design, not an optimization.
+- **A reference field written** goes through `setfield!` and its write barrier, about 10.7 ns.
 
-The cost is the trait's choice: only fields it declares writable are read through the user's object, whatever the user's type.
-
-Loops over the field's contents pay nothing extra, and an operation called per element pays the read each time.
+A field stored inline that is not isbits, an immutable struct holding references, is read through Julia's `getfield` and costs more; GPU kernels cannot take the user's object and need a layout that copies the fields, opt-in per trait and valid only for traits without writable fields.
 
 ## Caching: compiled once, reused everywhere
 
@@ -739,13 +730,11 @@ using Pirate                          # loads; Stats' worker for Float32 recompi
 colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 ```
 
-**Held parts are checked.** Within a call, the view holds the read-only parts of the user's object. If code running during the call rebinds one (a callback, through the user's own reference), the entry's exit check raises, naming the field; declaring the field writable in the trait makes it a lens instead. So the snapshot never gives a different result silently.
-
 **Two exceptions:**
 - Element types that Julia derives from inference, such as that of `map` over an empty collection, are answered within the trait world. They can differ from plain Julia's where Julia documents them as inference-dependent.
 - An open `Callable` result type, inferred at the boundary in ordinary code, depends on what is loaded there. It is part of the worker's key and checked at every call.
 
-**Kept values.** A value kept in a dynamic value keeps the user's object when it is mutable, which is what a plain-Julia holder of the object sees.
+**Kept values.** A value kept in a dynamic value keeps the user's object, which is what a plain-Julia holder of the object sees.
 
 ## Possible extensions
 
@@ -770,9 +759,9 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - Numeric traits: numbers that conform after the fact or forward to a field, and promotion across implementing types.
 - Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
-- A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, and a kept value that rebuilds its view may find another type there, which costs a dispatch per use.
-- Checking held parts after each call upward, not only at the entry's exit, so a rebinding callback raises before later steps run; it needs the live trait objects at every call upward.
-- GPU kernels: a view holding the user's object is not isbits; a kernel bound needs the held layout without it, valid only for traits without writable fields.
+- A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, so reading it costs a dispatch per use after the load.
+- A layout that copies the fields, for GPU kernels and other isbits-only targets, opt-in per trait.
+- Fields stored inline that are not isbits: read through `getfield`, or an inline load of the struct emitted by the runtime.
 - Whether trait wrappers should offer conversions for foreign types (Types that only convert), now that conformance never converts ([code written without traits](3-wrapping.md)).
 - AOT for results like the input: the inverse per user type is not yet listed with the conformances on the prototype, and `verify_main` reports it as open.
 - Prototype work still to do (TraitWorld has Dynamic values, trait fields and lenses, associated types with parameter archetypes, constructor operations and inverses, all in the earlier form): keys (`writeup/explorations/keys-plan.md`); forwarding for a whole family of user types; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and key.

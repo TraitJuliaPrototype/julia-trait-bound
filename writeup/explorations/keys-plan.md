@@ -144,3 +144,15 @@ The reviewer read this plan (findings ranked, two blocking). Decisions:
    - A re-entering `Dynamic` is expected to cost 100–200 ns per operation, with the refresher as the fallback.
    - An explicit mapping reads by `getfield`, so the conformance message says that plain `x.name` may differ when `getproperty` is overloaded.
    - Measurements cited from `experiments/interfaces` (sealing audits, 3 ms view caches, binaries) are marked as taken before keys.
+
+## 5. The reference layout replaces the held layout (the user's question, measured)
+
+- **The question** (the user): "f(t::Trait{U,T}) … could just desugar to f{U,T}(t::Any) t.data::U + t.data2::T". Measured in `experiments/lens/layout.md`: with Julia's alias metadata on the loads (through `llvmcall` on stock Julia), the reference layout matches plain Julia in every loop measured, at about 2 ns per call. The user: "measure and if everything works go for it."
+- **What the trait object is now.** A trait object is the user's object; each view holds the witness and the byte offsets of the implementing value and of the declared fields. Every access is a load or store at an offset.
+- **Withdrawn** from sections 1 and 4: held parts; the exit check; lens indices; the re-entering `Dynamic` (a `Dynamic` keeps the trait object); the rule that the forwarding field may not be writable.
+- **Phase 3, revised.** One view type, `View{X, W, K}`, holding the witness and the offsets, beside the user's object in the trait object:
+  - isbits fields by offset, with TBAA through `llvmcall`;
+  - reference fields by offset, as a pointer, with a type check;
+  - writes to reference fields through `setfield!`;
+  - fields stored inline that are not isbits through `getfield`;
+  - a type that implements the operations itself is the implementing value, read as the object.
