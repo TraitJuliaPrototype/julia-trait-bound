@@ -114,3 +114,19 @@ Measured (three fresh runs per order):
 5. **The untyped entry path** (270–450 ns).
 6. **Phase 4:** remove the `{R}` spelling (D2; not done this session).
 7. **Rebuild the trimmed-binary acceptance** (`verify_main` passes in the tests; the juliac build was not run).
+
+## Later in the session
+
+- **The user's requests:** subagents for the two open problems, option 2 for automatic differentiation, and a review of working with code written without traits.
+- **Untyped calls:** 95–117 ns instead of 270–295 ns (TraitWorld 5efbb4c). The entry built the tuples for a result like the input on every call.
+- **Kept values keep the whole object** (TraitWorld 52cbca3, merged 8407e1c). A function whose code may keep a trait object, detected at archetypes when its module is complete, receives the whole user's object; typed calls of other functions are unchanged. The user: "If feasible, detection is the way."
+- **Rodas5 with the library's own dual numbers** (TraitDifferentialEquations 0bd2ffb):
+  - first solve 129–137 ms (stock 1.45–1.49 s);
+  - a second function 51 ms;
+  - Robertson correct.
+- **The review** (`writeup/reviews/2026-10-16-wrapping-under-keys.md`). F1 was critical: the patched filter kept a worker stale when the owner of its implementing type redefined a method (4.0 instead of 40.0). Fixed in both halves (julia-1.13 280612ed2f): code is protected only if the definer owns no type in its signature. Verified on the rebuilt build:
+  - the repro gives 40.0 and 400.0;
+  - 346 tests pass;
+  - TraitMakie with CSV and DataFrames loaded after still invalidates no PlotCore code (first PNG 78 ms).
+- **What Julia must provide, in order** (the user's question): `writeup/explorations/julia-support.md`. The method-definition hook first, then an invalidation policy hook, field intrinsics, compile-time checks, native code in downstream images, the dispatch check, and traits in the type system with syntax last.
+- **The review's nine decisions** are listed in the review. Recommended defaults were given to the user (session reply).

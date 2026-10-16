@@ -77,10 +77,14 @@ State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and o
 ## 4. Runtime and measurements
 
 1. With a view cache on stock 1.13.2, `summarize` recompiles for 71–74 ms once CSV and Makie are loaded (3.3 ms in session 21 on 1.12). It is unclear whether 1.13 or TraitWorld causes this (`experiments/baseline-1.13.md`).
-2. The patched 1.13.2 build exists (`julia-1.13/`). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
+2. The patched 1.13.2 build exists (`julia-1.13/`). Its filter protects code from a definition only if the definer owns no type in the code's signature (review F1, fixed in 280612ed2f; before, a user's redefinition of its own implementation left the worker stale). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
 3. Not yet measured on 1.13: plain-Julia time to first PNG, ComboCache end to end, an x12 control on 1.12.2 with the pinned TraitWorld.
 4. The trimmed-binary acceptance build (2.09 MB `verify_main` program) has not been rebuilt since keys; run it alone, under a memory guard.
 5. The first call after large loads: TraitDifferentialEquations' first solve takes 0.7–1.05 s with CSV, DataFrames and CairoMakie loaded (73 ms without); TraitMakie's first PNG takes 0.31–0.37 s with CSV and DataFrames before (0.1–0.2 s without; 0.09 s after, patched).
+
+## 4b. The review of session 23
+
+The findings F2–F11 and nine decisions of `reviews/2026-10-16-wrapping-under-keys.md` are open, except F1 (fixed). What Julia must provide, in order: `explorations/julia-support.md`.
 
 ## 5. Documents
 
