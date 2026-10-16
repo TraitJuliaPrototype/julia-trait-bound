@@ -39,6 +39,18 @@ across attributes is avoided only if each compute edge is its own worker;
 storing user observables and attributes in a scene needs a storable dynamic
 value (findings §16.6.1) or bound-typed struct fields (§17.5.2).
 
+## Stored values (the user: "Go ahead and design these two")
+`writeup/proposal-stored-values.md`, revision 2. Revision 1 was reviewed by
+the fable-critic agent on Opus (Fable's limit reached), with experiments.
+Main corrections: stored projections are snapshots, now defined as
+convert-at-store with the user's object rooted for sharing views (a freed
+`unsafe_wrap` buffer was read otherwise); `Dynamic{X}` by dispatch on a boxed
+trait object (22–78 ns, no pointers: pointer tables broke under world age,
+serialization and racing writes); the integrator's 3,553 characters contain
+no user type (findings §17.4 corrected); solvers are a stated limitation,
+with user models as trait-world conformances as the route. Decisions D1–D4
+open for the user.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
