@@ -1,9 +1,0 @@
-name = "BaseTraits"
-uuid = "d3e2c5a4-6f7b-4c8d-9eaf-2a3b4c5d6e7f"
-version = "0.1.0"
-
-[deps]
-TraitWorld = "7a3c1e52-9b4d-4f6e-8a21-5d0c3b9e7f14"
-
-[sources]
-TraitWorld = {path = "../../../TraitWorld"}

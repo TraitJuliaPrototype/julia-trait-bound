@@ -141,15 +141,15 @@ and dispatch itself enforces the contract.
 | Package | Role |
 |---|---|
 | `TraitWorld/` | the machinery: traits, implement, project, trait_module, entry, dispatch, callable, ownership, layering, audit, concrete, verify; tests |
-| `poc/world/BaseTraits` | capability traits `HasLength`, `Iterable`, `Indexable` over Base's functions; conformances for `AbstractVector`, `Tuple`, `AbstractRange`, `AbstractString` (Iterable only), `AbstractDict` (Iterable only) |
-| `poc/world/Columns` | `ColTable{R}`: `ncols`, `col`, default `firstcol`; a generic implementation over `Indexable`; a specific one for `Matrix{Float64}`; `colmean`, `colrange`, `meandiff`; `describe` with types-first methods |
-| `poc/world/Rows` | `RowTable{R}`, `firstrow`; the bundle trait `Table{R} <: (ColTable{R}, RowTable{R})` |
-| `poc/world/Stats` | uses Columns; `colmap` (erased `Callable`), `colsum` (`@specialize`), `summary(t::(ColTable, RowTable))` |
-| `poc/world/Grid` | a trait module with its own representation type; Columns delegates `ColTable{GridRep}` to the extension `ColumnsGridExt` |
-| `poc/world/UserTypes` | an ordinary conformer: `Measurements` (projection), `Ramp` (own representation), `Reversed` (dynamic), `MyRows` (own `Indexable` representation, hence a ColTable through the generic implementation), `Both` (joint projection), `Broken <: AbstractVector` (breaks the contract) |
-| `poc/world/BadLayer`, `poc/world/Plain` | a trait module that imports an ordinary package: must be rejected |
-| `poc/world/Pirate` | pirates a Base method that Columns' workers call |
-| `poc/world/App` | an ordinary application with `main`, for `verify_main` and a `juliac --trim` build |
+| `experiments/world/BaseTraits` | capability traits `HasLength`, `Iterable`, `Indexable` over Base's functions; conformances for `AbstractVector`, `Tuple`, `AbstractRange`, `AbstractString` (Iterable only), `AbstractDict` (Iterable only) |
+| `experiments/world/Columns` | `ColTable{R}`: `ncols`, `col`, default `firstcol`; a generic implementation over `Indexable`; a specific one for `Matrix{Float64}`; `colmean`, `colrange`, `meandiff`; `describe` with types-first methods |
+| `experiments/world/Rows` | `RowTable{R}`, `firstrow`; the bundle trait `Table{R} <: (ColTable{R}, RowTable{R})` |
+| `experiments/world/Stats` | uses Columns; `colmap` (erased `Callable`), `colsum` (`@specialize`), `summary(t::(ColTable, RowTable))` |
+| `experiments/world/Grid` | a trait module with its own representation type; Columns delegates `ColTable{GridRep}` to the extension `ColumnsGridExt` |
+| `experiments/world/UserTypes` | an ordinary conformer: `Measurements` (projection), `Ramp` (own representation), `Reversed` (dynamic), `MyRows` (own `Indexable` representation, hence a ColTable through the generic implementation), `Both` (joint projection), `Broken <: AbstractVector` (breaks the contract) |
+| `experiments/world/BadLayer`, `experiments/world/Plain` | a trait module that imports an ordinary package: must be rejected |
+| `experiments/world/Pirate` | pirates a Base method that Columns' workers call |
+| `experiments/world/App` | an ordinary application with `main`, for `verify_main` and a `juliac --trim` build |
 
 ## 4. Milestones
 
@@ -228,7 +228,7 @@ entries and workers with one bound per argument; ownership checks for
 - Precompile placement for the trait module, the conformer and the
   extension.
 - Fresh-session costs: a new projected type, a new representation, a new
-  closure. Compare with poc/reprparam: 113 + 3, 240 + 103 and 120 + 11 ms.
+  closure. Compare with experiments/reprparam: 113 + 3, 240 + 103 and 120 + 11 ms.
 - `verify_main` ported, with `Callable` targets; App built with
   `juliac --trim`.
 - Concrete mode ported.
@@ -267,7 +267,7 @@ Sizes, relative: M0 S, M1 L, M2 M, M3 M, M4 M, M5 M, M6 M, M7 M, M8 S.
 
 ## 7. Decisions for review
 
-1. Names and places: package `TraitWorld/`, packages under `poc/world/`.
+1. Names and places: package `TraitWorld/`, packages under `experiments/world/`.
 2. Traits as abstract types `ColTable{R}`, so `t::ColTable` and
    `TObj{ColTable}` read naturally.
 3. Operations are functions. Two traits that share an operation function

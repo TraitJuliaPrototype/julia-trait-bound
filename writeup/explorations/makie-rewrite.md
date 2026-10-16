@@ -2,7 +2,7 @@
 
 Exploration, 2026-10-16, for the notes as of commit a03a18a ("results like the input"). The question (the user's): given the design as it now stands, what would a Makie rewrite centred on a few fundamental traits look like? The user also holds that demonstrating the design in practice needs a rewrite of this kind, so the last section scopes a minimal demonstrator.
 
-Sources: the four notes, `writeup/proposal-stored-values.md`, `writeup/design-findings.md` §15–§16 and §18, `poc/interfaces/README.md` (x8, x13–x16), `poc/interfaces/MakiePlots/`, and the source of Makie 0.24.16 (`~/.julia/packages/Makie/dVJIx`), ComputePipeline 0.1.8 (`E2l50`), CairoMakie 0.15.16 (`wf7sU`), Observables 0.5.5 and GridLayoutBase 0.11.3. Two short scripts checked how Makie's compute graph treats a value that changes type (§1). Code below is a sketch unless it quotes Makie; names and signatures are illustrative.
+Sources: the four notes, `writeup/proposal-stored-values.md`, `writeup/design-findings.md` §15–§16 and §18, `experiments/interfaces/README.md` (x8, x13–x16), `experiments/interfaces/MakiePlots/`, and the source of Makie 0.24.16 (`~/.julia/packages/Makie/dVJIx`), ComputePipeline 0.1.8 (`E2l50`), CairoMakie 0.15.16 (`wf7sU`), Observables 0.5.5 and GridLayoutBase 0.11.3. Two short scripts checked how Makie's compute graph treats a value that changes type (§1). Code below is a sketch unless it quotes Makie; names and signatures are illustrative.
 
 ## Summary
 
@@ -70,7 +70,7 @@ There are 64 `@recipe` definitions and 16 `@Block` types in `src/`.
   - Later results are stored into those typed refs.
 - **Sites.** There are 371 `map!` and `register_computation!` sites in Makie's `src/`, and 821 `lift`, `on` and `onany` sites. These are the 656 ComputePipeline targets of x15.
 
-**Node types are already fixed at the first value.** Two checks on Makie 0.24.16 (niced scripts, the `poc/interfaces/env` environment):
+**Node types are already fixed at the first value.** Two checks on Makie 0.24.16 (niced scripts, the `experiments/interfaces/env` environment):
 - **A colour that changes shape fails.** For `lines!` with `color = :red`, the colour node is `RefValue{RGBA{Float32}}`. Setting `p.color = [:red, :blue, :green]` then fails with "Failed to resolve scaled_color". The same happens through a recipe (`barplot!`, then `b.color = [...]`): "Failed to resolve color".
 - **New data is converted to the first value's type.** Updating a `lines!` plot made from `Float64` data with `Float32` vectors keeps `positions` a `Vector{Point{2, Float64}}`: the update is silently converted.
 
@@ -475,7 +475,7 @@ The demonstrator is the smallest plotting library that exercises every pay-off m
 - **Baselines:**
   - **`PlainPlots`:** the same algorithms and the same features written without traits: `Dict{Symbol, Any}` attributes, Observables, ComputePipeline-style untyped edges. This baseline separates what the design contributes from what smallness contributes.
   - **Makie 0.24.16 with CairoMakie** for the same plots, through the same calls.
-  - **matplotlib** (`poc/interfaces/python/app.py`).
+  - **matplotlib** (`experiments/interfaces/python/app.py`).
 
 **What to measure:**
 

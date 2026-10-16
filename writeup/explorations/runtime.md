@@ -78,7 +78,7 @@ The port took about an hour and is 222 lines of unified diff (`writeup/explorati
 - A cold build of the patched 1.13 (40–60 min, niced, alone).
 - Re-precompiling the stack: CSV, DataFrames and Makie's tree; precompilation is about 30% faster on 1.13.
 - Pointing TraitWorld's four `Base.StaticData._tw_*` references at `Base.Compiler.ReinferUtils`.
-- Moving `poc/interfaces/build` from `contrib/juliac` to JuliaC.jl.
+- Moving `experiments/interfaces/build` from `contrib/juliac` to JuliaC.jl.
 - Running the 210 tests and the x12/x13 measurements again as the new baseline.
 
 TraitWorld's other contact surface with internals is small: `Base._methods_by_ftype`, `Base._which`, `Compiler.return_type`, `jl_module_usings`, `jl_gf_invoke_lookup_worlds`, `jl_compile_hint`, plus IR walking over `code_typed`, whose shapes 1.13 does not change. Two to four days in all.
@@ -114,7 +114,7 @@ Base._require_world_age[] = Base.get_world_counter()  # the loader runs in the r
 | 1.13.2, `Pir` first | – | no: the pirate fails the edge as before |
 | 1.13.2, `TW` alone | yes | – |
 
-**The x12 measurement** (`poc/interfaces/scripts/x12_viewcache.jl`; stock 1.12.2; a view cache recorded in a fresh directory; CSV, DataFrames, DataFramesWrapper and MakiePlots loaded before or after Reports and UserTypes; first call in a new session, two runs each):
+**The x12 measurement** (`experiments/interfaces/scripts/x12_viewcache.jl`; stock 1.12.2; a view cache recorded in a fresh directory; CSV, DataFrames, DataFramesWrapper and MakiePlots loaded before or after Reports and UserTypes; first call in a new session, two runs each):
 
 | first call | stock | stock, injected | patched build (session 21) |
 |---|---|---|---|

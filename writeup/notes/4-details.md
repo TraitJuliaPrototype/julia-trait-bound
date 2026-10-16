@@ -2,7 +2,7 @@
 
 The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers wrappers, calls upward and sealing.
 
-The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`poc/world`), runs what is not marked as a sketch.
+The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs what is not marked as a sketch.
 
 ## Terms
 
@@ -623,7 +623,7 @@ colmean(Mine([[1.0, 2.0]]), 1)                  # runs the compiled worker
 using CairoMakie                                # outside the trait world Columns depends on: changes none of its code
 ```
 
-- **Per representation.** `Mine` shares its representation with every type that projects onto it, so `colmean` runs code that Columns compiled when it was built. On the prototype, the first calls of a new own representation take 10–60 ms, mostly compilation. Caches per representation reduce them to about 3 ms in every load order (`poc/interfaces/README.md`, view caches).
+- **Per representation.** `Mine` shares its representation with every type that projects onto it, so `colmean` runs code that Columns compiled when it was built. On the prototype, the first calls of a new own representation take 10–60 ms, mostly compilation. Caches per representation reduce them to about 3 ms in every load order (`experiments/interfaces/README.md`, view caches).
 - **Compiled against what it sees.** Each specialization is compiled against the methods of the packages it depends on only (rule 4), so inference, union splitting and return-type queries see nothing else.
   - A later definition by one of those packages recompiles it.
   - A definition elsewhere, for the definer's own types, can never apply.

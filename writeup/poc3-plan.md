@@ -2,7 +2,7 @@
 
 Status: proposal for review, 2026-10-14. It implements the design note "Traits
 for better Julia" at rev 1010 on stock Julia 1.12, by extending TraitWorld.
-TraitWorld as it stands (`TraitWorld/`, `poc/world/`) is the base; nothing in
+TraitWorld as it stands (`TraitWorld/`, `experiments/world/`) is the base; nothing in
 it is thrown away. TraitRegions and the ecosystem packages stay as references,
 and their harnesses are reused.
 
@@ -13,7 +13,7 @@ packages are the real ones: DataFrames.jl 1.x and CairoMakie from the
 registry, not the toy library the note uses for exposition; Columns and
 Stats, our own trait modules, are the trait side they are connected to.
 
-**Demo 1, the interactive session** (`poc/interfaces/demo_session.jl`, run
+**Demo 1, the interactive session** (`experiments/interfaces/demo_session.jl`, run
 line by line in a REPL, and as a script that prints the measurements):
 
 1. `using Columns, Stats, DataFramesInterface, MakieInterface`. The trait
@@ -48,8 +48,8 @@ line by line in a REPL, and as a script that prints the measurements):
    accepted. `@warn` inside a worker is accepted as an outward door and
    reported by concrete mode as a dynamic call.
 
-**Demo 2, ahead-of-time compilation** (`poc/interfaces/App/`, built by
-`poc/interfaces/build.sh`):
+**Demo 2, ahead-of-time compilation** (`experiments/interfaces/App/`, built by
+`experiments/interfaces/build.sh`):
 
 1. `verify_main(App.main)` on the full application, DataFrames and CairoMakie
    included: the trait world is closed, every declared call is listed as a
@@ -146,7 +146,7 @@ module. It holds:
 - the outward doors: the logging macros' functions, `display`, `print`,
   `println` and `show` without an explicit IO (they read `stdout`), `redirect_*`;
 - the traits over Base's informal interfaces, moved here from
-  `poc/world/BaseTraits` (`HasLength`, `Iterable`, `Indexable`, with their
+  `experiments/world/BaseTraits` (`HasLength`, `Iterable`, `Indexable`, with their
   family conformances).
 
 The layering walk (`checks.jl`, `_layering!`) today stops at Base and trusts
@@ -254,24 +254,24 @@ signatures, outward doors as dynamic sites bound to the application's sinks
 (`App.sinks()` declares a logger and an IO of concrete types; a session has
 none and the doors stay dynamic), and inward doors as holes unless declared.
 
-## 4. Packages (`poc/interfaces/`)
+## 4. Packages (`experiments/interfaces/`)
 
 | Package | Kind | Content |
 |---|---|---|
-| `BaseInterface` | module of TraitWorld | door lists, global check, the capability traits from `poc/world/BaseTraits` |
-| `Columns`, `Stats`, `UserTypes` | trait packages, from `poc/world` | unchanged except keyword arguments where the demo wants them |
+| `BaseInterface` | module of TraitWorld | door lists, global check, the capability traits from `experiments/world/BaseTraits` |
+| `Columns`, `Stats`, `UserTypes` | trait packages, from `experiments/world` | unchanged except keyword arguments where the demo wants them |
 | `Reports` | trait package, new | composes Columns and Stats; `summary(t::ColTable; cols = 1:ncols(t))`, `zscores(t, i; baseline::ColTable = t)`; the worker that is redefined in demo 1 |
 | `DataFramesInterface` | interface package, new | `@implement ColTable DataFrame project(df) = Tables.columntable(df)`, shares (the column vectors themselves); conformance refused for a `DataFrame` whose columns are not concretely typed, at the boundary, which demo 1 shows; declared calls `DataFrame(nt)::Handle` and `nrow`; tolerations for DataFrames' tree as the audit finds them |
 | `MakieInterface` | interface package, new | `@trait PointSeries{R}`; `@handle Figure`, `@handle Axis`; declared calls `figure`, `axis!`, `scatter!`, `hist!`, `lines!`, `save`, `display`; keyword arguments for the attributes used; Makie's globals behind the calls; CairoMakie as the backend; tolerations for Makie's tree as the audit finds them; `ColPlots`' `histcounts` reduction moves into `Reports` |
-| `Pirate` | adversary, from `poc/world` | a method on `Base.sum(::Vector{Int8})` |
+| `Pirate` | adversary, from `experiments/world` | a method on `Base.sum(::Vector{Int8})` |
 | `ChurnStorm` | adversary, from `attic/ecosystem` | ported to the TraitWorld environment |
 | `App` | application | `main(args)`: CSV to DataFrame, `Reports.summary`, a plot through MakieInterface; `sinks()`; the trim variant `App.pipeline` with `readdlm` and text output |
-| `env` | environment | Julia 1.12.2 pinned (TraitWorld's and `poc/world`'s version; 1.12.3 smoke-tested at M9), DataFrames, CSV, CairoMakie, PrecompileTools, SnoopCompileCore |
+| `env` | environment | Julia 1.12.2 pinned (TraitWorld's and `experiments/world`'s version; 1.12.3 smoke-tested at M9), DataFrames, CSV, CairoMakie, PrecompileTools, SnoopCompileCore |
 
 ## 5. Milestones
 
 Each milestone ends with its tests in `TraitWorld/test`, a script under
-`poc/interfaces/`, and a section in `poc/interfaces/README.md`.
+`experiments/interfaces/`, and a section in `experiments/interfaces/README.md`.
 
 | | Milestone | Shows | Size |
 |---|---|---|---|
@@ -296,11 +296,11 @@ L a week of sessions.
 | From | What | How |
 |---|---|---|
 | `TraitWorld/` | everything: `core`, `trait`, `implement`, `trait_module`, `entry`, `checks`, `audit`, `ownership`, `concrete`, `verify` | extended in place; the test suite (117 tests) must keep passing after every milestone |
-| `poc/world` | Columns, Stats, UserTypes, Pirate, BaseTraits, `env`, `trim/build.sh`, the M7 scripts | BaseTraits becomes BaseInterface's traits; `build.sh` gains the untrimmed build |
+| `experiments/world` | Columns, Stats, UserTypes, Pirate, BaseTraits, `env`, `trim/build.sh`, the M7 scripts | BaseTraits becomes BaseInterface's traits; `build.sh` gains the untrimmed build |
 | `attic/ecosystem/ColPlots` | design B, the worker reduces and Makie is called at the boundary; `@recompile_invalidations` around CairoMakie | the reduction moves into `Reports`; the boundary call becomes a declared call; the precompile trick stays in MakieInterface's ordinary half |
 | `attic/ecosystem/ChurnStorm`, `attic/ecosystem/scripts/x1, x4, x6, x7, x8` | the adversary and the measurement harnesses | ported to the new environment; the tables of demo 1 use their formats, so the numbers are comparable with August's |
 | `attic/poc/verifymain/observe.jl` | `--trace-compile` and `@snoop_invalidations` harness | reused as in TraitWorld |
-| `attic/binary/` | the universe-filter patch | not used; the design no longer needs sealed resolution. The README of `poc/interfaces` says why |
+| `attic/binary/` | the universe-filter patch | not used; the design no longer needs sealed resolution. The README of `experiments/interfaces` says why |
 
 ## 7. Risks
 
@@ -318,7 +318,7 @@ L a week of sessions.
 ## 8. Decisions for review
 
 1. Names: `BaseInterface` inside TraitWorld, `DataFramesInterface`,
-   `MakieInterface`; packages under `poc/interfaces/`.
+   `MakieInterface`; packages under `experiments/interfaces/`.
 2. Backend: CairoMakie, as in August, so the demo runs headless and saves
    PNGs; GLMakie later if wanted.
 3. The DataFrame projection shares the column vectors (no copy), so a trait
@@ -326,7 +326,7 @@ L a week of sessions.
    `DataFrame` only through a declared constructor call.
 4. Demo 2's full executable is `juliac` without trimming, the trimmed one is
    the pipeline without DataFrames and Makie. No attempt to trim Makie.
-5. The capability traits move from `poc/world/BaseTraits` into
+5. The capability traits move from `experiments/world/BaseTraits` into
    BaseInterface, which makes them implicit everywhere.
 6. Parametric families stay out unless M4 finishes early.
 
@@ -374,7 +374,7 @@ No blocker. The plan is executed with these changes:
 
 Found while building the M3 packages and the machinery of M5–M8; details and
 numbers in `session-notes/2026-10-14-19-poc3-m3-packages.md` and
-`poc/interfaces/README.md`.
+`experiments/interfaces/README.md`.
 
 1. **§3.1, the machinery must have no static edge into Base's generic code.**
    Every entry of every trait module lost its cached code when DataFrames
@@ -417,7 +417,7 @@ numbers in `session-notes/2026-10-14-19-poc3-m3-packages.md` and
    CompositionsBase); these are the two interfaces' `[traits] tolerate`
    lists. CSV's dependency Durations pirates `Dates`, which is Julia's and
    sealed from the start, outside any wrapped tree: the project that loads
-   CSV tolerates it (`poc/interfaces/env/Project.toml`).
+   CSV tolerates it (`experiments/interfaces/env/Project.toml`).
 5. **§3.3 extensions loaded from images.** `owner` mapped an extension to its
    parent only through `Base.EXT_PRIMED`, which knows the extensions primed
    in the session; one loaded from an image (Adapt's, Compat's, when their

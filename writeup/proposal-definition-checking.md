@@ -35,7 +35,7 @@ What varies by representation is only the implementations of the operations, and
 - Implicit conversions and mixed arithmetic happen in our case on declared concrete result types, which is ordinary concrete Julia.
 - The C++0x checker was more than 10 times slower than compilation. Ours is one inference run per method, at the library's build.
 
-**Prototype** (`TraitWorld/src/defcheck.jl`; demo `poc/world/defcheck_demo.jl`; 10 tests):
+**Prototype** (`TraitWorld/src/defcheck.jl`; demo `experiments/world/defcheck_demo.jl`; 10 tests):
 - `check_definitions(Columns)`: five methods checked clean, 184–199 ms in a cold session including the checker's own compilation. In a design implementation this runs at the library's build and is stored with its image.
 - A library with mistakes, checked before any representation exists:
   - `spread(t::ColTable) = size(t)` → "`size` has no method for a trait object carrying ColTable", at its line;

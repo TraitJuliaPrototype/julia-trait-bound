@@ -168,5 +168,5 @@ The runtime pieces it needs exist as experiments: a patched Julia with an invali
 - `writeup/design-findings.md`: measurements, prototype results, the earlier forms of the design and why they changed.
 - `writeup/other-languages.md`: the research behind the design choices, with sources.
 - `writeup/proposal-stored-values.md`, `writeup/proposal-definition-checking.md`: the proposals behind dynamic values, definition checking and named implementations.
-- `poc/world/README.md` (TraitWorld) and `poc/interfaces/README.md` (the prototype around DataFrames and Makie).
+- `experiments/world/README.md` (TraitWorld) and `experiments/interfaces/README.md` (the prototype around DataFrames and Makie).
 - `writeup/traits-for-better-julia.md`: the single note these four notes replace, as of the live note's revision 1146.

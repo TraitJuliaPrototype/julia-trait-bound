@@ -203,7 +203,7 @@ Base is sealed in any session that uses traits at all, and the sealed region is 
   - once DataFrames is wrapped, which seals DataAPI, so are Tables' 4 and StatsBase's 3 methods of DataAPI's functions at Base's types;
   - the remaining 29 lie behind the calls into Makie.
 
-Wrapping Makie itself, with CairoMakie as its implementation, adds 46 pirates, nearly all pairs of a core and its implementation that four more core wrappers would name, and one real pirate (`poc/interfaces/README.md`, x14).
+Wrapping Makie itself, with CairoMakie as its implementation, adds 46 pirates, nearly all pairs of a core and its implementation that four more core wrappers would name, and one real pirate (`experiments/interfaces/README.md`, x14).
 
 ## What this costs
 
@@ -216,4 +216,4 @@ Wrapping Makie itself, with CairoMakie as its implementation, adds 46 pirates, n
 3. **Calls out are calls upward.** A plotting system is called through declared calls with handles, not run inside. Its time to first plot is an ordinary module's, and its code is outside the trait world's guarantees.
 4. **One wrapper per package and environment.** Two trait packages that would wrap one package differently must agree on one wrapper.
 
-The prototypes around DataFrames and Makie, with their measurements (sealing audits, time to first plot, binaries), are described in `poc/interfaces/README.md`.
+The prototypes around DataFrames and Makie, with their measurements (sealing audits, time to first plot, binaries), are described in `experiments/interfaces/README.md`.

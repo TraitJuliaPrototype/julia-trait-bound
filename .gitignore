@@ -1,10 +1,9 @@
 *.jl.cov
 *.jl.mem
 trace_*.txt
-attic/binary/julia/
-poc/interfaces/build/app_full
-poc/interfaces/build/app_trim
-poc/interfaces/build/app_prof
-poc/interfaces/build/*.log
-poc/interfaces/build/*.png
-poc/interfaces/build/.claude/
+# separate repositories in this workspace (see README.md)
+/julia/
+/TraitWorld/
+/TraitDifferentialEquations/
+/TraitMakie/
+/experiments/

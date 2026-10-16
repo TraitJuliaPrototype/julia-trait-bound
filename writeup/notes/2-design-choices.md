@@ -289,7 +289,7 @@ Not researched for this note (from memory): Go compiles one generic instance per
 
 ## 9. Error messages
 
-**Where unreadable errors come from.** Three ingredients, all needed (`writeup/design-findings.md` §17, `poc/errors/`):
+**Where unreadable errors come from.** Three ingredients, all needed (`writeup/design-findings.md` §17, `experiments/errors/`):
 1. **The failure is detected deep inside the library,** because the library never states what it requires.
 2. **The whole path is printed,** 22–44 stack frames in the SciML cases.
 3. **Every step is printed at its full concrete type,** because concreteness at the bottom forces the concrete type into every signature above. A SciML integrator's type is 3,553 characters, mostly the library's own nesting.

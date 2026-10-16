@@ -1,8 +1,0 @@
-name = "ComboCache"
-uuid = "2b5f3c1e-7a4d-4e8b-9c0f-1d2e3f4a5b6c"
-version = "0.1.0"
-authors = ["Frank Hellmann"]
-
-[deps]
-TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"

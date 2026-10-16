@@ -1,6 +1,6 @@
 # Traits for better Julia: findings, measurements and details
 
-*Layout note, 2026-10-14: `Background/`, `TraitRegions/`, `ecosystem/`, `binary/`, `rung2/`, `spike/`, `reviews/` and `poc/{concrete,errorsplit,reprparam,verifymain}` were moved to `attic/` with the same relative layout; paths below that start with them now live under `attic/`.*
+*Layout note, 2026-10-14: `Background/`, `TraitRegions/`, `ecosystem/`, `binary/`, `rung2/`, `spike/`, `reviews/` and `experiments/{concrete,errorsplit,reprparam,verifymain}` were moved to `attic/` with the same relative layout; paths below that start with them now live under `attic/`.*
 
 *Rule numbers, 2026-10-15: the note has four rules since rev 1110. Text below written earlier uses the seven: old 1 = 1 (layering); old 2, 3, 4 = 2 (the boundary translates, once per bound); old 5 = 3 (ownership); old 6 and 7 = 4 (what a call sees, and where its code lives).*
 
@@ -8,7 +8,7 @@ Companion to the design note "Traits for better Julia"
 (https://claude.ai/code/artifact/4f98f689-d7c8-4487-a92b-282a77417d20).
 The note explains the design; this file holds the evidence, the proof-of-concept
 results and the detailed tables. As of 2026-10-13, Julia 1.12.2 unless stated.
-Sources: `session-notes/`, `poc/*/README.md`. Numbers come from fresh
+Sources: `session-notes/`, `experiments/*/README.md`. Numbers come from fresh
 processes, mostly single runs.
 
 ## 1. Measurements behind the motivation
@@ -22,7 +22,7 @@ processes, mostly single runs.
 | `max_methods` cliff | inference gives up once more than three methods match an abstract call; one method in an unrelated package can push a call over the line |
 | Results that follow inference | `map(w, Real[])` returns `Vector{Float64}` until a legitimate `w(::NewReal) = "s"` loads, `Vector{Any}` afterwards (verified on 1.12) |
 | Dynamic dispatch has no target list | a generic function on an `Any` element compiles at first use (12 ms) in a session and is a `MethodError` in a trimmed binary |
-| Abstract type deep in a hierarchy | a field declared `Real` three calls below a hot loop: 66 ns against 0.9 ns per element with the field typed, 74× (`poc/concrete`) |
+| Abstract type deep in a hierarchy | a field declared `Real` three calls below a hot loop: 66 ns against 0.9 ns per element with the field typed, 74× (`experiments/concrete`) |
 
 ## 2. Findings from the prototypes
 
@@ -49,7 +49,7 @@ error split, the verifier and concrete mode.
 | Return-type reflection is observable | `map(w, Real[])` changes element type on a legitimate load; every broadcast queries `return_type` | Answer such queries within the trait world (the documented exception) |
 | Overlapping seals override each other silently | two packages sealing the same pair: the last one loaded wins, without a warning | Orphan rule for seals |
 | Ordinary entries union-split the seal lookup only while few seals exist | with up to three seals a new seal invalidates the entry; beyond that the lookup infers `Any` with no edge | Ordinary callers pay an `Any` return, not invalidation |
-| Implementations per representation run at plain speed | `poc/reprparam`, one operation call per element: 1.02–1.03× plain Julia at 4096 elements per column; the seal's own operations 24–35× (19–23 ns per call) | Implement operations per representation; keep a seal's own operations for bespoke behaviour |
+| Implementations per representation run at plain speed | `experiments/reprparam`, one operation call per element: 1.02–1.03× plain Julia at 4096 elements per column; the seal's own operations 24–35× (19–23 ns per call) | Implement operations per representation; keep a seal's own operations for bespoke behaviour |
 | The sealing machinery must obey the rules too | its static registry lookups were invalidated by every package declaring a trait (134 ms at the first seal of a session); `fieldtypes` compiled a closure per visited type (about 70 ms) | Lookups through `invokelatest`; the first seal of a session 314–350 ms to 85 ms |
 | At the Makie boundary, erasure is the win | X8 fair rerun: recipes 167, regions 98, hand-written erasure 51 ms per type | Seal cost must come down |
 | The error split works on stock Julia | Stage 1 PoC (section 4) | Usable now, with warnings |
@@ -216,7 +216,7 @@ CodeInstance).
 
 ## 4. Stage 1 proof of concept: the error split on stock Julia
 
-`poc/errorsplit/`, TraitRegions `ownership.jl` and `audit.jl`: the ownership
+`experiments/errorsplit/`, TraitRegions `ownership.jl` and `audit.jl`: the ownership
 rule, a guard per region op that audits the worker's compiled concrete-edge
 call graph, three modes, the orphan rule, `catch` rethrow, a per-op seal cache.
 
@@ -247,7 +247,7 @@ when a seal is defined; `Core.eval` laundering is not caught.
 
 ## 5. Verified programs and AOT (`verify_main`)
 
-`poc/verifymain/`, TraitRegions `verify.jl`. Calls are classified as static,
+`experiments/verifymain/`, TraitRegions `verify.jl`. Calls are classified as static,
 bounded (finitely many targets known now), trait (seal lookup, projection,
 worker call, witness call), root (a closure the runtime will call), guard, or
 hole. A hole is on an error path when every path from it ends in an uncaught
@@ -283,7 +283,7 @@ guard being switched off in non-trimmed builds.
 
 ## 6. Concrete mode
 
-`poc/concrete/`, TraitRegions `concrete.jl`. Building the top package of a
+`experiments/concrete/`, TraitRegions `concrete.jl`. Building the top package of a
 four-package hierarchy prints:
 
     Warning: @warn_on_abstract: region op `scaled_sum` at representation Vector{Float64} uses abstract types on its normal path; 1 root cause:
@@ -304,7 +304,7 @@ is not kept across sessions; a seal's own operations called in loops are not fla
 
 ## 7. Representations as trait parameters
 
-`poc/reprparam/`, TraitRegions `@trait Name{R}` and `@implement`. A trait
+`experiments/reprparam/`, TraitRegions `@trait Name{R}` and `@implement`. A trait
 names its representation, so declarations may depend on it
 (`firstel(r::R)::eltype(R)`). Operations are implemented once per
 representation as ordinary methods (`@implement Trait{R}`; R may also be
@@ -406,7 +406,7 @@ whose unused result the compiler dropped; the benchmark now consumes results.
 ## 12. TraitWorld: the design of rev 101 on stock Julia
 
 `TraitWorld/` implements the note's design as of rev 101, with Base
-capability traits; the packages and every number are in `poc/world/README.md`
+capability traits; the packages and every number are in `experiments/world/README.md`
 (plan: `writeup/poc2-plan.md`). In short:
 
 | | TraitWorld | TraitRegions |
@@ -453,7 +453,7 @@ Limits on stock Julia:
 
 **Review.** An adversarial review (Fable) of TraitWorld found ten bugs and
 several overclaims, all fixed and tested; the table is in
-`poc/world/README.md`. Three sharpen the design:
+`experiments/world/README.md`. Three sharpen the design:
 
 - a trait object returned to ordinary code is an escape like any other;
 - the fallback of a function with trait-bounded methods is the most specific
@@ -464,13 +464,13 @@ several overclaims, all fixed and tested; the table is in
 
 ## 13. Interface packages around DataFrames and Makie
 
-The interfaces proof of concept (`poc/interfaces/`, plan
+The interfaces proof of concept (`experiments/interfaces/`, plan
 `writeup/poc3-plan.md` with its review corrections §9–§10, sessions 18–20)
 extends TraitWorld by keyword, default and variable arguments, `Callable`
 modes, the one-line conformance, interface packages with declared calls and
 handles, the door check and sealing, and connects Columns and Stats to the
 real DataFrames.jl 1.8 and CairoMakie 0.15. Every number is in
-`poc/interfaces/README.md`. In short:
+`experiments/interfaces/README.md`. In short:
 
 | | trait world | plain Julia |
 |---|---|---|
@@ -630,7 +630,7 @@ Moved from the note's "Other options considered" at rev 1110, so that the note l
 The goal stated by the user: installing a package precompiles its
 trait-bound code; a representation it has never seen is compiled once and
 cached; every later session takes that code from the cache. Measured in
-`poc/interfaces/README.md` ("View caches", "Could a Makie in the trait world
+`experiments/interfaces/README.md` ("View caches", "Could a Makie in the trait world
 be cached fully?").
 
 | Finding | Evidence | Consequence |
@@ -753,7 +753,7 @@ it as a direct call. A dynamic operation is an `Erased` `ccall` through a
 (`implement.jl`, `core.jl`): `verify_main` skips the `:foreigncall`, so a
 `main` over `Reversed` is reported closed with the user's operations in no
 target list, and the first call costs 107 ms in a fresh session against
-1.4 ms for a projection. `poc/world/README.md` already says a closed world
+1.4 ms for a projection. `experiments/world/README.md` already says a closed world
 should use implementations. An image cannot hold such a pointer; compiling a
 dynamic operation into an image needs another mechanism (16.6).
 
@@ -890,7 +890,7 @@ other-languages table (Julia's abstract types with assertions, C++
 
 The user's question: where do the unreadable error messages of C++
 templates and SciML come from, and how would C++ concepts and our trait
-system solve them? Measurements in `poc/errors/` (GCC 14.2; Julia 1.12.2
+system solve them? Measurements in `experiments/errors/` (GCC 14.2; Julia 1.12.2
 with the current OrdinaryDiffEq):
 
 | case | lines | bytes (REPL / full) | path printed | longest line |
@@ -1080,7 +1080,7 @@ The user asked for writable trait fields ("something people would expect. Its ho
   - Workers stay compiled per representation, since the lens carries an index, not the user's type.
   - A `Dynamic` made from a lens keeps it: it is live, and compares by identity.
 
-**Cost** (`poc/lens/lens_bench.jl`, Julia 1.12.2, -O2, 10^8 accesses, best of three; a loop that reads the representation once per iteration):
+**Cost** (`experiments/lens/lens_bench.jl`, Julia 1.12.2, -O2, 10^8 accesses, best of three; a loop that reads the representation once per iteration):
 
 | access | ns |
 |---|---|
