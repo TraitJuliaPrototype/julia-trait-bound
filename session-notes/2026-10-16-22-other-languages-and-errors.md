@@ -178,12 +178,26 @@ experiments/). Notes: associated types adopted in first-order form (R last,
 defining equations, parameter bounds, family conformances, parameter
 archetypes), the explorations' gaps as open points, Makie correction.
 
+TraitWorld at the current design (the user: "should the first step be to bring
+Trait world up to the current design instead?", yes; the build postponed),
+all on stock 1.13.2: `Dynamic{X}` (3a1d3a6), trait fields and lenses
+(2830a19), associated types with parameter archetypes (35fd2d1), results like
+the input (7f59f8a): `f(t::ColTable)::Like{t}`, constructor operations
+returning R (a `Dynamic` stays `Dynamic`), the inverse as identity (same type
+checked), field copy rebuilt by the type's constructor (a sibling
+representation gives `Series{Float32}`), or the conformer's
+`unproject(t, r)`; a written `project(t) = t.cols` now counts as a field
+projection. Found: no field projection for a whole family of user types yet,
+and the inverse is not listed for AOT (`verify_main` reports it). 283 tests.
+I ran the test suite while the re-baseline agent was timing; asked it to
+re-take the overlapping numbers.
+
 ## Next
 - Build the patched 1.13.2 (needs network, ~1 h alone); move TraitWorld to
   1.13 with the injected load filter as its stock mode; re-baseline.
-- TraitWorld features for the demonstrators: Dynamic{X}, fields and lenses,
-  associated types with parameter archetypes, constructor operations and
-  inverses, printing by bound, the pinned model mode.
+- TraitWorld features left for the demonstrators: printing frames by bound
+  and representation, the pinned model mode, family field projections,
+  `conforms(T, X)`.
 - TraitDifferentialEquations step 1 (Tsit5, a trait-world model, rows 1, 2,
   4, 7, 10), then TraitMakie.
 - Later (wrapping is paused): named implementations (`via`); archetype

@@ -564,9 +564,9 @@ colmap(x -> 2x, Measurements([[1.0, 2.0]]))      # a Measurements, rebuilt by Me
   - This is Rust's `-> Self` and Swift's `init` requirements in protocols. Rust excludes such methods from `dyn Trait`; here an operation on a `Dynamic` value that returns `R` returns a `Dynamic` value of the same conformance.
 - **The conformance inverts its projection.** Only the conformance knows the user's type:
   - **A type that is its own representation:** the inverse is the identity.
-  - **A field projection:** the inverse is the lens's other half. It copies the user's object with the field replaced, for immutable and mutable types alike, as ConstructionBase.jl's `setproperties` and Accessors.jl's `@set` do today.
-  - **A computed projection:** the conformer writes the inverse, `unproject(t, r)`. Without one the type cannot be rebuilt, and a call that needs it raises at the entry, naming the conformance. `Ramp`, computed from a base vector, cannot hold arbitrary columns.
-- **The entry translates on the way out.** A result declared `Like{t}` must be a representation of the type `t` has; the check runs at the definition, at archetypes.
+  - **A field projection:** the inverse is the lens's other half. It copies the user's object with the field replaced, for immutable and mutable types alike, as ConstructionBase.jl's `setproperties` and Accessors.jl's `@set` do today. A written projection that only reads a field, `project(t) = t.cols`, is a field projection too.
+  - **A computed projection:** the conformer writes the inverse, `unproject(t, r)`, next to `project(t)` in the conformance's block. Without one the type cannot be rebuilt, and a call that needs it raises at the entry, naming the conformance. `Ramp`, computed from a base vector, cannot hold arbitrary columns.
+- **The entry translates on the way out.** A result declared `Like{t}` must be a representation of the type `t` has; the check runs at the definition, at archetypes. A type that is its own representation must come back as the same type: a `Series{T}` that conforms as itself cannot hold a `Vector{Float32}`.
   - The worker, compiled per representation, computes it.
   - The entry applies `t`'s inverse and returns a value of the caller's type.
   - The inverse is compiled per user type next to the projection, in the conformer's image, so library code still never depends on the user's type.
@@ -774,4 +774,6 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 - An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
 - A kept value projected from a mutable field declared with an abstract type is translated once. A lens there would need to dispatch again when the user rebinds the field to another type; whether that is worth its cost is open.
 - Computed properties (a `getproperty` method) as projections: a lens needs a field; a computed projection stays translated once.
-- Prototype work: associated types with parameter archetypes; constructor operations and inverses; lenses (a field reference); named implementations; `Dynamic{X}`; trait fields; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.
+- A field projection for a whole family of user types, `project(s::Series{T}) = s.data` for every `T`: today each parameter value conforms on its own, so a sibling result rebuilds only a `Series{Float32}` that has its own conformance.
+- AOT for results like the input: the inverse per user type is not yet listed with the projections, and `verify_main` reports it as open.
+- Prototype work still to do (TraitWorld has Dynamic values, trait fields and lenses, associated types with parameter archetypes, constructor operations and inverses): named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and representation.

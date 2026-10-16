@@ -22,10 +22,10 @@ These repositories have no remotes yet. Turning them into submodules of this one
 The aim now is to demonstrate that the trait world is viable: that large libraries written in it get the pay-offs, measured against their stock versions and against the same code without traits. Wrapping existing packages and sealing come later.
 
 1. **TraitWorld at the current design,** for what a trait world needs (not wrapping or sealing), in the order TraitDifferentialEquations needs it. Each feature gets small solver-shaped acceptance tests.
-   1. `Dynamic{X}`;
-   2. trait fields as properties, lenses, and kept values that follow the user's fields;
-   3. associated types: parameters with `R` last, defining equations, bounds, family conformances, parameter archetypes in definition checking;
-   4. constructor operations, the conformance's inverse, `Like{t}` results;
+   1. `Dynamic{X}` (done);
+   2. trait fields as properties, lenses, and kept values that follow the user's fields (done);
+   3. associated types: parameters with `R` last, defining equations, bounds, family conformances, parameter archetypes in definition checking (done);
+   4. constructor operations, the conformance's inverse, `Like{t}` results (done; a field projection for a whole family of user types is still missing);
    5. printing frames by bound and representation;
    6. a pinned dynamic mode for models, when the solver needs it.
 
