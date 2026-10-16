@@ -65,3 +65,50 @@ These are package code on top of the hooks.
 - the method-definition hook as a piece of its own (#1), which session 23 found most of the remaining checkpoint workarounds wait on;
 - the compile-time checks (#5);
 - the policy correction of review F1.
+
+## Implemented (2026-10-16, session 23): pieces 1–5 and the compiler policy of wrapping by facts
+
+Branches: Julia `trait-world-1.13-hooks` (worktree `julia-1.13/`, details in its `TRAITWORLD.md`); TraitWorld `julia-hooks` (worktree `TraitWorld-hooks/`). Piece 6 was drafted and then dropped, because the user adopted wrapping by facts (`wrapping-by-facts.md`), which does not need it.
+
+| Piece | Julia | TraitWorld | What it gives |
+|---|---|---|---|
+| 1. Definition hooks | dda21fe511 | cd4b960 | Overrides after a conformance and pirates of sealed packages are refused when they are defined. An image's pirates are left inactive at load, in either load order. |
+| 2. Invalidation policy hook | fac46840b8, 87dcf22015 | 8bbea71, 7c3fcdc | The policy is TraitWorld's: the package whose types a signature requires. Skipped code keeps its backedges, which fixes a stale-code bug. TraitWorld's own image is now protected at load. With CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations, nothing is invalidated and the first solve takes 53 ms. Not needed under wrapping by facts. |
+| 3. Field-offset intrinsics | 3133c31c5f | 6f33a02 | No `llvmcall`. Loops still vectorize: 0.121 ns per element against 0.120 plain. |
+| 4. Post-inference hook | 87dcf22015 | 7c3fcdc | Audits run where code is compiled. Each guard is a single stamp compare: a typed call takes 31.4 ns, against 33.3 ns before and 29.9 ns plain. |
+| 5. Native code for upstream and foreign CodeInstances | 9af2f27786 | c62efbf | A package image keeps machine code compiled during its precompilation for upstream code it reaches dynamically, and for an AbstractInterpreter's own cache. Test package: first call 0.33 ms instead of 21.5 ms; the interpreter's code 0.39 ms instead of 11.1 s. |
+
+**The compiler policy (rule R)** is TraitWorld's `facts.jl` (d74df76, c62efbf):
+- **The interpreter.** `FactsInterp` has its own owner, `FactsOwner`. Calls at concrete signatures, including union-split ones, record edges. Any other call records nothing and dispatches at run time, typed `Any`.
+- **The one exception: TraitWorld's own functions.** A view's object is held as `Any`, so their calls have abstract argument types. Inferring them as usual keeps their edges. Making them run-time dispatches cost 12 µs per call.
+- **How entries reach the worker.** An entry calls the worker's CodeInstance through its machine code. After 1000 calls of a signature, it switches to an opaque closure built from the same IR. `invoke(f, ci, …)` costs about 440 ns because of its checks and boxing.
+- **Rule 1 is off.** It is back only with `JULIA_TW_LAYERING=1`.
+- **Two pitfalls found on the way:**
+  - The interpreter must keep its IR (`may_discard_trees = false`). Otherwise images hold CodeInstances that cannot be compiled.
+  - A closure must never reach an image. Closures stored in generated code segfaulted after load.
+
+Measured on 1.13.2 (fresh sessions):
+
+| | patched, policy on | stock, policy on | stock, policy off |
+|---|---|---|---|
+| `experiments/facts/acceptance.jl` | 5/5 | 5/5 | (4/5 on main) |
+| TraitWorld suite | 353 + 1 broken | 347 + 1 broken | |
+| TDE and TraitMakie tests | pass | pass | pass |
+| typed `total(t,16)` (plain 29.9 ns) | 42.0 ns (32.7 ns with the policy off) | 41.8 ns | 33.6 ns |
+| untyped | 105 ns | 99 ns | 98 ns |
+| TDE row 1, row 2, row 4 | 49–51, 14, 13/12 ms | 441, 14, 19/14 ms | 103, 14, 13 ms |
+| Rodas5, first solve and second function | 69–70, 49 ms | 577, 49 ms | 130, 50 ms |
+| row 7, loads after: first solve; code invalidated | 53 ms; none | 2.9 s; 8 ODECore, 631 machinery | 1.06 s; 8, 728 |
+| row 7, loads before: first solve | 0.56 s | 2.9 s | 1.07 s |
+| TraitMakie first PNG: alone, after, before | 83, 83, 141 ms | 222, 462, 456 ms | 78, 306, 303 ms |
+
+What the numbers mean:
+- **On stock**, images hold the policy's IR but no machine code, so a session compiles it: row 1 takes 0.44 s.
+- **Row 7 on stock** shows the machinery's own abstract edges being invalidated. These are the E0 chains in TraitWorld's printing and promotion paths. The patched filter still protects them. Under the adopted design, the cure is to make those paths concrete, not to keep the filter.
+
+**Still open:**
+- Row 7 in the "before" order on the patched build: 0.56 s.
+- The machinery's abstract paths (above).
+- Rodas5 with ForwardDiff's own `Dual` (not done).
+- Removing the invalidation filter and sealing, which the new design no longer needs.
+- Trimmed binaries: the policy is off in a closed world.
