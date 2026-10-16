@@ -148,3 +148,8 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
   - the hunt suite passes but for C16 (the carve-out) and C24b (a harness bug);
   - the suite, TDE and TraitMakie pass;
   - TDE first solve 59–60 ms in every load order; TraitMakie first PNG 93–96 ms; typed 37 ns.
+- **More evidence** (scripts in `experiments/facts/`):
+  - **A pirate defined *before* a trait package's image loads** (`pirate_before.jl`: `Base.abs2(::Float64)` scaled by 1.0001). TDE's Lorenz solve gives `u(end) = -9.395404198204043` with the pirate defined before or after the load, and `-9.395403827685145` without it. The image's code was rejected at load and recompiled following the pirate, so G1 holds in the "before" order too.
+  - **A second trait library loaded after TDE** (`twolibs.jl`, TraitMakie): 0 of 7461 facts-owned instances lost; TDE's next model function still takes 15 ms. The machinery exemption's G2 cost did not show here.
+  - **General code under the policy** (`general.jl`: a DataFrames/CSV workload no image holds under the policy). First call 0.58 s against 0.44 s natively, same steady state. A numeric kernel is 10% slower (5.6 against 5.1 ms): identical IR, but it calls its own separately compiled `sin` (about 0.5 ns more per call).
+- `wrapping-by-facts.md` now has a validation section (a3b47ae). A final hostile review of the verdict against the evidence is running.
