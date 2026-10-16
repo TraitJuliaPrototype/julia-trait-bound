@@ -1,6 +1,8 @@
 # Associated types in the trait-bound design
 
-Exploration of 2026-10-16, written for the question: "I think we need the associated types if traits are going to work in Julia land." It reads the four notes (`writeup/notes/`), `writeup/other-languages.md`, `writeup/proposal-definition-checking.md` and the prototype (`TraitWorld/src/trait.jl`, `implement.jl`, `defcheck.jl`), plus the primary sources listed at the end. One short Julia script was run (Julia 1.12, niced); its results are quoted where used.
+> **Status (2026-10-16, end of session 22).** Adopted in first-order form (`decisions.md`). Written before keys: the representation parameter `R` it discusses is now the implementing type, spelled `Self`, and is no longer a header parameter. Fields also define parameters, by matching (`notes/4-details.md`, "Parameters").
+
+Exploration of 2026-10-16, written for the question: "I think we need the associated types if traits are going to work in Julia land." It reads the four notes (`writeup/notes/`), `writeup/other-languages.md`, `attic/writeup/proposal-definition-checking.md` and the prototype (`TraitWorld/src/trait.jl`, `implement.jl`, `defcheck.jl`), plus the primary sources listed at the end. One short Julia script was run (Julia 1.12, niced); its results are quoted where used.
 
 ## Conclusions
 
@@ -44,7 +46,7 @@ So the prototype already has associated type functions. It evaluates them correc
 - **Iterators.** The item type, for `collect` and for preallocation. Julia's iteration interface defaults `eltype` to `Any`, and `map` over an empty collection takes its element type from inference: the design's one semantic exception. A declared item type, with a declared `Callable` result, gives `map(f::Callable{Tuple{T}, S}, x)` the element type `S` without inference. That narrows the exception.
 - **Tables.** The column types, Tables.jl's `schema`: a worker compiled per schema is a worker whose parameter is a `NamedTuple` type.
 - **Makie.** Position families `Point{N, Float64}` / `Point{N, Float32}` (`design-findings.md`): `N` chooses 2D or 3D code, and `F` keeps precision until the backend. `PointsLike{N, F}` states exactly that.
-- **ODE solvers with automatic differentiation.** `proposal-stored-values.md` §8 names forward-mode differentiation as excluded because it "needs traits with an element-type parameter". The solver must allocate caches of the state's element type, which is `Dual{…}` under ForwardDiff. That needs the parameter `T`, a bound saying what `T` must support, and a constructor at another `T`: `similar(u, T)`.
+- **ODE solvers with automatic differentiation.** `attic/writeup/proposal-stored-values.md` §8 names forward-mode differentiation as excluded because it "needs traits with an element-type parameter". The solver must allocate caches of the state's element type, which is `Dual{…}` under ForwardDiff. That needs the parameter `T`, a bound saying what `T` must support, and a constructor at another `T`: `similar(u, T)`.
 - **GPU arrays.** The element type (`Float32`), and that `similar` stays on the device. The second is the family, not the element: a constructor that returns a sibling of the same family.
 - **Results like the input.** `4-details.md` ends that section with this case: `similar(x, Float32)` turns a `Series{Float64}` into a `Series{Float32}`, which "needs the conformance to cover a family, with the trait's parameters tied to the type's".
 

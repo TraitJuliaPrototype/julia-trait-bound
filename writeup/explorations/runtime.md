@@ -1,5 +1,7 @@
 # The runtime the design needs, and whether to move to Julia 1.13
 
+> **Status (2026-10-16, end of session 22).** Current. Its recommendation is adopted: Julia 1.13.2, the load filter injected into stock Julia, the patched build postponed. The re-baseline it asked for is `experiments/baseline-1.13.md`.
+
 Exploration, 2026-10-16. The question (the user's): "We need to actually demonstrate the design in practice and I now think that this will not be possible without actually doing a major rewrite like Makie in our design. Should we switch to patching Julia 1.13? Are there any benefits to changing to that?" More broadly: what runtime the design needs, and how to build a demonstrator.
 
 ## Summary

@@ -2,7 +2,7 @@
 
 The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers wrappers, calls upward and sealing.
 
-The macros below stand for syntax a language feature would provide. The prototype, TraitWorld (`experiments/world`), runs this design in its earlier form, with representations: it writes the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), reads declared fields from the representation, keys on one field at a time, and still offers computed projections. What keys add (operations declared at the trait, `Self`, forwarding with `by`, field mappings, keys over several fields, the reference layout, `withfields`) is not yet in it; `writeup/explorations/keys-plan.md` plans it.
+The macros below stand for syntax a language feature would provide. The prototype, TraitWorld, runs most of this design on stock Julia 1.13.2 (status in `writeup/decisions.md`, column "Prototype"). It still accepts the earlier spelling with the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), and examples of its tests use it.
 
 ## Terms
 
@@ -756,25 +756,4 @@ colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
 
 ## Open points
 
-- How `Vector{<:ColTable}` takes a user's vector: element by element into a new vector of trait objects, or as a whole.
-- Input parameters (several values per type), associated type constructors beyond one family, and results bounded by their own trait (`view`, Swift's `SubSequence`).
-- Bounds over several arguments at once, `lines(x, y)`, where today a conversion builds one value from both; this ties to promotion.
-- "Live" bounds: an argument that is a value or a source of values.
-- Whether an operation may return a small `Union` of concrete types.
-- How a closure created inside a trait module is kept as a dynamic function.
-- Tasks and concurrency: trait objects and `Dynamic` values across tasks.
-- The joint-method rule for a call like `plot(x)` when a type conforms to several data traits.
-- A dynamic mode for a user's own operations, pinned per integrator with a world-age rule (the solvers' model mode), beside dispatch-based `Dynamic` values.
-- Opening a `Dynamic` at the conformer's own concrete type, a checked downcast, for callbacks that change parameters.
-- Automatic-differentiation tags as part of a key; units; mutable and immutable state families.
-- `Callable` signatures chosen by a library, and reporting a function from above that always throws when its pointer is made.
-- The compile cost of recipes and models defined at the prompt.
-- Numeric traits: numbers that conform after the fact or forward to a field, and promotion across implementing types.
-- Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods.
-- An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check` problem).
-- A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, so reading it costs a dispatch per use after the load.
-- A layout that copies the fields, for GPU kernels and other isbits-only targets, opt-in per trait.
-- Fields stored inline that are not isbits: read through `getfield`, or an inline load of the struct emitted by the runtime.
-- Whether trait wrappers should offer conversions for foreign types (Types that only convert), now that conformance never converts ([code written without traits](3-wrapping.md)).
-- AOT for results like the input: the inverse per user type is not yet listed with the conformances on the prototype, and `verify_main` reports it as open.
-- Prototype work still to do (TraitWorld has Dynamic values, trait fields and lenses, associated types with parameter archetypes, constructor operations and inverses, all in the earlier form): keys (`writeup/explorations/keys-plan.md`); forwarding for a whole family of user types; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results; printing frames by bound and key.
+Collected with the prototype's and the runtime's open items in [`writeup/open-issues.md`](../open-issues.md); the decisions taken are in [`writeup/decisions.md`](../decisions.md).

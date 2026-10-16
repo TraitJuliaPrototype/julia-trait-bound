@@ -1,6 +1,16 @@
 # Keys in TraitWorld: the adjusted plan
 
-Session 22, 2026-10-16. The design notes were rewritten from representations to keys (commit 6c7f088). A critical review found three blocking problems and several significant ones. This plan says how each is decided, how the notes change, and how TraitWorld implements the result. Nothing here is implemented yet.
+Session 22, 2026-10-16. The design notes were rewritten from representations to keys (commit 6c7f088). A critical review found three blocking problems and several significant ones. This plan says how each is decided, how the notes change, and how TraitWorld implements the result.
+
+> **Status (end of session 22).** Read the sections in order; later sections revise earlier ones.
+> - **Done:**
+>   - phase 1 (the notes);
+>   - phase 2 (the trait and conformance syntax, TraitWorld ca9b8a9);
+>   - phase 3, keys in the reference layout (TraitWorld a750ecd and 3e4bd5a, 311 tests).
+> - **Superseded by §5:** the held/lens split, the exit check and the re-entering `Dynamic` of §§1 and 4.
+> - **Not yet in TraitWorld:** §4b (no implementing type under defaults, overrides refused, fields matching parameters).
+> - **Pending the user's decision:** §6, the runtime as methods, which would replace phase 3's entry machinery.
+> - **Not started:** phases 4 and 5 (removing the `{R}` spelling; printing and the trimmed build).
 
 ## 1. Decisions on the review's findings
 
@@ -163,3 +173,24 @@ The reviewer read this plan (findings ranked, two blocking). Decisions:
   - writes to reference fields through `setfield!`;
   - fields stored inline that are not isbits through `getfield`;
   - a type that implements the operations itself is the implementing value, read as the object.
+
+## 6. Proposed: TraitWorld's runtime as methods (pending the user's go-ahead)
+
+**Why.** After phase 3, loops run at plain-Julia speed, but the fixed cost per call is 209–460 ns (`bench_m1`, `total(t, 16)`, plain 33 ns). It is the machinery around the call: a cache lookup by type in `enter`, a builder object called dynamically, `checked_call` reached by dispatch, and the result check. A standalone prototype (`experiments/keys-proto/`) shows that the same design runs at 26–30 ns per call when Julia's own dispatch does the lookup.
+
+**The shape:**
+1. **A conformance is a method.** `@implement X U …` emits `view(::Type{X}, u::U) = TO{X, K}(…)`, with the key and the offsets as constants. Families and generic implementations become methods with `where` clauses; constraint traits become small dispatch helpers (`implements(::Type{Indexable}, ::Type{R})`) that inference folds. The notes already restrict predicates to patterns.
+2. **The entry is ordinary code:** `@inline f(@nospecialize(t), i) = checked(worker_f, view(X, t), i)`.
+   - A typed caller inlines it and runs at plain speed.
+   - An untyped caller pays one dynamic dispatch, and the entry compiles once per function.
+   - Specialized entries cost about 4 ms per function and user type, which is why the entry is `@nospecialize`.
+3. **The worker is compiled per key.** The rule-2 checks run at definition (archetypes), plus one flag per worker signature in a statically resolved `checked`.
+4. **The trait object is `TO{X, K}`.** It holds the implementing value typed by `K` and the declared fields' values, and the user's object when it is mutable (`nothing` otherwise) with the offsets. Reads of a mutable object's parts go through the object with TBAA loads; an immutable type's parts are held. No allocation per call.
+5. **Results like the input:** `unview(::Type{X}, u::U, parts)` per conformance, emitted with `view`.
+6. **Removed:** `EntryCache`, `Builder`/`VSpec`, `GENERATION`/`refresh!`, `_enter_slow` with `invokelatest`, the run-time conformance and witness lookup on the hot path, and `verify_main`'s special handling of entries (calls become static).
+
+**Kept:** `@trait`, the checks, ownership, sealing, concrete mode, definition checking, view caches (keyed by `K`), and the tests.
+
+**Open within it:**
+- the measured per-type cost of a new type reached from untyped code (16 ms for 10 entries in the prototype, mostly its conformance method);
+- how generic implementations' constraint patterns map onto dispatch helpers for every form the tests use.

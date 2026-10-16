@@ -178,23 +178,23 @@ Each cost is discussed in [Design choices](2-design-choices.md#what-the-choices-
 
 ## Status
 
-TraitWorld, the prototype, runs on stock Julia 1.13.2:
-- traits with operations, fields and associated types; conformances; entries and workers;
-- the checks, including definition checking at archetypes;
-- dynamic values, lenses, results like the input;
-- sealing;
-- caches per key;
-- `verify_main` for trimmed binaries;
-- prototypes around DataFrames and Makie.
+As of 2026-10-16:
+- **TraitWorld,** the prototype, runs on stock Julia 1.13.2, 311 tests. It covers:
+  - traits with operations, fields and associated types; conformances by implementation and by forwarding, with field mappings; keys;
+  - the checks, including definition checking at archetypes;
+  - dynamic values, results like the input, printing by bound and key;
+  - sealing; caches per key; `verify_main` for trimmed binaries.
+- **Its loops run at plain-Julia speed,** but its fixed cost per call is still 200–460 ns. A rewrite that makes conformances methods (a prototype runs at plain speed per call) waits for a decision.
+- **The runtime pieces** exist as experiments: the load filter injected into stock 1.13.2, and a patched Julia with the filter at method insertion (on 1.12; the 1.13 build is postponed).
+- **The demonstrators,** TraitDifferentialEquations and TraitMakie, are skeletons with plans.
 
-It predates the formulation by keys: it spells the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`), still offers computed projections, and keys on one field at a time. The move to keys is planned in `writeup/explorations/keys-plan.md`. Measurements in `experiments/interfaces` were taken before keys.
-
-The runtime pieces it needs exist as experiments: a patched Julia with an invalidation filter at method insertion and at image load.
+What is decided, and its status, is in `writeup/decisions.md`; what is open in `writeup/open-issues.md`.
 
 ## Further reading
 
+- `writeup/decisions.md`: every design decision with its status; `writeup/open-issues.md`: what is open.
 - `writeup/design-findings.md`: measurements, prototype results, the earlier forms of the design and why they changed.
 - `writeup/other-languages.md`: the research behind the design choices, with sources.
-- `writeup/proposal-stored-values.md`, `writeup/proposal-definition-checking.md`: the proposals behind dynamic values, definition checking and named implementations.
-- `experiments/world/README.md` (TraitWorld) and `experiments/interfaces/README.md` (the prototype around DataFrames and Makie).
-- `writeup/traits-for-better-julia.md`: the single note these four notes replace, as of the live note's revision 1146.
+- `writeup/explorations/`: the demonstrators' designs (solvers, Makie), the runtime, associated types, and the plan for keys in TraitWorld.
+- `experiments/`: the measurements (`baseline-1.13.md`, `lens/`, `keys-proto/`) and the earlier prototypes (`world/`, `interfaces/`).
+- `attic/writeup/`: the single note these four notes replace (revision 1146), the proposals behind dynamic values and definition checking, the earlier proof-of-concept plans.

@@ -18,4 +18,9 @@ before this date map to `attic/<same path>`.
 | `spike/` | the M0 spikes |
 | `reviews/` | the August architect memo and the critical review of `binary/` |
 | `writeup/trait_regions_discourse_draft.md` | the community write-up draft of the earlier design |
+| `writeup/traits-for-better-julia.md` | the export of the single live design note (Claude Doc) at revision 1146, frozen on 2026-10-16 when the four local notes replaced it; it describes representations and projections, since replaced by keys |
+| `writeup/poc2-plan.md`, `writeup/poc3-plan.md` | the plans of the second and third proofs of concept (TraitWorld M0–M9, the interfaces prototype), carried out in sessions 14–21 |
+| `writeup/proposal-stored-values.md`, `writeup/proposal-definition-checking.md` | the session-22 proposals for dynamic values (D1 amended, D2 adopted, D3 rejected, D4 postponed) and for definition checking and named implementations; their decisions are in `writeup/decisions.md` and the notes. They predate keys |
 | `session-notes/design-observations.md` | the running log of design observations from the TraitRegions period |
+
+**Added 2026-10-16 (session 22):** the documents in the last three rows, moved here when `writeup/` was cleaned up to hold only what is current (see `writeup/README.md`).

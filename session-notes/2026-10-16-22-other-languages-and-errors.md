@@ -220,13 +220,32 @@ whether `f(t::Trait{U,T})` desugars to a worker per key reading the user's
 object through offsets (reference layout): recommended as the one layout,
 pending a held-vs-reference benchmark and the user's decision.
 
+## Keys, the reference layout, and the runtime as methods (later in the session)
+
+- **Keys replace representations.** Code is compiled for what the bound can see. Notes 6c7f088; two fable-critic reviews on Opus (Fable's limit was hit); the reference layout dda875f; the implementing type defined 329e945. Findings §19 has the story; `writeup/decisions.md` has every decision.
+- **The user's questions that shaped it:**
+  - "Do we really need [representations] to make the caches work?";
+  - "f(t::Trait{U,T}) … could just desugar to f{U,T}(t::Any)";
+  - callable structs as Julia's spelling of `f{U,T}`;
+  - "define implementing type", and the `HDAM` example: a type that keeps the defaults has no implementing type; overrides belong to the conformance.
+- **Measured:**
+  - `experiments/lens/layout.md`: the reference layout with Julia's TBAA through `llvmcall` matches plain Julia; without it, 5× on loops that store.
+  - `experiments/keys-proto/`: conformances as methods and `@nospecialize @inline` entries run at 26–30 ns per call (plain 25–29), with no allocation.
+- **TraitWorld:**
+  - phase 2 syntax (ca9b8a9);
+  - keys in the reference layout (a750ecd);
+  - entry tweak (3e4bd5a), 311 tests;
+  - per-call cost still 209–460 ns, in the entry machinery.
+- **Workspace:** `writeup/` cleaned up. Superseded documents (frozen export, proposals, poc plans) are in `attic/writeup/`. New: `writeup/README.md`, `decisions.md`, `open-issues.md`.
+
 ## Next
-- Build the patched 1.13.2 (needs network, ~1 h alone); move TraitWorld to
-  1.13 with the injected load filter as its stock mode; re-baseline.
-- TraitWorld features left for the demonstrators: printing frames by bound
-  and representation, the pinned model mode, family field projections,
-  `conforms(T, X)`.
-- TraitDifferentialEquations step 1 (Tsit5, a trait-world model, rows 1, 2,
-  4, 7, 10), then TraitMakie.
-- Later (wrapping is paused): named implementations (`via`); archetype
-  checks for keyword, vararg and `Callable` workers with declared results.
+1. **The user's decision on the runtime as methods** (`writeup/open-issues.md` §1.1, `explorations/keys-plan.md` §6). If yes, rewrite TraitWorld's entry and conformance machinery around `view` methods. Then, in the same pass, implement keys-plan §4b:
+   - no implementing type under defaults;
+   - refusing late overrides;
+   - fields matching parameter patterns;
+   - immutable types held.
+2. Phase 4: remove the `{R}` spelling, and convert the tests and `experiments/world`.
+3. Re-run `bench_m1`, `bench_m5` and the trimmed-binary build (alone, under a memory guard); update `design-findings.md` and `open-issues.md` §3.
+4. TraitDifferentialEquations step 1: Tsit5, a trait-world model, rows 1, 2, 4, 7, 10. Then TraitMakie. Rewrite `explorations/solvers.md` and `makie-rewrite.md` in terms of keys first.
+5. Open on 1.13: the view-cache recompile of `summarize` (71–74 ms); the patched 1.13 build (postponed).
+6. Later (wrapping is paused): named implementations (`via`); archetype checks for keyword, vararg and `Callable` workers.

@@ -1,5 +1,11 @@
 # Traits for better Julia: findings, measurements and details
 
+> **Status (2026-10-16, end of session 22).** This is the evidence log, in the order the work happened. The design itself is in `notes/`, the decisions in `decisions.md`, what is open in `open-issues.md`.
+> - **Current evidence:** §1 (measurements behind the motivation), §5 (`verify_main`), §6 (concrete mode), §13 and §15 (the interfaces prototype and caching, measured before keys), §16 (between nested types and `Any`), §17 (error messages), §18 (lenses), §19 (keys replace representations, the reviews, the reference layout).
+> - **Earlier forms of the design:** §3, §7, §9–§12 and §14. They describe representations, projections, seven rules and interface packages, all since replaced. Read them as history.
+> - Paths `writeup/proposal-*.md`, `writeup/poc*-plan.md` and `writeup/traits-for-better-julia.md` cited below are now under `attic/writeup/`.
+
+
 *Layout note, 2026-10-14: `Background/`, `TraitRegions/`, `ecosystem/`, `binary/`, `rung2/`, `spike/`, `reviews/` and `experiments/{concrete,errorsplit,reprparam,verifymain}` were moved to `attic/` with the same relative layout; paths below that start with them now live under `attic/`.*
 
 *Rule numbers, 2026-10-15: the note has four rules since rev 1110. Text below written earlier uses the seven: old 1 = 1 (layering); old 2, 3, 4 = 2 (the boundary translates, once per bound); old 5 = 3 (ownership); old 6 and 7 = 4 (what a call sees, and where its code lives).*

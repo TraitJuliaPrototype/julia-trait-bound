@@ -1,8 +1,10 @@
 # A Makie rewrite around fundamental traits
 
+> **Status (2026-10-16, end of session 22).** Written before keys replaced representations. Read "representation" as the implementing type (or the key), and "projection" as forwarding to a field. Computed projections, which some sketches below use, are gone: a library converts explicitly (`notes/4-details.md`, "Types that only convert"). Gaps listed here are collected in `open-issues.md`. Paths to `writeup/proposal-*.md` are now under `attic/writeup/`.
+
 Exploration, 2026-10-16, for the notes as of commit a03a18a ("results like the input"). The question (the user's): given the design as it now stands, what would a Makie rewrite centred on a few fundamental traits look like? The user also holds that demonstrating the design in practice needs a rewrite of this kind, so the last section scopes a minimal demonstrator.
 
-Sources: the four notes, `writeup/proposal-stored-values.md`, `writeup/design-findings.md` §15–§16 and §18, `experiments/interfaces/README.md` (x8, x13–x16), `experiments/interfaces/MakiePlots/`, and the source of Makie 0.24.16 (`~/.julia/packages/Makie/dVJIx`), ComputePipeline 0.1.8 (`E2l50`), CairoMakie 0.15.16 (`wf7sU`), Observables 0.5.5 and GridLayoutBase 0.11.3. Two short scripts checked how Makie's compute graph treats a value that changes type (§1). Code below is a sketch unless it quotes Makie; names and signatures are illustrative.
+Sources: the four notes, `attic/writeup/proposal-stored-values.md`, `writeup/design-findings.md` §15–§16 and §18, `experiments/interfaces/README.md` (x8, x13–x16), `experiments/interfaces/MakiePlots/`, and the source of Makie 0.24.16 (`~/.julia/packages/Makie/dVJIx`), ComputePipeline 0.1.8 (`E2l50`), CairoMakie 0.15.16 (`wf7sU`), Observables 0.5.5 and GridLayoutBase 0.11.3. Two short scripts checked how Makie's compute graph treats a value that changes type (§1). Code below is a sketch unless it quotes Makie; names and signatures are illustrative.
 
 ## Summary
 
