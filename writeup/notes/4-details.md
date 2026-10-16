@@ -139,7 +139,7 @@ An exported function's argument without a bound takes trait-world values only, s
 | In a trait module | Allowed | Why |
 |---|---|---|
 | the trait's operations on a trait object: `col(t, i)`, `ncols(t)` | yes | the way to reach the user's data |
-| a field the trait declares: `t.name`, and `t.name = x` unless it is `const` | yes | a declared field is a pair of operations, `getproperty` and `setproperty!` (Declaring a trait) |
+| a field the trait declares: `t.name`, and `t.name = x` unless it is `@const` | yes | a declared field is a pair of operations, `getproperty` and `setproperty!` (Declaring a trait) |
 | several trait objects in one function, of one trait or several | yes | compiled once per tuple of representations |
 | an argument with several bounds, `t::(ColTable, RowTable)` | yes | one projection per bound (rule 2) |
 | passing a trait object to the module's own functions, or on where its own trait is expected | yes | statically within the module, through the entry otherwise (rule 2) |
@@ -186,14 +186,14 @@ end
 **Fields.** A trait may declare fields as well as operations, as a struct declares them. A field is a property:
 - `t.name` is `getproperty(t, :name)` and `t.name = x` is `setproperty!(t, :name, x)`, as everywhere in Julia;
 - a trait field requires both to work with the declared type;
-- following `mutable struct`, a field is writable unless declared `const`.
+- following `mutable struct`, a field is writable unless declared `@const` (the macro form of a struct's `const`, which Julia parses only inside a struct).
 
 ```julia
 @trait HasData{R} begin
     data::R                  # the representation lives in the field `data`: a lens, readable and writable
 end
 @trait Named{R} begin
-    const name::String       # read-only: every representation has a property `name` of type String
+    @const name::String      # read-only: every representation has a property `name` of type String
     count::Int               # readable and writable
     ncols(r::R)::Int
 end
@@ -213,10 +213,10 @@ end
 - **A field of type `R` names the projection, and is a lens.** `data::R` says that a conforming type holds its representation in its field `data`. `@implement HasData T` then needs nothing more, and the one-line form's convention (the field named `data`, or the one conforming field) becomes something a trait states.
   - **Reading** `t.data` is the trait object's representation.
   - **Writing** `t.data = v` rebinds the user's field, as `t.data = v` does in plain Julia. So the trait object cannot just hold the field's value: it holds a reference to the field, the user's object and the field's index, and reads the representation through it. Every copy of the trait object, and every `Dynamic` made from it, then sees the new value, as every holder of a mutable object does.
-  - The field must be declared with exactly the type `R`, so that rebinding never changes the representation's type. A `const data::R` is an ordinary read-only projection.
+  - The field must be declared with exactly the type `R`, so that rebinding never changes the representation's type. An `@const data::R` is an ordinary read-only projection.
   - Workers stay compiled per representation, because the reference carries the field's index, not the user's type.
   - The reference keeps the user's object alive, so shared data cannot be freed under it.
-- **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `const`.
+- **Definition checking covers them.** A trait's archetype has its declared fields with their declared types: readable, and writable unless `@const`.
 - **New over Julia.** Julia's abstract types cannot require fields, a long-standing request. A trait can, because conformance is declared and checked.
 
 **Parameters: associated types.** A trait may take parameters besides the representation, as `AbstractArray{T, N}` does. The representation comes last: `@trait ArrayLike{T, N, R}`, `@trait Source{T, R}`.
