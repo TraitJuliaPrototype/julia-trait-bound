@@ -112,3 +112,13 @@ What the numbers mean:
 - Rodas5 with ForwardDiff's own `Dual` (not done).
 - Removing the invalidation filter and sealing, which the new design no longer needs.
 - Trimmed binaries: the policy is off in a closed world.
+
+## Found while validating wrapping by facts (session 24, 2026-10-17)
+
+Three more pieces. Each is small and upstream-shaped, since any `AbstractInterpreter` with its own cache owner (GPU compilers, Enzyme, Cassette-like tools) meets the same issues.
+
+| # | Need | What happens without it | State |
+|---|---|---|---|
+| 9 | **Owner-aware bare MethodInstance edges.** When one CodeInstance is invalidated, a caller whose edge names only the MethodInstance is invalidated only if it has the same owner (or is a generator's cached output). | A facts-owned caller with a bare edge (a cycle partner, or a callee whose result was not cached) is invalidated whenever the *native* code of the same instance is. TDE after CSV, DataFrames and CairoMakie lost 3 facts-owned instances that way. | In the patched build (`gf.c`, `_invalidate_backedges`); with it, 0 are lost |
+| 10 | **The inliner uses the CodeInstance it is given.** `handle_invoke_expr!` resolves `:invoke ci` through `get_ci_mi(ci)` in the caller's own cache. | A native caller of `invoke(f, facts_ci, …)` inlines the *native* code of the same instance. `add_inlining_edge!` then drops that code's edge as a duplicate of `ci`'s (it compares `.def`, ignoring the owner), a stale-code hole. TraitWorld marks the call `@noinline`, which costs about 5 ns per typed call (35 against 30). | Worked around |
+| 11 | **"Call this signature compiled under owner X" as a runtime entry point,** with the same world validation as ordinary inference. Codegen would emit a direct call, and the edges would be `(sig, ci)`. | TraitWorld uses a generated function whose generator runs the policy's inference. That inference runs in a pure callback, where `jl_get_world_counter()` is `~0`, so the lock-checked validation of world ranges is bypassed: a method inserted on another thread at the same moment could leave a stale CodeInstance. The generator must also guard against re-entry (recursion through an entry). | Worked around; sound single-threaded |
