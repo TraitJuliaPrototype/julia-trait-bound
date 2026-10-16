@@ -207,6 +207,19 @@ argument" / "compiled for what the bound can see"; findings §19. Sent to
 fable-critic for review. TraitWorld not yet changed (R last, computed
 projections); feature 5 (printing) and `conforms` written, not yet run.
 
+Two reviews of keys (fable-critic on Opus, Fable's limit hit): notes and plan
+revised (06d8534, explorations/keys-plan.md). TraitWorld ca9b8a9: printing by
+bound and key, `conforms`, the design's trait and conformance syntax lowered to
+the internal form; 308 tests. Re-baseline on 1.13.2 done
+(experiments/baseline-1.13.md, 734e57f): solver structure unchanged, 0-20%
+faster; injected load filter on stock 1.13.2 matches the patched 1.12 build
+(x12 summarize 3.2-3.6 ms, x13 first PNG 8.1-8.5 s vs 14.2-14.4 s); entry
+fixed cost now 215-220 ns vs 110 ns recorded (a TraitWorld regression since
+M5, same on 1.12.2); precompile 17-26% faster. Open: the user's question
+whether `f(t::Trait{U,T})` desugars to a worker per key reading the user's
+object through offsets (reference layout): recommended as the one layout,
+pending a held-vs-reference benchmark and the user's decision.
+
 ## Next
 - Build the patched 1.13.2 (needs network, ~1 h alone); move TraitWorld to
   1.13 with the injected load filter as its stock mode; re-baseline.

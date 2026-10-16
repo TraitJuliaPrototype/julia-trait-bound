@@ -26,7 +26,7 @@ The aim now is to demonstrate that the trait world is viable: that large librari
    2. trait fields as properties, lenses, and kept values that follow the user's fields (done);
    3. associated types: parameters with `R` last, defining equations, bounds, family conformances, parameter archetypes in definition checking (done);
    4. constructor operations, the conformance's inverse, `Like{t}` results (done; a field projection for a whole family of user types is still missing);
-   5. printing frames by bound and key (written, not yet run);
+   5. printing frames by bound and key, `conforms(T, X)` (done);
    6. keys (design, session 22): operations declared at the trait with `Self`, forwarding to a field (`by`), every declared field's type in the key, computed projections removed;
    7. a pinned dynamic mode for models, when the solver needs it.
 
