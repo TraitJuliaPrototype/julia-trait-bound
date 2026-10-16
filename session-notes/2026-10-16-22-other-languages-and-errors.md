@@ -51,9 +51,18 @@ no user type (findings §17.4 corrected); solvers are a stated limitation,
 with user models as trait-world conformances as the route. Decisions D1–D4
 open for the user.
 
+Decisions (the user): solvers postponed; fields declared by a bound
+rejected ("Hidden type parameters seem antithetical to Julia"); `Dynamic{X}`
+adopted ("Go for it"), now in the live note at rev 1125: Finer points
+subsection "Dynamic values" (made at a bound, translated once when made,
+sharing views root the user's object, operations dispatch with declared
+results, opened by a bound, equality as Swift's AnyHashable, several traits,
+up and down as a trait-world value), the table rows, the Makie paragraph,
+closures, AOT and trade-off 7.
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
-- Design a storable dynamic value and bound-typed fields (both needed by the
-  Makie traits).
+- Prototype `Dynamic{X}` in TraitWorld (dispatch on a boxed trait object;
+  verify_main bounded sites; measurements in the proposal's §7).
 - Check overlap when a generic implementation is added after a specific one.

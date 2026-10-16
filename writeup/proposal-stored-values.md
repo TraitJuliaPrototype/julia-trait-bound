@@ -1,6 +1,11 @@
 # Stored values: `Dynamic{X}`, and fields declared by a bound
 
-Proposal, revision 2 of 2026-10-16 (session 22), for the note "Traits for better Julia". Not adopted.
+Proposal, revision 2 of 2026-10-16 (session 22), for the note "Traits for better Julia".
+
+**Outcome (the user, 2026-10-16).**
+- **D2 adopted:** `Dynamic{X}`, with the stored-value semantics of §2 that it needs (D1). It is in the note at rev 1125, as the Finer points subsection "Dynamic values".
+- **D3 rejected:** "Hidden type parameters seem antithetical to Julia." Fields declared by a bound are not pursued. Stored state with a fixed representation uses explicit type parameters, as today.
+- **D4 postponed:** solvers.
 
 Revision 1 was reviewed by the fable-critic agent running on Opus; the Fable model's limit was reached. The review ran experiments on Julia 1.12.2 and on the prototype; its scripts are in the session scratchpad and its numbers are quoted below. What changed is listed in §9.
 

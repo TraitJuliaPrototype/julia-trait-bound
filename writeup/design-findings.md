@@ -840,7 +840,7 @@ written is reached by calls upward.
 | Rust | generics, monomorphized; `impl Trait` hides the name, not the cost | `dyn Trait`, a vtable per (trait, type) | `Box<dyn Trait>` | `Box<dyn Any>` |
 | Swift | specialization, an optimization within a module or of `@inlinable` code | generics by default across modules (witness tables) | `any P` | `Any` |
 | Julia today | type parameters | abstract types with asserted results (informal contract, open targets); FunctionWrappers and opaque closures for one signature | yes, at `Any` | `Any`, abstract types |
-| Trait world | own representation, compiled call | dynamic operations, dynamic call | no (a trait object cannot be stored) | inside a module, closed by ownership |
+| Trait world | own representation, compiled call | dynamic operations, dynamic call, `Dynamic{X}` (rev 1125) | `Dynamic{X}` (rev 1125; before: no) | inside a module, closed by ownership |
 
 The trait world adds the projection as an enforced position, which the
 others leave to convention (Makie's `convert_arguments` is one), and
@@ -851,7 +851,7 @@ rule 4.
 
 ### 16.6 Open
 
-1. **Storing erased values.** Rust's `Vec<Box<dyn Trait>>` and Swift's
+1. **Storing erased values.** *Closed at note rev 1125: `Dynamic{X}`, see `proposal-stored-values.md`.* Rust's `Vec<Box<dyn Trait>>` and Swift's
    `[any P]` keep values of different types with their operations. The trait
    world forbids storing a trait object, so a library keeps projected
    representations. A storable dynamic trait object (the representation plus
@@ -1059,7 +1059,7 @@ the conformance or the library's build.
 
 1. The printing policy (frames by bound and representation) is not
    implemented; the prototype's frames print `TObj{ColTable, Tuple{View{…}}}`.
-2. Struct fields declared by a bound, with the representation types as
+2. *(Rejected by the user, session 22: hidden type parameters are antithetical to Julia.)* Struct fields declared by a bound, with the representation types as
    implicit parameters that the compiler keys on and the printer omits, are
    not in the note. They are what "the signature does not have to carry the
    concrete type" needs for stored state such as an integrator; today a
