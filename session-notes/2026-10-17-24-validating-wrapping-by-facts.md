@@ -153,3 +153,9 @@ The user (end of session 23): "Go ahead. Push forward without coming back to me 
   - **A second trait library loaded after TDE** (`twolibs.jl`, TraitMakie): 0 of 7461 facts-owned instances lost; TDE's next model function still takes 15 ms. The machinery exemption's G2 cost did not show here.
   - **General code under the policy** (`general.jl`: a DataFrames/CSV workload no image holds under the policy). First call 0.58 s against 0.44 s natively, same steady state. A numeric kernel is 10% slower (5.6 against 5.1 ms): identical IR, but it calls its own separately compiled `sin` (about 0.5 ns more per call).
 - `wrapping-by-facts.md` now has a validation section (a3b47ae). A final hostile review of the verdict against the evidence is running.
+- **Phase A done:**
+  - **TraitMakie's direct Cairo** committed (be65ca9).
+  - **TDE's Rodas5 uses ForwardDiff's `Dual` directly** (702402d): `FDual{N} = ForwardDiff.Dual{ODETag,Float64,N}` replaces the library's `LDual` and its ~45 Base methods. Tests pass.
+    - Rodas5 first solve: 72–77 ms with no loads, loads after or loads before (CSV, DataFrames, CairoMakie);
+    - a second model function: 65–92 ms (`LDual`: 49 ms; the user's function is now compiled for ForwardDiff's duals).
+    - G2 holds with a generic-heavy library called from trait code.
