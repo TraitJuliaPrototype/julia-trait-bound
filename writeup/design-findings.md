@@ -1009,6 +1009,20 @@ representation prints as itself, nested if it is nested, by its owner's
 choice; and the prototype prints the machinery (`TObj{…View{…}}`), so this
 is design.
 
+**Correction (review of the stored-values proposal, session 22).** The
+integrator's 3,553 characters contain no user type: `u` and `p` are already
+`Vector{Float64}` and `f` is already a dynamic call (SciML's AutoSpecialize).
+The length is the library's own nesting: the solution 51%, the options 16%,
+the `ODEFunction` 14%, the cache 5%. Bounds on `u`, `p` and `f` would remove
+nothing from it; printing by bound shortens it only if the solution, options
+and caches are themselves bounded or `Dynamic`, a library redesign. With
+ComponentArrays the type is 5,118 characters, and the two user types account
+for 37% of it, but that is the case in which the user's right-hand side
+needs its own type (proposal-stored-values §8.1). Julia 1.12's REPL already
+abbreviates such frames to `step!(i::Integrator{TObj{…}, …}, …)`, so the
+gain of printing by bound in stack traces is modest; it is larger for
+`MethodError` messages and `typeof`.
+
 **Ingredient 1.** Requirements are stated and checked where they belong:
 - **at the conformance** (`@implement`): a missing operation, a wrong
   result type, a representation that is not deeply concrete, reported where
