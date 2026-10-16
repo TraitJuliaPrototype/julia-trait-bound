@@ -122,7 +122,7 @@ None of these affects G1:
 
 1. **A trait-world compiler policy.** An `AbstractInterpreter` with its own CodeInstance owner that records only concrete facts and compiles abstract sites as run-time dispatch. A sysimage instance whose edges are already concrete can be reused as it is.
 2. **Native code for that compiler's CodeInstances in package images, and in trimmed builds.** Today Julia saves only inferred code for external interpreters (runtime.md §2). This extends piece 5 of `julia-support.md`, and is the one deep piece.
-3. **Nothing for invalidation.** For edges at concrete signatures, Julia's own invalidation is already exact enough; this is to be confirmed by experiment E3 below.
+3. **Almost nothing for invalidation.** For edges at concrete signatures, Julia's own invalidation is exact (experiment E3 below). One fix is needed, since a second cache owner shares MethodInstances with the native one: a *bare* MethodInstance edge must be broken only by a CodeInstance of the caller's own owner (`julia-support.md` piece 9, found in validation, see below).
 4. **Optional:** the pointer call with a re-resolving trampoline (`@cfunction`-like, exists today), and the insertion hook for the strict-pirate mode.
 
 **Consequence for the Julia work in progress** (pieces 1–6 of `julia-support.md`):
@@ -157,6 +157,65 @@ The demonstrators' hot loops consist of concrete facts only.
 - "hot" means sampled time in these workloads.
 
 E2 should be repeated with larger trait-world code (more of Base) and other stacks, before the strict mode is ruled out for good.
+
+## Validation (session 24, 2026-10-17; patched 1.13.2, no skip predicate)
+
+Running notes: `session-notes/2026-10-17-24-validating-wrapping-by-facts.md`. Implementation: TraitWorld f558180, julia `trait-world-1.13` 5b5b98758f.
+
+**Verdict.** The design holds. G1 holds up to assumption A3, and G2 holds for both demonstrators with nothing skipped (rule P). Two independent reviews and an adversarial hunt found nine problems, all in the *implementation* of rule R, and all fixed. The cost on general code is small. What remains open is listed at the end.
+
+**G1 evidence:**
+- `experiments/facts/acceptance.jl`: 12 of 12 checks. These cover:
+  - redefinitions by owners and of helpers;
+  - winning pirates;
+  - calls into Base, LinearAlgebra and Printf;
+  - a more specific method added later at the call signature;
+  - recursion through an entry, also with growing types;
+  - `return_type` at abstract and widened signatures, and after a redefinition;
+  - compile-time evaluation over a run-time site with asserted effects.
+- `experiments/facts/hunt/`: 48 adversarial cases (about 125 checks). All pass except one value that plain Julia itself answers in two ways (A3: `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded) and one harness bug.
+
+**G2 evidence** (CSV, DataFrames and CairoMakie loaded before or after):
+
+| | no loads | loads after | loads before |
+|---|---|---|---|
+| TraitDifferentialEquations, first solve | 57–60 ms | 55–59 ms | 57–60 ms |
+| TraitMakie, first PNG | 87 ms | 89–96 ms | 90–97 ms |
+| code compiled under the policy that the loads invalidate | | 0 | |
+| trait modules and their ordinary layers: code invalidated | | 0 | |
+
+With the old skip predicate the TraitMakie row was 83, 83 and 141 ms. Load order no longer matters.
+
+**Speed:**
+- typed trait calls 37 ns (plain 30 ns; 33 ns before the policy); untyped 112–120 ns;
+- general code compiled under the policy (a DataFrames/CSV workload no image holds under it): first call 0.58 s against 0.44 s natively, the same steady state. A numeric kernel is within 10%, from calls into separately compiled callees.
+
+**What the implementation of rule R needed** (each a finding; details in the notes):
+1. **The entry's hop to the worker.**
+   - The entry invokes the worker's CodeInstance under the policy directly (`invoke(f, ci, args...)`, made by a generator for the world it is inferred in).
+   - It records the **dispatch fact at the call's signature**, `(sig, ci)`, with the lookup's world bounds.
+   - The call is `@noinline`. Julia's inliner resolves `:invoke ci` in the caller's own cache, and would inline native code while dropping its edge (piece 10).
+   - The generator throws on re-entry, so that inference gives up without caching.
+   - Under threads the generator is not safe, because it runs inference in a pure callback (piece 11).
+2. **Owner-aware bare MethodInstance edges** (piece 9). Without them, native invalidation of a shared MethodInstance invalidated code compiled under the policy.
+3. **`return_type` is plain Julia's question.**
+   - It is folded from native inference at the match's own signature, and only when that answer rests on concrete facts.
+   - Otherwise it runs at run time.
+   - The policy's own inference types run-time sites `Any`, so it must not answer.
+4. **Asserted effects** (`@assume_effects :foldable`, `Base.@pure`) must not license compile-time evaluation over a run-time site: no concrete or semi-concrete evaluation of such a callee, and a constant barrier at the entry. Otherwise the folded value holds no fact for the site.
+5. **The policy's compiler runs in a fixed world,** as Julia's own does. Otherwise loads invalidate its native code specialized for the interpreter (seconds after big loads).
+6. **TraitWorld's machinery is wrapped by facts too.**
+   - Its slow paths (conformance builders, the first-call checks, module finishing) are compiled under the policy and kept in TraitWorld's image.
+   - Pure type computations are generated constants.
+   - Without this, the abstractly typed reflective machinery was what loads invalidated (2.5 s first solve before).
+
+**Open:**
+- **New trait code defined after big loads.** Defining a module and its first call cost 2.7 s and 0.8 s, against 1.0 s and 0.09 s without loads. The machinery's rule-2, door and concrete-mode checks stay native for precision, and are reached through run-time dispatch in their own mutual recursion. This is an implementation cost of TraitWorld's checks; the cure is checks in the compiler (piece 7) or a non-recursive walk.
+- **Threads:** piece 11.
+- **Trimmed binaries** generate the plain call (`--trim`). The policy in a closed world is untested.
+- **Loading trait libraries.** The machinery exemption (TraitWorld's functions inferred as usual) can invalidate machinery code under the policy, since trait modules extend `param` and `implementation`. This is sound but unmeasured.
+- **The skip predicate and invalidation filter** are now opt-in (`JULIA_TW_FILTER=1`) and can be removed, with sealing, wrappers and declared calls.
+- **Strict pirate mode:** E2 with larger code and other stacks.
 
 ## Decisions for the user
 
