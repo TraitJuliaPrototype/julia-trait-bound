@@ -82,6 +82,14 @@ parameters declared by the conformance (several values per type open);
 numbers need no trait (the tower stays; promotion on concrete types in Base);
 numeric traits and cross-representation promotion open.
 
+Correction (the user: "Concreteness guarantees are opt in though"), note
+rev 1139: a trait is an abstract type with behaviour; optionally it
+guarantees that its members become concrete with respect to the behaviour it
+carries. Every place that stated concreteness as universal now says "where
+the trait requires it" (the trait concept, the bound paragraph of "Between
+nested types and Any", the hot-loop cliff, "Traits and abstract types", the
+conformance checks, the one-line form, trade-off 7).
+
 ## Next
 - Note: say explicitly that wrappers/calls upward and outward doors answer
   the C++0x objections; present rule 4's early binding as deliberate.
