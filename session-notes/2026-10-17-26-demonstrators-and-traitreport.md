@@ -86,5 +86,5 @@ The user (start of session 26): "I want to continue work on the Demonstrators, a
 ## Next
 
 1. **The policy in the platform** (§1.3, decided): a patched system image with TraitWorld in it; measure REPL first, the g2all stack first, and TraitReport's load rows.
-2. **TraitTables and TraitCSV** (the user's proposal, pending their go): a DataFrame-shaped table of `Dynamic{Column}` and a reader whose cell types are a trait; then TraitReport as a plain script with no workload of its own, against PlainReport, under loads.
+2. **TraitTables and TraitCSV** (decided by the user: "TraitTables and DataFrames rewrite is the decision to record"; `decisions.md`): a DataFrame-shaped table of `Dynamic{Column}` and a reader whose cell types are a trait; then TraitReport as a plain script with no workload of its own, against PlainReport, under loads.
 3. The rest as before: TraitDifferentialEquations step 4, piece 11, baselines.
