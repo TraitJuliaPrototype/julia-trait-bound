@@ -1,6 +1,6 @@
 # writeup/
 
-Everything here is current as of 2026-10-17 (session 25). Superseded documents are in `attic/writeup/`.
+Everything here is current as of 2026-10-17 (session 26). Superseded documents are in `attic/writeup/`.
 
 ## Read in this order
 
@@ -22,6 +22,7 @@ Everything here is current as of 2026-10-17 (session 25). Superseded documents a
 | `explorations/julia-support.md` | what TraitWorld needs from Julia proper, the order to implement them, and what is implemented in the patched build | reviewed in session 25 for wrapping by facts and strict mode: pieces 2, 4, 6 dropped, 9–13 added, new order |
 | `explorations/strict-mode.md` | strict mode: defining a pirate that would win at a trait-world fact is an error, so trait code is never invalidated by a pirate | session 25; adopted as an option, prototype planned |
 | `explorations/aot-under-facts.md` | AOT under wrapping by facts: builds compile plain Julia, what the trait world still gives, three risks, three binaries to measure | session 25 |
+| `reviews/2026-10-17-demonstrators-under-facts.md` | the three demonstrators' rows checked against wrapping by facts; the order of work (Julia pieces and TraitWorld fixes over workarounds) | session 26 |
 | `reviews/2026-10-16-wrapping-under-keys.md` | review of code written without traits under keys (F1–F11, nine decisions) | F1 fixed; F2, F4–F8 and F10 dissolved by wrapping by facts; F3, F9 open (open-issues §4b) |
 | `explorations/runtime.md` | the runtime the design needs, Julia 1.13, the load filter, the minimal runtime for the demonstrators | current, recommendation adopted |
 | `explorations/runtime_load_filter_1.13.2.patch` | the load half of the invalidation filter, ported to 1.13.2 | history: the filter is not needed under wrapping by facts |
@@ -31,8 +32,8 @@ Everything here is current as of 2026-10-17 (session 25). Superseded documents a
 
 ## Where the rest lives
 
-- **`session-notes/`:** one note per working session. The latest is `2026-10-17-25-strict-mode-aot-and-julia-work.md`; its "Next" list is the starting point for the next session.
-- **The repositories inside the design repository** (`README.md` at the root): `TraitWorld/` (the prototype), `experiments/` (measurements and prototypes), `julia/` (patched Julia), `TraitDifferentialEquations/` and `TraitMakie/` (demonstrator skeletons).
+- **`session-notes/`:** one note per working session. The latest is `2026-10-17-26-demonstrators-and-traitreport.md`; its "Next" list is the starting point for the next session.
+- **The repositories inside the design repository** (`README.md` at the root): `TraitWorld/` (the prototype), `experiments/` (measurements and prototypes), `julia/` (patched Julia), `TraitDifferentialEquations/`, `TraitMakie/` and `TraitReport/` (the demonstrators).
 - **`attic/`:** the earlier phases: TraitRegions, the ecosystem proof of concept, the frozen live note (revision 1146), the proposals and plans of sessions 14–22.
 
 ## Conventions

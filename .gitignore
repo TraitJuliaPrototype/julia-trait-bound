@@ -7,4 +7,5 @@ trace_*.txt
 /TraitWorld/
 /TraitDifferentialEquations/
 /TraitMakie/
+/TraitReport/
 /experiments/
