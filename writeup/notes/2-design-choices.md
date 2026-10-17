@@ -2,7 +2,7 @@
 
 > **Status (2026-10-17).** Parts of this note describe the design before wrapping by facts (`writeup/explorations/wrapping-by-facts.md`, validated in session 24), and are no longer true:
 > - **§5, layering,** is gone for calls: trait-world code may call any Julia code, and its compiled code depends on the method table only through dispatch facts at concrete signatures ([the design in detail: the four rules](4-details.md#the-four-rules), rule 1).
-> - **§6 and §7, and costs 1, 2, 6 and 8:** nothing is refused at load. There is no sealing, no trait wrapper, no delegate and no declared call. Pirates are followed as in plain Julia; trait modules may not define them; an optional strict mode refuses a pirate that would change trait-world code ([code written without traits](3-wrapping.md)).
+> - **§6 and §7, and costs 1, 2, 6 and 8:** no pirate is refused at load (an override of a declared conformance is, decision 4 of session 27). There is no sealing, no trait wrapper, no delegate and no declared call. Pirates are followed as in plain Julia; trait modules may not define them; an optional strict mode refuses a pirate that would change trait-world code ([code written without traits](3-wrapping.md)).
 > - **"Other options considered", the edge-level rule,** is close to what was adopted. Its cliff at abstract calls is accepted (run-time dispatch, on cold paths in the demonstrators), and the closed world for AOT is restated ([AOT](4-details.md#aot-the-reachable-code-is-declared)).
 >
 > This note is to be revised.
@@ -138,6 +138,7 @@ None of them makes a forwarded field the compile key, because none specializes g
 **The dynamic positions are not `Any`.**
 - Result types are declared and asserted, so code after a call infers concretely.
 - The targets are conformances and declared signatures, which only owners and delegates add, so no load from outside adds one and a build can list them.
+- A key with an abstract part (concreteness is opt-in per trait) is such a position by the conformer's choice: one worker, run-time dispatch where it reads that part; `@warn_on_abstract` and concrete mode report it.
 - The cost is the direct call: about 4 ns for a dynamic call and 6.3 ns (7× plain Julia) for a per-element dynamic operation on the prototype, and 20–80 ns for a dispatch on a `Dynamic` value. These positions suit calls made per plot, per attribute or per callback, not per element.
 
 **What is new over discipline.** Plain Julia can reach the same shape by discipline: convert to a few concrete types first, pass only the fields a function needs, assert results after dynamic calls. On the prototype, a hand-written convert-then-plot function costs 36 ms per new table type, the trait route 35–47 ms. Three things are new:

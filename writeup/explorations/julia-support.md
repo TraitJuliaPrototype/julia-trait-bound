@@ -16,7 +16,7 @@ Everything else stays in a package: definition checking, keep detection, concret
 The user: "Finally review the proposed Julia work and go ahead in any order you like. Make the decisions that need to be made."
 
 **What changed.**
-- Under wrapping by facts, the trait world's correctness rests on Julia's own invalidation at concrete signatures (rule P). Nothing is skipped, nothing is refused at load, and no dynamic call needs a view check unless strict mode is on.
+- Under wrapping by facts, the trait world's correctness rests on Julia's own invalidation at concrete signatures (rule P). Nothing is skipped, no pirate is refused at load (the one refusal at load is an override of a declared conformance), and no dynamic call needs a view check unless strict mode is on.
 - So the pieces that served sealing and the filter drop out.
 - The weight moves to making an `AbstractInterpreter` with its own cache owner a first-class citizen of the runtime. GPUCompiler, Enzyme and Cassette-like tools need the same pieces.
 

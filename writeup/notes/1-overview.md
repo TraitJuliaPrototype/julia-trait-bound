@@ -94,7 +94,7 @@ A method that applies at a concrete signature, and is no pirate, is defined by a
    - On the prototype, a program of this kind compiled to a 2.09 MB trimmed executable, before keys and wrapping by facts; it is to be rebuilt.
 3. **No performance cliffs.**
    - The speed of compiled code does not depend on unrelated loads.
-   - An abstract type that reaches a hot loop is reported when the package is built, at its root cause.
+   - An abstract type that reaches a hot loop is reported when the package is built, at its root cause, for traits that ask for concrete keys and modules in concrete mode (concreteness is opt-in per trait).
    - Library code is checked once, where it is defined, for every type that will ever conform; a mistake is reported at its line before any user type exists.
 4. **Minimal changes to semantics.**
    - A call computes exactly what it computes in Julia today, in the current world, or raises an error: "identical or error".

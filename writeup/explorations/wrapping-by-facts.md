@@ -22,7 +22,7 @@ Their designs are in `writeup/explorations/wrapping-designs/`. All three, indepe
 > **R (concrete facts).** Code compiled for the trait world, and every callee compiled for it, depends on the method table only through *facts* of the form "at concrete signature `s`, dispatch selects `r`".
 > - `r` may be a method, "no method", or "ambiguous".
 > - Union splitting gives several concrete facts.
-> - Decisions the trait world makes from the method table are facts too. For example, "type `T` uses the trait's default for `length`" is the fact `D(length, Tuple{T}) = default`.
+> - Which operations a conformance serves by defaults is fixed when it is declared; a later method that would change that is refused (decision 4, session 27; the prototype never recorded it as a fact).
 >
 > A call site whose argument types are not concrete records nothing and dispatches at run time, in the current world.
 
@@ -52,7 +52,8 @@ Nothing else is needed for correctness: no wrappers, delegates, sealing regions,
 - compilation records only true facts;
 - a definition, deletion or redefinition changes dispatch only at signatures where it applies and wins, and P invalidates exactly the code with a fact there;
 - an image load admits code only if its facts hold now;
-- run-time dispatch and pointer calls record nothing.
+- run-time dispatch and pointer calls record nothing;
+- a definition that would change a conformance's default decision is refused, so that decision stays true.
 
 *By induction over execution steps:*
 - a direct site runs `D_w(s)`;
@@ -62,7 +63,7 @@ Nothing else is needed for correctness: no wrappers, delegates, sealing regions,
 
 *Corollary:* G1 depends on no declaration. A wrong performance setting can make code slow, never wrong.
 
-The silent wrong results of review F1 came from an invalidation that was skipped, which P forbids. Lesson 4 is covered too: the default decision is a fact, and the owner adding `length(::T)` changes it, so the code recompiles to the new method.
+The silent wrong results of review F1 came from an invalidation that was skipped, which P forbids. Lesson 4 is covered differently since session 27: the default decision is fixed at the declaration, and the owner adding `length(::T)` later is refused (an override belongs to the conformance), so no code is left stale.
 
 **Theorem 2 (G2).** A trait-world CodeInstance whose facts are all concrete stays valid under loads in any order, unless a loaded package either:
 - **(a)** is a stakeholder of one of its fact signatures: it owns the function, a type occurring in the signature, or a supertype of one (corrected in session 27); or

@@ -80,7 +80,7 @@ Rule 1 says what compiled trait-world code depends on; rule 2 says how a value c
 
 1. **Concrete facts.** Code compiled for the trait world, and every callee compiled for it, depends on the method table only through facts: "at concrete signature `s`, dispatch selects `r`" (rule R in `writeup/explorations/wrapping-by-facts.md`).
    - `r` may be a method, "no method" or "ambiguous". Union splitting gives several facts.
-   - Decisions the trait world makes from the method table are facts too: "type `T` uses the trait's default for `length`" is the fact `D(length, Tuple{T}) = default`.
+   - Which operations a conformance serves by the trait's defaults is not a fact: it is fixed when the conformance is declared, and a later method that would change it is refused ("An override belongs to the conformance", below).
    - A call whose argument types are not concrete records nothing and dispatches at run time, in the current world: a run-time site.
    - **Nothing is skipped** (rule P). A fact is invalidated exactly when a definition changes dispatch at its signature. That is Julia's own invalidation for edges at concrete signatures.
    - **What trait modules call:** any Julia code, directly: Base, Cairo, ForwardDiff, CSV. A callee is compiled under the policy, or called through a pointer into plain Julia's code, a choice of speed only ([code written without traits](3-wrapping.md#calling-code-written-without-traits)).
@@ -200,7 +200,11 @@ end
   HDAM.mean_data(s::Sorted) = …                # an override by Sorted's owner, a stakeholder
   @implement HDAM Sorted                       # implementing type Sorted: key (Sorted; data::Vector{Float64})
   ```
-- **An override belongs to the conformance.** Which operations a conformance serves by defaults is decided when it is declared, and compiled code relies on it. A method of a trait's operation for a type whose conformance already serves that operation by a default is refused when it is defined, naming the fix: define the override before the `@implement`, or inside its block. Plain Julia would call the later method, so accepting it would break "identical or error".
+- **An override belongs to the conformance.** Which operations a conformance serves by defaults is decided when it is declared, and compiled code relies on it. A method of a trait's operation for a type whose conformance already serves that operation by a default is refused when it is defined, naming the fix: define it before the `@implement`, or inside its block, and restart the session. (Decision 4, session 27.)
+  - **Why refused, not followed.** Plain Julia would call the later method. Accepting it without recompiling would break "identical or error", and recompiling cannot restore it: a conformance that keeps every default has no implementing type and shares one worker with every type of the same field types, so the override would change the key; and values already kept as `Dynamic` hold trait objects of the old key. This is why Julia long refused to redefine a struct: compiled code and live values depend on the declaration.
+  - **A family member's conformance is fixed at its first use.** A method defined before that is the member's own; one defined after is refused, as for a single type.
+  - **At load.** An override that a package image brings for a conformance already active is refused too. So the order matters where plain Julia's does not: a method of a supertype's owner (`op(::AbstractSample)`, a stakeholder, no pirate), or of a package extension, is part of a conformance declared after it and refused for one declared before it. This and strict mode are the only refusals at load.
+  - **Interactive work.** Changing which operations a declared conformance overrides needs a restart. Julia now allows redefining a struct; a redeclaration that replaces a conformance may follow later.
 - An operation may mutate its argument. The trait object refers to the user's object, so the user sees the change, as in plain Julia.
 
 **Fields.** A trait may declare fields as well as operations, as a struct declares them. A field is a property:
@@ -248,7 +252,13 @@ end
 - `@trait B <: A` makes `A`'s operations and fields part of `B`'s. A type's conformance to `B` must agree with its conformance to `A`, forwarding to the same field or implementing both and mapping the fields alike, so `B`'s operations call `A`'s statically. A later declaration that disagrees is refused at its load.
 - A bundle trait names a combination on the library side, `@trait Table <: (ColTable, RowTable)`, so that `summary(t::Table)` needs one bound.
 
-**Concreteness.** A trait may require that its key be deeply concrete: the implementing type and the associated types. That guarantees that whatever conforms becomes concrete with respect to the behaviour the trait carries, and it constrains only what library code sees: the conforming type may hold abstract fields the trait does not declare. It is opt-in, and a trait decides it when it is published: requiring it later breaks conformers whose key is abstract, as adding an operation without a default does.
+**Concreteness is opt-in, per trait** (decision 1, session 27). By default a key may be abstract, silently. A trait that asks for more says so in its body:
+- `@concrete_only`: a conformance whose key is not concrete is refused, and so is a family member at an abstract parameter, at the entry;
+- `@warn_on_abstract`: such a conformance warns.
+
+The key is what the bound sees: the implementing type (or the forwarding field's type) and the declared fields' types. *Concrete* means a concrete type whose type parameters are concrete, all the way down; fields the trait does not declare are not looked at, since the code compiled for the key never reads them. A trait decides this when it is published: requiring it later breaks conformers whose key is abstract, as adding an operation without a default does.
+
+**An abstract part of a key behaves like a dynamic value.** A type that forwards to a field declared `AbstractVector{Float64}`, or declares such a field, gets one worker for that key, whatever the field holds. Inside it, operations on that part dispatch at run time. Passed on to a function with a bound, the part is opened there by its run-time type, and that function runs compiled for it, as a `Dynamic` is opened at a bound (a function barrier the author need not write). Measured on the prototype: one `vsum` worker served a vector, a view and a range through such a field; passing the field to `vsum` from another bounded function compiled `vsum` for `Vector{Float64}` and for the view.
 
 ## How a type conforms to a trait
 
@@ -315,7 +325,7 @@ Form 4 may be generic over a family of types (Generic implementations). What eac
 
 **Every check runs at the declaration, never at a call:**
 - **Ownership:** the author owns the type or the trait, or is an extension of its owner (rule 3).
-- **Concreteness,** for a trait that requires it: the key is deeply concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. A field declared `AbstractVector` is refused with the field named; the fix is a concrete field.
+- **Concreteness,** for a trait that asks for it (`@concrete_only`, or `@warn_on_abstract` for a warning): the key is concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. A field declared `AbstractVector` is then refused with the field named; the fix is a concrete field.
 - **Completeness:** every operation has a method or a default for the implementing type, and every declared field maps to a stored field of the conforming type, with the declared types; writable fields on a mutable type, not `const`, with exactly the declared types; the forwarding field not a writable declared field.
 - **Fields read as declared:** a type with a `getproperty` method of its own maps every declared field explicitly (Declaring a trait).
 - **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the field named `data` or `by`.
@@ -392,7 +402,7 @@ struct Series{T}; data::Vector{Vector{T}}; end
 The ownership and method checks run at the declaration, for the family as a whole:
 - **Forwarding:** the family of field types must be covered by one implementation's family, which subtyping decides. A generic implementation's predicate must be decidable on the family's structure, else the declaration is refused.
 - **Methods:** the operations' methods must cover the family, with results that infer to the declared types at the family's signature.
-- **Concreteness:** field types may depend on the parameters but are abstract in no other way, so every instantiation with concrete parameters has a concrete key. An instantiation with an abstract parameter, `Series{Real}`, is refused at the entry by its type.
+- **Concreteness,** for a trait that asks for it (`@concrete_only`): field types may depend on the parameters but are abstract in no other way, so every instantiation with concrete parameters has a concrete key. An instantiation with an abstract parameter, `Series{Real}`, is refused at the entry by its type. Without the request it conforms, with an abstract key.
 - **A refusal names the instantiations that would conform.**
 
 **Families with associated types.** A family conforms jointly, the trait's parameters tied to the type's: `@implement ArrayLike{T, 1} Series{T} where {T}`.
@@ -699,7 +709,7 @@ verify_main(main, (Vector{String},); entrypoints = true)   # lists every target 
 Four cliffs disappear by construction, and the fifth becomes a report at build time.
 
 - **Loads do not change speed.** Compiled trait-world code holds concrete facts only, so an unrelated load changes none of them (Theorem 2). A call at abstract types is a run-time dispatch from the start, so no load can push inference over `max_methods` and turn a fast call dynamic.
-  - The price: a call that plain Julia infers through at an abstract signature is a run-time dispatch here. In the demonstrators such calls lie on cold paths.
+  - The price: a call that plain Julia infers through at an abstract signature is a run-time dispatch here. In the demonstrators such calls lie on cold paths, because their keys are concrete. Where a key is abstract (decision 1), the dispatch sits inside the worker, on the hot path, as an abstract field does in plain Julia; `@warn_on_abstract` and concrete mode report it.
   - `return_type` is plain Julia's question. It folds at compile time when the answer rests on concrete facts, and is answered at run time otherwise.
 - **Types cannot multiply compile cost.** Code compiles per key, not per user type, unless the type implements the operations itself. A type that forwards to a field of a known type adds no compiled code; a type that implements the operations compiles the library once for itself, by its own choice.
 - **Nothing recompiles under you.** Only a stakeholder of one of its facts, or a pirate that wins at one, invalidates trait-world code (Theorem 2). On the prototype, twelve package loads, before or after the trait code, invalidated none of it. A compiled-call worker, which lives in the caller's image, and code redefined at the prompt recompile as today.

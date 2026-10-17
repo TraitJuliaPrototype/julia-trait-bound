@@ -87,7 +87,7 @@ Trait-world code is compiled by the trait world's own compiler policy, in its ow
 - **At a call with concrete argument types,** it records a *fact*: "at signature `s`, dispatch selects `r`".
   - `r` may be a method, "no method", or "ambiguous".
   - Union splitting gives several facts.
-  - The trait world's own decisions are facts too: "type `T` uses the trait's default for `length`" is the fact `D(length, Tuple{T}) = default`, so the owner adding `length(::T)` recompiles the code to the new method.
+  - Which operations a conformance serves by defaults is no fact: it is fixed at the declaration, and a later method that would change it is refused ([the design in detail: an override belongs to the conformance](4-details.md#declaring-a-trait)).
 - **At any other call,** it records nothing. The call dispatches at run time, in the current world, as plain Julia's dynamic dispatch does. Typical such sites are printing with `@nospecialize`, fields typed `Any`, keyword sorters, and promotion on abstract types.
 - **Nothing is skipped.** A fact is invalidated exactly when a definition changes dispatch at its signature. That is Julia's own invalidation for edges at concrete signatures, which is exact in all nine cases tested (`experiments/facts/`, E3).
 
@@ -148,7 +148,7 @@ In both cases plain Julia's own result changes, so no design that computes what 
 **Pirates are followed, as in plain Julia.**
 - A pirate that wins at a fact breaks it, and the code recompiles against the pirate, once.
 - A pirate that loses, or does not apply, changes nothing.
-- Nothing is refused at load. Refusing a pirate at load (sealing, an earlier form of the design) broke plain users of the pirate's package, depended on the load order, and came after the deleted method's invalidations.
+- No pirate is refused at load. Refusing a pirate at load (sealing, an earlier form of the design) broke plain users of the pirate's package, depended on the load order, and came after the deleted method's invalidations. The one refusal at load besides strict mode is an override of a conformance already declared ([the design in detail](4-details.md#declaring-a-trait)).
 
 **Trait modules may not define pirates.** A trait module's method must have the module's package as a stakeholder, checked when the module is defined (rule 3).
 

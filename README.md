@@ -33,7 +33,7 @@ The aim now is to demonstrate that the trait world is viable: that large librari
    3. associated types: defining equations, fields that define parameters, bounds, family conformances, parameter archetypes in definition checking (done; matching patterns such as `data::Vector{T}` not yet);
    4. results like the input: constructor operations returning `Self`, `Like{t}`, `withfields` (done);
    5. printing by bound and key, `conforms(T, X)` (done);
-   6. keys (done: the reference layout, no implementing type under defaults, late overrides refused at checkpoints, fields matching parameters, immutable types held);
+   6. keys (done: the reference layout, no implementing type under defaults, late overrides refused (at the definition on the patched build, at checkpoints on stock; family members too), fields matching parameters, immutable types held);
    7. the runtime as methods (done in session 23: typed calls 33 ns against 30 ns plain);
    8. a pinned dynamic mode for models, when the solver needs it.
 

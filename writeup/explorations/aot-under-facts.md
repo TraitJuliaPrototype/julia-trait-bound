@@ -17,7 +17,7 @@ Exploration of 2026-10-17 (session 25), for the user's question: how the easy-AO
    - **Under layering,** trait code reached code written without traits only through declared calls (`@call`) and wrapped packages. The roots of the plain parts were explicit and listed.
    - **Now trait code calls Cairo, ForwardDiff or CSV directly.** `verify_main` walks into them and reports their open sites as holes, as plain Julia would hit them.
    - The plain code had to be trimmable before too, since declared calls only named its roots. So nothing is lost in what can be trimmed. What is lost is a declared, listed boundary; the walk finds it instead.
-   - **Pay-off 2 therefore reads:** trait-world dispatch is closed by construction. Plain code reached from trait code is as trimmable as in plain Julia, and `verify_main` says where it is not.
+   - **Pay-off 2 therefore reads:** trait-world dispatch is closed by construction where keys are concrete; an abstract key (opt-in concreteness, session 27) adds open sites inside its workers, which `verify_main` reports. Plain code reached from trait code is as trimmable as in plain Julia, and `verify_main` says where it is not.
 4. **Three risks need tests before the next binary** (§3):
    - images built without `--trim` carrying session-mode entry code into a trim build;
    - foreign CodeInstances referenced from image code;
@@ -80,7 +80,7 @@ The optional mode in which defining a winning pirate is an error (`strict-mode.m
 
 The user (session 25): "In my mind AOT means no LLVM in the binary. Thus no recompilation. Strict mode trait code has that. For its own code. But now we have made calling ordinary Julia code easy, so we don't get any benefits there it seems. On the one hand that's fair, on the other I wonder whether some additional aot focused annotations when calling ordinary code from trait world would be possible."
 
-**A correction first.** The trait world's own code is closed by conformances and keys, in either mode. Strict mode adds nothing in a binary, since no method is defined at run time. The question is the right one, though: what the trait world can offer at its calls into ordinary code.
+**A correction first.** The trait world's own code is closed by conformances and concrete keys, in either mode. Strict mode adds nothing in a binary, since no method is defined at run time. The question is the right one, though: what the trait world can offer at its calls into ordinary code.
 
 **What the facts policy already knows.**
 - Under the policy, the code compiled for a call into ordinary code has exactly two kinds of call sites: facts at concrete signatures, and run-time sites (Theorem 3).
