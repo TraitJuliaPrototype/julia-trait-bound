@@ -71,9 +71,20 @@ The user (start of session 26): "I want to continue work on the Demonstrators, a
 - **Also fixed:** the view-cache flush built stale caches from another directory (a latent bug exposed by a test).
 - **Tests at the end:** 344 patched, 300 stock; acceptance 16/16; the hunt as before (C24b); both demonstrators on both builds.
 
+- **The user decided** §1.3 (policy in the platform, a system-image prototype) and §1.4 (facts at non-public functions; run-time dispatch under the policy recorded as an alternative, with an experiment later).
+- **Facts at non-public functions** (TraitWorld 83c35dd, then scoped in 6bcca9f):
+  - `implement.jl` is `@nospecialize` as a whole, so its calls compile to `:invoke` of policy code;
+  - `@implement` 0.64 → 0.20 s for a model type and 0.55 → 0.09 s for a data type without loads; 1.0–1.5 → 0.52 s after loads.
+  - Applied to Base's internals, the rule made a report after OffsetArrays, StatsBase and Unitful *slower* (5.4 s against 1.7 s). Scoped to calls within the caller's own package; to confirm with the user.
+- **The user's objection** ("the small trait package precompiled exactly what we need … wouldn't that be cheating?") **holds:**
+  - The plain package `PlainReport` (form a′), with the same workload, takes 0.94–1.02 s patched, as fast as form (b).
+  - Its speed is piece 5: without it, its work takes 0.96–0.99 s.
+  - Form (b)'s 55 ms came largely from CSV's own image (CSV's internals are run-time sites under the policy).
+  - With other packages loaded first, both forms slow down and the trait form more (5.3–5.7 s against 2.7–2.8 s): CSV's native code is invalidated, and the policy's compiler code in TraitWorld's image fails validation and is recompiled (3.5 s). §1.3, broader than REPL.
+- **The user, next:** "We really should have a DataFrames that is built around Traits and then CSV that implements the traits and that would prevent invalidations whether the work is in the precompile workload or not, right? But that's a large intrusive change to DataFrames I guess." Answered in the reply; TraitReport's README records TraitTables and TraitCSV as the form that would show the design.
+
 ## Next
 
-1. **The user's decisions** on open-issues §1.3 (the policy's compiler in the platform: a system-image prototype) and §1.4 (run-time sites in the machinery: facts at non-public functions, or dispatch under the policy).
-2. **TraitReport:** rows 7, 8 and 11 (load orders; policy instances lost; a strings column), then TraitCSV (b′).
-3. **TraitDifferentialEquations step 4:** tags labelled by the loss's signature (row 5).
-4. **Julia piece 11,** then the rest of the order in the review.
+1. **The policy in the platform** (§1.3, decided): a patched system image with TraitWorld in it; measure REPL first, the g2all stack first, and TraitReport's load rows.
+2. **TraitTables and TraitCSV** (the user's proposal, pending their go): a DataFrame-shaped table of `Dynamic{Column}` and a reader whose cell types are a trait; then TraitReport as a plain script with no workload of its own, against PlainReport, under loads.
+3. The rest as before: TraitDifferentialEquations step 4, piece 11, baselines.
