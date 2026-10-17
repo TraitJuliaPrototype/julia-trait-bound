@@ -16,7 +16,7 @@ The switch: `--compile-by-facts=no|all` with (A) alone; `traits` added only if (
 
 ## 1. Stage 0: wrap up the DataFrames port (session 28)
 
-- The session measured on the image after TraitWorld 5b50482 and the start-up fix (the site cache's miss path specialized on argument types: 46 s at start, 170 s at `using`).
+- Done: the session measured on the image after TraitWorld 5b50482 and 9ddd4a0: 1.19 s excluding imports (upstream 10.9 s, pandas 0.32 s), imports 3.0 s (lessons 1.9).
 - The lessons file updated with the measurement; forks, TraitWorld and the lessons committed.
 - The forks stay as they are: the regression benchmark for every later stage (upstream packages unmodified in `env_upstream`, the forks in `env_forks`).
 

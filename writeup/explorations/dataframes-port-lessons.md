@@ -78,6 +78,23 @@ Measured in session 28, with `mean` over a `Vector{Any}` column (one run-time si
 
 **Pitfall met:** the first version keyed type values by the type itself (`Int64`), which collided with a *value* of type `Int64`. `Core.invoke` then raised "argument type error" inside TraitWorld's own ambiguity check. The key must be exactly the lookup's (`Core.Typeof`: `Type{Int64}`).
 
+**Second pitfall:** the miss path (`_site_miss`, `_policy_ci`) took the arguments as `args::Tuple` without `@nospecialize`, so Julia compiled one specialization per combination of argument types, 60–90 ms each. Process start took 46 s, `using CSV, DataFrames` 170 s (TraitWorld 9ddd4a0 fixes it). Machinery reached from every run-time site must not specialize on what the site passes.
+
+**Measured after both fixes** (image, REPL driver, median of 3 runs, 2 dropped for load; session 28):
+
+| step | before (session 27, 1 run) | after |
+|---|---|---|
+| imports | 1.89 | 3.00 |
+| read | 0.97 | 0.13 |
+| describe | 0.50 | 0.14 |
+| select_filter | 0.17 | 0.15 |
+| user_function | 0.26 | 0.21 |
+| 2_describe | 0.99 | 0.03 |
+| 3_describe | 0.30 | 0.02 |
+| **session (no imports)** | about 3.7 | **1.19** |
+
+Upstream on the same patched build: 10.9 s; pandas: 0.32 s (`forks/README.md`, M0). The rise of `using` from 1.9 to 3.0 s was not investigated: the per-site caches are what the pivot removes (`../plans/2026-10-17-policy-in-compiler-plan.md`).
+
 Remaining: the site is monomorphic (a site that alternates between types misses every time), and still pays a generic dispatch into `_call_site` and `Core.invoke`'s two subtype checks. The full remedy is owner-aware dynamic dispatch in the runtime (§5).
 
 ## 2. Where compiled code lives
