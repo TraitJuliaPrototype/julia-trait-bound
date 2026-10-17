@@ -11,7 +11,10 @@ My first draft assessed a different mode, in which trait code raises at the call
    - being selected at `s`;
    - making the call at `s` ambiguous;
    - replacing the method selected there.
-2. **The defining package is not a stakeholder of `s`:** it owns neither the function nor a type in `s`. A package extension counts as its parent, and declared delegates count as the package they implement (§3).
+2. **The method is a pirate** (rule 3): its package does not own, in every signature the method applies to, the function or one of the types. An abstract type counts, so `Base.length(::AT)` by AT's owner is no pirate even where it wins at another package's subtype. A package extension counts as its parent.
+3. **Its package is not a declared delegate** of an owner of `s` (§3).
+
+By Lemma O this is the same as "not a stakeholder of `s`" for every method that is no pirate. Testing ownership of the *method* rather than of `s` also gives the check its fast path: owned methods, which are nearly all methods, need no walk.
 
 **The scope:**
 - **Every definition counts:** at the prompt, by `include`, and a package image's methods at load.
@@ -56,6 +59,49 @@ My first draft assessed a different mode, in which trait code raises at the call
 - **Attribution:**
   - `Method.module` (its root module), with extensions mapped to their parent (`Base.EXT_PRIMED`).
   - Exact attribution of the loading package (`@eval Base …` from a package) needs piece 1's loading context.
+
+## 2a. The prototype (session 25)
+
+TraitWorld main 7b328a5 (`src/strict.jl`), on the patched 1.13.2 build. Switched on with `JULIA_TW_STRICT=1` or `TraitWorld.strict!()`.
+
+**What it does:**
+- **Before a definition** (piece 1's hook):
+  - an owned method (rule 3) passes at once;
+  - for a pirate, the backedges of the specializations it could take over are walked, together with the method table's backedges for calls that found no method;
+  - the definition is refused (`PirateError`) where it would win at a fact of valid trait-world code.
+- **After the definition:** Julia's invalidation log is the safety net. A trait-world CodeInstance invalidated by a pirate is a miss of the check before; the method is deleted again and the miss is recorded.
+- **At an image's load:** the image hook leaves refused methods inactive, and the load reports them.
+
+**Tests** (`test/strict.jl`, 32 checks, all pass):
+- refused:
+  - a winning pirate of Base (`abs2(::Float64)`);
+  - a pirate that fills a gap trait code ran into;
+  - a later redefinition by a pirate that was defined before the trait code;
+  - a session's definition at the prompt of a package's function for Base types;
+- accepted:
+  - pirates that win nowhere in trait code;
+  - the function's owner (`@eval SU …`, as Revise attributes edits);
+  - an owner's method on its abstract type, at another package's subtype;
+  - a declared delegate;
+- with the mode off, the pirate is followed;
+- the safety net never fired: 0 misses.
+
+**`g2all` with strict mode on** (`experiments/facts/g2strict.jl`):
+- **The load sequence:** both demonstrators work, then twelve packages load one at a time with work after each.
+- **Refused: nothing. Safety-net misses: 0.** No trait-world code was lost, and work stayed at 9–15 ms, as with the mode off.
+
+**The cost at load** (CSV, DataFrames, CairoMakie, after the demonstrators' work):
+
+| | load |
+|---|---|
+| strict mode off | 4.14 s |
+| strict mode on | 4.68 s |
+
+- In the "on" run, 65,318 methods were checked, in 0.16 s.
+- 837 of them are pirates by the letter, and walking them took 0.49 s. None was refused.
+- The first version checked ownership without the fast path and without memoized owners: 9–11 s.
+
+**The exact check** (piece 14) would replace the walk by Julia's own invalidation set, and the safety net with it.
 
 ## 3. Split-core packages
 

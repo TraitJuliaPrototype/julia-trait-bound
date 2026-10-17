@@ -69,3 +69,10 @@ The user (start of session 25, after a state-of-play summary): "I want to keep t
   - **The symmetric "before" check** becomes a `verify_main` lint.
   - The `HiddenMethodError` mode is summarized and not pursued.
 - **Decisions and julia-support updated** (piece 1's role; piece 14 added). The census script is dropped, since it measured the wrong mode. The notes agent was told the corrected mode.
+- **Removal merged** (TraitWorld main b60b126): calls, wrappers, sealing, filter, doors, layering, audit, guard and `mode!`; −1837 lines; 308 tests on both 1.13.2 builds; demonstrators, acceptance 16/16 and the hunt pass. Notes rewritten by a subagent (1-overview, 4-details, 3-wrapping; a banner in 2-design-choices). Design repo commit 28c494e.
+- **Strict mode implemented** (TraitWorld 7b328a5, `src/strict.jl`, `test/strict.jl` 32 checks).
+  - **Rule:** refuse a pirate (rule 3, `owned_method`) that would win at a fact of valid trait-world code, unless it is a declared delegate. Checking ownership of the *method* (not of the fact's signature) is needed: an owner's method on its abstract type wins at other packages' subtypes. It also gives the fast path.
+  - **Implementation:** a pre-check over the backedges of the specializations the method could take over, and over the method table's missing-method backedges; Julia's invalidation log after the definition as a safety net; image methods left inactive.
+  - **g2all interleaved, strict on:** nothing refused, 0 misses, nothing lost.
+  - **Load cost:** at first +6.6 s on CSV, DataFrames and CairoMakie (ownership 100 µs per method; the owner memo had been dropped by the removal). After the memo and the fast path: 4.68 s against 4.14 s (65,318 methods checked in 0.16 s; 837 pirates by the letter walked in 0.49 s; none refused).
+  - **Prompt definitions:** `SU.scale(x::Float64) = …` typed at the prompt is the session's, a pirate by the letter, and refused. `@eval SU …` (as Revise attributes edits) is the owner's.
