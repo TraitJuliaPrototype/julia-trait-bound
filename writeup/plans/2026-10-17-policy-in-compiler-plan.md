@@ -49,6 +49,16 @@ What (A) costs, in steady state (after compilation), against the same build with
 
 **Decision rule** (the user's): geometric mean within a few percent (≤ 5%) and no group above 20% → defer (B) and (C), compare policy+traits against plain Julia with the switch at `all`. Otherwise → (B) and (C) (stage 4), or the guarded speculation of lesson 1.5 / §5 first, if the report shows the cost is concentrated in results of abstract calls that plain inference types.
 
+**Result (session 28, `experiments/factscompiler/README.md`):** BaseBenchmarks, 4,342 benchmarks: geometric mean 1.016 overall, 1.064 without `scalar`, 1.060 over benchmarks of 1 µs or more. By group: `io` 1.32 (above the 20% bound), `collection`, `union`, `problem` 1.16, `sort` 1.12, the others within 1.09. 81 benchmarks are more than 2× slower, 14 more than 10×. The tails are three patterns:
+- containers of `Any` (calls with an `Any` argument are no facts, though one method matches);
+- abstract element types whose methods share a result type (raytrace 3.5×: lesson 1.5);
+- small-union broadcasts (5–12×; probably `return_type` left to run time, step 2 of §2.2 not ported yet).
+
+By the rule above, the overall mean passes and one group fails. **Next, before the decision on (B):**
+- port `return_type`'s step 2;
+- recover `raytrace` and `parse_json` with traits, sealed unions and assertions, and measure each against plain Julia;
+- look at the `array/index` range sums (3 → 25 ns).
+
 ## 4. Stage 2: (A) in the system image, and the switch
 
 Only after stage 1's measurement supports it.
