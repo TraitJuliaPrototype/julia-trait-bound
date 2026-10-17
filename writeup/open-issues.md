@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-16 (end of session 23): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
+Everything known to be open, as of 2026-10-17 (session 25): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
 
 ## 1. Decisions waiting for the user
 
@@ -45,7 +45,7 @@ None at present. The last one, **conversions in trait wrappers,** dissolved with
 
 21. Checking held parts after each call upward: obsolete under the reference layout, kept only for the opt-in copying layout of item 3.
 22. An example and a test that a value crossing upward behaves as it does inside (C++0x's `late_check`, 2-design-choices, prediction 3).
-23. Indexes for the load-time checks (sealing, the dispatch check), so they never scan all methods (prediction 7).
+23. Indexes for strict mode's attribution of methods to packages, so that it never scans all methods (prediction 7). Sealing and the dispatch check, for which this was first written, are gone.
 24. Inference-dependent element types (`promote_op`): the declared exception to "identical or error"; solvers must declare them instead (solvers.md §11.8).
 25. The compile cost of recipes and models defined at the prompt; views exclude modules under `Main` (findings §15, makie-rewrite.md §8.8).
 
@@ -77,14 +77,23 @@ State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and o
 ## 4. Runtime and measurements
 
 1. With a view cache on stock 1.13.2, `summarize` recompiles for 71–74 ms once CSV and Makie are loaded (3.3 ms in session 21 on 1.12). It is unclear whether 1.13 or TraitWorld causes this (`experiments/baseline-1.13.md`).
-2. The patched 1.13.2 build exists (`julia-1.13/`). Its filter protects code from a definition only if the definer owns no type in the code's signature (review F1, fixed in 280612ed2f; before, a user's redefinition of its own implementation left the worker stale). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
+2. *(Resolved by wrapping by facts, session 24: with nothing skipped, 0 facts-owned CodeInstances are lost to any of twelve loads, in any order; `wrapping-by-facts.md` §Validation. Kept for the record.)* The patched 1.13.2 build exists (`julia-1.13/`). Its filter protects code from a definition only if the definer owns no type in the code's signature (review F1, fixed in 280612ed2f; before, a user's redefinition of its own implementation left the worker stale). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
 3. Not yet measured on 1.13: plain-Julia time to first PNG, ComboCache end to end, an x12 control on 1.12.2 with the pinned TraitWorld.
 4. The trimmed-binary acceptance build (2.09 MB `verify_main` program) has not been rebuilt since keys; run it alone, under a memory guard.
-5. The first call after large loads: TraitDifferentialEquations' first solve takes 0.7–1.05 s with CSV, DataFrames and CairoMakie loaded (73 ms without); TraitMakie's first PNG takes 0.31–0.37 s with CSV and DataFrames before (0.1–0.2 s without; 0.09 s after, patched).
+5. *(Resolved in session 24: TraitDifferentialEquations' first solve 55–60 ms and TraitMakie's first PNG 89–97 ms in every load order. Open in its place: **new** trait code defined after big loads, 2.7 s to define a small module and 0.8 s for its first call, against 1.0 s and 0.09 s; the definition-time checks, Julia pieces 7 and 12.)* Before: TraitDifferentialEquations' first solve takes 0.7–1.05 s with CSV, DataFrames and CairoMakie loaded (73 ms without); TraitMakie's first PNG takes 0.31–0.37 s with CSV and DataFrames before (0.1–0.2 s without; 0.09 s after, patched).
 
 ## 4b. The review of session 23
 
-The findings F2–F11 and nine decisions of `reviews/2026-10-16-wrapping-under-keys.md` are open, except F1 (fixed). What Julia must provide, in order: `explorations/julia-support.md`.
+Triage after wrapping by facts (session 25) of `reviews/2026-10-16-wrapping-under-keys.md`:
+- **Fixed:** F1.
+- **Dissolved:** F2 (implementations in ordinary modules have no place in the layering: there is no layering for calls), F4 and F8 (sealing), F5 (the wrapper's role for foreign types: there are no wrappers), F6 (results from above with a trait bound: `Dynamic{X}`, adopted), F7 (opaque values handed down: trait code may pass any value to any code), F10 (automatic differentiation: ForwardDiff's own `Dual`, session 24).
+- **Still open:**
+  - **F3:** family conformances over Base's abstract types, and later methods by the members' owners. Since session 24, conformances are decided in the caller's world and cached per world (G1.13), which may settle it; an acceptance case is needed.
+  - **F9:** the walk of abstract parts at the entry against the reference layout.
+  - **F11:** stale statements, to go with the rewrite of the notes.
+- **Its decision 4** (who declares a foreign type's conformance) still stands without wrappers: the trait owner's package extension, as the prototype does.
+
+What Julia must provide, in order: `explorations/julia-support.md`, reviewed in session 25.
 
 ## 5. Documents
 

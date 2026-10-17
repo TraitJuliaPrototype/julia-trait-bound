@@ -1,16 +1,18 @@
 # Traits for better Julia: code written without traits
 
-> **Status (2026-10-16, session 23).** Superseded by **wrapping by facts** (`writeup/explorations/wrapping-by-facts.md`), adopted by the user. Code written without traits is called directly; compiled trait-world code depends on the method table only through dispatch facts at concrete signatures, and nothing is skipped. Trait wrappers, delegates, sealing, doors and declared calls are no longer needed. This note is kept until it is rewritten after the prototype has shown whether the design lives up to its promise.
-
+> **Status (2026-10-17).** The design here is wrapping by facts (`writeup/explorations/wrapping-by-facts.md`), adopted in session 23 and validated in session 24. It replaced trait wrappers, calls upward and sealing.
 
 Base, the standard libraries and nearly every package were written without traits. This note covers how trait modules use that code, and how a library adopts traits without breaking its callers:
 - **Adopting traits:** a library adopts them one function at a time, its type-based methods keeping their meaning.
-- **Traits over existing functions:** state Base's informal interfaces as contracts, with conformances declared for Base's families.
-- **Trait wrappers:** bring a package into the trait world unchanged, standing in for its owner.
-- **Calls upward:** reach code that stays outside, such as a plotting system, through declared calls.
-- **Sealing:** enforces ownership over everything the trait world compiles against.
+- **Traits over existing functions:** Base's informal interfaces stated as contracts, with conformances declared for Base's families.
+- **Calling code written without traits:** directly, as ordinary code does. What the trait world adds is how such calls are compiled: it records dispatch facts at concrete signatures, and everything else dispatches at run time.
+- **Pointer calls:** a choice of speed, never of correctness.
+- **Four cases:** Base, Cairo, ForwardDiff's duals in a solver, and Makie, CSV and DataFrames in any order.
+- **Pirates:** followed as in plain Julia; trait modules may not define them.
+- **Strict mode:** an option, off by default, in which defining a pirate that would invalidate trait-world code is an error.
+- **What Julia must provide.**
 
-The rules this note relies on, layering (rule 1), ownership (rule 3) and views (rule 4), are in [the design in detail](4-details.md#the-four-rules). Why the design layers at all, and how C++ fared with the same rule, is in [design choices](2-design-choices.md#5-layering-trait-bound-code-calls-only-trait-bound-code).
+The rules this note relies on, concrete facts (rule 1), ownership (rule 3) and where compiled code lives (rule 4), are in [the design in detail](4-details.md#the-four-rules).
 
 ## Adopting traits, one function at a time
 
@@ -25,7 +27,7 @@ describe(x) = …                      # the old fallback, for everything else
 
 Adding the trait method changes only calls that used to reach the fallback or raise a `MethodError`. So a library can adopt traits one function at a time, and every existing call keeps its meaning: a value that does not conform reaches the most specific ordinary method that applies. A value of a user type that reaches a type-annotated method, such as a user's subtype of `AbstractMatrix`, is not translated by a bound; that call runs as ordinary code, with today's semantics and today's speed. The ranking rules among traits are in [the design in detail](4-details.md#dispatch-types-first-then-traits).
 
-**Conversion goes bottom-up, by module.** A package converts its own modules one at a time, from the bottom of its dependencies up. Using packages written without traits, wrapped or through calls upward, is not converting them.
+**Conversion goes module by module, in any order.** A trait module may call the package's ordinary modules, and ordinary modules may call it. Calling packages written without traits is not converting them.
 
 ## Traits over existing functions
 
@@ -48,176 +50,155 @@ end
 
 **Family declarations take Base's documented interface at its word.** A declaration for a family through one of Base's abstract types relies on the interface Base documents. A subtype that breaks the `AbstractArray` contract throws in both worlds, as "identical or error" requires, and concrete mode reports it when the package is built.
 
-**Who declares them.** By ownership (rule 3), such declarations come from the trait's owner or from Julia. So a small library of capability traits, `Iterable`, `Indexable` and `HasLength` with conformances for Base's families, is all it takes. It lives in the Base wrapper.
+**Who declares them.** By ownership (rule 3), such declarations come from the trait's owner or from Julia. So a small trait package of capability traits, `Iterable`, `Indexable` and `HasLength`, with conformances for Base's families, is all it takes.
 
 **What stays unchecked.** Trait-bound code still calls Base directly. Inference confirms such a declaration only at concrete argument types, and misses a fallback that throws on some paths only. Every call asserts its result, so "identical or error" holds regardless.
 
-## Trait wrappers
+<a id="trait-wrappers"></a>
+## Calling code written without traits
 
-**What a wrapper is.** A trait wrapper brings a package written without traits into the trait world and stands in for its owner there. Everything the trait world needs to know about the package lives in the wrapper, and a library written with traits needs none. Base, Core and the standard libraries are the first wrapped package, through the Base wrapper, implicit in every trait module.
-
-**What is admitted is decided by a check, not by the package's name.** Base's source handles any value, so it is not trait-world code. A specialization of a Base method at trait-world types, reached from a worker, is trait-world code when it passes the check below. Julia's package images already hold such specializations; the design adds that nothing above can invalidate them.
-
-**Which values are trait-world values:**
-- A value without parts, a `Float32` or a `String`, is a trait-world value wherever it was made.
-- A value with parts is one when all its parts are, except a handle, whose part nothing reaches (Calls upward).
-- The check accepts a value when its type decides that: `Vector{Float64}` does, `Vector{Any}` does not.
-
-**Where a specialization's values come from.** Each source is closed:
-- **Arguments** are translated by their bound at the entry, or admitted as trait-world values. A type that decides, being deeply concrete, is admitted by its type. A type that does not decide, such as a field declared `Real` or a `Vector{Any}`, has its abstract parts walked by the entry, at a cost proportional to them, and concrete mode reports such an argument type.
-- **Globals** it reads must have a trait-world type: a constant or typed binding, deeply concrete. `ENV` passes; `stdout`, the logger's state and `Main` do not.
-- **Constructors** make values from parts and add nothing to check.
-- **Calls** return values of specializations checked the same way, Base's and any wrapped package's, transitively, on static paths. A dynamic site inside selects at run time, and the dispatch check admits only a method of an owner or a delegate of the function or of an argument type. The target's specialization is checked when it compiles, which a build enumerates and a session reaches at the first call.
-
-**How much of a package passes** is decided by the check, as for Base. The wrapper's author runs it at the wrapper's build and learns how much passes: for a solver, most of `solve`. A plotting system as written today passes nowhere and is not wrapped but called (Calls upward).
-
-**What a wrapper holds:**
-- **The implementations it delegates to.** Many packages are split into a core of types and functions plus implementation packages:
-  - StaticArraysCore with StaticArrays;
-  - ColorTypes with Colors, ColorVectorSpace and ImageCore;
-  - StatsAPI with StatsBase.
-
-  Such a package has its behaviour outside the core: with the core alone, an `SArray` has no `size`. The core's wrapper names the implementations and depends on them, so they are loaded whenever the core's types can enter the trait world. As delegates their methods count as the core's (rule 3). An implementation the wrapper does not name is a pirate of the core, refused at its load (Sealing), so the wrapper names every implementation in use.
-- **Conformances and doors:** which of the package's types conform to which traits, declared as the Base wrapper declares Base's families, and which of its functions are doors.
-- **Tolerations** of pirates in the dependencies it seals with its package (Sealing).
-
-**One wrapper per package.** A wrapper decides what trait-world code compiles against, so a package has at most one wrapper in an environment.
-- A second wrapper is refused at its load.
-- Trait modules and other wrappers reach the package through it, as a GeometryBasics wrapper reaches `SArray` through the StaticArraysCore wrapper.
-- When the package adopts traits, it owns itself and its wrapper becomes a re-export.
-
-## Base and the standard libraries
-
-**Why Base qualifies although it was written without traits.** Core, Base and the standard libraries of one Julia version depend only on each other and ship together. So layering holds by construction, and ownership by designation, with Julia as one owner.
-- The standard libraries of the system image are in every view, so LinearAlgebra's methods on Base's functions are seen everywhere.
-- A standard library upgraded from the registry is a package with a wrapper of its own.
-- `Main`, the REPL and Pkg are ordinary code.
-
-**What the Base wrapper carries:**
-- **The capability traits** over Base's informal interfaces (`Indexable` over `getindex`), with conformances for Base's families, so the curation has an owner.
-- **The standard libraries.** Most pass the check as Base does: LinearAlgebra, Random, Dates, Statistics.
-- **Declared calls with checked results** for those with inward doors:
-  - Distributed's `remotecall_fetch(f, …)::Vector{Float64}`, whose deserialized result is checked at the boundary and is then a trait-world value whatever its origin;
-  - Serialization's `deserialize`.
-- **Outward doors:** Logging's sinks.
-
-**On the prototype,** the check walks the typed code of each worker into Base, with a budget, the door list and the check of globals. On stock Julia it sees static calls only, so a door behind a dynamic call is not found.
-
-## Calls upward: code that stays outside
-
-**What a call upward is.** Code outside the trait world runs for it only as a call upward (rule 1): at a declared signature, through a pointer, with no inference edge, the result translated by its bound. So no worker's cache depends on anything behind it. One mechanism has three uses:
-- a function handed down, bounded by `Callable` ([the design in detail](4-details.md#function-arguments-callable));
-- a declared call to a named function of a package that stays outside, `@call Makie.scatter!(f, xs, ys)::Nothing`. Its body is ordinary code compiled outside the module's cache, in a package that depends on Makie;
-- Base's doors.
-
-**Handles.** A result that comes back without operations is a handle, the mirror image of a trait object:
-- its content is reached by no operation;
-- `==` and `hash` are identity, and `show` prints the handle's type;
-- `h.ref` and `typeof(h)` are refused.
-
-A handle is a value only to hand to the next call upward.
-
-**Doors have a direction.** The doors are Base's functions that make values from non-values.
-- **Outward doors** send trait-world values up and return nothing: logging, `display`, printing to `stdout`. They are calls upward with no inference edge: allowed, reported by concrete mode as dynamic calls, and nailed to the application's declared sinks in a build.
-- **Inward doors** bring values in: `eval`, `invokelatest`, deserialization, reflection over the method table, `getglobal` on a module, task storage, raw memory. They are allowed only as declared calls with a checked result. Since no bound admits a value denoting code from above (a `Module`, a `Type`, a `Method`, a bare function), reflection and `eval` stay out as sources of values on their own.
-
-**What is curated.** The door list lives in the Base wrapper. Together with the implementations and conformances that wrappers name, it is all that is curated; the rest is structural.
-- A Base function that reaches a door at some specialization falls out there: on a static path when the worker is compiled, behind a dynamic site when the target compiles. The finding names the worker and the line.
-- `print(io, x)` on an `IOBuffer` is in, `rand()` is in, `task_local_storage()` is out, and `print(x)` is a dynamic call.
-
-**A plotting system is called.** A package whose work is state and effects passes the check nowhere and is never wrapped: trait-world code calls it. Declared calls add no methods and decide nothing about what trait-world code compiles against. So anyone may declare them, and any number of packages may declare calls into one package.
+**Trait-world code calls any Julia code directly,** as ordinary code does: Base, Cairo, ForwardDiff, CSV, Makie. Nothing is declared for it: no wrapper, no declared call, no handle type.
 
 ```julia
-module Plots                            # a trait package that calls Makie; the syntax is a sketch
-using Makie
-@trait_module module Surface
-    export figure, scatter!, save
-    @trait PointSeries begin
-        xs(s::PointSeries)::Vector{Float64}
-        ys(s::PointSeries)::Vector{Float64}
-    end
-    @handle Figure                                            # a value from Makie, opaque inside
-    figure() = @call Makie.Figure()::Figure                    # declared calls: no inference into Makie
-    scatter!(f::Figure, t::PointSeries) = @call Makie.scatter!(f, xs(t), ys(t))::Nothing
-    save(path::String, f::Figure) = @call Makie.save(path, f)::Nothing   # Makie's globals and effects live behind the call
+@trait_module module Plots                # a trait module that calls Makie; a sketch
+using CairoMakie
+export plotseries
+
+@trait PointSeries begin
+    xs(s::PointSeries)::Vector{Float64}
+    ys(s::PointSeries)::Vector{Float64}
+end
+
+function plotseries(path::String, s::PointSeries)
+    f = Figure()                          # Makie's values are ordinary values here
+    scatter!(Axis(f[1, 1]), xs(s), ys(s)) # what the operations return goes to Makie as it is
+    save(path, f)
 end
 end
 ```
 
-- **Globals become declared calls.** Trait-world code never reads a Makie global:
-  - the current figure is a call returning a handle;
-  - the theme is a call taking trait-world values and returning nothing;
-  - `display` is a call returning nothing.
+**What stays a rule is the boundary (rule 2).** A trait object is never passed bare to an ordinary function. What its operations and fields return are ordinary values, which any code may take. So definition checking still covers everything that touches the user's data, and logging, printing and debug code can be added anywhere. These were the two objections that ended C++0x's rule that constrained code calls only constrained code ([design choices §5](2-design-choices.md#5-layering-trait-bound-code-calls-only-trait-bound-code), written for the earlier layering rule).
 
-  The package also fixes the trait-world spelling of Makie's concepts: colors as tuples, markers as symbols, attributes as named tuples.
-- **Compiled code lives where rule 4 puts it.**
-  - The trait module's workers are in the package's trait-world cache, whose view excludes Makie; Makie is reached only through declared calls.
-  - Makie's code at the declared signatures is ordinary code: in Makie's image for what Makie precompiles, otherwise in this package's image, whose precompile workload is exactly the declared signatures. So time to first plot from a trait module equals an ordinary module's.
-  - Redefining a Makie method invalidates that cache as today and nothing in the trait world; the pointer is refreshed by world age at the next call.
-  - In a build, the declared calls are targets compiled as ordinary code, and whether Makie trims is Makie's problem.
-- **One surface, by convention.** A handle type belongs to the package that declares it. So trait packages that pass figures to each other share one package of declared calls into Makie, whose image then holds Makie's code at those signatures once. That is a convention among trait packages, not a kind of package.
-- **Audited, not sealed.** What lies behind declared calls is in no view, so its pirates change no trait-world code. The package's build reports the pirates in Makie's tree, as Aqua does today, as the place to push fixes upstream, and sealing leaves them alone.
+**Ordinary code may still convert explicitly.** A package may pair a trait module with an ordinary module that converts its users' values. That is a style, not a rule.
 
-A Makie rewritten in the trait world, with traits for colors, observables and recipes that users conform to, is sketched in [design choices](2-design-choices.md#3-compiled-for-what-the-bound-can-see).
+### What the compiler records
 
-## Sealing
+Trait-world code is compiled by the trait world's own compiler policy, in its own cache: TraitWorld's `FactsInterp`, an `AbstractInterpreter` with its own cache owner. The workers and every callee they reach, Base's or any package's, are compiled under it (rule 1):
+- **At a call with concrete argument types,** it records a *fact*: "at signature `s`, dispatch selects `r`".
+  - `r` may be a method, "no method", or "ambiguous".
+  - Union splitting gives several facts.
+  - The trait world's own decisions are facts too: "type `T` uses the trait's default for `length`" is the fact `D(length, Tuple{T}) = default`, so the owner adding `length(::T)` recompiles the code to the new method.
+- **At any other call,** it records nothing. The call dispatches at run time, in the current world, as plain Julia's dynamic dispatch does. Typical such sites are printing with `@nospecialize`, fields typed `Any`, keyword sorters, and promotion on abstract types.
+- **Nothing is skipped.** A fact is invalidated exactly when a definition changes dispatch at its signature. That is Julia's own invalidation for edges at concrete signatures, which is exact in all nine cases tested (`experiments/facts/`, E3).
 
-**What sealing is.** Sealing is ownership (rule 3) enforced at the load, over the views of rule 4: every package in a worker's view is sealed by the load that brings it there.
-- Loading a trait package seals it, so nobody pirates `Columns` at its types.
-- Loading a wrapper seals the package it wraps, the implementations it names, and their dependencies.
-- The Base wrapper, implicit in every trait module, seals Julia.
-- Code reached only by calls upward is in no view and is never sealed.
+**Why concrete facts only.** An abstract fact, "the methods matching `S` are exactly these", is broken by any package that defines a new subtype together with a method. That package is no pirate and no stakeholder of anything the code computes with. So concrete facts are what makes the cache stable under loads (Theorem 2 in `wrapping-by-facts.md`).
 
-**What is refused.** From the seal on, a definition that would pirate a sealed package is refused: a method on functions and types all owned by sealed packages, added by a package that is neither an owner nor a delegate of any of them. Two examples:
-- `Base.convert` for Base's types, from anywhere but Base;
-- OffsetArrays' `getindex` for Base's ranges, which changes what a working Base method returns.
+**Finer points,** each found in validation (`wrapping-by-facts.md`, "Validation", rules 1–7):
+- **`return_type` is plain Julia's question.** The policy answers it itself when its answer is a concrete type or `Union{}`. Otherwise it takes plain Julia's answer at the match's own signature, folded only when that answer rests on concrete facts. Otherwise the call is left to run time.
+- **No compile-time evaluation over a run-time site.** Asserted effects (`@assume_effects`) could claim foldability over a call the policy dispatches at run time, so such callees are not folded.
+- **Kinds count as concrete for closures only.** A closure called with types as values (`DataType`, `UnionAll`) has a fact; only the closure's owner adds methods to it. For other functions such a call stays a run-time site.
+- **The entry's call of the worker is a fact** at the call's concrete signature.
+- **TraitWorld's own machinery** is compiled by the policy where it can be, and kept in TraitWorld's image.
 
-**Refuse at the load, never at a call.** Refusal happens where methods enter the method table:
-- **for a package image:** before any of its methods is inserted, so that a refused package is absent rather than half loaded. That needs a transactional image load;
-- **for code evaluated later:** at the definition;
-- **for a seal that arrives after the pirate:** at the seal's load, naming the pirate.
+### Pointer calls: a choice of speed
 
-A refusal at the pirate's precompile is an early warning only, since a compile cache made in another environment is reused. The method table itself stays plain Julia's. Two alternatives were rejected:
-- Keeping the pirate and poisoning the affected code to raise at the call fails late; an earlier version of the design did this.
-- Making the pirate invisible inside the trait world was rejected twice, because one method with two versions disagrees silently across the worlds.
+A callee can instead be called through a pointer into plain Julia's own compiled code: about 4 ns per call, no inlining across it, the result asserted. The pointer calls plain Julia's code, so the result is plain Julia's.
 
-A wrapper's own load checks the session as it stands, and a pirate it does not declare as tolerated fails that load in strict mode.
+Two forms exist:
+- a `Callable` argument in `DynamicCall` mode ([the design in detail](4-details.md#function-arguments-callable));
+- `DynamicFn{A, S}`, a stored function of fixed type made by `dynamic_fn` in ordinary code, for a library's model or callback types.
 
-**Owners keep their freedom.** Adding methods for your own types to any function, implementing traits for your own types, and redefining your own code all work as today. An owner can delegate, for example to a package extension that implements its trait, and anyone can write a named implementation. Sealing freezes nothing.
+They let a solver compile once per signature rather than once per function. Neither is needed for correctness: a wrong choice can make code slow, never wrong.
 
-**The opt-out is plain Julia.**
-- A pirate that is tolerated, declared by a wrapper or accepted per package in a project, recompiles the signatures it touches against it, with a warning. The two worlds always agree, and the guarantees hold for everything it does not reach.
-- The interim is this with everything tolerated: warn and recompile by default, refusal as the strict mode, until the ecosystem passes. Aqua's piracy check already pushes it that way.
-- On stock Julia, the prototype's default warns and keeps the pirate. Its refuse mode deletes the pirate's methods after the load, since stock Julia cannot refuse one, which makes it depend on the load order.
+### Four cases
 
-**What you get.** In a session whose packages are trait packages, wrappers and their dependencies, nothing pirates what the trait world compiles against, in whichever order they load:
-- every cache stays valid;
-- every worker runs against what it was compiled for;
-- a build sees the whole trait world.
+| Case | How | Cost |
+|---|---|---|
+| **A. Base** | ordinary calls; arithmetic, arrays, `sum`, `sort!`, `lu!` on concrete types are concrete facts | as plain Julia on hot paths; printing and promotion paths with abstract argument types dispatch at run time (tens of ns, mostly cold paths) |
+| **B. Cairo** | ordinary calls; a `CairoContext` is an ordinary value; `ccall` side effects as in plain Julia | none, or about 4 ns per call as a pointer call |
+| **C. ForwardDiff** | `Dual{Tag, Float64, N}` is just a key type. Its arithmetic is ForwardDiff's own methods, as concrete facts. The solver's Jacobian duals use a solver-owned tag. The user's `f!` is a key type (compiled per function) or a pointer call (`DynamicFn`). | as plain Julia. No library-owned dual type and no ForwardDiff wrapper |
+| **D. Makie, CSV, DataFrames** | nothing is refused; only stakeholders of fact signatures, or pirates that win at them, invalidate trait-world code | none measured; a winning pirate costs a recompile, which "identical or error" requires |
 
-Base is sealed in any session that uses traits at all, and the sealed region is what the project file says: its trait packages and the wrappers they load.
+**Measured** (patched Julia 1.13.2, `experiments/facts/`):
+- **Loads.** Both trait libraries ran their work first. Then twelve packages loaded one at a time, with work after each: CSV, DataFrames, CairoMakie, ChurnStorm (100 types with Base methods and 20 redefinitions), BasePirate, OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations and StaticArrays. Of the CodeInstances compiled under the policy, 0 were lost after every load. With the same packages loaded before, the same 7871 instances were valid.
+- **First calls,** in every load order:
 
-**Measured on Makie's tree.** Sealing Makie's whole dependency tree on the prototype found 1091 pirate methods.
-- **1042 are implementations of split cores,** which their cores' wrappers name wherever trait-world code uses those types, and which lie behind calls upward otherwise:
-  - StaticArrays for StaticArraysCore: 794;
-  - Colors, ColorVectorSpace and ImageCore for ColorTypes: 226;
-  - StatsBase for StatsAPI: 22.
-- **Of the other 49:**
-  - OffsetArrays' 12 methods and one deprecated StatsBase method are on Base's functions at Base's types, refused or tolerated in every session that loads them;
-  - once DataFrames is wrapped, which seals DataAPI, so are Tables' 4 and StatsBase's 3 methods of DataAPI's functions at Base's types;
-  - the remaining 29 lie behind the calls into Makie.
+| | no loads | loads after | loads before |
+|---|---|---|---|
+| TraitDifferentialEquations, first solve | 57–60 ms | 55–60 ms | 57–60 ms |
+| Rodas5 with ForwardDiff's `Dual`, first solve | 72–74 ms | 75 ms | 77 ms |
+| TraitMakie, first PNG | 87 ms | 89–96 ms | 90–97 ms |
 
-Wrapping Makie itself, with CairoMakie as its implementation, adds 46 pirates, nearly all pairs of a core and its implementation that four more core wrappers would name, and one real pirate (`experiments/interfaces/README.md`, x14).
+- **Hot loops** consist of concrete facts only (E1, before direct calls). The one run-time site that showed in profiles, at 1.6%, was the declared-call path to Cairo, which direct calls remove. The others were cold: building `Dynamic` values, and reflection and printing in Base.
+
+<a id="sealing"></a>
+## Pirates
+
+**Who can change trait-world code** (Theorem 2 in `wrapping-by-facts.md`). Code whose facts are all concrete stays valid under loads in any order, unless a loaded package either:
+- **is a stakeholder of one of its fact signatures:** it owns the function or a type occurring in the signature; or
+- **brings a pirate that wins** dispatch at one of those signatures.
+
+Two lemmas give this:
+- **Ownership (Lemma O):** a method that is no pirate and applies at a concrete signature is defined by a stakeholder of it ([the design in detail: Ownership](4-details.md#ownership)). A package extension counts as its parent.
+- **Dominance (Lemma D):** a method that does not win at `s` leaves dispatch at `s` unchanged, whatever the order of insertion. That makes the result order-independent.
+
+In both cases plain Julia's own result changes, so no design that computes what plain Julia computes could keep the code.
+
+**Pirates are followed, as in plain Julia.**
+- A pirate that wins at a fact breaks it, and the code recompiles against the pirate, once.
+- A pirate that loses, or does not apply, changes nothing.
+- Nothing is refused at load. Refusing a pirate at load (sealing, an earlier form of the design) broke plain users of the pirate's package, depended on the load order, and came after the deleted method's invalidations.
+
+**Trait modules may not define pirates.** A trait module's method must have the module's package as a stakeholder, checked when the module is defined (rule 3).
+
+**Measured** (E2, after the demonstrators' workloads with the stack of case D loaded first):
+- The code compiled for them has 3,533 CodeInstances, 3,043 concrete facts and 207 abstract facts.
+- **None** of the concrete facts selects a pirate from outside Julia.
+- The stack brings OffsetArrays' 12 pirates of Base, and StatsBase's and Durations'. None of them wins anywhere the demonstrators call.
+- **Limits:** two small libraries and one stack of packages. Run-time sites were not counted, and neither were keys with StaticArrays types.
+
+**Split-core packages** such as StaticArrays, which defines `Base.size(::SArray)` for a type StaticArraysCore owns, are pirates by the letter. They are followed like any other pirate. They matter only for strict mode, and there only if the implementation loads after trait code was compiled at the core's types and wins at one of its facts.
+
+## Strict mode, an option
+
+Strict mode is an option, off by default. **In strict mode, defining a winning pirate is an error.** Details are in `writeup/explorations/strict-mode.md`.
+- **When:** at a method definition, including a package image's methods at its load.
+- **What is refused:** a method that would be selected at a concrete fact signature held by valid compiled trait-world code, that is, a method that would invalidate trait-world code, defined by a package that is no stakeholder of that signature. It owns neither the function nor a type in it; an extension counts as its parent.
+- **The error** names the method and the trait-world code it would change.
+- **What is accepted as today:** a stakeholder's definitions, which recompile the code as before, and pirates that win at no trait-world fact.
+- **A pirate defined before** the trait code is compiled is followed, as in plain Julia. The code is then compiled against it, so the pirate can never invalidate it afterwards: a later winning change by the same pirate is refused.
+
+**What it buys:** trait-world code is never invalidated by a pirate. "Identical or error" still holds, since a refused method does not exist for plain Julia either.
+
+**What it costs:** an error where the core would recompile. If pirates never win, the mode never errors. In the load sequence of case D, no trait-world code was invalidated by any of the twelve loads, so the mode would have refused nothing there.
+
+**What it needs:** Julia piece 1, a method-definition hook that may refuse a definition. It is implemented in the patched build.
+
+**In a build,** a pirate lint is planned: `verify_main` lists the calls reached from trait code that select a pirate ([the design in detail: AOT](4-details.md#aot-the-reachable-code-is-declared)).
+
+## What Julia must provide
+
+The compiler policy is package code. What it needs from Julia proper is in `writeup/explorations/julia-support.md`, "Review for wrapping by facts and strict mode":
+- **Piece 5:** native code for the policy's CodeInstances in package images. Without it every session compiles the policy's code: on stock Julia the first solve takes 0.44 s instead of about 50 ms.
+- **Piece 9:** a bare MethodInstance edge is broken only by a CodeInstance of the caller's own owner.
+- **Piece 10:** the inliner uses the CodeInstance it is given. TraitWorld works around it with a `@noinline`, about 5 ns per typed call.
+- **Piece 11:** "compile this call under owner X" from inference, through the `CompilerPlugins.typeinf` hook Julia 1.13 already declares. It removes assumption A4.
+- **Piece 12:** a frozen world for an external interpreter's compiler.
+- **Piece 13:** coverage and allocation tracking for foreign CodeInstances.
+
+Pieces 5 and 9–13 make up the first upstream proposal, "first-class foreign cache owners". GPU compilers, Enzyme and Cassette-like tools need the same pieces. Strict mode adds piece 1, a method-definition hook that may refuse a definition.
+
+No invalidation hook, no dispatch check in codegen and no trimming of foreign CodeInstances are needed.
 
 ## What this costs
 
-1. **A stranger's piracy refuses a load,** and the error reaches whoever loads the pirate, not its author. This is the most contested part of the design. The numbers above say it lands mostly on split cores, which wrappers resolve.
-2. **Code written without traits is curated:**
-   - capability traits with their conformances for Base's families;
-   - each wrapper's implementations, conformances and doors.
+1. **Calls at abstract types dispatch at run time,** also where plain Julia would infer through them. They cost tens of ns each; in the demonstrators they lie on cold paths.
+2. **Base code reached from trait code is compiled again,** in the policy's cache. Measured under the policy:
+   - a broadcast 15.0 ns against 14.7 natively, `map(sin, v)` 27.5 ns against 24.1;
+   - a DataFrames and CSV workload that no image holds: first call 0.60 s against 0.45 s natively, steady state within 10%.
+3. **A winning pirate recompiles** the code that has a fact where it wins, as in plain Julia, or is refused in strict mode.
+4. **Conformances for Base's families are curated.** A type nobody declared does not conform, even when it has the methods.
+5. **New trait code after big loads is slow,** for now: defining a small module and its first call take 2.7 s and 0.8 s after big loads, against 1.0 s and 0.09 s. The cure is TraitWorld's checks in the compiler (Julia piece 7) and piece 12.
+6. **Assumptions.** Values decided by inference precision may differ from plain Julia's, as they differ within plain Julia (A3). No method may be defined on another thread while trait code compiles, until piece 11 (A4). Both are in [identical or error](4-details.md#identical-or-error).
 
-   A type nobody declared does not conform, even when it has the methods.
-3. **Calls out are calls upward.** A plotting system is called through declared calls with handles, not run inside. Its time to first plot is an ordinary module's, and its code is outside the trait world's guarantees.
-4. **One wrapper per package and environment.** Two trait packages that would wrap one package differently must agree on one wrapper.
-
-The prototypes around DataFrames and Makie, with their measurements (sealing audits, time to first plot, binaries), are described in `experiments/interfaces/README.md`.
+The prototypes and their measurements are in `experiments/facts/README.md`. The earlier wrappers, calls upward and sealing, with their measurements, are in `experiments/interfaces/README.md`.

@@ -1,6 +1,6 @@
 # Traits for better Julia: the design in detail
 
-The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers wrappers, calls upward and sealing.
+The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers calling packages written without traits, pirates and strict mode.
 
 The macros below stand for syntax a language feature would provide. The prototype, TraitWorld, runs most of this design on stock Julia 1.13.2 (status in `writeup/decisions.md`, column "Prototype"). It still accepts the earlier spelling with the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), and examples of its tests use it.
 
@@ -8,18 +8,22 @@ The macros below stand for syntax a language feature would provide. The prototyp
 
 - **Trait.** An abstract type with behaviour: operations and fields, declared by `@trait ColTable begin … end`. A trait's parameters are its *associated types*, `@trait Integrator{U, P}`.
 - **Trait module.** A module whose code is written against traits, declared `@trait_module module M … end`. Its code is *trait-bound*. Its exported functions take arguments bounded by traits; its internal functions need no bounds.
-- **Trait world.** Every trait module and every wrapped package, Base included. *Ordinary code* is everything else: all of Julia today.
+- **Trait world.** Every trait module, and the code compiled for it: its workers and every callee they reach, Base's or any package's, compiled under the trait world's compiler policy (rule 1). *Ordinary code* is everything else: all of Julia today, compiled as today.
+- **Compiler policy.** The compiler of the trait world, with its own cache (TraitWorld's `FactsInterp`). It records facts at concrete signatures and compiles every other call as a run-time site (rule 1).
+- **Fact.** What compiled trait-world code knows about the method table: "at concrete signature `s`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous".
+- **Run-time site.** A call in compiled trait-world code whose argument types are not concrete. It records nothing and dispatches at run time, in the current world.
 - **Implementation.** The methods of a trait's operations for a type: `@implement ColTable Vector{Vector{Float64}} begin … end`, or existing methods declared. It may be generic, one implementation for a family of types. It says nothing about fields.
 - **Conformance.** The declaration `@implement ColTable T` that a type joins a trait. The operations come from `T` itself, which then must have an implementation, or `T` *forwards* them to one of its fields whose type has one; operations neither provides are served by the trait's defaults. The trait's declared fields map to stored fields of `T`, by name or as written. `T` is the *conforming type*.
 - **Implementing type.** The type whose own methods serve at least one of the trait's operations for a conformance: the conforming type, or the field it forwards to. A trait declaration spells it `Self`. When every operation is served by a default written over declared fields and other operations, or the trait has no operations, there is no implementing type. Many conforming types share one implementing type by forwarding to a field of that type, and so share compiled code; it is close to `Self` in Rust and Swift, which have no forwarding, so there the two coincide.
 - **Key.** What a bound can see, and what a worker is compiled for: the implementing type, if there is one, and the types of the fields the trait declares. Workers are compiled per tuple of their bounds' keys. The conforming type is in a key only when it is the implementing type.
 - **Trait object.** What library code receives for a bounded argument: the user's object itself, with one *view* per trait that gives the byte offsets of the implementing value and of the declared fields in the user's type, and a *witness* that says where the operations come from. Every access reads the user's object, so a trait object sees exactly what plain Julia sees. Its layout depends on the trait and the key, never on the user's type. A trait object has methods for its traits' operations and fields and nothing else.
 - **Entry and worker.** A bounded function has an *entry*: ordinary code that translates each argument by its bound and does nothing else. It also has a body compiled per key, the *worker*.
-- **View.** A package's view is what its compiled code is compiled against (rule 4).
+- **View.** The part of a trait object for one trait: the offsets of what that trait can see.
+- **Stakeholder, pirate.** A method's stakeholders are the owner of its function and the owners of the types in its signature; a method defined by anyone else is a pirate (Ownership).
 
 ## Ownership
 
-Julia has the idea already, under its negative name. The manual calls *type piracy* "extending or redefining methods in Base or other packages on types that you have not defined", and Aqua.jl checks for it. The design turns the convention into a rule, because a method defined by the wrong package is the one way a load could change what compiled code computes.
+Julia has the idea already, under its negative name. The manual calls *type piracy* "extending or redefining methods in Base or other packages on types that you have not defined", and Aqua.jl checks for it. The design uses it to say who can change compiled trait-world code: only a stakeholder of one of its facts, or a pirate that wins at one (rule 3).
 
 **Owners are packages.**
 - A package owns everything in its top-level module and its submodules.
@@ -31,14 +35,14 @@ Julia has the idea already, under its negative name. The manual calls *type pira
 - A generic function belongs to the package that creates it: the package where `function f end`, or its first method, defines the name. `Base.show` is Julia's, whichever packages add `show` methods. A trait's operations belong to the trait's package.
 - A type belongs to the package that defines it. A type counts wherever it appears in a signature, also as a parameter: in `Base.sum(v::Vector{MyType})`, `MyType` is MyPackage's.
 
-**A method has no single owner; it has stakeholders.** They are the owner of its function plus the owners of every type in its signature. A package may define a method only if it is a stakeholder, or a delegate of one, in every signature the method applies to.
+**A method has no single owner; it has stakeholders.** They are the owner of its function plus the owners of every type in its signature. A method defined by a package that is not a stakeholder in every signature the method applies to is a *pirate*.
 
 Take a function owned by package A, with argument types owned by B, C and D, and a method defined in package E:
-- If E is A, B, C or D, or a delegate of one of them, the method is allowed.
-- Otherwise it is piracy, refused once the stakeholders are sealed.
+- If E is A, B, C or D, or an extension of one of them, the method is no pirate.
+- Otherwise it is a pirate: refused in a trait module, followed as in plain Julia elsewhere.
 - The definer is the method's author. It does not take over the function or the types: A still owns the function, and B, C and D their types.
 
-| Method, defined in MyPackage | Allowed? | Why |
+| Method, defined in MyPackage | Allowed in a trait module? | Why |
 |---|---|---|
 | `MyPackage.f(x::Vector{Float64})` | yes | MyPackage owns the function |
 | `Base.show(io::IO, x::MyType)` | yes | MyPackage owns `MyType`, a stakeholder |
@@ -47,97 +51,100 @@ Take a function owned by package A, with argument types owned by B, C and D, and
 | `Base.convert(::Type{RGB}, x::Unsigned)` | no | ColorTypes owns `RGB` and Julia the rest: piracy (PlotUtils does this) |
 | `Base.length(x::Union{MyType, Int})` | no | it also applies to `length(::Int)`, where MyPackage has no stake |
 
-**Why stakeholders, and why every signature.** A call is compiled against the owners of its function and of its argument types (rule 4), which are exactly the stakeholders of any method that could apply to it.
-- A method defined by a stakeholder is therefore in the view of every call it can change.
-- A method defined by anyone else is in the view of none of them. It could change what a call selects without that call's compiled code ever having seen it: piracy, and the invalidation that comes with it.
+**Why stakeholders, and why every signature** (Lemma O in `writeup/explorations/wrapping-by-facts.md`). Compiled trait-world code depends on the method table only through facts at concrete signatures (rule 1).
+- A method that is no pirate and applies at a concrete signature `s` is defined by a stakeholder of `s`: the owner of the function or of a type in `s`.
+- Those packages are loaded wherever `s` is compiled, since `s` names their function and types. So a later change at `s` is a definition by one of them, an extension of one of them, or a pirate.
+- A pirate changes dispatch at `s` only if it wins there.
 
-**Two stakeholders defining the same signature conflict.** If A and B both define `f(::BType, ::CType)`, that is a conflict. Julia already refuses to overwrite another module's method during precompilation; the design reports it at load.
+**Two stakeholders defining the same signature conflict.** If A and B both define `f(::BType, ::CType)`, that is a conflict. Julia already refuses to overwrite another module's method during precompilation, and trait-world code follows whichever method plain Julia selects.
 
-**Ownership is delegated, never claimed.** An owner may name packages that add methods on its behalf:
+**Ownership is never claimed.**
 - **Package extensions.** An extension owns what its parent owns. Its triggers confer nothing; otherwise two parents' extensions with the same trigger could both implement one method. An extension is loaded whenever a call could use it, because its triggers are the packages its methods mention.
-- **Implementation packages of a split core,** named by the core's wrapper ([code written without traits](3-wrapping.md#trait-wrappers)). StaticArraysCore defines `SArray`; StaticArrays defines `Base.size(::SArray)`, and owns neither the function nor the type. That method is a pirate unless the core's owner, or its wrapper, names StaticArrays as a delegate.
+- **Implementation packages of a split core.** StaticArraysCore defines `SArray`; StaticArrays defines `Base.size(::SArray)`, and owns neither the function nor the type. That method is a pirate by the letter, followed like any other. It matters only for the optional strict mode, and there only if StaticArrays is loaded after trait code was compiled at `SArray` types and its method wins at one of that code's facts.
 
-**Implementations are methods.** So the same rule says who may implement a trait for a type: a stakeholder (the trait's owner or the type's owner) or a delegate of either. A *named* implementation is the exception: used only where a caller names it, it may be written by anyone (Named implementations).
+**Implementations are methods.** So the same rule says who may implement a trait for a type: a stakeholder, the trait's owner or the type's owner. A *named* implementation is the exception: used only where a caller names it, it may be written by anyone (Named implementations).
 
-**What ownership buys.** With layering, a load can do only two things:
-1. **Add methods for its own functions and types.** Code compiled elsewhere does not reach them, unless it depends on the package, in which case the package is in its view and its changes recompile it, as an upgrade does.
-2. **Pirate.** That is refused where traits are in effect ([sealing](3-wrapping.md#sealing)).
+**What ownership buys.** A load can do three things to code compiled for the trait world:
+1. **Add methods for its own functions and types.** They apply at no fact of code compiled before, so nothing changes.
+2. **Change dispatch as a stakeholder** of a fact's signature: a redefinition, an extension, an upgrade. The code recompiles, as plain Julia's does.
+3. **Bring a pirate.** If it wins at a fact, the code recompiles to follow it, as plain Julia does. If it loses, nothing changes, in whichever order the packages load.
 
-So loading a package can never change what code in the trait world computes. Today, nothing enforces piracy rules; here they are enforced over everything trait-world code compiles against.
+So an unrelated load never changes or discards trait-world code (Theorem 2, rule 3). Today nothing enforces piracy rules. Here trait modules may not define pirates, and pirates elsewhere are followed. An optional strict mode, off by default, refuses the definition of a pirate that would win at a fact of compiled trait-world code ([code written without traits: strict mode](3-wrapping.md#strict-mode-an-option)).
 
 ## The four rules
 
-Rule 1 is layering; rule 2 says how a value crosses into the trait world and what it is there; rules 3 and 4 say who may change code in the trait world, what a call sees, and where compiled code lives.
+Rule 1 says what compiled trait-world code depends on; rule 2 says how a value crosses into the trait world and what it is there; rules 3 and 4 say who can change compiled trait-world code, what a call sees, and where compiled code lives.
 
-1. **Layering.** Ordinary code may use the trait world; the trait world uses only itself. *(Session 23: superseded for calls by wrapping by facts, `explorations/wrapping-by-facts.md`. The trait world may call any Julia code; what keeps its compiled code valid is that it depends on the method table only through dispatch facts at concrete signatures. This section is rewritten once the prototype confirms the design.)*
-   - **What trait modules call:** trait modules and wrapped packages, checked on the compiled code. They accept only values of trait-world types.
-   - **Code outside** runs for the trait world only as a call upward: at a declared signature, through a pointer, with no inference edge, its result translated by its bound. Calls upward are:
-     - a function handed down from above as a `Callable` argument, unless it is compiled with the caller, above the trait world's cache;
-     - a declared call to a named outside function, `@call Makie.scatter!(…)::Nothing`;
-     - Base's doors.
+1. **Concrete facts.** Code compiled for the trait world, and every callee compiled for it, depends on the method table only through facts: "at concrete signature `s`, dispatch selects `r`" (rule R in `writeup/explorations/wrapping-by-facts.md`).
+   - `r` may be a method, "no method" or "ambiguous". Union splitting gives several facts.
+   - Decisions the trait world makes from the method table are facts too: "type `T` uses the trait's default for `length`" is the fact `D(length, Tuple{T}) = default`.
+   - A call whose argument types are not concrete records nothing and dispatches at run time, in the current world: a run-time site.
+   - **Nothing is skipped** (rule P). A fact is invalidated exactly when a definition changes dispatch at its signature. That is Julia's own invalidation for edges at concrete signatures.
+   - **What trait modules call:** any Julia code, directly: Base, Cairo, ForwardDiff, CSV. A callee is compiled under the policy, or called through a pointer into plain Julia's code, a choice of speed only ([code written without traits](3-wrapping.md#calling-code-written-without-traits)).
+   - **Ordinary code may use the trait world.** Pairing a trait module with an ordinary module that converts explicitly is a style, not a rule.
 
-     What comes back without operations is a handle.
-   - **Code from above** reaches the trait world only as values handed down: values translated by a bound, functions bounded by `Callable`, and `Dynamic` values.
-   - A package can pair a trait module with an ordinary module that uses both.
+   (Until session 23, rule 1 was layering: the trait world used only itself.)
 2. **The boundary translates, once per bound.** A value enters the trait world where ordinary code calls in, at a bound, translated by it:
    - a trait bound takes the user's object, and the offsets of what the bound can see in it;
    - a declared type asserts;
-   - a `Callable` bound makes a function a call upward.
+   - a `Callable` bound makes a function a dynamic or a compiled call, checked at every call (Function arguments: Callable).
 
    **Inside**, a trait object is what its bound can see and nothing else. It is passed to functions without a bound, which are compiled for it like any argument. It is passed to a bounded argument only where its own trait is expected, or a supertrait.
 
    **Two traits, two views.** A function that uses a value under two traits, itself or through what it calls, declares both bounds at its boundary. The ordinary caller's one value is then translated once per bound: two views of the same object, which agree because nothing is copied.
 3. **One ownership rule.**
-   - A package may add a method to the trait world only where it owns the function, or one of the types, in every signature the method applies to (Ownership). A `Union` with a foreign type is no way around this.
+   - A method's stakeholders are the owner of its function and the owners of the types in every signature it applies to; a method defined by anyone else is a pirate (Ownership). A `Union` with a foreign type is no way around this.
+   - **A trait module may not define a pirate,** checked when the module is defined.
    - Implementations are methods too. An operation that is someone else's function, such as `Base.size`, is implemented for someone else's type only by an owner of one of them, while the trait's owner declares the existing methods instead.
-   - Ownership can be delegated by its owner, never claimed.
-   - A package written without traits is owned in the trait world by its trait wrapper, at most one per package, which delegates to the implementation packages it names. Julia is one such package, owned by the Base wrapper.
+   - **Pirates elsewhere are followed,** as in plain Julia. An optional strict mode refuses the definition of a pirate that would win at a fact of compiled trait-world code ([code written without traits](3-wrapping.md#strict-mode-an-option)).
+   - Ownership is never claimed. A package extension belongs to its parent.
    - A named implementation may be written by anyone.
+   - **Why it matters** (Lemma O): a method that is no pirate and applies at a concrete signature is defined by a stakeholder of it. So only a stakeholder, or a pirate that wins there, can change a fact.
 4. **What a call sees, and where its code lives.**
-   - **A call sees** the owners of its function and of the types in its keys, with their trait-world dependencies: trait packages, wrappers with the packages and implementations they bring in and the dependencies of those, and Julia always. A package reached only by calls upward is in no view.
-   - **Its code is compiled against exactly the methods it sees.** For an implementation written in the session, the view is the trait package's view plus the implementation's own methods, not the session's imports. What is redefined at the prompt recompiles as today.
-   - **At a dynamic site,** the method selected at run time must come from an owner or a delegate of the function or of one of the argument types. A downstream trait module's method for its own type is accepted; a method from above or a pirate raises.
+   - **A call sees the current world,** as a plain Julia call does. Its compiled code holds facts only at concrete signatures, and a run-time site dispatches in the world current at the call. What is redefined at the prompt recompiles as today.
    - **Where compiled code lives.** Compiled code for a combination of packages lives in a package that depends on all of them:
      - the trait module, for the types it implements its traits for;
      - a conformer, for its own types;
      - a package extension or the application, when packages meet only there;
      - the session, when nothing depends on all of them.
 
-**The central guarantee.** Together, rules 1, 3 and 4 give it: loading a package can never change what code in the trait world computes. It can only add code for new types, or be an error.
+**The central guarantees.**
+- **Identical or error (G1).** A trait-world call computes exactly what plain Julia computes in the current world, with the same effects, or raises (Theorem 1 of `wrapping-by-facts.md`). Every valid compiled fact is true in the current method table, and a run-time site dispatches as plain Julia does. It rests on three assumptions, listed in [Identical or error](#identical-or-error): values decided by inference precision (A3), no method definition concurrent with compiling trait code (A4), and the generator's behaviour (A5).
+- **Stable caches (G2).** A load invalidates trait-world code only if it is a stakeholder of one of the code's fact signatures, or brings a pirate that wins there, in any load order (Theorem 2; rules 1 and 3). Measured on the prototype: of the CodeInstances compiled under the policy, 0 were lost across twelve package loads, before or after the trait code.
 
 ## The boundary principle
 
-Rules 1 and 2 read operationally:
+Rule 2 reads operationally:
 - **Only values cross the boundary,** each where a bound stands, and the bound says how the value is translated.
-- **Code never crosses into the trait world's cache.** No cached worker is compiled against code from above, and a compiled call's worker is compiled above, outside that cache.
+- **Code never crosses into a library's cache.** No worker cached in the library's image is compiled for a function from above; a compiled call's worker lives in the caller's image (rule 4).
 
 The rest follows:
 - **A bound is a translation.**
   - A trait bound takes what it can see.
   - A declared type asserts.
   - A `Callable` bound makes a function a dynamic call (a pointer at a declared signature) or a compiled call (a worker compiled above on the function's type), as the mode in the bound or on the value says.
-  - No bound means a trait-world value.
+  - No bound takes the value as it is, at its own type; a function from above enters only as a `Callable`.
 
-  The translation is the same wherever the bound stands: a positional argument, a keyword, an element of a vararg, a field, the result of a call upward.
+  The translation is the same wherever the bound stands: a positional argument, a keyword, an element of a vararg, a field, the result of a function from above.
 - **Everything in a call that is not a value stays inside.** Defaults, keyword sorting, splatting and dispatch are plain Julia, run in the worker after translation. The entry translates and does nothing else.
 - **A bound is a crossing point and has an entry,** on a named function or a closure alike.
 - **Keeping a value is a crossing.** A value stored in a dynamic value, or captured by a closure that is returned, keeps the user's object, so it follows the user's fields (Dynamic values).
 
 ## What code in a trait module may do
 
-A trait object is a view of the user's data. Code reaches that data only through the trait's operations and fields, and reaches a function from above only by calling it as a `Callable`. Every other value is an ordinary Julia value of a trait-world type.
+A trait object is a view of the user's data. Code reaches that data only through the trait's operations and fields, and reaches a function from above only by calling it as a `Callable`. Every other value is an ordinary Julia value.
 
 **Exported functions are the boundary.** Their trait-object arguments carry bounds, which say what an ordinary caller's value must conform to and what the entry takes from it.
 
 **Internal functions need no bounds.**
 - A trait object passed to one is inferred like any other argument, and the function is compiled for it as part of the worker that calls it.
 - Helpers of an implementation take the implementing type itself.
-- Unexported types are ordinary trait-world types.
+- Unexported types are ordinary types.
 - The trait object still admits only its traits' operations, so an internal use that the exported bounds do not cover is reported at its line, with the bound to add (Definition checking).
 - A bound no path uses can be warned.
 - Bounds on internal functions remain allowed, for dispatch and as documentation.
 
-An exported function's argument without a bound takes trait-world values only, so a user type passed there runs as ordinary code (rule 1).
+An exported function's argument without a bound takes the value at its own type, and the worker is compiled for that type, as plain Julia compiles a method.
 
 | In a trait module | Allowed | Why |
 |---|---|---|
@@ -147,26 +154,22 @@ An exported function's argument without a bound takes trait-world values only, s
 | an argument with several bounds, `t::(ColTable, RowTable)` | yes | one view per bound (rule 2) |
 | passing a trait object to the module's own functions, or on where its own trait is expected | yes | statically within the module, through the entry otherwise (rule 2) |
 | methods with type annotations beside trait-bounded ones: `f(m::AbstractMatrix)`, `f(t::ColTable)` | yes | types first, then traits |
-| a call upward: a `Callable` argument, a declared call into a package that stays outside, an outward door such as printing to `stdout` | yes | through a pointer at a declared signature, no inference edge, the result checked, handles for what comes back |
-| any code on values of trait-world types: loops, arrays, closures, `try`, the module's other functions | yes | ordinary Julia, compiled per key |
-| importing and calling Base, a standard library, a trait module or a wrapped package | yes | checked on the compiled code: globals of trait-world types, no undeclared door |
+| calling a `Callable` argument | yes | a dynamic or a compiled call, its arguments and result checked at every call |
+| any code on ordinary values: loops, arrays, closures, `try`, the module's other functions | yes | ordinary Julia, compiled per key |
+| importing and calling any Julia code: Base, a trait module, any package (CSV, Cairo, ForwardDiff, Makie), printing, logging | yes | compiled under the policy: facts at concrete signatures, run-time dispatch elsewhere (rule 1) |
 | methods of functions or for types the package owns, implementations among them | yes | ownership (rule 3) |
 | a trait object kept beyond the call: made into a `Dynamic{X}` and stored, returned or put in a collection | yes | follows the user's fields; operations dispatch, with declared results (Dynamic values) |
 | passing a trait object where a different trait is expected | no | declare both bounds, so the entry translates for each (rule 2) |
 | a trait object anywhere else, as a bare value: passed to an ordinary function, stored or returned bare, `typeof(t)`, a field the trait does not declare | no | code must not depend on the user's type |
 | two methods with unrelated trait bounds on one position and no method for both | no | ambiguous for a type with both; checked when the function is defined |
-| calling a package written without traits directly, unwrapped | no | rule 1: wrap it, or declare the calls |
-| a method whose function and types the package does not own | no | piracy, rejected when the module is built (rule 3) |
-| inward doors: eval, invokelatest, deserialization, reflection, getglobal by name | only as a declared call | a value denoting code from above has no admitting bound |
-| arguments of open types from ordinary callers: `Any`, `Vector{Any}` | after a walk | the entry checks their parts, at a cost proportional to them; a part that is no trait-world value makes the call run as ordinary code |
+| a method whose function and types the package does not own | no | piracy, rejected when the module is defined (rule 3) |
+| arguments of abstract types from ordinary callers: `Any`, `Vector{Any}` | yes | calls on their parts are run-time sites (rule 1); concrete mode reports them |
 | abstract types, under concrete mode | no | opt-in: a warning or an error that names the root cause |
 
 **When the prototype checks:**
 - rule 2 and the escapes: on typed code, once per method at archetypes when the module is built (Definition checking), and per signature for what that defers, reported with their lines;
-- ownership and imports: when the module is defined;
+- ownership: when the module is defined;
 - ambiguous bounds: when it is complete;
-- doors and declared calls: on the typed code too;
-- loading a pirate of a sealed package: on the prototype, a warning, or a deletion after the load in its refuse mode.
 
 ## Declaring a trait
 
@@ -272,7 +275,7 @@ struct Halves; left::Vector{Vector{Float64}}; right::Vector{Vector{Float64}}; ti
 
 # 4. The operations in one block: an implementation for the type and its declaration. For the
 #    author's own type, the same as 2; for a type the author does not own, only the trait's owner
-#    or a delegate (rule 3)
+#    (rule 3)
 @implement ColTable Ramp begin
     ncols(r) = r.n
     col(r, i) = r.base .* i
@@ -308,11 +311,10 @@ Form 4 may be generic over a family of types (Generic implementations). What eac
 | a family declaration (7) | nothing | the existing methods, static |
 
 **Every check runs at the declaration, never at a call:**
-- **Ownership:** the author owns the type or the trait, or is a delegate one of them names (rule 3).
+- **Ownership:** the author owns the type or the trait, or is an extension of its owner (rule 3).
 - **Concreteness,** for a trait that requires it: the key is deeply concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. A field declared `AbstractVector` is refused with the field named; the fix is a concrete field.
 - **Completeness:** every operation has a method or a default for the implementing type, and every declared field maps to a stored field of the conforming type, with the declared types; writable fields on a mutable type, not `const`, with exactly the declared types; the forwarding field not a writable declared field.
 - **Fields read as declared:** a type with a `getproperty` method of its own maps every declared field explicitly (Declaring a trait).
-- **Layering:** the methods' code stays in the trait world (rule 1).
 - **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the field named `data` or `by`.
 
 **Implementation and conformance are separate.** A type that implements a trait's operations need not have the trait's declared fields. It then does not conform, but it can be the forwarding field of a type that does: `Vector{Vector{Float64}}` implements `ColTable`, and if `ColTable` declared a field `name`, a bare vector would not conform while a `Measurements` holding one and a name would.
@@ -342,7 +344,7 @@ With this, `Vector{Vector{Float64}}` implements `ColTable` because it is `Indexa
 
 ## Named implementations
 
-An implementation may be named by its module and used only where a caller names it, and anyone may write one. A package that owns neither the trait nor the type, and is no delegate, can thus make `Measurements` a `ColTable` for those who ask:
+An implementation may be named by its module and used only where a caller names it, and anyone may write one. A package that owns neither the trait nor the type can thus make `Measurements` a `ColTable` for those who ask:
 
 ```julia
 module Fast                                          # owns neither ColTable nor Measurements
@@ -356,7 +358,7 @@ colmean(via(Fast, m), 1)                             # this call uses Fast's imp
   - A `Dynamic` keeps the implementation it was made with.
   - A value is never built with one implementation and queried with another, the problem that makes Rust allow one implementation per trait and type.
 - **It is not piracy.** A named implementation changes no code that does not name it. Its methods are keyed by a witness type its module owns, and its compiled code lives in its own package, which depends on the trait's and the type's.
-- **Unnamed implementations are as before:** written by an owner or a delegate, the more specific beating the generic. A type is a member of the trait, `x isa ColTable`, through them only.
+- **Unnamed implementations are as before:** written by an owner, the more specific beating the generic. A type is a member of the trait, `x isa ColTable`, through them only.
 - **Ambiguity surfaces where it matters.**
   - Two unnamed implementations that apply without one being more specific are reported when the later is defined, if it sees the earlier.
   - Otherwise an unnamed call that meets both raises an error naming both modules and the fix, `via(A, x)`, as Julia asks for `A.f` when two modules export `f`.
@@ -409,8 +411,8 @@ A trait reads like an abstract type wherever it is used. Why that is the right c
 - **Membership is subtyping.**
   - `x isa ColTable` is true when the type of `x` conforms through an unnamed implementation.
   - `T <: ColTable` in a `where` clause or a type parameter constrains `T` to conforming types.
-  - A conformance thus adds a supertype after the type is defined, which Julia does not allow for abstract types of the other kind. It is sound because only an owner or a delegate declares it, loaded with the type's or the trait's package. A conformance written at the prompt changes subtyping in the session, as a redefinition there recompiles.
-- **Numbers need no trait.** Base's tower of `Number`, `Real` and `Integer` stays. Numbers are trait-world values by their types, trait-world code annotates with the tower as today, and promotion runs on concrete types in Base.
+  - A conformance thus adds a supertype after the type is defined, which Julia does not allow for abstract types of the other kind. It is sound because only an owner declares it, loaded with the type's or the trait's package. A conformance written at the prompt changes subtyping in the session, as a redefinition there recompiles.
+- **Numbers need no trait.** Base's tower of `Number`, `Real` and `Integer` stays. Numbers are ordinary values, trait-world code annotates with the tower as today, and promotion runs on concrete types in Base.
 
 ## Dispatch: types first, then traits
 
@@ -430,7 +432,7 @@ Library code is checked once, where it is defined, for every conforming type at 
 
 **Why one check suffices.** A trait object has no methods but its traits' operations and fields, and every operation declares its result type. So a worker's code is the same for every key, except for the operations' implementations, which are checked at their conformance.
 
-**How it checks.** The check infers each bounded method once at archetypes: a stand-in key per bound, whose operations and fields return values of their declared types and nothing more. Rule 2, the escapes, layering, globals and doors are checked on that code at the library's build. A mistake is reported at its line before any type conforms:
+**How it checks.** The check infers each bounded method once at archetypes: a stand-in key per bound, whose operations and fields return values of their declared types and nothing more. Rule 2 and the escapes are checked on that code at the library's build. A mistake is reported at its line before any type conforms:
 
 ```julia
 spread(t::ColTable) = size(t)    # at the library's build: `size` has no method for a trait object carrying ColTable
@@ -454,7 +456,7 @@ leak(t::ColTable) = typeof(t)    # `typeof(t)`: code must not depend on the user
 
 ## Function arguments: Callable
 
-**Why a trait for functions.** Julia has no type for "a function from `Float64` to `Float64`": `Function` says nothing about arguments or results, and a closure's type belongs to the code that creates it, above the trait world. A function handed down from ordinary code is therefore a call upward. The built-in trait `Callable{A, S}` makes it a declared one: arguments of the tuple type `A`, and a result of type `S` (a `Tuple` when there are several).
+**Why a trait for functions.** Julia has no type for "a function from `Float64` to `Float64`": `Function` says nothing about arguments or results, and a closure's type belongs to the code that creates it, above the trait world. A function handed down from ordinary code therefore enters only at a declared signature: the built-in trait `Callable{A, S}`, with arguments of the tuple type `A` and a result of type `S` (a `Tuple` when there are several).
 
 ```julia
 @trait_module module Stats
@@ -480,11 +482,11 @@ colsum(abs2, Measurements([[1.0, 2.0]]), 1)                    # 5.0: abs2 is Ba
   - a function without a method for `A` raises a `MethodError` when called, as in plain Julia.
 - **The library sets a default, the caller decides.** `Callable{A, S, M}` carries the mode `M`.
   - **`DynamicCall`**, the default, makes the function a pointer to its code compiled for `A` in ordinary code at the call site. The worker is compiled once per signature, in the trait module's image, and each call through the pointer is indirect.
-  - **`CompiledCall`** compiles the worker per function type instead, with the function's body inferred into it, as ordinary code in the caller's image: a direct call the compiler may inline, with plain Julia's speed and plain Julia's invalidation for that piece. Such a worker is the library's code compiled outside the library's cache, so a library that makes `CompiledCall` the default gives up cached code for that function by choice. That is why the system default is `DynamicCall`.
+  - **`CompiledCall`** compiles the worker per function type instead, with the function's body inferred into it, in the caller's image: a direct call the compiler may inline, with plain Julia's speed. Such a worker is the library's code compiled outside the library's cache, so a library that makes `CompiledCall` the default gives up cached code for that function by choice. That is why the system default is `DynamicCall`.
   - **The caller overrides** per value with `compiled_call(f)` or `dynamic_call(f)`, wrappers whose type fixes the mode and which the entry strips. The value's type wins, because the library's cache has no stake either way; its users do, which is what the default is for.
-- **Layering holds for the cache either way.** No cached worker imports, infers into or compiles the code above.
+- **The mode is a choice of speed, never of correctness.** Both compute what plain Julia computes (rule 1). The library's cache holds nothing compiled for the function in either mode. `DynamicFn{A, S}`, a `Callable` in `DynamicCall` mode as a value of fixed type, made by `dynamic_fn` in ordinary code, is the same choice for a function stored in a library's model or callback types.
 - **An open result type,** `Callable{Tuple{Float64}, S} where S`, is inferred at the boundary, in ordinary code. It becomes part of the worker's key and is checked at every call.
-- **Functions from the trait world are always compiled calls.** Base's `abs2`, a trait module's own functions, and closures created inside a trait module are trait-world values, called directly. `map`, `filter` and `sum(f, …)` work inside the trait world as today.
+- **Functions from the trait world are always compiled calls.** Base's `abs2`, any package's functions, a trait module's own functions, and closures created inside a trait module are called directly. `map`, `filter` and `sum(f, …)` work inside the trait world as today.
 - **AOT.** A `Callable` argument names its signature, so a build compiles each function passed at it, and `verify_main` lists them.
 - **Several signatures.** A function called at two signatures carries two bounds, `f::(Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int})`.
 - **Cost.** A dynamic call costs about 4 ns per call on the prototype.
@@ -529,10 +531,10 @@ colmaker(f::Callable{Tuple{Int}, Callable{Tuple{Float64}, Float64}}, t::ColTable
 tables(f::Callable{Tuple{Int}, ColTable}, n::Int)          # a function from above that returns tables: each result translated
 ```
 
-- **Functions returned up** are trait-world values and go up as themselves. A closure keeps the trait objects it captured as a `Dynamic` keeps them: following the user's fields where they can be rebound, holding them where they cannot, and keeping the user's object alive. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
+- **Functions returned up** are closures of the trait module and go up as themselves. A closure keeps the trait objects it captured as a `Dynamic` keeps them: following the user's fields where they can be rebound, holding them where they cannot, and keeping the user's object alive. To take the caller's own objects it needs a bound in its signature, and a bounded signature has an entry.
 - **Results of a function from above** are values crossing downward, so the result bound translates them as an argument's bound would.
-- **Trait objects never go up bare.** What goes up is what operations return, trait-world values, and a trait object only inside a `Dynamic` value.
-- **AOT.** A returned closure is a trait-world type, so calls to it from ordinary code are calls into the trait world that `verify_main` lists.
+- **Trait objects never go up bare.** What goes up is what operations return, ordinary values, and a trait object only inside a `Dynamic` value.
+- **AOT.** A returned closure has a type of the trait module, so calls to it from ordinary code are calls into the trait world that `verify_main` lists.
 
 ## Results like the input
 
@@ -609,12 +611,12 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
 - **Made at a bound or by storing.**
   - A bound in a field, a container or a result translates the value and keeps the trait object.
   - Inside, storing a trait object of `X` where an `X` is declared keeps it, as Julia converts a value stored in a typed field; `Dynamic{X}(t)` does so explicitly.
-  - Nothing else makes one, so its type decides it: the entry admits it by type, and inward doors such as deserialization check its content.
+  - Nothing else makes one, so its type decides it: the entry admits it by its type.
 - **Which functions receive the whole object.** A function whose code may keep a trait object (make it a `Dynamic`, store it where a `Dynamic` is declared, or return a closure that captured it) receives the whole user's object at its entry. Every other function receives only what its bounds see, held for an immutable type. Which functions keep is decided where they are defined, from their code at archetypes, as definition checking decides the rest; when the analysis cannot tell, the function keeps, which costs only a box. (On the prototype: typed calls of functions that do not keep are unchanged, 33 ns against 30 ns plain; a keeping function pays about 55 ns and 32 bytes per call for an immutable type.)
 - **Kept values follow the user's fields.** A `Dynamic` keeps the trait object, which is the user's object with its views, so it sees the user rebind any field, as every holder of the object does in plain Julia, and writes through it reach the user's object. It runs the same workers as a fresh call, because the layout is the same.
   - **The user's object stays alive** as long as the kept value.
   - **Equality.** A kept value compares and hashes by the identity of the user's object for a mutable type and by its value otherwise, with the conformance, as Julia compares the objects themselves.
-  - **Serialization.** It serializes the user's object, and inward doors re-check its conformance.
+  - **Serialization.** It serializes the user's object with its conformance.
 - **Operations dispatch.** An operation of `X` on a `Dynamic{X}` dispatches on the trait object inside, in the caller's world, and asserts the declared result type, so code after the call infers. Its targets are the conformances of `X` whose types reach a place where a `Dynamic{X}` is made: rule 3 closes them, a build lists them, and `verify_main` counts the calls as bounded.
 - **Opened by a bound.** Passed to a function bounded by `X`, a `Dynamic{X}` selects the worker for its key once, and the worker runs compiled.
   - A loop over its data belongs in such a function; concrete mode reports operations on a `Dynamic` inside a loop and names that fix.
@@ -622,7 +624,7 @@ render(s::Scene) = foreach(draw, s.plots)      # draw(p::Plot): one dispatch per
 - **Parameters.** A `Dynamic` of a parametric trait fixes the parameters its operations' result types use, `Dynamic{ArrayLike{Float64, 1}}`, so code after a call infers.
 - **Equality.** Values of different keys, or different implementations, are unequal. Otherwise the trait's declared `==` decides, or, without one, `===` of the user's objects, so `:red` equals `:red` and arrays compare by identity. `hash` agrees.
 - **Several traits.** `Dynamic{(ColTable, RowTable)}` holds a trait object with both views and converts explicitly to `Dynamic{ColTable}`. `Dynamic{Sub}` converts to `Dynamic{Super}`, whose view comes with the subtrait's conformance. A `Callable` in `DynamicCall` mode is already the dynamic value of a function.
-- **Up and down.** A `Dynamic` is a trait-world value: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
+- **Up and down.** A `Dynamic` is a value of its own type: it goes up as one, inside other values or bare, and comes back down admitted by its type. Code above may hold and pass it, and defines nothing that trait-world code reaches through it.
 
 A `Dynamic` costs an allocation when made, and a dispatch per operation: about 20–80 ns in a measurement of Julia's dispatch on boxed values. First calls from package images need no compilation.
 
@@ -636,30 +638,30 @@ A field stored inline that is not isbits, an immutable struct holding references
 
 ## Caching: compiled once, reused everywhere
 
-Cached code is reusable because it is compiled per key, for what a bound can see, not per type, and it survives because of layering: only the packages it depends on can change it.
+Cached code is reusable because it is compiled per key, for what a bound can see, not per type. It survives because it holds only concrete facts: only a stakeholder of one of them, or a pirate that wins there, can change it (rules 1 and 3).
 
 ```julia
 using Columns                                   # Columns' workers come from its package image
 struct Mine; data::Vector{Vector{Float64}}; end
 @implement ColTable Mine                        # forwards to its field: no new library code
 colmean(Mine([[1.0, 2.0]]), 1)                  # runs the compiled worker
-using CairoMakie                                # outside the trait world Columns depends on: changes none of its code
+using CairoMakie                                # a stakeholder of none of Columns' facts: changes none of its code
 ```
 
 - **Per key.** `Mine` shares its key with every type that forwards to a `Vector{Vector{Float64}}`, so `colmean` runs code that Columns compiled when it was built. On the prototype, the first calls at a new key take 10–60 ms, mostly compilation. Caches per key reduce them to about 3 ms in every load order (`experiments/interfaces/README.md`, view caches).
-- **Compiled against what it sees.** Each specialization is compiled against the methods of the packages it depends on only (rule 4), so inference, union splitting and return-type queries see nothing else.
-  - A later definition by one of those packages recompiles it.
-  - A definition elsewhere, for the definer's own types, can never apply.
-  - A definition that would apply is piracy, and the load that brings it is refused.
+- **Compiled against facts.** Each specialization holds facts at concrete signatures only (rule 1).
+  - A later definition by a stakeholder of a fact recompiles it, as in plain Julia.
+  - A definition elsewhere, for the definer's own types, never applies at a fact (Lemma O).
+  - A pirate that wins at a fact recompiles it to follow the pirate, as plain Julia does; one that loses changes nothing, in any load order.
 - **Every combination has an owner image.**
   - The entry lives in the trait module's package image; the field read and a worker at a new key live in the conformer's.
   - Code for packages that meet only in an application lives in a package extension or the application, and the session comes last.
   - Each piece is compiled where it lives, because a downstream image cannot add native code to an upstream one.
-- **Leaks become errors.** Layering holds only if no value of an outside type leaks in. Dynamic dispatch from trait-bound code therefore checks that the selected method comes from what the call sees, and raises an error otherwise: a leak becomes an error, never a wrong result.
+- **Abstract calls dispatch at run time.** A call in compiled trait-world code whose argument types are not concrete records nothing and dispatches in the current world, as plain Julia's dynamic dispatch does. It computes what plain Julia computes, and no load can invalidate it.
 
 ## AOT: the reachable code is declared
 
-Because of layering, a trait-bound program's calls stay inside the trait world, and dispatch over runtime types goes through conformances, whose targets are listed. A build can therefore compile exactly what the program can reach.
+Dispatch between trait-world code, and over the types a program meets at run time, goes through conformances, whose targets are listed. A build can therefore compile exactly the trait-world code the program can reach.
 
 ```julia
 function main(args::Vector{String})
@@ -675,28 +677,38 @@ verify_main(main, (Vector{String},); entrypoints = true)   # lists every target 
 
 **In plain Julia,** a generic function called on a value of unknown type has no list of targets. It compiles at first use in a session, and fails a trimmed build, or crashes a binary built with the unsafe option.
 
-**Here the list exists:**
+**Here the list exists** for what trait-world code dispatches over:
 - a function passed as a `Callable` argument adds one target at its declared signature;
 - a `Dynamic` value adds the conformances whose types reach the place it is made.
 
-On the prototype, `verify_main` enumerates the entries' targets from the types the program can pass (here 8 targets), and the program compiles to a 2.09 MB trimmed executable. Without the list, the binary dies at its first trait call.
+**Plain code reached from trait code** (CSV, Cairo, ForwardDiff, Base's printing) has plain Julia's AOT properties. `verify_main` walks into it and reports its open dynamic sites as holes. A package whose normal path dispatches openly is as hard to trim from trait code as from plain Julia. Cairo, mostly `ccall`, should be closed; CSV and DataFrames are the hard case.
+
+**What a build compiles.** A `--trim` build compiles the plain call: native inference in the closed world, not the policy's code.
+- Native inference in the closed world is plain Julia, so "identical or error" holds by definition, and nothing loads in a binary, so there is no cache to protect.
+- Native inference may use abstract facts over the build's methods, which closes sites the policy would leave dynamic.
+- The binary's baseline is plain juliac. Values decided by inference (A3) can differ between the session, which runs under the policy, and the binary.
+- A pirate lint is planned: `verify_main` lists the calls reached from trait code that select a pirate, and can fail the build.
+
+**On the prototype,** `verify_main` enumerated the entries' targets from the types a program can pass (8 targets), and the program compiled to a 2.09 MB trimmed executable; without the list, the binary died at its first trait call. That binary predates keys and wrapping by facts, and is to be rebuilt. One risk is untested: `--trim` is not among the flags that key package images, so an image built without it could carry entries generated for the policy into a trimmed build.
 
 ## Performance: no cliffs
 
 Four cliffs disappear by construction, and the fifth becomes a report at build time.
 
-- **Loads cannot change speed.** The methods at an abstract call site change only with their owners (rule 4), so an unrelated load cannot push inference over `max_methods` and turn a fast call dynamic. Return-type queries fold at compile time.
+- **Loads do not change speed.** Compiled trait-world code holds concrete facts only, so an unrelated load changes none of them (Theorem 2). A call at abstract types is a run-time dispatch from the start, so no load can push inference over `max_methods` and turn a fast call dynamic.
+  - The price: a call that plain Julia infers through at an abstract signature is a run-time dispatch here. In the demonstrators such calls lie on cold paths.
+  - `return_type` is plain Julia's question. It folds at compile time when the answer rests on concrete facts, and is answered at run time otherwise.
 - **Types cannot multiply compile cost.** Code compiles per key, not per user type, unless the type implements the operations itself. A type that forwards to a field of a known type adds no compiled code; a type that implements the operations compiles the library once for itself, by its own choice.
-- **Nothing recompiles under you.** No unrelated load invalidates the trait world's cache. A compiled-call worker, which lives in the caller's image, and code redefined at the prompt recompile as today.
+- **Nothing recompiles under you.** Only a stakeholder of one of its facts, or a pirate that wins at one, invalidates trait-world code (Theorem 2). On the prototype, twelve package loads, before or after the trait code, invalidated none of it. A compiled-call worker, which lives in the caller's image, and code redefined at the prompt recompile as today.
 - **Trait operations cost nothing.**
   - Implemented per type, they are direct calls that the compiler may inline. On the prototype, library code making one operation call per element ran at 1.00–1.01× plain Julia at 4096 elements, and through a generic implementation at 1.00–1.03×.
-  - The entry adds a fixed cost of about 110 ns per call on the prototype: 2.8–3× at 16 elements and nothing at 4096.
+  - The entry adds a fixed cost per call: on the prototype, a typed trait call takes 37–39 ns against 30 ns plain.
   - Only dynamic operations, dynamic calls and operations on `Dynamic` values are indirect.
 - **Abstract types in hot loops are found at their root cause.** Code in a trait module sees only its keys (deeply concrete where its traits require it), declared fields and operation results asserted to their declared types. An abstract value in a hot loop can therefore only come from a trait that does not require concreteness, from the module's own code, or from the code it calls. Concrete mode traces it there, through any number of layers.
 
 ```julia
 @warn_on_abstract @trait_module module CTop
-using CBottom: Config                  # a trait module too (rule 1); Config has a field declared Real
+using CBottom: Config                  # a trait module; Config has a field declared Real
 using CMid2: factor                    # factor reaches that field through two packages
 
 @trait Series begin
@@ -729,24 +741,33 @@ In this example that one field makes the loop 74× slower. `@error_on_abstract` 
 
 ## Identical or error
 
-Under layering, a load can affect code in the trait world only through a method from outside what that code sees, which would change it: piracy.
-- Every package in a view is sealed by the load that brings it there ([sealing](3-wrapping.md#sealing)).
-- A load that seals checks what is already loaded as well as what comes later.
-- A pirate of a sealed package is a conflict whichever side loaded first: refused in strict mode, tolerated with a warning and a recompile otherwise.
+> **A trait-world call computes exactly what plain Julia computes in the current world, with the same effects, or raises.**
 
-So no call sees a pirate that was not tolerated, and no call errors on one. The opt-out restores plain Julia.
+**Why it holds** (Theorem 1 of `writeup/explorations/wrapping-by-facts.md`). Every valid compiled trait-world CodeInstance has all its facts true in the current method table:
+- compilation records only true facts;
+- a definition, deletion or redefinition changes dispatch only where it applies and wins, and Julia's invalidation removes exactly the code with a fact there (nothing is skipped);
+- a package image's code is admitted only if its facts hold at load;
+- run-time sites and pointer calls record nothing and run plain Julia's dispatch or plain Julia's code.
+
+It depends on no declaration: a wrong performance setting, such as a `Callable`'s mode, can make code slow, never wrong.
+
+**Pirates are followed.** A pirate defined before or after the trait code is compiled gives what plain Julia gives:
 
 ```julia
-using MyTable                         # MyTab conforms; Stats' worker calls weight(::Float32); Stats and Base are sealed
-using Pirate                          # defines Stats.weight(::Float32), owning neither: refused, naming the method and Stats
-tolerate!(:Pirate)                    # opt out for this session (a sketch): plain Julia, the pirate applies
-using Pirate                          # loads; Stats' worker for Float32 recompiles against it, with a warning
-colsum(MyTab(Float32[1, 2, 3]))       # what plain Julia computes
+using MyTable                         # MyTab conforms; Stats' worker calls weight(::Float32); Stats has weight(::Real)
+colsum(MyTab(Float32[1, 2, 3]))       # the worker holds the fact: weight(::Float32) selects Stats' weight(::Real)
+using Pirate                          # defines Stats.weight(::Float32), owning neither: a pirate that wins there
+colsum(MyTab(Float32[1, 2, 3]))       # the fact is broken, the worker recompiles: what plain Julia computes, with the pirate
 ```
 
-**Two exceptions:**
-- Element types that Julia derives from inference, such as that of `map` over an empty collection, are answered within the trait world. They can differ from plain Julia's where Julia documents them as inference-dependent.
-- An open `Callable` result type, inferred at the boundary in ordinary code, depends on what is loaded there. It is part of the worker's key and checked at every call.
+Loaded before `MyTable`, the pirate is in the method table when the worker compiles, and the first call follows it. In the optional strict mode, loading `Pirate` after the first call is refused, naming its method and Stats' worker; loaded before, it is followed as here ([code written without traits: strict mode](3-wrapping.md#strict-mode-an-option)).
+
+**Assumptions** (beside Julia's compiler being sound for the facts it records, and never under-invalidating):
+- **A3: values decided by inference precision.** `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference. Plain Julia itself answers them differently in different contexts: `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded. The policy matches plain Julia wherever it can do so without invalidating more code. It can differ through what inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee.
+- **A4: no concurrent definitions.** No method is defined on another thread while trait code is being compiled. Julia piece 11 removes this assumption.
+- **A5: the generator.** The entry relies on Julia caching nothing when a generator throws, on re-entry and beyond 8 nested generations.
+
+**An open `Callable` result type,** inferred at the boundary in ordinary code, depends on what is loaded there. It is part of the worker's key and checked at every call.
 
 **Kept values.** A value kept in a dynamic value keeps the user's object, which is what a plain-Julia holder of the object sees.
 

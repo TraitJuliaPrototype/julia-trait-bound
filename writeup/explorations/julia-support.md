@@ -9,6 +9,49 @@ Exploration of 2026-10-16 (session 23), for the user's question: "There are a nu
 
 Everything else stays in a package: definition checking, keep detection, concrete mode, `verify_main`, `Dynamic` and the entries.
 
+> **Superseded order (session 25, 2026-10-17).** The order below was written for trait wrappers and sealing. With wrapping by facts adopted and validated, and strict mode kept as an option (`strict-mode.md`), the list is reviewed in the next section. The old text is kept for the record.
+
+## Review for wrapping by facts and strict mode (session 25)
+
+The user: "Finally review the proposed Julia work and go ahead in any order you like. Make the decisions that need to be made."
+
+**What changed.**
+- Under wrapping by facts, the trait world's correctness rests on Julia's own invalidation at concrete signatures (rule P). Nothing is skipped, nothing is refused at load, and no dynamic call needs a view check unless strict mode is on.
+- So the pieces that served sealing and the filter drop out.
+- The weight moves to making an `AbstractInterpreter` with its own cache owner a first-class citizen of the runtime. GPUCompiler, Enzyme and Cassette-like tools need the same pieces.
+
+**Each piece, judged again:**
+
+| # | Piece | Verdict | Why |
+|---|---|---|---|
+| 1 | Method-definition hook | **keep** | Strict mode (`strict-mode.md`: defining a winning pirate is an error) refuses through it, at the prompt and for an image's methods at load. It also gives exact attribution to the loading package, late-override refusal, and keep flags that follow definitions. Not needed for the core's correctness. |
+| 2 | Invalidation policy hook | **drop** from the upstream list | Rule P: nothing is skipped. Strict mode installs its traps through Julia's exact invalidation, so it does not need the hook either. It stays in the patched build, opt-in (`JULIA_TW_FILTER=1`), until TraitWorld's filter is removed. |
+| 3 | Field-offset intrinsics | **keep**, independent | Performance of trait fields. Unaffected by the facts design. |
+| 4 | Post-inference hook | **drop** | It audited *native* trait-world code for pirates. Under the policy, trait code is compiled by TraitWorld's own interpreter, which is the compile-time hook, and the piracy audit is off on the policy's path. |
+| 5 | Native code for upstream and foreign CodeInstances in images | **keep: the deep piece** | Without it every session compiles the policy's code (stock Julia: first solve 0.44 s instead of 50 ms). |
+| 6 | Dispatch check at dynamic sites | **drop as a Julia piece** | Strict mode acts at method definition (`strict-mode.md`), not at calls. |
+| 7, 8 | Traits in the type system, syntax | **keep, last** | Unchanged. The definition-time checks in the compiler, part of 7, are also the full cure for new trait code after big loads. |
+| 9 | Owner-aware bare MethodInstance edges | **keep, upstream soon** | It is a bug for every foreign owner. Done in the patched build. |
+| 10 | The inliner uses the CodeInstance it is given | **keep, upstream first** | A stale-code hole for any `invoke(f, ci, …)` of a foreign CodeInstance from native code. Small. Fixing it lets TraitWorld drop the call-site `@noinline` (about 5 ns per typed call). |
+| 11 | Compile a call under owner X from inference | **keep; form changed** | 1.13 already *declares* the API: `Core.OptimizedGenerics.CompilerPlugins.typeinf(owner, mi, mode)`, which "the optimizer has license to" replace by `typeinf_edge(owner, mi, parent_frame, world, mode)` at compile time. The compiler never makes that replacement. Implementing that half *is* piece 11: the entry calls `typeinf`, inference resolves it with the caller's frame and world validation, and the generator and its purity problem (A4) go away. |
+| 12 | A frozen world for an external interpreter's compiler | **keep** | About 0.5 s once per session after big loads, otherwise. |
+| 14 | **New:** a read-only "which CodeInstances would this definition invalidate" query | **add**, small | The exact check for strict mode, asked from piece 1's hook before the method becomes visible. It is `jl_method_table_insert`'s invalidation walk without the stores, and useful to tooling too. |
+| 13 | **New:** instrumentation of foreign CodeInstances | **add**, small | `needs_instrumentation` (`Compiler/src/reinfer.jl`) skips foreign owners, so coverage and allocation tracking miss trait code under the policy. |
+| — | **Not needed:** trimming of foreign CodeInstances | **decided** | A `--trim` build compiles the plain call with native inference in the closed world. That is plain Julia, so G1 holds, and nothing loads later, so there is no G2 to protect (`aot-under-facts.md`). `runtime.md`'s concern about foreign instances in trimmed builds no longer applies. |
+
+**The new order, and why:**
+1. **Piece 10,** the inliner bug. It is a few lines and a clear bug, so it is the easiest first contribution.
+2. **Piece 9,** owner-aware bare edges. It is small, a bug for any foreign owner, and already written.
+3. **Piece 11,** through the `CompilerPlugins` hook Julia already declares. It is medium-sized, all in `Compiler/src`, and removes assumption A4 and the generator's re-entry guard.
+4. **Piece 12,** the frozen compiler world. It is small to medium.
+5. **Piece 5,** native code for foreign CodeInstances in images. This is the deep one, and pieces 9–12 make it easier to argue for.
+6. **Piece 13,** instrumentation. It is small.
+7. **Pieces 1 and 14,** the definition hook and the "would invalidate" query. They are what strict mode needs, and useful upstream (piracy tools, Revise, invalidation tools).
+8. **Piece 3,** the intrinsics.
+9. **Pieces 7 and 8,** when the demonstrators' numbers are in.
+
+**The upstream story.** Pieces 5 and 9–13 make up one proposal: "first-class foreign cache owners". It is useful far beyond traits, and it is the first proposal to make. Piece 1 is a second, small one. Traits in the language come last.
+
 ## What TraitWorld works around today
 
 | # | Need | Workaround in TraitWorld or the patched build today | Cost of the workaround |

@@ -22,7 +22,7 @@ These repositories have no remotes yet. Turning them into submodules of this one
 
 ## The plan
 
-The aim now is to demonstrate that the trait world is viable: that large libraries written in it get the pay-offs, measured against their stock versions and against the same code without traits. Wrapping existing packages and sealing come later.
+The aim now is to demonstrate that the trait world is viable: that large libraries written in it get the pay-offs, measured against their stock versions and against the same code without traits. Code written without traits is used directly, by **wrapping by facts** (adopted in session 23, validated in session 24: `writeup/explorations/wrapping-by-facts.md`); a **strict mode** for pirates is kept as an option (`writeup/explorations/strict-mode.md`, session 25).
 
 1. **TraitWorld at the current design,** for what a trait world needs (not wrapping or sealing), in the order TraitDifferentialEquations needs it. Each feature gets small solver-shaped acceptance tests.
    1. `Dynamic{X}` (done);
@@ -38,12 +38,10 @@ The aim now is to demonstrate that the trait world is viable: that large librari
 2. **Julia 1.13.2.** TraitWorld's tests pass on stock 1.13.2 and on the patched build (`julia-1.13/`, built in session 23). The measurements are re-baselined there (`experiments/baseline-1.13.md`). Reasons and porting costs: `writeup/explorations/runtime.md`.
 3. **TraitDifferentialEquations:** Tsit5, then Rodas5 with automatic differentiation, user models and callbacks, against stock SciML and a plain-Julia copy. Thirteen measurements, in its README. Step 1 done (session 23).
 4. **TraitMakie:** PlotCore with a Cairo backend, against Makie, a plain-Julia copy and matplotlib. Ten measurements, in its README. Step 1 done (session 23).
-5. **An upstream proposal** for the deep runtime pieces, backed by the demonstrators' numbers:
-   - a dispatch check at dynamic sites;
-   - trait-world code with machine code in package images;
-   - a transactional image load.
-
-**Later:** trait wrappers and sealing (`writeup/notes/3-wrapping.md`).
+5. **Upstream proposals,** backed by the demonstrators' numbers (`writeup/explorations/julia-support.md`, reviewed in session 25):
+   - first, "first-class foreign cache owners": native code for an `AbstractInterpreter`'s CodeInstances in package images, owner-aware bare edges, the inliner bug, compiling a call under an owner from inference (1.13's declared `CompilerPlugins` hook), a frozen world for the interpreter's compiler, instrumentation;
+   - then the method-definition hook;
+   - traits in the type system last.
 
 ## Conventions
 

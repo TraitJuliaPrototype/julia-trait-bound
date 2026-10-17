@@ -1,5 +1,12 @@
 # Traits for better Julia: design choices
 
+> **Status (2026-10-17).** Parts of this note describe the design before wrapping by facts (`writeup/explorations/wrapping-by-facts.md`, validated in session 24), and are no longer true:
+> - **§5, layering,** is gone for calls: trait-world code may call any Julia code, and its compiled code depends on the method table only through dispatch facts at concrete signatures ([the design in detail: the four rules](4-details.md#the-four-rules), rule 1).
+> - **§6 and §7, and costs 1, 2, 6 and 8:** nothing is refused at load. There is no sealing, no trait wrapper, no delegate and no declared call. Pirates are followed as in plain Julia; trait modules may not define them; an optional strict mode refuses a pirate that would change trait-world code ([code written without traits](3-wrapping.md)).
+> - **"Other options considered", the edge-level rule,** is close to what was adopted. Its cliff at abstract calls is accepted (run-time dispatch, on cold paths in the demonstrators), and the closed world for AOT is restated ([AOT](4-details.md#aot-the-reachable-code-is-declared)).
+>
+> This note is to be revised.
+
 This note covers what the design decides, how C++, Rust, Swift and Mojo decided the same questions, what went wrong for them, and why we chose as we did. The [overview](1-overview.md) states the goals; [the design in detail](4-details.md) states the rules.
 
 The research behind this note is in `writeup/other-languages.md`, from primary sources: Stroustrup's HOPL papers and WG21 papers, Rust RFCs, Swift Evolution proposals, Mojo's changelogs and proposals. Claims about other languages carry a link or point there.

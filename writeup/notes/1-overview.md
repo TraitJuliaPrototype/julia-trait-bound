@@ -4,7 +4,7 @@ The overview of the design. It covers why, what it pays, a small example, and wh
 
 1. **Overview** (this note): motivation, pay-offs, the core idea, an example.
 2. **[Design choices](2-design-choices.md):** what the design decides, how C++, Rust, Swift and Mojo decided the same questions, what went wrong for them, and why we chose as we did.
-3. **[Code written without traits](3-wrapping.md):** how Base, existing packages and a plotting system like Makie are used from the trait world: wrappers, calls upward, sealing.
+3. **[Code written without traits](3-wrapping.md):** how Base, existing packages and a plotting system like Makie are used from the trait world: called directly, with compiled code that depends only on dispatch facts at concrete signatures; pirates; an optional strict mode.
 4. **[The design in detail](4-details.md):** the rules, ownership, how types conform, checking, dynamic values, keywords, caching, AOT, in Julia's terms.
 
 Measurements and prototypes are under "Further reading" below.
@@ -59,38 +59,46 @@ The declaration is checked: every operation and field exists, with the declared 
 
 The bound determines how a value becomes concrete, so signatures do not carry concrete types.
 
-**The trait world.** Library code written with traits lives in trait modules. Together with Base and the packages wrapped for it, they form the trait world, which is closed:
+**The trait world.** Library code written with traits lives in trait modules. Together with the code compiled for them, Base's and other packages' included, they form the trait world. Trait-world code may call any Julia code directly: Base, Cairo, ForwardDiff, CSV. What keeps its compiled code valid is how it is compiled:
 
-> **Ordinary code may use the trait world; the trait world uses only itself.**
+> **Compiled trait-world code depends on the method table only through dispatch facts at concrete signatures.**
 
-*(Session 23: replaced for calls by wrapping by facts, `explorations/wrapping-by-facts.md`: the trait world may call any Julia code, and its compiled code depends on the method table only through dispatch facts at concrete signatures. To be rewritten once the prototype confirms it.)*
+- A fact says: at this concrete signature, dispatch selects this method.
+- A call whose argument types are not concrete records nothing and dispatches at run time, as plain Julia's dynamic dispatch does.
+- No invalidation is ever skipped.
 
-Compiled code in the trait world depends only on what lies below it, so nothing that happens above can change what it computes.
+So compiled trait-world code computes what plain Julia computes, and a load changes it only where it changes what plain Julia selects at one of its facts.
 
-**Ownership.** Only one thing could reach into the trait world from above: a method that changes what a call inside selects. Julia already has a name for it, *type piracy*: adding a method to a function you do not own, for types you do not own.
+**Ownership.** Who can change such a fact? Julia already has a name for the one surprising case, *type piracy*: adding a method to a function you do not own, for types you do not own.
 - Owners are packages. A function belongs to the package that creates it, wherever its methods come from: `Base.show` is Julia's.
 - A type belongs to the package that defines it.
-- A method may be defined only by a package that owns its function or one of its types: its stakeholders. `Base.show(io::IO, x::MyType)` in MyPackage is allowed because MyPackage owns `MyType`; many packages define methods of one function, each as a stakeholder of its own methods.
+- A method's stakeholders are the owners of its function and of its types. `Base.show(io::IO, x::MyType)` in MyPackage is no piracy, because MyPackage owns `MyType`; many packages define methods of one function, each as a stakeholder of its own methods. A method defined by anyone else is a pirate.
 
-Julia treats piracy as bad practice; the trait world makes it an error where traits are in effect. That is the one change to Julia's semantics the design depends on. ([The design in detail: Ownership](4-details.md#ownership).)
+A method that applies at a concrete signature, and is no pirate, is defined by a stakeholder of that signature. So an unrelated load never changes compiled trait-world code: only a stakeholder of one of its facts can, or a pirate that wins at one, in whichever order packages load.
+- Trait modules may not define pirates.
+- Pirates elsewhere are followed, as plain Julia follows them.
+- An optional strict mode, off by default, makes defining a pirate that would change trait-world code an error.
+
+([The design in detail: Ownership](4-details.md#ownership).)
 
 ## The pay-offs
 
 1. **Interactivity through cached code.**
    - Library code is compiled once per key, stored with the package that owns it, and reused in every session and every combination of packages.
-   - Loading another package never discards it.
+   - Loading another package discards it only where that package is a stakeholder of one of its facts, or brings a pirate that wins there. On the prototype, twelve packages loaded before or after the trait code discarded none of it.
    - A new type that forwards to a field of a known type costs no new library code, and a new value that the bound does not see, such as a callback, costs none either.
 2. **Simple ahead-of-time compilation.**
-   - Dispatch over the types a program meets at run time goes through declared conformances, whose targets are listed.
-   - A build can compile exactly the code the program can reach, and a trimmed binary does not die at its first generic call.
-   - On the prototype, a program of this kind compiles to a 2.09 MB trimmed executable.
+   - Dispatch between trait-world code, and over the types a program meets at run time, goes through declared conformances, whose targets `verify_main` lists.
+   - Plain code reached from trait code, such as CSV, keeps plain Julia's AOT properties; `verify_main` reports its open sites as holes.
+   - A trimmed build compiles the plain call in the closed world, which is plain Julia by definition.
+   - On the prototype, a program of this kind compiled to a 2.09 MB trimmed executable, before keys and wrapping by facts; it is to be rebuilt.
 3. **No performance cliffs.**
-   - The speed of compiled code does not depend on what else is loaded.
+   - The speed of compiled code does not depend on unrelated loads.
    - An abstract type that reaches a hot loop is reported when the package is built, at its root cause.
    - Library code is checked once, where it is defined, for every type that will ever conform; a mistake is reported at its line before any user type exists.
 4. **Minimal changes to semantics.**
-   - A call computes exactly what it computes in Julia today, or raises an error: "identical or error".
-   - Piracy is refused where traits are in effect. Whoever loads a pirate can opt out for it, and gets plain Julia for what it touches.
+   - A call computes exactly what it computes in Julia today, in the current world, or raises an error: "identical or error".
+   - Pirates are followed, as in plain Julia. Trait modules themselves may not define them. An optional strict mode refuses a pirate that would change trait-world code.
    - Readable types and error messages follow from signatures that carry bounds, not nested concrete types.
 
 How each pay-off follows from the rules is in [The design in detail](4-details.md). What each costs, and what other languages paid for the same choices, is in [Design choices](2-design-choices.md).
@@ -171,24 +179,32 @@ Keys do not remove every recompile. A `Float32` state, or a new loss under autom
 
 ## What it costs
 
-Each cost is discussed in [Design choices](2-design-choices.md#what-the-choices-cost).
-- **A stranger's piracy refuses a load,** where it would change code the trait world compiled against. The error reaches whoever loads the pirate.
-- **Code outside the trait world is reached through declared calls.** A plotting system like Makie, as written today, is called that way, not run inside ([Code written without traits](3-wrapping.md)).
+Each cost is discussed in [Design choices](2-design-choices.md#what-the-choices-cost) and [code written without traits](3-wrapping.md#what-this-costs).
+- **Calls at abstract types dispatch at run time** in trait-world code, also where plain Julia would infer through them: tens of ns each, on cold paths in the demonstrators.
+- **Base code reached from trait code is compiled again,** by the trait world's own compiler.
 - **Dynamic positions cost an indirect call or a dispatch:** functions passed as dynamic calls, values kept as `Dynamic{X}`.
-- **Code written without traits is curated:** conformances for Base's families, and one wrapper per package that the trait world uses.
-- **Runtime work is not proven.** The runtime pieces (an invalidation filter, a dispatch check, refusing a pirate at load) exist only as prototypes on stock and patched Julia.
+- **Base's informal interfaces are curated:** conformances for Base's families, declared by the owner of the capability traits.
+- **The runtime needs work in Julia.** The trait world's compiler policy, an `AbstractInterpreter` with its own cache that records only concrete facts, is package code. It needs pieces of Julia proper: native code for its cache in package images (piece 5), and pieces 9–13 (`writeup/explorations/julia-support.md`). Together they are the first upstream proposal, "first-class foreign cache owners". On stock Julia, every session compiles the policy's code again.
 
 ## Status
 
-As of 2026-10-16:
-- **TraitWorld,** the prototype, runs on stock Julia 1.13.2, 311 tests. It covers:
+As of 2026-10-17:
+- **TraitWorld,** the prototype, runs on stock and on patched Julia 1.13.2. It covers:
   - traits with operations, fields and associated types; conformances by implementation and by forwarding, with field mappings; keys;
   - the checks, including definition checking at archetypes;
   - dynamic values, results like the input, printing by bound and key;
-  - sealing; caches per key; `verify_main` for trimmed binaries.
-- **Its loops run at plain-Julia speed,** but its fixed cost per call is still 200–460 ns. A rewrite that makes conformances methods (a prototype runs at plain speed per call) waits for a decision.
-- **The runtime pieces** exist as experiments: the load filter injected into stock 1.13.2, and a patched Julia with the filter at method insertion (on 1.12; the 1.13 build is postponed).
-- **The demonstrators,** TraitDifferentialEquations and TraitMakie, are skeletons with plans.
+  - the compiler policy (`FactsInterp`); caches per key; `verify_main` for trimmed binaries.
+- **Validation of the policy:** an acceptance suite passes 16 of 16, and a suite of 48 adversarial cases passes.
+- **Typed trait calls** take 37–39 ns against 30 ns plain.
+- **The demonstrators** call Cairo and ForwardDiff directly. On the patched build, in every load order, with CSV, DataFrames, CairoMakie and nine more packages loaded before or after:
+  - TraitDifferentialEquations' first solve takes 55–60 ms;
+  - TraitMakie's first PNG takes 87–97 ms.
+- **Removed** from TraitWorld (main b60b126, 308 tests): trait wrappers, sealing, declared calls, the door check, layering and the invalidation filter, which wrapping by facts replaces.
+- **Open:**
+  - new trait code after big loads: defining a small module takes 2.7 s after big loads, against 1.0 s;
+  - threads: no method may be defined on another thread while trait code compiles (assumption A4, until Julia piece 11);
+  - trimmed binaries under the current design;
+  - strict mode, not built.
 
 What is decided, and its status, is in `writeup/decisions.md`; what is open in `writeup/open-issues.md`.
 
@@ -197,6 +213,6 @@ What is decided, and its status, is in `writeup/decisions.md`; what is open in `
 - `writeup/decisions.md`: every design decision with its status; `writeup/open-issues.md`: what is open.
 - `writeup/design-findings.md`: measurements, prototype results, the earlier forms of the design and why they changed.
 - `writeup/other-languages.md`: the research behind the design choices, with sources.
-- `writeup/explorations/`: the demonstrators' designs (solvers, Makie), the runtime, associated types, and the plan for keys in TraitWorld.
-- `experiments/`: the measurements (`baseline-1.13.md`, `lens/`, `keys-proto/`) and the earlier prototypes (`world/`, `interfaces/`).
+- `writeup/explorations/`: wrapping by facts (`wrapping-by-facts.md`), strict mode (`strict-mode.md`), what Julia must provide (`julia-support.md`), the demonstrators' designs (solvers, Makie), the runtime, associated types, and the plan for keys in TraitWorld.
+- `experiments/`: the measurements (`baseline-1.13.md`, `lens/`, `keys-proto/`, `facts/`) and the earlier prototypes (`world/`, `interfaces/`).
 - `attic/writeup/`: the single note these four notes replace (revision 1146), the proposals behind dynamic values and definition checking, the earlier proof-of-concept plans.
