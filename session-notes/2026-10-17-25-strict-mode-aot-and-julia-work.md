@@ -99,3 +99,45 @@ The user (start of session 25, after a state-of-play summary): "I want to keep t
     - D: `@targets` lists for open sites;
     - E: `@interpreted` calls (needs Julia piece 16, an interpreter fallback in trimmed binaries).
   - **Recommendation:** prototype A and B with the first binaries; C as the stated pattern; D and E after the CSV binary.
+- **The user on AOT:** "record the ideas but defer for now, except for work already started". Annotations A–E and the remaining binaries are deferred. The started binary was finished.
+- **First trimmed binary under wrapping by facts** (`experiments/aot/plot_app.jl`, built with julia-1.13's `test/trimming/juliac-buildscript.jl`, `--trim=unsafe-warn`):
+  - **Result:** 4.07 MB; 0.05 s to the PNG; byte-identical to the session's output.
+  - **Found and fixed in TraitWorld (893f0bb):**
+    - `verify_main` had no targets for dynamic values (`Vector{Dynamic{Plot}}`). Now it records the kept trait object types and resolves dynamic operations and entries called with opened values to a fixpoint (`test/verify_dynamic.jl`).
+    - Session images carried policy-path entries into the trim build (risk 1, confirmed). In a closed build, `verify_main` now replaces `_facts_call` by the plain call. Doing it in `__init__` broke source loading in the build process.
+  - **Plain-code hole:** JLLWrappers' `__init__` (`unique!` → `issorted` with `lt::Function`). Two entry points by hand; `verify_main` does not walk `__init__`.
+  - `--trim=safe` lists 26 errors, mostly machinery slow paths behind `CLOSED_WORLD`.
+  - **Tests:** suite 343/343, acceptance 16/16, hunt as before.
+- **Wrap-up requested by the user.**
+
+## Final state (end of session 25)
+
+- **TraitWorld main 893f0bb:** 343 tests on patched 1.13.2 (308 on stock).
+  - Wrapping by facts only: wrappers, sealing, filter, doors, layering, audit and guard removed.
+  - Strict mode prototype (`src/strict.jl`).
+  - Entries inline the policy's code with Julia piece 10.
+  - `verify_main` handles dynamic values and closes the policy in trim builds.
+- **julia-1.13** `trait-world-1.13` f72f7368f0: pieces 1–5, 9, 10.
+- **experiments** ff47ef9: `facts/g2strict.jl`, `facts/typedbench.jl`, `aot/`.
+- **Design repo:**
+  - **new:** `aot-under-facts.md` (§1–7), `strict-mode.md` (the refusal mode, prototype, intended design §2b);
+  - **reviewed:** `julia-support.md` (pieces 2, 4, 6 dropped; 9–16; new order);
+  - **rewritten:** the notes (1-overview, 3-wrapping, 4-details);
+  - `decisions.md` and `open-issues.md` brought up to date.
+- **Measured:**
+  - typed trait calls 33–36 ns (plain about 30);
+  - strict mode: g2all refuses nothing, +0.54 s on a 4.1 s load of CSV, DataFrames and CairoMakie;
+  - g2all: 0 lost in both orders with piece 10.
+
+## Next (for the following session)
+
+1. **Deferred by the user, to take up when wanted:**
+   - strict mode's intended design (`strict-mode.md` §2b; Julia pieces 1′, 14, 15);
+   - AOT annotations A–E (`aot-under-facts.md` §6);
+   - the TraitDifferentialEquations and CSV binaries.
+2. **Trim's verifier:** hide the machinery's closed-world slow paths from `--trim=safe`; let `verify_main` walk packages' `__init__`.
+3. **New trait code after big loads** (the checks' recursion; Julia pieces 7 and 12).
+4. **Julia piece 11** through `CompilerPlugins.typeinf` (removes A4), then piece 12.
+5. **Upstream proposal** "first-class foreign cache owners" (pieces 5, 9–13).
+6. **Documents:** revise `2-design-choices.md` (banner only so far); open-issues §4b F3 and F9.
+7. **Demonstrators:** TraitMakie rows 4–10, the remaining TraitDifferentialEquations rows.

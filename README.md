@@ -12,11 +12,11 @@ This directory is the design repository. Five repositories sit inside it, each w
 |---|---|---|
 | `.` | design | `writeup/`: the notes, decisions, open issues, explorations, findings, research; `session-notes/`; `attic/` holds the earlier phases and superseded documents |
 | `julia/` | patched Julia | a clone of JuliaLang/julia, checked out on branch `trait-universe` (1.12 with the filter, built in place). Branch `trait-world-1.13`: v1.13.2 with the invalidation filter (insertion half in `src/gf.c`, load half in `Compiler/src/reinfer.jl`), notes in `TRAITWORLD.md` |
-| `julia-1.13/` | (worktree of `julia/`) | branch `trait-world-1.13`, built (session 23): `julia-1.13/julia` is the patched 1.13.2; `tw-build.sh` rebuilds it niced under a memory watchdog |
-| `TraitWorld/` | TraitWorld | the design as a package on Julia 1.13.2, stock and patched: traits, conformances as methods, keys, inlined entries and workers per key, checks, definition checking, dynamic values, sealing, view caches, `verify_main`; 346 tests |
+| `julia-1.13/` | (worktree of `julia/`) | branch `trait-world-1.13`, built: `julia-1.13/julia` is the patched 1.13.2 with Julia pieces 1–5 and 9–10 (session 25); `tw-build.sh` rebuilds it niced under a memory watchdog |
+| `TraitWorld/` | TraitWorld | the design as a package on Julia 1.13.2, stock and patched: traits, conformances as methods, keys, inlined entries and workers per key, the compiler policy of wrapping by facts, strict mode (a prototype), checks, definition checking, dynamic values, view caches, `verify_main`; 343 tests |
 | `TraitDifferentialEquations/` | demonstrator 1 | ODE solvers in the trait world: step 1 (Tsit5, models, callbacks); plan and measurements in its README |
 | `TraitMakie/` | demonstrator 2 | a plotting library in the trait world: step 1 (lines, scatter, Cairo); plan and measurements in its README |
-| `experiments/` | experiments | the smaller prototypes and measurements, formerly `poc/`: `baseline-1.13.md`, `lens/` (layouts), `keys-proto/` (the runtime as methods), `world/`, `interfaces/` (pinned before keys), `solvers/`, `errors/`, `runtime-injection/` |
+| `experiments/` | experiments | the smaller prototypes and measurements, formerly `poc/`: `baseline-1.13.md`, `lens/` (layouts), `keys-proto/` (the runtime as methods), `world/`, `interfaces/` (pinned before keys), `solvers/`, `errors/`, `runtime-injection/`, `facts/` (wrapping by facts: acceptance, hunt, g2all, g2strict, typedbench), `aot/` (trimmed binaries on 1.13) |
 
 These repositories have no remotes yet. Turning them into submodules of this one is a step for when they do.
 

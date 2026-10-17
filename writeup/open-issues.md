@@ -4,7 +4,11 @@ Everything known to be open, as of 2026-10-17 (session 25): the design, the prot
 
 ## 1. Decisions waiting for the user
 
-None at present. The last one, **conversions in trait wrappers,** dissolved with wrapping by facts (s23); kept for the record: whether a trait wrapper may offer conversions for foreign types that share code, now that conformance never converts (4-details "Types that only convert"). Wrapping is deferred, so this can wait.
+Deferred by the user in session 25, to take up when wanted:
+1. **Strict mode's intended design** (compiled trait code never invalidated except by edits): `strict-mode.md` §2b. Needs Julia pieces 1′, 14 and 15, a transitive check, `twolibs` as acceptance, and the extension rule.
+2. **AOT annotations for calls into ordinary code** (A–E): `aot-under-facts.md` §6. The remaining binaries (TraitDifferentialEquations with ForwardDiff; CSV and DataFrames) also wait.
+
+(Conversions in trait wrappers dissolved with wrapping by facts, s23.)
 
 (Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
 
@@ -51,7 +55,19 @@ None at present. The last one, **conversions in trait wrappers,** dissolved with
 
 ## 3. TraitWorld (the prototype)
 
-State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and on patched Julia 1.13.2. The runtime as methods, keys in the reference layout, no implementing type under defaults, overrides refused at checkpoints, fields matching parameters and immutable types held are in (session note 23).
+State (session 25): `main` at 893f0bb, 343 tests on the patched 1.13.2 build (308 on stock, where strict mode's 32 tests and the hook tests are skipped).
+- **In:** the compiler policy of wrapping by facts, strict mode as a prototype, `verify_main` with dynamic values' targets, the closed-build replacement of the policy's call.
+- **Removed:** wrappers, sealing, the filter, doors, layering, the native piracy audit and guard.
+- **Earlier:** the runtime as methods, keys in the reference layout, overrides refused at checkpoints (session note 23).
+
+**Open from session 25:**
+- **Trim's own verifier.** `--trim=safe` reports the machinery's slow paths behind the run-time `CLOSED_WORLD` flag, so builds use `unsafe-warn`. To do: make them invisible to trim in a closed build, for example by a constant decided at generation, like `_policy_path()`.
+- **`verify_main` walks from `main` only.** Packages' `__init__` functions run at startup too. JLLWrappers' `unique!` needed two entry points by hand in the first binary.
+- **Strict mode's prototype checks direct callers only.** Dependence through native code (`return_type` folds, the machinery) is caught only by the safety net (`strict-mode.md` §2b, item 2).
+- **New trait code after big loads:** 2.7 s to define a small module, against 1.0 s; the checks' recursion (Julia pieces 7 and 12, or a walk without recursion).
+- **Threads:** assumption A4 until Julia piece 11 (through 1.13's `CompilerPlugins` hook).
+- **The hunt's C24b:** a harness bug.
+
 
 **Behind the notes**
 1. Overrides after a conformance are refused at checkpoints (declarations, a trait module's end, a signature's first call), not when the method is defined: that needs a hook at method insertion.
@@ -79,7 +95,7 @@ State: `main` at d65bb57, 346 tests plus 1 broken (pre-existing), on stock and o
 1. With a view cache on stock 1.13.2, `summarize` recompiles for 71–74 ms once CSV and Makie are loaded (3.3 ms in session 21 on 1.12). It is unclear whether 1.13 or TraitWorld causes this (`experiments/baseline-1.13.md`).
 2. *(Resolved by wrapping by facts, session 24: with nothing skipped, 0 facts-owned CodeInstances are lost to any of twelve loads, in any order; `wrapping-by-facts.md` §Validation. Kept for the record.)* The patched 1.13.2 build exists (`julia-1.13/`). Its filter protects code from a definition only if the definer owns no type in the code's signature (review F1, fixed in 280612ed2f; before, a user's redefinition of its own implementation left the worker stale). Measured with it (session note 23): CSV and DataFrames loaded after TraitMakie invalidate no PlotCore code and 14 machinery methods (285 on stock). CSV, DataFrames and CairoMakie loaded after TraitDifferentialEquations still invalidate 2–4 ODECore methods and 323 machinery methods: these loads bring pirates of Base (OffsetArrays, StatsBase, Durations), which invalidate by design, and owned methods (InlineStrings, Unitful) that reach Base methods compiled for trait-world callers, which the insertion half does not protect (the load half's callee rule has no insertion counterpart). A pirate-free load set is needed to separate the two.
 3. Not yet measured on 1.13: plain-Julia time to first PNG, ComboCache end to end, an x12 control on 1.12.2 with the pinned TraitWorld.
-4. The trimmed-binary acceptance build (2.09 MB `verify_main` program) has not been rebuilt since keys; run it alone, under a memory guard.
+4. *(Done in session 25 for TraitMakie: 4.07 MB, 0.05 s, the PNG identical to the session's; `aot-under-facts.md` §7.)* The `experiments/world` program (2.09 MB) has not been rebuilt since keys.
 5. *(Resolved in session 24: TraitDifferentialEquations' first solve 55–60 ms and TraitMakie's first PNG 89–97 ms in every load order. Open in its place: **new** trait code defined after big loads, 2.7 s to define a small module and 0.8 s for its first call, against 1.0 s and 0.09 s; the definition-time checks, Julia pieces 7 and 12.)* Before: TraitDifferentialEquations' first solve takes 0.7–1.05 s with CSV, DataFrames and CairoMakie loaded (73 ms without); TraitMakie's first PNG takes 0.31–0.37 s with CSV and DataFrames before (0.1–0.2 s without; 0.09 s after, patched).
 
 ## 4b. The review of session 23

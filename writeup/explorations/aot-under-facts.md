@@ -107,7 +107,35 @@ The user (session 25): "In my mind AOT means no LLVM in the binary. Thus no reco
   - or move the decision into the trait world, where conformances list it, as TraitMakie does for plots.
 - A and B are cheap, and they turn "the binary dies at a generic call" into a report or an error at the trait package's build. That is the same direction as G4.
 
-**Recommendation.**
+**Recommendation (deferred by the user, session 25).**
 1. Prototype A and B with the first trimmed binaries (§4), and compare the policy's list with what the trim verifier finds.
 2. State C as the boundary pattern in the notes.
 3. Leave D and E as proposals until the CSV/DataFrames binary shows how many open sites real ordinary code has on its normal paths.
+
+## 7. The first binary (session 25)
+
+`experiments/aot/plot_app.jl`: TraitMakie draws lines and points into a PNG through Cairo, called directly. It is built offline with the patched 1.13.2 and Julia's own test copy of the juliac build script (`experiments/aot/build.sh`; `--trim=unsafe-warn`, as the 2.09 MB build of session 20 used).
+
+**Result:**
+- 4.07 MB;
+- 0.05 s from process start to the written PNG, 72 MB peak memory;
+- the PNG is byte-identical to the one the session writes;
+- `verify_main`: no holes on normal paths, 8 targets registered as entry points;
+- object file built in 10 s.
+
+**What it took, all in TraitWorld:**
+1. **`verify_main` never enumerated the targets of dynamic values.** The note claimed it did. TraitMakie keeps its plots as `Vector{Dynamic{Plot}}`. Now:
+   - the walk records the trait object types a program keeps in `Dynamic{X}` values, made by `:new`, by the constructor, or folded into constants;
+   - operations on dynamic values, and entries called with an opened one, get one target per type;
+   - the targets are resolved to a fixpoint after the walk.
+   - Test: `test/verify_dynamic.jl`.
+2. **Risk 1 of §3 was real.** The trim build reused TraitMakie's session image, whose entries call workers under the policy (0 targets found). Now `verify_main(…; entrypoints = true)` in a closed build replaces `_facts_call` by the plain call, so every entry compiled against it is inferred again for the closed world. Doing this in `__init__` instead broke source loading in the build process.
+3. **A plain-code hole outside `main`'s walk.**
+   - JLLWrappers' `__init__` (Pango_jll, GettextRuntime_jll) calls `unique!(::Vector{String})`, whose `issorted` builds its ordering from `lt::Function`.
+   - Trim cannot resolve that call, and the binary died at startup. Two entry points in the program fix it.
+   - This is plain Julia's trim limitation. `verify_main` does not walk packages' `__init__` functions.
+4. **`--trim=safe` reports 26 errors,** mostly machinery slow paths behind the run-time `CLOSED_WORLD` flag. `unsafe-warn` builds and runs.
+
+**Deferred** (the user, session 25: "record the ideas but defer for now, except for work already started"):
+- the annotations of §6;
+- the TraitDifferentialEquations and CSV binaries of §4.
