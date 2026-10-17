@@ -11,7 +11,7 @@ Under the policy, a call at abstract argument types is a run-time site. Until th
 **Done (TraitWorld 1d93677, decision pending):** a run-time site now dispatches at run time, in the caller's world, as before, and then runs the *policy's* CodeInstance of the method it found: `_call_under_policy`, compiled under the policy at the first call and kept in images. The dispatch semantics do not change, since no fact is recorded at the site; only the compiled code that runs does. `JULIA_TW_RUNTIME_SITES=native` restores the old behaviour. After the change, CSV keeps 661 policy CodeInstances, and loading DataFrames discards none of them (native CSV code: about 300 lost).
 
 Open points:
-- **Cost at hot run-time sites:** a lookup per call (a tuple type built, `jl_method_lookup_by_tt`), against the 20–50 ns of native dynamic dispatch. Not measured yet; a per-site cache would remove most of it.
+- **Cost at hot run-time sites:** measured in session 28 and fixed, see 1.9.
 - **Review needed:** G1 should hold, because dispatch is unchanged. G2 should improve. Theorem 2's statement ("code reached through run-time sites is native") needs restating.
 - **Pitfalls met on the way:**
   - A builtin passed as a value (`tuple`, `===`) reached the trampoline, and the policy tried to compile its generic fallback at every call. Builtins are now called directly.
@@ -35,7 +35,7 @@ By design a call with a kind (`DataType`, `Type{X}` widened) as an argument is a
 `settlecolumns(p; select, drop, types, available, validate)` with a `Union{Nothing, Vector{ValueOpts}}` value builds `NamedTuple{names}(::Tuple{…, Union{…}, …})`. That is not a dispatch tuple, so the call is a run-time site. Settings structs with union-typed fields (`typemap`, `nsample`, `colopts`) do the same to positional calls once more than `max_union_splitting` unions meet.
 
 **Guideline:** at policy boundaries, normalize options to concrete types; assert union-typed fields where they are read.
-**Possible design improvement:** union-split tuple *elements* of an argument in the policy's fact check, which gives several facts at concrete signatures and is sound for the same reason as Julia's top-level union splitting.
+**Possible design improvement:** union-split tuple *elements* of an argument in the policy's fact check, which gives several facts at concrete signatures and is sound for the same reason as Julia's top-level union splitting. **Done for tuples in session 28 (1.8);** keyword `NamedTuple`s with union-typed values (`std(x; mean = m)`, `m::Union{Nothing, Float64}`) are still run-time sites: a `NamedTuple` is not covariant, so its splits would include the union-typed instance itself.
 
 ### 1.5 A run-time site's result is `Any` (porting guideline)
 
@@ -53,6 +53,32 @@ Finding these took most of the porting time. `forks/scripts/runtime_sites.jl` wa
 **Nice to have in TraitWorld:**
 - `TraitWorld.runtime_sites(f)`;
 - a precompile-time report: "worker `readfile` reaches N run-time sites; the first at `_prepareindexed`, keyword pairs with abstract element type".
+
+### 1.8 Iteration over data with missing values was a run-time site per element (design issue; changed)
+
+Session 28. After the first call, `describe` still took 0.24–0.31 s on 10 000 rows; upstream's second call takes 0.9 ms. The time was run time, not compilation: 0.13 s in each of the two columns with missing values, and 0.1 ms in the others. Base's `iterate(::SkipMissing)` destructures `item, state = y` with `y::Tuple{Union{Missing, Int64}, Int64}`. That tuple type is not a dispatch tuple, and the call has no top-level union, so the policy never split it: `indexed_iterate` became a run-time site, the state widened to `Any`, and every call after it in the loop went through the trampoline. `colstats` for one such column reached 58 run-time sites.
+
+This is not a porting issue. Every element type `Union{Missing, T}` (most real data) iterates this way, in Base, Statistics, and anything a worker calls.
+
+**Done (TraitWorld 5b50482):** a fact may stand at a signature whose tuple-typed arguments have unions of concrete element types (`_fact_splits`), up to Julia's `max_union_splitting` (4) splits. A tuple value's type is always concrete, so `Tuple{Union{Missing, Int}, Int}` admits exactly the values of `Tuple{Missing, Int}` and `Tuple{Int, Int}`: the fact is the facts at its splits, as with top-level union splitting. Strict mode checks a pirate against each split. Tests (with a new testset) and 16/16 acceptance pass.
+
+After the fix: a column with missing values takes 0.3 ms, `describe` 1.3 ms at its second call (upstream 0.9 ms), and `colstats` reaches 8 run-time sites, all cold (`Dict{Symbol, Any}` writes, the keyword call of 1.4). **Needs the soundness review** with 1.1 and 1.2 (G1 and G2 under splits).
+
+### 1.9 A hot run-time site cost 6.5 µs (design issue; changed)
+
+Measured in session 28, with `mean` over a `Vector{Any}` column (one run-time site or more per element): 6.4–6.8 µs per element under the policy, against 26–29 ns for plain Julia's dynamic dispatch, about 230× slower. Profile:
+- 40% in `Core.invoke(f, ci, args...)` with its splat;
+- 24% in building `Tuple{…}` from the argument types;
+- the rest in varargs boxing, `jl_method_lookup_by_tt` and the walk of the instance's cache.
+
+**Done (TraitWorld 5b50482):** each run-time site of up to four arguments keeps its own cache (`_CallSite`, a constant in the IR), as Julia keeps one for its own dynamic dispatch:
+- the cache holds the last dispatch: the world, the arguments' `Core.Typeof` and the CodeInstance;
+- a call in the same world with the same keys calls `Core.invoke` directly. Dispatch is a function of the world and these keys, and a CodeInstance valid in a world stays valid in it;
+- each entry carries a token of the process, so a cache stored in an image never hits with another process's world numbers.
+
+**Pitfall met:** the first version keyed type values by the type itself (`Int64`), which collided with a *value* of type `Int64`. `Core.invoke` then raised "argument type error" inside TraitWorld's own ambiguity check. The key must be exactly the lookup's (`Core.Typeof`: `Type{Int64}`).
+
+Remaining: the site is monomorphic (a site that alternates between types misses every time), and still pays a generic dispatch into `_call_site` and `Core.invoke`'s two subtype checks. The full remedy is owner-aware dynamic dispatch in the runtime (§5).
 
 ## 2. Where compiled code lives
 
@@ -101,3 +127,41 @@ With the REPL loaded first and no system image, a session compiles the policy's 
 
 - Pkg did not refresh a path package's `weakdeps`/`extensions` in the manifest after its `Project.toml` changed (`Pkg.resolve` reported no change), so the new extension silently never loaded; the manifest was edited by hand.
 - `--trace-compile=stderr --trace-compile-timing` inside the REPL session, plus marks per step, was the most useful measurement; `# recompile` flags invalidated native code.
+- **A first-call time is not all compilation** (session 28). `describe` at 0.45 s compiled for 0.17 s; the rest was run time (1.8). Timing the step a second time in the same session separates the two at once, and should be part of every per-step table.
+- **The image build was killed silently** (session 28). The memory watchdog's message was overwritten, because Julia wrote `build.log` through a truncating redirect at its own offset; the log is now appended to (`experiments/sysimage/build.sh`). `/tmp` is a tmpfs, so the archives of killed juliac builds (`jl_*/img.a`, 5.2 GB from 2026-10-15) held memory until removed.
+
+## 5. What the compiler would remove (session 28)
+
+Prompted by the user's question: which of these issues would be easier, or disappear, with the policy in Julia's compiler? Three settings of one switch were discussed: policy off, policy for trait-bound code, policy for all code.
+
+| | setting | what the compiler needs |
+|---|---|---|
+| off | today's Julia | nothing |
+| all code | one interpreter, one cache, ordinary dispatch | (A) facts as an inference mode: the fact check, folding, `return_type` |
+| trait-bound code | fact code and plain code side by side | (A), plus (B) a second cache owner (the same `sum` compiled both ways), plus (C) owner-aware dynamic dispatch (a run-time site in fact code selects fact code) |
+
+(A) is the core of both; "all code" is the simpler step towards the middle setting.
+
+**Gone with (B) and (C) in the runtime:**
+- 1.1 and 1.9: a run-time site would be plain dynamic dispatch selecting the caller owner's code, at plain dispatch's cost, with no trampoline, negative cache, site cache or builtin special case;
+- 2.4 and 2.5: the policy's compiler code would be protected as Julia protects its own compiler;
+- patch pieces 5, 9, 10, 12 and 13, which exist because the owner is foreign;
+- piece 11's two obstacles and assumption A4 (threads).
+
+**Gone only with the policy for all code:**
+- 2.1: there is no plain "outside" left to protect;
+- REPL's own invalidations.
+
+**Not changed by where the policy lives:** these are rules of the design:
+- 1.2: folding by Julia's asserted effects;
+- 1.3: types as values;
+- 1.4 and 1.8: what counts as a fact;
+- 2.2: where compiled code for (key owner, function owner) pairs is stored, which only an environment-level cache would make automatic.
+
+**A design option for 1.5:** at a run-time site, take plain inference's result type and check it at run time, instead of widening to `Any`:
+- in trait code a failed check raises an error ("identical or error");
+- under the policy for all code, an error after a load is not acceptable, so a failed check needs a dynamic fallback branch (deoptimization), which costs code size.
+
+Whether results of abstract calls typed `Any` cost too much when all code compiles by facts is the open question for the "all code" setting.
+
+**A prototype path without rebuilding Julia:** 1.13's `Compiler.activate!(codegen = true)` replaces the native compiler with a loaded `Compiler` package for all new compilation, so (A) can be developed as a fork of that package. Base's system image stays as built until the setting is real.
