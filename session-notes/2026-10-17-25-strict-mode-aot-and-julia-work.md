@@ -76,3 +76,26 @@ The user (start of session 25, after a state-of-play summary): "I want to keep t
   - **g2all interleaved, strict on:** nothing refused, 0 misses, nothing lost.
   - **Load cost:** at first +6.6 s on CSV, DataFrames and CairoMakie (ownership 100 µs per method; the owner memo had been dropped by the removal). After the memo and the fast path: 4.68 s against 4.14 s (65,318 methods checked in 0.16 s; 837 pirates by the letter walked in 0.49 s; none refused).
   - **Prompt definitions:** `SU.scale(x::Float64) = …` typed at the prompt is the session's, a pirate by the letter, and refused. `@eval SU …` (as Revise attributes edits) is the owner's.
+- **The user asked:** what would strict mode need so that compiled trait code is never invalidated? My answer:
+  1. pirates loaded before an image: an image-validation report (Julia piece 15) and an error;
+  2. dependence through native code: a transitive check (piece 14), and `twolibs` as acceptance for the machinery's registries;
+  3. extensions' winning methods at signatures without their triggers' types: refused;
+  4. deletion: a deletion hook (piece 1′);
+  5. edits: the one exception.
+
+  The user: "Record what you gave above as the intended design for strict mode. Defer concrete work on it for now." Recorded in `strict-mode.md` §2b, `decisions.md` and `julia-support.md` (pieces 15 and 1′, deferred).
+- **Piece 10 built** (julia-1.13, Compiler only: `handle_invoke_expr!` inlines exactly a foreign CodeInstance it is given; the CodeInstance edge dedup compares owners). TraitWorld branch `inliner-fix` drops the call-site `@noinline` when the runtime has it (`_INLINER_KEEPS_CI`; `JULIA_TW_NOINLINE=1` forces it back).
+  - **Typed calls:** 33.0–35.8 ns, against 38.0–39.5 ns with `@noinline` (plain about 30). Untyped calls unchanged (108–123 ns).
+  - **Tests:** suite 340/340, acceptance 16/16, the hunt passes except C24b (the harness bug), both demonstrators pass.
+- **Piece 10 committed:** julia f72f7368f0, TraitWorld 1871c4e (main), experiments 876f104 (typedbench, aot/).
+  - **g2all with the fix:** 0 lost in both load orders; the first work in "before" takes 147 ms.
+  - The 41–309 s loads in that run were cache rebuilds after the new system image.
+- **The user on AOT:** "AOT means no LLVM in the binary … now we have made calling ordinary Julia code easy, so we don't get any benefits there … whether some additional aot focused annotations when calling ordinary code from trait world would be possible."
+  - Answered in `aot-under-facts.md` §6. The policy already lists, per call into ordinary code and at the trait package's build, the run-time sites (Theorem 3). That over-approximates the binary's holes.
+  - **Options:**
+    - A: a report at package build;
+    - B: `@closed` calls, a build error otherwise;
+    - C: result assertions at the boundary;
+    - D: `@targets` lists for open sites;
+    - E: `@interpreted` calls (needs Julia piece 16, an interpreter fallback in trimmed binaries).
+  - **Recommendation:** prototype A and B with the first binaries; C as the stated pattern; D and E after the CSV binary.

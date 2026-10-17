@@ -103,6 +103,31 @@ TraitWorld main 7b328a5 (`src/strict.jl`), on the patched 1.13.2 build. Switched
 
 **The exact check** (piece 14) would replace the walk by Julia's own invalidation set, and the safety net with it.
 
+## 2b. The intended design: compiled trait code never invalidated (deferred)
+
+The user (session 25): "What would we need for strict mode that never invalidates compiled trait code?" And, after the answer below: "Record what you gave above as the intended design for strict mode. Defer concrete work on it for now."
+
+**The guarantee.** In strict mode, compiled trait-world code, in the session and in package images, is invalidated only by edits to its own dependencies. Every other event that would invalidate it is an error at its source. Nothing is checked at run time: all the checks happen when a method is defined or deleted, or an image is loaded.
+
+**What the prototype (§2a) already gives:** a pirate defined after the trait code that it would change is refused.
+
+**What remains, and what each needs:**
+
+| # | Source of invalidation | What is needed | Where |
+|---|---|---|---|
+| 1 | **A pirate loaded before a trait package's image.** The image's facts were compiled without it; image validation rejects the code, which is recompiled following the pirate. The refusal cannot act, since the pirate came first. (Code compiled *in* a session where the pirate already exists follows it, and can never be invalidated by it afterwards.) | A hook in image validation that reports why a CodeInstance is rejected: the edge, and the method that now wins there. Strict mode then reports an error naming the pirate and the trait package, instead of recompiling. | Julia, small: image validation is Julia code in 1.13 (`Compiler/src/reinfer.jl`); **piece 15** |
+| 2 | **Dependence through native code.** Trait code holds edges to native code: `return_type` folds from native inference (`_NativeRT`), and the machinery's exempt functions. A pirate winning inside that native code invalidates the trait code through it. The prototype checks direct callers only, so it misses this; the safety net catches it after the fact. | A transitive check: follow callers upwards to trait-world code. **Piece 14** (the exact "would invalidate" query) gives it, since Julia's invalidation walk is transitive; without it, TraitWorld walks the callers itself. | Julia piece 14, or TraitWorld |
+| 2′ | **A second trait library extending the machinery's registries** (`param`, `implementation`). Measured: 0 of 7461 instances lost (`twolibs.jl`), but not guaranteed. | `twolibs` as an acceptance check. Where it fails, registry calls made concrete facts. | TraitWorld |
+| 3 | **Package extensions loaded later.** An extension counts as its parent, so it passes as a stakeholder. But a method of it at a signature that contains none of its triggers' types changes code that existed before the trigger loaded. | A strict-mode rule: refuse an extension's winning method at a fact whose signature contains no type of its triggers. | TraitWorld |
+| 4 | **Method deletion** (`Base.delete_method`) does not go through the definition hook. | A deletion hook (an extension of piece 1), and refusal of deletions by anyone but the method's owner. | Julia, small: **piece 1′** |
+| 5 | **Edits** (REPL, Revise, redefined constants) to packages the code depends on, or to the session's types. | Nothing: kept as the one stated exception. An edit is meant to change what the code computes, and plain Julia recompiles too. Freezing packages once trait code is compiled against them would break Revise. | — |
+
+**Expected friction.**
+- None of these sources has been observed. In `g2all` no trait-world code was invalidated even with the mode off.
+- So this hardens a guarantee rather than fixing a seen problem.
+
+**Status: deferred.** Recorded as the intended design. Pieces 1′, 14 and 15 are on the Julia list for when it is taken up.
+
 ## 3. Split-core packages
 
 **A stakeholder of `s` owns the function or a type in `s`.**
