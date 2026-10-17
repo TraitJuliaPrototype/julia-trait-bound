@@ -67,6 +67,9 @@ The review's minor findings (stale lines, numbers that disagree, "the policy is 
 23. Indexes for strict mode's attribution of methods to packages, so that it never scans all methods (prediction 7). Sealing and the dispatch check, for which this was first written, are gone.
 24. Inference-dependent element types (`promote_op`): the declared exception to "identical or error"; solvers must declare them instead (solvers.md §11.8).
 25. The compile cost of recipes and models defined at the prompt; views exclude modules under `Main` (findings §15, makie-rewrite.md §8.8).
+26. **No sealing, of abstract types or functions** (user, session 28; to think about later). The facts-mode recovery test (`plans/2026-10-17-policy-in-compiler-plan.md` §3) suggested sealed abstract types and sealed functions, so that calls at abstract types become facts. The user's view: this notion should leave the project entirely. One should not seal an abstract type but use a trait instead: the trait's declared signatures and result types, checked for every conformance, are the closed contract. To settle:
+    - how TraitWorld's own machinery is exempted under the facts mode in the compiler without a "sealed" notion (the prototype's `sealed_call` names TraitWorld's functions);
+    - what replaces the `isa` branches plain Julia emits over a known set of methods, once the call goes through `Dynamic` with witness tables.
 
 ## 3. TraitWorld (the prototype)
 

@@ -69,9 +69,8 @@ By the rule above, the overall mean passes and one group fails. **Next, before t
   - `parse_json` with plain Julia's fix for captured variables: 1.17× the fixed plain code, and faster than the original plain code.
 
 Design consequences for the compiler version:
-- **Sealed functions** (methods only from the owner) make calls at abstract types facts. TraitWorld's machinery needs this already, and so would module-local functions such as raytrace's `intersect`.
-- **Sealed abstract types** (subtypes only from the owner) make a call at the abstract type a finite set of facts, which recovers plain Julia's `isa` branches.
-- **`Dynamic` needs witness tables** (compiled entries per key, carried with the value) before hot loops bounded by traits are competitive.
+- ~~Sealed functions and sealed abstract types~~: dropped on the user's direction (open-issues §2.26). A closed contract is a trait, not a sealed abstract type. The prototype's exemption of TraitWorld's machinery (`sealed_call`) is to be replaced.
+- **`Dynamic` needs witness tables** (compiled entries per key, carried with the value) before hot loops bounded by traits are competitive. This is the next step (user, session 28).
 
 ## 4. Stage 2: (A) in the system image, and the switch
 
