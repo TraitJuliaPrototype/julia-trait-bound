@@ -121,6 +121,8 @@ State (session 25): `main` at 893f0bb, 343 tests on the patched 1.13.2 build (30
 8. *(Fixed in session 26, TraitWorld 6239b1e: under the policy the view cache is on only with piece 5, and its exit hook is registered only when something new is noted.)* **The view cache flushes at every exit** (session 26, TraitReport row 6): 0.14 s with TraitMakie alone, also when nothing new was compiled. It is still on by default (`JULIA_TW_VIEWCACHE`).
 9. *(Form (b) measured in session 26: the report's work takes 60 ms on the patched build with DataFrames and InlineStrings loaded; nothing of CSV's read path is recompiled.)* **Plain Julia's invalidation in TraitReport form (a):** DataFrames loads InlineStrings, which activates `CSVInlineStringsExt`. Its methods of CSV's own functions invalidate CSV's precompiled read path in either load order: `CSV.File` takes 0.19 s with CSV alone, 2.46–2.53 s with DataFrames. Form (b) tests whether the facts policy removes this (prediction: yes, for a numeric file). Worth reporting to CSV upstream (the extension has no workload); not our workaround to make.
 
+**Session 27, Julia piece 11 deferred:** two obstacles (`explorations/julia-support.md`, last section): 1.13's `typeinf_edge` cannot join a policy frame to a native caller's stack (so the replacement runs the owner's inference synchronously), and the barrier for asserted effects over run-time sites (G1.10) has no place in the plugin replacement. Needs a decision on how asserted effects meet run-time sites.
+
 ## 4b. The review of session 23
 
 Triage after wrapping by facts (session 25) of `reviews/2026-10-16-wrapping-under-keys.md`:

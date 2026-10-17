@@ -173,3 +173,12 @@ Three more pieces. Each is small and upstream-shaped, since any `AbstractInterpr
 | # | Need | What happens without it | State |
 |---|---|---|---|
 | 12 | **A frozen world for an external interpreter's compiler,** as Julia's own compiler has (`jl_typeinf_world`). | TraitWorld's image holds the compiler's native code specialized for `FactsInterp`. Packages loaded before TraitWorld make it fail verification at load, and packages loaded after invalidate it in the latest world. TraitWorld runs the compiler in a world fixed at its `__init__`, and answers cache hits without the compiler. A new key after big loaded-before packages still recompiles about 600 instances of the compiler's code, about 0.5 s once per session. | Worked around in part |
+
+## Session 27: piece 11 examined, deferred
+
+Two obstacles, found in implementing it:
+- **Frames of two interpreters.** 1.13's `typeinf_edge(interp, method, atype, sparams, caller, …)` is asynchronous: it pushes the callee's frame onto the caller's inference stack and returns a `Future`, and `resolve_call_cycle!` matches frames by method instance whatever their interpreter. So a policy frame cannot join a native caller's stack. The replacement would have to run the owner's inference synchronously from inference (`typeinf_ext_toplevel` under the owner), returning `nothing` for a method instance already being inferred on the task (what the generator's re-entry guard does today). That still removes assumption A4: the inference then runs in abstract interpretation, not in a generator's pure context.
+- **Asserted effects (acceptance G1.10).** The generator wraps a worker call in `compilerbarrier(:const, …)` when the policy's code claims foldable effects over a run-time site (`@assume_effects` below it), because a native caller would fold the call and miss the site's facts. With the plugin replacement the caller infers `invoke(f, ci, …)` from the CodeInstance's own effects, and nothing between can add the barrier. Options: the owner's `typeinf_edge` returns a code instance whose effects are tainted when it has run-time sites; or the policy taints `:consistent` at the source, in its own `finish!`, for code with run-time sites under asserted effects.
+
+Deferred (session 27): the demonstrators do not depend on it, and both points want a decision on how asserted effects meet run-time sites. Recorded in open-issues §4.
+
