@@ -74,7 +74,7 @@ So compiled trait-world code computes what plain Julia computes, and a load chan
 - A type belongs to the package that defines it.
 - A method's stakeholders are the owners of its function and of its types. `Base.show(io::IO, x::MyType)` in MyPackage is no piracy, because MyPackage owns `MyType`; many packages define methods of one function, each as a stakeholder of its own methods. A method defined by anyone else is a pirate.
 
-A method that applies at a concrete signature, and is no pirate, is defined by a stakeholder of that signature. So an unrelated load never changes compiled trait-world code: only a stakeholder of one of its facts can, or a pirate that wins at one, in whichever order packages load.
+A method that applies at a concrete signature, and is no pirate, is defined by a stakeholder of that signature: the owner of its function, of a type in it, or of a supertype of one. So an unrelated load never changes compiled trait-world code: only a stakeholder of one of its facts can, or a pirate that wins at one, in whichever order packages load. The one exception is a package extension whose trigger is unrelated, with a method that applies at a fact (the design in detail, "Ownership").
 - Trait modules may not define pirates.
 - Pirates elsewhere are followed, as plain Julia follows them.
 - An optional strict mode, off by default, makes defining a pirate that would change trait-world code an error.

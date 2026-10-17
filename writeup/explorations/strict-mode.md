@@ -130,7 +130,7 @@ The user (session 25): "What would we need for strict mode that never invalidate
 
 ## 3. Split-core packages
 
-**A stakeholder of `s` owns the function or a type in `s`.**
+**A stakeholder of `s` owns the function, a type in `s`, or a supertype of one** (corrected in session 27).
 - StaticArrays defines `Base.size(::SArray)`, but StaticArraysCore owns `SArray`. By the letter, that method is a pirate.
 - It is refused only if it would *win at an existing trait-world fact*: trait code compiled with `SArray` values while StaticArrays was not loaded. That is rare, since the values come from StaticArrays.
 - When it happens, the fix is a delegate: a declaration that StaticArrays implements StaticArraysCore, so it counts as a stakeholder for StaticArraysCore's types.

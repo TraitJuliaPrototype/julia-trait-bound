@@ -65,12 +65,12 @@ Nothing else is needed for correctness: no wrappers, delegates, sealing regions,
 The silent wrong results of review F1 came from an invalidation that was skipped, which P forbids. Lesson 4 is covered too: the default decision is a fact, and the owner adding `length(::T)` changes it, so the code recompiles to the new method.
 
 **Theorem 2 (G2).** A trait-world CodeInstance whose facts are all concrete stays valid under loads in any order, unless a loaded package either:
-- **(a)** is a stakeholder of one of its fact signatures: it owns the function or a type occurring in the signature; or
+- **(a)** is a stakeholder of one of its fact signatures: it owns the function, a type occurring in the signature, or a supertype of one (corrected in session 27); or
 - **(b)** brings a pirate that *wins* dispatch at one of those signatures.
 
 *Lemma D (dominance):* a method that does not win at `s` leaves `D(s)` unchanged, whatever the order of insertion. That gives order independence.
 
-*Lemma O (ownership):* a non-pirate that applies to a concrete `s` is defined by a stakeholder of `s`.
+*Lemma O (ownership):* a non-pirate that applies to a concrete `s` is defined by a stakeholder of `s`, where stakeholders include the owners of supertypes of the types in `s`, and a pirate is judged by the method's own signature (each `Union` member separately). (Corrected in session 27: stated with "the owners of the types in `s`" only, the lemma was false for methods on abstract types.) **Exception:** a package extension counts as its parent but loads with its triggers; its method that applies at `s` without mentioning a trigger's type is loaded by an unrelated package. Theorem 2 holds for loads that activate no such extension (case (c) of 3-wrapping.md).
 
 *Necessity:*
 - In cases (a) and (b), plain Julia's own result changes, so no design with G1 can keep the code.

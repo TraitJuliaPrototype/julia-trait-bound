@@ -35,7 +35,9 @@ Julia has the idea already, under its negative name. The manual calls *type pira
 - A generic function belongs to the package that creates it: the package where `function f end`, or its first method, defines the name. `Base.show` is Julia's, whichever packages add `show` methods. A trait's operations belong to the trait's package.
 - A type belongs to the package that defines it. A type counts wherever it appears in a signature, also as a parameter: in `Base.sum(v::Vector{MyType})`, `MyType` is MyPackage's.
 
-**A method has no single owner; it has stakeholders.** They are the owner of its function plus the owners of every type in its signature. A method defined by a package that is not a stakeholder in every signature the method applies to is a *pirate*.
+**A method has no single owner; it has stakeholders.** They are the owner of its function plus the owners of every type in its own signature. A method is a *pirate* unless its definer is one of them in each alternative of that signature, each member of a `Union` taken separately (Aqua.jl's rule, made strict for unions). The test is on the method's signature, not on the concrete signatures it applies to: `Base.show(io::IO, x::AbstractFoo)` in Foo is no pirate, also where it applies to a subtype from another package.
+
+**The stakeholders of a concrete signature** `s` are the owner of its function and the owners of every type occurring in `s`, of their supertypes, and of the types their parameters are bound by.
 
 Take a function owned by package A, with argument types owned by B, C and D, and a method defined in package E:
 - If E is A, B, C or D, or an extension of one of them, the method is no pirate.
@@ -52,14 +54,14 @@ Take a function owned by package A, with argument types owned by B, C and D, and
 | `Base.length(x::Union{MyType, Int})` | no | it also applies to `length(::Int)`, where MyPackage has no stake |
 
 **Why stakeholders, and why every signature** (Lemma O in `writeup/explorations/wrapping-by-facts.md`). Compiled trait-world code depends on the method table only through facts at concrete signatures (rule 1).
-- A method that is no pirate and applies at a concrete signature `s` is defined by a stakeholder of `s`: the owner of the function or of a type in `s`.
-- Those packages are loaded wherever `s` is compiled, since `s` names their function and types. So a later change at `s` is a definition by one of them, an extension of one of them, or a pirate.
+- A method that is no pirate and applies at a concrete signature `s` is defined by a stakeholder of `s`: it owns the function, or a type in its own signature, which is a type in `s`, a supertype of one, or a bound of a parameter.
+- Those packages are loaded wherever `s` is compiled: `s` names their function and types, and a package that defines a subtype depends on the supertype's package. So a later change at `s` is a definition by one of them, a package extension of one of them, or a pirate.
 - A pirate changes dispatch at `s` only if it wins there.
 
 **Two stakeholders defining the same signature conflict.** If A and B both define `f(::BType, ::CType)`, that is a conflict. Julia already refuses to overwrite another module's method during precompilation, and trait-world code follows whichever method plain Julia selects.
 
 **Ownership is never claimed.**
-- **Package extensions.** An extension owns what its parent owns. Its triggers confer nothing; otherwise two parents' extensions with the same trigger could both implement one method. An extension is loaded whenever a call could use it, because its triggers are the packages its methods mention.
+- **Package extensions.** An extension owns what its parent owns. Its triggers confer nothing; otherwise two parents' extensions with the same trigger could both implement one method. But it is loaded with its triggers, not with its parent. Usually its methods mention its triggers' types, so they apply at no signature compiled before the trigger loaded. A method that mentions only its parent's types does: loading the trigger, an unrelated package, then changes dispatch at that signature. That is the one way an unrelated load can change compiled trait-world code (Theorem 2, case c). Code loaded by Requires.jl blocks behaves the same way.
 - **Implementation packages of a split core.** StaticArraysCore defines `SArray`; StaticArrays defines `Base.size(::SArray)`, and owns neither the function nor the type. That method is a pirate by the letter, followed like any other. It matters only for the optional strict mode, and there only if StaticArrays is loaded after trait code was compiled at `SArray` types and its method wins at one of that code's facts.
 
 **Implementations are methods.** So the same rule says who may implement a trait for a type: a stakeholder, the trait's owner or the type's owner. A *named* implementation is the exception: used only where a caller names it, it may be written by anyone (Named implementations).
@@ -68,8 +70,9 @@ Take a function owned by package A, with argument types owned by B, C and D, and
 1. **Add methods for its own functions and types.** They apply at no fact of code compiled before, so nothing changes.
 2. **Change dispatch as a stakeholder** of a fact's signature: a redefinition, an extension, an upgrade. The code recompiles, as plain Julia's does.
 3. **Bring a pirate.** If it wins at a fact, the code recompiles to follow it, as plain Julia does. If it loses, nothing changes, in whichever order the packages load.
+4. **Activate a package extension** of a stakeholder whose method applies at a fact without mentioning the trigger's types. The code recompiles, as plain Julia's does.
 
-So an unrelated load never changes or discards trait-world code (Theorem 2, rule 3). Today nothing enforces piracy rules. Here trait modules may not define pirates, and pirates elsewhere are followed. An optional strict mode, off by default, refuses the definition of a pirate that would win at a fact of compiled trait-world code ([code written without traits: strict mode](3-wrapping.md#strict-mode-an-option)).
+So an unrelated load never changes or discards trait-world code, except through case 4 (Theorem 2, rule 3). Today nothing enforces piracy rules. Here trait modules may not define pirates, and pirates elsewhere are followed. An optional strict mode, off by default, refuses the definition of a pirate that would win at a fact of compiled trait-world code ([code written without traits: strict mode](3-wrapping.md#strict-mode-an-option)).
 
 ## The four rules
 

@@ -135,11 +135,12 @@ They let a solver compile once per signature rather than once per function. Neit
 ## Pirates
 
 **Who can change trait-world code** (Theorem 2 in `wrapping-by-facts.md`). Code whose facts are all concrete stays valid under loads in any order, unless a loaded package either:
-- **is a stakeholder of one of its fact signatures:** it owns the function or a type occurring in the signature; or
-- **brings a pirate that wins** dispatch at one of those signatures.
+- **is a stakeholder of one of its fact signatures:** it owns the function, a type occurring in the signature, or a supertype of one; or
+- **brings a pirate that wins** dispatch at one of those signatures; or
+- **activates a package extension** of a stakeholder, with a method that applies at one of those signatures without mentioning its trigger's types (the one case where an unrelated load counts).
 
 Two lemmas give this:
-- **Ownership (Lemma O):** a method that is no pirate and applies at a concrete signature is defined by a stakeholder of it ([the design in detail: Ownership](4-details.md#ownership)). A package extension counts as its parent.
+- **Ownership (Lemma O):** a method that is no pirate and applies at a concrete signature is defined by a stakeholder of it, counting supertypes' owners ([the design in detail: Ownership](4-details.md#ownership)). A package extension counts as its parent, but loads with its triggers.
 - **Dominance (Lemma D):** a method that does not win at `s` leaves dispatch at `s` unchanged, whatever the order of insertion. That makes the result order-independent.
 
 In both cases plain Julia's own result changes, so no design that computes what plain Julia computes could keep the code.
