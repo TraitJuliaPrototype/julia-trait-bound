@@ -83,6 +83,18 @@ Its rows are written for the current design (its README). It measures case D, wh
    - then the TraitDifferentialEquations binary and TraitReport form (c).
 9. **Strict mode** (deferred): TraitDifferentialEquations row 8's second half, with Julia pieces 1′, 14 and 15.
 
+**Progress (session 26):**
+- **Step 1 done:**
+  - TraitWorld no longer invalidates plain code: type printers through a new Julia registry (piece 17), view caches only where they cache.
+  - The load hooks run under the policy.
+  - The stale rows are remeasured, with `scripts/rows.jl` in both demonstrators.
+- **Step 2:** form (b) is built, and takes **1.01–1.05 s** on the patched build (Python 0.60 s). Rows 7, 8 and 11 and TraitCSV are still open.
+- **Step 3 done:** the slow patched images were not piece 5. They were TraitWorld's hooks, fixed in step 1.
+- **Step 4, revised:** new trait code after big loads has two causes, each a decision for the user (open-issues §1.3 and §1.4):
+  - the policy's compiler code breaks when REPL's interpreter is loaded first (5.9 s per interactive session);
+  - the machinery's run-time sites reach native internal functions.
+  - Piece 12 is larger than thought; piece 11 is unchanged.
+
 **Why this order:**
 - Step 1 is a bug fix that every number depends on.
 - Step 2 is cheap and tells how much of the gap to Python is left for Julia work.

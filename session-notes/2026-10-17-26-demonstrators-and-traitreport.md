@@ -41,6 +41,39 @@ The user (start of session 26): "I want to continue work on the Demonstrators, a
   - `open-issues.md` §4.6–4.9 and §5.4;
   - `.gitignore` (`/TraitReport/`).
 
+- **The user** (after the review): "I consider 1s to be fine relative to python. As for CSV invalidations, consider if a TraitCSV could fix them in a principled manner. In general, principled fixes that could reflect a future state of the ecosystem. Record this preference, then go for your planned order of things." Recorded in memory. TraitCSV is form (b′) in TraitReport's README: package extensions become conformances.
+- **Step 1, TraitWorld stops invalidating plain code:**
+  - **Julia piece 17** (julia db82407fa6): `Base.Experimental.register_type_printer` and `show_type_plain`. `_show_type` consults a registry by type name, so no method of `show(::IO, ::Type)` is needed. The patched system image was rebuilt (`tw-build.sh` takes a target now).
+  - **TraitWorld 6239b1e:**
+    - type printers in place of the two `show` methods, with a guard test;
+    - under the policy, view caches only with piece 5;
+    - the exit hook only when something is noted.
+  - **Result:** form (a) 5.0 → 3.8 s stock, exit 0.37 → 0.09 s.
+- **Form (b) built** (TraitReport d39ecd6):
+  - `ReportCore`, with `Table` and `Job` traits.
+  - A `DataFrame` cannot conform, since it is not deeply concrete, so the report converts it into its own `Columns`.
+  - Work: 0.27 s stock, **57–65 ms patched**, CSV's read included with DataFrames and InlineStrings loaded. The policy contains CSV's invalidation, as predicted.
+- **Patched images load slowly: the cause was TraitWorld's hooks** (TraitWorld 29f0a8e).
+  - The image-methods hook was native code, compiled at the first load and invalidated by each later load: 0.82 s.
+  - The hooks and the package callback now run under the policy, with a dynamic native fallback, precompiled in TraitWorld's image.
+  - `using TraitReport` 1.5 → 0.79 s patched. **Form (b): 1.01–1.05 s patched**, 1.17–1.20 s stock. Python: 0.60 s.
+- **Remeasure pass:** `scripts/rows.jl` in both demonstrators (one fresh process per cell; loads none, before, after; stock and patched). Patched:
+  - TDE row 1: 32–37 ms;
+  - a second model function: 7–12 ms;
+  - callbacks: 13–14 ms;
+  - TraitMakie's first PNG: 62–65 ms;
+  - recolor: 9–48 ms;
+  - all in every order.
+  - Stock under the policy is slow on first calls of code the images don't hold (TraitMakie's first PNG 4.6–11 s): piece 5 is missing there.
+- **New trait code after big loads, two causes** (open-issues §1.3, §1.4, §4.5):
+  1. **Compiler code for `FactsInterp`** has abstract edges on the interpreter, since `InferenceState.interp::AbstractInterpreter`. REPL's `REPLInterpreter` (loaded first in any interactive session) breaks them at load. `import REPL` before TraitMakie: a new colour key's first PNG 5.9 s instead of 126 ms. Found with `Base.Compiler.ReinferUtils._jl_debug_method_invalidation` (`insert_backedges_callee` records).
+  2. **The machinery's internal functions run natively:** `@implement` 0.64 s, 1.2–1.5 s after loads. Moving `@implement`'s expansion and checks under the policy (TraitWorld a5e4778) helped little, because its run-time sites reach native internal functions (`_analyze_keeps`, `_implement_oneline`, …).
+- **Also fixed:** the view-cache flush built stale caches from another directory (a latent bug exposed by a test).
+- **Tests at the end:** 344 patched, 300 stock; acceptance 16/16; the hunt as before (C24b); both demonstrators on both builds.
+
 ## Next
 
-The order of work above, starting with step 1: drop TraitWorld's two `show(::IO, ::Type{…})` methods, make the view-cache flush free when nothing is new, then remeasure the rows marked *remeasure* in both READMEs.
+1. **The user's decisions** on open-issues §1.3 (the policy's compiler in the platform: a system-image prototype) and §1.4 (run-time sites in the machinery: facts at non-public functions, or dispatch under the policy).
+2. **TraitReport:** rows 7, 8 and 11 (load orders; policy instances lost; a strings column), then TraitCSV (b′).
+3. **TraitDifferentialEquations step 4:** tags labelled by the loss's signature (row 5).
+4. **Julia piece 11,** then the rest of the order in the review.
