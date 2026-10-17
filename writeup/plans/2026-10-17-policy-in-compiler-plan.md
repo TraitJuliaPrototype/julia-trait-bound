@@ -59,6 +59,20 @@ By the rule above, the overall mean passes and one group fails. **Next, before t
 - recover `raytrace` and `parse_json` with traits, sealed unions and assertions, and measure each against plain Julia;
 - look at the `array/index` range sums (3 → 25 ns).
 
+**Next steps done (session 28, `experiments/factscompiler/README.md`):**
+- **`return_type` step 2**, merged over concrete splits: the small-union broadcast goes from 229× to 1.09× plain.
+- **The range sums** are harness overhead: the kernel itself is equal in both modes.
+- **Recovery:**
+  - raytrace with the sealed set written as a `Union`: equal to plain;
+  - raytrace with assertions: 2.3×, because the open set of methods prevents the `isa` branches plain Julia emits;
+  - raytrace with a trait: no cost from facts, but `Dynamic` dispatch, at about 15–20 ns per call, makes it 3× plain's `isa` branches in a hot recursion;
+  - `parse_json` with plain Julia's fix for captured variables: 1.17× the fixed plain code, and faster than the original plain code.
+
+Design consequences for the compiler version:
+- **Sealed functions** (methods only from the owner) make calls at abstract types facts. TraitWorld's machinery needs this already, and so would module-local functions such as raytrace's `intersect`.
+- **Sealed abstract types** (subtypes only from the owner) make a call at the abstract type a finite set of facts, which recovers plain Julia's `isa` branches.
+- **`Dynamic` needs witness tables** (compiled entries per key, carried with the value) before hot loops bounded by traits are competitive.
+
 ## 4. Stage 2: (A) in the system image, and the switch
 
 Only after stage 1's measurement supports it.
