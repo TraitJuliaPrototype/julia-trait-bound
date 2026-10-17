@@ -83,8 +83,50 @@ The user (start of session 26): "I want to continue work on the Demonstrators, a
   - With other packages loaded first, both forms slow down and the trait form more (5.3–5.7 s against 2.7–2.8 s): CSV's native code is invalidated, and the policy's compiler code in TraitWorld's image fails validation and is recompiled (3.5 s). §1.3, broader than REPL.
 - **The user, next:** "We really should have a DataFrames that is built around Traits and then CSV that implements the traits and that would prevent invalidations whether the work is in the precompile workload or not, right? But that's a large intrusive change to DataFrames I guess." Answered in the reply; TraitReport's README records TraitTables and TraitCSV as the form that would show the design.
 
+- **The user decided** TraitTables and TraitCSV, and DataFrames redesigned around `Dynamic{Column}` (`decisions.md`).
+- **The policy in the platform, prototype** (`experiments/sysimage`, experiments 1c1e88d):
+  - The patched `sys.so` plus TraitWorld loaded from source while generating output, then linked.
+  - `build.jl` must set `Sys.BINDIR`, `DEPOT_PATH` and `LOAD_PATH` (empty while generating output) and empty them again.
+  - Result: 245 MB; startup 0.125 s; suite 344/344.
+  - REPL first, a new key's first call: 0.22 s instead of 5.9 s.
+  - TraitReport's work after OffsetArrays, StatsBase and Unitful: 1.7 s instead of 5.4 s; with all of them and CairoMakie 2.2 s (the plain package 2.7–3.4 s). What remains is CSV's native code, which only TraitCSV removes.
+  - The earlier 8.7 s `using` after CairoMakie was a mismatch of stacked environments; one coherent environment (`TraitReport/env_loads`) fixes it.
+
+## Final state (end of session 26)
+
+- **Repositories:**
+  - TraitWorld main 6bcca9f;
+  - julia-1.13 `trait-world-1.13` db82407fa6 (piece 17; `tw-build.sh` is untracked and takes `TW_TARGET`);
+  - TraitReport (new);
+  - TraitDifferentialEquations and TraitMakie (READMEs, `scripts/rows.jl`);
+  - experiments (`sysimage/`, `demos/rows.sh`).
+  - All committed.
+- **Tests:** TraitWorld 344 patched, 300 stock, 344 on the system image; acceptance 16/16; the hunt as before (C24b, the harness bug); both demonstrators on both builds.
+- **TraitWorld changes this session:**
+  - type printers (piece 17) in place of `show(::IO, ::Type{…})`;
+  - view caches only with piece 5, the exit hook only when needed;
+  - the load hooks, the package callback, `@implement`'s expansion and checks under the policy;
+  - facts at non-public functions within the caller's package;
+  - `implement.jl` `@nospecialize`.
+- **Headline numbers** (patched):
+  - TraitReport form (b) 1.01–1.05 s against Python 0.60 s; but the plain package (a′) is as fast (0.94–1.02 s), thanks to piece 5;
+  - demonstrators' first calls in every order: Tsit5 32–37 ms, TraitMakie PNG 62–65 ms;
+  - `@implement` 0.09–0.21 s, about 0.5 s after loads.
+- **Scratch state** (`$TMPDIR`, lost on reboot):
+  - `systw/systw.so` (rebuild with `experiments/sysimage/build.sh`);
+  - `env_main_*`, `twtestenv13p`, `ttfp`, `pyenv` (pandas and matplotlib, for `TraitReport/scripts/measure.sh`).
+
 ## Next
 
-1. **The policy in the platform** (§1.3, decided): a patched system image with TraitWorld in it; measure REPL first, the g2all stack first, and TraitReport's load rows.
-2. **TraitTables and TraitCSV** (decided by the user: "TraitTables and DataFrames rewrite is the decision to record"; `decisions.md`): a DataFrame-shaped table of `Dynamic{Column}` and a reader whose cell types are a trait; then TraitReport as a plain script with no workload of its own, against PlainReport, under loads.
-3. The rest as before: TraitDifferentialEquations step 4, piece 11, baselines.
+1. **TraitTables and TraitCSV** (decided):
+   - `Column` trait, `Vector{Dynamic{Column}}` tables, names, selection, a column summary;
+   - TraitCSV with a `CellType` trait and conformances for `Float64`, `Int`, `String` and one InlineStrings type;
+   - TraitReport as a plain script with no workload of its own, against PlainReport, under loads (`scripts/loads.sh`), on the system image.
+2. **The system image:**
+   - the demonstrators' rows on it (`experiments/demos/rows.sh` with `-J`);
+   - whether the machinery's native code in the image is invalidated by later loads;
+   - the cleaner form, the policy in Julia's Compiler, for the upstream proposal.
+3. **Confirm with the user** the scoping of facts at non-public functions to the caller's own package.
+4. **TraitDifferentialEquations step 4:** tags labelled by the loss's signature (row 5); fix the overview's sentence (open-issues §5.4).
+5. **Julia piece 11,** then the review's order: the baselines without traits, TraitMakie's remaining pieces, binaries.
+6. **Later:** the experiment for run-time dispatch under the policy, the alternative design (open-issues §1.4).
