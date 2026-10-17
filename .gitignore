@@ -9,3 +9,5 @@ trace_*.txt
 /TraitMakie/
 /TraitReport/
 /experiments/
+/TraitTables/
+/TraitCSV/

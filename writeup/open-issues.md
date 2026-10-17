@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-17 (session 25): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
+Everything known to be open, as of 2026-10-17 (session 27): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
 
 ## 1. Decisions waiting for the user
 
@@ -14,6 +14,14 @@ New in session 26 (new trait code after big loads; analysis in session note 26 a
    - *(Adopted and implemented in session 26, scoped to calls within the caller's own package: TraitWorld 6bcca9f. `@implement` 0.09–0.21 s without loads, about 0.52 s after.)*
    - **(a) a rule refinement:** a call at abstract argument types of a function that is not `public` in its owner's module is a fact, since only the owner adds methods to its internal functions, and extending another package's non-public function counts as piracy. This uses Julia's own `public` declarations. Recommended: it reflects how an ecosystem with declared public APIs would work, and it is small.
    - **(b) run-time dispatch under the policy:** a run-time site looks up and invokes the policy's code for the run-time types (a Julia piece: dispatch under a cache owner). It would also protect ordinary code reached dynamically, Makie's for example, but it changes "run-time sites behave as plain Julia" and costs per call.
+
+New in session 27, from the fresh-eye consistency review (`reviews/2026-10-17-consistency-fresh-eye.md`; the user asked for the review and for work to continue without questions, so these wait):
+5. **Concreteness: opt-in or required?** The notes and the register say opt-in per trait; the prototype requires it for every trait and checks every field of the implementing type, declared or not (review §1). Options: (a) required by default with a per-trait opt-out, matching the prototype and pay-off 3 as stated; (b) opt-in as written, then implemented, with the check narrowed to the key. Either way the sentence "a `DataFrame` cannot conform, since it is not deeply concrete" (TraitReport README, decisions "TraitTables and TraitCSV") states a prototype limit; session 27 measured the independent rationale: column code on `Vector{AbstractVector}` loses compiled code to loads (PlainTables loses 17 of 49 methods), `Vector{Dynamic{Column}}` loses none (TraitReport README, "Form (t)"). *Recommendation:* (b), since nothing in the facts proofs needs concreteness and abstract keys are sound as run-time sites; pay-off 3 then reads "for traits that require it".
+6. **Stakeholders and Lemma O** (review §2): the notes define stakeholders so that methods on abstract types count as pirates; strict mode and the prototype use method-signature ownership. Restate Lemma O and Theorem 2 with supertype owners as stakeholders, and name the exception: package extensions triggered by unrelated packages.
+7. **Facts at non-public functions** (review §3; also item 3 of session 26's "Next"): the rule is in no note, breaks Theorem 2's premise as stated, and the scoping to the caller's package still records Base-internal calls from Base code as facts. Options: amend rule 3 (extending another package's non-public function is piracy) and exclude Julia's own modules from the rule; or confine the rule to TraitWorld's machinery.
+8. **Overrides after a conformance** (review §4): "refused" (4-details "Declaring a trait", the keys design, `check_overrides`) against "a fact that recompiles to the new method" (rule P, wrapping by facts). Options: drop the refusal under rule P, or keep it as a declared-API rule with a corrected justification.
+
+The review's minor findings (stale lines, numbers that disagree, "the policy is package code" against the adopted "policy in the platform") are document fixes, listed in its "Minor" section and in §5.
 
 (Conversions in trait wrappers dissolved with wrapping by facts, s23.)
 
@@ -131,4 +139,5 @@ What Julia must provide, in order: `explorations/julia-support.md`, reviewed in 
 1. `explorations/makie-rewrite.md` and `explorations/solvers.md` were written with representations and projections. Their trait sketches are to be read with keys (each has a banner); the demonstrators' code (TraitDifferentialEquations, TraitMakie step 1) now shows the keys form.
 2. `design-findings.md` is the evidence log in session order. Sections 3, 7, 9–12 and 14 describe earlier forms of the design (its status header says which sections are current).
 3. The live Claude Doc is frozen at revision 1146; its export is in `attic/writeup/`.
+5. The fresh-eye review's minor findings (`reviews/2026-10-17-consistency-fresh-eye.md`, "Minor"): stale lines in `2-design-choices.md` outside its banner, register rows 19, 20, 69, 91, numbers that disagree between documents, "the policy is package code" (1-overview, 3-wrapping) against the adopted "policy in the platform", strict mode "not built" against its prototype.
 4. `notes/1-overview.md` ("Fields as the key") says a new loss under automatic differentiation "compiles the step again, as today". The adopted decision labels tags by the loss's primal signature (`Tag{Sig{A, S}, V}`), so that a second loss of the same signature compiles nothing; the sentence holds only without it. Fix when TraitDifferentialEquations row 5 is built (review of session 26).
