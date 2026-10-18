@@ -59,3 +59,5 @@ To confirm with the user; the order follows the implementation review's migratio
 4. **`Dynamic` in the compiler:** the call-site split in the inliner, with world-age-correct dispatch.
 5. **The notes rewritten strict-first** (framing review §5.5–5.7); the session-28 rule changes (1.1, 1.2, 1.8) written into the notes or reverted; the register's contradictions fixed.
 6. Then resume the forks (with `CSVColumn{T}`, kernels on declared operations, the upstream-under-`all` control).
+
+**The user (later in session 29):** the four-step framing, "fully typed" as the name and the fully-typed certificate: "1-3 is a yes". "After the full traits+facts compiler is built, have Fable review the implementation." Order of work from here: (B)+(C) built and tested; `Dynamic` in the compiler (D); TraitWorld's imitation and stock paths deleted; the fully-typed certificate; then a Fable review of the implementation.
