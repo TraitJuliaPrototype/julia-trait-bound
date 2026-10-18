@@ -26,6 +26,7 @@
 | `explorations/aot-under-facts.md` | AOT under wrapping by facts: builds compile plain Julia, what the trait world still gives, three risks, three binaries to measure | session 25 |
 | `reviews/2026-10-18-design-and-fixes.md` | the design and the fixes since session 27, after the pivot to the compiler (Fable 5.1) | session 29; open-issues §1.11–1.14 |
 | `reviews/2026-10-18-framing-and-motivation.md` | the framing and the user's two-goal reframing; §5 "strict mode first" (Fable 5.1) | session 29; adopted as the framing, notes to be rewritten |
+| `reviews/2026-10-18-examples-and-demonstrators.md` | every example and demonstrator consolidated, the demonstrators' goals judged by the user's criterion, gaps, further examples ranked (Fable 5.1) | session 29 |
 | `reviews/2026-10-18-decisions-revisited.md` | every register row revisited for conceptual simplicity after session 29's decisions (Fable 5.1): ten ranked changes, a verdict per row, a simplified core | session 29; waiting for the user |
 | `reviews/2026-10-18-implementation-shape.md` | the implementation and demonstrators: inventory, path dependencies, target architecture, migration order (Fable 5.1) | session 29; the basis of session note 29's "Next" |
 | `reviews/2026-10-17-consistency-fresh-eye.md` | a fresh-eye review of the design's consistency after the churn (Fable 5.1): four significant inconsistencies, stale text | session 27; decisions waiting in open-issues §1.5–1.8, minor findings §5.5 |
