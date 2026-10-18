@@ -1,0 +1,376 @@
+# Trait-bound Julia: the design and its decisions
+
+The consolidated statement of the design, as of 2026-10-18 (session 29). Where the four notes in `notes/`, the explorations or the register disagree with this document, this document is current. The notes keep the detail; links point to it.
+
+It consolidates the four notes, the register (`decisions.md`), the compiler plan (`plans/2026-10-17-policy-in-compiler-plan.md`) and the four reviews of 2026-10-18 (`reviews/2026-10-18-*.md`), with the user's decisions of session 29 applied.
+
+## Contents
+
+1. Terms
+2. The problem
+3. The guarantee, strict mode first
+4. Traits: saying what code needs
+5. The three rules
+6. What Julia provides
+7. The decisions in force
+8. What the evidence shows, and what it does not
+9. The implementation: today, the target, the order of work
+10. What is not claimed
+11. Where the rest lives
+
+---
+
+## 1. Terms
+
+Each term is defined once, here.
+
+- **Method table, dispatch.** Julia's methods, and the choice of a method for a call's argument types.
+- **CodeInstance.** One compiled specialization of a method, with the assumptions inference made.
+- **Invalidation.** Discarding a CodeInstance because a new method changes the result of a dispatch it assumed.
+- **Owner.** A package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. The session owns what is defined at the prompt.
+- **Stakeholders of a method.** The owner of its function and the owners of every type in its own signature, a `Union`'s members taken one by one.
+- **Pirate.** A method defined by none of its stakeholders. This is Julia's "type piracy", as Aqua.jl checks it, made strict for unions.
+- **Stakeholders of a concrete signature.** The owner of its function and the owners of every type in it, of their supertypes, and of the types bounding their parameters.
+- **Fact.** "At concrete signature `s`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous".
+- **Run-time site.** A call in compiled code whose argument types are not a fact signature. It records nothing and dispatches at run time.
+- **Facts mode.** Compiling so that code depends on the method table only through facts.
+- **Trait.** An abstract type with a declared, checked contract: operations with result types, fields with types, associated types as parameters.
+- **Conformance.** The declaration `@implement X T` that type `T` joins trait `X`.
+- **Implementing type.** The type whose own methods serve at least one operation: the conforming type, or the field it forwards to. There is none when the trait's defaults serve every operation.
+- **Key.** What a bound can see: the implementing type, if any, and the declared fields' types.
+- **Trait object.** What library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see.
+- **Entry and worker.** A bounded function's entry translates each argument by its bound. Its worker is the body, compiled per tuple of keys.
+- **Trait module.** A module whose code is written against traits (`@trait_module`). Its code is *trait code*. Everything else is *plain code*.
+
+## 2. The problem
+
+Julia compiles a method for the concrete types of its arguments and caches the result. Two things go wrong with that cache. The design fixes both, and each fix needs the other.
+
+**Problem 1: compiled code does not stay valid.**
+- Compiled code depends on the method table: on which methods match at the signatures inference used.
+- Where inference ran at an abstract signature, the code depends on every method that matches there.
+- Any package that adds a method for its own type can change that answer, and the code is discarded. No piracy is involved. `Base.show(io, ::MyType)` in MyPackage invalidates every caller compiled at `show(::IO, ::Any)`-shaped signatures.
+- Measured: `using CairoMakie` discarded code at 769 signatures on Julia 1.12, none of them concrete. With DataFrames loaded, CSV's first read takes 2.5 s instead of 0.19 s.
+- Package images cannot help: the code they hold is discarded the same way.
+- Without stable caches, neither composable caching across packages nor ahead-of-time compilation is reliable.
+
+**Problem 2: code cannot say what it needs.**
+- A field or argument is typed concretely or abstractly.
+- Concretely, code is compiled per type and carries every part of the value, read or not. In SciML a new callback closure recompiles the solver (0.84–0.96 s), although the step never reads the callback. A type of 3,553 characters prints in an error.
+- Abstractly (`Vector{AbstractVector}` where the code means "a vector of columns"), there is one copy of the code, but every operation is a dynamic dispatch. Inference speculates over the methods that exist today, which is the abstract edge of problem 1.
+- Nothing checks what an abstract type promises. Mistakes surface deep inside the library.
+- The result is silent performance cliffs, overparametrized types, and compiled code multiplied by every type that differs only in what the code never reads.
+
+## 3. The guarantee, strict mode first
+
+The design is argued from one guarantee. Relaxing it for the default session comes after, as a separate choice.
+
+> **Compiled code is never invalidated unless code it depends on changes.**
+
+"Code it depends on" is defined: the stakeholders of the signatures the code was compiled against, and their package extensions. A load of anything else, a package adding methods for its own types, or a pirate cannot touch it.
+
+### 3.1 Three steps make it true; each is forced by the one before
+
+1. **Facts only (rule R).** Compiled code depends on the method table only through facts at concrete signatures.
+   - Why forced: an edge at an abstract signature can be broken by any owner adding a method for its own type, and there is nobody to refuse.
+   - A call at abstract types is a run-time site, as plain Julia's dynamic dispatch is. It records nothing and is never invalidated. Nothing is skipped: a fact is invalidated exactly when a definition changes dispatch at its signature.
+   - The price: the call's result is `Any` where plain inference would have typed it. Traits are how code gets the type back (section 4).
+   - Verified: four non-pirate definitions that invalidate on stock Julia 1.13.2 (an owned method at an abstract call, a new subtype under union splitting, a `return_type`-dependent `map`, a type passed as an argument) invalidate nothing in facts mode (`reviews/2026-10-18-framing-and-motivation.md` §0).
+2. **Only a stakeholder or a pirate can change a fact (Lemma O).**
+   - A method that is no pirate and applies at a concrete signature is defined by a stakeholder of that signature.
+   - A stakeholder's change is "the code changing": an edit, an upgrade, an extension.
+   - A pirate is the one remaining way for an unrelated package to change what compiled code computes. It does so only if it wins at a fact. One that loses changes nothing, in any load order (Lemma D).
+   - Proofs: `explorations/wrapping-by-facts.md` (Lemma O, Lemma D, Theorems 1–3).
+3. **A pirate that would win at a fact of compiled trait code is refused** where it is defined: at the prompt, by `include`, or as a package image's methods activate (Julia piece 1).
+   - The error names the method and the code it would have changed.
+   - The method then does not exist for plain Julia either, so a call still computes what plain Julia computes: "identical or error" holds.
+
+With the three steps, a valid CodeInstance of trait code is invalidated only by a definition from a stakeholder of one of its facts. Lemma O is the lemma that makes the refusal sound.
+
+### 3.2 What still invalidates, named with the guarantee
+
+- **A stakeholder's definition:** edits, Revise, upgrades. This is the stated exception.
+- **A package extension (or Requires block) of a stakeholder** whose method applies at a fact without mentioning its trigger's types, activated by loading the unrelated trigger. Either refused by an extension rule or admitted as the stakeholder's own change: a decision still open (`open-issues.md` §1.10).
+- **A binding the code reads, redefined from another module** (`Core.eval(Other, …)`). The theory does not yet cover bindings, and no hook sees them (`open-issues.md` §1.10).
+- **A pirate loaded before the code was compiled.** It is followed, and never again changeable by a non-stakeholder. For code in a package image, image validation discards the facts the pirate breaks; piece 15 turns that into an error.
+
+### 3.3 Extending and hooking, under the guarantee
+
+The refusal is narrow.
+- **Conformances are the sanctioned extension point.** A conformance is a method of a registry declared with `@max_methods 1` and a fallback, so it applies at no existing fact and invalidates nothing. In TraitCSV, InlineStrings' `String15` conforms from an extension, and the reader compiled for `Float64` columns keeps its code. This is what package extensions become.
+- **Hooks on your own types are never refused.** `Base.show(io::IO, ::MyType)`, `Base.sum(v::Vector{MyType})`, an operation of someone's trait for your type: the definer is a stakeholder of every signature they apply to. Under rule R they apply at no fact compiled before `MyType` existed.
+- **What is refused** is exactly: a method of a function you do not own, for types you do not own, that would change what someone's compiled trait code computes.
+- Measured on CSV, DataFrames and CairoMakie: 65,318 methods checked, 837 pirates by the letter, none refused (`experiments/facts/g2strict`). No pirate won at a fact of any demonstrator.
+
+### 3.4 The default: following pirates (rule P), and what it gives up
+
+Step 3 is a switch. The default session leaves it off: a winning pirate is followed, as plain Julia follows it, and the code with that fact recompiles once.
+
+- **The compiled code is the same either way.** Strict mode acts only at a method's definition and at image activation (verified, `TraitWorld/src/strict.jl`).
+- **Two tiers of the guarantee:**
+  - strict: invalidated only by a stakeholder's change. A static property of every environment that loads without a `PirateError`, modulo 3.2;
+  - default: invalidated only by a stakeholder's change or a pirate that wins at one of its facts. Whether one does is an empirical property of the environment; so far, always "none" (0 CodeInstances lost over twelve loads in any order, `experiments/facts/g2all`).
+- **What the default gives up:**
+  - the kind of guarantee: a theorem becomes a measurement;
+  - who learns: an error at the pirate's definition becomes a silent recompile;
+  - trust in package images: with piece 15, a pirate loaded before an image is an error; by default it is a recompile;
+  - order independence: by default the set of methods is order-independent and only when code compiles depends on order; under strict mode compiled code's validity is order-independent, but the set of methods depends on order unless the symmetric lint runs (`verify_main`).
+- **Why it may be presented as a later, separate choice:** strict mode changes nothing at run time (verified); "identical or error" and the measurements do not depend on it (verified); both tiers are stated; the gaps of 3.2 are listed wherever the guarantee is claimed. One condition is not met yet: strict mode under the `all` setting is unmeasured.
+
+## 4. Traits: saying what code needs
+
+Rule R makes compiled code stable, and it costs types: results of abstract calls become `Any`. Traits give code a way to say what it needs, so that it is compiled for exactly that, checked once, and typed without speculating over today's methods.
+
+### 4.1 Traits and conformance
+
+- **A trait is an abstract type with behaviour.** It declares operations (generic functions with argument and result types), fields (with types; writable unless `@const`), and associated types as parameters (`@trait Integrator{U, P}`). Defaults are written in terms of the other operations and fields.
+- **Conformance is declared,** `@implement ColTable MyType`, also after the type was defined. It is never derived from the methods that exist: Base's throwing fallbacks make structural matching unsound.
+- **Operations** come from the type itself or are forwarded to one field (`by data`). **Declared fields** are stored fields, by name or mapped (`name => label`). The declaration is checked: every operation and field exists, with the declared types.
+- **Associated types** are first-order: one value per conformance, defined by a field's type (`data::Vector{T}` against `Vector{Float64}` gives `T = Float64`) or by an equation of `Self`, bounded by traits or types. No input parameters, no equations between type functions: these made Rust's and Swift's checking hard (`notes/2-design-choices.md` §10).
+- **Who may implement:** a stakeholder, the trait's owner or the type's owner (rule 2 below). Implementations are methods.
+
+### 4.2 Compiled for what the bound can see
+
+- A function bounded by a trait reaches its argument only through the trait's operations and fields.
+- It is compiled per **key**: the implementing type, if any, and the declared fields' types. Not per the argument's own type.
+- Types that differ only in what the trait cannot see share compiled code. Every table type forwarding `ColTable` to a `Vector{Vector{Float64}}` field runs the code the library compiled for that type. A solver step bounded by `Integrator` compiles nothing for a new callback, which the trait does not declare.
+- **This is not "once for any type".** A type that supplies its own behaviour (implements an operation, overrides a default) is the implementing type and gets its own copy, compiled once, in its own image. Sharing comes from forwarding, from defaults over fields, from `Dynamic{X}`, and from `Callable` in its dynamic mode. Code shared across every conforming type through a witness, Swift's model, was considered and not chosen (`notes/2-design-choices.md` §7).
+- **The reference layout.** A trait object is the user's object, read at byte offsets, with Julia's alias metadata. Nothing is copied or held; every read sees the current value; loops run at plain Julia's speed. Typed trait calls: 33 ns against 30 ns plain.
+- **Inside a trait module,** a trait object is what its bound can see and nothing else. Internal functions take trait objects without bounds; definition checking follows them through.
+
+### 4.3 Concreteness, opt-in per trait
+
+- By default a key may be abstract, silently. An abstract part of a key behaves like a dynamic value: one worker, dispatch where it is read, opened at the next bound it is passed to.
+- A trait (or a module) that asks for more says so in **one declaration with a level**: silent (the default), warn, or error. Error refuses a conformance whose key is not concrete, and a family member at an abstract parameter at its entry.
+- Concrete means a concrete type with concrete parameters all the way down. Fields the trait does not declare are not looked at.
+- The prototype spells the levels `@warn_on_abstract` and `@concrete_only` today; the single declaration is adopted and not yet built.
+
+### 4.4 Overrides belong to the conformance
+
+- Which operations a conformance serves by defaults is fixed when it is declared. Compiled code and kept values depend on it, as they depend on a struct's definition.
+- A later method of an operation that a default serves for that type is refused, naming the fix. An image that brings such an override for an active conformance is refused at load.
+- **A family member's conformance is fixed at its first use, not at the family's declaration.** This is forced by ownership: the owner of a member's parameter type (`MyT` in `S{MyT}`) is a stakeholder of `op(::S{MyT})` and may legitimately define it after the family was declared upstream. No worker or `Dynamic` exists for the member before its first use, so fixing it then is sound.
+- **Changing a conformance interactively** needs a restart until redeclaration is built. Julia 1.13 redefines structs (verified: old values keep the old type, `@world(A, …)`, and old worlds answer as before); a conformance redeclaration can use the same mechanism.
+
+### 4.5 `Dynamic{X}`: a value of abstract type `X`
+
+- A value that must outlive a call, an element of a collection of mixed keys, or a field whose key changes is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields.
+- **It holds the user's object.** The view for (X, the object's type) is a constant per pair.
+- **An operation on it is a call-site split:** `isa` branches over the declared conformances, direct calls that inline, then a dynamic fallback, the result asserted to the declared type. The split belongs in Julia's inliner, as union splitting does (part D, section 6). It dispatches in the caller's world.
+- **Opened at a bound:** passed to a function bounded by `X`, it selects the worker for its key once, and the worker runs compiled.
+- **A trait's name in a field or container means its `Dynamic`** (`plots::Vector{Plot}`), inside trait modules until traits are in the type system. The explicit spelling always works.
+- `Dynamic{X}` is the package's spelling of "a value of abstract type `X`". Its form is transitional, until membership is subtyping (Julia piece 7); its meaning is permanent.
+- Hidden type parameters for fields declared by bounds were rejected (the user: "antithetical to Julia").
+- Today's package form (a boxed trait object, witness tables, key branches) is superseded. Witness tables are off by default since session 29, because a witness pointer runs in the latest world, not the caller's (verified wrong result, `reviews/2026-10-18-design-and-fixes.md` finding 2).
+
+### 4.6 Functions as arguments: `Callable`, two modes
+
+- Julia has no type for "a function from `Float64` to `Float64`". A function handed down from plain code enters only at a declared signature: `Callable{A, S, M}`, arguments `A`, result `S`, mode `M`. Its one operation is checked at every call.
+- **Two modes, both kept** (the user, session 29): "We need compiled call to have an ODE RHS that has the right type signature. Julia's type system can't express that otherwise."
+  - `DynamicCall`, the default: a pointer to the function's code at `A`; the worker is compiled once per signature, in the library's image; an indirect call per use (about 4 ns).
+  - `CompiledCall`: the worker is compiled per function type, with the function inferred into it, and the signature still declared and checked. This is what an ODE right-hand side needs: plain Julia's speed with a typed contract. An unbounded argument would specialize but check no signature.
+  - The library sets the default; the caller overrides per value (`compiled_call(f)`, `dynamic_call(f)`). The mode is a choice of speed, never of correctness.
+- `DynamicFn{A, S}`, made by `dynamic_fn`, is a `Callable` in `DynamicCall` mode as a value of fixed type, for functions stored in a library's types.
+- Functions from trait code (Base's `abs2`, a trait module's own functions and closures) are called directly.
+- Automatic differentiation tags are labelled by a `Callable`'s primal signature (`Tag{Sig{A, S}, V}`), so loss closures of one signature share the solver's code (implemented in TraitDifferentialEquations).
+
+### 4.7 The rest of the trait language
+
+- **Results like the input:** constructor operations returning `Self`, `Like{t}`, `withfields`, a result rebuilt as the user's type at the entry. Only `Self` constructors are exercised so far (TraitCSV).
+- **Definition checking:** library code is checked once at archetypes, where it is defined, for every type that will ever conform. A mistake is reported at its line before any user type exists. At the prompt it warns; the call raises.
+- **Dispatch:** types first, then traits. A trait bound ranks above `Any` and below every type. This is what lets a library adopt traits one function at a time.
+- **Keeping is detected, not declared:** a function whose code may keep a trait object receives the whole user's object; others receive what their bounds see. An optimization with a safe fallback.
+- **Printing by bound and key:** `ColTable at Vector{Vector{Float64}}` (Julia piece 17).
+- **Named implementations** (`via(M, x)`, anyone may write one) are deferred until traits are in the type system. The preferred form is a value-level wrapper that conforms (`Via{Fast}(x)`, a newtype), since the simplest `Dynamic` and membership as subtyping have no place for a witness inside the value.
+
+### 4.8 AOT follows from declared targets
+
+- Dispatch between trait code, and over the types a program meets at run time, goes through declared conformances. A `Callable` argument adds one target at its signature; a `Dynamic` value adds the conformances whose types reach where it is made. `verify_main` lists them.
+- Plain code reached from trait code (CSV, Cairo) keeps plain Julia's AOT properties; `verify_main` reports its open sites as holes.
+- A `--trim` build compiles the plain call in the closed world, so the facts mode is off in a build. Nothing loads in a binary, so there is no cache to protect, and "identical or error" holds by definition.
+- So AOT is a consequence of goal 2 (declared targets), not of the facts.
+
+## 5. The three rules
+
+Three rules deliver the guarantee and the two goals. The former rule 4 ("what a call sees, where compiled code lives") is Julia's own behaviour and is no longer a rule.
+
+1. **Facts.** Compiled trait code depends on the method table only through facts.
+   - A *fact signature* is: a tuple of concrete types; its union splits; the splits of unions of concrete element types inside tuple arguments (up to four); a closure's call at kinds.
+   - Any other call is a run-time site: it dispatches at run time and records nothing. Under part C, a run-time site in facts-compiled code runs facts-compiled code.
+   - Compile-time evaluation only over facts, or where Julia's own asserted effects fold (Base and Core methods asserted foldable). That exception inherits Base's assertion: the same exposure plain Julia has.
+   - Nothing is skipped (rule P): a fact is invalidated exactly when a definition changes dispatch at its signature.
+   - Trait code may call any Julia code directly.
+2. **Ownership.**
+   - A method's stakeholders are the owner of its function and the owners of the types in its own signature; anyone else's method is a pirate.
+   - Only a stakeholder or a winning pirate can change a fact (Lemma O).
+   - Strict mode refuses a pirate that would win at a fact of compiled trait code; the default session follows it.
+   - Implementations are methods, so the same rule says who may implement a trait for a type.
+   - Ownership is never claimed. A package extension belongs to its parent. The curated list of delegates for split-core packages (StaticArrays for StaticArraysCore) is a claim made for an owner who cannot declare it yet, kept as data and marked transitional.
+3. **The boundary.**
+   - Only values cross into trait code. A bound translates each once: a trait bound takes the user's object and the offsets of what it can see; a declared type asserts; `Callable` takes a function at a declared signature, in one of its two modes, checked at every call.
+   - Inside, a trait object is what its bound can see and nothing else.
+   - Code is compiled per key.
+
+**The central guarantees.**
+- **Identical or error (G1).** A call in trait code computes what plain Julia computes in the current world, or raises. It rests on one assumption about values that inference decides (A3: `return_type` of empty collections, `Union{}` results). The package prototype adds two implementation assumptions (A4: no method defined concurrently with compiling trait code; A5: the generator's behaviour), which part B removes.
+- **Stable caches (G2),** in the two tiers of 3.4.
+
+## 6. What Julia provides
+
+The design needs Julia's compiler and runtime. Stock-Julia support is dropped (the user, session 29). TraitWorld requires the patched build.
+
+**The compiler parts:**
+
+| Part | What it is | Size (estimate) |
+|---|---|---|
+| **(A)** facts as a mode of Julia's own inference | the fact rules of rule 1 in the native interpreter; `return_type` answered by plain inference when it rests on concrete facts, else at run time | ≈ 300 lines; exists as a forked Compiler package, in-tree port begun |
+| **(B)** a second cache owner for trait code | a method flag "compiled by facts", set by `@trait_module` on its workers; inference of a flagged method, and of everything reached from it, runs in facts mode under an owner sentinel; images keep native code for that owner | ≈ 130 lines |
+| **(C)** owner-aware dynamic dispatch | a run-time site in facts-compiled code finds or compiles facts-compiled code for the run-time types | ≈ 150 lines of C |
+| **(D)** the `Dynamic` call-site split | in the inliner: `isa` guards over declared conformances, direct calls, a dynamic fallback, no edge to the candidate list | ≈ 150 lines |
+
+**The switch:** `--compile-by-facts=no|all|traits`.
+- `no`: plain Julia.
+- `all`: everything compiled by facts. **A test bed, not a user setting** (the user, session 29). It changes values (`map(f, Real[])` gives `Vector{Any}` where plain Julia gives `Vector{Float64}`), and it gives plain code the protection the thesis attributes to traits, which makes it the control of section 8.
+- `traits`: trait code compiled by facts under its own owner (B, C). The product setting.
+- `--trim` implies `no`.
+
+**Julia pieces** (numbering of `explorations/julia-support.md`):
+- **Keep:** 1 (method-definition and image-activation hooks, which strict mode needs), 3 (field-offset intrinsics), 17 (type printers), 9 (owner-aware bare MethodInstance edges) and 10 (the inliner uses the CodeInstance it is given), in the form a second owner needs; 5's upstream half (machine code for upstream CodeInstances in images: also plain Julia's gain, to be measured alone).
+- **Add, for the strict tier:** 1′ (a deletion hook), 14 (a read-only "what would this definition invalidate" query, transitive), 15 (image validation reports the winning method).
+- **Revert:** 2 (invalidation policy hook, the old filter) and 4 (post-inference hook).
+- **Moot:** 11, 12, 13 (artefacts of the external interpreter).
+- **Later:** 7 (traits in the type system: membership as subtyping), last.
+
+**Upstream proposals, in order:** pieces 10, 9 and 17 as fixes and a small feature; (A) as "a facts mode for the native compiler", with the benchmark table; pieces 1, 1′, 14, 15 with strict mode; (B) and (C) as per-method inference modes after they carry the demonstrators; traits in the type system last.
+
+## 7. The decisions in force
+
+Only the current decisions. The full register with history is `decisions.md`; "s" is the session.
+
+| Decision | Origin | Detail |
+|---|---|---|
+| A trait is an abstract type with behaviour; abstract types stay, traits are a kind of them | s22 | 4.1; `notes/2-design-choices.md` §1 |
+| Conformance is declared, never derived | early | 4.1 |
+| Keys: code is compiled for what the bound can see (implementing type, declared fields' types) | s22 | 4.2; `notes/4-details.md` "Terms" |
+| Implementation separate from conformance; forwarding `by f`; no computed projections; declared fields are stored fields; forwarding does not chain | s22 | `notes/4-details.md` "How a type conforms" |
+| The reference layout: a trait object reads the user's object at offsets | s22, s23 | 4.2 |
+| Associated types in first-order form; fields define parameters by matching | s22 | 4.1; `explorations/associated-types.md` |
+| Concreteness opt-in per trait, one declaration with a level (silent, warn, error) | s27 (the user: "Per trait"); one declaration s29 | 4.3 |
+| Overrides belong to the conformance; family members fixed at first use (forced by rule 2); refused at load; restart until redeclaration is built | s27 decision 4; s29 | 4.4 |
+| Definition checking at archetypes, at the module's end; a warning at the prompt | s22, s27 | 4.7 |
+| `Dynamic{X}`: a value of abstract type `X`, holding the user's object; operations by a call-site split in the compiler | s22; s29 (the user: "move to the compiler directly") | 4.5 |
+| Witness tables off by default until `Dynamic` is in the compiler | s29 (the user: "Witness table: Yes") | 4.5 |
+| A trait's name in a field or container means its `Dynamic` (inside trait modules) | s22, s27 | 4.5 |
+| No hidden type parameters | s22 (the user) | 4.5 |
+| `Callable{A, S, M}` with two modes, `DynamicCall` the default, the caller overrides | rev 988; kept s29 (the user: "We need compiled call to have an ODE RHS that has the right type signature") | 4.6 |
+| AD tags labelled by the primal signature | s23, implemented s27 | 4.6 |
+| Results like the input (`Self`, `Like{t}`, `withfields`) | s22 | 4.7 |
+| Keeping detected, not declared | s23 (the user: "If feasible, detection is the way") | 4.7 |
+| Types first, then traits, in dispatch | early | 4.7 |
+| Printing by bound and key | s22 | 4.7 |
+| Named implementations deferred to piece 7; a value-level wrapper preferred | s29 | 4.7 |
+| AOT builds compile the plain call; `--trim` turns facts off | s25; s29 | 4.8 |
+| **The guarantee, strict mode first;** rule P the default relaxation | s29 (the user: "Strict mode first for framing is yes") | 3 |
+| Strict mode: one decision with two tiers; the intended design's items are the work list | s25, s29 | 3.4; `open-issues.md` §1.10 |
+| Under (B), strict mode protects facts-owned code | s29 (implied by `all` a test bed) | 3; `TraitWorld/src/strict.jl` |
+| The symmetric check as a build lint | s25 | 3.4 |
+| Three rules: facts (with the definition of a fact signature), ownership, the boundary | s29 | 5 |
+| Facts at tuple splits; folds where Base's asserted effects fold; run-time sites run facts-compiled code | s28, written into rule 1 s29 | 5 |
+| Stakeholders by the method's own signature; supertype owners count; the extension exception named | s27 decision 2 | 1; 3.2 |
+| Delegates as data, transitional | s25; marked s29 | 5 |
+| No sealing, of abstract types or functions: a closed contract is a trait | s28 (the user) | — |
+| The facts policy in Julia's compiler: (A), (B), (C), (D) | s28; (D) s29 | 6 |
+| `--compile-by-facts=all` is a test bed | s29 (the user) | 6 |
+| Stock-Julia support dropped | s29 (the user) | 6 |
+| Slowdowns are tolerated if redesigning the code with traits recovers them. This governs trait code and the plain code it reaches; the plan's numeric threshold for `all` (P-a) is moot, since (B) is needed regardless | s29 (the user: "tolerate slow downs if they can be recovered by redesigning code through traits") | 8 |
+| The forks (demonstrator 4) paused | s29 (the user) | 9 |
+| The runtime as methods: a conformance is a method; entries are ordinary methods; workers per key | s23 | `explorations/keys-plan.md` §6 |
+| Workspace: the design repository with separate repositories inside; local only | early | `README.md` |
+
+## 8. What the evidence shows, and what it does not
+
+All numbers are from the patched Julia 1.13.2 build, on one machine, unless stated. They predate parts B, C and D.
+
+**Shown:**
+- **Facts at concrete signatures keep code valid.** Acceptance 16/16, 48 adversarial cases; 0 facts-compiled CodeInstances lost over twelve loads in any order (`experiments/facts`).
+- **Strict mode refuses nothing in a real stack.** 837 pirates by the letter among 65,318 methods, none winning; 0.54 s extra on a 4.1 s load.
+- **Trait calls cost little.** Typed calls 33 ns against 30 ns plain; loops through the reference layout at plain speed.
+- **Compiling per key, not per closure.** TraitDifferentialEquations: a new callback closure 13–15 ms (25–31 ms with loads) and a second loss closure 17–21 ms, against SciML's 0.84–0.96 s and 2.48 s; the first solve 6.4–8.0 ms in every load order. Caveat: PlainODE (FunctionWrappers, untyped callbacks, the same signature-labelled tag) matches the second loss in a fresh session and is faster for a first callback (5.1 ms); the trait form's advantage is under loads (first callback 29 against 144 ms) and its checks.
+- **Trait code survives loads where its plain twin does not.** TraitReport under nine loaded packages: the trait form 66–80 ms with no compiled code lost; the same libraries without traits 102–147 ms, 17 of 49 methods lost. TraitMakie's first PNG 18–22 ms in every load order, PlainPlots about 100 ms after loads. Caveat: the protection comes from the facts mode, which is trait-independent (661 facts-compiled CodeInstances of plain CSV code survived `using DataFrames`).
+- **Fresh sessions at Python's speed for small libraries.** TraitReport 0.52–0.56 s against Python's 0.58–0.69 s. Caveat: the plain baseline with the same workloads takes 0.50–0.52 s.
+- **`Vector{Dynamic{Column}}` keeps column code when the plain form loses it:** PlainTables loses 17 of 49 methods to loads, the trait form none.
+- **The facts mode's cost on plain code** (`all`, a test bed): BaseBenchmarks geometric mean 1.016, 1.064 without `scalar`; `io` 1.32; tails on containers of `Any`, abstract element types, small-union broadcasts. One run, `--pkgimages=no`, with Base compiled plainly in the system image.
+- **Traits recover the tails tried so far.** Raytrace: an open set of primitives through `Dynamic` costs the same with 2 or 4 types (470–484 ms), where plain Julia's fast path holds only for 2 (240 ms; 693 ms with 4); still 2× plain's `isa` branches, which part D addresses. `parse_json` with typed captures: 1.17× the fixed plain code.
+- **AOT:** a trimmed TraitMakie binary of 4.07 MB under the facts policy (session 25), `--trim=unsafe-warn`.
+
+**Not shown:**
+- **The control that separates the facts mode from traits:** the plain baselines (PlainODE, PlainPlots, PlainTables) and upstream DataFrames under `all`, with the same workloads. Every "survives loads" row is a property of the facts mode until this runs. It is step 2 of the order of work.
+- **Interactive work at the REPL with new keys,** without the system-image workaround: it needs part B.
+- **Base's tests in facts mode:** never run. The go/no-go benchmark ran in a configuration that changes values.
+- **The volume of the "explosion" of compiled code.** It is structural (32 specializations against 1 in a small experiment), but unmeasured on a real library.
+- **Binaries** for TraitDifferentialEquations with ForwardDiff, and for CSV and DataFrames; `--trim=safe`.
+- **Strict mode under `all`;** threads; Revise-style edits; composition beyond libraries of a few hundred lines.
+- **The DataFrames port** (10.9 s → 1.19 s for the session, pandas 0.32 s) mostly shows the facts policy and workloads: its kernels unwrap each column (`vector(c)`) instead of using the declared operations, and CSV's trait is `CSVSource`, not the planned `CSVColumn{T}`.
+
+## 9. The implementation: today, the target, the order of work
+
+### 9.1 Today
+
+- **TraitWorld** (the package, 8,707 lines): about 5,500 lines are the design and sound (macros, ownership, conformances as methods, entries and workers, keys and layout, `Callable`, `Like`, definition checking, concrete mode, `verify_main`, strict mode, printing). About 770 imitate the compiler, about 2,200 work around being a package on stock Julia (the external interpreter `FactsInterp`, site caches, trampolines, view caches, compiler warm-ups), about 250 are leftovers of earlier designs. Witness tables off by default.
+- **The Julia patch** (`julia-1.13/`, 954 lines over v1.13.2): pieces 1, 2, 3, 4, 5, 9, 10, 17. About 580 lines are pieces 2 and 4, to revert.
+- **(A)** runs as a forked Compiler package (`experiments/factscompiler`, 23 s bootstrap per session, measured with `--pkgimages=no`). The in-tree port in `julia-1.13/Compiler/src/` is begun, uncommitted, and does not load yet. There are three copies of the fact rules.
+- **Demonstrators:** TraitDifferentialEquations, TraitMakie, TraitReport with TraitTables and TraitCSV; the forks of Tables, DataFrames and CSV at M5, paused.
+
+### 9.2 The target
+
+```
+Julia (patched, then upstream proposals)
+  (A) facts mode in the native interpreter
+  (B) method flag "compiled by facts" + owner sentinel; native code in images
+  (C) owner-aware dynamic dispatch
+  (D) Dynamic call-site split in the inliner
+  pieces 1, 1', 14, 15 (strict), 3, 9, 10, 17; piece 5's upstream half
+  --compile-by-facts=no|all|traits; --trim implies no
+
+TraitWorld (package)
+  @trait, @implement, @trait_module (sets the (B) flag), ownership, conformances as methods,
+  entries and workers, keys and layout, Callable (two modes), Like, definition checking,
+  concrete mode, verify_main, strict mode, printing
+  Dynamic{X}: holds the user's object; the candidate list for (D)
+
+Deleted
+  TraitWorld's facts.jl (the external interpreter), view caches, warm-ups, site caches, trampolines,
+  stock-only paths, witness tables and key branches, sealed_call, ten of thirteen JULIA_TW_* switches,
+  the {R} spelling and projection names, the system-image prototype, pieces 2 and 4,
+  the three old worktrees at the repository root
+```
+
+### 9.3 The order of work (approved by the user, session 29)
+
+1. **(A) in-tree, one source of truth for the fact rules.** Finish `julia-1.13/Compiler/src/facts.jl`, the option in `jl_options`, the bit in the package-image cache flags; build; retire the two other copies; run Base's tests in facts mode against the mode off and list every difference.
+2. **The decisive control.** The plain baselines and upstream DataFrames under `all`, over the existing load matrices: lost CodeInstances and first-call times, against the trait forms. It decides which claims the demonstrators may keep.
+3. **(B) and (C) in Julia.** Then delete TraitWorld's imitation and the stock-only paths; re-run the acceptance suite, `g2all`, TraitWorld's tests.
+4. **`Dynamic` in the compiler.** The package form holds the user's object; then (D) in the inliner; delete witness tables, key branches and `sealed_call`; re-measure the raytrace.
+5. **Re-point the demonstrators:** each README's claims at what traits add (compile per key, definition-time errors, readable types, declared conformances instead of extensions on internals, `Dynamic` against `isa` branches, AOT target lists); the facts mode's protection stated once, as the compiler's. Rewrite the notes for the strict-first framing.
+6. **Housekeeping:** revert pieces 2 and 4; remove dead switches, the `{R}` spelling, the projection names, the old worktrees.
+7. **Resume the forks** later, with `CSVColumn{T}`, kernels that use the declared operations, the upstream-under-`all` control, and the upstream test suites at each milestone.
+8. **Upstream proposals** in the order of section 6.
+
+## 10. What is not claimed
+
+- No change to results beyond values decided by inference (A3). Under `all` the difference is wider, which is one reason `all` is a test bed.
+- "Never invalidated" is the strict tier. The prototype lacks pieces 1′, 14, 15, the extension rule and a rule for bindings.
+- No "compiled once for any type": a type that supplies behaviour gets its own copy, once, in its own image.
+- No claim that traits, rather than the facts mode, protect code from loads until the control of section 8 has run.
+- No numbers for stock Julia: the design needs the patched build.
+- No REPL interactivity for new keys before part B; no threads; no Revise.
+- Imports are not at pandas' speed (Julia's startup and package loading).
+
+## 11. Where the rest lives
+
+- **Detail:** `notes/4-details.md` (the mechanisms), `notes/2-design-choices.md` (against C++, Rust, Swift, Mojo), `notes/3-wrapping.md` (plain code, pirates), `notes/1-overview.md`. They predate this framing; this document wins where they disagree.
+- **Proofs:** `explorations/wrapping-by-facts.md`. **Strict mode:** `explorations/strict-mode.md`. **AOT:** `explorations/aot-under-facts.md`. **Julia pieces:** `explorations/julia-support.md`.
+- **The register with history:** `decisions.md`. **Open issues:** `open-issues.md`, §1 first.
+- **The reviews behind this document:** `reviews/2026-10-18-design-and-fixes.md`, `reviews/2026-10-18-framing-and-motivation.md` (§5), `reviews/2026-10-18-implementation-shape.md`, `reviews/2026-10-18-decisions-revisited.md`.
+- **The plan for the compiler:** `plans/2026-10-17-policy-in-compiler-plan.md`; measurements in `experiments/factscompiler/README.md`.
+- **Lessons from the port:** `explorations/dataframes-port-lessons.md`.

@@ -1,15 +1,17 @@
 # writeup/
 
-Everything here is current as of 2026-10-17 (session 27), except where session 29's reviews and decisions say otherwise: the notes still describe the facts policy as package code and argue from rule P; session 29 adopted strict mode first for the framing and the policy in Julia's compiler (`decisions.md`, "Session 28" and "Session 29"). Superseded documents are in `attic/writeup/`.
+**[`design.md`](design.md) is the current statement of the design and its decisions** (session 29, 2026-10-18). The notes below keep the detail; they predate the session-29 framing (strict mode first, three rules, the facts policy in Julia's compiler), and `design.md` wins where they disagree. Superseded documents are in `attic/writeup/`.
 
 ## Read in this order
 
-1. **[`notes/1-overview.md`](notes/1-overview.md):** why, the idea, the pay-offs, an example, the status.
-2. **[`notes/2-design-choices.md`](notes/2-design-choices.md):** what the design decides, against C++, Rust, Swift and Mojo, and what each choice costs.
-3. **[`notes/4-details.md`](notes/4-details.md):** the design in detail: terms, ownership, the four rules, traits, conformance, keys, dynamic values, results like the input, caching, AOT.
-4. **[`notes/3-wrapping.md`](notes/3-wrapping.md):** code written without traits: called directly, compiled under the facts policy; pirates; strict mode (an option); what Julia must provide.
-5. **[`decisions.md`](decisions.md):** every decision with its status (adopted, rejected, deferred, pending) and whether the prototype runs it.
-6. **[`open-issues.md`](open-issues.md):** everything open: decisions waiting for the user, design questions, the prototype's gaps, the runtime and measurements.
+1. **[`design.md`](design.md):** the problem, the guarantee (strict mode first), traits, the three rules, what Julia provides, the decisions in force, the evidence, the implementation and the order of work.
+2. **[`open-issues.md`](open-issues.md):** everything open, decisions waiting for the user first (§1).
+3. **The notes, for detail:**
+   - [`notes/1-overview.md`](notes/1-overview.md): the earlier overview, with the example;
+   - [`notes/2-design-choices.md`](notes/2-design-choices.md): the choices against C++, Rust, Swift and Mojo, and their costs;
+   - [`notes/4-details.md`](notes/4-details.md): the mechanisms: ownership, traits, conformance, keys, dynamic values, results like the input, caching, AOT;
+   - [`notes/3-wrapping.md`](notes/3-wrapping.md): code written without traits, pirates, strict mode.
+4. **[`decisions.md`](decisions.md):** the full register, with history.
 
 ## Supporting documents
 

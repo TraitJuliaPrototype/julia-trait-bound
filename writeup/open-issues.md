@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-18 (session 29): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
+Everything known to be open, as of 2026-10-18 (session 29): the design, the prototype, the runtime and measurements, and the documents. The current design is `design.md`; decisions already taken are in its §7 and, with history, in `decisions.md`.
 
 ## 1. Decisions waiting for the user
 
@@ -28,12 +28,15 @@ The review's minor findings (stale lines, numbers that disagree, "the policy is 
 (Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
 
 New in session 29, from the three reviews of 2026-10-18 (`reviews/2026-10-18-*.md`). **Decided by the user** (`decisions.md`, "Session 29"): strict mode first for the framing; `all` a test bed; stock-Julia support dropped; `Dynamic` in the compiler directly; the forks paused; slowdowns tolerated if a trait redesign recovers them. Open:
-9. **The slowdown principle and plan P-a.** Whether the principle replaces the numeric threshold of the plan's go/no-go rule (≤ 5% mean, no group above 20%), as `decisions.md` reads it, and which tails must be shown recoverable (containers of `Any`, abstract element types, `io` 1.32).
+9. *(Closed in session 29: P-a is moot. `all` is a test bed, so (B) is needed regardless of BaseBenchmarks; the principle governs trait code and the plain code it reaches; decisions.md "Session 29, continued", change 9.)* **The slowdown principle and plan P-a.** Whether the principle replaces the numeric threshold of the plan's go/no-go rule (≤ 5% mean, no group above 20%), as `decisions.md` reads it, and which tails must be shown recoverable (containers of `Any`, abstract element types, `io` 1.32).
 10. **What strict mode first commits to** (framing review §5.4): Julia pieces 15 (image-validation report), 14 (transitive check) and 1′ (deletion hook), which must join the first upstream proposal; `twolibs` in the acceptance suite; whether a parent's own extension may override its parent's method; bindings as something a pirate can change (no hook exists); the session as owner at the prompt; strict mode measured under `all` (837 pirates by the letter in g2strict, none refused, Base's facts not yet checked).
-11. **Strict mode and TraitWorld's exemption under one owner** (design review, finding 3): which code strict mode protects when there is no foreign owner, and how the machinery is compiled without the `sealed_call` exemption by module name (sealing by another name, §2.26).
-12. **The witness-table world-age defect** (design review, finding 2, verified): in an older world after an implementation is redefined, a `Dynamic` call through a witness table returns the new method's result. The package keeps it until `Dynamic` moves to the compiler; whether to turn witness tables off by default (`JULIA_TW_WITNESS=0`) meanwhile.
+11. *(Half closed in session 29: under (B), strict mode protects facts-owned code, as `strict.jl:52–57` does; one owner exists only in the `all` test bed. Open: the machinery's exemption, which goes with (D), see §2.26.)* **Strict mode and TraitWorld's exemption under one owner** (design review, finding 3): which code strict mode protects when there is no foreign owner, and how the machinery is compiled without the `sealed_call` exemption by module name (sealing by another name, §2.26).
+12. *(Decided in session 29: witness tables off by default, `JULIA_TW_WITNESS=1` turns them on; the defect goes with `Dynamic` in the compiler.)* **The witness-table world-age defect** (design review, finding 2, verified): in an older world after an implementation is redefined, a `Dynamic` call through a witness table returns the new method's result. The package keeps it until `Dynamic` moves to the compiler; whether to turn witness tables off by default (`JULIA_TW_WITNESS=0`) meanwhile.
 13. **Base's tests in facts mode** (plan §2.4) were never run; the go/no-go benchmark ran in a configuration that changes values (design review, finding 1).
 14. **The session-28 rule changes** (lessons 1.1 run-time sites run policy code, 1.2 folds on Base's asserted effects, 1.8 tuple-split facts): written into the notes, or reverted (design review, finding 5).
+15. **The concreteness declaration's spelling** (decisions review change 7, adopted): one declaration with a level (silent, warn, error) at a trait or a module; the per-parameter grain (`IntegratorView{T, P}`, design review) as an argument of the same declaration later.
+16. **The demonstrators' claims after the control** (`design.md` §8, §9.3 step 5): which rows remain trait results once the plain baselines run under `all`; each README's "what it demonstrates" re-pointed.
+17. **The refusal message for a late override** (`TraitWorld/src/hooks.jl:151`): "or in its block" is not available after the fact (design review); the message should name redeclaration once it exists, and a restart until then.
 
 ## 2. Design
 
@@ -76,7 +79,7 @@ New in session 29, from the three reviews of 2026-10-18 (`reviews/2026-10-18-*.m
 24. Inference-dependent element types (`promote_op`): the declared exception to "identical or error"; solvers must declare them instead (solvers.md §11.8).
 25. The compile cost of recipes and models defined at the prompt; views exclude modules under `Main` (findings §15, makie-rewrite.md §8.8).
 26. **No sealing, of abstract types or functions** (user, session 28; to think about later). The facts-mode recovery test (`plans/2026-10-17-policy-in-compiler-plan.md` §3) suggested sealed abstract types and sealed functions, so that calls at abstract types become facts. The user's view: this notion should leave the project entirely. One should not seal an abstract type but use a trait instead: the trait's declared signatures and result types, checked for every conformance, are the closed contract. To settle:
-    - how TraitWorld's own machinery is exempted under the facts mode in the compiler without a "sealed" notion (the prototype's `sealed_call` names TraitWorld's functions);
+    - *(Answered in session 29 by `Dynamic` in the compiler: with the call-site split (D) in the caller, the machinery is not on the path of a `Dynamic` operation, and `sealed_call` goes.)* how TraitWorld's own machinery is exempted under the facts mode in the compiler without a "sealed" notion (the prototype's `sealed_call` names TraitWorld's functions);
     - what replaces the `isa` branches plain Julia emits over a known set of methods, once the call goes through `Dynamic` with witness tables.
 
 ## 3. TraitWorld (the prototype)

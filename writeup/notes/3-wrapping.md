@@ -1,5 +1,7 @@
 # Traits for better Julia: code written without traits
 
+> **Banner (session 29, 2026-10-18):** this note predates the session-29 framing (strict mode first, three rules, the facts policy in Julia's compiler, `Dynamic` in the compiler). [`../design.md`](../design.md) is current and wins where they disagree.
+
 > **Status (2026-10-17).** The design here is wrapping by facts (`writeup/explorations/wrapping-by-facts.md`), adopted in session 23 and validated in session 24. It replaced trait wrappers, calls upward and sealing.
 
 Base, the standard libraries and nearly every package were written without traits. This note covers how trait modules use that code, and how a library adopts traits without breaking its callers:

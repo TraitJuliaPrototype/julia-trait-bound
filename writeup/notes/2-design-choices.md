@@ -1,5 +1,7 @@
 # Traits for better Julia: design choices
 
+> **Banner (session 29, 2026-10-18):** this note predates the session-29 framing (strict mode first, three rules, the facts policy in Julia's compiler, `Dynamic` in the compiler). [`../design.md`](../design.md) is current and wins where they disagree.
+
 > **Status (2026-10-17).** Parts of this note describe the design before wrapping by facts (`writeup/explorations/wrapping-by-facts.md`, validated in session 24), and are no longer true:
 > - **§5, layering,** is gone for calls: trait-world code may call any Julia code, and its compiled code depends on the method table only through dispatch facts at concrete signatures ([the design in detail: the four rules](4-details.md#the-four-rules), rule 1).
 > - **§6 and §7, and costs 1, 2, 6 and 8:** no pirate is refused at load (an override of a declared conformance is, decision 4 of session 27). There is no sealing, no trait wrapper, no delegate and no declared call. Pirates are followed as in plain Julia; trait modules may not define them; an optional strict mode refuses a pirate that would change trait-world code ([code written without traits](3-wrapping.md)).

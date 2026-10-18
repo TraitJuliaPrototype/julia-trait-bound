@@ -1,5 +1,7 @@
 # Traits for better Julia
 
+> **Banner (session 29, 2026-10-18):** this note predates the session-29 framing (strict mode first, three rules, the facts policy in Julia's compiler, `Dynamic` in the compiler). [`../design.md`](../design.md) is current and wins where they disagree.
+
 The overview of the design. It covers why, what it pays, a small example, and where the rest is written down.
 
 1. **Overview** (this note): motivation, pay-offs, the core idea, an example.

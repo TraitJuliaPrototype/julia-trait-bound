@@ -1,8 +1,8 @@
 # Trait-bound Julia
 
-A design for traits in Julia: abstract types with behaviour, so that library code compiled once for what its bounds can see is cached, never invalidated by unrelated loads, checked where it is defined, and closed for ahead-of-time compilation. Start with [`writeup/README.md`](writeup/README.md): the reading order, the decision register and the open issues.
+A design for traits in Julia: abstract types with behaviour, so that library code compiled for what its bounds can see is cached, never invalidated unless code it depends on changes, checked where it is defined, and closed for ahead-of-time compilation. Start with [`writeup/design.md`](writeup/design.md), the current design and its decisions; [`writeup/README.md`](writeup/README.md) has the reading order.
 
-**Resuming work:** read `writeup/README.md`, then `writeup/open-issues.md` §1 (decisions waiting for the user), then the "Next" list of the latest session note in `session-notes/`.
+**Resuming work:** read `writeup/design.md`, then `writeup/open-issues.md` §1 (decisions waiting for the user), then the "Next" list of the latest session note in `session-notes/`.
 
 ## This workspace
 
@@ -25,29 +25,17 @@ These repositories have no remotes yet. Turning them into submodules of this one
 
 ## The plan
 
-The aim now is to demonstrate that the trait world is viable: that large libraries written in it get the pay-offs, measured against their stock versions and against the same code without traits. Code written without traits is used directly, by **wrapping by facts** (adopted in session 23, validated in session 24: `writeup/explorations/wrapping-by-facts.md`); a **strict mode** for pirates is kept as an option (`writeup/explorations/strict-mode.md`, session 25).
+The current design, its decisions and the order of work are in [`writeup/design.md`](writeup/design.md) (session 29). In short:
+- **The framing:** compiled code is never invalidated unless code it depends on changes. Facts at concrete signatures, ownership, and the refusal of a winning pirate (strict mode) make it true; the default session follows pirates instead. Traits let code say what it needs, so it is compiled per key, checked where it is defined, and typed without speculation.
+- **The platform:** the facts policy moves into Julia's compiler: (A) a facts mode of inference, (B) a second cache owner for trait code, (C) owner-aware dynamic dispatch, (D) the `Dynamic` call-site split. `--compile-by-facts=all` is a test bed. Stock Julia is not supported.
 
-1. **TraitWorld at the current design,** for what a trait world needs (not wrapping or sealing), in the order TraitDifferentialEquations needs it. Each feature gets small solver-shaped acceptance tests.
-   1. `Dynamic{X}` (done);
-   2. trait fields as properties, writable unless `@const` (done);
-   3. associated types: defining equations, fields that define parameters, bounds, family conformances, parameter archetypes in definition checking (done; matching patterns such as `data::Vector{T}` not yet);
-   4. results like the input: constructor operations returning `Self`, `Like{t}`, `withfields` (done);
-   5. printing by bound and key, `conforms(T, X)` (done);
-   6. keys (done: the reference layout, no implementing type under defaults, late overrides refused (at the definition on the patched build, at checkpoints on stock; family members too), fields matching parameters, immutable types held);
-   7. the runtime as methods (done in session 23: typed calls 33 ns against 30 ns plain);
-   8. a pinned dynamic mode for models, when the solver needs it.
-
-   Two parts of the design need the language and are approximated in the package: membership as subtyping (an explicit `conforms(T, X)`), and a trait name in a field meaning its `Dynamic` (field types rewritten inside `@trait_module` only). Design: `writeup/notes/4-details.md`.
-2. **Julia 1.13.2.** TraitWorld's tests pass on stock 1.13.2 and on the patched build (`julia-1.13/`, built in session 23). The measurements are re-baselined there (`experiments/baseline-1.13.md`). Reasons and porting costs: `writeup/explorations/runtime.md`.
-3. **TraitDifferentialEquations:** Tsit5, then Rodas5 with automatic differentiation, user models and callbacks, against stock SciML and a plain-Julia copy. Thirteen measurements, in its README. Step 1 done (session 23).
-4. **TraitMakie:** PlotCore with a Cairo backend, against Makie, a plain-Julia copy and matplotlib. Ten measurements, in its README. Step 1 done (session 23), a trimmed binary (session 25).
-5. **TraitReport:** read a CSV file into a DataFrame, summarize, plot to a PNG, in a fresh process, against pandas and matplotlib (0.60 s). Eleven measurements, in its README. The ordinary script takes 4.9–5.1 s (session 26); the plain script over TraitCSV, TraitTables and TraitMakie 0.53–0.56 s, and loses no compiled code to other packages' loads (session 27).
-
-   The rows of all three were reviewed for wrapping by facts in session 26, which also set the order of work, Julia pieces first: `writeup/reviews/2026-10-17-demonstrators-under-facts.md`.
-6. **Upstream proposals,** backed by the demonstrators' numbers (`writeup/explorations/julia-support.md`, reviewed in session 25):
-   - first, "first-class foreign cache owners": native code for an `AbstractInterpreter`'s CodeInstances in package images, owner-aware bare edges, the inliner bug, compiling a call under an owner from inference (1.13's declared `CompilerPlugins` hook), a frozen world for the interpreter's compiler, instrumentation;
-   - then the method-definition hook;
-   - traits in the type system last.
+The order of work (`writeup/design.md` §9.3):
+1. (A) in-tree in `julia-1.13/`, one copy of the fact rules; Base's tests in facts mode.
+2. The decisive control: the plain baselines and upstream DataFrames under `all`.
+3. (B) and (C) in Julia; delete TraitWorld's imitation of them.
+4. `Dynamic` in the compiler (D).
+5. The demonstrators' claims re-pointed; the notes rewritten for the strict-first framing.
+6. Housekeeping; then the forks resumed; then the upstream proposals.
 
 ## Conventions
 

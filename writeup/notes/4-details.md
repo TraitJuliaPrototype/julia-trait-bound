@@ -1,5 +1,7 @@
 # Traits for better Julia: the design in detail
 
+> **Banner (session 29, 2026-10-18):** this note predates the session-29 framing (strict mode first, three rules, the facts policy in Julia's compiler, `Dynamic` in the compiler). [`../design.md`](../design.md) is current and wins where they disagree.
+
 The rules and mechanisms of the design, in Julia's terms. The [overview](1-overview.md) explains why; [design choices](2-design-choices.md) explains why these choices and not others; [code written without traits](3-wrapping.md) covers calling packages written without traits, pirates and strict mode.
 
 The macros below stand for syntax a language feature would provide. The prototype, TraitWorld, runs most of this design on stock Julia 1.13.2 (status in `writeup/decisions.md`, column "Prototype"). It still accepts the earlier spelling with the implementing type as the trait's last parameter `R` (`@trait ColTable{R}`, operations `ncols(r::R)`), and examples of its tests use it.
