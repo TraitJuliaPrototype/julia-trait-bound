@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-17 (session 27): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
+Everything known to be open, as of 2026-10-18 (session 29): the design, the prototype, the runtime and measurements, and the documents. Decisions already taken are in `decisions.md`.
 
 ## 1. Decisions waiting for the user
 
@@ -26,6 +26,14 @@ The review's minor findings (stale lines, numbers that disagree, "the policy is 
 (Conversions in trait wrappers dissolved with wrapping by facts, s23.)
 
 (Session 23 settled the runtime as methods and D1–D9: session note 23, `decisions.md`.)
+
+New in session 29, from the three reviews of 2026-10-18 (`reviews/2026-10-18-*.md`). **Decided by the user** (`decisions.md`, "Session 29"): strict mode first for the framing; `all` a test bed; stock-Julia support dropped; `Dynamic` in the compiler directly; the forks paused; slowdowns tolerated if a trait redesign recovers them. Open:
+9. **The slowdown principle and plan P-a.** Whether the principle replaces the numeric threshold of the plan's go/no-go rule (≤ 5% mean, no group above 20%), as `decisions.md` reads it, and which tails must be shown recoverable (containers of `Any`, abstract element types, `io` 1.32).
+10. **What strict mode first commits to** (framing review §5.4): Julia pieces 15 (image-validation report), 14 (transitive check) and 1′ (deletion hook), which must join the first upstream proposal; `twolibs` in the acceptance suite; whether a parent's own extension may override its parent's method; bindings as something a pirate can change (no hook exists); the session as owner at the prompt; strict mode measured under `all` (837 pirates by the letter in g2strict, none refused, Base's facts not yet checked).
+11. **Strict mode and TraitWorld's exemption under one owner** (design review, finding 3): which code strict mode protects when there is no foreign owner, and how the machinery is compiled without the `sealed_call` exemption by module name (sealing by another name, §2.26).
+12. **The witness-table world-age defect** (design review, finding 2, verified): in an older world after an implementation is redefined, a `Dynamic` call through a witness table returns the new method's result. The package keeps it until `Dynamic` moves to the compiler; whether to turn witness tables off by default (`JULIA_TW_WITNESS=0`) meanwhile.
+13. **Base's tests in facts mode** (plan §2.4) were never run; the go/no-go benchmark ran in a configuration that changes values (design review, finding 1).
+14. **The session-28 rule changes** (lessons 1.1 run-time sites run policy code, 1.2 folds on Base's asserted effects, 1.8 tuple-split facts): written into the notes, or reverted (design review, finding 5).
 
 ## 2. Design
 

@@ -117,3 +117,9 @@ Sketch only; planned when §3's rule says so. A second owner known to the runtim
 - **P-a.** The threshold of §3 (≤ 5% geometric mean, no group above 20%) and the benchmark set.
 - **P-b.** Whether TraitWorld keeps its own interpreter for stock Julia after the switch exists, or requires the patched build with the switch.
 - **P-c.** Whether `all` is meant as a user setting or as the test bed for the trait setting, should R3 find value differences in Base's tests.
+
+**Answered (session 29, the user; `decisions.md` "Session 29"):**
+- P-a: slowdowns are tolerated if redesigning the code with traits recovers them (the application to the threshold is open-issues §1.9).
+- P-b: stock-Julia support is dropped; TraitWorld requires the patched build.
+- P-c: `all` is a test bed, not a user setting. The user setting is therefore the trait setting, which needs (B) and (C).
+- Also: `Dynamic` moves to the compiler directly; the forks are paused.

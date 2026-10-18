@@ -1,6 +1,6 @@
 # writeup/
 
-Everything here is current as of 2026-10-17 (session 27). Superseded documents are in `attic/writeup/`.
+Everything here is current as of 2026-10-17 (session 27), except where session 29's reviews and decisions say otherwise: the notes still describe the facts policy as package code and argue from rule P; session 29 adopted strict mode first for the framing and the policy in Julia's compiler (`decisions.md`, "Session 28" and "Session 29"). Superseded documents are in `attic/writeup/`.
 
 ## Read in this order
 
@@ -22,6 +22,9 @@ Everything here is current as of 2026-10-17 (session 27). Superseded documents a
 | `explorations/julia-support.md` | what TraitWorld needs from Julia proper, the order to implement them, and what is implemented in the patched build | reviewed in session 25 for wrapping by facts and strict mode: pieces 2, 4, 6 dropped, 9–13 added, new order |
 | `explorations/strict-mode.md` | strict mode: defining a pirate that would win at a trait-world fact is an error, so trait code is never invalidated by a pirate | session 25; adopted as an option, prototype planned |
 | `explorations/aot-under-facts.md` | AOT under wrapping by facts: builds compile plain Julia, what the trait world still gives, three risks, three binaries to measure | session 25 |
+| `reviews/2026-10-18-design-and-fixes.md` | the design and the fixes since session 27, after the pivot to the compiler (Fable 5.1) | session 29; open-issues §1.11–1.14 |
+| `reviews/2026-10-18-framing-and-motivation.md` | the framing and the user's two-goal reframing; §5 "strict mode first" (Fable 5.1) | session 29; adopted as the framing, notes to be rewritten |
+| `reviews/2026-10-18-implementation-shape.md` | the implementation and demonstrators: inventory, path dependencies, target architecture, migration order (Fable 5.1) | session 29; the basis of session note 29's "Next" |
 | `reviews/2026-10-17-consistency-fresh-eye.md` | a fresh-eye review of the design's consistency after the churn (Fable 5.1): four significant inconsistencies, stale text | session 27; decisions waiting in open-issues §1.5–1.8, minor findings §5.5 |
 | `reviews/2026-10-17-demonstrators-under-facts.md` | the three demonstrators' rows checked against wrapping by facts; the order of work (Julia pieces and TraitWorld fixes over workarounds) | session 26 |
 | `reviews/2026-10-16-wrapping-under-keys.md` | review of code written without traits under keys (F1–F11, nine decisions) | F1 fixed; F2, F4–F8 and F10 dissolved by wrapping by facts; F3, F9 open (open-issues §4b) |
@@ -33,7 +36,7 @@ Everything here is current as of 2026-10-17 (session 27). Superseded documents a
 
 ## Where the rest lives
 
-- **`session-notes/`:** one note per working session. The latest is `2026-10-17-27-traittables-traitcsv.md`; its "Next" list is the starting point for the next session.
+- **`session-notes/`:** one note per working session. The latest is `2026-10-18-29-reviews-and-decisions.md` (session 28 left no note; it is reconstructed there); its "Next" list is the starting point for the next session.
 - **The repositories inside the design repository** (`README.md` at the root): `TraitWorld/` (the prototype), `experiments/` (measurements and prototypes), `julia/` (patched Julia), `TraitDifferentialEquations/`, `TraitMakie/` and `TraitReport/` (the demonstrators).
 - **`attic/`:** the earlier phases: TraitRegions, the ecosystem proof of concept, the frozen live note (revision 1146), the proposals and plans of sessions 14–22.
 
