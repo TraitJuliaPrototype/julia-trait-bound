@@ -8,7 +8,7 @@ It consolidates the four notes, the register (`decisions.md`), the compiler plan
 
 1. Terms
 2. The problem
-3. The argument in four steps (draft for the user's review)
+3. The argument in four steps
 4. Traits: saying what code needs
 5. The three rules
 6. What Julia provides
@@ -44,7 +44,7 @@ Each term is defined once, here.
 
 ## 2. The problem
 
-> **Draft for the user's review (session 29).** Sections 2 and 3 follow the spine the user proposed: start from what is true today, then add one step at a time.
+> Sections 2 and 3 follow the spine the user proposed and adopted in session 29: start from what is true today, then add one step at a time.
 
 Julia compiles a method for the concrete types of its arguments and caches the result. Two things go wrong with that cache.
 
@@ -65,8 +65,6 @@ Julia compiles a method for the concrete types of its arguments and caches the r
 The two problems meet at abstract types: they are where code loses its types, and where compiled code becomes fragile. Section 3 makes that precise.
 
 ## 3. The argument in four steps
-
-> **Draft for the user's review (session 29).**
 
 One term first. Code is **fully typed** when every call in it is at a *fact signature*, and so is every call in the code compiled into it, transitively. A fact signature is a tuple of concrete types, its union splits, the splits of unions of concrete element types inside tuple arguments (up to four), or a closure's call at kinds (section 5, rule 1). A type passed as a value to a function its caller does not own (`make(::Type{T})` at `T::DataType`) is a kind, and the call is not fully typed.
 
@@ -308,7 +306,9 @@ Only the current decisions. The full register with history is `decisions.md`; "s
 | Named implementations deferred to piece 7; a value-level wrapper preferred | s29 | 4.7 |
 | AOT builds compile the plain call; `--trim` turns facts off | s25; s29 | 4.8 |
 | **The guarantee, strict mode first;** rule P the default relaxation | s29 (the user: "Strict mode first for framing is yes") | 3.2, 3.5 |
-| **The framing in four steps:** fully typed code is already valid but for stakeholders and pirates; strict mode outlaws pirates; the facts rule extends the guarantee to all code at a cost where code is not fully typed; traits make it cheap and can enforce concreteness | s29 (the user's proposal), draft for review | 3 |
+| **The framing in four steps:** fully typed code is already valid but for stakeholders and pirates; strict mode outlaws pirates; the facts rule extends the guarantee to all code at a cost where code is not fully typed; traits make it cheap and can enforce concreteness | adopted (s29, the user's proposal: "1-3 is a yes") | 3 |
+| **"Fully typed"** is the name of the property: every call at a fact signature, transitively, kinds excluded | adopted (s29, the user) | 3 |
+| **A fully-typed certificate:** concrete mode reports, per worker, whether it has run-time sites; a worker without them is fully typed and pays nothing for facts; `@concrete_only` traits (the `error` level) refuse workers that are not | adopted (s29, the user), to build | 3.4, 4.3 |
 | Strict mode: one decision with two tiers; the intended design's items are the work list | s25, s29 | 3.5; `open-issues.md` §1.10 |
 | Under (B), strict mode protects facts-owned code | s29 (implied by `all` a test bed) | 3; `TraitWorld/src/strict.jl` |
 | The symmetric check as a build lint | s25 | 3.5 |
@@ -329,12 +329,12 @@ Only the current decisions. The full register with history is `decisions.md`; "s
 
 All numbers are from the patched Julia 1.13.2 build, on one machine, unless stated. They predate parts B, C and D.
 
-**The four steps of section 3** (draft for the user's review, session 29):
+**The four steps of section 3:**
 - *Step 1, verified* in small cases: a stakeholder's method (S4), a winning pirate (S5) and a redefined `const` (S7) invalidate code at concrete signatures; a losing pirate (S6) never does (`reviews/2026-10-18-framing-and-motivation.md` §0, `inval.jl`; reproduced with the in-tree facts mode in session 29). Proved in `explorations/wrapping-by-facts.md`.
 - *Step 2, verified* as a prototype: strict mode refuses winning pirates and nothing else in a real stack (below). Its intended design (pieces 1′, 14, 15, the extension rule, bindings) is not built.
 - *Step 3, verified:* the four cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance and `g2all` below. Its cost is measured on plain code (BaseBenchmarks, below).
 - *Step 3's claim that facts are free for fully typed code:* follows from the definition (the same calls inferred at the same signatures), and fits the concrete groups of BaseBenchmarks (1.00–1.09). **Not measured** directly: a benchmark of fully typed code, facts mode against plain, comparing the compiled code itself.
-- *Step 4:* the recovery cases below (raytrace, `parse_json`) are the evidence so far. **Not built or decided:** a certificate from concrete mode that a worker has no run-time sites, hence pays nothing for facts (proposed in session 29).
+- *Step 4:* the recovery cases below (raytrace, `parse_json`) are the evidence so far. **Decided, not built yet:** a certificate from concrete mode that a worker has no run-time sites, hence is fully typed and pays nothing for facts (s29).
 
 **Shown:**
 - **Facts at concrete signatures keep code valid.** Acceptance 16/16, 48 adversarial cases; 0 facts-compiled CodeInstances lost over twelve loads in any order (`experiments/facts`).

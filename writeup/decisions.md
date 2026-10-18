@@ -160,3 +160,10 @@ The user: "Witness table: Yes. On 2. We need compiled call to have an ODE RHS th
 | **Implied, recorded:** a family member's conformance is fixed at first use *because* the owner of a member's parameter type is a stakeholder of the member's methods; `--trim` turns the facts mode off; with (D) and no sealing, the machinery exemption (`sealed_call`) goes; the delegate list is ownership claimed for an owner who cannot yet declare it (transitional); workers for (key owner, function owner) pairs that no package owns need a glue extension or a first-session compile (lesson 2.2) | adopted (s29) | design.md §4.4, §4.8, §5; reviews/2026-10-18-decisions-revisited.md §4 | — |
 | Merged rows: the two AD-tag rows (s23, s27); the two override rows (keys, s27 decision 4); the two non-public-facts rows (s26, s27); the two trait-name sugar rows (fields, containers); the three strict-mode rows (s25 option, s25 intended design, s29 framing) | recorded (s29) | design.md §7 | — |
 
+## Session 29, the framing (the user: "1-3 is a yes")
+
+| Decision | Status | Where | Prototype |
+|---|---|---|---|
+| **The framing in four steps:** fully typed code is already invalidated only by stakeholders and pirates; strict mode outlaws pirates; the facts rule extends the guarantee to all code, at a cost only where code is not fully typed; traits make it cheap and can enforce concreteness | adopted (s29, the user's proposal) | design.md §3 | — |
+| **"Fully typed"** names the property: every call at a fact signature, transitively, kinds excluded | adopted (s29) | design.md §3 | — |
+| **A fully-typed certificate** from concrete mode: per worker, whether it has run-time sites; a worker without them pays nothing for facts; the `error` level refuses workers that are not fully typed | adopted (s29), to build | design.md §3.4 | no |

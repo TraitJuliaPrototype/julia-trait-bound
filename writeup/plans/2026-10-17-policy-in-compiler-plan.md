@@ -104,6 +104,17 @@ If (B) and (C) are built (stage 4), pieces 5, 9 and 10 return in the form the ru
 
 Sketch only; planned when §3's rule says so. A second owner known to the runtime (a sentinel in Core); the native interpreter compiles in facts mode for that owner when a trait entry asks for it (piece 11's `CompilerPlugins.typeinf` form, now resolvable since one interpreter serves both owners); codegen emits owner-aware dynamic dispatch at run-time sites of owner code (a method-cache lookup as `jl_apply_generic`, then the owner's CodeInstance); the switch gains `traits`.
 
+## 6b. (B) and (C) as built (session 29)
+
+Session 29 builds (B) and (C) unconditionally (decision P-c: `all` is a test bed). The design, smallest first:
+- **Which code is compiled by facts.** A module option, `Base.Experimental.@compiler_options facts=true`, stored in the module as `infer` and `max_methods` are, inherited by submodules, saved with the module in images. `@trait_module` sets it. A method of such a module is a *facts method*.
+- **The owner.** CodeInstances compiled by facts carry the owner `:facts` (a symbol: no new object in Core, comparable from C, serialized as is). `NativeInterpreter` gets an `owner` beside `facts`; `cache_owner` returns it. Under `all` the owner stays `nothing`: one cache.
+- **(B) entering facts code from plain code.**
+  - *Dispatch at run time:* the runtime's default owner for a facts method is `:facts`: `jl_method_compiled` and `jl_compile_method_internal` look up and compile that owner's CodeInstance, and type inference is asked for it (`typeinf_ext_toplevel` gets the owner).
+  - *A call inferred in plain code:* the callee is inferred in a separate facts inference (its own stack, as a top-level request), and the call names the facts CodeInstance; the edge is to it (owner-aware edges, piece 9; the inliner keeps it, piece 10).
+- **(C) dispatch from facts code.** Inside a facts frame every callee is inferred by facts under `:facts`. At run time, codegen emits `jl_apply_generic_facts` and `jl_invoke_facts` instead of `jl_apply_generic` and `jl_invoke` in code whose owner is `:facts`: the same method-cache lookup, then the `:facts` CodeInstance of the method found, compiled on a miss.
+- **Images.** Native code for `:facts` CodeInstances is kept (piece 5's foreign half). Checked by TraitWorld's tests and the acceptance suite once TraitWorld's own policy is removed.
+
 ## 7. Risks
 
 - **R1. The cost of (A)** is the open question, and the reason for §3. Lesson 1.5: results of abstract calls become `Any` where plain inference typed them, and code downstream turns dynamic; keyword calls with union-typed values stay run-time sites (lesson 1.4).
