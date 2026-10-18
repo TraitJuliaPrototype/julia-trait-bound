@@ -69,3 +69,12 @@ To confirm with the user; the order follows the implementation review's migratio
 - TraitWorld's tests under (B) (TraitWorld's own policy off): 14 sets pass, `M7: verify_main` fails: entries compiled by facts at `@nospecialize` signatures. Fix: boundaries (decisions.md), in the next build, with `Vararg` facts and plain inference of facts methods routed to facts (reflection).
 - The four porting agents were cut off by a usage limit before they had changed anything, and resumed; they run with `JULIA_TW_COMPILER_FACTS=0` until (B) is validated. The control experiment was cancelled (measurements wait for (D)).
 
+
+## Autonomous run (the user logged off, 2026-10-18 night): "keep going as far as you can without prompting me, but do keep detailed notes along the way. After the facts+traits compiler is done do move on to the demonstrators and examples, and then to finding and fixing performance issues."
+
+Plan: (1) (B)+(C) through TraitWorld's tests, commit; (2) (D) `Dynamic` in the compiler; (3) TraitWorld's imitation and stock paths deleted; (4) the fully-typed certificate; (5) a Fable review of the implementation (the user's request); (6) the demonstrators and examples (the agents' code, run and fixed); (7) performance.
+
+Log:
+- Julia c3415abde6: (B)+(C) committed. Fixes since, uncommitted: reflection of facts methods by facts (`typeinf_ext`, `typeinf_frame`); the `facts` meta propagated by lowering to the keyword sorter and the positional forwarding method (`src/ast.scm` `facts-meta?`, `src/julia-syntax.scm`); `Method.facts` is a `UInt8` (an `Int8` field crashed `jl_init_types`: `jl_int8_type` does not exist yet there).
+- TraitWorld (uncommitted): trait modules declare `@compiler_options facts=true` when Julia has `FACTS_OWNER` (`JULIA_TW_COMPILER_FACTS=0` keeps TraitWorld's own policy); entries carry `Expr(:meta, :facts, 0)` (boundaries); `Dynamic` without witness tables and key branches (one dynamic call, result asserted); field reads pass the view, not `o::Any`, so the machinery's hot path is fully typed; `verify_main` accepts `:facts` native code and scans code reached from facts code as facts code.
+- The agents were told (the user's request) to stop running Julia and only write code; the solvers agent finished (TDE 5f18148, a7d4dfd; findings in open-issues §3).
