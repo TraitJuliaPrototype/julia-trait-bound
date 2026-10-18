@@ -121,6 +121,16 @@ State (session 25): `main` at 893f0bb, 343 tests on the patched 1.13.2 build (30
 
 **Session 27, prototype gap:** `verify_main` in a session does not scan the workers behind the policy's `invoke` of a CodeInstance (it counts them as static calls), so it lists no trait sites or targets there; only a trimmed build, which compiles the plain calls, shows them. TraitMakie row 5 waits for it.
 
+**Session 29, found by the solvers agent (TraitDifferentialEquations 5f18148, a7d4dfd):**
+1. A bound with a `where` variable (`m::ODEModel{T} … where {T}`) is not a trait bound: the method stays plain and never matches. The solver cannot read a model's associated type to promote `u0` (behind-the-notes item 7, now with a demonstrator case).
+2. A trait's parameter is not in scope in a default's body (`state(m::M{T}, u0)::Vector{T} = Vector{T}(u0)`: `UndefVarError T`).
+3. `ImplementError` messages: a missing operation or a wrong argument type names neither the operation nor its declared signature; the text still says `project(t) = …` and "representation". Wanted: "`rhs!` has no method for Tuple{…}; existing: …".
+4. A `Callable` entry should check, in both modes, that `f` has a method at `A` with a result not disjoint from `S`, and raise a `TraitBoundError` naming them; today the error comes at the first call, and compiled mode first warns misleadingly ("always throws: a fallback").
+5. A `Callable` bound's signature must be constant: `Callable{RHSSig{P,T}, …}` with static parameters silently becomes a plain argument (one entry per parameter type needed).
+6. `@implement` in the same block as the struct gives a misleading ownership error and suggests wrong syntax.
+
+**Session 29, found under (B):** TraitWorld's machinery read the user's object as `Any` through generic helpers (`_loadpart(::Type, ::Any, ::Slot)`): run-time sites under facts, hidden before by `sealed_call`. Fixed: the helpers take the view. `verify_main` now scans code reached from facts code as facts code; an instance reached in both modes is scanned in the first mode met (a limitation).
+
 ## 4. Runtime and measurements
 
 1. With a view cache on stock 1.13.2, `summarize` recompiles for 71–74 ms once CSV and Makie are loaded (3.3 ms in session 21 on 1.12). It is unclear whether 1.13 or TraitWorld causes this (`experiments/baseline-1.13.md`).
