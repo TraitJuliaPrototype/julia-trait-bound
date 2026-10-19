@@ -12,3 +12,5 @@ trace_*.txt
 /TraitTables/
 /TraitCSV/
 /forks/
+site/
+site-src/

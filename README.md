@@ -2,6 +2,8 @@
 
 A design for traits in Julia, built as a patched Julia compiler and a package. Traits are abstract types with behaviour. Library code bounded by traits is compiled for what its bounds can see, checked where it is written, and never invalidated by an unrelated package's load. The facts mode in Julia's compiler gives that last guarantee to any code; traits make it cheap.
 
+**Read it as a website:** [traitjuliaprototype.github.io/julia-trait-bound](https://traitjuliaprototype.github.io/julia-trait-bound/).
+
 ## Where to start
 
 | You are | Read |

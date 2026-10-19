@@ -41,6 +41,14 @@ What this shows:
 What it leaves open:
 - Upstream CSV.jl and DataFrames still pay about 1 s after the loads in the new mode, against under 1 ms for the repeated work. The count of lost code does not explain it. The cause is under investigation.
 
+## Where traits, not the compiler mode, keep load times stable: CSV's extension
+
+The compiler mode protects compiled code from other packages' methods. It does not protect a package from its own extensions, and those are common in well-trodden parts of the ecosystem.
+- **CSV.jl:** with DataFrames loaded, CSV.jl's first read took 2.5 s instead of 0.19 s (session 26). DataFrames loads InlineStrings, which activates CSV.jl's extension for InlineStrings. That extension adds methods to CSV.jl's internal functions, so the reader's compiled code is discarded. The compiler mode keeps this behaviour: it is the package changing its own code.
+- **TraitCSV:** InlineStrings' `String15` joins the reader through one conformance, declared in TraitCSV's extension. A conformance adds no method to the reader's functions, so loading InlineStrings discards none of the reader's compiled code (session 26, on the earlier prototype; not rerun on the current compiler).
+
+So it is the coding pattern traits bring (extend by declaring a conformance, never by adding methods to a library's internals) that gives load stability here. The forks of CSV.jl follow the same pattern.
+
 ## Micro-benchmarks
 
 | What | Trait form | Plain baseline |

@@ -1,0 +1,70 @@
+site_name: Trait-bound Julia
+site_description: A design for traits in Julia, built as a patched compiler and a package
+site_url: https://traitjuliaprototype.github.io/julia-trait-bound/
+repo_url: https://github.com/TraitJuliaPrototype/julia-trait-bound
+repo_name: TraitJuliaPrototype/julia-trait-bound
+edit_uri: ""
+docs_dir: site-src
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      toggle: {icon: material/brightness-7, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      toggle: {icon: material/brightness-4, name: Light mode}
+
+markdown_extensions:
+  - tables
+  - admonition
+  - toc: {permalink: true}
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+plugins:
+  - search
+
+validation:
+  omitted_files: ignore
+  absolute_links: ignore
+  unrecognized_links: ignore
+  anchors: ignore
+  links:
+    not_found: ignore
+
+nav:
+  - Home: README.md
+  - For programmers:
+      - Traits for Julia: writeup/intro/traits-for-julia.md
+      - Results: writeup/intro/results.md
+  - For core developers:
+      - The design: writeup/design.md
+      - Mechanisms: writeup/design/mechanisms.md
+      - Changes to Julia: writeup/design/julia-changes.md
+      - Evidence: writeup/design/evidence.md
+      - Performance: writeup/design/performance.md
+      - Comparison with other languages: writeup/design/comparison.md
+      - Other languages, the research: writeup/other-languages.md
+      - Porting to traits: writeup/intro/porting.md
+      - Decisions: writeup/decisions.md
+      - Open issues: writeup/open-issues.md
+  - The record:
+      - Index: writeup/record/INDEX.md
+      - Writeup overview: writeup/README.md
+      - Proofs, wrapping by facts: writeup/explorations/wrapping-by-facts.md
+      - Strict mode: writeup/explorations/strict-mode.md
+      - Findings log: writeup/design-findings.md
+      - Environment and workflow: session-notes/00-environment-and-workflow.md
