@@ -9,14 +9,14 @@ For core developers. The design itself is the four [references](reference/README
 ### Traits
 
 The library, TraitWorld, works end to end:
-- **The design:** four rules, keys instead of representations, and `Callable` with `CompiledCall` and `DynamicCall`.
-- **The demonstrators** pass their suites: TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations and TraitReport.
+- **The design:** three rules, keys instead of representations, and `Callable` with `CompiledCall` and `DynamicCall`.
+- **The demonstrators** pass their suites: TraitDifferentialEquations, TraitMakie, and TraitReport with its packages TraitTables and TraitCSV. The ports of CSV.jl and DataFrames.jl pass their upstream suites (§6.1).
 
 | Measure | Traits | Plain Julia |
 |---|---|---|
-| Typed trait call | 0.8 ns | 0.8 ns |
-| Untyped trait call, through the table of declared implementations | about 29 ns | 17 ns |
-| Untyped trait call, type compiled ahead | about 14 ns | 15–17 ns |
+| Typed trait call (per call, build of 2026-10-19) | 0.8 ns | 0.8 ns |
+| Untyped trait call, through the table of declared implementations (per call, build of 2026-10-19) | about 29 ns | 17 ns |
+| Untyped trait call, type compiled ahead (per call, build of 2026-10-19) | about 14 ns | 15–17 ns |
 | `@implement` of a new type (TraitMakie) | 22–49 ms | — |
 | TraitReport, CSV to PNG in a fresh session | 0.82 s | Python: 0.6 s |
 
@@ -80,7 +80,7 @@ Measured on the CSV+DataFrames work under `all`, after the fix:
 
 **The next step:** one function, "the mode and owner of a MethodInstance's code", called from every place above. With it, "four mechanisms plus fixes" is literally true of the code.
 
-**A second gap in mechanism 2:** under `all`, plain results and results compiled by facts share the default owner's cache. A Base method called by the compiler can therefore reuse a result compiled by facts. Results stay correct; such calls are only slower. A clean version gives the test bed an owner of its own.
+**A second gap in mechanism 2:** under `all`, plain results and results compiled by facts share the default owner's cache. A Base method called by the compiler can therefore reuse a result compiled by facts. Results stay correct; such calls are only slower. The planned fix puts code compiled by facts under the facts owner `:facts` under `all` too, as in the product setting, so the default owner holds plain code only ([compiler C-2](reference/compiler.md#deviations), [facts F-2](reference/facts.md#deviations)).
 
 ## 5. Not yet established
 
@@ -97,8 +97,8 @@ The deviations of the implementation from the design are listed per reference, w
 ### 6.1 Today (2026-10-19)
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
-- **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the checks on a `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers (4.9), compiling ahead from declarations (4.8), concrete mode with the fully-typed certificate, `verify_main`, strict mode (protecting `:facts` code), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.dynamic_call` sites.
-- **Tests:** TraitWorld's 48 sets; acceptance 22/22; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
+- **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the checks on a `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers ([lowering §9.2](reference/lowering.md#92-untyped-callers-the-table-of-declared-implementations)), compiling ahead from declarations ([lowering §15.1](reference/lowering.md#151-compiling-ahead-from-declarations)), concrete mode with the fully-typed certificate, `verify_main`, strict mode (protecting `:facts` code), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.dynamic_call` sites.
+- **Tests:** TraitWorld's 48 sets; acceptance 23/23; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
 - **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
@@ -125,11 +125,11 @@ Not in the target
   the three old worktrees at the repository root
 ```
 
-Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorld's precompile workload and many tests ([`../open-issues.md`](open-issues.md) §2, "the design and the code disagree", item 7), and the three old worktrees are still at the repository root. What each of these was, and why it went: [`alternatives.md`](design/alternatives.md).
+Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorld's precompile workload and many tests ([open issues](open-issues.md) §2, "the design and the code disagree", item 7), and the three old worktrees are still at the repository root. What each of these was, and why it went: [`alternatives.md`](design/alternatives.md).
 
 ### 6.3 The order of work
 
-Steps 0, 1, 3, 4 and 5 of the speed plan ([`../plans/2026-10-19-principled-speed-plan.md`](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [`../plans/2026-10-19-remaining-performance-work.md`](plans/2026-10-19-remaining-performance-work.md):
+Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
 1. **Correctness first:**
    - the TraitMakie image flake;
    - a `const DynamicFn` in a package image (a stale pointer);
@@ -145,4 +145,4 @@ Steps 0, 1, 3, 4 and 5 of the speed plan ([`../plans/2026-10-19-principled-speed
 6. **Upstream proposals** (julia-changes §4).
 7. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
 
-What was done, in order, is in [`../record/design-history.md`](record/design-history.md) and the session notes.
+What was done, in order, is in [the design history](record/design-history.md) and the session notes.

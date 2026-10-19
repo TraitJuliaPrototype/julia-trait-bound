@@ -25,7 +25,7 @@ The two problems meet at abstract types: they are where code loses its types, an
 
 ## 3. The argument in four steps
 
-One term first. Code is **fully typed** when every call in it is at a *fact signature*, and so is every call in the code compiled into it, transitively. A fact signature is a tuple of concrete types, its union splits, the splits of unions of concrete element types inside tuple arguments (up to four), or a closure's call at kinds (section 5, rule 1). A type passed as a value to a function its caller does not own (`make(::Type{T})` at `T::DataType`) is a kind, and the call is not fully typed.
+One term first. Code is **fully typed** when every call in it is at a *fact signature*, and so is every call in the code compiled into it, transitively. A fact signature is a tuple of concrete types, its union splits, the splits of unions of concrete element types inside tuple arguments (up to four), a closure's call at kinds, or a tuple of concrete types ending in a concrete `Vararg` tail ([facts §3](../reference/facts.md#facts-and-fact-signatures)). A type passed as a value to a function its caller does not own (`make(::Type{T})` at `T::DataType`) is a kind, and the call is not fully typed.
 
 ### 3.1 Step 1: fully typed code is already invalidated only by stakeholders and pirates
 
@@ -71,11 +71,11 @@ Most code is not fully typed. Where inference ran at an abstract signature, the 
 ### 3.4 Step 4: traits say what code needs, which makes the facts rule cheap, and can enforce concreteness
 
 Traits make code fully typed where plain Julia would lose its types, by three mechanisms:
-1. **Concrete keys.** A function bounded by a trait is compiled per key: the receiver type and the declared fields' types. Its reads and calls are at concrete signatures. Type-stable code over concrete keys is fully typed, so it pays nothing for the facts rule. A trait may **enforce** concreteness (one declaration with a level: silent, warn, error; section 4.3), so that type-stable code bounded by it is always fully typed.
+1. **Concrete keys.** A function bounded by a trait is compiled per key: the receiver type and the declared fields' types. Its reads and calls are at concrete signatures. Type-stable code over concrete keys is fully typed, so it pays nothing for the facts rule. A trait may **enforce** concreteness (one declaration with a level: silent, warn, error; [traits §3.7](../reference/traits.md#37-concreteness)), so that type-stable code bounded by it is always fully typed.
 2. **Declared result types at abstract positions.** Where a value is heterogeneous on purpose, the heterogeneity is declared: `Dynamic{X}` for values, `Callable{A, S}` for functions. Their operations have declared result types, checked. They give back exactly what the facts rule takes away, a result type at an abstract call, from a declaration rather than from the methods that exist today.
-3. **Declared implementations.** The types a `Dynamic{X}` value can hold are those of the declared implementations, so an operation on it splits at the call site (`isa` branches, direct calls that inline, a dynamic fallback), as union splitting does, without an edge to the list (part D, section 6). This takes the place of the speculation the facts rule removes.
+3. **Declared implementations.** The types a `Dynamic{X}` value can hold are those of the declared implementations, so an operation on it splits at the call site (`isa` branches, direct calls that inline, a dynamic fallback), as union splitting does, without an edge to the list (part D; [facts §9](../reference/facts.md#dynamic-split)). This takes the place of the speculation the facts rule removes.
 
-Type-unstable code was never claimed to be fast in Julia. Under the facts rule it stays correct and gets slower in the tails. The design's answer is the user's principle: a slowdown is tolerated when redesigning the code with traits recovers it (the raytrace through `Dynamic`, section 8; `parse_json`'s tail is recovered by a plain-Julia fix as well, a typed capture).
+Type-unstable code was never claimed to be fast in Julia. Under the facts rule it stays correct and gets slower in the tails. The design's answer is the user's principle: a slowdown is tolerated when redesigning the code with traits recovers it (the raytrace through `Dynamic`, [evidence](evidence.md); `parse_json`'s tail is recovered by a plain-Julia fix as well, a typed capture).
 
 ### 3.5 The default: following pirates (rule P), and what it gives up
 
@@ -84,7 +84,7 @@ Step 2 is a switch. The default session leaves it off: a winning pirate is follo
 - **The compiled code is the same either way.** Strict mode acts only at a method's definition and at image activation (verified, `TraitWorld/src/strict.jl`).
 - **Two tiers of the guarantee:**
   - strict: invalidated only by a stakeholder's change. A static property of every environment that loads without a `PirateError`, with the exceptions of 3.2;
-  - default: invalidated only by a stakeholder's change or a pirate that wins at one of its facts. Whether one does is an empirical property of the environment. On the package prototype (`experiments/facts/g2all`) none did over twelve loads; on the compiler under `all`, 2 of 3,340 upstream CodeInstances were lost to nine loads and are not yet attributed, and one recompilation is diagnosed (a standard library's `vcat`, section 8).
+  - default: invalidated only by a stakeholder's change or a pirate that wins at one of its facts. Whether one does is an empirical property of the environment. On the package prototype (`experiments/facts/g2all`) none did over twelve loads; on the compiler under `all`, 2 of 3,340 upstream CodeInstances were lost to nine loads and are not yet attributed, and one recompilation is diagnosed (a standard library's `vcat`, [evidence](evidence.md)).
 - **What the default gives up:**
   - the kind of guarantee: a theorem becomes a measurement;
   - who learns: an error at the pirate's definition becomes a silent recompile;
@@ -96,13 +96,13 @@ Step 2 is a switch. The default session leaves it off: a winning pirate is follo
 
 The two goals are not independent.
 - **Goal 1:** composable caching of compiled code, and AOT: compiled code never invalidated unless code it depends on changes (steps 1–3).
-- **Goal 2:** code says what it needs, and compiled code serves every type that provides it (step 4, section 4).
+- **Goal 2:** code says what it needs, and compiled code serves every type that provides it (step 4; [traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for)).
 
 How they depend on each other:
 - **Goal 2 makes goal 1 cheap.** Concreteness makes the guarantee free: fully typed code pays nothing for the facts rule. Declared results and declared implementations recover what the facts rule takes from code that is heterogeneous on purpose.
 - **The facts rule makes goal 1 unconditional.** Code that is not fully typed does not lose the guarantee; it becomes run-time sites instead of fragile edges, and pays in speed only there.
 - **Goal 1 makes goal 2 worth having.** Code compiled per key is cached in the image that compiled it and is never discarded by an unrelated load, so the per-key copies are compiled once, not once per session.
-- **AOT follows from goal 2:** dispatch through trait code goes to declared targets that a build can list (section 4.8).
+- **AOT follows from goal 2:** dispatch through trait code goes to declared targets that a build can list ([traits §15](../reference/traits.md#15-compiling-ahead)).
 
 | Code | Guarantee | Cost of the facts rule |
 |---|---|---|

@@ -7,7 +7,7 @@ This page defines what Julia's compiler and runtime provide to the design: each 
 - The inventory of the changes, with commits, files and upstream status, is [`../design/julia-changes.md`](../design/julia-changes.md).
 - The patched Julia is `julia-1.13/`, branch `trait-world-1.13`, on v1.13.2. TraitWorld requires it.
 - Terms as in the [glossary](../glossary.md). The ones this page relies on most:
-  - a *fact* is a call signature that only its stakeholders or a pirate can change ([`facts.md`](facts.md#facts-and-fact-signatures));
+  - a *fact signature* is a call signature at which only its stakeholders or a pirate can change dispatch; a *fact* is what dispatch selects at one ([`facts.md`](facts.md#facts-and-fact-signatures));
   - a *run-time site* is a call compiled as a dynamic dispatch, with no edge;
   - a *cache owner* is the key under which Julia caches a `CodeInstance` (`CodeInstance.owner`); plain Julia's is `nothing`;
   - a *facts method* is a method whose code is always compiled by facts.
@@ -27,7 +27,7 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 | Mechanism | Implemented | Planned | Optional or Open |
 |---|---|---|---|
 | [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | Revalidating cached `return_type` answers after loads | Guarded devirtualization (Optional); standard libraries as owners of their own (Open) |
-| [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; an owner of its own for the test bed | A memo for the facts owner's normalization (Optional); facts code behind `jl_apply` (Open) |
+| [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too | A memo for the facts owner's normalization (Optional); facts code behind `jl_apply` (Open) |
 | [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | `Dynamic` beyond four implementations; a codegen-emitted cache (both Optional) |
 | [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.dynamic_call` | — | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
@@ -68,7 +68,7 @@ Lives in `Compiler/src/types.jl` and `Compiler/src/facts.jl`.
 **Meaning.**
 - `facts`: whether this interpreter infers calls only at facts (§1.2). `false` is plain Julia's inference.
 - `owner`: the cache owner of the code it infers and caches. `nothing` is plain Julia's cache; `:facts` is the cache of code compiled by facts beside plain code (§2.3).
-- The two fields are independent. Under the test bed, the default owner `nothing` holds code compiled by facts (§2.3).
+- The two fields are independent. Today, under the test bed, an interpreter with `facts = true` also caches under `nothing` (§2.3, [C-2](#deviations)).
 - Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules: `facts_mode` is `false` for it.
 
 **The process switch.**
@@ -76,8 +76,9 @@ Lives in `Compiler/src/types.jl` and `Compiler/src/facts.jl`.
   - `JULIA_COMPILE_BY_FACTS=1` (any value but `0`): on;
   - `JULIA_COMPILE_BY_FACTS=0`: off;
   - unset: the system image's default. An image built with the switch on keeps it on (`FACTS_IMAGE`).
-- With the switch on, every method not marked otherwise is compiled by facts under the default owner: *the test bed* (`all`). With it off, only facts methods are: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
+- With the switch on, every method not marked otherwise is compiled by facts: *the test bed* (`all`). Today that code is cached under the default owner ([C-2](#deviations)). With the switch off, only facts methods are compiled by facts: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
 - `--trim` turns the switch off (§2.10).
+- **Planned:** a command-line flag, `--compile-by-facts=no|all|traits`, in place of the environment variable; `--trim` implies `no`.
 
 **Rules.**
 - A package image records the system image, not the switch. Package images built under the test bed belong in a depot of their own.
@@ -158,7 +159,7 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 - `PlainRTInterp` is not a `NativeInterpreter`, so it infers every method plainly, facts methods included (§2.6).
 - An answer is the same as plain Julia's in the same world. Across worlds it moves exactly when plain Julia's does.
 
-**Planned: revalidation after loads.** When a load invalidates a cached answer, the answer's edges are checked bottom-up, and an answer whose inputs did not change is kept instead of inferred again (red-green revalidation). A differential test against stock Julia comes first: every logged query, answered by both, must give identical answers before and after the loads ([`../plans/2026-10-19-return-type-after-loads-plan.md`](../plans/2026-10-19-return-type-after-loads-plan.md) §3).
+**Planned: revalidation after loads.** When a load invalidates a cached answer, the answer's edges are checked bottom-up, and an answer whose inputs did not change is kept instead of inferred again (red-green revalidation). A differential test against stock Julia comes first: every logged query, answered by both, must give identical answers before and after the loads.
 
 ### 1.5 Effects
 
@@ -256,14 +257,14 @@ int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
 
 ### 2.3 The owners, and the mode and owner of a MethodInstance's code
 
-**Status: Implemented**, except the single function (**Planned**) and the test bed's own owner (**Planned**).
+**Status: Implemented**, except the single function (**Planned**) and the facts owner for code compiled by facts under the test bed (**Planned**).
 
 Three cache owners:
 
 | Owner | Holds | Code generated from it |
 |---|---|---|
-| `nothing` | plain Julia's code; under the test bed, code compiled by facts too | yes |
-| `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts beside plain code | yes |
+| `nothing` | plain code (today, under the test bed, code compiled by facts too: [C-2](#deviations)) | yes |
+| `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts | yes |
 | `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never |
 
 **The rule.** The mode and owner of the code for a MethodInstance `mi`, reached from code of a given mode:
@@ -273,8 +274,8 @@ Three cache owners:
 | a facts method (§2.2) | facts, `:facts` | facts, `:facts` |
 | never by facts (flag 0 in a module of flag 2) | plain, `nothing` | plain, `nothing` |
 | a boundary (flag 1) | the mode and owner that reach it | the mode and owner that reach it |
-| any other method, reached from plain code or from the runtime | plain, `nothing` | facts, `nothing` (Planned: facts, the test bed's owner) |
-| any other method, reached from facts code | facts, `:facts` | facts, the owner that reaches it |
+| any other method, reached from plain code or from the runtime | plain, `nothing` | facts, `:facts` (today `nothing`: [C-2](#deviations)) |
+| any other method, reached from facts code | facts, `:facts` | facts, `:facts` (today the owner that reaches it: [C-2](#deviations)) |
 
 So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code.
 
@@ -287,7 +288,7 @@ So an ordinary method has one copy per mode that reaches it. A facts method has 
 
 It uses one predicate for "the compiler's code": the module flag 2. Its name is not fixed. Today the rule is decided in several places ([C-1](#deviations)).
 
-**Planned: an owner of its own for the test bed.** Under the test bed, code compiled by facts gets an owner of its own, so it never shares a cache with plain code (the compiler, and the Base methods the compiler calls). Today they share the default owner's cache ([C-2](#deviations)).
+**Planned: the facts owner for the test bed too.** Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting. The default owner `nothing` holds plain code only. So plain code (the compiler, and the Base methods the compiler calls) never shares a cache with code compiled by facts ([`facts.md`](facts.md#the-mode-rule)). Today they share `nothing` ([C-2](#deviations)).
 
 ### 2.4 Compile requests
 
@@ -310,7 +311,7 @@ Lives in `src/gf.c`, `Compiler/src/typeinfer.jl` and `Compiler/src/facts.jl`.
 
 **Meaning.**
 - The runtime asks for code of an owner. `jl_type_infer` asks for `mi`'s default owner. The runtime's other entries take the owner explicitly (§2.5).
-- The single-request entry builds the interpreter of that owner: facts under `:facts`; under `nothing`, facts under the test bed except for the compiler's code.
+- The single-request entry builds the interpreter of that owner: facts under `:facts`; under `nothing`, facts under the test bed except for the compiler's code (today; [C-2](#deviations)).
 - `typeinf_ext` hands a facts method to a facts interpreter, whoever asks (reflection, compile queues).
 - A compile queue holds `CodeInstance`s of both owners. Each item is inferred by the interpreter of its own owner (`interp_for_owner`). Under the test bed, the compiler's code in a queue is inferred plainly (`interp_for_mi`).
 - Reflection shows the code that runs: `typeinf_frame` infers a facts method by facts.
@@ -344,7 +345,7 @@ Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
 - `@cfunction` callbacks, including `:caller_world` pointers (§3.1);
 - finalizers and task entry.
 
-This computes the same results. The plain code reached this way is plain Julia's, with plain Julia's validity. Whether these should run facts code is not decided (the review of 2026-10-19, [`../reviews/2026-10-19-compiler-implementation.md`](../reviews/2026-10-19-compiler-implementation.md) §2.4; no entry in [`../open-issues.md`](../open-issues.md) yet).
+This computes the same results. The plain code reached this way is plain Julia's, with plain Julia's validity. Whether these should run facts code is not decided ([open issues §2](../open-issues.md#2-design), "Facts code behind `jl_apply`"; [facts F-3](facts.md#deviations)).
 
 **Optional: a memo for the facts owner's normalization.** A call that arrives with a narrow MethodInstance looks up the wider instance's code on every call ([C-4](#deviations)). No measured workload reaches it. If one does, the fix is a memo from the narrow instance to the wider one's code, which invalidation of the wider code clears.
 
@@ -384,7 +385,7 @@ Neither owner infers the other's methods by its own rules.
 Lives in `Compiler/src/ssair/inlining.jl` (`handle_invoke_expr!`, `resolve_todo`, `compileable_specialization`) and `stmtinfo.jl` (`add_inlining_edge!`).
 
 **Meaning.**
-- **An `:invoke` of a given `CodeInstance` of another owner** inlines exactly that code (piece 10). The caller's own cache may hold different code for the same MethodInstance. Inlining it would run code the call never asked for.
+- **An `:invoke` of a given `CodeInstance` of another owner** inlines exactly that code. The caller's own cache may hold different code for the same MethodInstance. Inlining it would run code the call never asked for.
 - **A call to a method whose code belongs to the other owner** (§2.6) inlines that owner's cached code. Both `resolve_todo(mi, …)` look it up there when the caller's own cache misses.
 - When not inlined, the call is an `:invoke` of the other owner's `CodeInstance`.
 
@@ -394,7 +395,7 @@ Lives in `Compiler/src/ssair/inlining.jl` (`handle_invoke_expr!`, `resolve_todo`
 
 ### 2.8 Edges for a second owner
 
-**Status: Implemented** (piece 9).
+**Status: Implemented.**
 
 Lives in `src/gf.c` (`_invalidate_backedges`).
 
@@ -408,7 +409,7 @@ Replacing the method itself reaches callers of every owner.
 
 ### 2.9 What package images keep
 
-**Status: Implemented** (piece 5, and facts copies without source).
+**Status: Implemented**, including copies of code compiled by facts whose inferred source was discarded.
 
 ```c
 void jl_set_image_keep_compiled(int on);    // for the image being built in this process
@@ -447,7 +448,7 @@ Lives in `src/module.c` (`jl_method_is_facts`), `src/gf.c` (`jl_compile_by_facts
 
 ### 3.1 The `cfunction` calling convention `:caller_world`
 
-**Status: Implemented** (piece 18), with entries capped at the latest world ([C-3](#deviations)).
+**Status: Implemented**, with cache entries capped at the latest world ([C-3](#deviations)).
 
 ```julia
 Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), QuoteNode(:caller_world))
@@ -458,10 +459,10 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 **Meaning.**
 - A call through the pointer runs in the caller's world (the task's world age), as a direct call does. A plain `@cfunction` runs in the latest world, as a callback from C must.
 - The pointer's thunk is a world-checked call-site cache:
-  - each target the thunk has called is an entry: a function pointer, its `CodeInstance`, and a range of worlds;
+  - each target the thunk has called is a cache entry: a function pointer, its `CodeInstance`, and a range of worlds;
   - the range is where both hold: the dispatch of the signature (`jl_get_specialization1_worlds`), and the target's `CodeInstance`;
-  - a call whose world is in the current entry's range calls it directly;
-  - any other call looks for an entry of its world, or looks the target up in its world and adds one.
+  - a call whose world is in the current cache entry's range calls it directly;
+  - any other call looks for a cache entry of its world, or looks the target up in its world and adds one.
 - A thread with no world (a C callback) uses the latest world.
 - A signature that one method covers only in part dispatches dynamically, in the caller's world.
 
@@ -473,12 +474,12 @@ jl_value_t *jl_get_specialization1_worlds(jl_tupletype_t *types, size_t world,
 The MethodInstance for `types` in `world`, with the range of worlds where that answer holds, or `nothing` when the dispatch is not unique.
 
 **Rules.**
-- Entries are never freed. There is one per target, and targets are rooted by their MethodInstances' caches.
-- The callee's code is the default owner's: a facts method's facts code, any other method's plain code (§2.5).
+- Cache entries are never freed. There is one per target, and targets are rooted by their MethodInstances' caches.
+- Today the callee's code is the default owner's: a facts method's facts code, any other method's plain code (§2.5, Open; [facts F-3](facts.md#deviations)).
 
 ### 3.2 The per-call-site dispatch cache
 
-**Status: Implemented**, with exact-type entries capped at the latest world ([C-3](#deviations)).
+**Status: Implemented**, with exact-type cache entries capped at the latest world ([C-3](#deviations)).
 
 Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keyed by the call's return address. Stock Julia puts only leaf signatures there. The patched build adds two kinds of entries, for every dynamic call, plain and facts.
 
@@ -532,7 +533,7 @@ Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call
 
 ### 4.2 `Compiler.dynamic_call`: the call-site split
 
-**Status: Implemented** (part D).
+**Status: Implemented.**
 
 ```julia
 Compiler.dynamic_call(K, ::Type{RT}, f, x, args...)          # f(x, args...)::RT
@@ -561,7 +562,7 @@ Lives in `Compiler/src/facts.jl` (`abstract_dynamic_call`, `DynamicSplitInfo`), 
 
 ### 5.1 Method-definition and image-activation hooks
 
-**Status: Implemented** (piece 1).
+**Status: Implemented.**
 
 ```c
 void jl_set_method_definition_hook(jl_value_t *hook);   // hook(m::Method, after::Bool); nothing removes it
@@ -586,7 +587,7 @@ Lives in `src/gf.c` (`jl_method_table_insert`, `jl_run_image_methods_hook`) and 
 
 ### 5.2 Field-offset intrinsics
 
-**Status: Implemented** (piece 3), except fields stored inline that hold references ([C-7](#deviations)).
+**Status: Implemented**, except fields stored inline that hold references ([C-7](#deviations)).
 
 ```julia
 Core.Intrinsics.getfield_at_offset(obj, T::Type, off::Int)::T
@@ -609,7 +610,7 @@ Lives in `src/intrinsics.cpp`, `src/runtime_intrinsics.c`, `Compiler/src/tfuncs.
 
 ### 5.3 Type printers
 
-**Status: Implemented** (piece 17).
+**Status: Implemented.**
 
 ```julia
 Base.Experimental.register_type_printer(name::Core.TypeName, printer)   # printer(io, T); nothing removes it
@@ -712,13 +713,13 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 
 ## 7. Traits in the type system
 
-**Status: Planned, last** (pieces 7 and 8, [`../explorations/julia-support.md`](../explorations/julia-support.md)).
+**Status: Planned, last.**
 
 **The intended shape:**
 - **Membership as subtyping,** by declaration after the type is defined: `T <: ColTable`, `x isa ColTable` ([`traits.md` §16](traits.md#16-membership)).
 - **A trait bound as a dispatch tier** above `Any` and below every type.
 - **Entries and workers generated by the compiler.**
-- **Syntax** (piece 8): `trait`, `implement`, `Self`, a trait's name in a field meaning its `Dynamic`, bounds in `where` clauses.
+- **Syntax:** `trait`, `implement`, `Self`, a trait's name in a field meaning its `Dynamic`, bounds in `where` clauses.
 
 **Why last.** It removes the encodings TraitWorld needs today: entry methods at `Any`, tags for trait sets, sentinel methods, `conforms`. It changes the type system, so it comes once the demonstrators' numbers support the proposal.
 
@@ -728,8 +729,8 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Six places decide it: the single-request entry, `interp_for_owner`, `interp_for_mi`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. Two predicates: the module flag (`jl_method_is_plain`) and a module walk (`is_compiler_code`). They differ for a boundary or always-facts method inside the Compiler. A queue that missed the rule compiled the compiler by facts under the test bed (fixed in f13117cd74). | `Compiler/src/typeinfer.jl:1654`; `Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `src/gf.c:424`, `:4802`; `src/module.c:749` |
-| C-2 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | Under the test bed, code compiled by facts has an owner of its own. | It shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method called by the compiler can reuse a result compiled by facts: correct, but slower. | `Compiler/src/facts.jl:52`, `:60`, `:87`; `Compiler/src/typeinfer.jl:1658` |
+| C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Six places decide it: the single-request entry, `interp_for_owner`, `interp_for_mi`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. Two predicates: the module flag (`jl_method_is_plain`) and a module walk (`is_compiler_code`). They differ for a boundary or always-facts method inside the Compiler. | `Compiler/src/typeinfer.jl:1654`; `Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `src/gf.c:424`, `:4802`; `src/module.c:749` |
+| C-2 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting, and `nothing` holds plain code only. | Under the test bed, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method called by the compiler can reuse a result compiled by facts: correct, but slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [facts F-2](facts.md#deviations). | `Compiler/src/facts.jl:52`, `:60`, `:87`; `Compiler/src/typeinfer.jl:1657` |
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. | `src/gf.c:4610`; `src/runtime_ccall.cpp:424` |
 | C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3732` |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |

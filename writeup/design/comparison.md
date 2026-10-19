@@ -1,7 +1,7 @@
 # The choices against C++, Rust, Swift and Mojo
 
-A chapter of [The implementation in detail](implementation.md): how the design's main choices compare with the same choices in C++, Rust, Swift and Mojo, what the design pays for them, and what the other languages' experience predicts, for core developers, as of 2026-10-19.
-Where this chapter and [`implementation.md`](implementation.md) disagree, `implementation.md` wins.
+A chapter of the [rationale](../design.md): how the design's main choices compare with the same choices in C++, Rust, Swift and Mojo, what the design pays for them, and what the other languages' experience predicts, for core developers, as of 2026-10-19.
+Where this chapter and the [references](../reference/README.md) disagree, the references win.
 
 **Sources.** The research behind it is [`../other-languages.md`](../other-languages.md) (2026-10-16, from primary sources: Stroustrup's HOPL papers and WG21 papers, Rust RFCs, Swift Evolution proposals, Mojo's changelogs and proposals). Claims about other languages point there or carry a link; this chapter does not repeat that research. The "Ours" column of `other-languages.md` describes the design of its date; this chapter's is current ([`alternatives.md`](alternatives.md#claims-withdrawn)).
 
@@ -147,7 +147,7 @@ Rust's evidence for the pay-off of sharing (`other-languages.md`, "What is new i
 
 ## 4. Generic code is checked at its definition
 
-**The choice.** Library code is checked once, where it is defined, against its bounds alone, at archetypes: stand-in keys whose operations and fields return values of their declared types and nothing more ([`mechanisms.md`](mechanisms.md) §9). Open parameters and `Callable` result types are checked per signature at the first call.
+**The choice.** Library code is checked once, where it is defined, against its bounds alone, at archetypes: stand-in keys whose operations and fields return values of their declared types and nothing more ([traits §11](../reference/traits.md#11-checks-and-when-they-run)). Open parameters and `Callable` result types are checked per signature at the first call.
 
 **The others** (`other-languages.md` §2):
 - **C++0x** checked definitions through archetypes. The concepts compiler was "more than 10 times slower", constrained code sometimes compiled worse, and the specification ran to 91 pages. Concepts were removed in July 2009 ([HOPL4](https://www.stroustrup.com/hopl20main-p5-p-bfc9cd4--final.pdf) §6.2).
@@ -179,7 +179,7 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 - Implementations are methods, so the same rule says who may implement a trait for a type: the trait's owner or the type's owner.
 - Ownership is never claimed. A package extension belongs to its parent.
 - **Nothing is sealed, and no pirate is refused at load by default.** Strict mode, a switch, refuses a pirate only if it would win at a fact of compiled code (section 9).
-- Named implementations, which anyone could write, are deferred ([`mechanisms.md`](mechanisms.md) §4).
+- Named implementations, which anyone could write, are deferred ([traits §17](../reference/traits.md#17-named-implementations)).
 
 **The others** (`other-languages.md` §4):
 - **Rust.** The orphan rule is the same idea for single dispatch: "either the trait must be local or the self-type must be local" ([Matsakis 2015](https://smallcultfollowing.com/babysteps/blog/2015/01/14/little-orphan-impls/)).
@@ -235,7 +235,7 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 - **Dynamic data is explicit.** It follows Swift's lesson to spell the slow path where it is used, and to decide it before the ecosystem grows.
 
 **How `Dynamic{X}` dispatches: a call-site split, not a table.**
-- An operation on a `Dynamic` value is split at the call site over the declared implementations (at most four), with direct calls that inline, and a dynamic call as the last branch (part D; [`mechanisms.md`](mechanisms.md) §15). This is Julia's union splitting applied to a trait's implementations.
+- An operation on a `Dynamic` value is split at the call site over the declared implementations (at most four), with direct calls that inline, and a dynamic call as the last branch (part D; [traits §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type)). This is Julia's union splitting applied to a trait's implementations.
 - Rust's `dyn` and Swift's `any` call through a table of function pointers. The design does not: pointer tables break under world age and serialization, and a pointer runs in the latest world, not the caller's, which gave a wrong result when the package tried them ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)).
 - The split dispatches in the caller's world, as every Julia call does. Candidates are registered without an edge, so a new implementation reaches the fallback and invalidates nothing.
 - Measured ([`evidence.md`](evidence.md) §2): a sum over `Dynamic{Shape}` costs 0.92–1.40 ns per element against plain Julia's 0.87–0.91 with two types and 29.5–33 with four.
@@ -259,7 +259,7 @@ Sources: `other-languages.md` §8.
   - Workers compile per concrete key, where an associated type is a field's type or a type function evaluated on a concrete type.
   - Only definition checking reasons about them symbolically, and there they are first order: named variables with trait bounds, equal only through a shared variable, never recursive.
   - Parameters are associated types, one value per implementation, as Rust's RFC 195 argued (`explorations/associated-types.md`).
-  - Not offered: input parameters, equations between type functions, self-referential bounds ([`mechanisms.md`](mechanisms.md) §1).
+  - Not offered: input parameters, equations between type functions, self-referential bounds ([traits §3.4](../reference/traits.md#34-parameters-and-associated-types)).
 
 ## 8. Error messages
 
@@ -314,14 +314,14 @@ The design restricts what trait code may do, and only there.
    - `Dynamic` values;
    - values of declared types, asserted.
 3. **Trait objects see only their keys.**
-   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the implementation's inverse ([`mechanisms.md`](mechanisms.md) §13).
-   - A type whose data needs computing is converted explicitly, at the cost of a copy and no write-through ([`mechanisms.md`](mechanisms.md) §14).
+   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the implementation's inverse ([traits §7](../reference/traits.md#7-results-declared-types-like-withfields)).
+   - A type whose data needs computing is converted explicitly, at the cost of a copy and no write-through ([traits §5.11](../reference/traits.md#511-types-that-only-convert)).
 4. **Types come first.** A type caught by a type-annotated method takes it, even when it also conforms to a bound of the same function. Reaching the trait method needs a type no type method catches, or a newtype.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
    - About 4 ns for a dynamic call (measured on the earlier prototype, [`evidence.md`](evidence.md) §2).
    - A `Dynamic` operation: a split branch within four implementations, a dispatch beyond.
-   - An untyped call into trait code: 115–129 ns against about 55 for a plain untyped call ([`evidence.md`](evidence.md) §2).
+   - An untyped call into trait code: 115–129 ns per call against about 55 for a plain untyped call, on the evidence build; about 29 ns against 17 ns on the build of 2026-10-19 ([`evidence.md`](evidence.md) §2). The measurement round will update both.
 7. **Each new receiver type compiles the library once,** in its own image, and the implementation checks cost time: `@implement` of a new model type 142–164 ms in every load order ([`evidence.md`](evidence.md) §3).
 8. **The design needs a patched Julia.** Parts (A)–(D) and the kept pieces ([`julia-changes.md`](julia-changes.md)) are built in a patched 1.13.2, not upstream. Stock-Julia support is dropped. The trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
 9. **Overrides are fixed at the implementation.** A later method of an operation a default serves is refused, and changing it needs a restart until redeclaration is built ([traits §3.2](../reference/traits.md#32-defaults)). Plain Julia would follow the method.

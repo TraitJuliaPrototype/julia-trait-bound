@@ -7,12 +7,12 @@ This page is for Julia users and package authors. It covers:
 - one worked example;
 - what it costs, and what is not done yet.
 
-It assumes you know Julia. It does not assume you have read the design. The precise rules are in [`../design/implementation.md`](../design/implementation.md), written for Julia's core developers. The terms, with their origins in other languages, are in [`../glossary.md`](../glossary.md). The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
+It assumes you know Julia. It does not assume you have read the design. The precise rules are in the [references](../reference/README.md), written for Julia's core developers. The terms, with their origins in other languages, are in [`../glossary.md`](../glossary.md). The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
 
 **Status, 2026-10-19.** This is a research prototype:
 - a package, TraitWorld;
 - a patched build of Julia 1.13.2, which TraitWorld needs;
-- four demonstrators: an ODE solver, a plotting library, a data report (with its own CSV reader and table library), and ports of CSV.jl and DataFrames.jl.
+- four demonstrators: an ODE solver, a plotting library, a data report, and ports of CSV.jl and DataFrames.jl. The data report brings its own CSV reader and table library, two packages that count as part of it.
 
 Nothing is registered. Nothing is upstream.
 
@@ -282,7 +282,7 @@ A *trait object* is what a bounded function sees: your value, through the trait.
 
 ### 1. Compiled code that loading other packages does not discard
 
-The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [the argument §3](../design/argument.md#3-the-argument-in-four-steps) §3.)
+The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [the argument §3](../design/argument.md#3-the-argument-in-four-steps).)
 - A call whose argument types are all known is compiled as plain Julia compiles it.
 - A call whose argument types are not all known is not guessed at. It is dispatched when it runs, as Julia's dynamic dispatch does.
 - So compiled code depends only on calls whose types are all known. Only two kinds of change can alter one of those:
@@ -290,7 +290,7 @@ The patched compiler compiles trait modules in a new mode. (The design calls it 
   - a pirate whose method wins at that call.
 - So an unrelated package's load cannot discard the code, in any load order.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
-- A few exceptions remain in both settings, listed in [the argument §3.2](../design/argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached) §3.2.
+- A few exceptions remain in both settings, listed in [the argument §3.2](../design/argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached).
 
 **This protection comes from the compiler's facts mode, and it works for any code.** Upstream CSV.jl and DataFrames compiled in it lose 2 of 3,340 pieces of compiled code to nine unrelated loads, against 570 of 4,712 in Julia's usual mode, and their first work takes 0.7 s instead of 3.6 s ([`results.md`](results.md)). What traits add:
 - **The mode costs type-stable bounded code nothing.** A bounded function is compiled for the types the trait sees. If those are concrete, and its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. This follows from how the mode works; it has not been measured directly. Plain code that is not type-stable gets slower in this mode (see "What it costs").
@@ -346,7 +346,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 
 - A trait form's `using` takes 0.04–0.2 s longer than its plain twin's in the demonstrators.
 - `@implement` checks the implementation: about 0.08–0.3 s for a new type.
-- A call into trait code from code that does not know its argument types takes about 120 ns, against about 55 ns for a plain dynamic call.
+- A call into trait code from code that does not know its argument types takes about 29 ns per call, against 17 ns in plain Julia (build of 2026-10-19). An earlier build measured about 120 ns against 55 ns for a plain dynamic call. The measurement round will update these numbers.
 
 ### Not "compiled once for any type"
 
@@ -357,9 +357,9 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 
 - **Threads:** not tested.
 - **Revise and redefinition:** changing an implementation in a running session needs a restart.
+- **`where` variables in bounds:** a bounded function cannot yet name the trait's type parameters with `where`.
 - **Traits in the type system:** a trait is not yet a supertype that `isa` and subtyping understand. Until then:
   - outside trait modules, `Dynamic{X}` is written out;
-  - a bounded function cannot name the trait's type parameters with `where`;
   - `conforms(T, X)` answers "does type `T` implement trait `X`?" as a function.
 - **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refuses nothing; its load cost is 0.5 s on a 4.1 s load (measured on the previous prototype).
 - **Ahead-of-time binaries:** a trimmed TraitMakie binary is 4.07 MB (measured on the previous prototype).
@@ -369,4 +369,4 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 
 - [`results.md`](results.md): what the demonstrators show, with fair baselines.
 - [`porting.md`](porting.md): porting an existing package, one function at a time.
-- [`../design.md`](../design.md): the precise rules and the argument behind them.
+- [`../design.md`](../design.md): the argument behind the design; the precise rules are in the [references](../reference/README.md).

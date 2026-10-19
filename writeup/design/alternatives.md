@@ -1,6 +1,6 @@
 # Alternatives considered
 
-Designs that were tried, rejected or replaced, by topic. Each topic says what the design was, why it went, and what took its place. The current design is [`../design.md`](../design.md) and [`implementation.md`](implementation.md); nothing on this page is current unless it says so.
+Designs that were tried, rejected or replaced, by topic. Each topic says what the design was, why it went, and what took its place. The current design is the [references](../reference/README.md), with the rationale in [`../design.md`](../design.md); nothing on this page is current unless it says so.
 
 Dates and sessions are given briefly ("s23" is session 23). The register's superseded rows, with their full wording, are in [`../decisions.md`](../record/decisions.md#superseded-withdrawn-and-retired); closed issues are at the end of [`../open-issues.md`](../open-issues.md#closed-items). The notes before 2026-10-19 (four rules, layering, sealing, representations) are in [`../../attic/writeup/notes-2026-10-18/`](../../attic/writeup/notes-2026-10-18/), and the order in which things happened is in [`../record/design-history.md`](../record/design-history.md).
 
@@ -74,7 +74,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - **Rule 4, retired (s29, change 1 of `../reviews/2026-10-18-decisions-revisited.md`).** "Views and placement: compiled code is compiled against its owners' view and lives where the type was chosen." Both halves are Julia's own behaviour: what a call sees, and where compiled code lives ([traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for)). Rule 4's early binding had been meant as a deliberate choice, paying the price C++0x's `merge` and `copy` showed (Siek; prediction 10 of `../other-languages.md`). Under the facts rule a stakeholder's later method breaks the fact and recompiles, as in plain Julia, so the prediction dissolves for methods, and "shared compiled code not inlined across packages" (prediction 9) dissolves as a rule.
 - **"A trait module may not define a pirate"** became strict mode's refusal of a winning pirate, plus a lint.
 - **Ownership's earlier wording (rule 3, s22):** owners are packages, and delegation is by the owner only. Today delegates are data for strict mode, marked transitional; extensions count as their parent; a pirate is judged by the method's own signature (s27, decision 2).
-- **Today:** three rules: facts, ownership, the boundary ([the facts mode reference](../reference/facts.md)). The ownership section's long form in the old notes is stated by `implementation.md` §1, §3 and §5; Lemma O is in `../explorations/wrapping-by-facts.md`.
+- **Today:** three rules: facts, ownership, the boundary ([the facts mode reference](../reference/facts.md)). The ownership section's long form in the old notes is stated by [facts §1](../reference/facts.md#terms), [the argument §3](argument.md#3-the-argument-in-four-steps) and [traits §12](../reference/traits.md#12-who-may-implement-pirates-strict-mode); Lemma O is in `../explorations/wrapping-by-facts.md`.
 
 ## The facts policy as package code, replaced by the facts mode in Julia's compiler
 

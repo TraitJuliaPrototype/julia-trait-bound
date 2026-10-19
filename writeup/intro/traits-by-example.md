@@ -810,7 +810,7 @@ apply(f::Callable{Tuple{Float64}, S}, x::Float64) where {S} = f(x)              
 fit(f::Callable{Tuple{Vector{Float64}}, Float64, DynamicCall, @NamedTuple{tol::Float64}}, x::Vector{Float64}) = f(x; tol = 1e-6)
 ```
 
-Today neither is a `Callable` bound.
+Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: `Callable` takes three parameters.
 
 **A value seen through several traits:** `Dynamic{(Shape, Placed)}`.
 

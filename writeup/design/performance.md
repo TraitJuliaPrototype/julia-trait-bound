@@ -1,6 +1,6 @@
 # Performance: where the costs come from
 
-A chapter of [The implementation in detail](implementation.md): what the facts+traits compiler costs, where the costs come from, and what it teaches about placing code, on julia-1.13 with parts (A)–(D), as of 2026-10-19. The tables with builds and run counts are in [`evidence.md`](evidence.md); the detailed log, with every number, is `../../session-notes/2026-10-18-29-reviews-and-decisions.md`; the review of this work is `../reviews/2026-10-19-performance-phase.md`. How the numbers got here, from earlier builds, is in [`../record/design-history.md`](../record/design-history.md#the-performance-phase).
+A chapter of the [rationale](../design.md): what the facts+traits compiler costs, where the costs come from, and what it teaches about placing code, on julia-1.13 with parts (A)–(D), as of 2026-10-19. The tables with builds and run counts are in [`evidence.md`](evidence.md); the detailed log, with every number, is `../../session-notes/2026-10-18-29-reviews-and-decisions.md`; the review of this work is `../reviews/2026-10-19-performance-phase.md`. How the numbers got here, from earlier builds, is in [`../record/design-history.md`](../record/design-history.md#the-performance-phase).
 
 ## Where things stand
 
@@ -12,7 +12,7 @@ The runs are one process per load order (n = 1).
 | raytrace, small case | 4.7–5.3 ms, 3.8 MB | plain 3.9–4.7 ms, 3.3 MB |
 | sum over `Dynamic{Shape}` (cache-resident) | 0.92–1.40 ns per element | plain closed 0.87–0.91, plain with four methods 29.5–33 ns |
 | the same over 10⁶ elements | 4.5–5.7 ns | plain closed 3.9–4.0 ns |
-| typed call `total(x, 16)` | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns |
+| typed call `total(x, 16)`, a loop of 16, per call (julia 61852d8fb1) | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns. On the build of 2026-10-19: 0.8 ns per typed call, plain 0.8 ns; the measurement round will update both |
 | a varargs wrapper in a plain recursion (the review's probe) | 0.36–0.44 ms, 0 bytes (patched, plain code) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB |
 | TDE: a new model type, after CSV + DataFrames + CairoMakie | 148–164 ms, 89–133 ms | without loads: 142 / 82 ms (previous prototype: 0.16–0.23 s / 33–44 ms) |
 | TraitMakie: a new data type (forwarding), after the loads | 97 ms + 89–161 ms | without loads: 77 / 107 ms |
@@ -93,7 +93,7 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 
 - **The trait object's layout.** A `Dynamic` of an immutable value that is itself the receiver is a held view (TraitWorld 375a930), which holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen).
-- **Untyped calls:** two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object, 116 ns against about 55 for a plain untyped call. Type-unstable code was never claimed fast.
+- **Untyped calls:** two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object, 116 ns per call against about 55 for a plain untyped call (julia 61852d8fb1, TraitWorld 375a930). On the build of 2026-10-19, the table of declared implementations brings it to about 29 ns against 17 ns plain ([state](../state.md)); the measurement round will update both. Type-unstable code was never claimed fast.
 - **`@implement` of a new model type**, 142–164 ms in every load order: the implementation checks' plain-rule inference.
 - **Platform load cost:** the trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
 

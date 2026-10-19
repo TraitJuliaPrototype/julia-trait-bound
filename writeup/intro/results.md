@@ -61,14 +61,17 @@ This is the coding pattern traits bring: a package is extended by declaring an i
 
 | What | Trait form | Baselines |
 |---|---|---|
-| A bounded function called with known argument types | 36–38 ns | the same loop in plain Julia: 34–35 ns |
-| A bounded function called with an argument of unknown type | about 120 ns | a plain dynamic call: about 55 ns |
+| A bounded function called with known argument types, per call (build of 2026-10-19) | 0.8 ns | plain Julia: 0.8 ns |
+| The same, a loop over 16 elements, per call (an earlier build) | 36–38 ns | the same loop in plain Julia: 34–35 ns |
+| A bounded function called with an argument of unknown type, per call (build of 2026-10-19) | about 29 ns | plain Julia: 17 ns |
+| The same, on the earlier build | about 120 ns | a plain dynamic call: about 55 ns |
 | Sum of areas over 2,000 shapes kept as `Dynamic{Shape}` | 0.9–1.4 ns per element | plain Julia: 0.9 ns with two shape types, 30–33 ns with four |
 | The same over 10⁶ shapes (limited by memory) | 4.5–5.7 ns | plain Julia: 3.9–4.0 ns with two types, 34–36 ns with four |
 | A ray tracer over an open set of shape types | 300–340 ms, with two or with four types | plain Julia: 250 ms with two types, 830–880 ms with four |
 
 What this shows:
-- A typed call into trait code costs 5–12% more than the plain loop.
+- A typed call into trait code costs what a plain call costs (build of 2026-10-19). The earlier build's loop cost 5–12% more than the plain loop.
+- The measurement round on a quiet machine will update these call costs.
 - A mixed collection through `Dynamic` runs at 1.0–1.6× plain Julia's best case, and keeps that speed when more types join.
 - Plain Julia's best case holds only while it sees at most three matching methods. With four shape types the trait form is 2.5–3× faster in the ray tracer and 6–35× faster in the sums.
 - With two shape types, plain Julia is faster: 250 against 300–340 ms in the ray tracer.

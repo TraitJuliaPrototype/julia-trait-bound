@@ -23,7 +23,11 @@ The other documents explain, measure or record; none of them is normative:
 2. its meaning;
 3. its rules and checks, and when they apply;
 4. a short example where it helps;
-5. a one-line status: **Implemented**, **Planned** (decided, not built) or **Open** (not decided, linking [`../open-issues.md`](../open-issues.md)).
+5. a one-line status:
+   - **Implemented;**
+   - **Planned:** decided, not built;
+   - **Optional:** built only if a measurement or a demonstrator asks for it. An Optional item needs no deviation row;
+   - **Open:** not decided, linking [`../open-issues.md`](../open-issues.md).
 
 A Planned or Open item is written as the design intends it, not as the implementation does it today.
 
