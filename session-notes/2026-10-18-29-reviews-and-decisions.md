@@ -229,3 +229,16 @@ Log:
   - **Result:** an untyped call 28.9 ns (plain 15.2, specialized entries (b) 17), with the 16 bytes of the boxed result as in plain Julia. Twenty new types each called once: 1.0 ms in total (about 50 µs a type, against 6 ms), with one instance of the method for the key.
   - **Fixed on the way (an older TraitWorld bug):** `Erased` declared an abstract argument type as `Ref{T}`, a pointer to a slot, while the caller passes the value, so a `DynamicFn` with an abstract argument type crashed when it read the argument. It is now `Any`.
   - **Remaining cost:** the untyped caller's dispatch to the entry at `Any` (as in (b)), the lookup (about 5 ns), and the pointer call with boxed arguments (12 ns, against 4.5 for concrete ones). All suites green.
+- **The user asked for (b) for types compiled ahead and (c) for everything else: built.**
+  - For each tabled entry with one trait position, step 4 defines an entry method for `T`, in `T`'s package, and compiles it into the image: `f(x::T, …) = invoke(f, Tuple{Any, …}, x, …)`, the generic entry's folded path. The package owns `T`, so it is a stakeholder.
+  - `_is_entry` knows these methods by the module marker `__tw_ahead_entries__`.
+  - Untyped calls: a type compiled ahead about 14 ns; a type declared in a session about 25 ns.
+- **The user: "Is there a principled unifying thing that binds (c) and this together?"** The answer: world-checked polymorphic inline caches at dynamic call sites, with entries holding a code pointer and an environment.
+  - Plan: `writeup/plans/2026-10-19-inline-caches-plan.md`.
+  - The remaining work, updated: `writeup/plans/2026-10-19-remaining-performance-work.md`.
+  - Fable reviews both.
+- **Stage 0 and stage 1 of the inline caches** (`experiments/factscompiler/ic/README.md`):
+  - A dispatch to an ordinary method costs the same plain and under facts (13–17 ns). The facts tails come from calls to methods whose cache entries are not leaf signatures, which Julia's per-site `call_cache` cannot hold: `push!(::Vector{Any}, x)` took 69 ns.
+  - Stage 1 (`gf.c`, `call_cache_exact`) gives such a site an entry for the exact argument types, valid up to the latest world at insertion: 69 → 14 ns.
+  - The quick subset under `all`: geomean 0.93 against the morning, `collection` 0.60. Plain is unchanged.
+  - Acceptance 22 of 22 (the new G1.22); all suites green.
