@@ -47,30 +47,39 @@ validation:
 
 nav:
   - Home: README.md
+  - The references:
+      - Overview and conventions: writeup/reference/README.md
+      - Traits: writeup/reference/traits.md
+      - The facts mode: writeup/reference/facts.md
+      - Compiler and runtime: writeup/reference/compiler.md
+      - Lowering: writeup/reference/lowering.md
   - For programmers:
       - Traits for Julia: writeup/intro/traits-for-julia.md
+      - Traits by example: writeup/intro/traits-by-example.md
+      - The trait language reference: writeup/reference/traits.md
       - Results: writeup/intro/results.md
       - Glossary: writeup/glossary.md
   - For core developers:
-      - The design: writeup/design.md
-      - The implementation in detail:
-          - Terms, rules and decisions: writeup/design/implementation.md
-          - Mechanisms: writeup/design/mechanisms.md
-          - Changes to Julia: writeup/design/julia-changes.md
-          - Evidence: writeup/design/evidence.md
-          - Performance: writeup/design/performance.md
-          - Comparison with other languages: writeup/design/comparison.md
-          - Other languages, the research: writeup/other-languages.md
-          - Porting to traits: writeup/intro/porting.md
+      - The state of the prototype: writeup/state.md
+      - The rationale: writeup/design.md
+      - The argument in detail: writeup/design/argument.md
+      - Evidence: writeup/design/evidence.md
+      - Performance: writeup/design/performance.md
+      - Changes to Julia, the inventory: writeup/design/julia-changes.md
+      - Comparison with other languages: writeup/design/comparison.md
+      - Other languages, the research: writeup/other-languages.md
       - Alternatives considered: writeup/design/alternatives.md
-      - Decisions: writeup/decisions.md
       - Open issues: writeup/open-issues.md
+      - Porting to traits: writeup/intro/porting.md
       - Glossary: writeup/glossary.md
-  - The record:
+  - The record, for agents:
       - Index: writeup/record/INDEX.md
+      - Decision log: writeup/record/decisions.md
       - Writeup overview: writeup/README.md
       - Proofs, wrapping by facts: writeup/explorations/wrapping-by-facts.md
       - Strict mode: writeup/explorations/strict-mode.md
       - Findings log: writeup/design-findings.md
       - Design history: writeup/record/design-history.md
+      - Retired, the implementation in detail: writeup/design/implementation.md
+      - Retired, the mechanisms: writeup/design/mechanisms.md
       - Environment and workflow: session-notes/00-environment-and-workflow.md

@@ -15,15 +15,26 @@ Julia is fast once code is compiled, but compiled code is fragile: loading a pac
 3. **Control performance cliffs.** Code says what it needs, so its speed does not depend on what else is loaded or on how many types exist today. Where a slow path remains, it is where the code says so, or it is reported: values that are mixed on purpose are declared (`Dynamic`, `Callable`) and stay fast, and an abstract type that reaches a hot path is reported at its root cause.
    *Where it stands:* a sum over mixed shapes runs at 0.9–1.4 ns per element, near plain Julia's 0.9 ns with two shape types and far from its 30 ns with four. Concrete mode and the fully-typed certificate report the root causes.
 4. **Identical or error, with minimal changes to Julia.** A call computes what it computes in Julia today, or raises an error. Another package's method for types it does not own (piracy) is followed as in Julia today, or refused under an optional strict mode. Code written without traits keeps working, and a library adopts traits one function at a time.
-   *Where it stands:* the acceptance suite's 19 checks pass, including the adversarial cases found by reviews; the patched compiler's changes are proposals for upstream Julia.
+   *Where it stands:* the acceptance suite's 23 checks pass in both settings, including the adversarial cases found by reviews; the patched compiler's changes are proposals for upstream Julia.
 
 ## Where to start
 
+**The design is defined by four references**, each stating the intended shape first and, separately, where the implementation deviates from it (a Deviations table with stable IDs):
+
+| Reference | Defines |
+|---|---|
+| [Traits](writeup/reference/traits.md) | the trait language: syntax, meaning, checks and rules, for programmers and core developers |
+| [The facts mode](writeup/reference/facts.md) | what compiled code may assume, the guarantees, which code is compiled how |
+| [Compiler and runtime](writeup/reference/compiler.md) | what Julia's compiler and runtime provide |
+| [Lowering](writeup/reference/lowering.md) | how the trait language is built on them |
+
+Where any other document disagrees with them, they win ([conventions](writeup/reference/README.md)).
+
 | You are | Read |
 |---|---|
-| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then [`writeup/intro/results.md`](writeup/intro/results.md) |
-| a core developer | [`writeup/design.md`](writeup/design.md), the design in prose, and [`writeup/design/implementation.md`](writeup/design/implementation.md), the implementation in detail: together the source of truth; the details' chapters in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages; [`writeup/design/alternatives.md`](writeup/design/alternatives.md): the alternatives considered; [`writeup/intro/porting.md`](writeup/intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers |
-| an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/design.md`, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
+| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then the tutorial [`writeup/intro/traits-by-example.md`](writeup/intro/traits-by-example.md), the [trait language reference](writeup/reference/traits.md) and [`writeup/intro/results.md`](writeup/intro/results.md) |
+| a core developer | [`writeup/state.md`](writeup/state.md), the state in one page; the four references above; [`writeup/design.md`](writeup/design.md), the rationale; then [evidence](writeup/design/evidence.md), [performance](writeup/design/performance.md), the [changes to Julia](writeup/design/julia-changes.md), the [comparison with other languages](writeup/design/comparison.md), the [alternatives considered](writeup/design/alternatives.md) and the [open issues](writeup/open-issues.md) |
+| an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/state.md`, the references' Deviations tables, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace
 
@@ -56,6 +67,6 @@ Then build the patched Julia (`julia-1.13/tw-build.sh`, or `make` in `julia-1.13
 
 ## Conventions
 
-- One note per working session in `session-notes/`; decisions in `writeup/decisions.md`, open questions in `writeup/open-issues.md`, kept current when the design changes.
+- One note per working session in `session-notes/`; the design in `writeup/reference/`, the decision log in `writeup/record/decisions.md`, open questions in `writeup/open-issues.md`, kept current when the design changes.
 - Writing: short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon.
 - The machine is shared: one Julia job at a time (`flock /tmp/claude-1000/julia-review.lock`), niced; full builds alone, under a memory guard.
