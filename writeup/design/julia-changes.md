@@ -1,8 +1,102 @@
 # The changes to Julia, as built
 
-A chapter of [The implementation in detail](implementation.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2) adds, as of 2026-10-19. For core developers. [`implementation.md` §6](implementation.md#6-what-julia-provides) states what the design needs from Julia; this chapter is the inventory of what is built, with commits and upstream status. Where they disagree, `implementation.md` wins. The pieces are numbered 1–17 as in [`../explorations/julia-support.md`](../explorations/julia-support.md), which predates parts (A)–(D); pieces no longer part of the design are in [`alternatives.md`](alternatives.md#the-invalidation-filter-and-other-julia-pieces-reverted-or-moot).
+A chapter of [The implementation in detail](implementation.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2) adds, as of 2026-10-19. For core developers. [`implementation.md` §6](implementation.md#6-what-julia-provides) states what the design needs from Julia; this chapter gives the changes by principle, with what is planned and optional, then the inventory of what is built, with commits and upstream status. Where they disagree, `implementation.md` wins. The pieces are numbered 1–17 as in [`../explorations/julia-support.md`](../explorations/julia-support.md), which predates parts (A)–(D); pieces no longer part of the design are in [`alternatives.md`](alternatives.md#the-invalidation-filter-and-other-julia-pieces-reverted-or-moot).
 
-Size: 31 commits on v1.13.2 (one a build script), 35 files, about 1,280 lines added. The largest file is `Compiler/src/facts.jl` (446 lines), which holds the facts mode's rules.
+Size: 40 commits on v1.13.2 (with build scripts and the dispatch profiler), 36 files, about 1,750 lines added. The largest file is `Compiler/src/facts.jl` (469 lines), which holds the facts mode's rules.
+
+## The changes by principle
+
+The changes follow four mechanisms. Mechanisms 1 and 2 are the facts compiler. Mechanisms 3 and 4 are general improvements that the facts mode made necessary. Around them are hooks the library needs, fixes useful without traits, and one planned last step: traits in the type system.
+
+Status words:
+- **Built:** in the patched Julia today (the sections after this one list the commits).
+- **Planned:** decided, not built.
+- **Optional:** built only if a measurement or a demonstrator asks for it.
+- **Open:** not decided.
+
+| Mechanism | Built | Planned | Optional or open |
+|---|---|---|---|
+| 1. Infer across a call only where a fact holds | Part (A) | Revalidating cached `return_type` answers after loads | Guarded devirtualization (optional); standard libraries as owners of their own (open) |
+| 2. Each method is compiled in its own mode, whoever calls it | Parts (B), (C); calls and inlining between the modes; edges and images for the second owner | One rule in one function; an owner of its own for the test bed | The facts owner's normalization memo (optional); facts code behind `jl_apply` (open) |
+| 3. Caches at dynamic boundaries are checked against the caller's world | Caller-world `cfunction`s; exact-type and wildcard entries in the per-site cache | Entries with an open `max_world` | `Dynamic` beyond four implementations; a codegen-emitted cache (both optional) |
+| 4. Primitives for a specialized path beside a general one | `known_type`; `dynamic_call`, part (D) | — | — |
+| Hooks for the library | Definition hooks, field-offset intrinsics, type printers | Pieces 1′, 14, 15 for strict mode | — |
+| Fixes useful without traits | Two inliner changes; the run-time `return_type` entry; reflection in the compiler's world; the dispatch profiler | Upstream proposals (§4) | — |
+| Traits in the type system | — | Pieces 7 and 8, last | — |
+
+### Mechanism 1: infer across a call only where a fact holds
+
+**The principle.** A call is inferred, with an edge, only at a signature that only its stakeholders or a pirate can change: a *fact*. Every other call is a run-time site, dispatched when it runs. Code inferred this way is invalidated only by stakeholders and pirates ([`../design.md`](../design.md), the argument).
+
+- **Built: part (A)** (§1).
+  - `is_fact_sig`: a dispatch tuple; its union splits, up to four; unions of concrete elements in tuple arguments; a closure's call at kinds; a concrete `Vararg` tail.
+  - `return_type` folds only an answer that cannot be wider than plain inference's.
+  - No asserted effect applies to a frame with a run-time site (G1.10).
+- **Planned: revalidate cached `return_type` answers after loads.** A differential test against stock Julia first, then red-green revalidation of the cached answers instead of inferring again ([`../plans/2026-10-19-return-type-after-loads-plan.md`](../plans/2026-10-19-return-type-after-loads-plan.md)).
+- **Optional: guarded devirtualization at run-time sites** (step 2 of the speed plan). Postponed: only if untyped code under `all` still matters after the other items.
+- **Open: standard libraries as owners of their own** ([`../open-issues.md`](../open-issues.md) §1.19). Today they count as Julia's own code, so a load of SparseArrays that wins a call inside CSV is a stakeholder's change.
+
+### Mechanism 2: each method is compiled in its own mode, whoever calls it
+
+**The principle.** A method's mode (facts or plain) and its cache owner follow from the method alone, never from its caller. Code of both modes lives side by side, with its own caches, edges and images. A call from one mode into the other crosses explicitly.
+
+- **Built:**
+  - **The modes** (part B): the module option `facts=true`; `Method.facts` marks a boundary (compiled in the caller's mode) or always-facts code.
+  - **Dispatch** (part C): run-time sites in facts code run the callee's facts code (`jl_apply_generic_facts`, `jl_invoke_facts`).
+  - **Calls between the modes:** `leaves_to`. The compiler's own code is never compiled by facts (module flag 2), also in the compile queue that builds images (`interp_for_mi`).
+  - **Inlining between the modes:** piece 10, and inlining from the other owner's cache (c7f1eae1c0).
+  - **Edges and images for the second owner:** piece 9; piece 5; facts copies kept without source (9892bfc288).
+  - `--trim` turns the facts mode off.
+- **Planned: one rule in one function.** Which mode and owner a method's code gets is decided in five places today, with two predicates for "compiler code": the single-request entry, `interp_for_owner`, `leaves_to`, the runtime's `jl_method_is_plain`, `interp_for_mi`. One function, "the mode and owner of a MethodInstance's code", replaces them. A queue that missed the rule compiled the compiler by facts under `all`: the CSV+DataFrames work took 666 ms, about 505 ms with the rule applied.
+- **Planned: an owner of its own for the test bed.** Under `all`, plain results and results compiled by facts share the default owner's cache. A Base method called by the compiler can reuse a result compiled by facts: correct, but slower.
+- **Optional: a memo for the facts owner's per-call normalization.** A call that arrives with a narrow MethodInstance normalizes again on every call. No measured workload reaches it.
+- **Open: facts code behind `jl_apply`.** Dispatch through the runtime's `jl_apply` (splats of unknown length, `jl_call`, `@cfunction`, finalizers, task entry) runs plain code.
+
+### Mechanism 3: caches at dynamic boundaries are checked against the caller's world
+
+**The principle.** Every cache that skips a dispatch at run time holds world ranges and is checked against the caller's world, as Julia's method cache already is. A cache never decides which method runs; it only remembers what dispatch decided, for the worlds where that holds.
+
+- **Built:**
+  - the `cfunction` calling convention `:caller_world` (piece 18), for `Callable`'s `DynamicCall`;
+  - exact-type entries in the per-call-site dispatch cache, for calls whose cache entry is not a leaf signature (a9d3dcb345);
+  - wildcard entries for cache entries with only concrete or `Any` parameters (333bc61b01).
+- **Planned: entries with an open `max_world`.** Today a cached entry is capped at the latest world when it is made, so every cached site misses once after any method definition. The entry would refer to the typemap entry and the CodeInstance, whose `max_world` invalidation lowers. The same applies to the `cfunction` thunk.
+- **Optional:**
+  - **`Dynamic` beyond four implementations:** raise the split limit for `dynamic_call` only, or a per-site table of types and caller-world pointers. When a demonstrator has five implementations.
+  - **A codegen-emitted cache with direct calls:** only if profiles show lookup, not the call or the callee, dominating. The realistic gain is 3–8 ns per call.
+- **Not planned:** a hook by which a package substitutes the target of a call (for untyped trait calls). It would buy a few nanoseconds against today's table.
+
+### Mechanism 4: primitives for a specialized path beside a general one
+
+**The principle.** Library code can write two paths that compute the same result, and the compiler picks one from what inference knows. The choice changes speed, never the result.
+
+- **Built:**
+  - `Compiler.known_type(x)`: folds to whether inference knows `x`'s concrete type, `false` where it does not fold (GCC's `__builtin_constant_p`, for types). TraitWorld's entries take the inlined path for typed callers and the table of declared implementations for untyped ones.
+  - `Compiler.dynamic_call` (part D): a call site split over a trait's registered implementations, with a fallback, and no edge to the registry.
+
+### Hooks for the library
+
+- **Built:** method-definition and image-activation hooks (piece 1, strict mode); field-offset intrinsics (piece 3, trait objects); a registry of type printers (piece 17).
+- **Planned, for strict mode's intended design:** a deletion hook (1′); a read-only "what would this definition invalidate" query (14); image validation that reports the winning method (15).
+
+### Fixes useful without traits
+
+- **Built:**
+  - an invoke keeps the exact specialization over a widened varargs tail;
+  - an inference cycle's members inline each other;
+  - the run-time `return_type` entry compiled into the system image;
+  - reflection runs the native compiler in the compiler's world for an explicit `NativeInterpreter`;
+  - the dispatch profiler (`JULIA_FACTS_DISPATCH_PROFILE=1`): dynamic calls per callee and per call site, with a reset to profile one region.
+- **Planned:** propose them upstream (§4), the inliner changes after broader measurement in plain Julia.
+
+### Last: traits in the type system
+
+- **Planned, last: piece 7, then syntax (piece 8)** ([`../explorations/julia-support.md`](../explorations/julia-support.md)):
+  - membership as subtyping, by declaration after the type is defined (`T <: ColTable`, `x isa ColTable`);
+  - a trait bound as a dispatch tier above `Any` and below every type;
+  - entries and workers generated by the compiler.
+
+  It removes the encodings TraitWorld needs today: entry methods at `Any`, tags for trait sets, sentinel methods, `conforms`. It changes the type system, so it comes last, once the demonstrators' numbers support the proposal.
 
 ## 1. The facts compiler: parts (A)–(D)
 
@@ -21,7 +115,7 @@ Size: 31 commits on v1.13.2 (one a build script), 35 files, about 1,280 lines ad
 |---|---|---|---|
 | An invoke keeps the exact specialization inference made at concrete argument types when the compileable signature only widens a varargs tail (`only_vararg_widened`) | Without it, the widened specialization (`…, Vararg{Any}`) is inferred again at `Any` and boxes every argument: 72 MB per raytrace; a plain recursion through a varargs wrapper takes 21.9 ms on stock 1.13.2 and 0.36 ms with the change. Julia's other widenings (types and functions passed to arguments that do not specialize on them) stay. Broader forms are not safe ([`alternatives.md`](alternatives.md#the-inliner-changes-a-facts-only-form-then-a-narrower-general-form)). | all code | da4726c5cc, 61852d8fb1 |
 | An inference cycle's members are optimized callees first, each offered to the inliner of the members after it (`InliningState.cycle_results`) | Julia does not otherwise inline one member of a cycle into another, so a recursion through wrappers makes one call per wrapper per turn (rtopen 542 ms without the change, 384 ms with it) | all code | 4102b7a7a7, 61852d8fb1 |
-| The Compiler module is *never by facts* (module flag 2, inherited by submodules); `leaves_to(interp, method)` leaves a facts method to facts inference and a compiler method to plain inference; facts dispatch runs plain code for compiler methods (`jl_method_is_plain`) | Otherwise a facts caller of `Compiler.typeinf_frame` compiles the abstract interpreter by facts, and TraitWorld's checks run 6× slower. Boundary: direct calls into compiler functions from facts code hold plain edges (`implementation.md` §6) | facts code | c4f7e76a2f |
+| The Compiler module is *never by facts* (module flag 2, inherited by submodules); `leaves_to(interp, method)` leaves a facts method to facts inference and a compiler method to plain inference; facts dispatch runs plain code for compiler methods (`jl_method_is_plain`) | Otherwise a facts caller of `Compiler.typeinf_frame` compiles the abstract interpreter by facts, and TraitWorld's checks run 6× slower. Boundary: direct calls into compiler functions from facts code hold plain edges (`implementation.md` §6). Under the facts image, also every compile queue (`interp_for_mi`; the image builder's queue had compiled part of the compiler by facts: CSV+DataFrames work under `all` 666 → about 505 ms) | facts code | c4f7e76a2f, f13117cd74 |
 | Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`; `leaves_to` leaves to facts only from the plain owner | Otherwise, with an explicit interpreter, the compiler runs at the latest world, on code later definitions invalidate: 3.7 s per forwarding implementation after big loads | all code | bb82a82bbf |
 | `return_type_tfunc`'s facts signature is boxed | The facts addition captured type values in the tfunc's closure, so the closure was compiled again for every query (about 70 ms each) | all code (a fix of our own bug) | e4db37bb48 |
 | `_return_type(::NativeInterpreter, ::DataType)` compiled into the image (a compiler bootstrap entry) | Without it the run-time `return_type` entry has no code in the system image: 75–93 ms at its first call in every session, stock 1.13.2 too | all code | 40512f64c2 |
@@ -70,14 +164,15 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 5. Tests
 
-- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 22 checks:
+- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 23 checks:
   - G1, identical or error;
   - G2, stable caches;
   - the cases found by the reviews, G1.15–G1.19;
   - `DynamicCall` in older and alternating worlds, G1.20 and G1.21;
-  - a call site cached for exact types through a redefinition, G1.22.
+  - a call site cached for exact types through a redefinition, G1.22;
+  - a site cached for every type at an `Any` position, then a more specific method, G1.23.
 
-  22/22 on the current build.
+  23/23 on the current build, plain and under `all`.
 - **TraitWorld's suite** (48 test sets, with the untyped calls' table) and the demonstrators' suites, on every build; the examples, including the check of code compiled ahead (`experiments/examples/ahead/`).
 - **Missing** (review of 2026-10-19): targeted checks for the inliner changes (a varargs wrapper in a recursion; cycle inlining) and for the compiler-plain edges; Base's test suite under the facts mode (started once, not completed).
 
