@@ -6,10 +6,12 @@ The design, written for three audiences. Nothing has been deleted: superseded do
 
 - [`intro/traits-for-julia.md`](intro/traits-for-julia.md): what traits are, what you write, what you get, one worked example, the costs.
 - [`intro/results.md`](intro/results.md): what the demonstrators show, against fair baselines.
+- [`intro/traits-by-example.md`](intro/traits-by-example.md) and [`intro/reference.md`](intro/reference.md): a tutorial that uses every part of the trait language, and its precise definition, with what is implemented, planned or open.
 - [`glossary.md`](glossary.md): the project's terms in plain words, each with its origin in other languages or in Julia, and where it is defined precisely.
 
 ## For core developers: [`design.md`](design.md) and [`design/`](design/)
 
+- **[`state.md`](state.md), the state of the prototype:** where traits and the facts compiler stand, the compiler changes as four mechanisms, and what is not yet established.
 - **[`design.md`](design.md), the design:** the problem, the argument, traits, the rules, what Julia provides, what the evidence shows, what is not claimed, in prose. With [`design/implementation.md`](design/implementation.md) it is the source of truth: where another document disagrees with them, they win.
 - **[`design/implementation.md`](design/implementation.md), the implementation in detail:** the terms, the problem in cases, the argument with its exceptions, the trait language, the three rules precisely, what Julia provides, the decisions in force, the evidence in short, the software and the next steps. Its chapters:
   - [`design/mechanisms.md`](design/mechanisms.md): the mechanisms in detail (declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT);

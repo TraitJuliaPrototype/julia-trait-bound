@@ -36,6 +36,8 @@ This list continues `2026-10-19-principled-speed-plan.md`. It was revised after 
 
    Also the checks `implementation.md` §9.3 lists: the compiler-plain edges, held views, the inliner changes.
 4. **Threads:** the new caches add lock-free readers, and the evidence page lists threads as untested.
+5. **`verify_main` under `all` reports a run-time site in Base** (TraitWorld's `verify_dynamic.jl`, one of three checks): `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not flagged as an error path. Plain passes. It fails the same without the compile-queue fix (checked 2026-10-19 by a rebuild without it), so it predates it. Whether `verify_main` should treat Base's own run-time sites under the test bed as holes is to decide.
+6. **Done (2026-10-19): the compiler's own code under `all`.** The image builder's compile queue compiled part of the compiler by facts (julia-1.13 f13117cd74): CSV+DataFrames work 666 → about 505 ms, dynamic calls 2.05 M → 0.13 M.
 
 ## Performance, in order
 
