@@ -1,6 +1,6 @@
 # Traits by example
 
-This page builds a small geometry library with traits, one step at a time, and uses every part of the trait language on the way. Each step links to the precise rules in [Traits: the reference](reference.md). Why traits exist, and what they buy, is in [Traits for Julia](traits-for-julia.md). The terms are in the [glossary](../glossary.md).
+This page builds a small geometry library with traits, one step at a time, and uses every part of the trait language on the way. Each step links to the precise rules in [Traits: the reference](../reference/traits.md). Why traits exist, and what they buy, is in [Traits for Julia](traits-for-julia.md). The terms are in the [glossary](../glossary.md).
 
 Every example of an implemented feature runs as written. The scripts are in [`experiments/docs-examples/`](../../experiments/docs-examples/), with a README that says how to run them. A part that shows planned syntax says so in a note.
 
@@ -50,7 +50,7 @@ using .Geometry
 
 **A note on order.** A trait module is defined in one piece. The sections below show the library in parts, each marked "In `Geometry`". All of them go inside the one `@trait_module module Geometry … end`, in the order shown. The complete module is in `experiments/docs-examples/tutorial.jl`.
 
-Rules: [reference §2](reference.md#2-trait-modules).
+Rules: [reference §2](../reference/traits.md#2-trait-modules).
 
 ---
 
@@ -72,7 +72,7 @@ end
 - `describe` has a body: it is a **default**, written in terms of the other operations. A type may keep it or override it.
 - Declaring the trait defines no method for any type. No type conforms yet.
 
-Rules: [reference §3](reference.md#3-trait-declarations).
+Rules: [reference §3](../reference/traits.md#3-trait-declarations).
 
 ---
 
@@ -122,7 +122,7 @@ Defaults, and the forwarding of [§5](#5-forwarding-to-a-field), serve the libra
 
 **Who may write `@implement`:** the package that defines the trait, or the package that defines the type. Here the user's code defines `Circle` and `Rect`, so it may.
 
-Rules: [reference §5.1, §5.2](reference.md#51-with-a-block-of-methods), [§12.1](reference.md#121-who-may-implement).
+Rules: [reference §5.1, §5.2](../reference/traits.md#51-with-a-block-of-methods), [§12.1](../reference/traits.md#121-who-may-implement).
 
 ---
 
@@ -158,7 +158,7 @@ What it may not do: pass the trait object to an ordinary function (`length(s)`),
 
 **What it is compiled for.** `ratio` is compiled for what `Shape` can see of its argument: its *key*. For `Circle`, the key is `Circle`, the *receiver type* whose methods serve the operations. So `ratio` is compiled once for `Circle` and once for `Rect`, as plain Julia would.
 
-Rules: [reference §6](reference.md#6-bounded-functions), [§4](reference.md#4-keys-what-code-is-compiled-for).
+Rules: [reference §6](../reference/traits.md#6-bounded-functions), [§4](../reference/traits.md#4-keys-what-code-is-compiled-for).
 
 ---
 
@@ -190,7 +190,7 @@ ratio(Window(Rect(3.0, 3.0), Rect(1.0, 2.0)))       # 0.3333333333333333
 - Forwarding gives the bounded functions the field's behaviour. It adds no methods to `Tile` itself: `area(Tile(…))` called directly from plain code has no method.
 - Forwarding does not chain: the field's type must implement the operations itself.
 
-Rules: [reference §5.2, §5.3](reference.md#53-forwarding-with-by).
+Rules: [reference §5.2, §5.3](../reference/traits.md#53-forwarding-with-by).
 
 ---
 
@@ -242,7 +242,7 @@ greet(Book("Julia", 300))          # "hello, Julia"
 - A writable field needs a mutable type, a field that is not `const`, and exactly the declared type. `@const` fields may be in immutable types.
 - A trait with fields only has no receiver type. Its key is the fields' types. So every type with two `Float64` fields `x` and `y` runs the same compiled `move!`, whatever else it holds.
 
-Rules: [reference §3.3](reference.md#33-fields), [§5.4](reference.md#54-field-mappings).
+Rules: [reference §3.3](../reference/traits.md#33-fields), [§5.4](../reference/traits.md#54-field-mappings).
 
 ---
 
@@ -268,7 +268,7 @@ report(sp)        # "a shape of area 0.7853981633974483 at (1.0, 2.0)"
 - Both views read the same object, so they always agree.
 - A library can name a combination as a bundle, `@trait Sprite2D <: (Shape, Placed)`, and write `s::Sprite2D`.
 
-Rules: [reference §6.1](reference.md#61-bounds), [§3.6](reference.md#36-supertraits-and-bundles), [§5.5](reference.md#55-several-traits-at-once).
+Rules: [reference §6.1](../reference/traits.md#61-bounds), [§3.6](../reference/traits.md#36-supertraits-and-bundles), [§5.5](../reference/traits.md#55-several-traits-at-once).
 
 ---
 
@@ -288,7 +288,7 @@ Geometry.describe(c::Circle) = "a circle"
 
 To override a default, define the method before `@implement`, or in its block, as `Rect` did. To change an existing implementation, change the declaration and restart Julia.
 
-Rules: [reference §3.2](reference.md#32-defaults), [§5.10](reference.md#510-checks-at-the-declaration).
+Rules: [reference §3.2](../reference/traits.md#32-defaults), [§5.10](../reference/traits.md#510-checks-at-the-declaration).
 
 ---
 
@@ -316,7 +316,7 @@ fits(Circle(1.0); within = 42)                   # TraitBoundError: 42 conforms 
 - A keyword may be bounded, like `within`. It is translated at the call; it selects no method.
 - The elements of a vararg may be of different types: `largest` takes a `Circle`, a `Rect` and a `Tile` at once.
 
-Rules: [reference §8](reference.md#8-keywords-defaults-and-varargs).
+Rules: [reference §8](../reference/traits.md#8-keywords-defaults-and-varargs).
 
 ---
 
@@ -341,7 +341,7 @@ kind(42)              # "something else"
 - So a library can adopt traits one function at a time. Existing calls that reached a typed method keep reaching it.
 - Two bounds that are unrelated, `f(s::Shape)` and `f(p::Placed)`, need a method for both, `f(x::(Shape, Placed))`. Otherwise the module's definition fails with `TraitBoundError`.
 
-Rules: [reference §6.5](reference.md#65-dispatch-types-first-then-traits).
+Rules: [reference §6.5](../reference/traits.md#65-dispatch-types-first-then-traits).
 
 ---
 
@@ -377,7 +377,7 @@ nudged(sp)                                # a new Sprite, x = 2.0; `sp` is uncha
 - For a type that forwards, the result is the user's object rebuilt with the field replaced.
 - `withfields` replaces declared fields, for a trait with fields.
 
-Rules: [reference §3.5](reference.md#35-self), [§7](reference.md#7-results-declared-types-like-withfields).
+Rules: [reference §3.5](../reference/traits.md#35-self), [§7](../reference/traits.md#7-results-declared-types-like-withfields).
 
 ---
 
@@ -419,7 +419,7 @@ ratio(d)                          # 1.0
 - Passed to a bounded function, `ratio(d)`, a `Dynamic` runs the code compiled for what it holds.
 - A shape type declared later works at once, and discards no compiled code.
 
-Rules: [reference §10](reference.md#10-dynamicx-values-of-any-conforming-type).
+Rules: [reference §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type).
 
 ---
 
@@ -485,7 +485,7 @@ mean64([1, 2])                    # TraitBoundError: the bound fixes T = Float64
 
 > **Planned, not implemented:** naming a parameter with `where` in a bound, `f(s::Samples{T}) where {T}`, and reading `T` in the body. Today such a method is a plain method that never applies. Get the type from a value instead: `zero(sample(s, 1))` above. See [§20](#20-planned-syntax).
 
-Rules: [reference §3.4](reference.md#34-parameters-and-associated-types), [§5.6, §5.7](reference.md#57-families).
+Rules: [reference §3.4](../reference/traits.md#34-parameters-and-associated-types), [§5.6, §5.7](../reference/traits.md#57-families).
 
 ---
 
@@ -549,7 +549,7 @@ th = Threshold(dynamic_fn(Tuple{Float64}, Bool, x -> x > 1.0))
 countif(th, [0.5, 1.5, 2.5])      # 2
 ```
 
-Rules: [reference §9](reference.md#9-callable-functions-at-a-declared-signature).
+Rules: [reference §9](../reference/traits.md#9-callable-functions-at-a-declared-signature).
 
 ---
 
@@ -595,9 +595,9 @@ energy(Ring([3.0, 4.0]))  # 25.0
 - A more specific implementation, for one type, beats the generic one.
 - A generic implementation makes members only of a trait without declared fields.
 
-> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §5.8](reference.md#58-generic-implementations).
+> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §5.8](../reference/traits.md#58-generic-implementations).
 
-Rules: [reference §5.8](reference.md#58-generic-implementations).
+Rules: [reference §5.8](../reference/traits.md#58-generic-implementations).
 
 ---
 
@@ -664,7 +664,7 @@ end
 
 **Printing.** Types print by bound and key, not as the machinery's types. A trait object's type, in messages and stack frames, prints as `Shape at Circle`. A `Dynamic` prints as `Dynamic{Shape} at Circle`.
 
-Rules: [reference §11](reference.md#11-checks-and-when-they-run), [§12](reference.md#12-who-may-implement-pirates-strict-mode), [§14](reference.md#14-printing).
+Rules: [reference §11](../reference/traits.md#11-checks-and-when-they-run), [§12](../reference/traits.md#12-who-may-implement-pirates-strict-mode), [§14](../reference/traits.md#14-printing).
 
 ---
 
@@ -711,7 +711,7 @@ isfullytyped(fully_typed(Weights.wscaled, (Vector{Float64}, Vector{Any})))   # f
 
 > **Planned, not implemented:** one declaration with a level (silent, warn, error) replaces `@concrete_only`, `@warn_on_abstract` and `@error_on_abstract`. Its spelling is open.
 
-Rules: [reference §3.7](reference.md#37-concreteness), [§13](reference.md#13-concrete-mode).
+Rules: [reference §3.7](../reference/traits.md#37-concreteness), [§13](../reference/traits.md#13-concrete-mode).
 
 ---
 
@@ -747,7 +747,7 @@ sq([1.0, 2.0, 3.0])                 # 14.0: the pirate was never defined
 - Methods for your own types are never pirates.
 - Strict mode is off by default. It changes nothing at run time.
 
-Rules: [reference §12.3](reference.md#123-strict-mode).
+Rules: [reference §12.3](../reference/traits.md#123-strict-mode).
 
 ---
 
@@ -778,7 +778,7 @@ This section shows the layout of a package; it is taken from the demonstrators a
   Loading InlineStrings then discards none of the reader's compiled code.
 - `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`.
 
-Rules: [reference §15](reference.md#15-compiling-ahead).
+Rules: [reference §15](../reference/traits.md#15-compiling-ahead).
 
 ---
 
@@ -818,4 +818,4 @@ Today neither is a `Callable` bound.
 
 **Named implementations:** `Via{Fast}(m)`, a wrapper that selects a second implementation.
 
-The full list, with where each is decided: [reference §18](reference.md#18-status-index).
+The full list, with where each is decided: [reference §18](../reference/traits.md#18-status-index).

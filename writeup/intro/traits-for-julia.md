@@ -282,7 +282,7 @@ A *trait object* is what a bounded function sees: your value, through the trait.
 
 ### 1. Compiled code that loading other packages does not discard
 
-The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [`../design/implementation.md`](../design/implementation.md#3-the-argument-in-four-steps) §3.)
+The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [the argument §3](../design/argument.md#3-the-argument-in-four-steps) §3.)
 - A call whose argument types are all known is compiled as plain Julia compiles it.
 - A call whose argument types are not all known is not guessed at. It is dispatched when it runs, as Julia's dynamic dispatch does.
 - So compiled code depends only on calls whose types are all known. Only two kinds of change can alter one of those:
@@ -290,7 +290,7 @@ The patched compiler compiles trait modules in a new mode. (The design calls it 
   - a pirate whose method wins at that call.
 - So an unrelated package's load cannot discard the code, in any load order.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
-- A few exceptions remain in both settings, listed in [`../design/implementation.md`](../design/implementation.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached) §3.2.
+- A few exceptions remain in both settings, listed in [the argument §3.2](../design/argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached) §3.2.
 
 **This protection comes from the compiler's facts mode, and it works for any code.** Upstream CSV.jl and DataFrames compiled in it lose 2 of 3,340 pieces of compiled code to nine unrelated loads, against 570 of 4,712 in Julia's usual mode, and their first work takes 0.7 s instead of 3.6 s ([`results.md`](results.md)). What traits add:
 - **The mode costs type-stable bounded code nothing.** A bounded function is compiled for the types the trait sees. If those are concrete, and its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. This follows from how the mode works; it has not been measured directly. Plain code that is not type-stable gets slower in this mode (see "What it costs").

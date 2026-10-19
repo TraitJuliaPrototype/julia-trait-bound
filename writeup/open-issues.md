@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-19: the design, the prototype, the runtime and measurements, and the documents. The current design is [`design.md`](design.md) and [`design/implementation.md`](design/implementation.md); the decisions in force are in its §7 and, with their origins, in [`decisions.md`](decisions.md). The current measurements are `design/evidence.md`; what Julia gained is `design/julia-changes.md`.
+Everything known to be open, as of 2026-10-19: the design, the prototype, the runtime and measurements, and the documents. The current design is [`design.md`](design.md) and [`design/implementation.md`](design/implementation.md); the decisions in force are in its §7 and, with their origins, in [`decisions.md`](record/decisions.md). The current measurements are `design/evidence.md`; what Julia gained is `design/julia-changes.md`.
 
 Only open items are listed in sections 1–5. Items keep their numbers, so that references such as "§1.10" stay valid; the gaps are closed items, which are listed at the end, under [Closed items](#closed-items), with how and where they were closed. Commits are in the repository named (julia-1.13, TraitWorld, a demonstrator).
 
@@ -29,11 +29,16 @@ From the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md`):
 **From the acceptance suite and the design of `Dynamic`:**
 - **A world-checked call-site cache for `Dynamic` beyond four implementations** (`design/implementation.md` §4.5): built for `DynamicCall`'s pointers (piece 18); for `Dynamic`, to prototype and measure against the split and the fallback.
 
+**From the references (2026-10-19): Open items without an entry before**
+- **Facts code behind `jl_apply`.** Dispatch through the runtime's `jl_apply` (splats of unknown length, `jl_call`, `@cfunction`, finalizers, task entry) runs the default owner's code, so plain code for neutral methods in the product setting. Whether every way facts code dispatches should run facts code ([facts F-3](reference/facts.md#deviations); [compiler §2.5](reference/compiler.md#25-dispatch-from-facts-code)).
+- **The setting as part of a package image's key.** Images are not keyed by the setting (product or test bed), nor by `--trim` ([facts F-7](reference/facts.md#deviations)).
+- **`verify_main` under the test bed** reports a run-time site in Base (`convert(Type{AbstractString}, ::Any)` inside `DomainError`) as a hole. Whether Base's own run-time sites under `all` count as holes ([facts F-8](reference/facts.md#deviations)).
+
 **Keys and fields**
 1. A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, so every read is followed by a dispatch.
 2. Fields stored inline that are not isbits (an immutable struct holding references): read through `getfield`, or loaded inline by a runtime.
 3. A layout that copies the fields, opt-in per trait, for GPU kernels and other isbits-only targets; valid only for traits without writable fields.
-4. Forwarding for a whole family of user types, `Series{T} by data`: designed (4-details "Parametric user types"), not prototyped.
+4. Forwarding for a whole family of user types, `@implement X Series{T} by data where {T}`: planned ([traits §5.7](reference/traits.md#57-families)), not prototyped.
 5. Mutable and immutable state families: `u` writable in one and `const` in the other. Either two traits, or field constness that depends on the family (solvers.md §11.7).
 
 **Parameters and types**

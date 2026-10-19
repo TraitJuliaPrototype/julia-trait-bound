@@ -56,7 +56,7 @@ Several costs were session-time work that no image kept: the checks' private cac
 The forks' `String15` workload extension (`CSVDataFramesInlineStringsExt`) is a workaround (review D3):
 - The need is partly self-made: upstream CSV has InlineStrings as a hard dependency, and the forks made it a weak one.
 - Workload extensions per package combination are hand-written and combinatorial; nothing in the design derives one from a declaration.
-- The design's own answer is [`implementation.md` §4.8](implementation.md#48-aot-follows-from-declared-targets) ("AOT follows from declared targets"): an implementation declared in `CSVInlineStringsExt` should compile the reader's declared workers for the new key at precompile time. DataFrames' kernels over a `String15` column belong in a DataFrames image.
+- The design's own answer is [traits §15](../reference/traits.md#15-compiling-ahead) ("AOT follows from declared targets"): an implementation declared in `CSVInlineStringsExt` should compile the reader's declared workers for the new key at precompile time. DataFrames' kernels over a `String15` column belong in a DataFrames image.
 
 The `String15` read without the three-way extension (with the check by facts alone) has not been measured.
 
@@ -64,7 +64,7 @@ The `String15` read without the three-way extension (with the check by facts alo
 
 A new implementation after big loads costs about what it costs without them (TDE 148–164 / 89–133 ms against 142 / 82 ms; TraitMakie 97 / 89–161 ms against 77 / 107 ms). That is not yet "the only load-dependent cost". Other rows still differ after loads: TDE's row 4 after loads 171 ms against 12; row 1 with the loads before 27.8 against 10.0 ms; TraitMakie's recolour 231 against 102 ms (n = 1).
 
-One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([`implementation.md`](implementation.md#1-terms) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
+One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([glossary](../glossary.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
 ## The control: whose property is load protection?
 
@@ -114,5 +114,5 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 ## Not done
 
 - Python's baseline was not rerun: its venv is gone from `/tmp`.
-- Like-for-like TraitReport forms under loads (form (t) against the previous prototype's form (t)); the session harness after the `String15` fixes; the BaseBenchmarks row of [`implementation.md` §3.3](implementation.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed) on the current compiler.
+- Like-for-like TraitReport forms under loads (form (t) against the previous prototype's form (t)); the session harness after the `String15` fixes; the BaseBenchmarks row of [the argument §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed) on the current compiler.
 - Acceptance checks for the inliner changes (cycle inlining, compileable signatures) and the compiler-plain edges.

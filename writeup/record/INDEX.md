@@ -11,7 +11,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
   - `results.md`: what the demonstrators show, in plain words;
   - `porting.md`: how to port a package (was `writeup/porting-to-traits.md`).
 - **Core developers** (the precise rules and the major implementation choices):
-  - [`../design.md`](../design.md): **the source of truth**, the design in prose; with [`../design/implementation.md`](../design/implementation.md), "The implementation in detail" (terms, problem, argument, traits, rules, Julia, decisions in force, evidence, software; the section numbers 1–9 that older documents cite as `design.md` §N);
+  - [`../reference/`](../reference/README.md): **the source of truth** for the intended shape (since 2026-10-19): `traits.md`, `facts.md`, `compiler.md`, `lowering.md`, each with a Deviations table (IDs T-, F-, C-, L-). [`../design.md`](../design.md) is the rationale; [`../design/implementation.md`](../design/implementation.md) and `mechanisms.md` were retired into the references (older documents cite their section numbers);
   - [`../design/`](../design/), the chapters of the details:
     - `julia-changes.md`: every change to Julia as built (parts A–D, optimizer changes, pieces kept and reverted);
     - `evidence.md`: the current measurements, one table per demonstrator and experiment;
@@ -29,7 +29,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 ## How to resume work
 
 Read, in this order:
-1. [`../design.md`](../design.md), the design, then [`../design/implementation.md`](../design/implementation.md): the decisions in force (§7), the evidence (§8), the software and the next steps (§9).
+1. [`../state.md`](../state.md), then the references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
 2. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 3. The latest session note, [`../../session-notes/2026-10-18-29-reviews-and-decisions.md`](../../session-notes/2026-10-18-29-reviews-and-decisions.md):
    - its "Next" section is from the start of session 29 and is done;
@@ -49,7 +49,7 @@ On 2026-10-19 the terms changed: the noun 'conformance' became 'implementation',
 
 ## Where to look for…
 
-- **A decision's history:** [`../decisions.md`](../decisions.md).
+- **A decision's history:** [`decisions.md`](decisions.md), the decision log (moved into the record on 2026-10-19).
   - Rows in force are grouped by topic; the rows marked **history**, superseded, withdrawn or retired, are in its last section, with the status column saying by what.
   - The reasons, by topic: [`../design/alternatives.md`](../design/alternatives.md); the order of events: [`design-history.md`](design-history.md).
   - The user's own words are quoted in the status column, and in full in the session note of that session.
@@ -152,7 +152,7 @@ Earlier reviews, elsewhere:
 
 | Path | Date | Status | What it holds |
 |---|---|---|---|
-| [`../decisions.md`](../decisions.md) | 2026-10-19 | current as the register; the state in force in short is implementation.md §7 | every decision in force by topic, with status, origin, where it is written, and whether the prototype runs it; the superseded rows at the end |
+| [`decisions.md`](decisions.md) | 2026-10-19 | current as the decision log, in the record for agents; the design itself is in the references | every decision in force by topic, with status, origin, where it is written, and whether the prototype runs it; the superseded rows at the end |
 | [`../open-issues.md`](../open-issues.md) | 2026-10-19 | current | everything open: §1 decisions for the user, §2 design, §3 TraitWorld, §4 runtime and measurements, §4b the session-23 review's triage, §5 documents; closed items at the end, under their numbers |
 | [`../design/implementation.md`](../design/implementation.md) | 2026-10-19 | current, with `design.md` the source of truth | "The implementation in detail": the precise sections that were `design.md` §1–9, and the index of its chapters |
 | [`../design/alternatives.md`](../design/alternatives.md) | 2026-10-19 | current as history | designs tried, rejected or replaced, by topic: each with the reason and what replaced it |
