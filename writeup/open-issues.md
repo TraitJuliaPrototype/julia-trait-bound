@@ -91,6 +91,29 @@ New at the end of session 29 (the compiler as built; `decisions.md` "Session 29,
 27. **The B1 boundary: facts code that calls compiler functions directly** (the performance review of 2026-10-19, B1). TraitWorld's machinery calls `argextype`, `widenconst` and `sptypes_from_meth_instance`. Such calls hold edges to plain compiler code, whose validity is plain Julia's. Documented, not fixed (`design.md` §6). The reason: a rule that ran such calls in the compiler's world would break packages that extend the compiler for their own interpreter types. The loss is cacheability, not correctness: the nine-package load loses no facts code of TraitWorld.
 28. **AOT from declared targets** (`design.md` §4.8, §9.3 step 4). A conformance should compile the declared workers for its key at precompile time. This would replace hand-written workload extensions such as the forks' `CSVDataFramesInlineStringsExt` (CSV + DataFrames + InlineStrings, forks 9d512a1), which the performance review calls a workaround. Not built.
 
+
+### Found in the writeup cleanup (session 29, 2026-10-19): the design and the code disagree
+
+Found while writing `design/mechanisms.md` and `intro/` from the code. Each is to decide (design or code) and then align:
+1. **Pirates in trait modules:** the prototype refuses any pirate defined in a trait module at the module's definition (`OwnershipError`); `design.md` describes strict mode's refusal of a winning pirate plus a lint. The code is stricter than the design.
+2. **Generic implementations' predicates:** the design requires patterns on the constraints' parameters, never computed conditions; a test uses `eltype(R) == Vector{Float64}`; there is no overlap check.
+3. **`@implement X T dynamic by f`** (the `Dyn` witness, pointers per session, not in a closed world) still exists in the prototype; `design.md` does not mention it.
+4. **`Dynamic{X}` contents:** `design.md` §4.5 says it holds the user's object; the code keeps a narrowed trait object (`_narrow`), which holds or reads the user's object. What a reader sees is the same; the narrowing should be stated or removed.
+5. **In the design, not built:**
+   - `Callable{A,S,M,K}` with keywords (the code has three parameters);
+   - bounded closures, a `Callable` returning a `Callable`;
+   - forwarding for a whole family;
+   - the supertrait agreement check;
+   - `Dynamic` serialization and a trait's own `==`;
+   - inverses listed for AOT.
+
+   The code also caps dynamic calls at 6 arguments and refuses a vararg of `Callable`.
+6. **The concreteness levels** are still three macros (`@concrete_only`, `@warn_on_abstract`, `@error_on_abstract`); the single declaration with a level is adopted, not built.
+7. **The `{R}` spelling and `project(t) = …`** remain in TraitWorld's own precompile workload and many tests; `design.md` §9.2 lists them for deletion.
+8. **TraitWorld has no README.**
+9. **The demonstrators' READMEs** still say `JULIA_TW_VIEWCACHE=0` in their "Running" sections; view caches are deleted.
+10. **TraitDifferentialEquations' README** says 10 `RESULT` lines; the session note records 9 on the new compiler: recount.
+
 ## 3. TraitWorld (the prototype)
 
 *(Reworded in s29: the state of session 25 below is history.)* State (end of session 29): TraitWorld 375a930, 47 test sets, on julia-1.13 61852d8fb1. It requires the patched build: stock support is dropped. Its own policy is deleted: Julia's compiler compiles trait modules by facts (TraitWorld c533f3a). Contents: `design.md` §9.1.
