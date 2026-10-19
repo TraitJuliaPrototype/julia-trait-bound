@@ -251,3 +251,5 @@ Log:
   - Order: correctness and the measurement round first.
 - **The direct check (the user asked for it):** with stage 1 off, `push!(d, pop!(d))` under `all` takes 61.7 ns, and the profile is all lookup (`lookup_arg_type_tuple`, `jl_typemap_assoc_exact`), with no normalization. With stage 1 on, 12.9 ns. The tails were the lookup; the review's path is real but latent.
 - Plan and list revised accordingly (correctness first; the measurement round; step 5; the ~990 ms; the remaining call-site work behind them).
+- **The facts owner's per-call normalization (the review's §2): not reached.** A temporary counter at the branch of `jl_compile_method_internal_owner` saw no call in the `collection` and `sort` tails under `all`, in untyped trait calls, nor in the CSV + DataFrames control work. Dynamic dispatch hands over the wide instance. Left as it is, recorded as latent in the plan.
+- **Seen on the way:** untyped trait calls under `all` take about 60 ns, against about 29 ns plain, for types declared in the session (the table path). Something on the (c) path is still slow under facts; it goes to the measurement round.

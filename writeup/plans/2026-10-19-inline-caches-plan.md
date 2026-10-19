@@ -37,8 +37,8 @@ This is the review's recommended form: a change to Julia's existing per-site cac
    - The sound, simpler form: the entry refers to the typemap entry and the CodeInstance, whose `max_world` Julia lowers on invalidation (`invalidate_mt_cache`). A hit compares the world with both ranges.
    - The same applies to step 1's thunk.
 2. **The facts owner's per-call normalization** (review §2). `jl_compile_method_internal_owner` returns the wider instance's CodeInstance for a non-default owner without keeping anything on the narrow instance, so a call that arrives with a narrow instance (an `invoke` naming a specialization, the first dispatch of a signature) normalizes again on every call. It is not what the measured tails paid (§1), but it is a latent cost per call.
-   - Fix: a memo from the narrow instance to the wider one.
-   - Copying the CodeInstance onto the narrow instance, as the plain owner does, needs an answer first: invalidation lowers the original's `max_world`, not the copy's.
+   - **Measured: not reached.** A temporary counter at that branch saw no call in the `collection` and `sort` tails under `all`, in untyped trait calls, nor in the CSV + DataFrames control work. Dynamic dispatch hands over the wide instance, which has its own code.
+   - Left as it is, and recorded as latent. If a workload reaches it, the fix is a memo from the narrow instance to the wider one. Copying the CodeInstance onto the narrow instance, as the plain owner does, needs an answer first: invalidation lowers the original's `max_world`, not the copy's.
 3. **Profile the remaining tails before building more.** After stage 1, `filter!` on `Vector{Any}` takes 35 ns per element under `all`: lookup about 15%, the call through the CodeInstance about 18%, the GC. Then:
    - `Dict` iteration on `Any` (7 → 115 ns);
    - the `sumrange_view` family, an inlining question.
