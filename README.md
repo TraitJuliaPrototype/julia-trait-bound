@@ -26,7 +26,18 @@ This directory is the design repository. Nine repositories sit inside it, each w
 | `forks/` | demonstrator | CSV, DataFrames and Tables ported to traits, against upstream, with the upstream test suites |
 | `experiments/` | experiments | the smaller prototypes and measurements: `facts/` (acceptance, the framing cases), `factscompiler/` (the compiler's measurements, the control), `examples/` (worked examples for each rule), and earlier phases ([`writeup/record/INDEX.md`](writeup/record/INDEX.md) lists them) |
 
-These repositories have no remotes yet.
+All of them are in the GitHub organization [TraitJuliaPrototype](https://github.com/TraitJuliaPrototype), each under its directory's name (the design repository as `julia-trait-bound`, the patched Julia as a fork, `julia`, on branch `trait-world-1.13`). The packages' environments refer to their siblings by relative path, so clone them side by side:
+
+```sh
+git clone https://github.com/TraitJuliaPrototype/julia-trait-bound
+cd julia-trait-bound
+for r in TraitWorld TraitDifferentialEquations TraitMakie TraitTables TraitCSV TraitReport forks experiments; do
+    git clone https://github.com/TraitJuliaPrototype/$r
+done
+git clone -b trait-world-1.13 https://github.com/TraitJuliaPrototype/julia julia-1.13
+```
+
+Then build the patched Julia (`julia-1.13/tw-build.sh`, or `make` in `julia-1.13/`). Some environments (`TraitReport/env_loads`) still name absolute paths of the original workspace.
 
 ## Conventions
 
