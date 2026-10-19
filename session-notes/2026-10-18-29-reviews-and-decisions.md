@@ -270,3 +270,17 @@ Log:
     - the session's first PNG 21 → 48 ms, a GC of 26 ms that now falls there (TraitWorld's image 38 → 42 MB).
   - **Remaining:** the compiler's reflection code compiled again after loads (`typeinf_code` about 43 ms, `findsup_mt`): its plain code is invalidated by loads. TraitMakie's own API compiles per user type, as plain Julia does.
   - All suites green, acceptance 22 of 22.
+- **The short measurement round** (quiet machine, `experiments/factscompiler/round/logs/`; the full BaseBenchmarks and the full demonstrator harness overnight):
+  - DynamicCall pointer 4.06 ns.
+  - Untyped trait call 28.6 ns plain, 59.9 ns under `all` (then fixed, below); typed trait call 0.8 ns.
+  - Quick subset `all`/plain 1.73 (1.97 in the morning).
+  - Upstream CSV + DataFrames under `all`: first work 724 ms (plain 3,234); after the nine loads 684 ms (plain 3,917; 990 in the morning); 2 of 3,337 lost (plain 571 of 4,714).
+  - TraitMakie, clean: forwarding `@implement` 22 ms, colour 49 ms; after the loads: forwarding 40 ms.
+  - TDE: a new model type's `@implement` 60 ms, first solve 42; `Float32` state 364 ms; ForwardDiff's own tag 579.
+  - TraitReport: wall 0.82 s (t), 0.79 (pt). The Python baseline was not rerun (its environment in /tmp is gone).
+- **Untyped trait calls under `all`: 59.9 → 29.5 ns, 32 → 16 bytes, the same as plain.**
+  - The certificate stops at the dynamic call (it does not look at the targets of dynamic calls); the typed code of the entry and of the pattern's method was clean under facts.
+  - The profile showed `ijl_apply_generic` behind the pointer: the wrapper `_UWrap` (compiled by facts) called on with the value as `Any`, a run-time site.
+  - Now `_UWrap` puts every argument in an `XAny` holder and calls the pattern's method directly; the pattern's method takes every argument in a holder (trait positions to the views; ordinary arguments asserted to their declared types).
+  - Entries with `where` on ordinary arguments are not tabled.
+  - All suites green.
