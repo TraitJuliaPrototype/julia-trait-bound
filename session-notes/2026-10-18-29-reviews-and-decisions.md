@@ -284,3 +284,6 @@ Log:
   - Now `_UWrap` puts every argument in an `XAny` holder and calls the pattern's method directly; the pattern's method takes every argument in a holder (trait positions to the views; ordinary arguments asserted to their declared types).
   - Entries with `where` on ordinary arguments are not tabled.
   - All suites green.
+- **A dispatch profiler (`JULIA_FACTS_DISPATCH_PROFILE=1`, julia `gf.c`):** dynamic calls per callee method and per lookup path.
+  - First finding (CSV + DataFrames under `all`): the hottest dynamic calls are in the compiler itself, inference's IR walking and package-image validation (`ReinferUtils.verify_call`, 144,566 calls, all through the method-cache search).
+  - Also `setindex!(::Array{Any}, @nospecialize x, ::Int)` with 123,527 calls through the search: a site that sees many value types evicts stage 1's exact entries. The polymorphic case, now measurable.
