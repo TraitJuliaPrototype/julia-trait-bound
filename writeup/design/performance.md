@@ -1,6 +1,6 @@
 # Performance on the facts+traits compiler: what we found, what it teaches
 
-Session 29's performance phase (2026-10-19), on julia-1.13 with parts (A)–(D). The detailed log, with every number, is `session-notes/2026-10-18-29-reviews-and-decisions.md`. The Fable review of this phase, `reviews/2026-10-19-performance-phase.md`, corrected three of the four themes as first written; this version includes its corrections.
+Session 29's performance phase (2026-10-19), on julia-1.13 with parts (A)–(D). The detailed log, with every number, is `../../session-notes/2026-10-18-29-reviews-and-decisions.md`. The Fable review of this phase, `../reviews/2026-10-19-performance-phase.md`, corrected three of the four themes as first written; this version includes its corrections.
 
 ## Where things stand
 
