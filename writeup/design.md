@@ -1,8 +1,8 @@
 # Trait-bound Julia: the design and its decisions
 
-The consolidated statement of the design, as of 2026-10-18 (session 29). Where the four notes in `notes/`, the explorations or the register disagree with this document, this document is current. The notes keep the detail; links point to it.
+The consolidated statement of the design, for core developers, as of 2026-10-19 (session 29, the compiler built and measured). It is the source of truth: where any other document disagrees with it, this document is current.
 
-It consolidates the four notes, the register (`decisions.md`), the compiler plan (`plans/2026-10-17-policy-in-compiler-plan.md`) and the four reviews of 2026-10-18 (`reviews/2026-10-18-*.md`), with the user's decisions of session 29 applied.
+Companions with the detail: [`design/mechanisms.md`](design/mechanisms.md) (the mechanisms), [`design/julia-changes.md`](design/julia-changes.md) (the changes to Julia, as built), [`design/evidence.md`](design/evidence.md) (the measurements), [`design/performance.md`](design/performance.md) (the performance phase and its lessons), [`design/comparison.md`](design/comparison.md) (against C++, Rust, Swift, Mojo). For programmers: [`intro/`](intro/). The full record for agents: [`record/INDEX.md`](record/INDEX.md).
 
 ## Contents
 
@@ -196,7 +196,7 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 - **A trait's name in a field or container means its `Dynamic`** (`plots::Vector{Plot}`), inside trait modules until traits are in the type system. The explicit spelling always works.
 - `Dynamic{X}` is the package's spelling of "a value of abstract type `X`". Its form is transitional, until membership is subtyping (Julia piece 7); its meaning is permanent.
 - Hidden type parameters for fields declared by bounds were rejected (the user: "antithetical to Julia").
-- Today's package form (a boxed trait object, witness tables, key branches) is superseded. Witness tables are off by default since session 29, because a witness pointer runs in the latest world, not the caller's (verified wrong result, `reviews/2026-10-18-design-and-fixes.md` finding 2).
+- **As built (session 29):** an operation on a `Dynamic` value is a `Compiler.dynamic_call` site (part D, section 6); a `Dynamic` of an immutable value that is its own implementing value is one box holding the value (a held view, 4.2). The package form before it (witness tables, key branches, `sealed_call`) is deleted: a witness pointer ran in the latest world, not the caller's (verified wrong result, `reviews/2026-10-18-design-and-fixes.md` finding 2).
 
 ### 4.6 Functions as arguments: `Callable`, two modes
 
@@ -232,7 +232,7 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
 1. **Facts.** Compiled trait code depends on the method table only through facts.
    - A *fact signature* is: a tuple of concrete types; its union splits; the splits of unions of concrete element types inside tuple arguments (up to four); a closure's call at kinds.
    - Any other call is a run-time site: it dispatches at run time and records nothing. Under part C, a run-time site in facts-compiled code runs facts-compiled code.
-   - Compile-time evaluation only over facts, or where Julia's own asserted effects fold (Base and Core methods asserted foldable). That exception inherits Base's assertion: the same exposure plain Julia has.
+   - Compile-time evaluation only over facts. No asserted effect (method or statement level) applies to a frame with a run-time site (the implementation review of 2026-10-19 replaced the earlier "Base and Core only" rule).
    - Nothing is skipped (rule P): a fact is invalidated exactly when a definition changes dispatch at its signature.
    - Trait code may call any Julia code directly.
 2. **Ownership.**
@@ -247,34 +247,29 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
    - Code is compiled per key.
 
 **The central guarantees.**
-- **Identical or error (G1).** A call in trait code computes what plain Julia computes in the current world, or raises. It rests on one assumption about values that inference decides (A3: `return_type` of empty collections, `Union{}` results). The package prototype adds two implementation assumptions (A4: no method defined concurrently with compiling trait code; A5: the generator's behaviour), which part B removes.
-- **Stable caches (G2),** in the two tiers of 3.5.
+- **Identical or error (G1).** A call in trait code computes what plain Julia computes in the current world, or raises. It rests on one assumption about values that inference decides (A3: `return_type` of empty collections, `Union{}` results). The package prototype adds two implementation assumptions (A4: no method defined concurrently with compiling trait code; A5:**The compiler parts, as built in session 29.** The inventory, with commits, files and upstream status, is [`design/julia-changes.md`](design/julia-changes.md). Acceptance 19/19; TraitWorld's 47 test sets; the demonstrators' suites.
 
-## 6. What Julia provides
-
-The design needs Julia's compiler and runtime. Stock-Julia support is dropped (the user, session 29). TraitWorld requires the patched build.
-
-**The compiler parts, as built in session 29** (julia-1.13, commits 880ae49dad, c3415abde6, 25c630dd34, feaad9e45c, f6838f96fc, 67f5c0bcc8, bc26aa9255, da4726c5cc, 4102b7a7a7, c4f7e76a2f, bb82a82bbf, e4db37bb48, 40512f64c2; acceptance 19/19, TraitWorld 47 test sets):
-
-| Part | What it is, as built |
+| Part | What it is |
 |---|---|
-| **(A)** facts as a mode of Julia's own inference | `NativeInterpreter` has a `facts` field. A call is inferred, with its edges, only at a fact signature: a dispatch tuple, its union splits, unions of concrete elements inside tuple arguments, a closure's call at kinds, and a concrete `Vararg` tail (the user: "Anything that satisfies 'can only be changed by stakeholders or pirates' is fine"). `return_type` folds only an answer that cannot be wider than plain inference's, else plain inference's answer when it rests on facts, else at run time, where plain inference answers it in its own cache owner. No asserted effect (method or statement level) applies to a frame with a run-time site (the review of 2026-10-19 replaced the earlier "Base and Core only" rule). The compiler's own code stays plain. |
-| **(B)** code compiled by facts beside plain code | A module option, `Base.Experimental.@compiler_options facts=true` (declared by `@trait_module`, inherited by submodules), makes its methods *facts methods*: compiled by facts under the owner `:facts`, whoever calls them; everything a facts frame calls is compiled by facts under that owner. A method can be a **boundary** (`Expr(:meta, :facts, 0)`, `Method.facts`): compiled in its caller's mode, as a trait entry is (rule 2). Plain inference of a facts method is a separate facts inference, and the call names that CodeInstance; reflection of a facts method is facts inference. Package images keep `:facts` code (through the compile queue). |
-| **(C)** dispatch from facts code | Code of owner `:facts` calls `jl_apply_generic_facts` and `jl_invoke_facts` at run-time sites: the same method lookup, then the `:facts` CodeInstance, compiled on a miss. |
-| **(D)** the `Dynamic` call-site split | `Compiler.dynamic_call(K, RT, f, x, args...)`: inferred as `f` at the union of `K`'s registered candidates (≤ 4, each split a fact), plus a fallback; the inliner union-splits it with the dynamic call as the last branch (never "fully covered"), asserts the fallback (and any case not known to be an `RT`) and types the join `RT`, the trait's declared result. Candidates are registered without an edge (conformances at declaration and package load, values when made): a later conformance reaches the fallback and invalidates nothing. |
-| **Inlining under facts** | Two changes to the optimizer, for facts code only (plain baselines stay stock): an invoke the inliner cannot inline keeps the fact signature it was inferred at, not the compileable signature (which widens a varargs tail to `Vararg{Any}` and makes the callee's calls run-time sites: 72 MB per raytrace before, 3.8 MB after); and an inference cycle's members are optimized callees first, each offered to the inliner of the members after it, so a recursion through `Dynamic` values keeps one call per turn at the edge back, not one per wrapper (rtopen 542 → 384 ms). |
-| **The compiler stays plain** | The Compiler module is marked *never by facts* (module flag 2, inherited by its submodules): a facts frame's call into the compiler leaves to plain inference, as a plain frame's call to a facts method leaves to facts (`leaves_to`), and dispatch from facts code runs plain code for it. Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter` (another cache owner, the facts mode), so its code is never invalidated by later definitions. Without these, TraitWorld's checks ran the abstract interpreter as facts code (6× slower) or recompiled the compiler's code after big loads (seconds per new conformance). **The boundary:** facts code that calls compiler functions directly (TraitWorld's machinery calls `argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler CodeInstances, whose validity is plain Julia's, not the facts guarantee (review of 2026-10-19, B1). Calls through Base reflection run in the compiler's frozen world and are safe. A rule making every such call run in the compiler's world would break code that extends the compiler's functions for its own interpreter types, whose methods that world does not have. The loss is cacheability, not correctness: the nine-package load loses no facts CodeInstance of TraitWorld. `dynamic_call` is a compiler method too; inference intercepts it before the flag matters. |
+| **(A)** facts as a mode of Julia's own inference | `NativeInterpreter` has a `facts` field. A call is inferred, with its edges, only at a fact signature (rule 1; also a concrete `Vararg` tail: the user, "Anything that satisfies 'can only be changed by stakeholders or pirates' is fine"). `return_type` folds only an answer that cannot be wider than plain inference's, else plain inference's answer when it rests on facts, else at run time, where plain inference answers it in its own cache owner. No asserted effect applies to a frame with a run-time site. |
+| **(B)** code compiled by facts beside plain code | A module option, `Base.Experimental.@compiler_options facts=true` (declared by `@trait_module`, inherited by submodules), makes its methods *facts methods*: compiled by facts under the owner `:facts`, whoever calls them. A method can be a **boundary** (`Expr(:meta, :facts, 0)`): compiled in its caller's mode, as a trait entry is (rule 3), or **always facts** (`Expr(:meta, :facts, 1)`: TraitWorld's `@machinery`). Reflection of a facts method is facts inference. Package images keep `:facts` code. |
+| **(C)** dispatch from facts code | Run-time sites in `:facts` code run the callee's facts code (`jl_apply_generic_facts`, `jl_invoke_facts`). |
+| **(D)** the `Dynamic` call-site split | `Compiler.dynamic_call(K, RT, f, x, args...)`: inferred as `f` at the union of `K`'s registered candidates (≤ 4, each split a fact), plus an asserted fallback; the join is typed `RT`, the trait's declared result. Candidates are registered without an edge: a later conformance reaches the fallback and invalidates nothing. |
+| **The compiler stays plain** | The Compiler module is *never by facts*: a facts frame's call into the compiler leaves to plain inference (`leaves_to`), and Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`. **The boundary:** facts code that calls compiler functions directly (TraitWorld's machinery calls `argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler code, whose validity is plain Julia's (review of 2026-10-19, B1). A rule running such calls in the compiler's world would break code that extends the compiler for its own interpreter types. The loss is cacheability, not correctness; the nine-package load loses no facts code of TraitWorld. |
+| **Two inliner changes, for all code** | An invoke keeps the exact specialization inference made at concrete types when the compileable signature only widens a varargs tail; an inference cycle's members inline each other (callees optimized first). Both were found under facts and apply to plain code too (the user, session 29: "Apply to all code"): a varargs wrapper in a plain recursion 21.9 ms on stock 1.13.2, 0.36 ms. |
+
+for its own interpreter types, whose methods that world does not have. The loss is cacheability, not correctness: the nine-package load loses no facts CodeInstance of TraitWorld. `dynamic_call` is a compiler method too; inference intercepts it before the flag matters. |
 
 **The switch:** `JULIA_COMPILE_BY_FACTS=1`, or a system image built with it (`experiments/factscompiler/scripts/build_facts_sysimage.sh`), compiles *all* code by facts (owner `nothing`): the test bed (the user, session 29). Without it, only facts methods (trait modules) are compiled by facts: the product setting. `--trim` turns the facts mode off (a closed world compiles plain code).
 
-**Julia pieces** (numbering of `explorations/julia-support.md`):
-- **Keep:** 1 (method-definition and image-activation hooks, which strict mode needs), 3 (field-offset intrinsics), 17 (type printers), 9 (owner-aware bare MethodInstance edges) and 10 (the inliner uses the CodeInstance it is given), in the form a second owner needs; 5's upstream half (machine code for upstream CodeInstances in images: also plain Julia's gain, to be measured alone).
+**Julia pieces** (numbering of `explorations/julia-support.md`; as built in `design/julia-changes.md` §3):
+- **Kept:** 1 (method-definition and image-activation hooks, which strict mode needs), 3 (field-offset intrinsics), 17 (type printers), 9 (owner-aware bare MethodInstance edges) and 10 (the inliner uses the CodeInstance it is given), in the form a second owner needs; 5 (machine code for upstream CodeInstances in images: also plain Julia's gain, to be measured alone).
 - **Add, for the strict tier:** 1′ (a deletion hook), 14 (a read-only "what would this definition invalidate" query, transitive), 15 (image validation reports the winning method).
 - **Reverted** (julia-1.13 c4f7e76a2f): 2 (invalidation policy hook, the old filter) and 4 (post-inference hook).
 - **Moot:** 11, 12, 13 (artefacts of the external interpreter).
 - **Later:** 7 (traits in the type system: membership as subtyping), last.
 
-**Upstream proposals, in order:** pieces 10, 9 and 17 as fixes and a small feature; (A) as "a facts mode for the native compiler", with the benchmark table; pieces 1, 1′, 14, 15 with strict mode; (B) and (C) as per-method inference modes after they carry the demonstrators; traits in the type system last.
+**Upstream proposals, in order:** the session-29 fixes that are general (the run-time `return_type` entry in the image; reflection in the compiler's world; after broader measurement, the two inliner changes); pieces 10, 9 and 17 as fixes and a small feature; (A) as "a facts mode for the native compiler", with the benchmark table; pieces 1, 1′, 14, 15 with strict mode; (B) and (C) as per-method inference modes; traits in the type system last.
 
 ## 7. The decisions in force
 
@@ -292,7 +287,7 @@ Only the current decisions. The full register with history is `decisions.md`; "s
 | Overrides belong to the conformance; family members fixed at first use (forced by rule 2); refused at load; restart until redeclaration is built | s27 decision 4; s29 | 4.4 |
 | Definition checking at archetypes, at the module's end; a warning at the prompt | s22, s27 | 4.7 |
 | `Dynamic{X}`: a value of abstract type `X`, holding the user's object; operations by a call-site split in the compiler | s22; s29 (the user: "move to the compiler directly") | 4.5 |
-| Witness tables off by default until `Dynamic` is in the compiler | s29 (the user: "Witness table: Yes") | 4.5 |
+| Witness tables off by default until `Dynamic` is in the compiler; deleted once (D) was built | s29 (the user: "Witness table: Yes") | 4.5 |
 | A trait's name in a field or container means its `Dynamic` (inside trait modules) | s22, s27 | 4.5 |
 | No hidden type parameters | s22 (the user) | 4.5 |
 | `Callable{A, S, M}` with two modes, `DynamicCall` the default, the caller overrides | rev 988; kept s29 (the user: "We need compiled call to have an ODE RHS that has the right type signature") | 4.6 |
@@ -306,63 +301,60 @@ Only the current decisions. The full register with history is `decisions.md`; "s
 | **The guarantee, strict mode first;** rule P the default relaxation | s29 (the user: "Strict mode first for framing is yes") | 3.2, 3.5 |
 | **The framing in four steps:** fully typed code is already valid but for stakeholders and pirates; strict mode outlaws pirates; the facts rule extends the guarantee to all code at a cost where code is not fully typed; traits make it cheap and can enforce concreteness | adopted (s29, the user's proposal: "1-3 is a yes") | 3 |
 | **"Fully typed"** is the name of the property: every call at a fact signature, transitively, kinds excluded | adopted (s29, the user) | 3 |
-| **A fully-typed certificate:** concrete mode reports, per worker, whether it has run-time sites; a worker without them is fully typed and pays nothing for facts; `@concrete_only` traits (the `error` level) refuse workers that are not | adopted (s29, the user), to build | 3.4, 4.3 |
+| **A fully-typed certificate:** concrete mode reports, per worker, whether it has run-time sites; a worker without them is fully typed and pays nothing for facts; `@concrete_only` traits (the `error` level) refuse workers that are not | adopted (s29, the user), built | 3.4, 4.3 |
 | Strict mode: one decision with two tiers; the intended design's items are the work list | s25, s29 | 3.5; `open-issues.md` §1.10 |
 | Under (B), strict mode protects facts-owned code | s29 (implied by `all` a test bed) | 3; `TraitWorld/src/strict.jl` |
 | The symmetric check as a build lint | s25 | 3.5 |
 | Three rules: facts (with the definition of a fact signature), ownership, the boundary | s29 | 5 |
-| Facts at tuple splits; folds where Base's asserted effects fold; run-time sites run facts-compiled code | s28, written into rule 1 s29 | 5 |
+| Facts at tuple splits; run-time sites run facts-compiled code; no asserted effect applies to a frame with a run-time site | s28, written into rule 1 s29; the assertion rule from the implementation review (s29) | 5 |
 | Stakeholders by the method's own signature; supertype owners count; the extension exception named | s27 decision 2 | 1; 3.2 |
 | Delegates as data, transitional | s25; marked s29 | 5 |
 | No sealing, of abstract types or functions: a closed contract is a trait | s28 (the user) | — |
 | The facts policy in Julia's compiler: (A), (B), (C), (D) | s28; (D) s29 | 6 |
 | `--compile-by-facts=all` is a test bed | s29 (the user) | 6 |
+| The two inliner changes apply to all code | s29 (the user: "Apply to all code") | 6; `design/julia-changes.md` §2 |
+| The compiler's own code is plain whoever calls it; TraitWorld's slow paths compiled by facts (`@machinery`); the checks on a `NativeInterpreter` with their own cache owner | s29 (perf phase) | 6 |
+| A held view for immutable values that are their own implementing value | s29 (the user: "Add a lean held view") | 4.2 |
 | Stock-Julia support dropped | s29 (the user) | 6 |
 | Slowdowns are tolerated if redesigning the code with traits recovers them. This governs trait code and the plain code it reaches; the plan's numeric threshold for `all` (P-a) is moot, since (B) is needed regardless | s29 (the user: "tolerate slow downs if they can be recovered by redesigning code through traits") | 8 |
-| The forks (demonstrator 4) paused | s29 (the user) | 9 |
+| The forks (demonstrator 4) paused, then run on the new compiler (upstream suites pass) | s29 (the user) | 9 |
 | The runtime as methods: a conformance is a method; entries are ordinary methods; workers per key | s23 | `explorations/keys-plan.md` §6 |
 | Workspace: the design repository with separate repositories inside; local only | early | `README.md` |
 
 ## 8. What the evidence shows, and what it does not
 
-All numbers are from the patched Julia 1.13.2 build, on one machine, unless stated. They predate parts B, C and D.
+The measurements, with builds, baselines and run counts, are in [`design/evidence.md`](design/evidence.md); the performance phase's lessons in [`design/performance.md`](design/performance.md). All numbers are from the patched Julia 1.13.2 build, on one machine, session 29's final build unless stated.
 
 **The four steps of section 3:**
-- *Step 1, verified* in small cases: a stakeholder's method (S4), a winning pirate (S5) and a redefined `const` (S7) invalidate code at concrete signatures; a losing pirate (S6) never does (`reviews/2026-10-18-framing-and-motivation.md` §0, `inval.jl`; reproduced with the in-tree facts mode in session 29). Proved in `explorations/wrapping-by-facts.md`.
-- *Step 2, verified* as a prototype: strict mode refuses winning pirates and nothing else in a real stack (below). Its intended design (pieces 1′, 14, 15, the extension rule, bindings) is not built.
-- *Step 3, verified:* the four cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance and `g2all` below. Its cost is measured on plain code (BaseBenchmarks, below).
-- *Step 3's claim that facts are free for fully typed code:* follows from the definition (the same calls inferred at the same signatures), and fits the concrete groups of BaseBenchmarks (1.00–1.09). **Not measured** directly: a benchmark of fully typed code, facts mode against plain, comparing the compiled code itself.
-- *Step 4:* the recovery cases below (raytrace, `parse_json`) are the evidence so far. **Decided, not built yet:** a certificate from concrete mode that a worker has no run-time sites, hence is fully typed and pays nothing for facts (s29).
+- *Step 1, verified* in small cases (S4–S7), with the in-tree facts mode; proved in `explorations/wrapping-by-facts.md`.
+- *Step 2, verified* as a prototype: strict mode refuses winning pirates and nothing else in a real stack (837 pirates by the letter among 65,318 methods, none winning; session 25). Its intended design (pieces 1′, 14, 15, the extension rule, bindings) is not built.
+- *Step 3, verified:* the cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance 19/19. **The control** (session 29): under `all`, nine unrelated loads cost PlainTables 0 of 206 CodeInstances (plain mode: 14 of 218) and upstream CSV + DataFrames 2 of 3,340 (plain: 570 of 4,712). Load protection is the facts rule's property, for any code.
+- *Step 3's cost:* BaseBenchmarks under `all` (session 28, before parts B–D): geometric mean 1.016, tails on containers of `Any`. To rerun on the current compiler.
+- *Step 4:* traits recover the tails tried: the raytrace through `Dynamic` (below), `parse_json` with typed captures (1.17×, session 28). The fully-typed certificate is built (`fully_typed`, concrete mode).
 
 **Shown:**
-- **Facts at concrete signatures keep code valid.** Acceptance 16/16, 48 adversarial cases; 0 facts-compiled CodeInstances lost over twelve loads in any order (`experiments/facts`).
-- **Strict mode refuses nothing in a real stack.** 837 pirates by the letter among 65,318 methods, none winning; 0.54 s extra on a 4.1 s load.
-- **Trait calls cost little.** Typed calls 33 ns against 30 ns plain; loops through the reference layout at plain speed.
-- **Compiling per key, not per closure.** TraitDifferentialEquations: a new callback closure 13–15 ms (25–31 ms with loads) and a second loss closure 17–21 ms, against SciML's 0.84–0.96 s and 2.48 s; the first solve 6.4–8.0 ms in every load order. Caveat: PlainODE (FunctionWrappers, untyped callbacks, the same signature-labelled tag) matches the second loss in a fresh session and is faster for a first callback (5.1 ms); the trait form's advantage is under loads (first callback 29 against 144 ms) and its checks.
-- **Trait code survives loads where its plain twin does not.** TraitReport under nine loaded packages: the trait form 66–80 ms with no compiled code lost; the same libraries without traits 102–147 ms, 17 of 49 methods lost. TraitMakie's first PNG 18–22 ms in every load order, PlainPlots about 100 ms after loads. Caveat: the protection comes from the facts mode, which is trait-independent (661 facts-compiled CodeInstances of plain CSV code survived `using DataFrames`).
-- **Fresh sessions at Python's speed for small libraries.** TraitReport 0.52–0.56 s against Python's 0.58–0.69 s. Caveat: the plain baseline with the same workloads takes 0.50–0.52 s.
-- **`Vector{Dynamic{Column}}` keeps column code when the plain form loses it:** PlainTables loses 17 of 49 methods to loads, the trait form none.
-- **The facts mode's cost on plain code** (`all`, a test bed): BaseBenchmarks geometric mean 1.016, 1.064 without `scalar`; `io` 1.32; tails on containers of `Any`, abstract element types, small-union broadcasts. One run, `--pkgimages=no`, with Base compiled plainly in the system image.
-- **Traits recover the tails tried so far.** Raytrace: an open set of primitives through `Dynamic` costs the same with 2 or 4 types (470–484 ms), where plain Julia's fast path holds only for 2 (240 ms; 693 ms with 4); still 2× plain's `isa` branches, which part D addresses. `parse_json` with typed captures: 1.17× the fixed plain code.
-- **AOT:** a trimmed TraitMakie binary of 4.07 MB under the facts policy (session 25), `--trim=unsafe-warn`.
+- **`Dynamic` values at near plain speed.** A sum over `Dynamic{Shape}`: 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33 with four. The raytrace over an open set of primitives: 300–336 ms against plain's 246–259 with two types and 827–882 with four (a `max_methods` effect at four).
+- **Typed trait calls cost little.** 36–38 ns against 33.8–34.5 ns for the same loop in plain Julia.
+- **New trait code costs the same in every load order.** A new model type in TraitDifferentialEquations: `@implement` 142–164 ms, first solve 82–133 ms with CSV, DataFrames and CairoMakie loaded before, after or not at all (2.0 s and 2.1 s after the loads at the start of session 29). A new data type in TraitMakie: 77–97 ms and a first PNG of 89–161 ms.
+- **Compiling per key, not per closure.** A new callback closure 12–24 ms, a second loss closure 17–18 ms, in every load order; ForwardDiff's own tag 0.70–0.73 s.
+- **Sessions.** TraitReport in a fresh process 0.76 s (without traits 0.72 s; Python 0.58–0.69 s, session 27). The forks of CSV and DataFrames: an interactive session without imports in 2.85 s against upstream's 10.40 s.
+- **The solver's run time.** 158 ns per step for Lorenz against OrdinaryDiffEq's 346 ns; 7.5–7.9 µs against 6.1 µs at n = 1,000.
+- **AOT:** a trimmed TraitMakie binary of 4.07 MB (session 25, under the prototype policy).
 
-**Not shown:**
-- **The control that separates the facts mode from traits:** the plain baselines (PlainODE, PlainPlots, PlainTables) and upstream DataFrames under `all`, with the same workloads. Every "survives loads" row is a property of the facts mode until this runs. It is step 2 of the order of work.
-- **Interactive work at the REPL with new keys,** without the system-image workaround: it needs part B.
-- **Base's tests in facts mode:** not run before session 29 (a run on the facts system image started in session 29). The go/no-go benchmark ran in the Compiler copy, whose run-time `return_type` changed values.
-- **The volume of the "explosion" of compiled code.** It is structural (32 specializations against 1 in a small experiment), but unmeasured on a real library.
-- **Binaries** for TraitDifferentialEquations with ForwardDiff, and for CSV and DataFrames; `--trim=safe`.
-- **Strict mode under `all`;** threads; Revise-style edits; composition beyond libraries of a few hundred lines.
-- **The DataFrames port** (10.9 s → 1.19 s for the session, pandas 0.32 s) mostly shows the facts policy and workloads: its kernels unwrap each column (`vector(c)`) instead of using the declared operations, and CSV's trait is `CSVSource`, not the planned `CSVColumn{T}`.
+**Not shown, or not yet diagnosed:**
+- The ~990 ms upstream CSV + DataFrames still pay after the loads under `all`, and TDE's new callback after the loads (171 ms against 12 in one run). One residue is diagnosed: StatsBase loads SparseArrays, whose `vcat` for Base's `Number` and `Vector` is a pirate winning at a fact signature inside `CSV._parse` (TraitReport's work 333–410 ms against 41 ms); the default mode follows it by design.
+- A clean-case regression: TraitMakie's forwarding `@implement` 36 → 77 ms, probably the cost of compiling TraitWorld's machinery by facts.
+- Reruns: Python's baseline; TraitReport form (t) under loads; the forks' session harness after the `String15` fixes; BaseBenchmarks and Base's tests under `all`.
+- Strict mode under `all`; threads; Revise-style edits; composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames; the volume of the "explosion" of compiled code on a real library.
 
 ## 9. The implementation: today, the target, the order of work
 
-### 9.1 Today (end of session 29)
+### 9.1 Today (end of session 29, 2026-10-19)
 
-- **Julia** (`julia-1.13/`): parts (A)–(D) built (section 6), with the patch pieces 1, 3, 5, 9, 10, 17; pieces 2 and 4 inert, to revert.
-- **TraitWorld** (7,3xx lines, requires the patched build): the trait language, ownership, conformances as methods, entries (boundaries) and workers, keys and layout, `Callable`, `Like`, definition checking, concrete mode with the **fully-typed certificate** (`fully_typed(f, argtypes)`; `@error_on_abstract` refuses code with run-time sites), `verify_main` (scanning by owner), strict mode (protecting `:facts` code), printing. Its own policy (`FactsInterp`, site caches, trampolines, view caches, witness tables, key branches, warm-ups) is deleted. `Dynamic` operations are `Compiler.dynamic_call` sites.
-- **Tests:** TraitWorld 47 sets; `experiments/facts/acceptance_compiler.jl` 17/17; the demonstrators' suites pass (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations; TraitReport's and TraitMakie's REPL sessions; TDE's session equal to PlainODE's; the forks' CSV suite; DataFrames after a port fix: see the session note); the examples agent's cases (`experiments/examples/run_all.sh`).
-- **Not measured yet:** everything (the user: measurements wait until `Dynamic` is in the compiler; it is now). The control experiment is prepared (`experiments/factscompiler/control/`).
+- **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the two inliner changes, with the patch pieces 1, 3, 5, 9, 10, 17; pieces 2 and 4 removed. Inventory: `design/julia-changes.md`.
+- **TraitWorld** (requires the patched build): the trait language, ownership, conformances as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the checks on a `NativeInterpreter` with their own cache owner), concrete mode with the fully-typed certificate, `verify_main`, strict mode (protecting `:facts` code), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.dynamic_call` sites.
+- **Tests:** TraitWorld's 47 sets; acceptance 19/19; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
+- **Measured:** `design/evidence.md`.
 
 ### 9.2 The target
 
@@ -388,32 +380,29 @@ Deleted
   the three old worktrees at the repository root
 ```
 
-### 9.3 The order of work (approved by the user, session 29)
+### 9.3 The order of work
 
-1. **(A) in-tree, one source of truth for the fact rules.** Finish `julia-1.13/Compiler/src/facts.jl`, the option in `jl_options`, the bit in the package-image cache flags; build; retire the two other copies; run Base's tests in facts mode against the mode off and list every difference.
-2. **The decisive control.** The plain baselines and upstream DataFrames under `all`, over the existing load matrices: lost CodeInstances and first-call times, against the trait forms. It decides which claims the demonstrators may keep.
-3. **(B) and (C) in Julia.** Then delete TraitWorld's imitation and the stock-only paths; re-run the acceptance suite, `g2all`, TraitWorld's tests.
-4. **`Dynamic` in the compiler.** The package form holds the user's object; then (D) in the inliner; delete witness tables, key branches and `sealed_call`; re-measure the raytrace.
-5. **Re-point the demonstrators:** each README's claims at what traits add (compile per key, definition-time errors, readable types, declared conformances instead of extensions on internals, `Dynamic` against `isa` branches, AOT target lists); the facts mode's protection stated once, as the compiler's. Rewrite the notes for the strict-first framing.
-6. **Housekeeping:** revert pieces 2 and 4; remove dead switches, the `{R}` spelling, the projection names, the old worktrees.
-7. **Resume the forks** later, with `CSVColumn{T}`, kernels that use the declared operations, the upstream-under-`all` control, and the upstream test suites at each milestone.
-8. **Upstream proposals** in the order of section 6.
+Session 29's order (approved by the user) is done: (A) in-tree; the control; (B) and (C); `Dynamic` in the compiler (D); the demonstrators measured; pieces 2 and 4 removed. Next, in the order the user chose after the performance review ("diagnose, then fix"):
+1. **Diagnose the remaining load costs:** the ~990 ms under `all`, TDE's callback row after the loads; a full list of what is lost or compiled, naming the winning methods.
+2. **The clean-case cost of `@machinery`:** measure what a clean `@implement` compiles by owner; a precompile workload for the machinery.
+3. **Acceptance checks** for the session-29 changes (the inliner changes, the compiler-plain edges, held views).
+4. **AOT from declared targets (section 4.8):** a conformance compiles the declared workers for its key at precompile time, replacing hand-written workload extensions (the forks' `CSVDataFramesInlineStringsExt`).
+5. **Upstream proposals** in the order of section 6.
+6. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
 
 ## 10. What is not claimed
 
 - No change to results beyond values decided by inference (A3). In the Compiler copy the difference was wider under `all`; the in-tree mode answers `return_type` at run time by plain inference.
 - "Never invalidated" is the strict tier. The prototype lacks pieces 1′, 14, 15, the extension rule and a rule for bindings.
 - No "compiled once for any type": a type that supplies behaviour gets its own copy, once, in its own image.
-- No claim that traits, rather than the facts mode, protect code from loads until the control of section 8 has run.
+- No claim that traits protect code from loads: the control (section 8) shows the facts mode does, for any code. Traits make the facts mode cheap, check code where it is written, and type mixed values.
 - No numbers for stock Julia: the design needs the patched build.
-- No REPL interactivity for new keys before part B; no threads; no Revise.
+- No threads; no Revise.
 - Imports are not at pandas' speed (Julia's startup and package loading).
 
 ## 11. Where the rest lives
 
-- **Detail:** `notes/4-details.md` (the mechanisms), `notes/2-design-choices.md` (against C++, Rust, Swift, Mojo), `notes/3-wrapping.md` (plain code, pirates), `notes/1-overview.md`. They predate this framing; this document wins where they disagree.
-- **Proofs:** `explorations/wrapping-by-facts.md`. **Strict mode:** `explorations/strict-mode.md`. **AOT:** `explorations/aot-under-facts.md`. **Julia pieces:** `explorations/julia-support.md`.
-- **The register with history:** `decisions.md`. **Open issues:** `open-issues.md`, §1 first.
-- **The reviews behind this document:** `reviews/2026-10-18-design-and-fixes.md`, `reviews/2026-10-18-framing-and-motivation.md` (§5), `reviews/2026-10-18-implementation-shape.md`, `reviews/2026-10-18-decisions-revisited.md`.
-- **The plan for the compiler:** `plans/2026-10-17-policy-in-compiler-plan.md`; measurements in `experiments/factscompiler/README.md`.
-- **Lessons from the port:** `explorations/dataframes-port-lessons.md`.
+- **For core developers:** `design/mechanisms.md`, `design/julia-changes.md`, `design/evidence.md`, `design/performance.md`, `design/comparison.md` (with `other-languages.md`, the research behind it). Proofs: `explorations/wrapping-by-facts.md`. Strict mode: `explorations/strict-mode.md`. AOT: `explorations/aot-under-facts.md`.
+- **For programmers:** `intro/traits-for-julia.md`, `intro/results.md`, `intro/porting.md`.
+- **For agents, the full record:** `record/INDEX.md` (every review, exploration, plan, findings section and session note, with its status). The register with history: `decisions.md`. Open issues: `open-issues.md`, §1 first.
+- **The notes before session 29** (four rules, layering, sealing, representations): `../attic/writeup/notes-2026-10-18/`.
