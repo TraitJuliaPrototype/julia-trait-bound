@@ -4,6 +4,19 @@ A design for traits in Julia, built as a patched Julia compiler and a package. T
 
 **Read it as a website:** [traitjuliaprototype.github.io/julia-trait-bound](https://traitjuliaprototype.github.io/julia-trait-bound/).
 
+## Four goals
+
+Julia is fast once code is compiled, but compiled code is fragile: loading a package can discard it, a new type compiles the same library code again, and whether a program will need the compiler at run time is hard to know. The project pursues four goals:
+
+1. **Interactivity through composable caching of compiled code.** Compiled code is never discarded unless code it depends on changes. It is stored with the package that compiled it and reused in every session and every combination of packages; a new user type costs only the code specific to it.
+   *Where it stands:* the facts mode of Julia's compiler gives this to any code. Upstream CSV.jl and DataFrames compiled in it lose 2 of 3,340 pieces of compiled code to nine unrelated loads (570 of 4,712 in Julia's usual mode). Traits make it cheap, and keep a package stable under its own extensions.
+2. **Simple ahead-of-time compilation.** Dispatch through trait code goes to declared conformances and declared function signatures, so a build can list exactly the code a program can reach.
+   *Where it stands:* a trimmed TraitMakie binary is 4.07 MB (measured on the previous prototype); compiling the declared targets ahead of time from the conformances is the next step.
+3. **No performance cliffs.** Code says what it needs, so its speed does not depend on what else is loaded or on how many types exist today. Values that are mixed on purpose are declared (`Dynamic`, `Callable`) and stay fast. An abstract type that reaches a hot path is reported at its root cause.
+   *Where it stands:* a sum over mixed shapes runs at 0.9–1.4 ns per element, near plain Julia's 0.9 ns with two shape types and far from its 30 ns with four. Concrete mode and the fully-typed certificate report the root causes.
+4. **Identical or error, with minimal changes to Julia.** A call computes what it computes in Julia today, or raises an error. Another package's method for types it does not own (piracy) is followed as in Julia today, or refused under an optional strict mode. Code written without traits keeps working, and a library adopts traits one function at a time.
+   *Where it stands:* the acceptance suite's 19 checks pass, including the adversarial cases found by reviews; the patched compiler's changes are proposals for upstream Julia.
+
 ## Where to start
 
 | You are | Read |
