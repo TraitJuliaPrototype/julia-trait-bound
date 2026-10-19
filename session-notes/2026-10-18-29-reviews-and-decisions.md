@@ -194,3 +194,29 @@ Log:
 - **Step 3, verified on the build (julia c7f1eae1c0, TraitWorld 5b38813):** untyped trait call 17.0 ns (plain 17.6), typed 0.8 (plain 0.8), rough timings. All suites green, with two fixes found on the way:
   - **The warnings example:** the certificate walks from `_certified_call`, a TraitWorld helper. With workers now inlined into plain callers, the worker's run-time sites were attributed to the helper, which counts as machinery, and the certificate came out empty. The helper now calls `f` with `@noinline`.
   - **A TraitMakie image differed from PlainPlots' by 3.3e-5 once,** in the first run after the rebuild; it did not recur in four further runs, two of them whole suites. An unreproduced flake, to watch: a non-identical image would break "identical".
+- **The user chose: "Build step 4 and (c) together next, defer the investigation unless it is needed/helpful for building step 4 and (c)."** Before that, (c) was measured without its machinery (`step3/c_estimate.jl`): the view from offset data costs at most a nanosecond or two; with a plain caller (c) is faster than (b) (11.0 against 17.4 ns). Under `all`, a dispatch to a `@nospecialize` method from facts code costs about 30 ns more than to a specialized one (deferred, not needed so far). Also seen: a `const DynamicFn`'s pointer is folded into compiled code as a literal address (to check for package images).
+- **The Fable plan for the ~990 ms** (`writeup/plans/2026-10-19-return-type-after-loads-plan.md`):
+  - About 700 ms are plain `return_type` inference, about half of them one query in `describe`. About 280 ms are `CSV._parse` compiled again because SparseArrays' `vcat` wins inside it.
+  - Recommended: red-green revalidation of the answer cache (rustc, Salsa, Julia's `reinfer.jl`), with a differential test first.
+- **Built: (c), the table of declared implementations for untyped calls** (`TraitWorld/src/untyped.jl`), and **step 4, compiling ahead** (`TraitWorld/src/ahead.jl`):
+  - **`Compiler.known_type(x)`** (julia, `facts.jl` and `abstractinterpretation.jl`): GCC's `__builtin_constant_p`, for types. It folds to whether inference knows `x`'s concrete type, and is `false` where not folded.
+    - The entry branches on it: the folded path for typed callers (unchanged), or the table.
+    - Plain Julia cannot express this switch: a generated function cannot see the difference, and `@nospecializeinfer` would slow typed callers.
+  - **The table:** one per entry position, embedded in the code. It maps the user type to its builder (data) for a world range: a declared implementation's dispatch range, or this world only otherwise.
+    - It serves declared implementations only. Families and generic implementations take the entry's own path, which keeps their side effects (`_conf_family_slow` fixes a member and refuses later overrides; a test caught this).
+    - Each session ignores the tables of other sessions.
+  - **One dynamic call** goes to the entry's method specialized on the builders: compiled once per key, through `Base.inferencebarrier`, since plain inference otherwise compiled the single method at the abstract `Builder`.
+    - In that method the value sits in an `XAny` (made by `Expr(:new)`), so every call is at a fact signature under `all`.
+    - The views are built from the slots' offsets (the intrinsic; by index for inline unions).
+  - **Entries of other shapes** (keywords, varargs, callables) keep (b), specialized entries.
+  - **Debuggability:**
+    - the method calls the worker with `@noinline checked_call`, so backtraces show the worker at its bound;
+    - the frame filter hides the method's own frame;
+    - builder types print as `implementation of Shape at AheadP.Hexagon`.
+  - **Step 4:** each `@implement X T`, while its package is precompiled, compiles into that package's image:
+    - the workers of every entry position whose bound includes `X`, at `T`'s trait object, where their other arguments are concrete;
+    - the entry's specialized method for `T`'s builder, or the entry for `T` for shapes not on the table;
+    - the first-call check, recorded in the module of `T` (`__tw_checked__`, merged at load), so a session skips it. A check that fails fails the package's build.
+  - **The declared builder** is a method (`_declared_builder`) beside `conformance`, so the table's slow path needs no reflection.
+  - **Found on the way:** `ismutable(R)` on a type (always `true`) built a `View` where the typed path builds a `Held` view: a different trait object type, a second worker, and no match with the check done ahead. Fixed with `ismutabletype`.
+  - **Result** (`experiments/examples/ahead/`, package `AheadP` declaring `Shape{Hexagon}`): in a fresh session the worker and the specialized method come with AheadP's image. The first untyped call with the new type takes 3–4 ms, against 90 ms before these fixes (39 ms table miss, 60 ms the first-call check, then 36 ms a closure compiled in the slow path).
