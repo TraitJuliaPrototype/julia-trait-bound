@@ -254,7 +254,7 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
 
 The design needs Julia's compiler and runtime. Stock-Julia support is dropped (the user, session 29). TraitWorld requires the patched build.
 
-**The compiler parts, as built in session 29** (julia-1.13, commits 880ae49dad, c3415abde6, 25c630dd34, feaad9e45c, f6838f96fc, 67f5c0bcc8, bc26aa9255, da4726c5cc, 4102b7a7a7; acceptance 19/19, TraitWorld 47 test sets):
+**The compiler parts, as built in session 29** (julia-1.13, commits 880ae49dad, c3415abde6, 25c630dd34, feaad9e45c, f6838f96fc, 67f5c0bcc8, bc26aa9255, da4726c5cc, 4102b7a7a7, c4f7e76a2f, bb82a82bbf, e4db37bb48, 40512f64c2; acceptance 19/19, TraitWorld 47 test sets):
 
 | Part | What it is, as built |
 |---|---|
@@ -263,13 +263,14 @@ The design needs Julia's compiler and runtime. Stock-Julia support is dropped (t
 | **(C)** dispatch from facts code | Code of owner `:facts` calls `jl_apply_generic_facts` and `jl_invoke_facts` at run-time sites: the same method lookup, then the `:facts` CodeInstance, compiled on a miss. |
 | **(D)** the `Dynamic` call-site split | `Compiler.dynamic_call(K, RT, f, x, args...)`: inferred as `f` at the union of `K`'s registered candidates (≤ 4, each split a fact), plus a fallback; the inliner union-splits it with the dynamic call as the last branch (never "fully covered"), asserts the fallback (and any case not known to be an `RT`) and types the join `RT`, the trait's declared result. Candidates are registered without an edge (conformances at declaration and package load, values when made): a later conformance reaches the fallback and invalidates nothing. |
 | **Inlining under facts** | Two changes to the optimizer, for facts code only (plain baselines stay stock): an invoke the inliner cannot inline keeps the fact signature it was inferred at, not the compileable signature (which widens a varargs tail to `Vararg{Any}` and makes the callee's calls run-time sites: 72 MB per raytrace before, 3.8 MB after); and an inference cycle's members are optimized callees first, each offered to the inliner of the members after it, so a recursion through `Dynamic` values keeps one call per turn at the edge back, not one per wrapper (rtopen 542 → 384 ms). |
+| **The compiler stays plain** | The Compiler module is marked *never by facts* (module flag 2, inherited by its submodules): a facts frame's call into the compiler leaves to plain inference, as a plain frame's call to a facts method leaves to facts (`leaves_to`), and dispatch from facts code runs plain code for it. Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter` (another cache owner, the facts mode), so its code is never invalidated by later definitions. Without these, TraitWorld's checks ran the abstract interpreter as facts code (6× slower) or recompiled the compiler's code after big loads (seconds per new conformance). |
 
 **The switch:** `JULIA_COMPILE_BY_FACTS=1`, or a system image built with it (`experiments/factscompiler/scripts/build_facts_sysimage.sh`), compiles *all* code by facts (owner `nothing`): the test bed (the user, session 29). Without it, only facts methods (trait modules) are compiled by facts: the product setting. `--trim` turns the facts mode off (a closed world compiles plain code).
 
 **Julia pieces** (numbering of `explorations/julia-support.md`):
 - **Keep:** 1 (method-definition and image-activation hooks, which strict mode needs), 3 (field-offset intrinsics), 17 (type printers), 9 (owner-aware bare MethodInstance edges) and 10 (the inliner uses the CodeInstance it is given), in the form a second owner needs; 5's upstream half (machine code for upstream CodeInstances in images: also plain Julia's gain, to be measured alone).
 - **Add, for the strict tier:** 1′ (a deletion hook), 14 (a read-only "what would this definition invalidate" query, transitive), 15 (image validation reports the winning method).
-- **Revert:** 2 (invalidation policy hook, the old filter) and 4 (post-inference hook): still in the tree, inert (opt-in), to revert.
+- **Reverted** (julia-1.13 c4f7e76a2f): 2 (invalidation policy hook, the old filter) and 4 (post-inference hook).
 - **Moot:** 11, 12, 13 (artefacts of the external interpreter).
 - **Later:** 7 (traits in the type system: membership as subtyping), last.
 
