@@ -205,7 +205,7 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 - `Dynamic{X}` is the package's spelling of "a value of abstract type `X`". Its form is transitional, until membership is subtyping (Julia piece 7); its meaning is permanent.
 - **No hidden type parameters** for fields declared by bounds: stored state of a fixed type uses explicit parameters, and of a changing type, `Dynamic{X}`.
 - **As built:** an operation on a `Dynamic` value is a `Compiler.dynamic_call` site (part D, section 6); a `Dynamic` of an immutable value that is itself the receiver is one box holding the value (a held view, 4.2). The design does not use tables of pointers: a plain pointer runs in the latest world, not the caller's ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)).
-- **A world-checked call-site cache, built for `DynamicCall`'s pointers (4.6); for `Dynamic`, proposed** between the split and the fallback. Each entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid (a CodeInstance's `min_world`/`max_world`, which invalidation shortens). A call compares the type and the current world against an entry, then calls indirectly; a miss dispatches as now and adds an entry. The world check keeps the call in the caller's world and follows invalidation; entries are a session's cache, never saved, so images keep only the compiled code; entries are appended atomically. It is the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds; it would serve more than four implementations at a few nanoseconds per call, and it serves `Callable`'s `DynamicCall` mode (4.6), where it is built per pointer.
+- **A world-checked call-site cache, built for `DynamicCall`'s pointers (4.6) and for untyped entries (4.9); for `Dynamic` beyond four implementations, the simpler options first** (a longer split for `dynamic_call` only, or a table of caller-world pointers at the fallback: `../plans/2026-10-19-inline-caches-plan.md` §3), when a demonstrator needs it. The design as first proposed: Each entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid (a CodeInstance's `min_world`/`max_world`, which invalidation shortens). A call compares the type and the current world against an entry, then calls indirectly; a miss dispatches as now and adds an entry. The world check keeps the call in the caller's world and follows invalidation; entries are a session's cache, never saved, so images keep only the compiled code; entries are appended atomically. It is the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds; it would serve more than four implementations at a few nanoseconds per call, and it serves `Callable`'s `DynamicCall` mode (4.6), where it is built per pointer.
 
 ### 4.6 Functions as arguments: `Callable`, two modes
 
@@ -234,6 +234,27 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 - Plain code reached from trait code (CSV, Cairo) keeps plain Julia's AOT properties; `verify_main` reports its open sites as holes.
 - A `--trim` build compiles the plain call in the closed world, so the facts mode is off in a build. Nothing loads in a binary, so there is no cache to protect, and "identical or error" holds by definition.
 - So AOT is a consequence of goal 2 (declared targets), not of the facts.
+- **Built for sessions and images (step 4 of the speed plan, `TraitWorld/src/ahead.jl`).** While a package that declares `@implement X T` is precompiled, the code that calls with a `T` need is compiled into that package's image:
+  - the workers of every entry position whose bound includes `X`, at `T`'s trait object (where their other arguments are concrete);
+  - an entry method for `T` itself (4.9);
+  - the first-call checks, whose results the image keeps.
+
+  A check that fails fails the package's build. The list is exact because implementations are declared: Rust compiles a generic function in the crate that sees both it and the type, as do Swift's cross-module specialization and C++'s explicit instantiation. In a fresh session the first untyped call with a newly declared type takes 3–4 ms (90 ms before).
+
+### 4.9 Entries: typed callers, untyped callers, types compiled ahead
+
+An entry is compiled in its caller's mode. Three cases:
+- **A typed caller** inlines the entry. The implementation, the views and the worker's selection fold, and the worker, compiled by facts, is inlined too (julia-changes §2): a typed trait call costs what a plain call costs (0.8 ns against 0.8).
+- **A caller that does not know the type, of a type compiled ahead,** reaches that type's own entry method in the declaring package's image, `f(x::T, …) = invoke(f, Tuple{Any, …}, x, …)`: one dispatch, as plain Julia's call (about 14 ns against 15–17). The package owns `T`, so the method is a stakeholder's.
+- **A caller that does not know the type, of any other type,** reaches the generic entry, compiled once at `Any`. It branches on `Compiler.known_type(x)` (julia-changes §2) to the table of declared implementations (`TraitWorld/src/untyped.jl`):
+  - one table per entry position, from the user type to its implementation's builder (data: the witnesses and the slots), for the worlds of the implementation's dispatch;
+  - one call through a step-1 caller-world pointer to the entry's method specialized on the builder, compiled once per key; the views are read through the slots' offsets;
+  - under the facts rule nothing on that path takes the value as `Any`: it is held in a concrete holder, so every call is at a fact signature.
+
+  About 25–29 ns per call; twenty new types cost 1 ms in total, with nothing compiled per type. This is Swift's opening of a protocol value: per-type metadata as data, shared code.
+- **Limits:**
+  - the table serves declared implementations; families and generic implementations take the entry's own path (`_conformance_slow`, `_conf_family_slow`), which keeps what it finds;
+  - entries with keywords, varargs or callables are specialized per type (one dispatch, compiled per type, ahead for declared types).
 
 ## 5. The three rules
 
@@ -264,7 +285,7 @@ Three rules deliver the guarantee and the two goals. Where compiled code lives, 
 
 The design needs Julia's compiler and runtime. TraitWorld requires the patched build and does not run on stock Julia.
 
-**The compiler parts.** The inventory, with commits, files and upstream status, is [`julia-changes.md`](julia-changes.md). Acceptance 21/21; TraitWorld's 47 test sets; the demonstrators' suites.
+**The compiler parts.** The inventory, with commits, files and upstream status, is [`julia-changes.md`](julia-changes.md). Acceptance 22/22; TraitWorld's 47 test sets; the demonstrators' suites.
 
 | Part | What it is |
 |---|---|
@@ -341,7 +362,7 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 **The four steps of section 3:**
 - *Step 1, verified* in small cases (S4–S7), with the in-tree facts mode; proved in `../explorations/wrapping-by-facts.md`.
 - *Step 2, verified* as a prototype: strict mode refuses winning pirates and nothing else in a real stack (837 pirates by the letter among 65,318 methods, none winning; measured on the previous prototype). Its intended design (pieces 1′, 14, 15, the extension rule, bindings) is not built.
-- *Step 3, verified:* the cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance 19/19. **The control:** under `all`, nine unrelated loads cost PlainTables 0 of 206 CodeInstances (plain mode: 14 of 218) and upstream CSV + DataFrames 2 of 3,340 (plain: 570 of 4,712). Load protection is the facts rule's property, for any code.
+- *Step 3, verified:* the cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance 22/22. **The control:** under `all`, nine unrelated loads cost PlainTables 0 of 206 CodeInstances (plain mode: 14 of 218) and upstream CSV + DataFrames 2 of 3,340 (plain: 570 of 4,712). Load protection is the facts rule's property, for any code.
 - *Step 3's cost:* BaseBenchmarks under `all` (an earlier build, before parts B–D): geometric mean 1.016, tails on containers of `Any`. To rerun on the current compiler.
 - *Step 4:* traits recover the tail tried: the raytrace through `Dynamic` (below). `parse_json`'s tail is recovered by typed captures, 1.17× the fixed plain code (an earlier build), a fix plain Julia makes too (`local pos::Int`), so it is no evidence for traits. The fully-typed certificate is built (`fully_typed`, concrete mode).
 
@@ -367,9 +388,9 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 
 ### 9.1 Today (2026-10-19)
 
-- **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the two inliner changes, with the patch pieces 1, 3, 5, 9, 10, 17. Inventory: [`julia-changes.md`](julia-changes.md).
-- **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the checks on a `NativeInterpreter` with their own cache owner), concrete mode with the fully-typed certificate, `verify_main`, strict mode (protecting `:facts` code), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.dynamic_call` sites.
-- **Tests:** TraitWorld's 47 sets; acceptance 19/19; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
+- **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](julia-changes.md).
+- **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the checks on a `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers (4.9), compiling ahead from declarations (4.8), concrete mode with the fully-typed certificate, `verify_main`, strict mode (protecting `:facts` code), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.dynamic_call` sites.
+- **Tests:** TraitWorld's 48 sets; acceptance 22/22; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
 - **Measured:** [`evidence.md`](evidence.md).
 
 ### 9.2 The target
@@ -400,19 +421,20 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 ### 9.3 The order of work
 
-The order in force is the speed plan, [`../plans/2026-10-19-principled-speed-plan.md`](../plans/2026-10-19-principled-speed-plan.md): principled ways to make everything fast, as close as possible to the proven designs of other languages. Its steps:
-- (0) ground truth;
-- (1) world-checked call-site caches, which fix G1.20;
-- (3) cheaper entries;
-- (4) compiling ahead from declared implementations;
-- (5) the machinery's startup.
+Steps 0, 1, 3, 4 and 5 of the speed plan ([`../plans/2026-10-19-principled-speed-plan.md`](../plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [`../plans/2026-10-19-remaining-performance-work.md`](../plans/2026-10-19-remaining-performance-work.md):
+1. **Correctness first:**
+   - the TraitMakie image flake;
+   - a `const DynamicFn` in a package image (a stale pointer);
+   - acceptance checks for the untyped calls' table and its world ranges;
+   - threads.
+2. **A measurement round on a quiet machine,** before any number in the documents changes.
+3. **The rest of the machinery's startup:** the compiler's reflection code compiled again after loads.
+4. **The ~990 ms after the loads:** a differential test, then red-green revalidation of the `return_type` answers.
+5. **The next call-site cache steps:**
+   - entries with an open `max_world`;
+   - the `call_cache` size;
+   - `Dynamic` beyond four implementations when a demonstrator needs it.
+6. **Upstream proposals** (julia-changes §4).
+7. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
 
-Guarded devirtualization (2) is postponed: traits recover the costs it targets, and a failed guard is a silent cliff. The items below are inside those steps, or run alongside them:
-1. **Diagnose the remaining load costs:** TDE's callback row after the loads (the ~990 ms under `all` is diagnosed, 8); a full list of what is lost or compiled, naming the winning methods.
-2. **The clean-case cost of `@machinery`:** measure what a clean `@implement` compiles by owner; a precompile workload for the machinery.
-3. **Acceptance checks** for the latest compiler changes (the inliner changes, the compiler-plain edges, held views).
-4. **AOT from declared targets (section 4.8):** an implementation compiles the declared workers for its key at precompile time, replacing hand-written workload extensions (the forks' `CSVDataFramesInlineStringsExt`).
-5. **Upstream proposals** in the order of section 6.
-6. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
-
-The steps already done, in order, are in [`../record/design-history.md`](../record/design-history.md).
+What was done, in order, is in [`../record/design-history.md`](../record/design-history.md) and the session notes.

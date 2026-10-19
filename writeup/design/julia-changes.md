@@ -25,6 +25,10 @@ Size: 31 commits on v1.13.2 (one a build script), 35 files, about 1,280 lines ad
 | Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`; `leaves_to` leaves to facts only from the plain owner | Otherwise, with an explicit interpreter, the compiler runs at the latest world, on code later definitions invalidate: 3.7 s per forwarding implementation after big loads | all code | bb82a82bbf |
 | `return_type_tfunc`'s facts signature is boxed | The facts addition captured type values in the tfunc's closure, so the closure was compiled again for every query (about 70 ms each) | all code (a fix of our own bug) | e4db37bb48 |
 | `_return_type(::NativeInterpreter, ::DataType)` compiled into the image (a compiler bootstrap entry) | Without it the run-time `return_type` entry has no code in the system image: 75–93 ms at its first call in every session, stock 1.13.2 too | all code | 40512f64c2 |
+| The inliner inlines the code of a method that belongs to the other owner (`leaves_to`) from that owner's cache: both `resolve_todo(mi, …)` | A plain caller of a facts method found nothing in its own cache and emitted an `invoke`, never inlined, which also blocked hoisting out of loops: a typed trait call 2.6 ns, 0.8 ns with the change (plain 0.8). Inlining does not re-infer: the inlined code stays the other owner's, with an edge to its CodeInstance only | all code | c7f1eae1c0 |
+| `Compiler.known_type(x)`: folded to whether inference knows `x`'s concrete type, `false` where not folded (GCC's `__builtin_constant_p`, for types) | TraitWorld's entry takes the folded path for typed callers and the table of declared implementations where the type is not known (`implementation.md` §4.6); plain Julia cannot express the switch | code that branches on it between paths computing the same result | b5bb9ab881 |
+| The per-call-site dispatch cache gets an entry for the exact argument types when the method cache's entry is not a leaf signature (`call_cache_exact`, `gf.c`), valid up to the latest world at insertion | Such calls (a `@nospecialize` method, guard signatures, `Any` in the signature) did the full method-cache lookup on every call: `push!(d, pop!(d))` on a `Vector{Any}` under `all`, 61.7 → 12.9 ns, profile all lookup with the change off; the quick BaseBenchmarks subset under `all`, geomean 0.93, containers of `Any` 0.60. Acceptance G1.22 (`../plans/2026-10-19-inline-caches-plan.md`) | all code | a9d3dcb345 |
+| With keep-compiled (piece 5), a package image keeps code compiled by facts whose inferred source was discarded (`staticdata_utils.c`); the compile queue infers it again by facts | The facts copies of Base code that TraitWorld's machinery reaches through run-time sites (no backedges) were in no image, so every session compiled them: the first `@implement` of a session inferred 188 ms, 17 ms with the change (TraitWorld also switches piece 5 on while its own image is built) | images built with keep-compiled | 9892bfc288 |
 
 ## 3. The supporting pieces
 
@@ -51,6 +55,12 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
   - bb82a82bbf (reflection in the compiler's world for an explicit `NativeInterpreter`; upstream has no `owner` field, so there it is one line);
   - pieces 10, 9 and 17.
 - **After broader measurement in plain Julia:** the two inliner changes of §2 (exact specializations over a widened varargs tail; cycle members inlining each other). The system image grows 0.4% with both.
+- **General improvements of 2026-10-19, to measure in plain Julia and propose:**
+  - exact-type entries in the per-call-site dispatch cache (a9d3dcb345), which speeds up dynamic calls to `@nospecialize` methods in any code;
+  - the `cfunction` calling convention `:caller_world` (piece 18);
+  - `known_type` (b5bb9ab881).
+
+  The cross-owner inlining (c7f1eae1c0) and keeping facts copies in images (9892bfc288) matter only with a second cache owner, so they go with the proposals for (B) and (C).
 - **Proposals:**
   - (A) as "a facts mode for the native compiler", with the benchmark table (`implementation.md` §3.3);
   - pieces 1, 1′, 14, 15 with strict mode;
@@ -60,8 +70,15 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 5. Tests
 
-- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 21 checks (G1 identical-or-error, G2 stable caches, the cases found by the reviews: G1.15–G1.19, and `DynamicCall` in older and alternating worlds: G1.20, G1.21). 21/21 on the current build (80e8bf79c5).
-- **TraitWorld's suite** (47 test sets) and the demonstrators' suites, on every build.
+- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 22 checks:
+  - G1, identical or error;
+  - G2, stable caches;
+  - the cases found by the reviews, G1.15–G1.19;
+  - `DynamicCall` in older and alternating worlds, G1.20 and G1.21;
+  - a call site cached for exact types through a redefinition, G1.22.
+
+  22/22 on the current build.
+- **TraitWorld's suite** (48 test sets, with the untyped calls' table) and the demonstrators' suites, on every build; the examples, including the check of code compiled ahead (`experiments/examples/ahead/`).
 - **Missing** (review of 2026-10-19): targeted checks for the inliner changes (a varargs wrapper in a recursion; cycle inlining) and for the compiler-plain edges; Base's test suite under the facts mode (started once, not completed).
 
 ## 6. Building
