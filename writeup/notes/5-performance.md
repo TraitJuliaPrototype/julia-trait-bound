@@ -8,10 +8,12 @@ The final runs are one process per load order (n = 1). Earlier runs were two.
 
 | What | Before the phase | After | Baseline |
 |---|---|---|---|
-| raytrace over `Dynamic{Scene}` (rtopen) | 3,281 ms | 384–419 ms | plain closed by accident 232–250 ms; plain with four `Scene` types 799–881 ms (a `max_methods = 3` effect: four types are one over plain inference's split limit, and the trait split stops at four too) |
-| raytrace, small case | 54 ms, 72.6 MB | 6.1 ms, 3.8 MB | plain 3.8 ms, 3.3 MB |
-| sum over `Dynamic{Shape}` (cache-resident) | | 1.45–1.61 ns per element | plain closed 0.87, plain with four methods 29 ns |
-| typed call `total(x, 16)` | | 36 ns | the same loop with `len` an argument: 33.7 ns |
+| raytrace over `Dynamic{Scene}` (rtopen) | 3,281 ms | 300–336 ms (held views, julia 61852d8fb1) | plain closed by accident 246–259 ms; plain with four `Scene` types 827–882 ms (a `max_methods = 3` effect: four types are one over plain inference's split limit, and the trait split stops at four too) |
+| raytrace, small case | 54 ms, 72.6 MB | 4.7–5.3 ms, 3.8 MB | plain 3.9–4.7 ms, 3.3 MB |
+| sum over `Dynamic{Shape}` (cache-resident) | | 0.92–1.40 ns per element (1.45–1.61 before held views) | plain closed 0.87–0.91, plain with four methods 29.5–33 ns |
+| the same over 10⁶ elements | | 4.5–5.7 ns | plain closed 3.9–4.0 ns |
+| typed call `total(x, 16)` | | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns |
+| a varargs wrapper in a plain recursion (the review's probe) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB | 0.36–0.44 ms, 0 bytes (patched, plain code) | |
 | TDE: a new model type, after CSV + DataFrames + CairoMakie | `@implement` 2.0 s, first solve 2.1 s | 148–164 ms, 89–133 ms | without loads: 142 / 82 ms (session 27: 0.16–0.23 s / 33–44 ms) |
 | TraitMakie: a new data type (forwarding), after the loads | 5.5 s + 2.1 s | 97 ms + 89–161 ms | without loads: 77 / 107 ms |
 | TraitMakie: the same, **without loads** | 36 ms + 40 ms | 77 ms + 89–107 ms | **a regression of the clean case** (probably `@machinery`'s cost, below) |
@@ -91,20 +93,24 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 
 ## Costs that remain, and why
 
-- **The trait object's layout.** A `Dynamic` read is one `o === nothing` branch, plus a `TObj` with its view of ~48 bytes against a 16-byte box: 1.7× plain-closed in a cache-resident sum, 2× at 10⁶ elements. That follows from one worker per key, serving held and read-through values alike. A view variant for held immutable values would remove both, at one more worker per key used both ways: a design question.
-- **Recursion through `Dynamic`:** three calls per Group visit against plain's one (1.65× plain-closed).
+- **The trait object's layout: done.** A `Dynamic` of an immutable value that is its own implementing value was a trait object pointing to a boxed copy of the value (two pointer chases), with an `o === nothing` branch per read. The held view (the user's decision; TraitWorld 375a930) holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
+- **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen), from 1.65×.
 - **Untyped calls:** two dynamic dispatches (the conformance, the worker) and a boxed trait object, 116 ns against about 55 for a plain untyped call. Type-unstable code was never claimed fast.
 - **`@implement` of a new model type**, 142–164 ms in every load order: the conformance checks' plain-rule inference.
 - **Platform load cost:** the trait forms' `using` is 0.18–0.20 s above the plain forms'.
+
+## The two inliner fixes, ungated (the user's decision)
+
+They now apply to all code (julia 61852d8fb1). A first general form, "keep any exact specialization inference made", crashed the system image build: an exact specialization at a non-concrete signature is not code to call. Restricted to dispatch tuples, it then also overrode Julia's widening of kinds (a `Type{Float64}` passed to a `::DataType` argument), the review's B2. That changed what the certificate sees and grew the system image by 2.2%. The final rule keeps the exact specialization only when the compileable signature merely widens a varargs tail; the system image grows 0.4%. The plain baselines in this note are therefore patched-plain from here on; stock comparisons use the stock binary.
 
 ## Upstream candidates
 
 - **Ready as they are:**
   - 40512f64c2 (`_return_type` in the image).
   - bb82a82bbf (reflection runs an explicit `NativeInterpreter` in the typeinf world): a one-line generalization upstream.
-- **After measurement in plain Julia:**
-  - the cycle-inlining change, ungated;
-  - the compileable-signature change, in the general form ("prefer an existing exact specialization").
+- **After broader measurement in plain Julia** (now ungated in the patched build):
+  - the cycle-inlining change;
+  - the compileable-signature change (`only_vararg_widened`).
 - **Needed only because of the facts mode:**
   - the Compiler's "never by facts" flag and `leaves_to` both ways;
   - `@machinery`;
