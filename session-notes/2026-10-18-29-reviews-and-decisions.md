@@ -253,3 +253,20 @@ Log:
 - Plan and list revised accordingly (correctness first; the measurement round; step 5; the ~990 ms; the remaining call-site work behind them).
 - **The facts owner's per-call normalization (the review's §2): not reached.** A temporary counter at the branch of `jl_compile_method_internal_owner` saw no call in the `collection` and `sort` tails under `all`, in untyped trait calls, nor in the CSV + DataFrames control work. Dynamic dispatch hands over the wide instance. Left as it is, recorded as latent in the plan.
 - **Seen on the way:** untyped trait calls under `all` take about 60 ns, against about 29 ns plain, for types declared in the session (the table path). Something on the (c) path is still slow under facts; it goes to the measurement round.
+- **Step 5, the machinery's own startup** (`experiments/factscompiler/step5/`). Diagnosed with `@timed`, `SnoopCompileCore.@snoop_inference` and invalidation logs:
+  - **The facts copies of Base code that the machinery's run-time sites reach were in no image.**
+    - TraitWorld's own precompile never switched on piece 5 (`__init__` does it, but it does not run while the package itself is built).
+    - The image dropped copies whose source was discarded, before the keep-compiled rule (`queue_external_cis`).
+    - Fixed by both: the switch at TraitWorld's top level, and `staticdata_utils.c` keeping facts copies without source when compiled (the compile queue infers them again).
+    - A session's first `@implement`: 188 → 17 ms of inference.
+  - **Closures capturing types in the machinery** (`all(X -> _methods_cover(X, T), Xs)`, comprehensions over fields and operations, and comprehensions generated into the user's module) were compiled again per type, per trait and per declaration. They are now loops and calls into TraitWorld (`_allwith`, `_rep_fields`, `_missing_ops`, `_remaining_ops`).
+  - **Witness caches held their values as themselves,** so `setindex!` was compiled per witness type; now a concrete holder (`_WHeld`). Also `findfirst` over the field-name tuple, compiled per field count, is now `Base.fieldindex`.
+  - **The workload gains a trait of declared fields with forwarding implementations,** called typed and untyped.
+  - **Real signatures are checked in the plain cache** (`_check_kw_at`), archetypes in the checks' own: an operation's check at a real type had inferred Base's broadcasting from scratch.
+  - **TraitMakie rows** (clean session):
+    - forwarding `@implement` 80 → 21 ms (previous prototype 36);
+    - colour `@implement` 180 → 48 ms;
+    - the new data type's first PNG 107 → 72 ms;
+    - the session's first PNG 21 → 48 ms, a GC of 26 ms that now falls there (TraitWorld's image 38 → 42 MB).
+  - **Remaining:** the compiler's reflection code compiled again after loads (`typeinf_code` about 43 ms, `findsup_mt`): its plain code is invalidated by loads. TraitMakie's own API compiles per user type, as plain Julia does.
+  - All suites green, acceptance 22 of 22.
