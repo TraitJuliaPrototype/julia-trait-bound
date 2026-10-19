@@ -254,25 +254,21 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
 
 The design needs Julia's compiler and runtime. Stock-Julia support is dropped (the user, session 29). TraitWorld requires the patched build.
 
-**The compiler parts:**
+**The compiler parts, as built in session 29** (julia-1.13, commits 880ae49dad, c3415abde6, 25c630dd34, feaad9e45c, f6838f96fc; acceptance 17/17, TraitWorld 47 test sets):
 
-| Part | What it is | Size (estimate) |
-|---|---|---|
-| **(A)** facts as a mode of Julia's own inference | the fact rules of rule 1 in the native interpreter; `return_type` answered by plain inference when it rests on concrete facts, else at run time | ≈ 300 lines; exists as a forked Compiler package, in-tree port begun |
-| **(B)** a second cache owner for trait code | a method flag "compiled by facts", set by `@trait_module` on its workers; inference of a flagged method, and of everything reached from it, runs in facts mode under an owner sentinel; images keep native code for that owner | ≈ 130 lines |
-| **(C)** owner-aware dynamic dispatch | a run-time site in facts-compiled code finds or compiles facts-compiled code for the run-time types | ≈ 150 lines of C |
-| **(D)** the `Dynamic` call-site split | in the inliner: `isa` guards over declared conformances, direct calls, a dynamic fallback, no edge to the candidate list | ≈ 150 lines |
+| Part | What it is, as built |
+|---|---|
+| **(A)** facts as a mode of Julia's own inference | `NativeInterpreter` has a `facts` field. A call is inferred, with its edges, only at a fact signature: a dispatch tuple, its union splits, unions of concrete elements inside tuple arguments, a closure's call at kinds, and a concrete `Vararg` tail (the user: "Anything that satisfies 'can only be changed by stakeholders or pirates' is fine"). `return_type` folds only an answer that cannot be wider than plain inference's, else plain inference's answer when it rests on facts, else at run time, where plain inference answers it in its own cache owner. Asserted effects are trusted only in Base and Core methods (method and statement level). The compiler's own code stays plain. |
+| **(B)** code compiled by facts beside plain code | A module option, `Base.Experimental.@compiler_options facts=true` (declared by `@trait_module`, inherited by submodules), makes its methods *facts methods*: compiled by facts under the owner `:facts`, whoever calls them; everything a facts frame calls is compiled by facts under that owner. A method can be a **boundary** (`Expr(:meta, :facts, 0)`, `Method.facts`): compiled in its caller's mode, as a trait entry is (rule 2). Plain inference of a facts method is a separate facts inference, and the call names that CodeInstance; reflection of a facts method is facts inference. Package images keep `:facts` code (through the compile queue). |
+| **(C)** dispatch from facts code | Code of owner `:facts` calls `jl_apply_generic_facts` and `jl_invoke_facts` at run-time sites: the same method lookup, then the `:facts` CodeInstance, compiled on a miss. |
+| **(D)** the `Dynamic` call-site split | `Compiler.dynamic_call(K, f, x, args...)`: inferred as `f` at the union of `K`'s registered candidates (≤ 4, each split a fact), plus a fallback; the inliner union-splits it with the dynamic call as the last branch (never "fully covered"). Candidates are registered without an edge (conformances at declaration and package load, values when made): a later conformance reaches the fallback and invalidates nothing. |
 
-**The switch:** `--compile-by-facts=no|all|traits`.
-- `no`: plain Julia.
-- `all`: everything compiled by facts. **A test bed, not a user setting** (the user, session 29). In the Compiler copy it changed values (`map(f, Real[])` gave `Vector{Any}` where plain Julia gives `Vector{Float64}`); the in-tree mode answers `return_type` at run time by plain inference and gives `Vector{Float64}` (verified, session 29). It gives plain code the protection the thesis attributes to traits, which makes it the control of section 8.
-- `traits`: trait code compiled by facts under its own owner (B, C). The product setting.
-- `--trim` implies `no`.
+**The switch:** `JULIA_COMPILE_BY_FACTS=1`, or a system image built with it (`experiments/factscompiler/scripts/build_facts_sysimage.sh`), compiles *all* code by facts (owner `nothing`): the test bed (the user, session 29). Without it, only facts methods (trait modules) are compiled by facts: the product setting. `--trim` turns the facts mode off (a closed world compiles plain code).
 
 **Julia pieces** (numbering of `explorations/julia-support.md`):
 - **Keep:** 1 (method-definition and image-activation hooks, which strict mode needs), 3 (field-offset intrinsics), 17 (type printers), 9 (owner-aware bare MethodInstance edges) and 10 (the inliner uses the CodeInstance it is given), in the form a second owner needs; 5's upstream half (machine code for upstream CodeInstances in images: also plain Julia's gain, to be measured alone).
 - **Add, for the strict tier:** 1′ (a deletion hook), 14 (a read-only "what would this definition invalidate" query, transitive), 15 (image validation reports the winning method).
-- **Revert:** 2 (invalidation policy hook, the old filter) and 4 (post-inference hook).
+- **Revert:** 2 (invalidation policy hook, the old filter) and 4 (post-inference hook): still in the tree, inert (opt-in), to revert.
 - **Moot:** 11, 12, 13 (artefacts of the external interpreter).
 - **Later:** 7 (traits in the type system: membership as subtyping), last.
 
@@ -359,12 +355,12 @@ All numbers are from the patched Julia 1.13.2 build, on one machine, unless stat
 
 ## 9. The implementation: today, the target, the order of work
 
-### 9.1 Today
+### 9.1 Today (end of session 29)
 
-- **TraitWorld** (the package, 8,707 lines): about 5,500 lines are the design and sound (macros, ownership, conformances as methods, entries and workers, keys and layout, `Callable`, `Like`, definition checking, concrete mode, `verify_main`, strict mode, printing). About 770 imitate the compiler, about 2,200 work around being a package on stock Julia (the external interpreter `FactsInterp`, site caches, trampolines, view caches, compiler warm-ups), about 250 are leftovers of earlier designs. Witness tables off by default.
-- **The Julia patch** (`julia-1.13/`, 954 lines over v1.13.2): pieces 1, 2, 3, 4, 5, 9, 10, 17. About 580 lines are pieces 2 and 4, to revert.
-- **(A)** is in Julia since session 29 (`julia-1.13` 880ae49dad: the mode a field of `NativeInterpreter`, the switch `JULIA_COMPILE_BY_FACTS` or a system image built with it, the compiler's own code plain, run-time `return_type` by plain inference, no exemption by module name), and a system image compiled by facts is built. The forked Compiler package (`experiments/factscompiler`) and TraitWorld's `facts.jl` are the two other copies of the rules, to retire.
-- **Demonstrators:** TraitDifferentialEquations, TraitMakie, TraitReport with TraitTables and TraitCSV; the forks of Tables, DataFrames and CSV at M5, paused.
+- **Julia** (`julia-1.13/`): parts (A)–(D) built (section 6), with the patch pieces 1, 3, 5, 9, 10, 17; pieces 2 and 4 inert, to revert.
+- **TraitWorld** (7,3xx lines, requires the patched build): the trait language, ownership, conformances as methods, entries (boundaries) and workers, keys and layout, `Callable`, `Like`, definition checking, concrete mode with the **fully-typed certificate** (`fully_typed(f, argtypes)`; `@error_on_abstract` refuses code with run-time sites), `verify_main` (scanning by owner), strict mode (protecting `:facts` code), printing. Its own policy (`FactsInterp`, site caches, trampolines, view caches, witness tables, key branches, warm-ups) is deleted. `Dynamic` operations are `Compiler.dynamic_call` sites.
+- **Tests:** TraitWorld 47 sets; `experiments/facts/acceptance_compiler.jl` 17/17; the demonstrators' suites pass (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations; TraitReport's and TraitMakie's REPL sessions; TDE's session equal to PlainODE's; the forks' CSV suite; DataFrames after a port fix: see the session note); the examples agent's cases (`experiments/examples/run_all.sh`).
+- **Not measured yet:** everything (the user: measurements wait until `Dynamic` is in the compiler; it is now). The control experiment is prepared (`experiments/factscompiler/control/`).
 
 ### 9.2 The target
 
