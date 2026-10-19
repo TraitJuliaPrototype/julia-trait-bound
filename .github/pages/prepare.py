@@ -38,6 +38,10 @@ def fix(m, src):
     if os.path.isdir(target):
         if os.path.exists(os.path.join(target, "README.md")):
             return f"]({t.rstrip('/')}/README.md{anchor})"
+        if os.path.exists(target.rstrip("/") + ".md"):
+            # a directory beside a document of the same name (design/ and design.md) is that document's
+            # companion: both would render at the same address, so the link goes to the document
+            return f"]({t.rstrip('/')}.md{anchor})"
         if any(x.endswith(".md") for x in os.listdir(target)):
             dirs_linked.add(full)
             return f"]({t.rstrip('/')}/index.md{anchor})"
@@ -46,10 +50,19 @@ def fix(m, src):
         return f"]({ORG}/julia-trait-bound/blob/main/{full}{anchor})"
     return m.group(0)
 
+# the site's search covers the pages for programmers and for core developers only
+SEARCHED = {"writeup/intro/traits-for-julia.md", "writeup/intro/results.md", "writeup/intro/porting.md",
+            "writeup/design.md", "writeup/design/mechanisms.md", "writeup/design/julia-changes.md",
+            "writeup/design/evidence.md", "writeup/design/performance.md", "writeup/design/comparison.md",
+            "writeup/other-languages.md", "writeup/decisions.md", "writeup/open-issues.md"}
+NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"
+
 for f in files:
     os.makedirs(os.path.join(out, os.path.dirname(f)), exist_ok=True)
     s = open(os.path.join(root, f), encoding="utf-8").read()
     s = link.sub(lambda m: fix(m, f), s)
+    if f not in SEARCHED:
+        s = NOSEARCH + s
     open(os.path.join(out, f), "w", encoding="utf-8").write(s)
 
 for d in sorted(dirs_linked):
@@ -67,5 +80,5 @@ for d in sorted(dirs_linked):
                     title = l[2:].strip(); break
         if f.endswith(".md") or os.path.isdir(p):
             lines.append(f"- [{title}]({name})")
-    open(os.path.join(out, d, "index.md"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    open(os.path.join(out, d, "index.md"), "w", encoding="utf-8").write(NOSEARCH + "\n".join(lines) + "\n")
 print(f"{len(files)} documents; generated indexes for {len(dirs_linked)} linked directories")
