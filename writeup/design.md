@@ -116,7 +116,7 @@ Traits make code fully typed where plain Julia would lose its types, by three me
 2. **Declared result types at abstract positions.** Where a value is heterogeneous on purpose, the heterogeneity is declared: `Dynamic{X}` for values, `Callable{A, S}` for functions. Their operations have declared result types, checked. They give back exactly what the facts rule took away, a result type at an abstract call, from a declaration rather than from the methods that exist today.
 3. **Declared conformances.** The types a `Dynamic{X}` value can hold are the declared conformances, so an operation on it splits at the call site (`isa` branches, direct calls that inline, a dynamic fallback), as union splitting does, without an edge to the list (part D, section 6). This replaces the speculation the facts rule removes.
 
-Type-unstable code was never claimed to be fast in Julia. Under the facts rule it stays correct and gets slower in the tails. The design's answer is the user's principle: a slowdown is tolerated when redesigning the code with traits recovers it (raytrace and `parse_json` so far, section 8).
+Type-unstable code was never claimed to be fast in Julia. Under the facts rule it stays correct and gets slower in the tails. The design's answer is the user's principle: a slowdown is tolerated when redesigning the code with traits recovers it (the raytrace through `Dynamic`, section 8; `parse_json`'s tail was recovered by a plain-Julia fix as well, a typed capture).
 
 ### 3.5 The default: following pirates (rule P), and what it gives up
 
@@ -161,7 +161,7 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 - **A trait is an abstract type with behaviour.** It declares operations (generic functions with argument and result types), fields (with types; writable unless `@const`), and associated types as parameters (`@trait Integrator{U, P}`). Defaults are written in terms of the other operations and fields.
 - **Conformance is declared,** `@implement ColTable MyType`, also after the type was defined. It is never derived from the methods that exist: Base's throwing fallbacks make structural matching unsound.
 - **Operations** come from the type itself or are forwarded to one field (`by data`). **Declared fields** are stored fields, by name or mapped (`name => label`). The declaration is checked: every operation and field exists, with the declared types.
-- **Associated types** are first-order: one value per conformance, defined by a field's type (`data::Vector{T}` against `Vector{Float64}` gives `T = Float64`) or by an equation of `Self`, bounded by traits or types. No input parameters, no equations between type functions: these made Rust's and Swift's checking hard (`notes/2-design-choices.md` §10).
+- **Associated types** are first-order: one value per conformance, defined by a field's type (`data::Vector{T}` against `Vector{Float64}` gives `T = Float64`) or by an equation of `Self`, bounded by traits or types. No input parameters, no equations between type functions: these made Rust's and Swift's checking hard (`design/comparison.md` §7).
 - **Who may implement:** a stakeholder, the trait's owner or the type's owner (rule 2 below). Implementations are methods.
 
 ### 4.2 Compiled for what the bound can see
@@ -169,7 +169,7 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 - A function bounded by a trait reaches its argument only through the trait's operations and fields.
 - It is compiled per **key**: the implementing type, if any, and the declared fields' types. Not per the argument's own type.
 - Types that differ only in what the trait cannot see share compiled code. Every table type forwarding `ColTable` to a `Vector{Vector{Float64}}` field runs the code the library compiled for that type. A solver step bounded by `Integrator` compiles nothing for a new callback, which the trait does not declare.
-- **This is not "once for any type".** A type that supplies its own behaviour (implements an operation, overrides a default) is the implementing type and gets its own copy, compiled once, in its own image. Sharing comes from forwarding, from defaults over fields, from `Dynamic{X}`, and from `Callable` in its dynamic mode. Code shared across every conforming type through a witness, Swift's model, was considered and not chosen (`notes/2-design-choices.md` §7).
+- **This is not "once for any type".** A type that supplies its own behaviour (implements an operation, overrides a default) is the implementing type and gets its own copy, compiled once, in its own image. Sharing comes from forwarding, from defaults over fields, from `Dynamic{X}`, and from `Callable` in its dynamic mode. Code shared across every conforming type through a witness, Swift's model, was considered and not chosen (`design/comparison.md` §3).
 - **The reference layout.** A trait object of a mutable value is the user's object, read at byte offsets, with Julia's alias metadata: nothing is copied, every read sees the current value, and loops run at plain Julia's speed. An immutable value is held, since none of its fields can be rebound. When it is its own implementing value, it is held whole, with no object or slot to read through (a *held view*, the user's decision in session 29), so a `Dynamic` of it is one box, as a plain abstractly typed value is. A key used both held and read through has one worker per view type. Typed trait calls: 36 ns against 33.7 ns for the same loop in plain Julia (session 29).
 - **Inside a trait module,** a trait object is what its bound can see and nothing else. Internal functions take trait objects without bounds; definition checking follows them through.
 
@@ -211,7 +211,7 @@ Section 3.4 named the three mechanisms by which traits make the facts rule cheap
 
 ### 4.7 The rest of the trait language
 
-- **Results like the input:** constructor operations returning `Self`, `Like{t}`, `withfields`, a result rebuilt as the user's type at the entry. Only `Self` constructors are exercised so far (TraitCSV).
+- **Results like the input:** constructor operations returning `Self`, `Like{t}`, `withfields`, a result rebuilt as the user's type at the entry. TraitWorld's tests exercise all of them (also siblings, `LSeries{Float64}` to `LSeries{Float32}`, and `Dynamic` in and out); the demonstrators use only `Self` constructors (TraitCSV).
 - **Definition checking:** library code is checked once at archetypes, where it is defined, for every type that will ever conform. A mistake is reported at its line before any user type exists. At the prompt it warns; the call raises.
 - **Dispatch:** types first, then traits. A trait bound ranks above `Any` and below every type. This is what lets a library adopt traits one function at a time.
 - **Keeping is detected, not declared:** a function whose code may keep a trait object receives the whole user's object; others receive what their bounds see. An optimization with a safe fallback.
@@ -247,7 +247,14 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
    - Code is compiled per key.
 
 **The central guarantees.**
-- **Identical or error (G1).** A call in trait code computes what plain Julia computes in the current world, or raises. It rests on one assumption about values that inference decides (A3: `return_type` of empty collections, `Union{}` results). The package prototype adds two implementation assumptions (A4: no method defined concurrently with compiling trait code; A5:**The compiler parts, as built in session 29.** The inventory, with commits, files and upstream status, is [`design/julia-changes.md`](design/julia-changes.md). Acceptance 19/19; TraitWorld's 47 test sets; the demonstrators' suites.
+- **Identical or error (G1).** A call in trait code computes what plain Julia computes in the current world, or raises. It rests on one assumption about values that inference decides (A3: `return_type` of empty collections, `Union{}` results). The package prototype adds two implementation assumptions (A4: no method defined concurrently with compiling trait code; A5: the generator's behaviour), which part B removes.
+- **Stable caches (G2),** in the two tiers of 3.5.
+
+## 6. What Julia provides
+
+The design needs Julia's compiler and runtime. Stock-Julia support is dropped (the user, session 29). TraitWorld requires the patched build.
+
+**The compiler parts, as built in session 29.** The inventory, with commits, files and upstream status, is [`design/julia-changes.md`](design/julia-changes.md). Acceptance 19/19; TraitWorld's 47 test sets; the demonstrators' suites.
 
 | Part | What it is |
 |---|---|
@@ -257,8 +264,6 @@ Three rules deliver the guarantee and the two goals. The former rule 4 ("what a 
 | **(D)** the `Dynamic` call-site split | `Compiler.dynamic_call(K, RT, f, x, args...)`: inferred as `f` at the union of `K`'s registered candidates (≤ 4, each split a fact), plus an asserted fallback; the join is typed `RT`, the trait's declared result. Candidates are registered without an edge: a later conformance reaches the fallback and invalidates nothing. |
 | **The compiler stays plain** | The Compiler module is *never by facts*: a facts frame's call into the compiler leaves to plain inference (`leaves_to`), and Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`. **The boundary:** facts code that calls compiler functions directly (TraitWorld's machinery calls `argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler code, whose validity is plain Julia's (review of 2026-10-19, B1). A rule running such calls in the compiler's world would break code that extends the compiler for its own interpreter types. The loss is cacheability, not correctness; the nine-package load loses no facts code of TraitWorld. |
 | **Two inliner changes, for all code** | An invoke keeps the exact specialization inference made at concrete types when the compileable signature only widens a varargs tail; an inference cycle's members inline each other (callees optimized first). Both were found under facts and apply to plain code too (the user, session 29: "Apply to all code"): a varargs wrapper in a plain recursion 21.9 ms on stock 1.13.2, 0.36 ms. |
-
-for its own interpreter types, whose methods that world does not have. The loss is cacheability, not correctness: the nine-package load loses no facts CodeInstance of TraitWorld. `dynamic_call` is a compiler method too; inference intercepts it before the flag matters. |
 
 **The switch:** `JULIA_COMPILE_BY_FACTS=1`, or a system image built with it (`experiments/factscompiler/scripts/build_facts_sysimage.sh`), compiles *all* code by facts (owner `nothing`): the test bed (the user, session 29). Without it, only facts methods (trait modules) are compiled by facts: the product setting. `--trim` turns the facts mode off (a closed world compiles plain code).
 
@@ -277,10 +282,10 @@ Only the current decisions. The full register with history is `decisions.md`; "s
 
 | Decision | Origin | Detail |
 |---|---|---|
-| A trait is an abstract type with behaviour; abstract types stay, traits are a kind of them | s22 | 4.1; `notes/2-design-choices.md` §1 |
+| A trait is an abstract type with behaviour; abstract types stay, traits are a kind of them | s22 | 4.1; `design/comparison.md` §1 |
 | Conformance is declared, never derived | early | 4.1 |
-| Keys: code is compiled for what the bound can see (implementing type, declared fields' types) | s22 | 4.2; `notes/4-details.md` "Terms" |
-| Implementation separate from conformance; forwarding `by f`; no computed projections; declared fields are stored fields; forwarding does not chain | s22 | `notes/4-details.md` "How a type conforms" |
+| Keys: code is compiled for what the bound can see (implementing type, declared fields' types) | s22 | 4.2; §1 |
+| Implementation separate from conformance; forwarding `by f`; no computed projections; declared fields are stored fields; forwarding does not chain | s22 | `design/mechanisms.md` §2 |
 | The reference layout: a trait object reads the user's object at offsets | s22, s23 | 4.2 |
 | Associated types in first-order form; fields define parameters by matching | s22 | 4.1; `explorations/associated-types.md` |
 | Concreteness opt-in per trait, one declaration with a level (silent, warn, error) | s27 (the user: "Per trait"); one declaration s29 | 4.3 |
@@ -330,7 +335,7 @@ The measurements, with builds, baselines and run counts, are in [`design/evidenc
 - *Step 2, verified* as a prototype: strict mode refuses winning pirates and nothing else in a real stack (837 pirates by the letter among 65,318 methods, none winning; session 25). Its intended design (pieces 1′, 14, 15, the extension rule, bindings) is not built.
 - *Step 3, verified:* the cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance 19/19. **The control** (session 29): under `all`, nine unrelated loads cost PlainTables 0 of 206 CodeInstances (plain mode: 14 of 218) and upstream CSV + DataFrames 2 of 3,340 (plain: 570 of 4,712). Load protection is the facts rule's property, for any code.
 - *Step 3's cost:* BaseBenchmarks under `all` (session 28, before parts B–D): geometric mean 1.016, tails on containers of `Any`. To rerun on the current compiler.
-- *Step 4:* traits recover the tails tried: the raytrace through `Dynamic` (below), `parse_json` with typed captures (1.17×, session 28). The fully-typed certificate is built (`fully_typed`, concrete mode).
+- *Step 4:* traits recover the tail tried: the raytrace through `Dynamic` (below). `parse_json`'s tail is recovered by typed captures, 1.17× the fixed plain code (session 28), a fix plain Julia makes too (`local pos::Int`), so it is no evidence for traits. The fully-typed certificate is built (`fully_typed`, concrete mode).
 
 **Shown:**
 - **`Dynamic` values at near plain speed.** A sum over `Dynamic{Shape}`: 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33 with four. The raytrace over an open set of primitives: 300–336 ms against plain's 246–259 with two types and 827–882 with four (a `max_methods` effect at four).
