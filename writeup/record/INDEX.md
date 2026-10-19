@@ -34,7 +34,7 @@ Read, in this order:
    - its "Next" section is from the start of session 29 and is done;
    - read instead the last bullets of "Autonomous run": the user's decisions on the performance review (2026-10-19: the inliner fixes for all code; next, diagnose and fix the remaining load costs, the compiler-edge hole B1 and a machinery workload; a lean held view) and the approval of the cleanup plan.
 
-**Standing constraints** (root [`README.md`](../../README.md) "Conventions", [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) "Basic workflow", item 6):
+**Standing constraints** (root [`README.md`](../../README.md) "Conventions", [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) "Basic workflow"):
 - The machine is shared with other simulations (30 GB, 16 cores). **One Julia job at a time,** never parallel chains. A parallel chain crashed the machine on 2026-10-15 (session note 20).
 - Run Julia niced and serialized through the shared lock: `flock /tmp/claude-1000/julia-review.lock nice -n 19 …`, with `JULIA_NUM_PRECOMPILE_TASKS=4`. (The lock is used by the reviews of 2026-10-18; the workflow note itself says `nice -n 10` and does not name the lock.)
 - **Full builds of Julia alone,** through `julia-1.13/tw-build.sh`: `make -j4`, niced, killed below 4 GB available memory. `TW_TARGET=julia-sysimg-release` rebuilds only the system image. Check `BUILD EXIT` at the end of `tw-build.log` after every build: two builds failed in session 29.
@@ -172,7 +172,7 @@ One note per working session. "Date" is the last commit to the note. Session 28 
 
 | Note | Date | Main outcome |
 |---|---|---|
-| [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) | 2026-10-15 | standing reference: environment, workflow rules, a table of notes 01–20. Partly stale: Julia 1.12.2, `poc/` paths (now `experiments/`), reading order through the frozen note |
+| [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) | 2026-10-19 | standing reference, rewritten in session 29: environment (the patched build, the facts image and its depot path), workflow rules (the lock, builds, checks after a Julia change, durable logs). The version of 2026-10-14, with the table of notes 01–20, is [`attic/session-notes/00-environment-and-workflow-2026-10-14.md`](../../attic/session-notes/00-environment-and-workflow-2026-10-14.md) |
 | [`2026-08-09-01-setup.md`](../../session-notes/2026-08-09-01-setup.md) | 2026-08-09 | sandbox verified; the TraitRegions plan (Rung 1) read; the session-note convention |
 | [`2026-08-09-02-plan.md`](../../session-notes/2026-08-09-02-plan.md) | 2026-08-09 | the user's mandate: reduce compilation dramatically, approach Python's feel, start a community discussion; the plan assessed |
 | [`2026-08-09-03-m0-results.md`](../../session-notes/2026-08-09-03-m0-results.md) | 2026-08-09 | M0 spike: four lowerings, all gates pass (dyn tables 14 ms against 71 ms direct); go for M1 |
