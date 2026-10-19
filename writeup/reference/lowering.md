@@ -67,7 +67,8 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 | entries, `conformance` methods, entry methods for types compiled ahead | the caller's mode (a *boundary*) | `Expr(:meta, :facts, 0)` (`trait_module.jl:709`, `implement.jl:675`, `ahead.jl:182`) |
 | the machinery's slow paths: expansion of `@implement`, checks, finding builders, hooks | always facts | `@machinery`, which inserts `Expr(:meta, :facts, 1)` (`compiler.jl:35`) |
 | TraitWorld's small helpers (`enter`, `_assemble`, `checked_call`, `opcall`, the builders) | plain code, inlined into the code that calls them | `@inline` |
-| the definition checks' inference | plain inference on a `NativeInterpreter` | own cache owner `_CheckOwner` at archetypes; the plain cache at real signatures (`compiler.jl:57`, `:66`) |
+| the definition checks' rule check | the default interpreter's reflection: a worker at archetypes is inferred by facts, in the facts cache, as the code that runs would be. An archetype never runs, so nothing it infers is called | `_worker_problems` (`checks.jl:84`) |
+| the keep analysis and the result-type checks | plain inference on a `NativeInterpreter` | own cache owner `_CheckOwner` at archetypes; the plain cache at real signatures (`compiler.jl:57`, `:66`; `defcheck.jl:229`) |
 
 **Where code lives** is Julia's behaviour ([facts §11, package images](facts.md#package-images), [compiler §2.9, what package images keep](compiler.md#29-what-package-images-keep)):
 - code compiled while a package's image is built is kept in that image, `:facts` code included;
@@ -106,7 +107,10 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 | `supertraits(X)`, `bundle(X)` | supertraits; a bundle's traits |
 | `trait_concreteness(X)` | `:none`, `:warn` or `:concrete_only` |
 
-Every record function is declared `Base.Experimental.@max_methods 1` with a fallback method (`core.jl:303`–`641`). Code compiled at an abstract argument infers nothing from a record's methods and holds no edge to them. So a declaration changes no compiled code ([§17](#17-encodings-until-traits-are-in-the-type-system)).
+Every record function is declared `Base.Experimental.@max_methods 1` (`core.jl:303`–`641`). Code compiled at an abstract argument where at least two of a record's methods apply infers nothing from them and holds no edge to them. So a declaration changes no compiled code ([§17](#17-encodings-until-traits-are-in-the-type-system)).
+- A fallback (*sentinel*) method makes two apply: `trait_params`, `trait_fields`, `trait_uses_self`, `trait_field_params`, `field_isrep`, `has_default`, `is_mutating`, `trait_concreteness`, `supertraits`, `bundle`, `implementation`, `projection`, `conformance`, `needed`, `keeps`, `_declared_builder` have one.
+- The others have none: `trait_ops`, `op_function`, `op_args`, `op_ret`, `op_default`, `generic_op`, `generic_rec`, `param`, `param_bound`, `field_type`, `_fieldmatch`, `_fieldpos`, `_declared_defaults`.
+- Where exactly one method applies, the sentinel or a declaration's, inference infers it and records an edge for the abstract signature ([L-4](#18-deviations)).
 
 **Fields on trait objects.** For each declared field, a method of `_tgetprop(t::TObj{T}, ::Val{f}) where T >: X` and of `_tsetprop!` (`trait.jl:330`). `getproperty` and `setproperty!` on a `TObj` reach them; a `@const` field's setter raises ([§6](#6-trait-objects-layout-fields-writes)).
 
@@ -176,7 +180,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.6 Families
 
-**Status: Implemented**; forwarding for a family **Planned**.
+**Status: Implemented** (deviation [L-23](#18-deviations); the family-wide check [traits T-26, T-27](traits.md#19-deviations)); forwarding for a family **Planned**.
 
 `@implement X S{P} where {P} [begin … end]` ([`traits.md#57-families`](traits.md#57-families)) defines (`_family_conformance_methods`, `implement.jl:690`):
 - the operations' methods with the `where` clause, for a block;
@@ -219,7 +223,7 @@ At a type's first call, `_witness` (`implement.jl:337`) tries each generic recor
 - **At a definition,** the method-definition hook refuses a method of an indexed operation for an indexed receiver type ([§16](#16-sessions-loads-and-hooks)).
 - **At an image's activation,** the image hook leaves such a method inactive and reports it after the load.
 - **Checkpoints** scan the records again (`check_overrides`, `implement.jl:753`): at each declaration, at a trait module's end, at a worker's first call.
-- **Redeclaration** with a block is refused when `T` already has a `conformance` method of its own (`implement.jl:949`, `:972`). *Planned:* redeclaration on Julia 1.13's struct redefinition: a new `conformance` method and records, old values keeping the old builder.
+- **Redeclaration** with a block is refused when `T` already has a `conformance` method of its own (`implement.jl:949`, `:972`). Other forms are accepted with another meaning ([traits T-29](traits.md#19-deviations)). *Planned:* redeclaration on Julia 1.13's struct redefinition: a new `conformance` method and records, old values keeping the old builder.
 
 ---
 
@@ -234,7 +238,7 @@ The key ([`traits.md#4-keys-what-code-is-compiled-for`](traits.md#4-keys-what-co
 
 **A view** is one trait's part of a trait object: `View{Xi, W, K, N, P}` or `Held{Xi, W, K, N, P}` (`core.jl:86`, `:101`), with
 - `Xi` the trait instance `X{p…, K}`;
-- `W` the **witness**, a type saying where the operations come from: `Impl{D}` (the receiver type's own methods, `D` those served by defaults), `Generic{…}`, `Dyn{…}`, or `ArchWit` at an archetype (`core.jl:585`);
+- `W` the **witness**, a type saying where the operations come from: `Impl{D}` (the receiver type's own methods, `D` those served by defaults), `Generic{…}`, `Dyn{…}`, or `ArchWit` at an archetype (`defcheck.jl:31`);
 - `K` the key, `N` the number of declared fields, `P` the type of the parts the view holds.
 
 **The builder** of a user type is `Builder{Tuple{VSpec…}}`, one `VSpec{Xi, W, K, N, P, S}` per trait of the closure (`entry.jl:40`, `:47`). A `VSpec` holds the witness, the receiver's slot and the declared fields' slots. A *slot* is a byte offset and a field index; offset −1 means the object itself (`core.jl:56`). `S` says that the user's type is its own receiver.
@@ -375,28 +379,29 @@ The worker, compiled by facts, is shared by every caller of its key.
 
 ### 9.2 Untyped callers: the table of declared implementations
 
-**Status: Implemented** for entries of trait positions and ordinary arguments (deviations [L-11](#18-deviations), [L-12](#18-deviations), [L-13](#18-deviations)).
+**Status: Implemented** for entries of trait positions and ordinary arguments (deviations [L-11](#18-deviations), [L-12](#18-deviations), [L-13](#18-deviations), [L-24](#18-deviations)).
 
 A caller that does not know the type reaches the entry compiled at `Any`. The entry switches on `Compiler.known_type(x)` ([compiler §4.1, `known_type`](compiler.md#41-compilerknown_type)): it folds to `true` in a typed caller, which takes [§9.1](#91-typed-callers), and is `false` otherwise (`untyped.jl:19`, `trait_module.jl:646`). On the untyped path nothing is compiled per user type:
 
 - **The value is held** in `XAny`, a concrete holder, so every call on the path is at a fact signature (`untyped.jl:22`).
 - **One table per entry position,** `UTable`, a constant of the code that reads it (`_utable`, `untyped.jl:43`). A table entry maps a user type to its builder, valid for a range of worlds (`UEntry`). A miss finds the builder (`_declared_builder`, else `_builder_for`) and the worlds in which each needed trait's `conformance` method for the type is the same method (`_umiss`, `untyped.jl:64`).
 - **The pattern method** `tw_untyped_f(b::Builder…, xa::XAny…)` is a method of the trait module, compiled once per tuple of builder types, that is, per tuple of keys. It builds the views from the builders' data, reading the held object at the slots' offsets (`_build_any`, `untyped.jl:123`), and calls the worker (`trait_module.jl:676`).
-- **One trait position:** the entry calls the pattern method through a caller-world pointer, one per (pattern, builder type), kept in a `PTable` per pattern (`_pentry`, `untyped.jl:250`; [compiler §3.1, the `:caller_world` convention](compiler.md#31-the-cfunction-calling-convention-caller_world)). The pointer's wrapper `_UWrap` passes every argument on in a holder.
-- **Several trait positions:** one dynamic call to the pattern method on the builders' types.
+- **One trait position:** the entry calls the pattern method through a caller-world pointer, one per (pattern, builder type), kept in a `PTable` per pattern (`_pentry`, `untyped.jl:250`; [compiler §3.1, the `:caller_world` convention](compiler.md#31-the-cfunction-calling-convention-caller_world)). The pointer's wrapper `_UWrap` passes every argument on in a holder. It has fixed arities, up to five arguments (`untyped.jl:177`); an entry with more positional arguments takes the dynamic call below.
+- **Several trait positions,** or more than five positional arguments: one dynamic call to the pattern method on the builders' types.
 - **Sessions:** each table carries the session's stamp. Entries of another session, saved with an image, are ignored (`untyped.jl:48`).
 
 Implementations the table does not serve take the entry's own path, `conformance` ([L-11](#18-deviations)).
 
 ### 9.3 Entries compiled ahead
 
-**Status: Implemented.**
+**Status: Implemented** (deviation [L-22](#18-deviations)).
 
 While a package that declares `@implement X T` is precompiled, it defines an entry method for `T` itself, for each tabled entry whose position needs `X` (`_ahead_entry!`, `ahead.jl:168`):
 - `f(a1::T, a2…) = invoke(f, Tuple{Any, …}, a1, a2…)`, a boundary, in `T`'s module (else the declaring module);
 - it is the generic entry's folded path for `T`, compiled into that package's image;
 - an untyped caller reaches it by one dispatch; every other type reaches the generic entry and the table;
-- the package owns `T`, so the method is a stakeholder's.
+- the package owns `T`, so the method is a stakeholder's;
+- it changes no compiled code: declaring an implementation discards nothing ([traits §5](traits.md#5-implementations)). *As built,* it is a new method of `f`, which invalidates plain callers at abstract argument types and the entry's own untyped specialization ([L-22](#18-deviations)).
 
 ### 9.4 Entries specialized per type
 
@@ -480,7 +485,7 @@ An entry with keywords, a vararg or a `Callable` position is not tabled (`trait_
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-8](#18-deviations), [L-20](#18-deviations)); `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-8](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations)); `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
 
 **The intended representation:** a `Dynamic{X}` holds the user's object; the view for (X, the object's type) is a constant per pair.
 
@@ -504,7 +509,7 @@ Base.@constprop :aggressive @inline op(d::Dynamic{X}, a…) where {X <: Trait} =
 
 **Candidates** are trait-object types, registered with `Compiler.register_dynamic_candidate!` without an edge:
 - when a `Dynamic` is made (`core.jl:348`);
-- for each declared implementation at a concrete type, after each declaration and each package load, by inferring the trait object `Dynamic{X}(x)` would keep (`_note_conformances!`, `core.jl:397`).
+- for each declared implementation at a concrete type, after each declaration and each package load, by inferring the trait object `Dynamic{X}(x)` would keep (`_note_conformances!`, `core.jl:397`). *As built,* only types with an `implementation` record ([L-25](#18-deviations)).
 
 A later implementation reaches the fallback and invalidates nothing.
 
@@ -544,7 +549,7 @@ A later implementation reaches the fallback and invalidates nothing.
 | every `Callable` call | arguments and result | `CObj` | — |
 
 **Definition checking** (`check_definitions`, `defcheck.jl:159`) infers each worker once at **archetypes**: a stand-in key per bound, `Archetype{X, P}` with `P` the parameters the bound fixes, whose views have the witness `ArchWit` (`defcheck.jl:18`, `:64`). At `ArchWit` an operation and a field return an opaque value asserted to the declared type, and nothing more (`defcheck.jl:35`). The rules are checked on the inferred code (`worker_problems`, `checks.jl:77`).
-- It runs in the checks' own cache, so nothing it infers reaches the program.
+- The rule check reflects the worker with the default interpreter: at archetypes, facts inference in the facts cache. An archetype never runs, so no code the program calls comes from it. The keep analysis ([§8.4](#84-keeping)) and the result-type checks infer plainly, at archetypes in the checks' own cache (`_CheckOwner`).
 - While a package is precompiled, a problem fails the build. Elsewhere it warns, and the first call raises.
 - Methods checked clean are recorded (`_DEF_CHECKED`). Their workers' first calls skip the rule check.
 - **Intended:** only a bound with an open parameter and a `Callable` with an open result type wait for the first call. **As built,** keyword workers, vararg workers and every worker with a `Callable` argument wait too (`defcheck.jl:84`–`96`; [L-10](#18-deviations)).
@@ -661,7 +666,7 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-1 | [§3](#3-trait-declarations), [§5](#5-keys-and-views) | a trait is `X{P…}`; the key is a parameter of the view | the trait type has the key as its last parameter, `X{P…, Self}`; trait instances name the key | `TraitWorld/src/trait.jl:198`, `core.jl:316` |
 | L-2 | [§5](#5-keys-and-views) | a bound is a type in the worker's signature | trait sets are unions of families and `PTag`s; workers take `TObj{T} where T >: Union{…}` | `core.jl:229`, `trait_module.jl:470` |
 | L-3 | [§8.1](#81-the-rewrite), [§17](#17-encodings-until-traits-are-in-the-type-system) | a trait bound is a dispatch tier; entries are generated by the compiler | entries are methods at `Any` per shape; the fallback is tagged `Untyped`; joint methods and ambiguities are checked by hand | `trait_module.jl:456`, `:528`–`715`, `:840`, `:889` |
-| L-4 | [§3](#3-trait-declarations), [§17](#17-encodings-until-traits-are-in-the-type-system) | declarations read without edges | registries are methods of `@max_methods 1` functions with sentinel fallbacks | `core.jl:303`–`641`, `entry.jl:114`, `:174`, `:205`, `implement.jl:28`, `:57`, `:625`, `untyped.jl:102` |
+| L-4 | [§3](#3-trait-declarations), [§17](#17-encodings-until-traits-are-in-the-type-system) | declarations read without edges | registries are methods of `@max_methods 1` functions, some with sentinel fallbacks ([§3](#3-trait-declarations) lists them). No edge is recorded only where at least two methods apply. Where exactly one does (by reading Julia's `max_methods` rule; not run), inference infers it with an edge for the abstract signature, and the first declaration whose method intersects that signature invalidates the code: a tabled entry's `conformance(As{X}(), ::Any)` compiled while `X` has no declared implementation; a specialized entry inlined into a plain caller at an abstract type that no declared implementation's type intersects; a record function without a sentinel, at its one method; `keeps` and `needed` before the module's end (intended: the module redefines them) | `core.jl:303`–`641`, `entry.jl:114`, `:174`, `:205`, `implement.jl:28`, `:57`, `:625`, `untyped.jl:102` |
 | L-5 | [§17](#17-encodings-until-traits-are-in-the-type-system) | membership is `T <: X` | `conforms(T, X)` | `entry.jl:757` |
 | L-6 | [§13](#13-dynamicx) | a trait's name as a type means its `Dynamic` | only inside trait modules, by rewriting struct fields, containers and argument types | `trait_module.jl:143`, `:179` |
 | L-7 | [§4.1](#41-what-every-form-defines), [§4.4](#44-forwarding-with-by) | forwarding is written with `by` and recorded as forwarding | `by f` is lowered to a projection `project(t) = getfield(t, :f)`; a written `project(t) = t.f` is accepted as forwarding; TraitWorld's own precompile workload and tests use `project(t) = …` and the `{R}` spelling | `implement.jl:911`, `:1298`–`1305`; `TraitWorld.jl:88`, `:103`–`106`; `test/runtests.jl:50` |
@@ -672,10 +677,14 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-12 | [§9.4](#94-entries-specialized-per-type) | an untyped call compiles nothing per user type | entries with keywords, a vararg or a `Callable` position are specialized per argument type | `trait_module.jl:543`–`559` |
 | L-13 | [§9.2](#92-untyped-callers-the-table-of-declared-implementations) | a table entry is valid until invalidation ends the worlds it rests on | an entry's range ends at the latest world when it is made, so every entry misses once after any definition (an open `max_world`: [compiler §3.3](compiler.md#33-further-work-on-mechanism-3), Planned) | `untyped.jl:70`, `:225` |
 | L-14 | [§15.3](#153-verify_main-fully_typed-closed-builds) | a closed build fills every cache from the listed targets, and a miss is an error | `close_world!` fills only the slow path's cache; the untyped tables' miss paths have no closed-world branch and are not among `verify_main`'s guards | `verify.jl:464`, `:1011`; `untyped.jl:64`, `:220` |
-| L-15 | [§15.1](#151-compiling-ahead-from-declarations) | the workers of every bounded function with one trait position whose bound includes `X` are compiled ahead, where the other arguments are concrete | vararg positions are skipped | `ahead.jl:100` |
+| L-15 | [§15.1](#151-compiling-ahead-from-declarations) | the workers of every bounded function with one trait position whose bound includes `X` are compiled ahead, where the other arguments are concrete | vararg positions are skipped; so are entries with several trait positions: no worker, no pattern method and no entry method is compiled ahead for them | `ahead.jl:100`, `:132`, `:138`, `:151`–`152` |
 | L-16 | [§11](#11-results-like-the-input) | the inverse is compiled for the caller's type, and its result has that type | the inverse runs behind an inference barrier through a `Dict` and the constructor; a typed caller's result is `Any` | `trait_module.jl:633`, `:702`; `entry.jl:681`–`739` |
 | L-17 | [§2](#2-modes-owners-and-images), [§14](#14-checks-and-where-their-results-live) | the machinery's code is facts code, protected as trait code | machinery that calls compiler functions directly holds edges to plain compiler code, valid only as long as plain Julia keeps it valid | `checks.jl:97`–`117`; `defcheck.jl:236`–`258`; `core.jl:348`, `:415`; `compiler.jl:57`, `:68` |
 | L-18 | [§16](#16-sessions-loads-and-hooks) | strict mode asks Julia what a definition would invalidate ([compiler §5.4](compiler.md#54-planned-hooks-for-strict-modes-intended-design)) | it reads backedges before the definition and the invalidation log after it, deleting the method again on a miss | `strict.jl:1`–`14`, `:123`, `:197` |
 | L-19 | [§3](#3-trait-declarations) | a trait's body holds operations, defaults, fields, equations and concreteness lines ([`traits.md#1-syntax-summary`](traits.md#1-syntax-summary)) | `@mutating` is accepted in a trait's body and recorded as `is_mutating`, which no code reads | `trait.jl:284`; `implement.jl:132` |
-| L-20 | [§13](#13-dynamicx) | an operation on a `Dynamic` of a parametric trait asserts its declared result at the parameters the `Dynamic`'s type fixes, so a `Dynamic{StateVector{Float64}}` operation declared `::T` is typed `Float64` | the result type is `Any` wherever the declared type names `Self` or any parameter, fixed or not; the code after the call is not inferred | `trait.jl:303`–`304` (`dep`, `retx`) |
+| L-20 | [§13](#13-dynamicx) | an operation on a `Dynamic` of a parametric trait asserts its declared result at the parameters the `Dynamic`'s type fixes, so a `Dynamic{StateVector{Float64}}` operation declared `::T` is typed `Float64` | the result type is `Any` wherever the declared type names `Self` or any parameter, fixed or not; the code after the call is not inferred | `trait.jl:303`–`304` (`dep`, `retx`), `:314`, `:318` |
 | L-21 | [§5](#5-keys-and-views) | an implementation whose operations are all served by defaults has no receiver type | it has one also when the trait's declarations name `Self`, or when a parameter is not defined by a field: then the conforming type is the receiver type and gets its own compiled copy | `entry.jl:456`–`465` (`_no_implementing_type`) |
+| L-22 | [§9.3](#93-entries-compiled-ahead) | The entry method compiled ahead for `T` changes no compiled code. | It is a new method of `f`, added at the declaring package's precompilation and at each load of its image. Julia invalidates the plain callers compiled at an abstract argument type that `T` subtypes, and the entry's own untyped specialization, `f(::Any, …)` (the entry is `@nospecialize` on its trait position, so that is the code untyped callers run), with every plain caller holding an edge to it. Results stay correct. Code compiled by facts is not affected: its calls at abstract types are run-time sites without edges. As [traits T-24](traits.md#19-deviations); [open issues §2](../open-issues.md#2-design), item 29. | `ahead.jl:143`, `:168`–`195`; `trait_module.jl:552`; `experiments/docs-examples/ahead_invalidation.jl` |
+| L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method. | `_has_conformance_method` finds the family's method for the member and answers that the member has one of its own: a member's declaration with a block is refused as a redeclaration; a one-line one defines no `conformance` method, builder or override record, and the family's slow path serves the member. As [traits T-28](traits.md#19-deviations). | `implement.jl:656`–`661`, `:946`–`954`, `:970`–`976`, `:1192` |
+| L-24 | [§9.2](#92-untyped-callers-the-table-of-declared-implementations) | An entry with more than five positional arguments takes the dynamic call to the pattern method. | The entry takes the pointer path for every tabled entry with one trait position, at any arity, and `_UWrap` has methods for 0 to 5 arguments only. By reading, an untyped call of an entry with six or more positional arguments then fails, when the pointer is made or called; not run. | `untyped.jl:177`–`181`; `trait_module.jl:659`–`666` |
+| L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Only types with an `implementation` method at a concrete type are registered then. A type that conforms by `by` forwarding or by a field mapping alone has only a `projection` record, and a family member's record has a `UnionAll` signature: they are registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for them. | `core.jl:397`–`420`, `:348`; `implement.jl:1363`–`1366` |

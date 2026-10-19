@@ -73,9 +73,9 @@ Lives in `Compiler/src/types.jl` and `Compiler/src/facts.jl`.
 
 **The process switch.**
 - `Compiler.facts_default()` is the default of `facts`. It reads `jl_compile_by_facts()` (`src/gf.c`) once per process:
-  - `JULIA_COMPILE_BY_FACTS=1` (any value but `0`): on;
+  - `JULIA_COMPILE_BY_FACTS=1` (any non-empty value but `0`): on;
   - `JULIA_COMPILE_BY_FACTS=0`: off;
-  - unset: the system image's default. An image built with the switch on keeps it on (`FACTS_IMAGE`).
+  - unset or empty: the system image's default. An image built with the switch on keeps it on: the first call of `facts_default()` with the switch on sets `FACTS_IMAGE`, which the image saves.
 - With the switch on, every method not marked otherwise is compiled by facts: *the test bed* (`all`). Today that code is cached under the default owner ([C-2](#deviations)). With the switch off, only facts methods are compiled by facts: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
 - `--trim` turns the switch off (§2.10).
 - **Planned:** a command-line flag, `--compile-by-facts=no|all|traits`, in place of the environment variable; `--trim` implies `no`.
@@ -97,10 +97,12 @@ Lives in `Compiler/src/facts.jl`.
 **Meaning.** `is_fact_sig(T)` is true when `T` is one of:
 - a dispatch tuple (`isdispatchtuple(T)`);
 - a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, with at most `MAX_FACT_SPLITS` concrete tuples in all;
-- a tuple of *concrete members* with a `Vararg{E}` tail of a concrete member `E`. A concrete member is a concrete type that is not a kind, or a tuple type of concrete members;
+- a tuple of *concrete members* with a `Vararg{E}` tail of a concrete member `E`. A concrete member is a dispatch element that is not a kind (a concrete type, or `Type{T}` with `T` known), or a tuple type of concrete members;
 - a closure's call at kinds: the first argument is a closure type (its name is generated, `#…`), and every argument is concrete or one of `DataType`, `UnionAll`, `Union`.
 
-A union at the top level of a call's arguments is split as Julia splits unions (`max_union_splitting`, four by default). Each split must be a fact signature.
+A union at the top level of a call's arguments is split as Julia splits unions (`max_union_splitting`, four by default). Each split must be a fact signature, so the two limits compose: up to sixteen concrete signatures per call. Each top-level split gets an edge; a union in a tuple argument is one edge at the tuple signature.
+
+**Not gated: `invoke` and `hasmethod` at a declared signature.** Only `find_method_matches` asks `is_fact_sig`. `abstract_invoke` and `hasmethod`'s tfunc resolve the declared signature with `findsup`, as plain Julia does, in facts code too, and record an invoke edge at the declared signature (`abstractinterpretation.jl:2369`, `tfuncs.jl:3269`). Julia invalidates such an edge only when the resolution of the declared signature changes: an edge at the method's own signature only when the method is replaced (`src/gf.c:2470`–`2475`). That is the sixth form of fact ([`facts.md`](facts.md#facts-and-fact-signatures)).
 
 Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-signatures). The limit of four is Julia's own bound on union splitting.
 
@@ -147,13 +149,13 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
    - The signature is split into at most `MAX_FACT_SPLITS` concrete signatures.
    - Each split must have exactly one matching method that covers it.
    - Plain inference answers each split in `PlainRTInterp`.
-   - Every edge of every answer, transitively, must be at a fact signature, or a call edge at the method's own signature. Bare MethodInstance edges and method-table edges disqualify it.
+   - Every edge of every answer, transitively, must be at a fact signature, or an invoke edge at the method's own signature (§1.2). Bare MethodInstance edges and method-table edges disqualify it.
    - The merged answer is folded, with an edge (`PlainRTInfo`) from the facts code to each plain answer. A load that changes plain Julia's answer invalidates the folded code.
 3. **Otherwise, a call at run time.**
 
-**At run time**, `return_type` calls `_return_type(return_type_interp(world), tt)` in the compiler's world. Under the test bed, `return_type_interp` is `PlainRTInterp`. Otherwise it is a plain `NativeInterpreter`.
+**At run time**, `return_type` calls `_return_type(return_type_interp(world), tt)` in the compiler's world. `return_type_interp` is `PlainRTInterp` in both settings, so the run-time answer is the fold's. *Today* that holds under the test bed only. In the product setting it is a plain `NativeInterpreter` of owner `nothing`, which leaves facts methods to facts inference (§2.6): a second answer ([C-11](#deviations)) in a second cache ([C-10](#deviations)).
 
-**The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code is ever generated from it. It holds only plain answers, so no plain code enters a cache that facts code is compiled from.
+**The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code that runs is taken from it: dispatch looks up code only under the owner it asks for, `nothing` or `:facts` (`jl_method_compiled_callptr_owner`, `src/gf.c:3496`). It holds only plain answers, so no plain code enters a cache that facts code is compiled from. *Today* package images still compile machine code for its answers, which nothing calls ([C-12](#deviations)).
 
 **Rules.**
 - `PlainRTInterp` is not a `NativeInterpreter`, so it infers every method plainly, facts methods included (§2.6).
@@ -163,13 +165,13 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 
 ### 1.5 Effects
 
-**Status: Implemented.**
+**Status: Implemented**, except the statement level ([C-13](#deviations)).
 
 Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`) and `abstractinterpretation.jl` (`merge_override_effects!`).
 
 **Meaning.** Under the facts mode, no asserted effect applies to a frame with a run-time site:
 - a method's `@assume_effects` is ignored for that frame's effects;
-- a statement's `@assume_effects` is ignored once the frame has a run-time site.
+- a statement's `@assume_effects` is ignored in that frame. *Today* it is ignored only once the frame has met a run-time site, and an assertion over a call whose callee holds the run-time site still applies ([C-13](#deviations)).
 
 **Why.** An assertion would let a caller fold a call whose dispatch no edge records ([`facts.md`](facts.md#asserted-effects)).
 
@@ -261,11 +263,11 @@ int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
 
 Three cache owners:
 
-| Owner | Holds | Code generated from it |
+| Owner | Holds | Code run from it |
 |---|---|---|
 | `nothing` | plain code (today, under the test bed, code compiled by facts too: [C-2](#deviations)) | yes |
 | `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts | yes |
-| `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never |
+| `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never (package images still compile some: [C-12](#deviations)) |
 
 **The rule.** The mode and owner of the code for a MethodInstance `mi`, reached from code of a given mode:
 
@@ -418,7 +420,7 @@ void jl_set_image_keep_compiled(int on);    // for the image being built in this
 Lives in `src/staticdata_utils.c` (`queue_external_cis`) and `Compiler/src/precompile.jl` (`compile_and_emit_native`).
 
 **Meaning.**
-- **Code of other owners in the package's own methods** is compiled into the image from its cached IR. Calls between such `CodeInstance`s are `:invoke`s of them.
+- **Code of other owners in the package's own methods** is compiled into the image from its cached IR, for the owners whose code runs (§2.3). Calls between such `CodeInstance`s are `:invoke`s of them. *Today* every foreign owner's code with cached source is compiled, `:facts_plain_return_type` and TraitWorld's `_CheckOwner` included ([C-12](#deviations)).
 - **Code of owner `:facts`** goes through the compile queue, as plain code does. The queue infers it again by facts where its inferred source was discarded.
 - **With keep-compiled on:**
   - a `CodeInstance` of an upstream method, compiled during precompilation and reached by no call of the package that Julia can see (a dynamic call, `invokelatest`, a call from upstream code the workload ran), is kept with its machine code;
@@ -546,7 +548,7 @@ Lives in `Compiler/src/facts.jl` (`abstract_dynamic_call`, `DynamicSplitInfo`), 
 **Meaning.** `dynamic_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
 - **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.
 - **The split.** The inliner rewrites the statement to the call of `f` and splits it over the candidates, with the dynamic call as the last branch. The split is never "fully covered": a value of another type reaches the fallback.
-- **The result.** The fallback's result, and any case not known to be an `RT`, is asserted to `RT`. The join is typed `RT`.
+- **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The inliner's split asserts the fallback's result, and any case not known to be an `RT`, to `RT`, and types the join `RT`. A caller that needs the type after the call asserts it there, as TraitWorld's lowering does ([`lowering.md`](lowering.md#13-dynamicx)).
 - **No edge to the registry.** Candidates are read without an edge. A type registered later reaches the fallback, and invalidates nothing.
 - When `x`'s type is concrete, or `K` has no candidates, it is the call `f(x, args...)` as inference finds it.
 
@@ -731,11 +733,14 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 |---|---|---|---|---|
 | C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Six places decide it: the single-request entry, `interp_for_owner`, `interp_for_mi`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. Two predicates: the module flag (`jl_method_is_plain`) and a module walk (`is_compiler_code`). They differ for a boundary or always-facts method inside the Compiler. | `Compiler/src/typeinfer.jl:1654`; `Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `src/gf.c:424`, `:4802`; `src/module.c:749` |
 | C-2 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting, and `nothing` holds plain code only. | Under the test bed, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method called by the compiler can reuse a result compiled by facts: correct, but slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [facts F-2](facts.md#deviations). | `Compiler/src/facts.jl:52`, `:60`, `:87`; `Compiler/src/typeinfer.jl:1657` |
-| C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. | `src/gf.c:4610`; `src/runtime_ccall.cpp:424` |
-| C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3732` |
+| C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. | `src/gf.c:4611`; `src/runtime_ccall.cpp:424` |
+| C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3733` |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |
 | C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes. | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3775` |
 | C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
-| C-8 | [§4.2](#42-compilerdynamic_call-the-call-site-split) | `dynamic_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl:465`; `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
+| C-8 | [§4.2](#42-compilerdynamic_call-the-call-site-split) | `dynamic_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl:465`; `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
 | C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl:305` |
-| C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences of the same answer. | `Compiler/src/facts.jl:259`, `:355` |
+| C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences, which for a facts method are not even the same answer ([C-11](#deviations)). | `Compiler/src/facts.jl:259`, `:355` |
+| C-11 | [§1.4](#14-return_type) | `return_type` gives one answer, plain inference's: the fold's and the run time's agree. | In the product setting, `return_type_interp` is a `NativeInterpreter` of owner `nothing`; its `typeinf_ext` hands a facts method to facts inference (`leaves_to`, §2.6). The fold uses `PlainRTInterp`, which infers it plainly. So the run-time answer for a facts method is facts inference's, which can be wider than the folded one. Under the test bed both routes are `PlainRTInterp`. As [facts F-10](facts.md#deviations). | `Compiler/src/facts.jl:259`, `:355`, `:69`–`78`; `Compiler/src/typeinfer.jl:1373`–`1375` |
+| C-12 | [§1.4](#14-return_type), [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), [§2.9](#29-what-package-images-keep) | Only the owners whose code runs get machine code in a package image. | The image builder collects every `CodeInstance` of an owner other than `nothing` with an open `max_world` in the package's own methods, skips only `:facts` (which goes through the compile queue), and emits machine code for each whose source is cached: the `return_type` answers of `:facts_plain_return_type` and TraitWorld's `_CheckOwner` results included. Nothing calls that code: image size and build time, not correctness. | `Compiler/src/precompile.jl:396`, `:443`–`444`, `:455`–`469` (`collect_foreign_cis!`), `:470`–`489` (`add_foreign_codeinfos!`); `TraitWorld/src/compiler.jl:57` |
+| C-13 | [§1.5](#15-effects) | A statement's `@assume_effects` is ignored in a frame with a run-time site. | It is dropped only once the frame has met a run-time site: a statement before the frame's first run-time site keeps the override in its flags. The test is on the caller's frame: an assertion over a call at a fact signature whose callee holds the run-time site overrides the callee's effects, and a caller may then fold it over a dispatch no edge records. Untested. As [facts F-12](facts.md#deviations). | `Compiler/src/abstractinterpretation.jl:3644`–`3647` |

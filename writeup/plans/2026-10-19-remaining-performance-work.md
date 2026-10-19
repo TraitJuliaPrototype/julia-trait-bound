@@ -38,6 +38,7 @@ This list continues `2026-10-19-principled-speed-plan.md`. It was revised after 
 4. **Threads:** the new caches add lock-free readers, and the evidence page lists threads as untested.
 5. **`verify_main` under `all` reports a run-time site in Base** (TraitWorld's `verify_dynamic.jl`, one of three checks): `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not flagged as an error path. Plain passes. It fails the same without the compile-queue fix (checked 2026-10-19 by a rebuild without it), so it predates it. Whether `verify_main` should treat Base's own run-time sites under the test bed as holes is to decide.
 6. **Done (2026-10-19): the compiler's own code under `all`.** The image builder's compile queue compiled part of the compiler by facts (julia-1.13 f13117cd74): CSV+DataFrames work 666 → about 505 ms, dynamic calls 2.05 M → 0.13 M.
+7. **A check of G2 across package loads for code compiled by facts** ([facts F-11](../reference/facts.md#deviations)): port `experiments/facts/g2all.jl` (and `g2strict.jl`, which includes it) to count `ci.owner === :facts` in place of the retired `TW.FactsOwner`, run it in both settings, and cite it in [facts §2.2](../reference/facts.md#g2). Today no check counts `:facts` code across loads; `experiments/factscompiler/control/lost.jl` counts the default owner only.
 
 ## Performance, in order
 

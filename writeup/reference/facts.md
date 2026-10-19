@@ -63,7 +63,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 - <a id="term-owner"></a>**Owner.** A package owns the functions, types and bindings it defines.
   - Julia (Core, Base, the standard libraries) is one owner.
   - A package extension belongs to its parent package.
-  - The session owns what is defined at the prompt.
+  - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own ([traits §12.1](traits.md#121-who-may-implement)).
 - <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of every type in its own signature. A `Union`'s members count one by one.
 - **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s`, of their supertypes, and of the types bounding their parameters.
 - <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. This is Julia's "type piracy", made strict for unions.
@@ -117,20 +117,20 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 **The exception: values decided by inference.**
 - `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference.
 - Plain Julia itself answers some of them differently in different contexts. `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded.
-- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee.
+- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee. Today the product setting also gives a second answer for a facts method's own result ([F-10](#deviations)).
 
 **Conditions.**
 - Code that branches on what inference knows (`known_type`, [`compiler.md`](compiler.md)) computes the same result on both branches.
 - Threads are untested.
 
-**Tests.** The acceptance checks G1.1–G1.23 define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
+**Tests.** The acceptance checks G1.1–G1.15, G1.17–G1.23 and G2.1 (23 checks; there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
 
 <a id="g2"></a>
 ### 2.2 G2: stable caches
 
 **Status: Implemented**, with the exceptions below.
 
-> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, or by a redefinition of a binding it reads. By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
+> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, by a redefinition of a binding it reads, or by the invalidation of a CodeInstance of the other mode that it names ([§6.3](#calls-between-the-modes), [§6.4](#the-compilers-own-code); under `all`, [F-2](#deviations)). By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
 
 **Why it holds.**
 - Code compiled by facts holds only facts and bindings as edges to the method table ([§4](#inferred-across-a-call)).
@@ -139,7 +139,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Scope.** G2 covers code compiled by facts. It does not cover:
 - plain code in the product setting;
-- plain code that code compiled by facts runs: the compiler's ([§6.4](#the-compilers-own-code));
+- plain code that code compiled by facts runs: the compiler's ([§6.4](#the-compilers-own-code)). When such plain code is invalidated, the CodeInstance compiled by facts that names it is compiled again too;
 - plain inference's answers behind `return_type` ([§7](#return-type)). They change exactly when plain Julia's do.
 
 **Exceptions**, named wherever G2 is claimed:
@@ -148,12 +148,13 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **A binding redefined from another module** (`Core.eval(Other, …)`). No hook sees it ([open issues §1.10](../open-issues.md#1-decisions-waiting-for-the-user)).
 - **The standard libraries count as Julia's own code.** A standard library's method that wins at a fact, such as SparseArrays' `vcat` for Base's types, is a stakeholder's change. **Open:** whether they are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 - **Direct calls from code compiled by facts into the compiler** hold edges to plain code ([§6.4](#the-compilers-own-code)). **Open** ([open issues §2](../open-issues.md#2-design), item 27).
+- **A method on a closure's type defined outside the closure's module.** The fact form "a closure's call at kinds" ([§3](#facts-and-fact-signatures)) rests on the assumption that no other module does this.
 
 **What invalidates nothing.**
 - A new implementation of a trait: lowering makes it a definition that wins at no existing fact ([`lowering.md`](lowering.md)).
 - A new `Dynamic` candidate: candidates are read without an edge ([§9](#dynamic-split)).
 
-**Tests.** G2.1 (a module extending a function called on type values) and G1.17 (a later implementation at a split site) check it in a session (`experiments/facts/acceptance_compiler.jl`). The load sequences of `experiments/factscompiler/control/` check it across packages.
+**Tests.** G2.1 (a module extending a function called on type values) and G1.17 (a later implementation at a split site) check it in a session (`experiments/facts/acceptance_compiler.jl`). No current check counts code compiled by facts across package loads ([F-11](#deviations)). `experiments/factscompiler/control/lost.jl` is a control for the default owner under `all`: it counts the valid CodeInstances of owner `nothing` of the listed packages before and after unrelated loads, so it counts no trait-module code, which is owner `:facts`.
 
 <a id="two-tiers"></a>
 ### 2.3 Two tiers
@@ -175,17 +176,18 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Status: Implemented.**
 
-**The criterion.** A signature is a fact signature when only a stakeholder or a pirate can change dispatch at it. Every form below meets it. A form not listed is a run-time site, until it is shown to meet the criterion and added.
+**The criterion.** A signature is a fact signature when only a stakeholder or a pirate can change dispatch at it. Every form below meets it, the closure form under its stated assumption. A form not listed is a run-time site, until it is shown to meet the criterion and added.
 
 | Form | Example | Why only a stakeholder or a pirate can change it |
 |---|---|---|
 | **A dispatch tuple:** concrete types, not kinds; `Type{T}` with `T` known | `f(::Int, ::Float64)` | Lemma O. |
 | **Its union splits,** at most four | `g(::Union{Int, Nothing})` | Each split is a dispatch tuple. The fact stands for them, with an edge per split. |
-| **Unions of concrete elements in tuple arguments,** at most four splits in all | `h(::Tuple{Union{Int, Missing}, Float64})` | A tuple type of concrete or union elements holds exactly the values of its splits. Dispatch at it is dispatch at one of them. |
-| **A closure's call at kinds** (`DataType`, `UnionAll`, `Union`) | `(T -> sizeof(T))(Int)` | Only the closure's own module adds methods to a closure's type. |
-| **A concrete `Vararg` tail:** concrete types ending in `Vararg{E}`, `E` concrete and not a kind (or a tuple type of such members) | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners. |
+| **Unions of concrete elements in tuple arguments,** at most four splits per tuple signature | `h(::Tuple{Union{Int, Missing}, Float64})` | A tuple type of concrete or union elements holds exactly the values of its splits. Dispatch at it is dispatch at one of them. |
+| **A closure's call at kinds** (`DataType`, `UnionAll`, `Union`) | `(T -> sizeof(T))(Int)` | Only the closure's own module adds methods to a closure's type. This is an assumption, not Lemma O: the owner of a type `X` who defines `(::typeof(clo))(::Type{X})` is a stakeholder of its own method, yet changes dispatch at `Tuple{typeof(clo), DataType}`. Julia invalidates the edge, so G1 holds; G2 for this form rests on the assumption ([§2.2](#g2)). A closure's type is recognized by its generated name (`#…`), which also admits lowering's generated functions (keyword bodies), under the same assumption. |
+| **A concrete `Vararg` tail:** concrete members ending in `Vararg{E}`, `E` a concrete member. A concrete member is a dispatch element that is not a kind (a concrete type, or `Type{T}` with `T` known), or a tuple type of such members | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners. |
+| **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | Dispatch of the declared signature as a whole: the most specific method whose signature contains it. A definition changes that only if its own signature contains the declared one, so its types are the declared types or their supertypes: its definer is a stakeholder of the declared signature, or a pirate. The edge is an invoke edge, which Julia invalidates only when the declared signature's resolution changes. |
 
-**The limit of four** is Julia's own bound on union splitting. It is part of the design.
+**The limit of four** is Julia's own bound on union splitting. It is part of the design. The two limits compose: a call splits into at most four top-level splits, and each split's tuple arguments into at most four, so a call may stand for up to sixteen concrete signatures.
 
 **Not fact signatures** (run-time sites):
 - an abstract argument type: `show(::IO, ::Any)`, `sum(::AbstractVector)`;
@@ -203,7 +205,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 ### 4.1 At a fact signature
 
 - The callee is inferred at the signature, or at each split. Its result type, exception type, effects and constant results flow into the caller, as in plain Julia.
-- The caller records the fact as an edge, one per split. "No method" and "ambiguous" are facts too.
+- The caller records the fact as an edge, one per top-level split. A union in a tuple argument is one edge at the tuple signature: Julia's intersection check makes it exact. "No method" and "ambiguous" are facts too.
 - Inlining and constant propagation work as in plain Julia.
 - Compile-time evaluation (concrete and semi-concrete) happens only for a call at a fact signature, on the callee's effects as inferred. Asserted effects are limited by [§8](#asserted-effects).
 - A global binding the code reads is an edge, as in plain Julia. A redefinition by the binding's own module is a stakeholder's change.
@@ -219,6 +221,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
   - no result type taken from the one method that matches today;
   - no compile-time evaluation over the call.
 - `Any` spreads into the code after the call, until a declared result type or an assertion narrows it.
+- An `invoke` at a declared signature is not a run-time site: it is inferred as in plain Julia, with an invoke edge ([§3](#facts-and-fact-signatures)).
 
 <a id="edges-and-invalidation"></a>
 ### 4.3 Edges and invalidation
@@ -238,7 +241,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The lookup is plain Julia's, in the caller's world.
 - In code compiled by facts, the method found runs its code compiled by facts, under the facts owner. That code is compiled on a miss.
 - The exception: a plain method ([§6.1](#kinds-of-methods)) runs its plain code.
-- This holds for every way code compiled by facts dispatches: generic calls, `invoke`, `_apply_iterate` with a known tuple, `invokelatest`, splats of unknown length, `jl_call`, `@cfunction` pointers, finalizers and task entry.
+- This holds for every way code compiled by facts dispatches: generic calls, `invoke`, `_apply_iterate` with a known tuple, `invokelatest`, splats of unknown length, `jl_call`, `@cfunction` pointers, finalizers and task entry. Today it holds only for the calls the code generator emits ([F-3](#deviations)).
 
 **Caches at run-time sites.** A cache that skips a dispatch at run time (a per-call-site cache, a `cfunction` pointer's thunk) remembers what dispatch decided, for the worlds where that holds. It is checked against the caller's world. It never decides which method runs.
 
@@ -320,7 +323,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 ### 7.1 `return_type`
 
-**Status: Implemented.** **Planned:** cached answers revalidated after loads, instead of inferred again. That changes speed, not answers.
+**Status: Implemented**, except one answer in the product setting ([F-10](#deviations), [open issues §2](../open-issues.md#2-design), item 30) and the walk's limit ([F-13](#deviations)). **Planned:** cached answers revalidated after loads, instead of inferred again. That changes speed, not answers.
 
 **Meaning.** `return_type` (and what uses it: `collect`, `map` over an empty collection, broadcasting, `promote_op`) asks what *plain* inference gives. Under the facts mode the answer is plain inference's, in the same world.
 
@@ -329,10 +332,10 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 2. **Otherwise plain inference's answer is folded** when:
    - the signature has at most four concrete splits;
    - at each split exactly one method matches, and it covers the split fully;
-   - plain inference's result at each split rests on facts only.
+   - plain inference's result at each split rests on facts only (or on an invoke edge at the method's own signature, [§3](#facts-and-fact-signatures)).
 
-   The fold records an edge per split, to plain inference's result. That result lives under a cache owner of its own and is never used for code.
-3. **Otherwise the answer is computed at run time,** by plain inference. Under `all` that inference has a cache owner of its own.
+   The fold records an edge per split, to plain inference's result. That result lives under a cache owner of its own, and dispatch never runs code from it ([compiler C-12](compiler.md#deviations)).
+3. **Otherwise the answer is computed at run time,** by plain inference, in both settings. Plain inference infers every method plainly, facts methods included. So the fold and the run time give one answer: plain inference's, as stock Julia's would be. The answers have a cache owner of their own.
 
 **Consequence.** A load changes a folded answer exactly when it changes plain Julia's. An answer computed at run time is computed again when plain Julia's would change.
 
@@ -342,7 +345,8 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 **Status: Implemented.**
 
 - Reflection shows the code that runs. For a facts method it is facts inference; under `all`, for every method but the compiler's.
-- `code_typed`, `infer_return_type`, `verify_main` and TraitWorld's first-call check all see that code.
+- `code_typed`, `infer_return_type`, `verify_main` and TraitWorld's rule checks (the first-call check, and definition checking at archetypes) all see that code.
+- TraitWorld's other checks infer plainly, by design: the keep analysis and the result types of implementations, at archetypes in a cache of their own ([`lowering.md`](lowering.md#14-checks-and-where-their-results-live)).
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world, as without one.
 
 ---
@@ -350,7 +354,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 <a id="asserted-effects"></a>
 ## 8. Asserted effects
 
-**Status: Implemented.**
+**Status: Implemented**, except a statement's assertion in two cases ([F-12](#deviations)).
 
 **Rule.** In a frame compiled by facts that has a run-time site, no asserted effect applies. This covers both levels:
 - the method's (`Base.@assume_effects` on the definition);
@@ -381,7 +385,7 @@ An operation on a `Dynamic{X}` value ([traits §10](traits.md)) is a call on a v
   - the call site branches on `isa` over the candidates, with direct calls that may inline;
   - the last branch, the **fallback**, is a run-time site for any other type.
 - **When inference knows `x`'s type,** the call is an ordinary call at that type.
-- **The result.** The result of each branch not known to be an `RT` is asserted to `RT`, and the join is typed `RT`. A result of another type raises a `TypeError`.
+- **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The lowering asserts the declared type `RT` after the call, so the code after it is typed `RT`. The optimizer's split asserts each case not known to be an `RT`, and the fallback, to `RT`. A result of another type raises a `TypeError`.
 - **A later candidate** reaches the fallback. It invalidates nothing. Code compiled after its registration splits over it.
 
 So the split takes the place of the speculation the facts mode removes ([§4.2](#inferred-across-a-call)), from a declaration rather than from the methods that exist today.
@@ -455,7 +459,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
-- Code for other packages' methods that its workload compiled, under either owner: copies of Base methods compiled by facts, for example. With machine code.
+- Code for other packages' methods that its workload compiled, under either owner: copies of Base methods compiled by facts, for example. With machine code (with keep-compiled, [compiler §2.9](compiler.md#29-what-package-images-keep)).
 - What trait code a declared implementation brings ahead of time is [traits §15](traits.md)'s; how, [`lowering.md`](lowering.md)'s.
 
 **When it stays valid.**
@@ -494,7 +498,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
   - a system image built with it, the facts system image. `JULIA_COMPILE_BY_FACTS=0` turns it off there.
   - Use a depot of its own ([F-7](#deviations)).
 - **Planned spelling:** `--compile-by-facts=no|all|traits`.
-- G1 and G2 hold under `all` for all code, but for the shared cache of [F-2](#deviations). Strict mode under `all` is untested.
+- G1 and G2 hold under `all` for all code, but for the shared cache of [F-2](#deviations). Strict mode under `all` protects only the code [F-4](#deviations) names; untested.
 
 <a id="trimmed-binaries"></a><a id="closed-builds"></a>
 ### 12.3 Trimmed binaries
@@ -531,7 +535,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 |---|---|---|
 | G1, identical or error | Implemented | [§2.1](#g1) |
 | G2, stable caches; exceptions named | Implemented; extensions and cross-module bindings Open | [§2.2](#g2); [open issues §1.10](../open-issues.md#1-decisions-waiting-for-the-user) |
-| fact signatures (the five forms, the limit of four) | Implemented | [§3](#facts-and-fact-signatures) |
+| fact signatures (the six forms, the limit of four) | Implemented | [§3](#facts-and-fact-signatures) |
 | run-time sites, typed `Any`, no edge | Implemented | [§4.2](#inferred-across-a-call) |
 | run-time sites run facts code: calls the code generator emits | Implemented | [§5](#run-time-sites) |
 | run-time sites run facts code: through `jl_apply` | Open | [§5](#run-time-sites); F-3 |
@@ -542,7 +546,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
 | direct calls into the compiler from code compiled by facts | Open | [§6.4](#the-compilers-own-code); [open issues §2](../open-issues.md#2-design) |
-| `return_type`: plain inference's answer | Implemented | [§7.1](#return-type) |
+| `return_type`: plain inference's answer | Implemented; in the product setting a second answer at run time (F-10), the fix Open | [§7.1](#return-type); [open issues §2](../open-issues.md#2-design), item 30 |
 | `return_type`: revalidation after loads | Planned | [§7.1](#return-type) |
 | reflection shows the code that runs | Implemented | [§7.2](#reflection) |
 | no asserted effect over a run-time site | Implemented | [§8](#asserted-effects) |
@@ -577,3 +581,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-7 | [§11](#package-images) | Open: whether the setting is part of an image's key. Until decided, code from an image built under the other setting is outside the test bed's G2. | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
 | F-8 | [§12.3](#trimmed-binaries) | Open: whether `verify_main` counts as holes the run-time sites that facts compilation makes in Base under `all`. | Under `all` it reports one: `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not on an error path. In plain mode it reports none. One of the test's checks fails under `all`. | `TraitWorld/test/verify_dynamic.jl:41` |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |
+| F-10 | [§7.1](#return-type) | `return_type` gives one answer, plain inference's, at compile time and at run time, in both settings. | In the product setting the run-time route is a `NativeInterpreter` of owner `nothing`, whose `typeinf_ext` hands a facts method (a worker, an always-facts method) to facts inference. The fold uses `PlainRTInterp`, which infers it plainly. So `return_type` of a facts method folded inside facts code is plain inference's answer, and the same query at run time is facts inference's, which can be wider where the method has a run-time site (`map(worker, [])` then makes a `Vector{Any}`). Stock Julia infers it plainly. Under `all` both routes are `PlainRTInterp`. As [compiler C-11](compiler.md#deviations); [open issues §2](../open-issues.md#2-design), item 30. | `julia-1.13/Compiler/src/facts.jl:259`, `:355`, `:69`–`78`; `julia-1.13/Compiler/src/typeinfer.jl:1373`–`1375` |
+| F-11 | [§2.2](#g2) | G2 holds across package loads, in any order, and is checked there. | G2 across package loads has no check that counts code compiled by facts (owner `:facts`); the earlier script targets retired machinery. `g2all.jl` (and `g2strict.jl`, which includes it) counts `ci.owner isa TW.FactsOwner`, a type TraitWorld no longer has, so it cannot run. The control `lost.jl` counts CodeInstances of owner `nothing` only. | `experiments/facts/g2all.jl:38`; `experiments/factscompiler/control/lost.jl:23` |
+| F-12 | [§8](#asserted-effects) | In a frame with a run-time site, no asserted effect applies, at either level. | A statement's assertion is dropped only once the frame has met a run-time site: one before the frame's first run-time site keeps it in its flags. And the test is on the caller's frame: `Base.@assume_effects :foldable g(y)` at a fact signature, where `g`'s own frame holds the run-time site, overrides `g`'s effects in the caller, which a caller of that frame may then fold. Untested. As [compiler C-13](compiler.md#deviations). | `julia-1.13/Compiler/src/abstractinterpretation.jl:3644`–`3647` |
+| F-13 | [§7.1](#return-type) | Plain inference's answer is folded when it rests on facts. | The walk that decides it gives up after 2000 CodeInstances, and the query is answered at run time. As [compiler C-9](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:305` |

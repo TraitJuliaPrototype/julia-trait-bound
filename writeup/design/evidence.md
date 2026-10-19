@@ -15,7 +15,7 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 | Step 1: fully typed code is invalidated only by stakeholders and pirates | a stakeholder's method (S4), a winning pirate (S5) and a redefined `const` (S7) invalidate code at concrete signatures; a losing pirate (S6) never does; on 1.13.2 and with the in-tree facts mode | `experiments/facts/framing/`, `../reviews/2026-10-18-framing-and-motivation.md` §0; proofs in `../explorations/wrapping-by-facts.md` |
 | Step 2: strict mode refuses winning pirates and nothing else | 65,318 methods of CSV, DataFrames and CairoMakie checked; 837 pirates by the letter; none winning, none refused; 0.54 s extra on a 4.1 s load (previous prototype) | `experiments/facts/g2strict` |
 | Step 3: the facts rule keeps all code valid | the four cases that are not fully typed (S1–S3, S8) invalidate on 1.13.2 and not in facts mode; acceptance 23/23 | `experiments/facts/acceptance_compiler.jl` |
-| Identical or error (G1) | acceptance G1.1–G1.23, including the review cases (a `Dynamic` of a known type, an assertion over a run-time site) | as above |
+| Identical or error (G1) | acceptance G1.1–G1.15, G1.17–G1.23 and G2.1, including the review cases (a `Dynamic` of a known type, an assertion over a run-time site) | as above |
 
 **The control: whose property is load protection.** The same work, then nine unrelated packages loaded (OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations, StaticArrays, CairoMakie, REPL), plain mode against `all`:
 

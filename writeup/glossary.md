@@ -298,7 +298,7 @@ The entries are grouped by theme:
 
 ### Owner
 
-- **Here:** a package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. The session owns what is defined at the prompt.
+- **Here:** a package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. At the prompt, `Main` is one owner, and each module defined directly under it is an owner of its own ([traits §12.1](reference/traits.md#121-who-may-implement)).
 - **Origin:** Rust's crate, the unit of its orphan rule ([`other-languages.md` §4](other-languages.md#4-who-may-add-a-conformance-or-a-method)). Julia's piracy convention uses the same idea of "your own" functions and types.
 - **Defined in:** [facts §1](reference/facts.md#term-owner); who may implement: [traits §12.1](reference/traits.md#121-who-may-implement).
 
@@ -338,7 +338,7 @@ The entries are grouped by theme:
 
 - **Here:**
   - A **fact** is "at concrete signature `s`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous".
-  - A **fact signature** is a signature at which only a stakeholder or a pirate can change dispatch. Its forms are listed in [facts §3](reference/facts.md#facts-and-fact-signatures): a tuple of concrete types, its union splits, unions inside tuple arguments, a closure's call at kinds, and a concrete `Vararg` tail.
+  - A **fact signature** is a signature at which only a stakeholder or a pirate can change dispatch. Its forms are listed in [facts §3](reference/facts.md#facts-and-fact-signatures): a tuple of concrete types, its union splits, unions inside tuple arguments, a closure's call at kinds, a concrete `Vararg` tail, and `invoke` at a declared signature.
   - Under the facts rule, compiled code depends on the method table only through facts.
 - **Origin:** the project's terms. A fact is the kind of edge Julia's compiled code already records to the dispatch it assumed, restricted to concrete signatures. In fully typed code every edge is a fact ([the argument §3.1](design/argument.md#31-step-1-fully-typed-code-is-already-invalidated-only-by-stakeholders-and-pirates)).
 - **Defined in:** [facts §1](reference/facts.md#term-fact), [§3](reference/facts.md#facts-and-fact-signatures); the argument: [argument §3](design/argument.md#3-the-argument-in-four-steps).
