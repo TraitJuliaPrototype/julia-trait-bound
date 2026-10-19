@@ -50,12 +50,12 @@ end
 end
 
 struct Measurements; label::String; data::Vector{Vector{Float64}}; end
-@implement ColTable Measurements             # forwards to its field `data`
+@implement ColTable Measurements by data     # forwards to its field `data`
 
 colmean(t::ColTable, i::Int) = sum(col(t, i)) / length(col(t, i))
 ```
 
-**A type joins a trait by a declaration**, `@implement ColTable Measurements`, which may come after the type was defined. The declaration is one line. Its operations are served by the type's own methods, by one field the type forwards to, or by the trait's defaults. It is checked when it is made: every operation and field must exist with the declared types. It is never inferred from the methods that happen to exist, since Base's throwing fallbacks make such matching meaningless ([details §4.1](design/implementation.md#41-traits-and-implementations)).
+**A type joins a trait by a declaration**, `@implement ColTable Measurements by data`, which may come after the type was defined. The declaration is one line. Its operations are served by the type's own methods, by one field the type forwards to (always named with `by`: no field is special), or by the trait's defaults. It is checked when it is made: every operation and field must exist with the declared types. It is never inferred from the methods that happen to exist, since Base's throwing fallbacks make such matching meaningless ([details §4.1](design/implementation.md#41-traits-and-implementations)).
 
 **A bounded function is compiled for what its bound can see.** `colmean` reaches its argument only through `ColTable`'s operations. So it is compiled per *key*: the type whose methods serve the operations, here the field's type `Vector{Vector{Float64}}`, and the types of any fields the trait declares. Every table type that forwards to such a field runs the code the library already compiled, from the library's own package image. A solver step bounded by an integrator trait compiles nothing for a new callback, because the trait does not declare the callback. This is not "compiled once for any type": a type that supplies its own behaviour gets its own copy, once, in its own image. What library code receives is a *trait object*: the user's own object, read at the byte offsets of what the bound can see, so nothing is copied and loops run at plain Julia's speed ([details §4.2](design/implementation.md#42-compiled-for-what-the-bound-can-see)).
 

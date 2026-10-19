@@ -171,20 +171,20 @@ struct Tile
     label::String
     shape::Rect
 end
-@implement Shape Tile              # `shape` is the one field whose type conforms
+@implement Shape Tile by shape     # forwards to its field `shape`
 
 struct Window
     frame::Rect
     pane::Rect
 end
-@implement Shape Window by pane    # two fields conform: name one
+@implement Shape Window by pane    # forwards to `pane`; `frame` is invisible to the library
 
 area(Tile("door", Rect(1.0, 2.0)))                  # error: Tile has no method of `area`
 ratio(Tile("door", Rect(1.0, 2.0)))                 # 0.3333333333333333
 ratio(Window(Rect(3.0, 3.0), Rect(1.0, 2.0)))       # 0.3333333333333333
 ```
 
-- Without `by`, `@implement` uses the field named `data` if it conforms, else the one field whose type conforms.
+- Forwarding is always written with `by`. No field is special: without `by`, `@implement Shape Tile` would say that `Tile` implements the operations itself, and fail, listing `by shape` as the fix.
 - The trait's operations are served by the field's type, `Rect`. So `Rect` is the receiver type, and the key of both `Tile` and `Window` is `Rect`.
 - **Both run the code already compiled for `Rect`.** The `label` and `frame` fields are invisible to the library, and a new type that forwards to a `Rect` compiles nothing new in it.
 - Forwarding gives the bounded functions the field's behaviour. It adds no methods to `Tile` itself: `area(Tile(…))` called directly from plain code has no method.
@@ -251,7 +251,7 @@ Rules: [reference §3.3](reference.md#33-fields), [§5.4](reference.md#54-field-
 `Sprite` can also be a `Shape`, through its `body` field:
 
 ```julia
-@implement Shape Sprite            # forwards to `body`, a Circle
+@implement Shape Sprite by body    # forwards to `body`, a Circle
 ```
 
 A function may require several traits of one argument. In `Geometry`:
@@ -366,7 +366,7 @@ end
 @implement Scalable Rect begin
     scale(r, k) = Rect(k * r.w, k * r.h)
 end
-@implement Scalable Tile           # forwards to its `shape` field, a Rect
+@implement Scalable Tile by shape  # forwards to its `shape` field, a Rect
 
 doubled(Circle(1.0))                      # Circle(2.0)
 doubled(Tile("door", Rect(1.0, 2.0)))     # Tile("door", Rect(2.0, 4.0)): the label is kept
@@ -690,14 +690,14 @@ using .Weights
 struct Crate
     data::AbstractVector{Float64}      # an abstract field type
 end
-@implement Weighted Crate
+@implement Weighted Crate by data
 # ImplementError: field `data` of Crate is declared `AbstractVector{Float64}`, which is not concrete,
 # and Weighted asks for concrete keys (`@concrete_only`) …
 
 struct Box
     data::Vector{Float64}
 end
-@implement Weighted Box                # fine
+@implement Weighted Box by data        # fine
 ```
 
 `fully_typed` reports the calls whose argument types are not known, with their root cause:
@@ -798,7 +798,7 @@ Today the annotation is read as a plain type, and the method never applies.
 
 ```julia
 struct Labelled{T}; label::String; data::Vector{T}; end
-@implement Samples Labelled{T} where {T}        # every Labelled{T} forwards to `data`
+@implement Samples Labelled{T} by data where {T}   # every Labelled{T} forwards to `data`
 ```
 
 Today, declare each member: `@implement Samples Labelled{Float64} by data`.

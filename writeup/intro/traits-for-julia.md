@@ -91,7 +91,7 @@ A trait is an abstract type with behaviour. Abstract types stay in Julia; traits
 You declare that a type implements a trait with `@implement`. TraitWorld checks the declaration when you write it: every operation must exist, with the declared result type.
 
 There are two ways to implement a trait:
-- **Your type has a field that already implements it.** `@implement ColTable Measurements` forwards the trait to that field. If several fields could serve, name one: `@implement ColTable MyType by right`, where `right` is the field.
+- **Your type has a field that already implements it.** `@implement ColTable Measurements by data` forwards the trait to the field `data`. No field is special: forwarding is always written with `by`.
 - **Your type implements the operations itself.** Define the methods, then declare the implementation.
 
 Who may declare an implementation: the package that owns the trait, or the package that owns the type. A third package that owns neither may not.
@@ -203,7 +203,7 @@ struct Measurements
     label::String
     data::Vector{Vector{Float64}}
 end
-@implement ColTable Measurements      # `data` conforms; `label` is invisible to Columns
+@implement ColTable Measurements by data   # `label` is invisible to Columns
 
 # 2. A type that implements the operations itself.
 struct Ramp                           # column i is base .* i, never stored

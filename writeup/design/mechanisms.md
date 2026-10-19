@@ -137,16 +137,16 @@ end
 Every form is an explicit declaration for the type it names. Every form defines methods, so ownership ([`implementation.md` §5](implementation.md#5-the-three-rules), rule 2) says who may write it: a stakeholder, the trait's owner or the type's owner.
 
 ```julia
-# 1. Forwarding, inferred: the one field whose type implements the trait, else the field named `data`
+# 1. Forwarding to a field, always written with `by`: no field is special
 struct KMeas; label::String; data::Vector{Vector{Float64}}; end
-@implement KTable KMeas
+@implement KTable KMeas by data
 
 # 2. The type implements the operations itself (methods defined before the declaration)
 kncols(r::KRamp) = r.n
 kcol(r::KRamp, i::Int) = r.base .* i
 @implement KTable KRamp
 
-# 3. Forwarding written out (two fields conform); a declared field mapped to another name
+# 3. Forwarding where two fields conform; a declared field mapped to another name
 @implement KTable KHalves by right
 @implement Named Halves name => title          # Named declares `@const name::String`
 
@@ -174,7 +174,7 @@ end
 - **Ownership:** the author is a stakeholder, or an extension of one.
 - **Completeness:** every operation has a method or a default for the receiver type. Every declared field maps to a stored field with the declared type. Writable fields obey the rules of section 1. The forwarding field is not a writable declared field.
 - **Concreteness,** for a trait that asks for it: the key is concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. An abstract field is refused with its name.
-- **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the field named `data`, or `by`.
+- **No field is special.** Without `by`, the type must implement the operations itself; `@implement` never picks a field. The error lists the fields that conform, each with its `by` line. Also a field the trait declares with the receiver type (`data::R`) is named with `by`.
 - **Forwarding does not chain.** A field whose type itself forwards is not a receiver type (prototype: refused, `runtests.jl` "the one-line conformance").
 - **No computed projections.** An implementation that computes a value from the type (`project(r) = …`) is refused with "computes a value" (`test/like.jl`). A type whose data needs computing converts instead (section 14; why: [`alternatives.md`](alternatives.md#representations-and-projections-replaced-by-keys)).
 - **Redeclaration** in a session is refused, naming the reason (section 1, overrides).
@@ -550,7 +550,7 @@ Cached code is reusable because it is compiled per key. It stays valid because i
 ```julia
 using Columns                                 # Columns' workers come from its package image
 struct Mine; data::Vector{Vector{Float64}}; end
-@implement ColTable Mine                      # forwards to its field: no new library code
+@implement ColTable Mine by data              # forwards to its field: no new library code
 colmean(Mine([[1.0, 2.0]]), 1)                # runs the worker Columns compiled for Vector{Vector{Float64}}
 using CairoMakie                              # a stakeholder of none of Columns' facts: its code stays
 ```

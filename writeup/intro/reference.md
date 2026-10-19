@@ -95,7 +95,7 @@ StoredFunction ::= "dynamic_fn" "(" TupleType "," Type "," Expr ")"
 
 (* planned *)
 SharedParam    ::= Name "(" Name "::" TraitName "{" Name "}" "," Name "::" TraitName "{" Name "}" ")" "where" "{" Name "}"
-FamilyForward  ::= "@implement" Traits Type ( "by" FieldName )? "where" "{" TypeVar* "}"
+FamilyForward  ::= "@implement" Traits Type "by" FieldName "where" "{" TypeVar* "}"
 KwCallable     ::= "Callable" "{" TupleType "," Type "," Mode "," NamedTupleType "}"
 OpenResult     ::= Name "::" "Callable" "{" TupleType "," Name "}" "where" Name
 DynamicMulti   ::= "Dynamic" "{" "(" TraitRef ( "," TraitRef )* ")" "}"
@@ -340,19 +340,18 @@ end
 
 ```julia
 @implement ColTable Ramp           # Ramp has methods of ncols and col
-@implement ColTable Measurements   # Measurements has a field that conforms
 @implement Placed Sprite           # a trait of fields only: Sprite has the fields
 ```
 
-`@implement X T` without a block decides how `T` conforms:
-1. **`T`'s own methods,** if it has methods for every operation without a default. Define them before the declaration.
-2. **Otherwise, forwarding to a field:** the field named `data`, if its type conforms, else the one field whose type conforms.
-3. **A trait with fields only** conforms by the type's stored fields.
+`@implement X T` without a block or `by` says that `T` implements the trait itself:
+1. **`T`'s own methods** serve every operation without a default. Define them before the declaration.
+2. **A trait with fields only** is served by the type's stored fields.
 
-Errors, each naming the operations or fields:
+**No field is special.** The one-line form never forwards to a field: not one named `data`, not the only field whose type conforms. Forwarding is always written with `by` ([§5.3](#53-forwarding-with-by)).
+
+Errors, each naming the operations:
 - methods for some operations and not for others;
-- several conforming fields and none named `data`: name one with `by` ([§5.3](#53-forwarding-with-by));
-- no conforming field and no methods.
+- no methods. The message lists the fields whose type conforms, each with its `by` line.
 
 The one-line form needs a concrete type. A parametric type conforms as a family ([§5.7](#57-families)).
 
@@ -368,8 +367,7 @@ A type whose data needs a computation (a lazily derived table, a foreign layout)
 
 - The implementation forwards every operation to the field `right`. The field's type is the receiver type, so `Halves` shares the code compiled for that type.
 - The field's type must implement the operations itself. **Forwarding does not chain:** a field whose type itself forwards is refused.
-- Methods win over a field: if `T` implements the operations, write `@implement X T`, not `by`.
-- Write `by` when several fields conform, or to make the choice explicit.
+- `by` is the only way to forward: `@implement X T` without it never picks a field ([§5.2](#52-one-line)).
 
 ### 5.4 Field mappings
 
@@ -390,7 +388,6 @@ A type whose data needs a computation (a lazily derived table, a foreign layout)
 
 ```julia
 @implement (ColTable, RowTable) Grid by data
-@implement (ColTable, RowTable) Grid             # one line, the field inferred
 ```
 
 - One declaration, one implementation per trait, all forwarding to the same field (or all served by `Grid`'s own methods).
@@ -428,7 +425,7 @@ end
 - Workers compile per member.
 - **Joint families:** each member conforms at one value of each trait parameter. Every variable of the trait's parameters must occur in the type.
 - With `@concrete_only`, a member at an abstract parameter (`S{Any}`) is refused at the call.
-- **Planned: forwarding for a whole family.** Write one declaration per member today: `@implement SVec LSeries{Float64} by data`, `@implement SVec LSeries{Float32} by data` ([open issues §2](../open-issues.md#2-design), "Keys and fields", item 4). The planned form is `@implement X Series{T} where {T}`, with the field inferred; where `by f` goes in that form is not written down ([§18](#18-status-index)).
+- **Planned: forwarding for a whole family.** Write one declaration per member today: `@implement SVec LSeries{Float64} by data`, `@implement SVec LSeries{Float32} by data` ([open issues §2](../open-issues.md#2-design), "Keys and fields", item 4). The planned form is `@implement X Series{T} by f where {T}`: as for one type, the field is named with `by`.
 
 ### 5.8 Generic implementations
 
