@@ -297,3 +297,8 @@ Log:
     - a family member and a generic implementation called untyped.
 
     All pass. All suites green.
+- **Experiment 3: sites that see many types.** `call_cache` resizing would not help, since all of a site's slots hash from the call site.
+  - Instead, the per-site cache holds method-cache entries that match every type at their `Any` positions (the entry itself, wildcard-matched; its `max_world` stays open).
+  - `setindex!(::Array{Any}, x, ::Int)` with 16 value types under `all`: 163 → 16 ns.
+  - The quick subset: plain 0.92, `all` 0.95: a general improvement of Julia's dispatch.
+  - G1.23; all suites green (julia commit in `ic/README.md`).
