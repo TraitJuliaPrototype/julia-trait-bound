@@ -220,3 +220,12 @@ Log:
   - **The declared builder** is a method (`_declared_builder`) beside `conformance`, so the table's slow path needs no reflection.
   - **Found on the way:** `ismutable(R)` on a type (always `true`) built a `View` where the typed path builds a `Held` view: a different trait object type, a second worker, and no match with the check done ahead. Fixed with `ismutabletype`.
   - **Result** (`experiments/examples/ahead/`, package `AheadP` declaring `Shape{Hexagon}`): in a fresh session the worker and the specialized method come with AheadP's image. The first untyped call with the new type takes 3–4 ms, against 90 ms before these fixes (39 ms table miss, 60 ms the first-call check, then 36 ms a closure compiled in the slow path).
+- **(c) at speed, step by step** (timings rough; `step3/untyped.jl` and the parts in the session's scratch):
+  - **Under `all` 137 → 57 ns:** passing `typeof(x)::DataType` to the table lookup was a run-time site, because a kind is no fact. The holder is passed instead, and the type is read inside with builtins.
+  - **The second dispatch replaced by the step-1 pointer:** a `:caller_world` cfunction of a fixed-arity `_UWrap` calling `_UCall{G,B}` (the pattern's method with the builder held), in a pointer table per entry pattern.
+  - **That pointer at first cost 27 ns, 64 bytes, and 6 ms of compilation per new type.** `jl_normalize_to_compilable_sig` refuses `Any` for a slot that specializes, so the thunk fell back to its dynamic-dispatch adapter, which compiled `_UWrap` per run-time type.
+    - Fixed by `@nospecialize` on `_UWrap`'s boxed arguments, so `Any` is a compileable signature.
+    - Also: the callable holds the builder by reference (an isbits callable behind `Ref` was boxed per call).
+  - **Result:** an untyped call 28.9 ns (plain 15.2, specialized entries (b) 17), with the 16 bytes of the boxed result as in plain Julia. Twenty new types each called once: 1.0 ms in total (about 50 µs a type, against 6 ms), with one instance of the method for the key.
+  - **Fixed on the way (an older TraitWorld bug):** `Erased` declared an abstract argument type as `Ref{T}`, a pointer to a slot, while the caller passes the value, so a `DynamicFn` with an abstract argument type crashed when it read the argument. It is now `Any`.
+  - **Remaining cost:** the untyped caller's dispatch to the entry at `Any` (as in (b)), the lookup (about 5 ns), and the pointer call with boxed arguments (12 ns, against 4.5 for concrete ones). All suites green.
