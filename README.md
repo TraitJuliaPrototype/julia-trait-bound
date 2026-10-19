@@ -1,8 +1,14 @@
 # Trait-bound Julia
 
-A design for traits in Julia: abstract types with behaviour, so that library code compiled for what its bounds can see is cached, never invalidated unless code it depends on changes, checked where it is defined, and closed for ahead-of-time compilation. Start with [`writeup/design.md`](writeup/design.md), the current design and its decisions; [`writeup/README.md`](writeup/README.md) has the reading order.
+A design for traits in Julia, built as a patched Julia compiler and a package. Traits are abstract types with behaviour. Library code bounded by traits is compiled for what its bounds can see, checked where it is written, and never invalidated by an unrelated package's load. The facts mode in Julia's compiler gives that last guarantee to any code; traits make it cheap.
 
-**Resuming work:** read `writeup/design.md`, then `writeup/open-issues.md` §1 (decisions waiting for the user), then the "Next" list of the latest session note in `session-notes/`.
+## Where to start
+
+| You are | Read |
+|---|---|
+| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then [`writeup/intro/results.md`](writeup/intro/results.md); porting a package: [`writeup/intro/porting.md`](writeup/intro/porting.md) |
+| a core developer | [`writeup/design.md`](writeup/design.md), the source of truth; its companions in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages |
+| an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/design.md`, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace
 
@@ -10,36 +16,20 @@ This directory is the design repository. Eight repositories sit inside it, each 
 
 | Directory | Repository | What |
 |---|---|---|
-| `.` | design | `writeup/`: the notes, decisions, open issues, explorations, findings, research; `session-notes/`; `attic/` holds the earlier phases and superseded documents |
-| `julia/` | patched Julia | a clone of JuliaLang/julia, checked out on branch `trait-universe` (1.12 with the filter, built in place). Branch `trait-world-1.13`: v1.13.2 with the invalidation filter (insertion half in `src/gf.c`, load half in `Compiler/src/reinfer.jl`), notes in `TRAITWORLD.md` |
-| `julia-1.13/` | (worktree of `julia/`) | branch `trait-world-1.13`, built: `julia-1.13/julia` is the patched 1.13.2 with Julia pieces 1–5, 9, 10 and 17 (session 26); `tw-build.sh` rebuilds it niced under a memory watchdog (`TW_TARGET=julia-sysimg-release` for the system image alone) |
-| `TraitWorld/` | TraitWorld | the design as a package on Julia 1.13.2, stock and patched: traits, conformances as methods, keys, inlined entries and workers per key, the compiler policy of wrapping by facts, strict mode (a prototype), checks, definition checking, dynamic values, view caches, `verify_main`; 350 tests patched, 306 stock |
-| `TraitDifferentialEquations/` | demonstrator 1 | ODE solvers in the trait world: steps 1 and 3 (Tsit5, models, callbacks; Rodas5 with ForwardDiff); plan and measurements in its README |
-| `TraitMakie/` | demonstrator 2 | a plotting library in the trait world: step 1 (lines, scatter, Cairo), a trimmed binary; plan and measurements in its README |
-| `TraitTables/` | demonstrator 3, library | a DataFrame-shaped table in the trait world: `Column{T}`, `Vector{Dynamic{Column}}` columns (session 27) |
-| `TraitCSV/` | demonstrator 3, library | a CSV reader in the trait world: `CSVColumn{T} <: Column`; InlineStrings' `String15` as a conformance in an extension (session 27) |
-| `TraitReport/` | demonstrator 3 | a data report in a fresh session (CSV, DataFrames, TraitMakie) against pandas and matplotlib: the ordinary script, a trait-world report and a plain package as the fair baseline (session 26); next, TraitTables and TraitCSV; plan and measurements in its README |
-| `experiments/` | experiments | the smaller prototypes and measurements, formerly `poc/`: `baseline-1.13.md`, `lens/` (layouts), `keys-proto/` (the runtime as methods), `world/`, `interfaces/` (pinned before keys), `solvers/`, `errors/`, `runtime-injection/`, `facts/` (wrapping by facts: acceptance, hunt, g2all, g2strict, typedbench), `aot/` (trimmed binaries on 1.13), `sysimage/` (the policy in the platform: TraitWorld in the system image), `demos/` (the demonstrators' rows) |
+| `.` | design | `writeup/` (the design, its companions, the introduction, the record), `session-notes/` (one note per working session), `attic/` (earlier phases and superseded documents) |
+| `julia/`, `julia-1.13/` | patched Julia | a clone of JuliaLang/julia; `julia-1.13/` is a worktree on branch `trait-world-1.13`: v1.13.2 with the facts compiler, parts (A)–(D) and the session-29 changes ([`writeup/design/julia-changes.md`](writeup/design/julia-changes.md)). `julia-1.13/tw-build.sh` rebuilds it, niced, under a memory watchdog |
+| `TraitWorld/` | TraitWorld | the design as a package on the patched build (stock Julia is not supported): traits, conformances as methods, keys, entries and workers, `Dynamic`, `Callable`, definition checking, concrete mode and the fully-typed certificate, strict mode, `verify_main`, printing |
+| `TraitDifferentialEquations/` | demonstrator | ODE solvers in the trait world: Tsit5, Rodas5, model types, callbacks, gradients; the plain baseline `PlainODE` |
+| `TraitMakie/` | demonstrator | a plotting library in the trait world; the plain baseline `PlainPlots` |
+| `TraitTables/`, `TraitCSV/` | demonstrator libraries | a column table (`Vector{Dynamic{Column}}`) and a CSV reader whose column types are conformances |
+| `TraitReport/` | demonstrator | a data report in a fresh session, against pandas and against the same libraries without traits |
+| `forks/` | demonstrator | CSV, DataFrames and Tables ported to traits, against upstream, with the upstream test suites |
+| `experiments/` | experiments | the smaller prototypes and measurements: `facts/` (acceptance, the framing cases), `factscompiler/` (the compiler's measurements, the control), `examples/` (worked examples for each rule), and earlier phases ([`writeup/record/INDEX.md`](writeup/record/INDEX.md) lists them) |
 
-These repositories have no remotes yet. Turning them into submodules of this one is a step for when they do.
-
-## The plan
-
-The current design, its decisions and the order of work are in [`writeup/design.md`](writeup/design.md) (session 29). In short:
-- **The framing:** compiled code is never invalidated unless code it depends on changes. Facts at concrete signatures, ownership, and the refusal of a winning pirate (strict mode) make it true; the default session follows pirates instead. Traits let code say what it needs, so it is compiled per key, checked where it is defined, and typed without speculation.
-- **The platform:** the facts policy moves into Julia's compiler: (A) a facts mode of inference, (B) a second cache owner for trait code, (C) owner-aware dynamic dispatch, (D) the `Dynamic` call-site split. `--compile-by-facts=all` is a test bed. Stock Julia is not supported.
-
-The order of work (`writeup/design.md` §9.3):
-1. (A) in-tree in `julia-1.13/`, one copy of the fact rules; Base's tests in facts mode.
-2. The decisive control: the plain baselines and upstream DataFrames under `all`.
-3. (B) and (C) in Julia; delete TraitWorld's imitation of them.
-4. `Dynamic` in the compiler (D).
-5. The demonstrators' claims re-pointed; the notes rewritten for the strict-first framing.
-6. Housekeeping; then the forks resumed; then the upstream proposals.
+These repositories have no remotes yet.
 
 ## Conventions
 
-- Session notes in `session-notes/` record each working session.
-- The design notes are edited locally; the earlier live document (a Claude Doc) is frozen at revision 1146, and its export is `attic/writeup/traits-for-better-julia.md`.
-- Decisions are recorded in `writeup/decisions.md` and open questions in `writeup/open-issues.md`; keep both current when the design changes.
-- The machine is shared: one Julia job at a time, niced; full builds alone, under a memory guard.
+- One note per working session in `session-notes/`; decisions in `writeup/decisions.md`, open questions in `writeup/open-issues.md`, kept current when the design changes.
+- Writing: short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon.
+- The machine is shared: one Julia job at a time (`flock /tmp/claude-1000/julia-review.lock`), niced; full builds alone, under a memory guard.
