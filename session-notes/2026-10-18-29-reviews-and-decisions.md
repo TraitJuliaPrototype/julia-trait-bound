@@ -302,3 +302,21 @@ Log:
   - `setindex!(::Array{Any}, x, ::Int)` with 16 value types under `all`: 163 → 16 ns.
   - The quick subset: plain 0.92, `all` 0.95: a general improvement of Julia's dispatch.
   - G1.23; all suites green (julia commit in `ic/README.md`).
+- **Item 1, the compiler's own dynamic calls (2026-10-19, evening).** Under the facts image, the image builder's compile queue (`typeinf_ext_toplevel` for a list of methods) gave every method the facts default, so part of the compiler was compiled by facts, its `@nospecialize` helpers becoming run-time sites (`store_backedges`: 10 dynamic calls, plain 1). Fixed by `interp_for_mi` and `leaves_to` for the default owner (julia f13117cd74): CSV + DataFrames work under `all` 666 → about 505 ms, dynamic calls 2.05 M → 0.13 M. The profiler gained call sites and a reset (a3bc1aaabd).
+- **No field is special (the user: "conforming by field should require an explicit 'by'").** The one-line form means the type implements the operations itself; forwarding is always `by f` (TraitWorld 227781a). A logging run found 26 implicit forwards in tests, demonstrators and docs; all written with `by`. The `by` path gained the `@concrete_only` check it lacked.
+- **The documentation restructured (the user: references as the source of truth, "intended shape first", deviations separately; decisions in an annex for agents).**
+  - Four references in `writeup/reference/` (traits, facts, compiler, lowering), each with a Deviations table; `design.md` the rationale, `design/argument.md` the detailed argument; `implementation.md` and `mechanisms.md` retired to pointer pages (full texts in the attic); the decision log in `writeup/record/decisions.md`; a tutorial (`intro/traits-by-example.md`) whose examples run (`experiments/docs-examples/`).
+  - Three fresh-eyes reviews (consistency; traits and lowering against TraitWorld; facts and compiler against Julia), all findings applied (`writeup/reviews/2026-10-19-references-*.md`).
+  - Confirmed by a test: entries compiled ahead invalidate plain callers at abstract types and the entry's untyped path (`experiments/docs-examples/ahead_invalidation.jl`).
+  - The website (MkDocs on GitHub Pages, built from the design repository) shows the references first; lists render as on GitHub (`prepare.py`).
+- **The user's decisions of 2026-10-20** (recorded in `writeup/record/decisions.md`):
+  - entries compiled ahead may invalidate plain callers: accepted, flagged for review;
+  - strict mode applies to trait code (the property: trait code is never invalidated);
+  - `jl_apply` runs the callee's default owner's code (my choice, asked to make one);
+  - an extension's winning method is followed, with a warning;
+  - module options apply to both modes eventually (planned);
+  - equations always hold;
+  - names of my choice: `Compiler.split_call`, `Expr(:meta, :facts_boundary)`, `Expr(:meta, :facts_always)`.
+- **Built overnight (2026-10-20, 00:00–02:00):** the renames (julia 3b8085c222, including the lowering's copy of the markers to keyword sorters, which a `verify_main` check caught); a stated parameter checked against the equation; redeclaration refused in every form, a family member may declare its own; strict mode's extension warning (TraitWorld ec2b977); `g2all.jl` counts code of the facts owner (experiments 6cc0e09). All suites green except the known F-8 (`verify_main` under `all` reports a Base run-time site; it fails the same without tonight's changes). Deviations retired: T-24, L-22, F-3, F-14, T-29; narrowed: T-28, L-23, T-37, L-26.
+- **A proposal for proving the references** (the user: "note down a proposal"): `writeup/plans/2026-10-20-proving-the-references.md` (a conformance suite per reference with expected-failure checks for deviations; the guarantees in realistic stacks; next rows per demonstrator; a new demonstrator only if the forks leave gaps).
+- **Running from 02:00:** `g2all.jl` (interleaved and before), then the full measurement round (`experiments/factscompiler/round/run.sh`: call benchmarks, quick subset, the demonstrators' harness with a recreated Python baseline, pandas 3.0.6 and matplotlib 3.11.2, the full BaseBenchmarks plain and `all`). Results and the documents' numbers: below, when it finishes.
