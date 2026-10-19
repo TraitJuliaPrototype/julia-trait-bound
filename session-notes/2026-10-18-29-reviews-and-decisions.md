@@ -52,6 +52,8 @@ Recorded in `writeup/decisions.md` ("Session 29") and `writeup/open-issues.md` �
 
 ## Next
 
+> **Done** (written at the start of session 29; the autonomous run below did it). The current next steps are `writeup/design.md` §9.3; the latest state is the last bullets of the log below.
+
 To confirm with the user; the order follows the implementation review's migration order, with the decisions above applied:
 1. **(A) in-tree, one source of truth for the fact rules:** finish `julia-1.13/Compiler/src/facts.jl` (the flag in `jl_options`), build, retire the two other copies; run Base's tests in facts mode (plan §2.4, never run).
 2. **The decisive control:** the plain baselines (PlainODE, PlainPlots, PlainTables) and upstream DataFrames under `all`, lost CodeInstances and first-call times, against the trait forms.
