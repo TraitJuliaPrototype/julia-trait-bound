@@ -10,6 +10,11 @@ The facts mode removes Julia's speculation at calls whose argument types are not
 - Diagnose the ~990 ms upstream CSV + DataFrames still pay after nine loads under `all`, with a full list of what is compiled again and the winning methods.
 - Output: the list of slow paths, ranked, that steps 1–4 are measured against.
 
+**Status (2026-10-19): done.**
+- The ~990 ms are the plain inference behind run-time `return_type`, invalidated by the loads and run again. This is by design; the optimizer cannot be skipped there.
+- A quick subset of BaseBenchmarks (148 benchmarks, about 3.5 min) gives the tails on the current compiler.
+- The full run comes once, at the end.
+
 ## 1. World-checked inline caches at dynamic call sites (fixes G1.20 first)
 
 - **The mechanism.** A cache per call site of `(type, entry point, world range)`; the call checks type and world, then calls; a miss dispatches as now and adds an entry. Specified in `design.md` §4.5.
@@ -19,6 +24,12 @@ The facts mode removes Julia's speculation at calls whose argument types are not
   - **`Dynamic` beyond four implementations,** between the split and the fallback.
   - **The fallback of the split itself.**
 - **Measure:** against the split (about 1 ns), the generic fallback, and plain Julia's best and worst cases (the sum and the raytrace benchmarks with 2, 4, 8 and 16 types).
+
+**Status (2026-10-19): built for `DynamicCall`.**
+- **The mechanism:** the `cfunction` calling convention `:caller_world` (julia 80e8bf79c5). It is Julia's existing cfunction thunk, which was a one-entry cache keyed to the latest world, keyed instead to the caller's world, with one entry per target.
+- **Acceptance:** 21 of 21 checks pass, including G1.20 and G1.21.
+- **Cost:** 4.47 ns per call, unchanged.
+- **Next:** `Dynamic` beyond four implementations, at the split's fallback.
 
 ## 2. Guarded devirtualization at the facts mode's run-time sites (postponed)
 

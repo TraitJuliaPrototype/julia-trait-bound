@@ -27,7 +27,7 @@ A chapter of [The implementation in detail](implementation.md): the current meas
 | their first work / repeated / after the loads | 3,627 / 0.6 / 4,009 ms | 722 / 0.8 / **992** ms |
 
 - Load protection is the facts rule's property, for any code, not traits'.
-- **Not diagnosed:** upstream still pays ~990 ms after the loads under `all`. One residue of this kind is diagnosed (§3, TraitReport): StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code ([`implementation.md`](implementation.md#1-terms) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
+- **Diagnosed:** upstream pays ~990 ms after the loads under `all` (plain: 4.0 s) for the plain inference behind run-time `return_type`. Its cached answers rest on plain edges at abstract signatures (an `isapprox(::Integer, ::Integer)`, a `quantile!(::AbstractVector, …)`); the loads invalidate them (Unitful's `Colon(::Any, ::Any, ::Quantity)` alone 733 entries); `CSV.read` and `describe` ask again, and plain inference, optimizer included, runs again (70% of the profile). This is by design: the answers are plain Julia's, so a load that changes plain inference changes them. The optimizer cannot be skipped: without it the answers get wider (CairoMakie's workload then fails) ([`performance.md`](performance.md)). Another residue of this kind is diagnosed (§3, TraitReport): StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code ([`implementation.md`](implementation.md#1-terms) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
 **The cost of the facts rule on plain code** (`all`, on an earlier build, before parts B–D): BaseBenchmarks geometric mean 1.016, 1.064 without `scalar`; concrete groups 1.00–1.09; `io` 1.32; tails up to about 80× on containers of `Any`, abstract element types and small-union broadcasts. One run, `--pkgimages=no`. **To rerun** on the current compiler: the inliner changes apply under `all` too.
 
@@ -106,8 +106,7 @@ The forks' first `String15` read alone (a script) takes 0.04 s with the `String1
 
 ## 5. Not shown
 
-- **Diagnosis:** the ~990 ms after loads under `all`; TDE row 4 after loads; the clean-case `@implement` regression.
+- **Diagnosis:** TDE row 4 after loads; the clean-case `@implement` regression.
 - **Reruns:** Python's baseline; TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the forks' session harness after the `String15` fixes; BaseBenchmarks under `all` on the current compiler; Base's test suite under the facts mode.
-- **Failing:** acceptance G1.20, `DynamicCall` in an older world (`implementation.md` §4.6).
 - **Untested:** strict mode under `all`; threads; Revise-style edits; composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames (`--trim=safe`).
 - **The "explosion" of compiled code** per type is structural (32 specializations against 1 in a small experiment), unmeasured on a real library.

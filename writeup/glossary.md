@@ -264,7 +264,7 @@ The entries are grouped by theme:
 - **Here:** a cache proposed between the split and the fallback. Not built.
   - Each entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid.
   - A call compares the type and the current world against an entry, then calls indirectly. A miss dispatches as now and adds an entry.
-  - It would serve more than four implementations at a few nanoseconds per call. It would also fix `DynamicCall`'s defect: running in the latest world.
+  - It would serve more than four implementations at a few nanoseconds per call. It is built for `DynamicCall`'s pointers, which run in the caller's world through it.
 - **Origin:** the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds ([`implementation.md` §4.5](design/implementation.md#45-dynamicx-a-value-of-abstract-type-x)). The world range is a [CodeInstance](#codeinstance)'s `min_world` and `max_world`, which invalidation shortens.
 - **Defined in:** [`implementation.md` §4.5](design/implementation.md#45-dynamicx-a-value-of-abstract-type-x); the plan [`plans/2026-10-19-principled-speed-plan.md`](plans/2026-10-19-principled-speed-plan.md).
 
@@ -386,7 +386,7 @@ The entries are grouped by theme:
 ### World and world age
 
 - **Here and in Julia:** Julia numbers the states of its method table. Each method definition starts a new world. Running code sees the methods of one world, its world age. A call in an older world sees the old methods; `invokelatest` calls in the latest world.
-- **Here:** every trait call dispatches in the caller's world, as every Julia call does; "identical or error" is stated for the current world. Pointer tables ran in the latest world, which gave a wrong result. `DynamicCall`'s pointer still runs in the latest world (a known defect).
+- **Here:** every trait call dispatches in the caller's world, as every Julia call does; "identical or error" is stated for the current world. Pointer tables ran in the latest world, which gave a wrong result. `DynamicCall`'s pointer runs in the caller's world, through a world-checked cache.
 - **Origin:** Julia's own, since Julia 0.6; the manual explains it under "Redefining Methods" *(not in the research)*.
 - **Defined in:** [`implementation.md` §4.5](design/implementation.md#45-dynamicx-a-value-of-abstract-type-x), [§4.6](design/implementation.md#46-functions-as-arguments-callable-two-modes); [`mechanisms.md` §19](design/mechanisms.md#19-identical-or-error).
 

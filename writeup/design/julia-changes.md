@@ -38,6 +38,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 | 9 | Owner-aware bare MethodInstance edges | invalidation of a second owner's code | 5b5b98758f |
 | 10 | The inliner inlines exactly the foreign CodeInstance named by `:invoke` | (B) | f72f7368f0 |
 | 17 | A registry of type printers, `Base.Experimental.register_type_printer` | printing by bound and key (`ColTable at Vector{Vector{Float64}}`) | db82407fa6 |
+| 18 | The `cfunction` calling convention `:caller_world`: the pointer's call runs in the caller's world, through a world-checked call-site cache in its thunk (one entry per target, with the worlds where the dispatch and the CodeInstance hold; `jl_get_specialization1_worlds`). A plain `@cfunction` keeps the latest world | `Callable`'s `DynamicCall` (`TraitWorld/src/core.jl`) | 80e8bf79c5 |
 
 **Not in the build:** pieces 2 and 4, reverted in c4f7e76a2f (`Compiler/src/reinfer.jl` is upstream's; [`alternatives.md`](alternatives.md#the-invalidation-filter-and-other-julia-pieces-reverted-or-moot)).
 
@@ -59,7 +60,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 5. Tests
 
-- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 19 checks (G1 identical-or-error, G2 stable caches, the cases found by the reviews: G1.15–G1.19). 19/19 on the final build (61852d8fb1). G1.20 (`DynamicCall` in an older world), added since, fails (`implementation.md` §4.6).
+- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 21 checks (G1 identical-or-error, G2 stable caches, the cases found by the reviews: G1.15–G1.19, and `DynamicCall` in older and alternating worlds: G1.20, G1.21). 21/21 on the current build (80e8bf79c5).
 - **TraitWorld's suite** (47 test sets) and the demonstrators' suites, on every build.
 - **Missing** (review of 2026-10-19): targeted checks for the inliner changes (a varargs wrapper in a recursion; cycle inlining) and for the compiler-plain edges; Base's test suite under the facts mode (started once, not completed).
 
