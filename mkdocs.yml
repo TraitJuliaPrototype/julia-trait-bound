@@ -50,8 +50,10 @@ nav:
   - For programmers:
       - Traits for Julia: writeup/intro/traits-for-julia.md
       - Results: writeup/intro/results.md
+      - Glossary: writeup/glossary.md
   - For core developers:
       - The design: writeup/design.md
+      - Glossary: writeup/glossary.md
       - Mechanisms: writeup/design/mechanisms.md
       - Changes to Julia: writeup/design/julia-changes.md
       - Evidence: writeup/design/evidence.md

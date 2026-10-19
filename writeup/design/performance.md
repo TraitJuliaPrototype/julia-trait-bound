@@ -32,11 +32,11 @@ The facts mode makes "who compiles this code, under which rules" a property of e
 | Code | Owner it had | What that cost | Owner it needs |
 |---|---|---|---|
 | The compiler, called from facts code (TraitWorld's checks) | `:facts`: everything a facts frame calls was compiled by facts | the abstract interpreter ran as type-unstable facts code, 6× slower | plain, whoever calls it (module flag "never by facts" on Compiler) |
-| TraitWorld's machinery (checks, finding builders, hooks) | plain | invalidated by every big load, then re-inferred in a larger method table: 2 s per new conformance | facts (`@machinery`, the per-method mode) |
+| TraitWorld's machinery (checks, finding builders, hooks) | plain | invalidated by every big load, then re-inferred in a larger method table: 2 s per new implementation | facts (`@machinery`, the per-method mode) |
 | The compiler's code for the checks' custom interpreter | plain, run at the latest world | invalidated by loads, JIT-compiled again: 3.7 s | the compiler's own world (a `NativeInterpreter` with its own cache owner; Base reflection runs it in the typeinf world) |
 | The first-call check's inference of a worker's call graph | a private cache (`_CheckOwner`) | 3,100 CodeInstances per new key, shared with nothing and never in an image | the code that runs (reflection by facts: shared with the worker's compilation and kept in images) |
 
-Facts code is load-proof but slow where it is type-unstable, and plain code is fast to infer but invalidatable. The compiler must run in a frozen world. Placing each component is part of the design, and design.md §6 claimed "the compiler's own code stays plain" before the implementation did it.
+Facts code is load-proof but slow where it is type-unstable, and plain code is fast to infer but invalidatable. The compiler must run in a frozen world. Placing each component is part of the design, and design.md §6 claimed "the compiler's own code stays plain" before the code did it.
 
 **The choices have costs, which the first version of this note left out:**
 - **`@machinery`'s clean-case cost.** The machinery is type-unstable by nature, so as facts code its run-time sites compile facts copies of Base methods in each session, unless TraitWorld's image holds them. This is the likely cause of TraitMakie's clean regression (36 → 77 ms). It is not yet measured by owner. The completion is a precompile workload for the machinery under its new owner.
@@ -58,13 +58,13 @@ Several costs were session-time work that no image kept: the checks' private cac
 The forks' `String15` workload extension (`CSVDataFramesInlineStringsExt`) is a workaround (review D3):
 - The need is partly self-made: upstream CSV has InlineStrings as a hard dependency, and the forks made it a weak one.
 - Workload extensions per package combination are hand-written and combinatorial; nothing in the design derives one from a declaration.
-- The design's own answer is §4.8 ("AOT follows from declared targets"): a conformance declared in `CSVInlineStringsExt` should compile the reader's declared workers for the new key at precompile time. DataFrames' kernels over a `String15` column belong in a DataFrames image.
+- The design's own answer is §4.8 ("AOT follows from declared targets"): an implementation declared in `CSVInlineStringsExt` should compile the reader's declared workers for the new key at precompile time. DataFrames' kernels over a `String15` column belong in a DataFrames image.
 
 The `String15` read without the three-way extension (after the check-by-facts change alone) has not been measured.
 
 ### 4. The thesis, measured: what loads still cost (direction supported, residue not fully diagnosed)
 
-After the fixes, a new conformance after big loads costs about what it costs without them (TDE 148–164 / 89–133 ms against 142 / 82 ms; TraitMakie 97 / 89–161 ms against 77 / 107 ms). That is not yet "the only load-dependent cost". Other rows still differ after loads: TDE's row 4 after loads 171 ms against 12; row 1 with the loads before 27.8 against 10.0 ms; TraitMakie's recolour 231 against 102 ms (n = 1).
+After the fixes, a new implementation after big loads costs about what it costs without them (TDE 148–164 / 89–133 ms against 142 / 82 ms; TraitMakie 97 / 89–161 ms against 77 / 107 ms). That is not yet "the only load-dependent cost". Other rows still differ after loads: TDE's row 4 after loads 171 ms against 12; row 1 with the loads before 27.8 against 10.0 ms; TraitMakie's recolour 231 against 102 ms (n = 1).
 
 One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([`../design.md`](../design.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
@@ -93,10 +93,10 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 
 ## Costs that remain, and why
 
-- **The trait object's layout: done.** A `Dynamic` of an immutable value that is its own implementing value was a trait object pointing to a boxed copy of the value (two pointer chases), with an `o === nothing` branch per read. The held view (the user's decision; TraitWorld 375a930) holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
+- **The trait object's layout: done.** A `Dynamic` of an immutable value that is itself the receiver was a trait object pointing to a boxed copy of the value (two pointer chases), with an `o === nothing` branch per read. The held view (the user's decision; TraitWorld 375a930) holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen), from 1.65×.
-- **Untyped calls:** two dynamic dispatches (the conformance, the worker) and a boxed trait object, 116 ns against about 55 for a plain untyped call. Type-unstable code was never claimed fast.
-- **`@implement` of a new model type**, 142–164 ms in every load order: the conformance checks' plain-rule inference.
+- **Untyped calls:** two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object, 116 ns against about 55 for a plain untyped call. Type-unstable code was never claimed fast.
+- **`@implement` of a new model type**, 142–164 ms in every load order: the implementation checks' plain-rule inference.
 - **Platform load cost:** the trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
 
 ## The two inliner fixes, ungated (the user's decision)

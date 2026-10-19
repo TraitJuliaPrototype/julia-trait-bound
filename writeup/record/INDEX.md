@@ -28,13 +28,15 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 ## How to resume work
 
 Read, in this order:
-1. [`../design.md`](../design.md): the design, the decisions in force (§7), the evidence (§8), the implementation and the next steps (§9).
+1. [`../design.md`](../design.md): the design, the decisions in force (§7), the evidence (§8), the software and the next steps (§9).
 2. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 3. The latest session note, [`../../session-notes/2026-10-18-29-reviews-and-decisions.md`](../../session-notes/2026-10-18-29-reviews-and-decisions.md):
    - its "Next" section is from the start of session 29 and is done;
    - read instead the last bullets of "Autonomous run": the user's decisions on the performance review (2026-10-19: the inliner fixes for all code; next, diagnose and fix the remaining load costs, the compiler-edge hole B1 and a machinery workload; a lean held view) and the approval of the cleanup plan.
 
 **"Session 30" is session 29.** The demonstrators' READMEs and commit messages (and `intro/porting.md` until the writeup review of 2026-10-19) call session 29's autonomous run "session 30"; there is no note 30.
+
+On 2026-10-19 the terms changed: the noun 'conformance' became 'implementation', 'implementing type' became 'receiver type'; documents before that date use the old terms (the terms and their origins: [`../glossary.md`](../glossary.md)).
 
 **Standing constraints** (root [`README.md`](../../README.md) "Conventions", [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) "Basic workflow"):
 - The machine is shared with other simulations (30 GB, 16 cores). **One Julia job at a time,** never parallel chains. A parallel chain crashed the machine on 2026-10-15 (session note 20).

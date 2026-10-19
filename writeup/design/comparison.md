@@ -11,7 +11,7 @@ Where this document and [`../design.md`](../design.md) disagree, `design.md` win
 
 - At a glance
 1. A trait is an abstract type with behaviour
-2. Conformance is declared
+2. Implementations are declared
 3. Compiled for what the bound can see
 4. Generic code is checked at its definition
 5. Who may implement: ownership and stakeholders
@@ -30,20 +30,20 @@ Where this document and [`../design.md`](../design.md) disagree, `design.md` win
 | Decision | C++ | Rust | Swift | Mojo | Ours |
 |---|---|---|---|---|---|
 | What a trait is | concept: a predicate on types (C++20) | trait: not a type, except as `dyn Trait` | protocol: also a type (`any P`) | trait: not a type | an abstract type with behaviour |
-| Conformance | structural (C++20); C++0x had declared concept maps, then dropped them | declared `impl` | declared, global, retroactive allowed | declared (structural added 2024, removed 2025) | declared `@implement`, never derived from methods |
+| Implementation | structural (C++20); C++0x had declared concept maps, then dropped them | declared `impl` | declared, global, retroactive allowed | declared (structural added 2024, removed 2025) | declared `@implement`, never derived from methods |
 | Generic code checked | at instantiation only | at definition, against bounds | at definition | before instantiation | at definition, at archetypes; open parameters per signature |
 | Code generated | per type (templates) | per type (monomorphization) | once, dictionary passing; specialization an optimization | per type, whole program | per key: what a bound can see; per type only for a type that supplies its own behaviour |
-| Conformance through a field | — | by hand, or `Deref` | by hand | — | forwarding (`by field`), compiled per the field's type |
+| Implementation through a field | — | by hand, or `Deref` | by hand | — | forwarding (`by field`), compiled per the field's type |
 | Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | `Dynamic{X}`; `Callable` in `DynamicCall` mode, the caller overrides |
 | Storable dynamic value | yes | `Box<dyn Trait>` | `any P` | `Variant`, `PythonObject` | `Dynamic{X}`: a call-site split in the compiler, then dispatch |
-| Who may add a conformance | anyone (structural) | owner of trait or type (orphan rule) | anyone, warned since Swift 6 | the struct's author; extensions proposed | a stakeholder: the trait's or the type's owner; named implementations deferred |
+| Who may add an implementation | anyone (structural) | owner of trait or type (orphan rule) | anyone, warned since Swift 6 | the struct's author; extensions proposed | a stakeholder: the trait's or the type's owner; named implementations deferred |
 | Overlap | partial specialization | specialization unstable since 2016 | overlapping conformances banned | — | more specific beats generic (built); unordered overlap rejected (design) |
 | What keeps compiled generic code valid | recompiled per translation unit | recompiled per crate | resilience: dictionary passing across modules | closed world, no invalidation | compiled code depends on the method table only through facts; invalidated only by a stakeholder or a winning pirate; strict mode refuses the pirate |
 | Calls into code without traits | unconstrained templates; C++0x forbade it | — | — | Python via `PythonObject` | direct: trait code may call any Julia code |
 
 ## 1. A trait is an abstract type with behaviour
 
-**The choice** ([`design.md` §4.1](../design.md#41-traits-and-conformance)). A trait is an abstract type whose behaviour is declared: operations with argument and result types, fields with types, associated types as parameters. Traits are a kind of abstract type, not a separate concept. By position a trait reads as an abstract type reads:
+**The choice** ([`design.md` §4.1](../design.md#41-traits-and-implementations)). A trait is an abstract type whose behaviour is declared: operations with argument and result types, fields with types, associated types as parameters. Traits are a kind of abstract type, not a separate concept. By position a trait reads as an abstract type reads:
 - in an argument it is compiled for what its bound can see, as an abstract-typed argument is compiled per type;
 - in a field or container it holds any conforming value behind the trait's operations (`Dynamic{X}`), as an abstract-typed field holds a boxed value.
 
@@ -53,30 +53,30 @@ Where this document and [`../design.md`](../design.md) disagree, `design.md` win
 - **Swift's protocols are types,** and that cost it most. The bare protocol name as an existential "had risen to the level of active harm" ([SE-0335](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0335-existential-any.md)), because it hid boxing and dispatch behind a name that looked like a generic constraint. Rust made `dyn` explicit for the same reason ([RFC 2113](https://rust-lang.github.io/rfcs/2113-dyn-trait-syntax.html)). See `other-languages.md` §7.
 
 **Why ours differs.** Julia types already serve both roles. An abstract type in an argument is specialized, in a field it is boxed, and Julia's performance tips teach both. A trait that reads like an abstract type by position follows a convention Julia users know.
-- **The cost the position hides is smaller than Swift's.** A `Dynamic` operation has a declared result type and splits over the declared conformances (section 6), not an open `Any`.
+- **The cost the position hides is smaller than Swift's.** A `Dynamic` operation has a declared result type and splits over the declared implementations (section 6), not an open `Any`.
 - **Concrete mode reports it** in a hot loop ([`design.md` §4.3](../design.md#43-concreteness-opt-in-per-trait)).
 - **Inside trait modules only.** A trait's name in a field means its `Dynamic` there; the explicit spelling `Dynamic{X}` always works. Membership as subtyping waits for traits in the type system (Julia piece 7).
 
 **What traits add over abstract types** is in the declaration, not the use:
 - a type joins a trait after it is defined, and joins several (Julia fixes a type's supertypes at its definition);
-- the contract is checked at the conformance and at the library's build;
+- the contract is checked at the implementation and at the library's build;
 - code is compiled for what the bound can see, so types that forward to fields of one type share compiled code (section 3);
 - fields can be required, which Julia's abstract types cannot do.
 
 | Use of an abstract type today | Trait form |
 |---|---|
-| dispatch on a family, `f(x::AbstractArray)` | a bound, `f(x::ArrayLike)`: compiled per implementing type, or per field type for one that forwards |
+| dispatch on a family, `f(x::AbstractArray)` | a bound, `f(x::ArrayLike)`: compiled per receiver type, or per field type for one that forwards |
 | fallback methods for subtypes that define a few | defaults and generic implementations |
-| a field or container of mixed types, `Vector{Number}` | `Vector{Dynamic{NumberLike}}`: results declared, split over declared conformances |
+| a field or container of mixed types, `Vector{Number}` | `Vector{Dynamic{NumberLike}}`: results declared, split over declared implementations |
 | a constraint on a type parameter, `struct S{T <: Real}` | a type parameter constrained to conforming types (piece 7) |
 | required fields (not expressible) | fields declared by the trait, typed by its associated types |
 | documentation of intent | operations with declared result types, checked |
 
-**Numbers need no trait.** Base's numeric tower stays, and promotion runs on concrete types in Base. A numeric trait, for numbers that conform after the fact, would need operations across two implementing types, which is promotion; that is open.
+**Numbers need no trait.** Base's numeric tower stays, and promotion runs on concrete types in Base. A numeric trait, for numbers that conform after the fact, would need operations across two receiver types, which is promotion; that is open.
 
 **Rejected:** hidden type parameters, a struct implicitly parametric in the types of fields declared by bounds. "Hidden type parameters seem antithetical to Julia" (the user, 2026-10-16). Stored state of a fixed type uses explicit parameters; of a changing type, `Dynamic{X}`.
 
-## 2. Conformance is declared
+## 2. Implementations are declared
 
 **The choice.** A type conforms because someone declared it, `@implement ColTable T`, never because the methods happen to exist. The one-line form keeps declaration cheap; the checks run at the declaration.
 
@@ -86,35 +86,35 @@ Where this document and [`../design.md`](../design.md) disagree, `design.md` win
   - Texas A&M (Stroustrup) wanted implicit matching. Accidental matches are "not in the top 100 problems", and explicit maps make library writers "push resolution of even the most obvious choices onto their users" ([N2906](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2009/n2906.pdf)).
   - C++20 ended up structural, with "satisfied but not modeled" ill-formed, no diagnostic required.
 - **Mojo** added structural conformance in 2024 and removed it in 2025.
-- **Rust and Swift** declare conformance from the start. **Carbon** chose declared `impl` plus coherence.
+- **Rust and Swift** require the declaration from the start: Rust's `impl`, Swift's conformance. **Carbon** chose declared `impl` plus coherence.
 
 **Why.** In Julia, structural matching proves even less than in C++, where Stroustrup's argument rested on names *and* types matching:
 - Base's fallbacks exist and throw, so `getindex` has a method for every `AbstractArray`, and `hasmethod` is true almost everywhere;
 - types conform by accident: a `Number` iterates and indexes, a `String` indexes by byte;
 - whether a call infers changes with what is loaded.
 
-The prototype refuses an accidental conformance: `Int` has `getindex(::Int, ::Int)`, and is still not `Indexable` (`TraitWorld/test/runtests.jl`, "generic implementations").
+The prototype refuses an accidental implementation: `Int` has `getindex(::Int, ::Int)`, and is still not `Indexable` (`TraitWorld/test/runtests.jl`, "generic implementations").
 
-**The cost, and the answer.** The C++ debate predicts that explicit conformance is called "viral". The answers:
+**The cost, and the answer.** The C++ debate predicts that declaring implementations explicitly is called "viral". The answers:
 - the one-line `@implement T`, which infers forwarding or methods;
 - family declarations through Base's abstract types, `@implement Indexable A where {A <: AbstractVector}`: C++0x's templated concept maps.
 
 ## 3. Compiled for what the bound can see
 
-**The choice** ([`design.md` §4.2](../design.md#42-compiled-for-what-the-bound-can-see)). Julia compiles a method for the full concrete type of each argument. A bounded function is compiled per **key** instead: the implementing type, if any, and the declared fields' types. Library code reaches a value only through its bound, so this is all it can depend on. Types that differ elsewhere share compiled code.
+**The choice** ([`design.md` §4.2](../design.md#42-compiled-for-what-the-bound-can-see)). Julia compiles a method for the full concrete type of each argument. A bounded function is compiled per **key** instead: the receiver type, if any, and the declared fields' types. Library code reaches a value only through its bound, so this is all it can depend on. Types that differ elsewhere share compiled code.
 
-**Between nested types and `Any`.** Julia code today chooses, field by field, between types that carry the types of all their parts and `Any`. Traits make that choice per conformance and per call mode instead, and the code above a bound keeps the trait's contract whichever way it goes.
+**Between nested types and `Any`.** Julia code today chooses, field by field, between types that carry the types of all their parts and `Any`. Traits make that choice per implementation and per call mode instead, and the code above a bound keeps the trait's contract whichever way it goes.
 
 | Position | Compiled | A call on the value | Compiled for |
 |---|---|---|---|
 | Julia: a type parameter | per nested type | direct | the whole type |
 | Julia: an `Any` field | the caller once; each target per run-time type when reached | dynamic, result `Any` unless asserted | nothing |
-| the type implements the operations | the library per type, in the conformer's image | direct | the type, reached through its operations |
+| the type implements the operations | the library per type, in the image that declares the implementation | direct | the type, reached through its operations |
 | forwarding to a field | the library per field type | direct | the field's type |
 | declared fields | the library per tuple of field types | a load at the field's offset | the fields' types |
 | `Callable`, dynamic call | the library once per signature | indirect, about 4 ns (earlier prototype), result declared | the signature |
 | `Callable`, compiled call | per function type | direct | the function's type |
-| `Dynamic{X}` | each operation split over the declared conformances; the library per key where it is opened | a split branch, else a dispatch; result declared | the operations, until opened |
+| `Dynamic{X}` | each operation split over the declared implementations; the library per key where it is opened | a split branch, else a dispatch; result declared | the operations, until opened |
 
 **Loads.** In plain Julia, the first two rows can be invalidated by any owner's method at an abstract signature. Under the facts rule every row, trait code or plain, is invalidated only by a stakeholder or a winning pirate ([`design.md` §3](../design.md#3-the-argument-in-four-steps)). The control of session 29 shows that this protection is the facts rule's, for any code, not the traits' ([`evidence.md`](evidence.md) §1). What traits add is that the facts rule costs nothing for them (section 9).
 
@@ -136,7 +136,7 @@ None of them makes a forwarded field the compile key, because none specializes g
 
 **What is new over discipline.** Plain Julia can reach the same shape by discipline: convert to a few concrete types first, pass only the fields a function needs, assert results after dynamic calls. Two things are new:
 1. **The bound is enforced.** Nothing in library code specializes on the user's type or on fields its bound does not declare.
-2. **The targets of the dynamic positions are declared:** the conformances and the `Callable` signatures. A build can list them ([`design.md` §4.8](../design.md#48-aot-follows-from-declared-targets)).
+2. **The targets of the dynamic positions are declared:** the implementations and the `Callable` signatures. A build can list them ([`design.md` §4.8](../design.md#48-aot-follows-from-declared-targets)).
 
 Rust's evidence for the pay-off of sharing (`other-languages.md`, "What is new in our design" item 1): up to 30% of LLVM definitions are duplicate instantiations, and retrofitting sharing into the compiler failed (polymorphization removed, `share-generics` off in optimized builds). That argues for putting it in the language.
 
@@ -207,7 +207,7 @@ The design held C++0x's rule ("layering") until session 23, and answered these o
 
 **Costs to expect:**
 - newtypes for the foreign-trait, foreign-type case, until named implementations;
-- the social cost of asking owners for conformances;
+- the social cost of asking owners for implementations;
 - pressure for convenience, as Swift kept retroactive conformance behind `@retroactive`.
 
 ## 6. Static and dynamic positions, and their defaults
@@ -235,12 +235,12 @@ The design held C++0x's rule ("layering") until session 23, and answered these o
 - **Dynamic data is explicit.** It follows Swift's lesson to spell the slow path where it is used, and to decide it before the ecosystem grows.
 
 **How `Dynamic{X}` dispatches: a call-site split, not a table.**
-- An operation on a `Dynamic` value is split at the call site over the declared conformances (at most four), with direct calls that inline, and a dynamic call as the last branch (part D; [`mechanisms.md`](mechanisms.md) §15). This is Julia's union splitting applied to a trait's conformances.
+- An operation on a `Dynamic` value is split at the call site over the declared implementations (at most four), with direct calls that inline, and a dynamic call as the last branch (part D; [`mechanisms.md`](mechanisms.md) §15). This is Julia's union splitting applied to a trait's implementations.
 - Rust's `dyn` and Swift's `any` call through a table of function pointers. The design rejected pointer tables in session 22: they break under world age and serialization. The package built them anyway in session 28, as witness tables, and a review found a wrong result: a witness pointer ran in the latest world, not the caller's. They are deleted.
-- The split dispatches in the caller's world, as every Julia call does. Candidates are registered without an edge, so a new conformance reaches the fallback and invalidates nothing.
+- The split dispatches in the caller's world, as every Julia call does. Candidates are registered without an edge, so a new implementation reaches the fallback and invalidates nothing.
 - Measured ([`evidence.md`](evidence.md) §2): a sum over `Dynamic{Shape}` costs 0.92–1.40 ns per element against plain Julia's 0.87–0.91 with two types and 29.5–33 with four.
 
-**Dynamic compatibility.** Rust restricts `dyn Trait` to traits without generic methods, `Self` results or `async fn`. Our operations have concrete declared signatures, and a `Self` result on a `Dynamic` returns a `Dynamic` of the same conformance (built). These restrictions would bind only if operations became generic over other bounds.
+**Dynamic compatibility.** Rust restricts `dyn Trait` to traits without generic methods, `Self` results or `async fn`. Our operations have concrete declared signatures, and a `Self` result on a `Dynamic` returns a `Dynamic` of the same implementation (built). These restrictions would bind only if operations became generic over other bounds.
 
 ## 7. The complexity budget
 
@@ -258,7 +258,7 @@ Sources: `other-languages.md` §8.
 - **Ours stays out of most of that space.**
   - Workers compile per concrete key, where an associated type is a field's type or a type function evaluated on a concrete type.
   - Only definition checking reasons about them symbolically, and there they are first order: named variables with trait bounds, equal only through a shared variable, never recursive.
-  - Parameters are associated types, one value per conformance, as Rust's RFC 195 argued (`explorations/associated-types.md`).
+  - Parameters are associated types, one value per implementation, as Rust's RFC 195 argued (`explorations/associated-types.md`).
   - Not offered: input parameters, equations between type functions, self-referential bounds ([`mechanisms.md`](mechanisms.md) §1).
 
 ## 8. Error messages
@@ -274,7 +274,7 @@ Sources: `other-languages.md` §8.
 - **SciML** writes guidance messages by hand. Each states a requirement after the fact.
 
 **Ours, as built:**
-- **Detection moves earlier:** to the conformance (missing operations, wrong result types, unmapped fields) and to the library's build (definition checking).
+- **Detection moves earlier:** to the implementation (missing operations, wrong result types, unmapped fields) and to the library's build (definition checking).
 - **Types print by bound and key:** `ColTable at Vector{Vector{Float64}}`, not the trait object's machinery type (Julia piece 17, type printers). Stack frames inherit it.
 - **The machinery's own frames are hidden** from stack traces (`JULIA_TW_ALL_FRAMES=1` shows them).
 - **A `MethodError` at an entry names the bound the argument fails,** through Julia's error hints.
@@ -293,9 +293,9 @@ Two changes since the comparison was first written bear on it.
   - Mojo has a closed world and no invalidation.
   - Ours keeps Julia's specialization and a session's open world. Compiled code is valid unless a stakeholder of one of its facts changes, or a pirate wins at one ([`design.md` §3.5](../design.md#35-the-default-following-pirates-rule-p-and-what-it-gives-up), two tiers).
 - **The guarantee is the compiler's, not the traits'.** The control of session 29: under the test-bed setting, nine unrelated loads cost plain CSV and DataFrames 2 of 3,340 CodeInstances, against 570 of 4,712 in plain mode ([`evidence.md`](evidence.md) §1). So the comparison of cache validity is a comparison of the facts rule, which applies to any Julia code.
-- **What traits add to it:** the facts rule costs nothing for fully typed code, and traits make code fully typed where plain Julia loses its types: concrete keys, declared result types at `Dynamic` and `Callable`, declared conformances that the call-site split uses ([`design.md` §3.4](../design.md#34-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap-and-can-enforce-concreteness)). Where code is not fully typed, the facts rule removes Julia's heuristics, and the code pays at its run-time sites (BaseBenchmarks under the test bed: geometric mean 1.016, tails up to about 80× on containers of `Any`).
+- **What traits add to it:** the facts rule costs nothing for fully typed code, and traits make code fully typed where plain Julia loses its types: concrete keys, declared result types at `Dynamic` and `Callable`, declared implementations that the call-site split uses ([`design.md` §3.4](../design.md#34-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap-and-can-enforce-concreteness)). Where code is not fully typed, the facts rule removes Julia's heuristics, and the code pays at its run-time sites (BaseBenchmarks under the test bed: geometric mean 1.016, tails up to about 80× on containers of `Any`).
 - **What it removed from the comparison:** layering (C++0x's rule), trait wrappers, calls upward, doors and sealing. Trait code calls any Julia code directly, which is what C++ wanted and could not have with definition checking (section 4).
-- **AOT.** A `--trim` build compiles the plain call in a closed world, as Mojo does for every program. What traits add is the list of targets: declared conformances and `Callable` signatures ([`design.md` §4.8](../design.md#48-aot-follows-from-declared-targets)).
+- **AOT.** A `--trim` build compiles the plain call in a closed world, as Mojo does for every program. What traits add is the list of targets: declared implementations and `Callable` signatures ([`design.md` §4.8](../design.md#48-aot-follows-from-declared-targets)).
 
 **Strict mode as a switch** ([`design.md` §3.2, §3.5](../design.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached)).
 - It refuses a pirate that would win at a fact of compiled code, where it is defined, naming the method and the code it would change. Off by default; the default follows the pirate, as plain Julia does.
@@ -316,17 +316,17 @@ The design restricts what trait code may do, and only there. The list of session
    - `Dynamic` values;
    - values of declared types, asserted.
 3. **Trait objects see only their keys.**
-   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the conformance's inverse ([`mechanisms.md`](mechanisms.md) §13).
+   - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the implementation's inverse ([`mechanisms.md`](mechanisms.md) §13).
    - A type whose data needs computing is converted explicitly, at the cost of a copy and no write-through ([`mechanisms.md`](mechanisms.md) §14).
 4. **Types come first.** A type caught by a type-annotated method takes it, even when it also conforms to a bound of the same function. Reaching the trait method needs a type no type method catches, or a newtype.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
    - About 4 ns for a dynamic call (measured on the earlier prototype, [`evidence.md`](evidence.md) §2).
-   - A `Dynamic` operation: a split branch within four conformances, a dispatch beyond.
+   - A `Dynamic` operation: a split branch within four implementations, a dispatch beyond.
    - An untyped call into trait code: 115–129 ns against about 55 for a plain untyped call ([`evidence.md`](evidence.md) §2).
-7. **Each new implementing type compiles the library once,** in its own image, and the conformance checks cost time: `@implement` of a new model type 142–164 ms in every load order ([`evidence.md`](evidence.md) §3).
+7. **Each new receiver type compiles the library once,** in its own image, and the implementation checks cost time: `@implement` of a new model type 142–164 ms in every load order ([`evidence.md`](evidence.md) §3).
 8. **The design needs a patched Julia.** Parts (A)–(D) and the kept pieces ([`julia-changes.md`](julia-changes.md)) are built in a patched 1.13.2, not upstream. Stock-Julia support is dropped. The trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
-9. **Overrides are fixed at the conformance.** A later method of an operation a default serves is refused, and changing it needs a restart until redeclaration is built ([`design.md` §4.4](../design.md#44-overrides-belong-to-the-conformance)). Plain Julia would follow the method.
+9. **Overrides are fixed at the implementation.** A later method of an operation a default serves is refused, and changing it needs a restart until redeclaration is built ([`design.md` §4.4](../design.md#44-overrides-belong-to-the-implementation)). Plain Julia would follow the method.
 10. **Smaller restrictions.**
     - Offering traits is per module (`@trait_module`) and bottom-up.
     - One semantic exception: values Julia decides by inference (A3).
@@ -341,7 +341,7 @@ The design restricts what trait code may do, and only there. The list of session
 - **Trait wrappers, calls upward, sealing over views** (sessions 20–22). Superseded by the facts rule (session 23). No sealing, of abstract types or functions: a closed contract is a trait (session 28).
 - **The facts policy as an external interpreter** (`FactsInterp`, its own cache, a frozen compiler world, view caches). Superseded by the facts mode in Julia's compiler (session 28; built in session 29).
 - **Absorbing dependencies:** each package brings its ordinary dependencies into its own world. Rejected: two packages that absorb Makie conflict as soon as one defines a recipe.
-- **Deriving conformance from the methods that exist.** Rejected (section 2).
+- **Deriving implementations from the methods that exist.** Rejected (section 2).
 - **Trait bounds that compete with types,** ranked like abstract types. Rejected: the conflict would surface only in an application that loads both packages.
 - **Explicit wrapping at the call,** `f(ColTable(x))`. Rejected: adopting traits would change every caller.
 - **Function types in the type system,** `Float64 -> Float64`. A far larger change to Julia than one trait whose only operation is checked at every call.
@@ -361,14 +361,14 @@ The predictions are those of `other-languages.md`, "What their experience predic
 |---|---|---|---|
 | 1 | "Explicit conformance is viral" | C++0x | **answered in the design:** the one-line `@implement`, family declarations. Not tested at ecosystem scale; the forks of CSV and DataFrames are the first case |
 | 2 | Layering attacked for gradual adoption and scaffolding | C++0x | **dissolved:** no layering since session 23; trait code calls any Julia code, and types first in dispatch lets a library adopt traits one function at a time (section 4) |
-| 3 | A `late_check`-like inconsistency where values cross upward | C++0x | **ruled out by the boundary:** a trait object never goes up bare (refused, `test/like.jl`); a `Dynamic` dispatches by its conformance wherever it is used. A test of the C++0x case itself is still to write |
+| 3 | A `late_check`-like inconsistency where values cross upward | C++0x | **ruled out by the boundary:** a trait object never goes up bare (refused, `test/like.jl`); a `Dynamic` dispatches by its implementation wherever it is used. A test of the C++0x case itself is still to write |
 | 4 | Pressure for retroactive conformance | Swift, Rust | **open:** named implementations deferred to piece 7; a newtype until then |
 | 5 | A later generic implementation overlapping a specific one | Rust | **open:** the design surfaces it at the call; the prototype has no overlap check |
 | 6 | A more specific implementation changing types | Rust | **in the design:** same parameter values required; not covered by a test |
 | 7 | Load-time checks scanning all methods | Swift | **measured:** strict mode's check, 0.54 s on a 4.1 s load (session 25, under the package policy; not rerun on the compiler); indexing by function and type is open |
 | 8 | Demand for a storable dynamic value | Swift, Rust | **answered and built:** `Dynamic{X}`, an operation a call-site split in the compiler (part D) |
 | 9 | Shared code not inlined across packages | Rust | **dissolved as a rule** (rule 4 retired): compiled code lives where Julia puts it; not measured |
-| 10 | Early binding misses a more specific method | C++0x | **dissolved for methods:** a stakeholder's later method breaks the fact and recompiles, as in plain Julia. **Kept for one case:** an override of a default after the conformance is refused (cost 9) |
+| 10 | Early binding misses a more specific method | C++0x | **dissolved for methods:** a stakeholder's later method breaks the fact and recompiles, as in plain Julia. **Kept for one case:** an override of a default after the implementation is refused (cost 9) |
 | 11 | Implicit defaults added later break things | Swift | **decided:** concreteness opt-in per trait, one declaration with a level, chosen when a trait is published |
 | 12 | Type-level computation in traits | all four | **kept out:** symbolic reasoning about associated types; associated types themselves in first-order form |
 | 13 | Dictionary or witness dispatch for dynamic values | Swift, Rust | **rejected, then confirmed by failure:** witness tables ran in the wrong world (section 6) |

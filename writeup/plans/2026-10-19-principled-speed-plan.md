@@ -16,7 +16,7 @@ The facts mode removes Julia's speculation at calls whose argument types are not
 - **Precedents:** polymorphic inline caches in Self (Hölzle, Chambers and Ungar, 1991), in V8 and in the Java virtual machines. Julia's generic dispatch already keeps a hashed cache keyed by call site, so the new part is a guarded direct call compiled into the caller, with the world check.
 - **Uses:**
   - **`Callable`'s `DynamicCall`,** replacing the `@cfunction` pointer: G1.20 passes, and the call stays about as cheap as an indirect call.
-  - **`Dynamic` beyond four conformances,** between the split and the fallback.
+  - **`Dynamic` beyond four implementations,** between the split and the fallback.
   - **The fallback of the split itself.**
 - **Measure:** against the split (about 1 ns), the generic fallback, and plain Julia's best and worst cases (the sum and the raytrace benchmarks with 2, 4, 8 and 16 types).
 
@@ -39,14 +39,14 @@ The facts mode removes Julia's speculation at calls whose argument types are not
 
 ## 3. Cheaper entries: typed calls and calls from untyped code
 
-- **Typed calls** cost 36–38 ns against 33.8–34.5 ns for the same loop in plain Julia. The cost is in the entry's conformance construction and checks.
-- **Calls with an argument of unknown type** cost about 120 ns, against about 55 ns for a plain dynamic call: two dynamic dispatches (the conformance, then the worker) and a boxed trait object.
-- **Mechanism:** the conformance lookup through the call-site cache of step 1 (type → builder), and the worker call fused with it.
+- **Typed calls** cost 36–38 ns against 33.8–34.5 ns for the same loop in plain Julia. The cost is in the entry's `conformance` construction and checks.
+- **Calls with an argument of unknown type** cost about 120 ns, against about 55 ns for a plain dynamic call: two dynamic dispatches (the `conformance` lookup, then the worker) and a boxed trait object.
+- **Mechanism:** the `conformance` lookup through the call-site cache of step 1 (type → builder), and the worker call fused with it.
 - **Precedents:** Swift's witness-table lookup caching and its existential opening; Rust creates a `dyn` value once.
 
-## 4. Compile ahead from declared conformances (`design.md` §4.8)
+## 4. Compile ahead from declared implementations (`design.md` §4.8)
 
-- **The mechanism.** When a package declares a conformance, its precompile workload compiles the trait's declared workers for its key: the code a first call needs exists in that package's image.
+- **The mechanism.** When a package declares an implementation, its precompile workload compiles the trait's declared workers for its key: the code a first call needs exists in that package's image.
 - **What it replaces:** hand-written workload extensions (the forks' `CSVDataFramesInlineStringsExt`), and the clean-case cost of `@implement` and first calls.
 - **Precedents:**
   - Rust's monomorphization in the crate that sees both the generic code and the type;
@@ -57,7 +57,7 @@ The facts mode removes Julia's speculation at calls whose argument types are not
 
 ## 5. The machinery's own startup
 
-- **The problem:** TraitWorld's slow paths are compiled by facts (`@machinery`), and type-unstable by nature, so they compile facts copies of Base methods in each session. This is the likely cost behind the clean-case `@implement` (77–97 ms for a forwarding conformance).
+- **The problem:** TraitWorld's slow paths are compiled by facts (`@machinery`), and type-unstable by nature, so they compile facts copies of Base methods in each session. This is the likely cost behind the clean-case `@implement` (77–97 ms for a forwarding implementation).
 - **Fixes:**
   - a precompile workload for the machinery under its own owner;
   - checks results kept in images.

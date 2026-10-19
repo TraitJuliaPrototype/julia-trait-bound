@@ -7,7 +7,7 @@ This page is for Julia users and package authors. It covers:
 - one worked example;
 - what it costs, and what is not done yet.
 
-It assumes you know Julia. It does not assume you have read the design. The precise rules are in [`../design.md`](../design.md), written for Julia's core developers. The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
+It assumes you know Julia. It does not assume you have read the design. The precise rules are in [`../design.md`](../design.md), written for Julia's core developers. The terms, with their origins in other languages, are in [`../glossary.md`](../glossary.md). The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
 
 **Status, 2026-10-19.** This is a research prototype:
 - a package, TraitWorld;
@@ -34,7 +34,7 @@ A package's own extension can discard its compiled code too. With DataFrames loa
 - that activates CSV.jl's extension for InlineStrings;
 - the extension adds methods to CSV.jl's internal functions.
 
-In the trait world an extension declares a conformance instead, which discards nothing (TraitCSV's `String15`). This is a gain from traits as a coding pattern, even in a well-trodden part of the ecosystem: the compiler's facts mode alone does not prevent it.
+In the trait world an extension declares an implementation instead, which discards nothing (TraitCSV's `String15`). This is a gain from traits as a coding pattern, even in a well-trodden part of the ecosystem: the compiler's facts mode alone does not prevent it.
 
 ### 2. A vector of mixed types is slow, or forces you to over-parametrize
 
@@ -82,19 +82,19 @@ A trait can also declare fields with types (writable unless marked `@const`), de
 end
 ```
 
-A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse a conformance that is not, or `@warn_on_abstract` to warn (the spelling will change to one declaration with a level). Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
+A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse an implementation that is not, or `@warn_on_abstract` to warn (the spelling will change to one declaration with a level). Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
 
 A trait is an abstract type with behaviour. Abstract types stay in Julia; traits are a kind of them.
 
-### A conformance: your type implements a trait
+### An implementation: your type implements a trait
 
 You declare that a type implements a trait with `@implement`. TraitWorld checks the declaration when you write it: every operation must exist, with the declared result type.
 
 There are two ways to implement a trait:
 - **Your type has a field that already implements it.** `@implement ColTable Measurements` forwards the trait to that field. If several fields could serve, name one: `@implement ColTable MyType by right`, where `right` is the field.
-- **Your type implements the operations itself.** Define the methods, then declare the conformance.
+- **Your type implements the operations itself.** Define the methods, then declare the implementation.
 
-Who may declare a conformance: the package that owns the trait, or the package that owns the type. A third package that owns neither may not.
+Who may declare an implementation: the package that owns the trait, or the package that owns the type. A third package that owns neither may not.
 
 ### A bounded function
 
@@ -164,7 +164,7 @@ export ColTable, ncols, col, colmean, meandiff, colmap, Shelf, shelf, add!, mean
     col(t::ColTable, i::Int)::Vector{Float64}
 end
 
-@implement ColTable Vector{Vector{Float64}} begin      # the library's own conformance
+@implement ColTable Vector{Vector{Float64}} begin      # the library's own implementation
     ncols(t) = length(t)
     col(t, i) = t[i]
 end
@@ -301,9 +301,9 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 ### 2. Errors at the line you wrote, before any value exists
 
 - A library's bounded functions are checked when the trait module is defined. A call the trait does not allow is reported at its line, before any user type exists.
-- A user's conformance is checked at `@implement`, before any value reaches the library.
+- A user's implementation is checked at `@implement`, before any value reaches the library.
 - A `Callable` checks its result at every call.
-- Not everything is caught early. In the ODE demonstrator, a model type with a `Float64` buffer fails only at run time, under automatic differentiation, 28 frames deep. The conformance check cannot prove that this conversion fails.
+- Not everything is caught early. In the ODE demonstrator, a model type with a `Float64` buffer fails only at run time, under automatic differentiation, 28 frames deep. The check at `@implement` cannot prove that this conversion fails.
 
 ### 3. Readable types
 
@@ -342,10 +342,10 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 - The rule the project follows: a slowdown is acceptable when rewriting the code with traits recovers it.
 - To find such code, `fully_typed(f, (ArgType1, ArgType2))` reports the calls in `f`, and in what it calls, whose argument types are not known.
 
-### Imports and conformances take a little longer
+### Imports and implementations take a little longer
 
 - A trait form's `using` takes 0.04–0.2 s longer than its plain twin's in the demonstrators.
-- `@implement` checks the conformance: about 0.08–0.3 s for a new type.
+- `@implement` checks the implementation: about 0.08–0.3 s for a new type.
 - A call into trait code from code that does not know its argument types takes about 120 ns, against about 55 ns for a plain dynamic call.
 
 ### Not "compiled once for any type"
@@ -356,7 +356,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 ### What is not done yet
 
 - **Threads:** not tested.
-- **Revise and redefinition:** changing a conformance in a running session needs a restart.
+- **Revise and redefinition:** changing an implementation in a running session needs a restart.
 - **Traits in the type system:** a trait is not yet a supertype that `isa` and subtyping understand. Until then:
   - outside trait modules, `Dynamic{X}` is written out;
   - a bounded function cannot name the trait's type parameters with `where`;

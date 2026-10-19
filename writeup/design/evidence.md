@@ -37,7 +37,7 @@ The current measurements behind the design, for core developers, as of 2026-10-1
 |---|---|---|---|
 | sum over a vector of `Dynamic{Shape}` (2,000 elements, cache-resident) | 0.92–1.40 ns per element | plain, 2 types: 0.87–0.91; plain, 4 types: 29.5–33.0 | held views; before them 1.45–1.61 |
 | the same, 10⁶ elements | 4.5–5.7 ns | plain, 2 types: 3.9–4.0; 4 types: 33.6–36.2 | memory-bound |
-| raytrace over `Dynamic{Scene}` (BaseBenchmarks' raytracer, open set of primitives, `perf_raytrace(5, 256, 4)`) | 300–336 ms (2 or 4 conformances) | plain with 2 types: 246–259; with 4: 827–882 | the 4-type baseline is a `max_methods = 3` effect; the split stops at four candidates too. Start of session 29: 3,281 ms |
+| raytrace over `Dynamic{Scene}` (BaseBenchmarks' raytracer, open set of primitives, `perf_raytrace(5, 256, 4)`) | 300–336 ms (2 or 4 implementations) | plain with 2 types: 246–259; with 4: 827–882 | the 4-type baseline is a `max_methods = 3` effect; the split stops at four candidates too. Start of session 29: 3,281 ms |
 | raytrace, small case (`perf_raytrace(5, 64, 2)`) | 4.7–5.3 ms, 3.8 MB | 3.9–4.7 ms, 3.3 MB | 54 ms and 72.6 MB before the inliner fix |
 | a typed call `total(x, 16)` | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns; with a literal 16: 29.3 | the literal unrolls the loop; the fair baseline is the argument |
 | an untyped call (`Any` argument) | 115–129 ns | about 55 ns for a plain untyped call | two dynamic dispatches and a boxed trait object |

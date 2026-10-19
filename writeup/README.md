@@ -6,10 +6,12 @@ The design, written for three audiences. Nothing has been deleted: superseded do
 
 - [`intro/traits-for-julia.md`](intro/traits-for-julia.md): what traits are, what you write, what you get, one worked example, the costs.
 - [`intro/results.md`](intro/results.md): what the demonstrators show, against fair baselines.
+- [`glossary.md`](glossary.md): the project's terms in plain words, each with its origin in other languages or in Julia, and where it is defined precisely.
 
 ## For core developers: [`design.md`](design.md) and [`design/`](design/)
 
-- **[`design.md`](design.md) is the source of truth:** the terms, the problem, the argument in four steps, traits, the three rules, what Julia provides, the decisions in force, the evidence in short, the implementation and the next steps. Where another document disagrees with it, it wins.
+- **[`design.md`](design.md) is the source of truth:** the terms, the problem, the argument in four steps, traits, the three rules, what Julia provides, the decisions in force, the evidence in short, the software and the next steps. Where another document disagrees with it, it wins.
+- [`glossary.md`](glossary.md): every term with its origin and precedents, and a link to its precise definition.
 - [`design/mechanisms.md`](design/mechanisms.md): the mechanisms in detail (declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT).
 - [`design/julia-changes.md`](design/julia-changes.md): every change to Julia, as built, with commits and upstream status.
 - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
@@ -25,6 +27,6 @@ Every review, exploration, plan, findings section and session note, with its dat
 
 ## Conventions
 
-- **Terms** as in `design.md` §1 (trait, conformance, implementing type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
+- **Terms** as in `design.md` §1 (trait, implementation, receiver type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
 - **Writing:** short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon; documents for programmers avoid the core developers' terms.
 - The machine is shared: one Julia job at a time, at `nice -n 19`; full builds alone, under a memory guard.

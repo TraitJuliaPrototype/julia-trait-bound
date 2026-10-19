@@ -53,9 +53,9 @@ Open: upstream CSV.jl and DataFrames still spend about 1 s after the loads in th
 
 The facts mode protects compiled code from other packages' methods. It does not protect a package from its own extensions, which are common in well-trodden parts of the ecosystem.
 - **CSV.jl** has an extension for InlineStrings that adds methods to CSV.jl's internal functions. DataFrames loads InlineStrings, so with DataFrames loaded, the extension discards the reader's compiled code: CSV.jl's first read takes 2.5 s instead of 0.19 s. The facts mode keeps this behaviour, because it is the package changing its own code.
-- **TraitCSV** brings InlineStrings' `String15` into the reader with one conformance, declared in its extension. A conformance adds no method to the reader's functions, so loading InlineStrings discards none of the reader's compiled code. Measured on the previous prototype.
+- **TraitCSV** brings InlineStrings' `String15` into the reader with one implementation, declared in its extension. An implementation adds no method to the reader's functions, so loading InlineStrings discards none of the reader's compiled code. Measured on the previous prototype.
 
-This is the coding pattern traits bring: a package is extended by declaring a conformance, never by adding methods to a library's internals. The trait-based ports of CSV.jl follow the same pattern.
+This is the coding pattern traits bring: a package is extended by declaring an implementation, never by adding methods to a library's internals. The trait-based ports of CSV.jl follow the same pattern.
 
 ### Micro-benchmarks
 
@@ -180,8 +180,8 @@ Caveats:
 
 **What it is.** Forks of Tables 1.14, DataFrames 1.8.2 and CSV 1.1.0, with traits brought in where they fit:
 - a `Column` trait for every column, with the kernels of `describe`, `sort`, `groupby`, the joins and the common aggregates written against it;
-- the CSV parse loop, with the column types it parses into as conformances;
-- InlineStrings' string types as conformances in a package extension.
+- the CSV parse loop, with the column types it parses into declared as implementations;
+- InlineStrings' string types declared as implementations in a package extension.
 
 All three forks pass their upstream test suites.
 
@@ -207,7 +207,7 @@ What this shows:
 Caveats:
 - **Both contributions are in the 3.6×.** The facts mode alone cuts upstream's first work from 3.6 s to 0.7 s (the control, above). Upstream's full session in the facts mode is not measured yet, so the share of each is open.
 - The forks' imports are 0.3–0.7 s slower than upstream's.
-- The fast `String15` read relies on a hand-written workload extension. The design aims to replace such extensions with code compiled ahead of time from the declared conformances.
+- The fast `String15` read relies on a hand-written workload extension. The design aims to replace such extensions with code compiled ahead of time from the declared implementations.
 - The port is partial. Not done: user functions as `Callable`s, joins on several key columns, the writer.
 
 ## What is not shown yet

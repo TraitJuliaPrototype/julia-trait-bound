@@ -52,7 +52,7 @@ New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md
 
 **New (session 29, after the publication):**
 - **`Callable` in `DynamicCall` mode runs in the latest world** (acceptance G1.20, failing; `TraitWorld/src/core.jl:705`, a `@cfunction` pointer). After a redefinition, a call in an older world computes the new method's result (101 against plain Julia's 2). A violation of "identical or error" of the witness tables' kind. Fix: the world-checked call-site cache (`design.md` §4.5), or a pointer checked against its world range at each call.
-- **A world-checked call-site cache for `Dynamic` beyond four conformances, and for `DynamicCall`** (`design.md` §4.5): proposed, to prototype and measure against the split and the fallback.
+- **A world-checked call-site cache for `Dynamic` beyond four implementations, and for `DynamicCall`** (`design.md` §4.5): proposed, to prototype and measure against the split and the fallback.
 **Keys and fields**
 1. A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, so every read is followed by a dispatch.
 2. Fields stored inline that are not isbits (an immutable struct holding references): read through `getfield`, or loaded inline by a runtime.
@@ -64,7 +64,7 @@ New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md
 
 6. Input parameters (several values per type), associated type constructors beyond one family, and results bounded by their own trait (`view`, Swift's `SubSequence`).
 7. Whether an operation may return a small `Union` of concrete types, and what concrete mode reports for it (makie-rewrite.md §8.4). The reporting half is the pending decision §1.18.
-8. Numeric traits: numbers that conform after the fact or forward to a field, and promotion across implementing types. Definition checking of code that computes with an element type needs a numeric archetype or a bound (solvers.md §11.6).
+8. Numeric traits: numbers that conform after the fact or forward to a field, and promotion across receiver types. Definition checking of code that computes with an element type needs a numeric archetype or a bound (solvers.md §11.6).
 9. Automatic-differentiation tags as part of a key; units (solvers.md §11.4, §11.11).
 10. `Callable` bounds whose argument types are chosen by the callee, a type-level function of the algorithm's configuration (solvers.md §11.9).
 
@@ -78,7 +78,7 @@ New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md
 **Dynamic values and functions**
 
 15. A dynamic mode for a type's own operations, pinned per integrator with a world-age rule: the solvers' model mode (solvers.md §11.1). It is plan item 7 in the README, to build when TraitDifferentialEquations needs it.
-16. Opening a `Dynamic` at the conformer's own concrete type, a checked downcast, for callbacks that change parameters (solvers.md §11.2).
+16. Opening a `Dynamic` at the conforming value's own concrete type, a checked downcast, for callbacks that change parameters (solvers.md §11.2).
 17. How a closure created inside a trait module is stored as a dynamic function: by dispatch, or by a pointer (makie-rewrite.md §8.5).
 18. Assignment from above into a field declared by a trait name, `plot.color = x` at the prompt: whether `setproperty!` from ordinary code there is an entry (makie-rewrite.md §8.7).
 19. Tasks and concurrency: trait objects and `Dynamic` values across tasks; spawning a trait-world closure (makie-rewrite.md §8.6).
@@ -97,7 +97,7 @@ New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md
 
 **New in session 29**
 27. **The B1 boundary: facts code that calls compiler functions directly** (the performance review of 2026-10-19, B1). TraitWorld's machinery calls `argextype`, `widenconst` and `sptypes_from_meth_instance`. Such calls hold edges to plain compiler code, whose validity is plain Julia's. Documented, not fixed (`design.md` §6). The reason: a rule that ran such calls in the compiler's world would break packages that extend the compiler for their own interpreter types. The loss is cacheability, not correctness: the control's nine-package load lost no facts code in the modules it counted (TraitMakie 0; TraitWorld's own code was not counted separately).
-28. **AOT from declared targets** (`design.md` §4.8, §9.3 step 4). A conformance should compile the declared workers for its key at precompile time. This would replace hand-written workload extensions such as the forks' `CSVDataFramesInlineStringsExt` (CSV + DataFrames + InlineStrings, forks 9d512a1), which the performance review calls a workaround. Not built.
+28. **AOT from declared targets** (`design.md` §4.8, §9.3 step 4). An implementation should compile the declared workers for its key at precompile time. This would replace hand-written workload extensions such as the forks' `CSVDataFramesInlineStringsExt` (CSV + DataFrames + InlineStrings, forks 9d512a1), which the performance review calls a workaround. Not built.
 
 
 ### Found in the writeup cleanup (session 29, 2026-10-19): the design and the code disagree
@@ -143,12 +143,12 @@ History, state (session 25): `main` at 893f0bb, 343 tests on the patched 1.13.2 
 **Behind the notes**
 1. **Closed (s29):** stock support is dropped (`decisions.md` "Session 29"). On the patched build, piece 1's definition hook refuses the override when the method is defined (`TraitWorld/src/hooks.jl`, `_override_violation`). The checkpoint `check_overrides` remains. Overrides after a conformance are refused at checkpoints (declarations, a trait module's end, a signature's first call), not when the method is defined: that needs a hook at method insertion.
 2. Which functions keep a trait object is decided once, when the trait module is complete. A method added at the prompt to a callee that keeps does not update its callers' flags; the error in the "results like the input" path is the safety net. Operations on a kept value of a mutable type cost about 900 ns (`keepsum`), mostly the dynamic operation.
-3. Field mappings (`name => stored`) work. Agreement of a subtrait's conformance with its supertrait's is not checked.
+3. Field mappings (`name => stored`) work. Agreement of a subtrait's implementation with its supertrait's is not checked.
 4. Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
 5. AOT for results like the input: the inverse per user type is not listed for `verify_main`.
 6. Concrete mode does not yet trace field types of keys as root causes.
 7. Bounds cannot use a method's `where` variables (`f(s::Sampled{T}) where {T}`): such an annotation is read as a plain type. Results through an opened `Dynamic` are not inferred; library code asserts them.
-8. Family conformances (`@implement X{T} S{T} where {T}`, and by fields) go through the slow path: a builder per type per session, cached.
+8. Family implementations (`@implement X{T} S{T} where {T}`, and by fields) go through the slow path: a builder per type per session, cached.
 
 **Performance**
 
@@ -178,7 +178,7 @@ History, state (session 25): `main` at 893f0bb, 343 tests on the patched 1.13.2 
 2. **Found by the demonstrator agents, not fixed yet** (each README's "What TraitWorld should provide" or "TraitWorld issues found"):
    - a generic `convert(::Type{Dynamic{X}}, x)` for every trait; only the method for a trait object exists (`TraitWorld/src/core.jl`); TraitMakie defines three methods per trait instead;
    - forwarding for a whole family (`@implement Positions Live{T} by val where {T}`; behind-the-notes item 4);
-   - a bound error that lists the declared conformances;
+   - a bound error that lists the declared implementations;
    - family registries named by `gensym` collide across packages (`TraitWorld/src/implement.jl`, `_family_registry`); the forks advance the counter as a workaround;
    - a family member's result types are checked less strictly than a single type's;
    - `@concrete_only` would refuse `Vector{Union{Missing, Int}}`, the standard column with missing values (not tried).
@@ -228,10 +228,10 @@ Triage after wrapping by facts (session 25) of `reviews/2026-10-16-wrapping-unde
 - **Fixed:** F1.
 - **Dissolved:** F2 (implementations in ordinary modules have no place in the layering: there is no layering for calls), F4 and F8 (sealing), F5 (the wrapper's role for foreign types: there are no wrappers), F6 (results from above with a trait bound: `Dynamic{X}`, adopted), F7 (opaque values handed down: trait code may pass any value to any code), F10 (automatic differentiation: ForwardDiff's own `Dual`, session 24).
 - **Still open:**
-  - **F3:** family conformances over Base's abstract types, and later methods by the members' owners. Since session 24, conformances are decided in the caller's world and cached per world (G1.13), which may settle it; an acceptance case is needed.
+  - **F3:** family implementations over Base's abstract types, and later methods by the members' owners. Since session 24, implementations are decided in the caller's world and cached per world (G1.13), which may settle it; an acceptance case is needed.
   - **F9:** the walk of abstract parts at the entry against the reference layout.
   - **F11:** stale statements, to go with the rewrite of the notes.
-- **Its decision 4** (who declares a foreign type's conformance) still stands without wrappers: the trait owner's package extension, as the prototype does.
+- **Its decision 4** (who declares an implementation for a foreign type) still stands without wrappers: the trait owner's package extension, as the prototype does.
 
 What Julia must provide, in order: `explorations/julia-support.md`, reviewed in session 25.
 
