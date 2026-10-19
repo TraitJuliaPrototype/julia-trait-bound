@@ -49,6 +49,10 @@ New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md
 
 ## 2. Design
 
+
+**New (session 29, after the publication):**
+- **`Callable` in `DynamicCall` mode runs in the latest world** (acceptance G1.20, failing; `TraitWorld/src/core.jl:705`, a `@cfunction` pointer). After a redefinition, a call in an older world computes the new method's result (101 against plain Julia's 2). A violation of "identical or error" of the witness tables' kind. Fix: the world-checked call-site cache (`design.md` §4.5), or a pointer checked against its world range at each call.
+- **A world-checked call-site cache for `Dynamic` beyond four conformances, and for `DynamicCall`** (`design.md` §4.5): proposed, to prototype and measure against the split and the fallback.
 **Keys and fields**
 1. A field declared with an abstract type in a trait that does not require concreteness: its key is abstract, so every read is followed by a dispatch.
 2. Fields stored inline that are not isbits (an immutable struct holding references): read through `getfield`, or loaded inline by a runtime.
