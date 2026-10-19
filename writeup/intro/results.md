@@ -1,108 +1,114 @@
 # What the demonstrators show
 
-This page is for Julia programmers. It says what the measurements show, each against a fair baseline, and with its caveats. The words used here are explained in [`traits-for-julia.md`](traits-for-julia.md). The precise numbers, with builds and dates, are in [`../design/evidence.md`](../design/evidence.md).
+This page is for Julia programmers. It says what the measurements show, each against a fair baseline, with its caveats. The words used here are explained in [`traits-for-julia.md`](traits-for-julia.md). The precise numbers, with builds and dates, are in [`../design/evidence.md`](../design/evidence.md).
 
 **How to read the numbers.**
-- One machine, shared with other jobs. The patched Julia 1.13.2, as of 2026-10-19.
-- Each number is from 1 to 3 runs. Repeated runs varied by about 5% on a busy machine; treat differences under 10% as noise.
-- "Fresh session" means a new Julia process.
-- "Plain" means the same code written without traits, run on the same patched Julia.
-- "Big loads" means CSV, DataFrames and CairoMakie, loaded before or after the work.
-- "Nine loads" means OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations, StaticArrays, CairoMakie and REPL.
-- Numbers are rounded.
+- One machine, shared with other jobs; the patched Julia 1.13.2 of 2026-10-19.
+- Each number is from 1 to 3 runs. Repeated runs vary by about 5% on a busy machine; treat differences under 10% as noise.
+- Numbers are rounded. "Fresh session" means a new Julia process.
+- **The baselines:**
+  - **Stock Julia and the packages people use:** upstream CSV.jl and DataFrames, SciML's OrdinaryDiffEq, pandas.
+  - **Plain twins:** the same code written without traits, run on the same patched Julia. They separate what traits add from what the patched compiler adds.
+- "Big loads": CSV, DataFrames and CairoMakie, loaded before or after the work. "Nine loads": OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations, StaticArrays, CairoMakie and REPL.
+- Where no current number exists, the page says "measured on the previous prototype": the earlier version of TraitWorld, which ran the same rules as a package instead of in Julia's compiler.
 
 ## In short
 
-- **Protection from package loads comes from the compiler mode, not from traits.** Plain code compiled in the same mode keeps its compiled code too.
-- **What traits add:** type-stable bounded code that pays nothing for that mode, conformances checked where they are written, readable types, and mixed collections close to plain speed.
-- **Against the libraries people use today:** against SciML, a new callback or loss closure costs milliseconds instead of seconds; against upstream CSV.jl and DataFrames, a scripted session's first calls take 2.9 s instead of 10.4 s. Part of that comes from design choices a plain package can also make, and part from the compiler mode.
-- **In a fresh process,** the small report with traits takes about as long as without them.
-- **Not settled yet:** some first calls are still slower after big loads, and the cause is under investigation.
+The project brings two things, and both pay off on their own.
+- **The facts mode of Julia's compiler** keeps compiled code valid when unrelated packages load.
+  - It works for any code, traits or not.
+  - Upstream CSV.jl and DataFrames, compiled in it, lose 2 of 3,340 pieces of compiled code to nine unrelated loads, against 570 of 4,712 in Julia's usual mode.
+  - Their first work takes 0.7 s instead of 3.6 s.
+- **Traits** let code say what it needs.
+  - Library code is compiled for what its traits can see, checked where it is written, and stable under its own extensions.
+  - In a scripted DataFrames session, the trait-based ports take 2.9 s for their first calls, against 10.4 s for upstream CSV.jl and DataFrames.
+  - In the ODE solver, a new callback or loss closure costs milliseconds, against about a second in SciML.
+  - Mixed collections run close to plain Julia's best case, and stay fast when the set of types is open.
+- **In a fresh process,** a small report with traits takes 0.76 s, about as long as without them, and close to Python's 0.6–0.7 s.
+- **Open:** some first calls cost more after big loads than without them. The causes are under investigation.
 
-## The control: what protects compiled code from loads
+## The facts mode: compiled code that survives package loads
 
-The patched compiler can compile *all* code in its new mode, as a test setting. The control uses it to ask: is the protection from loads a property of traits, or of the mode?
+The patched compiler can compile all code in its facts mode, as a test setting. The control runs the same work, then the nine loads, then the work again, in Julia's usual mode and in the facts mode.
 
-The same work ran, then the nine loads, then the work again.
-
-| What was measured | Normal setting (plain code compiled as usual) | All code in the new mode |
+| What was measured | Julia's usual mode | Facts mode |
 |---|---|---|
-| A plain table library (PlainTables) together with TraitMakie: compiled code lost to the loads | 14 of 218 pieces (all of them PlainTables') | 0 of 206 |
-| Its work after the loads (repeated work: 28 ms in both settings) | 96 ms | 29 ms |
-| Upstream CSV.jl and DataFrames: compiled code lost (their own modules) | 570 of 4,712 pieces | 2 of 3,340 |
-| Their first work / after the loads | 3.6 s / 4.0 s | 0.7 s / 1.0 s |
+| Upstream CSV.jl and DataFrames: compiled code lost to the loads (their own modules) | 570 of 4,712 pieces | **2 of 3,340** |
+| Their first work / after the loads | 3.6 s / 4.0 s | **0.7 s / 1.0 s** |
+| A plain table library (PlainTables) with TraitMakie: compiled code lost | 14 of 218 (all PlainTables') | **0 of 206** |
+| Its work after the loads (repeated work: 28 ms in both modes) | 96 ms | **29 ms** |
 
 A piece of compiled code is one method compiled for one set of argument types. The counts leave out Base's code.
 
 What this shows:
-- In the new mode, plain code keeps its compiled code through unrelated loads. So the protection belongs to the compiler mode, for any code.
-- Traits make the mode cheap. A bounded function is compiled for the types its trait sees; if those are concrete and the code is type-stable, the mode compiles it as plain Julia would. This follows from how the mode works, and has not been measured directly. Plain code that is not type-stable does lose speed in the mode (below).
+- **Unrelated loads no longer discard compiled code,** for code written without traits too. Upstream CSV.jl and DataFrames keep their code through nine loads.
+- **The first work is also faster:** 0.7 s against 3.6 s for upstream CSV.jl and DataFrames.
+- The facts mode makes Julia stop guessing at calls whose argument types it cannot know, so code that is not type-stable can get slower. That is where traits come in (below).
 
-What it leaves open:
-- Upstream CSV.jl and DataFrames still pay about 1 s after the loads in the new mode, against under 1 ms for the repeated work. The count of lost code does not explain it. The cause is under investigation.
+Open: upstream CSV.jl and DataFrames still spend about 1 s after the loads in the facts mode, against under 1 ms for repeated work. The lost-code count does not explain it; the cause is under investigation.
 
-## Where traits, not the compiler mode, keep load times stable: CSV's extension
+## Traits: what they add on top
 
-The compiler mode protects compiled code from other packages' methods. It does not protect a package from its own extensions, and those are common in well-trodden parts of the ecosystem.
-- **CSV.jl:** with DataFrames loaded, CSV.jl's first read took 2.5 s instead of 0.19 s (session 26). DataFrames loads InlineStrings, which activates CSV.jl's extension for InlineStrings. That extension adds methods to CSV.jl's internal functions, so the reader's compiled code is discarded. The compiler mode keeps this behaviour: it is the package changing its own code.
-- **TraitCSV:** InlineStrings' `String15` joins the reader through one conformance, declared in TraitCSV's extension. A conformance adds no method to the reader's functions, so loading InlineStrings discards none of the reader's compiled code (session 26, on the earlier prototype; not rerun on the current compiler).
+### Stable load times under a package's own extensions: CSV.jl
 
-So it is the coding pattern traits bring (extend by declaring a conformance, never by adding methods to a library's internals) that gives load stability here. The forks of CSV.jl follow the same pattern.
+The facts mode protects compiled code from other packages' methods. It does not protect a package from its own extensions, which are common in well-trodden parts of the ecosystem.
+- **CSV.jl** has an extension for InlineStrings that adds methods to CSV.jl's internal functions. DataFrames loads InlineStrings, so with DataFrames loaded, the extension discards the reader's compiled code: CSV.jl's first read takes 2.5 s instead of 0.19 s. The facts mode keeps this behaviour, because it is the package changing its own code.
+- **TraitCSV** brings InlineStrings' `String15` into the reader with one conformance, declared in its extension. A conformance adds no method to the reader's functions, so loading InlineStrings discards none of the reader's compiled code. Measured on the previous prototype.
 
-## Micro-benchmarks
+This is the coding pattern traits bring: a package is extended by declaring a conformance, never by adding methods to a library's internals. The trait-based ports of CSV.jl follow the same pattern.
 
-| What | Trait form | Plain baseline |
+### Micro-benchmarks
+
+| What | Trait form | Baselines |
 |---|---|---|
 | A bounded function called with known argument types | 36–38 ns | the same loop in plain Julia: 34–35 ns |
 | A bounded function called with an argument of unknown type | about 120 ns | a plain dynamic call: about 55 ns |
-| Sum of areas over 2,000 shapes kept as `Dynamic{Shape}` | 0.9–1.4 ns per element | 0.9 ns with two shape types; 30–33 ns with four |
-| The same over 10⁶ shapes (limited by memory) | 4.5–5.7 ns | 3.9–4.0 ns with two types; 34–36 ns with four |
-| A ray tracer over an open set of shape types | 300–340 ms, with two or with four types | 250 ms with two types; 830–880 ms with four |
+| Sum of areas over 2,000 shapes kept as `Dynamic{Shape}` | 0.9–1.4 ns per element | plain Julia: 0.9 ns with two shape types, 30–33 ns with four |
+| The same over 10⁶ shapes (limited by memory) | 4.5–5.7 ns | plain Julia: 3.9–4.0 ns with two types, 34–36 ns with four |
+| A ray tracer over an open set of shape types | 300–340 ms, with two or with four types | plain Julia: 250 ms with two types, 830–880 ms with four |
 
 What this shows:
 - A typed call into trait code costs 5–12% more than the plain loop.
-- A mixed collection through `Dynamic` takes 1.2–1.6× the time of plain Julia's best case.
-- Plain Julia's best case holds only while it sees at most three matching methods. With four shape types, plain Julia is slower than the trait form: 2.5–3× in the ray tracer, 6–35× in the sums.
-- With two shape types, plain Julia is faster than the trait form: 250 against 300–340 ms in the ray tracer.
+- A mixed collection through `Dynamic` runs at 1.0–1.6× plain Julia's best case, and keeps that speed when more types join.
+- Plain Julia's best case holds only while it sees at most three matching methods. With four shape types the trait form is 2.5–3× faster in the ray tracer and 6–35× faster in the sums.
+- With two shape types, plain Julia is faster: 250 against 300–340 ms in the ray tracer.
 
 Caveats:
-- `Dynamic`'s fast path covers up to four conforming types. The cost with more than four is not measured.
+- `Dynamic`'s fast path covers up to four conforming types; the cost with more is not measured.
 - Calling trait code from code that does not know its argument types costs about twice a plain dynamic call.
 
-**The cost of the new mode on plain code.** Measured earlier, with all code compiled in the new mode, on Julia's benchmark suite:
+**The facts mode's cost on code that is not type-stable.** Measured on the previous prototype of the compiler, with all code in the facts mode, on Julia's benchmark suite:
 - geometric mean: 1.6% slower;
 - the groups over concrete types: 0–9% slower;
 - the worst cases, on containers of `Any`, abstract element types and broadcasts over small unions: up to about 80× slower.
 
-These numbers predate the current compiler. They have not been rerun on it.
+A JSON parser was 4.6× slower in the facts mode on the previous prototype, because a closure captures a reassigned variable. Julia's standard fix (`local pos::Int = 1`) recovers it: 178 µs, against 152 µs for the fixed plain code. This fix is plain Julia, not traits.
 
-A JSON parser became 4.6× slower in the new mode, because a closure captures a reassigned variable. Julia's standard fix for that (`local pos::Int = 1`) recovers it: 178 µs, against 152 µs for the fixed plain code and 303 µs for the original. This fix is plain Julia, not traits. Not rerun on the current compiler.
-
-**Found on the way, for plain Julia.** Two habits of Julia's inliner made a small recursion through a varargs wrapper 50× slower, on stock Julia too: 22 ms against 0.4 ms after the fix. The fixes apply to all code in the patched build and are candidates for upstream Julia after broader measurement.
+**For plain Julia too.** The patched build fixes two habits of Julia's inliner that slow down a recursion through a varargs wrapper: 22 ms on stock Julia 1.13.2, 0.4 ms on the patched build, for all code. They are candidates for upstream Julia.
 
 ## TraitDifferentialEquations: ODE solvers
 
 **What it is.** The Tsit5 and Rodas5 solvers, discrete callbacks, and gradients through the solver with ForwardDiff. A model is a plain function or a type that implements the `ODEModel` trait.
 
 **Baselines.**
-- Stock SciML (OrdinaryDiffEq), measured earlier on stock Julia 1.12.2.
-- PlainODE: the same solver without traits. It uses FunctionWrappers.jl for functions, untyped callbacks, and the same labelling of gradient tags.
+- **SciML's OrdinaryDiffEq**, measured on stock Julia 1.12.2.
+- **PlainODE:** the same solver without traits. It uses FunctionWrappers.jl for functions, untyped callbacks, and the same labelling of gradient tags.
 
 **First calls, in a fresh session:**
 
-| What | Trait form, no other packages loaded | Trait form, with big loads | Stock SciML |
+| What | Trait form, no other packages loaded | Trait form, with big loads | SciML |
 |---|---|---|---|
-| `using` | 0.47 s | 0.47 s (loads after); 1.3–1.4 s (loads before); one run took 7.3 s, when a cache was rebuilt (not rechecked) | |
-| First Tsit5 solve, a plain function as the model | 10 ms | 28 ms (loads before) | 0.16 s |
+| `using` | 0.47 s | 0.47 s (loads after); 1.3–1.4 s (loads before) | |
+| First Tsit5 solve, a plain function as the model | 10 ms | 10 ms (loads after); 28 ms (loads before) | 0.16 s |
 | A new model type at the prompt: `@implement`, then first solve | 0.14 s + 0.08 s | 0.15–0.16 s + 0.09–0.13 s | 0.16 s for the solve |
-| A new callback closure | 12 ms | 24 ms (loads before); **171 ms (loads after)** | 0.84–0.96 s |
+| A new callback closure | 12 ms | 24 ms (loads before); 171 ms (loads after) | 0.84–0.96 s |
 | First gradient, then a second loss closure | 29 ms, then 17 ms | 34 ms, then 17–18 ms | 2.0–2.7 s, then 2.5 s |
 | A `Float32` state, first solve | 0.45 s | 0.45 s | 2.1 s |
 
 What this shows:
-- A new callback or a new loss closure costs milliseconds, not seconds. Callbacks are kept as `Dynamic` values. Gradient tags are labelled by the loss's signature, not by the closure's type.
+- A new callback or a new loss closure costs milliseconds, against about a second in SciML. Callbacks are kept as `Dynamic` values. Gradient tags are labelled by the loss's signature, not by the closure's type.
 - With ForwardDiff's usual tag (the closure's type), the same gradient costs 0.7 s in this solver.
-- A new model type costs 0.22–0.30 s in each load order.
+- A first gradient costs 30 ms, against 2–2.7 s in SciML.
 
 **Run time per solver step:**
 - Lorenz system (3 equations): model type 160 ns, plain function 190–200 ns, OrdinaryDiffEq 340–355 ns.
@@ -110,23 +116,22 @@ What this shows:
 
 **Types and errors:**
 - The integrator's type is `Tsit5Integrator{Float64, Vector{Float64}}`, with or without callbacks. SciML's is 3,553 characters for Tsit5 and 24,426 for Rodas5.
-- An error from parameters used but never passed: 12 stack frames, longest line 289 characters. SciML: 29 frames, 3,789 characters. Measured before the current compiler; not rechecked.
-- Two other error cases (a `Float64` cache under a gradient, and under Rodas5) stay about as deep as SciML's: 25–30 frames against 22–44. Their longest lines are 300–870 characters, against SciML's 5,600–33,700.
+- An error from parameters used but never passed: 12 stack frames, longest line 289 characters. SciML: 29 frames, 3,789 characters. Measured on the previous prototype.
+- Two other error cases (a `Float64` cache under a gradient, and under Rodas5) are about as deep as SciML's: 25–30 frames against 22–44. Their longest lines are 300–870 characters, against SciML's 5,600–33,700.
 
 Caveats:
-- **Stock SciML is not the fair baseline for speed.** PlainODE makes the same design choices without traits. Measured before the current compiler, PlainODE matched the trait form on a second model function and on gradients in a fresh session, and was faster for a first callback (5 against 17 ms). The trait form was ahead after big loads (a first callback 29 against 144 ms). PlainODE is not measured on the current compiler.
-- A new model type is slower than in SciML: 0.22 s in all, against SciML's 0.16 s.
-- A new callback closure with big loads loaded after the first solve costs 171 ms instead of 12 ms. Not diagnosed.
-- The first solve with big loads loaded before costs 28 ms instead of 10 ms. The cause is under investigation.
+- **PlainODE makes the same design choices without traits.** On the previous prototype, PlainODE matched the trait form on a second model function and on gradients in a fresh session, and was faster for a first callback (5 against 17 ms). The trait form was ahead after big loads: a first callback 29 against 144 ms.
+- A new model type costs 0.22 s in all, against SciML's 0.16 s for the solve.
+- A new callback closure with big loads loaded after the first solve costs 171 ms, against 12 ms without loads (one run; under investigation).
 - SciML's numbers are from Julia 1.12.2, not 1.13.2.
 
 ## TraitMakie: a plotting library
 
-**What it is.** A plotting library with Makie's shape at a small fraction of its size: nine plot types, recipes made of other recipes, attributes that change shape after a plot is made (a colour becomes a vector of colours, or a user's type), live data. Cairo draws the PNGs.
+**What it is.** A plotting library with Makie's shape at a small fraction of its size. It has nine plot types and recipes made of other recipes. Attributes can change shape after a plot is made: a colour becomes a vector of colours, or a user's type. It shows live data. Cairo draws the PNGs.
 
 **Baselines.**
 - PlainPlots: the same features without traits. It draws the same pixels for all five reference figures.
-- Makie itself is much larger, so its times are not a fair comparison. Behaviour is: changing a colour's shape after the plot is made works here, and fails in Makie 0.24.16.
+- Makie itself is much larger, so its times are not a fair comparison. Its behaviour is: changing a colour's shape after the plot is made works here, and fails in Makie 0.24.16.
 
 **First calls, in a fresh session, in each of three load orders (no loads, big loads before, big loads after):**
 - `using TraitMakie`: 0.47–0.54 s.
@@ -137,12 +142,10 @@ Caveats:
 
 What this shows:
 - After a cheap import, plots appear in tens of milliseconds, whatever was loaded before or after.
-- Before this round of work, a new data type after big loads took 5.5 s plus 2.1 s. That came from TraitWorld's own checks being recompiled after loads, and is fixed.
+- A new type of the user's own costs a fraction of a second, in every load order.
 
 Caveats:
-- **A regression without loads.** A new data type took 36 ms plus 40 ms before this round; now 77 ms plus 107 ms. The likely cause is TraitWorld's own machinery, now compiled in the new mode. Not diagnosed yet.
-- PlainPlots' first calls were not measured on the current compiler. Before it, PlainPlots' first PNG took about 100 ms after big loads.
-- The protection from loads is the compiler mode's (see the control).
+- PlainPlots' first PNG took about 100 ms after big loads, measured on the previous prototype.
 
 ## TraitReport: a data report against Python
 
@@ -159,22 +162,19 @@ Caveats:
 |---|---|---|---|
 | With traits | 0.53 s | 0.07 s | 0.76 s |
 | Without traits | 0.49 s | 0.06 s | 0.72 s |
-| Python | | | 0.58–0.69 s (from an earlier session, not rerun) |
+| Python, pandas and matplotlib (measured earlier on the same machine) | | | 0.58–0.69 s |
 
 What this shows:
-- Small precompiled libraries get close to Python's time, with or without traits. Traits do not make a fresh process faster here.
+- Small precompiled libraries get close to Python's time, with or without traits.
 
 **The work after imports, under the nine loads** (the trait module calling upstream CSV.jl, against its plain twin):
-- Trait form: 41 ms with no loads. 330–410 ms when StatsBase or Distributions is loaded. 340 ms with all nine.
-- Plain form: 0.24–3.1 s.
-- The 330–410 ms are diagnosed. StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a call inside CSV.jl. The compiler follows it, as plain Julia does, and compiles that CSV.jl function again.
-- The design counts the standard libraries as part of Julia itself. So this method is Julia's own: it is not piracy, and strict mode does not refuse it. Whether standard libraries should count separately is an open question.
-
-**A package extension becomes a conformance.** InlineStrings' `String15` joins the reader by one `@implement` in a package extension. CSV.jl's own extension adds methods to CSV.jl's internal functions instead.
+- Trait form: 41 ms with no loads, 340 ms with all nine.
+- Plain form: 0.24 s with no loads, 3.1 s with all nine.
+- With StatsBase or Distributions loaded, the trait form takes 330–410 ms. StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a call inside CSV.jl. The compiler follows it, as plain Julia does, and compiles that CSV.jl function again. The design counts the standard libraries as part of Julia itself, so this is Julia's own method, not piracy. Whether standard libraries should count separately is an open question.
 
 Caveats:
 - The trait form's `using` is 0.04–0.2 s slower than the plain form's.
-- The report with TraitCSV and TraitTables was not measured under loads on the current compiler.
+- The report with TraitCSV and TraitTables under loads is measured on the previous prototype only.
 
 ## The CSV.jl and DataFrames.jl ports
 
@@ -183,7 +183,7 @@ Caveats:
 - the CSV parse loop, with the column types it parses into as conformances;
 - InlineStrings' string types as conformances in a package extension.
 
-All three forks passed their upstream test suites on the new compiler, during this round of work.
+All three forks pass their upstream test suites.
 
 **Baselines.** Upstream CSV.jl and DataFrames, and pandas 3.0, on the same scripted interactive session: read, show, describe, filter, sort, group and combine, join, add a column, write; then a second file; then strings read as `String15`.
 
@@ -197,23 +197,24 @@ All three forks passed their upstream test suites on the new compiler, during th
 | Sort / group and combine / join | 0.006 / 0.02 / 0.21 s | 1.15 / 0.77 / 1.24 s | 0.005 / 0.005 / 0.04 s |
 | The whole session, without imports | **2.9 s** | **10.4 s** | **0.32 s** |
 
-pandas' numbers are from an earlier session, on the same workload.
+pandas' numbers were measured earlier on the same machine and workload.
 
 What this shows:
-- The first calls of a DataFrames session got 3–4× faster, from 10.4 s to 2.9 s.
+- The first calls of a DataFrames session take 2.9 s with the forks, against 10.4 s with upstream CSV.jl and DataFrames: 3.6× faster.
 - It is still about 9× pandas.
+- A first `String15` read takes 0.04 s with the forks (a script), against 0.19 s with upstream.
 
 Caveats:
-- **The fair baseline is upstream compiled in the new mode,** with the same workloads. In the control, the new mode alone cut upstream's first work from 3.6 s to 0.7 s. So a large part of the gain may come from the compiler mode, not from traits. Upstream's session with all code in the new mode is not measured yet.
+- **Both contributions are in the 3.6×.** The facts mode alone cuts upstream's first work from 3.6 s to 0.7 s (the control, above). Upstream's full session in the facts mode is not measured yet, so the share of each is open.
 - The forks' imports are 0.3–0.7 s slower than upstream's.
-- **The `String15` step** took 1.6–1.7 s in the session before this round's fixes, against upstream's 0.19 s. After the fixes, a script reading `String15` alone took 0.04 s. One of the two fixes is a hand-written workload extension, a workaround the design should replace. The forks' session has not been rerun after the fix.
-- The port is partial, and paused. Not done: user functions as `Callable`s, joins on several key columns, the writer.
+- The fast `String15` read relies on a hand-written workload extension. The design aims to replace such extensions with code compiled ahead of time from the declared conformances.
+- The port is partial. Not done: user functions as `Callable`s, joins on several key columns, the writer.
 
 ## What is not shown yet
 
-- **The cause of the remaining cost after big loads:** about 1 s for upstream CSV.jl and DataFrames in the new mode; a callback closure in the ODE solver; TraitMakie's recolouring. Under investigation.
-- **Reruns:** Python's baseline; PlainODE and PlainPlots; the report with TraitCSV under loads; the forks' session after the `String15` fix; Julia's benchmark suite in the new mode.
-- **The fair baseline for the ports:** upstream's scripted session with all code in the new mode.
-- **Strict mode** with all code in the new mode.
+- **The causes of the remaining cost after big loads:** about 1 s for upstream CSV.jl and DataFrames in the facts mode; a callback closure in the ODE solver; TraitMakie's recolouring.
+- **On the current compiler:** Python's baseline; PlainODE and PlainPlots; the report with TraitCSV under loads; the forks' full session with the `String15` step; Julia's benchmark suite in the facts mode.
+- **Upstream's full scripted session in the facts mode,** to separate its gain from the forks'.
+- **Strict mode** with all code in the facts mode.
 - **Threads; Revise;** libraries larger than a few thousand lines.
-- **Ahead-of-time binaries** on the current compiler. An early TraitMakie compiled to a trimmed binary of 4.07 MB, before the current compiler.
+- **Ahead-of-time binaries** on the current compiler. A trimmed TraitMakie binary was 4.07 MB, measured on the previous prototype.

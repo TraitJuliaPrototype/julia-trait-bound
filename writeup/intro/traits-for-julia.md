@@ -27,14 +27,14 @@ Nothing is registered. Nothing is upstream.
 - Nobody has to do anything wrong for this to happen. Defining `Base.show(io::IO, x::MyType)` for your own type is good practice, and it can invalidate code in other packages.
 - Package images (the precompiled code of a package) do not help. Their code is discarded the same way.
 
-Measured on plain Julia: `using CairoMakie` on Julia 1.12 discarded compiled code at 769 call signatures.
+Measured on plain Julia: `using CairoMakie` on Julia 1.12 discards compiled code at 769 call signatures.
 
-A package's own extension can discard its compiled code too. With DataFrames loaded, CSV.jl's first read took 2.5 s instead of 0.19 s:
+A package's own extension can discard its compiled code too. With DataFrames loaded, CSV.jl's first read takes 2.5 s instead of 0.19 s:
 - DataFrames loads InlineStrings;
 - that activates CSV.jl's extension for InlineStrings;
 - the extension adds methods to CSV.jl's internal functions.
 
-In the trait world an extension declares a conformance instead, which discards nothing (TraitCSV's `String15`).
+In the trait world an extension declares a conformance instead, which discards nothing (TraitCSV's `String15`). This is a gain from traits as a coding pattern, even in a well-trodden part of the ecosystem: the compiler's facts mode alone does not prevent it.
 
 ### 2. A vector of mixed types is slow, or forces you to over-parametrize
 
@@ -136,7 +136,7 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 - `f` may be any function or closure. The library calls it as `f(x)`.
 - Every call is checked: a result that is not a `Float64` raises an error.
 - **Two modes.** The library chooses a default; the caller can override it for one value.
-  - `DynamicCall`, the default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns (measured on the earlier prototype).
+  - `DynamicCall`, the default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns (measured on the previous prototype).
   - `CompiledCall`: the library is compiled for this particular function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this mode.
   - The caller overrides with `compiled_call(f)` or `dynamic_call(f)`. The mode changes speed, never results.
 
@@ -292,11 +292,11 @@ The patched compiler compiles trait modules in a new mode. (The design calls it 
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
 - A few exceptions remain in both settings, listed in [`../design.md`](../design.md) §3.2.
 
-**This protection comes from the compiler mode, not from traits.** Plain Julia code compiled in the same mode keeps its code too ([`results.md`](results.md), "The control"). What traits add:
+**This protection comes from the compiler's facts mode, and it works for any code.** Upstream CSV.jl and DataFrames compiled in it lose 2 of 3,340 pieces of compiled code to nine unrelated loads, against 570 of 4,712 in Julia's usual mode, and their first work takes 0.7 s instead of 3.6 s ([`results.md`](results.md)). What traits add:
 - **The mode costs type-stable bounded code nothing.** A bounded function is compiled for the types the trait sees. If those are concrete, and its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. This follows from how the mode works; it has not been measured directly. Plain code that is not type-stable gets slower in this mode (see "What it costs").
 - **The code is compiled once and cached.** It lives in the package image of the package that compiled it, and stays valid there.
 
-Not discarding code is not the same as no extra cost after loads. Some first calls are still slower after big loads ([`results.md`](results.md)).
+Not discarding code is not the same as no extra cost after loads: some first calls cost more after big loads than without them ([`results.md`](results.md)).
 
 ### 2. Errors at the line you wrote, before any value exists
 
@@ -322,7 +322,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 
 - `Callable{Tuple{Float64}, Float64}` says "a function from `Float64` to `Float64`", and checks it.
 - In the default mode, a new closure compiles nothing in the library. In the ODE demonstrator, a new callback closure costs about 12 ms with no other packages loaded. In SciML it recompiles the solver: 0.84–0.96 s.
-- Plain Julia can avoid the recompile with FunctionWrappers.jl. The project's plain twin of the ODE solver does so, and was as fast or faster for a first callback in a fresh session. What `Callable` adds is the declared, checked signature, and a choice of modes.
+- Plain Julia can avoid the recompile with FunctionWrappers.jl. The project's plain twin of the ODE solver does so, and is as fast or faster for a first callback in a fresh session (measured on the previous prototype). What `Callable` adds is the declared, checked signature, and a choice of modes.
 
 ## What it costs
 
@@ -335,7 +335,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 
 - In the new mode, Julia no longer guesses at calls whose types are unknown. It dispatches them at run time, and their results are typed `Any`. Type-stable code over concrete types is unaffected.
 - This applies to trait modules and to the plain code they call.
-- Measured with *all* code compiled in this mode, as a test: Julia's benchmark suite was 1.6% slower on the geometric mean. The worst cases, on containers of `Any`, were up to about 80× slower. These numbers predate the current compiler; they have not been rerun on it.
+- Measured on the previous prototype of the compiler, with *all* code in this mode: Julia's benchmark suite is 1.6% slower on the geometric mean. The worst cases, on containers of `Any`, are up to about 80× slower.
 - **How traits recover it.** Where values are mixed on purpose, declare it with `Dynamic{X}` or `Callable`. Their operations have declared result types, so the code after them stays typed.
   - A ray tracer over four shape types: plain Julia about 850 ms, the trait form about 320 ms.
   - With two shape types, plain Julia stays faster: about 250 ms.
@@ -344,7 +344,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 
 ### Imports and conformances take a little longer
 
-- A trait form's `using` took 0.04–0.2 s longer than its plain twin's in the demonstrators.
+- A trait form's `using` takes 0.04–0.2 s longer than its plain twin's in the demonstrators.
 - `@implement` checks the conformance: about 0.08–0.3 s for a new type.
 - A call into trait code from code that does not know its argument types takes about 120 ns, against about 55 ns for a plain dynamic call.
 
@@ -361,8 +361,8 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
   - outside trait modules, `Dynamic{X}` is written out;
   - a bounded function cannot name the trait's type parameters with `where`;
   - `conforms(T, X)` answers "does type `T` implement trait `X`?" as a function.
-- **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refused nothing. Its load cost was measured on an earlier prototype, at 0.5 s on a 4.1 s load; it is not measured on the current compiler.
-- **Ahead-of-time binaries:** a trimmed binary of an early TraitMakie was 4.07 MB. It has not been rebuilt on the current compiler.
+- **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refuses nothing; its load cost is 0.5 s on a 4.1 s load (measured on the previous prototype).
+- **Ahead-of-time binaries:** a trimmed TraitMakie binary is 4.07 MB (measured on the previous prototype).
 - **Scale:** the demonstrators are libraries of a few hundred to a few thousand lines. Larger compositions are untested.
 
 ## Where to go next
