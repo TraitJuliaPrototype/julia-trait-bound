@@ -66,7 +66,7 @@ The `String15` read without the three-way extension (after the check-by-facts ch
 
 After the fixes, a new conformance after big loads costs about what it costs without them (TDE 148–164 / 89–133 ms against 142 / 82 ms; TraitMakie 97 / 89–161 ms against 77 / 107 ms). That is not yet "the only load-dependent cost". Other rows still differ after loads: TDE's row 4 after loads 171 ms against 12; row 1 with the loads before 27.8 against 10.0 ms; TraitMakie's recolour 231 against 102 ms (n = 1).
 
-One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, which those packages load. It defines `vcat` for Base's `Number` and `Vector`. That method wins at a fact signature inside `CSV._parse`, and the facts mode follows it (rule P) and recompiles that function. That residue is exactly what the thesis says can change fully typed code: a pirate, here a standard library. The case cuts both ways for strict mode: strict mode would refuse SparseArrays at StatsBase's load.
+One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([`../design.md`](../design.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
 ## The control: whose property is load protection?
 
@@ -97,7 +97,7 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen), from 1.65×.
 - **Untyped calls:** two dynamic dispatches (the conformance, the worker) and a boxed trait object, 116 ns against about 55 for a plain untyped call. Type-unstable code was never claimed fast.
 - **`@implement` of a new model type**, 142–164 ms in every load order: the conformance checks' plain-rule inference.
-- **Platform load cost:** the trait forms' `using` is 0.18–0.20 s above the plain forms'.
+- **Platform load cost:** the trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
 
 ## The two inliner fixes, ungated (the user's decision)
 

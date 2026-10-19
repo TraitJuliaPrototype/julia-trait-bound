@@ -6,13 +6,13 @@ A design for traits in Julia, built as a patched Julia compiler and a package. T
 
 | You are | Read |
 |---|---|
-| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then [`writeup/intro/results.md`](writeup/intro/results.md); porting a package: [`writeup/intro/porting.md`](writeup/intro/porting.md) |
-| a core developer | [`writeup/design.md`](writeup/design.md), the source of truth; its companions in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages |
+| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then [`writeup/intro/results.md`](writeup/intro/results.md) |
+| a core developer | [`writeup/design.md`](writeup/design.md), the source of truth; its companions in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages; [`writeup/intro/porting.md`](writeup/intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers |
 | an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/design.md`, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace
 
-This directory is the design repository. Eight repositories sit inside it, each with its own history, ignored by this one:
+This directory is the design repository. Nine repositories sit inside it, each with its own history, ignored by this one:
 
 | Directory | Repository | What |
 |---|---|---|

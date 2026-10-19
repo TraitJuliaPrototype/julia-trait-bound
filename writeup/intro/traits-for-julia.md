@@ -12,7 +12,7 @@ It assumes you know Julia. It does not assume you have read the design. The prec
 **Status, 2026-10-19.** This is a research prototype:
 - a package, TraitWorld;
 - a patched build of Julia 1.13.2, which TraitWorld needs;
-- five demonstrators: an ODE solver, a plotting library, a CSV reader with a table, a data report, and ports of CSV.jl and DataFrames.jl.
+- four demonstrators: an ODE solver, a plotting library, a data report (with its own CSV reader and table library), and ports of CSV.jl and DataFrames.jl.
 
 Nothing is registered. Nothing is upstream.
 
@@ -27,9 +27,14 @@ Nothing is registered. Nothing is upstream.
 - Nobody has to do anything wrong for this to happen. Defining `Base.show(io::IO, x::MyType)` for your own type is good practice, and it can invalidate code in other packages.
 - Package images (the precompiled code of a package) do not help. Their code is discarded the same way.
 
-Measured on plain Julia:
-- `using CairoMakie` on Julia 1.12 discarded compiled code at 769 call signatures.
-- With DataFrames loaded, CSV.jl's first read took 2.5 s instead of 0.19 s.
+Measured on plain Julia: `using CairoMakie` on Julia 1.12 discarded compiled code at 769 call signatures.
+
+A package's own extension can discard its compiled code too. With DataFrames loaded, CSV.jl's first read took 2.5 s instead of 0.19 s:
+- DataFrames loads InlineStrings;
+- that activates CSV.jl's extension for InlineStrings;
+- the extension adds methods to CSV.jl's internal functions.
+
+In the trait world an extension declares a conformance instead, which discards nothing (TraitCSV's `String15`).
 
 ### 2. A vector of mixed types is slow, or forces you to over-parametrize
 
@@ -77,7 +82,7 @@ A trait can also declare fields with types (writable unless marked `@const`), de
 end
 ```
 
-A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse a conformance that is not, or `@warn_on_abstract` to warn. Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
+A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse a conformance that is not, or `@warn_on_abstract` to warn (the spelling will change to one declaration with a level). Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
 
 A trait is an abstract type with behaviour. Abstract types stay in Julia; traits are a kind of them.
 
@@ -100,9 +105,9 @@ colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
 ```
 
 - It accepts a value of any type that implements `ColTable`.
-- Inside, it can use only what the trait declares: here `ncols` and `col`.
+- Inside, on `t` it can use only what the trait declares, here `ncols` and `col`. On ordinary values, such as the column `col` returns, it calls any Julia code.
 - It is compiled for what the trait can see, not for your whole type. A type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for `Vector{Vector{Float64}}`. Its other fields never cause a recompile.
-- A method with a concrete type annotation wins over a bounded one. So a library can adopt traits one function at a time.
+- A method with a type annotation, concrete or abstract, wins over a bounded one; only an untyped method loses to it. So a library can adopt traits one function at a time.
 
 ### A trait module
 
@@ -131,21 +136,21 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 - `f` may be any function or closure. The library calls it as `f(x)`.
 - Every call is checked: a result that is not a `Float64` raises an error.
 - **Two modes.** The library chooses a default; the caller can override it for one value.
-  - `DynamicCall`, the default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns.
+  - `DynamicCall`, the default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns (measured on the earlier prototype).
   - `CompiledCall`: the library is compiled for this particular function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this mode.
   - The caller overrides with `compiled_call(f)` or `dynamic_call(f)`. The mode changes speed, never results.
 
 ### Piracy and strict mode
 
-- *Type piracy* is defining a method of a function you do not own, for types you do not own. An example from the standard libraries: SparseArrays defines `vcat` for Base's `Number` and `Vector`. It owns neither `vcat` nor those types.
+- *Type piracy* is defining a method of a function you do not own, for types you do not own. An example from the project's tests: a package defines `+` for ForwardDiff's `Dual` numbers. It owns neither `+` (Base's) nor `Dual` (ForwardDiff's).
 - By default, a pirate's method is followed, as in plain Julia. Code that the pirate changes is compiled again, once.
-- **Strict mode** is an option that refuses another package's method, on a function and for types that package does not own, when the method would change your compiled code. It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
+- **Strict mode** is an option that refuses another package's method, on a function and for types that package does not own, when the method would change compiled trait code (library code in trait modules). Plain code is not protected by it. It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
 
 ## A worked example: a library and its user
 
 ### The library
 
-The library is a trait module. It is meant to be pasted into a REPL running the patched Julia with TraitWorld installed. [[TBD: run the worked example as written on the current build; each construct in it is covered by TraitWorld's tests, the whole has not been run]] In a package, put the trait module in its own file and `include` it from the package's module, as TraitTables does.
+The library is a trait module. It is meant to be pasted into a REPL running the patched Julia with TraitWorld installed. Run as written on the build of 2026-10-19; at a REPL, enter the user's declarations one at a time (`struct Counts` before its `@implement`). In a package, put the trait module in its own file and `include` it from the package's module, as TraitTables does.
 
 ```julia
 using TraitWorld
@@ -281,7 +286,7 @@ The patched compiler compiles trait modules in a new mode. (The design calls it 
 - A call whose argument types are all known is compiled as plain Julia compiles it.
 - A call whose argument types are not all known is not guessed at. It is dispatched when it runs, as Julia's dynamic dispatch does.
 - So compiled code depends only on calls whose types are all known. Only two kinds of change can alter one of those:
-  - the package that owns the function, or one of the types, changes it: an edit, an upgrade, one of its package extensions;
+  - the package that owns the function, or one of the types, changes it: an edit, an upgrade, and (still being decided) one of its package extensions;
   - a pirate whose method wins at that call.
 - So an unrelated package's load cannot discard the code, in any load order.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
@@ -304,13 +309,13 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 
 - A bounded argument prints as the trait and the type its code was compiled for: `ColTable at Vector{Vector{Float64}}`. The `label` of a `Measurements` never appears.
 - The ODE demonstrator's integrator type is `Tsit5Integrator{Float64, Vector{Float64}}`, with or without callbacks. SciML's is 3,553 characters.
-- TraitWorld hides its own frames in stack traces.
+- TraitWorld hides most of its own frames in stack traces (the entry's frame remains).
 - Printing by trait needs the patched Julia.
 
 ### 4. Mixed collections at near plain speed
 
-- Summing areas over a vector of `Dynamic{Shape}`: about 1 ns per element. Plain Julia: about 0.9 ns when it sees two shape types, about 30 ns when it sees four.
-- The fast path holds for up to four conforming types. Further types go through a dynamic call. [[TBD: the cost with more than four types, not measured]]
+- Summing areas over a vector of `Dynamic{Shape}`: 1–1.4 ns per element when the data is in cache. Plain Julia: about 0.9 ns when it sees two shape types, about 30 ns when it sees four. On a million elements: 4.5–5.7 ns against plain's 4 ns.
+- The fast path holds for up to four conforming types. Further types go through a dynamic call. The cost with more than four types is not measured.
 - A type that conforms later works at once. It goes through the dynamic call, and discards no compiled code.
 
 ### 5. Functions with a checked signature
@@ -330,7 +335,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 
 - In the new mode, Julia no longer guesses at calls whose types are unknown. It dispatches them at run time, and their results are typed `Any`. Type-stable code over concrete types is unaffected.
 - This applies to trait modules and to the plain code they call.
-- Measured with *all* code compiled in this mode, as a test: Julia's benchmark suite was 1.6% slower on the geometric mean. The worst cases, on containers of `Any`, were up to about 80× slower. [[TBD: rerun on the current compiler; the numbers predate it]]
+- Measured with *all* code compiled in this mode, as a test: Julia's benchmark suite was 1.6% slower on the geometric mean. The worst cases, on containers of `Any`, were up to about 80× slower. These numbers predate the current compiler; they have not been rerun on it.
 - **How traits recover it.** Where values are mixed on purpose, declare it with `Dynamic{X}` or `Callable`. Their operations have declared result types, so the code after them stays typed.
   - A ray tracer over four shape types: plain Julia about 850 ms, the trait form about 320 ms.
   - With two shape types, plain Julia stays faster: about 250 ms.
@@ -340,7 +345,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
 ### Imports and conformances take a little longer
 
 - A trait form's `using` took 0.04–0.2 s longer than its plain twin's in the demonstrators.
-- `@implement` checks the conformance: about 0.1–0.3 s for a new type.
+- `@implement` checks the conformance: about 0.08–0.3 s for a new type.
 - A call into trait code from code that does not know its argument types takes about 120 ns, against about 55 ns for a plain dynamic call.
 
 ### Not "compiled once for any type"
@@ -356,7 +361,7 @@ Not discarding code is not the same as no extra cost after loads. Some first cal
   - outside trait modules, `Dynamic{X}` is written out;
   - a bounded function cannot name the trait's type parameters with `where`;
   - `conforms(T, X)` answers "does type `T` implement trait `X`?" as a function.
-- **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refused nothing. It would refuse SparseArrays' `vcat` (above) when StatsBase loads it after code that the method would change. [[TBD: strict mode's load cost on the current compiler; measured earlier at 0.5 s on a 4.1 s load]]
+- **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refused nothing. Its load cost was measured on an earlier prototype, at 0.5 s on a 4.1 s load; it is not measured on the current compiler.
 - **Ahead-of-time binaries:** a trimmed binary of an early TraitMakie was 4.07 MB. It has not been rebuilt on the current compiler.
 - **Scale:** the demonstrators are libraries of a few hundred to a few thousand lines. Larger compositions are untested.
 

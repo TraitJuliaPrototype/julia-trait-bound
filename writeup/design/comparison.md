@@ -112,7 +112,7 @@ The prototype refuses an accidental conformance: `Int` has `getindex(::Int, ::In
 | the type implements the operations | the library per type, in the conformer's image | direct | the type, reached through its operations |
 | forwarding to a field | the library per field type | direct | the field's type |
 | declared fields | the library per tuple of field types | a load at the field's offset | the fields' types |
-| `Callable`, dynamic call | the library once per signature | indirect, about 4 ns, result declared | the signature |
+| `Callable`, dynamic call | the library once per signature | indirect, about 4 ns (earlier prototype), result declared | the signature |
 | `Callable`, compiled call | per function type | direct | the function's type |
 | `Dynamic{X}` | each operation split over the declared conformances; the library per key where it is opened | a split branch, else a dispatch; result declared | the operations, until opened |
 
@@ -321,11 +321,11 @@ The design restricts what trait code may do, and only there. The list of session
 4. **Types come first.** A type caught by a type-annotated method takes it, even when it also conforms to a bound of the same function. Reaching the trait method needs a type no type method catches, or a newtype.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
-   - About 4 ns for a dynamic call.
+   - About 4 ns for a dynamic call (measured on the earlier prototype, [`evidence.md`](evidence.md) §2).
    - A `Dynamic` operation: a split branch within four conformances, a dispatch beyond.
    - An untyped call into trait code: 115–129 ns against about 55 for a plain untyped call ([`evidence.md`](evidence.md) §2).
 7. **Each new implementing type compiles the library once,** in its own image, and the conformance checks cost time: `@implement` of a new model type 142–164 ms in every load order ([`evidence.md`](evidence.md) §3).
-8. **The design needs a patched Julia.** Parts (A)–(D) and the kept pieces ([`julia-changes.md`](julia-changes.md)) are built in a patched 1.13.2, not upstream. Stock-Julia support is dropped. The trait forms' `using` is 0.18–0.20 s above the plain forms'.
+8. **The design needs a patched Julia.** Parts (A)–(D) and the kept pieces ([`julia-changes.md`](julia-changes.md)) are built in a patched 1.13.2, not upstream. Stock-Julia support is dropped. The trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
 9. **Overrides are fixed at the conformance.** A later method of an operation a default serves is refused, and changing it needs a restart until redeclaration is built ([`design.md` §4.4](../design.md#44-overrides-belong-to-the-conformance)). Plain Julia would follow the method.
 10. **Smaller restrictions.**
     - Offering traits is per module (`@trait_module`) and bottom-up.
@@ -365,7 +365,7 @@ The predictions are those of `other-languages.md`, "What their experience predic
 | 4 | Pressure for retroactive conformance | Swift, Rust | **open:** named implementations deferred to piece 7; a newtype until then |
 | 5 | A later generic implementation overlapping a specific one | Rust | **open:** the design surfaces it at the call; the prototype has no overlap check |
 | 6 | A more specific implementation changing types | Rust | **in the design:** same parameter values required; not covered by a test |
-| 7 | Load-time checks scanning all methods | Swift | **measured:** strict mode's check, 0.54 s on a 4.1 s load; indexing by function and type is open |
+| 7 | Load-time checks scanning all methods | Swift | **measured:** strict mode's check, 0.54 s on a 4.1 s load (session 25, under the package policy; not rerun on the compiler); indexing by function and type is open |
 | 8 | Demand for a storable dynamic value | Swift, Rust | **answered and built:** `Dynamic{X}`, an operation a call-site split in the compiler (part D) |
 | 9 | Shared code not inlined across packages | Rust | **dissolved as a rule** (rule 4 retired): compiled code lives where Julia puts it; not measured |
 | 10 | Early binding misses a more specific method | C++0x | **dissolved for methods:** a stakeholder's later method breaks the fact and recompiles, as in plain Julia. **Kept for one case:** an override of a default after the conformance is refused (cost 9) |

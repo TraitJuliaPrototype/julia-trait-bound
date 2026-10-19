@@ -1,11 +1,11 @@
 # The evidence: what is measured, and what is not
 
-The current measurements behind the design, for core developers, as of 2026-10-19 (session 29, final build: julia-1.13 61852d8fb1, TraitWorld 375a930). [`../design.md`](../design.md) §8 summarizes this document; [`performance.md`](performance.md) gives the performance phase's themes and learnings. The raw numbers, with every intermediate build, are in the session note `../../session-notes/2026-10-18-29-reviews-and-decisions.md`. Older numbers are history: [`../design-findings.md`](../design-findings.md) and the demonstrators' READMEs.
+The current measurements behind the design, for core developers, as of 2026-10-19 (session 29, final build: julia-1.13 61852d8fb1, TraitWorld 375a930; a89a91629a adds only `tw-build.sh`). [`../design.md`](../design.md) §8 summarizes this document; [`performance.md`](performance.md) gives the performance phase's themes and learnings. The raw numbers, with every intermediate build, are in the session note `../../session-notes/2026-10-18-29-reviews-and-decisions.md`. Older numbers are history: [`../design-findings.md`](../design-findings.md) and the demonstrators' READMEs.
 
 **How to read the numbers.**
 - One machine, shared with other jobs: one Julia process at a time, niced.
 - Fresh processes, unless a row says "at the REPL".
-- Runs per cell: 1–3. Rows marked *n = 1* are single runs. Repeated runs vary by about 5% when the machine is busy.
+- Runs per cell: 1–3. Rows marked *n = 1* are single runs. Repeated runs varied by about 5% on a busy machine; treat differences under 10% as noise.
 - "Plain" is the same code without traits, on the patched build in plain mode. Since the inliner fixes were ungated, patched-plain is not stock: stock numbers use the stock 1.13.2 binary and say so.
 
 ## 1. The guarantee (design.md §3)
@@ -27,7 +27,7 @@ The current measurements behind the design, for core developers, as of 2026-10-1
 | their first work / repeated / after the loads | 3,627 / 0.6 / 4,009 ms | 722 / 0.8 / **992** ms |
 
 - Load protection is the facts rule's property, for any code, not traits'.
-- **Not diagnosed:** upstream still pays ~990 ms after the loads under `all`. One residue of this kind is diagnosed (§3, TraitReport): StatsBase loads SparseArrays, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`; the facts mode follows it by design.
+- **Not diagnosed:** upstream still pays ~990 ms after the loads under `all`. One residue of this kind is diagnosed (§3, TraitReport): StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code ([`../design.md`](../design.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
 **The cost of the facts rule on plain code** (`all`, before parts B–D; session 28): BaseBenchmarks geometric mean 1.016, 1.064 without `scalar`; concrete groups 1.00–1.09; `io` 1.32; tails up to about 80× on containers of `Any`, abstract element types and small-union broadcasts. One run, `--pkgimages=no`. **To rerun** on the current compiler: the inliner changes apply under `all` too.
 
@@ -41,6 +41,7 @@ The current measurements behind the design, for core developers, as of 2026-10-1
 | raytrace, small case (`perf_raytrace(5, 64, 2)`) | 4.7–5.3 ms, 3.8 MB | 3.9–4.7 ms, 3.3 MB | 54 ms and 72.6 MB before the inliner fix |
 | a typed call `total(x, 16)` | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns; with a literal 16: 29.3 | the literal unrolls the loop; the fair baseline is the argument |
 | an untyped call (`Any` argument) | 115–129 ns | about 55 ns for a plain untyped call | two dynamic dispatches and a boxed trait object |
+| a `Callable` in `DynamicCall` mode, per call | 4.0–4.4 ns | | an earlier prototype on stock Julia, not remeasured (`../design-findings.md` §12) |
 | a varargs wrapper in a plain recursion (the review's probe) | patched, plain code: 0.36–0.44 ms, 0 bytes | stock 1.13.2: 21.9–23.3 ms, 16.8 MB | the inliner fixes, ungated |
 | TDE, per solver step, Lorenz (n = 3) | model type 158–160 ns; plain function 190–199 | OrdinaryDiffEq 338–355 ns | |
 | TDE, per step, a diffusion chain (n = 1,000) | 7.5–7.9 µs | OrdinaryDiffEq 6.1 µs | OrdinaryDiffEq's stage loops are fused with `@muladd` |
@@ -86,7 +87,7 @@ The current measurements behind the design, for core developers, as of 2026-10-1
 | (pt) the same without traits | 0.49–0.50 s | 4 ms | 60 ms | **0.72 s** |
 | Python, pandas + matplotlib (session 27; not rerun) | | | | 0.58–0.69 s |
 
-Under loads (form (b) against its plain twin (a′), `scripts/loads.sh`): the trait form's work 41 ms (none, REPL), 333–410 ms with StatsBase or Distributions loaded (the SparseArrays pirate, §1), 338–342 ms with all nine; the plain form 237–3,086 ms. The trait form's `using` is 0.18–0.20 s above the plain form's.
+Under loads (form (b) against its plain twin (a′), `scripts/loads.sh`): the trait form's work 41 ms (none, REPL), 333–410 ms with StatsBase or Distributions loaded (SparseArrays' `vcat`, a standard library's method, §1), 338–342 ms with all nine; the plain form 237–3,086 ms. The trait form's `using` is 0.18–0.20 s above the plain form's.
 
 **The forks** (CSV, DataFrames and Tables ported to traits; `scripts/session.jl` at a REPL on a pty, 3 runs each):
 

@@ -6,7 +6,6 @@ The design, written for three audiences. Nothing has been deleted: superseded do
 
 - [`intro/traits-for-julia.md`](intro/traits-for-julia.md): what traits are, what you write, what you get, one worked example, the costs.
 - [`intro/results.md`](intro/results.md): what the demonstrators show, against fair baselines.
-- [`intro/porting.md`](intro/porting.md): porting a package to traits (a guideline, in progress).
 
 ## For core developers: [`design.md`](design.md) and [`design/`](design/)
 
@@ -16,6 +15,7 @@ The design, written for three audiences. Nothing has been deleted: superseded do
 - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
 - [`design/performance.md`](design/performance.md): the performance phase of session 29: results, themes, lessons, as corrected by its review.
 - [`design/comparison.md`](design/comparison.md): the choices against C++, Rust, Swift and Mojo; [`other-languages.md`](other-languages.md) is the research behind it.
+- [`intro/porting.md`](intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers.
 - [`decisions.md`](decisions.md): the register of decisions, with history.
 - [`open-issues.md`](open-issues.md): what is open; decisions waiting for the user first (§1).
 

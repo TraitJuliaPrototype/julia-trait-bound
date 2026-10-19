@@ -354,7 +354,7 @@ colsum(abs2, m, 1)                     # Base's function: called directly whatev
   - the arguments have the declared types;
   - a result of another type is an error where plain Julia would widen (prototype: `TypeError`);
   - a function without a method for `A` raises `MethodError` when called, as in plain Julia.
-- **`DynamicCall`,** the default: the function becomes a pointer to its code compiled for `A` (FunctionWrappers' technique). The worker is compiled once per signature, in the library's image. Each call is indirect, about 4 ns.
+- **`DynamicCall`,** the default: the function becomes a pointer to its code compiled for `A` (FunctionWrappers' technique). The worker is compiled once per signature, in the library's image. Each call is indirect, about 4 ns (measured on the earlier prototype, [`evidence.md`](evidence.md) §2).
 - **`CompiledCall`:** the worker is compiled per function type, with the function inferred into it, and the signature still checked. This is what an ODE right-hand side needs: plain Julia's speed with a typed contract. An unbounded argument would specialize but check nothing.
 - **The library sets the default, the caller decides per value.** `compiled_call(f)` and `dynamic_call(f)` are wrappers whose type fixes the mode; the entry strips them. `Callable{A, S, M}(f)` also fixes the signature. A bound without `M` accepts either and supplies `DynamicCall`.
 - **The mode is a choice of speed, never of correctness.**
@@ -486,7 +486,7 @@ start(m::Model, u0::Vector{Float64}) = State(copy(u0), 0.0, Dynamic{Model}(m), D
 - A trait object of `X`, narrowed to the views of `X` and its supertraits.
 - That trait object holds the user's object: read through for a mutable value; held whole for an immutable value that is its own implementing value (a held view, section 16); for an immutable value that forwards, the whole object, because the function that keeps it receives it (below).
 - So a `Dynamic` sees the user rebind any field, and writes through it reach the user's object. It keeps the user's object alive.
-- `design.md` §4.5 says "it holds the user's object" and that the view for (X, the object's type) is a constant per pair. The prototype's field is a narrowed trait object (`Dynamic{X}.t`). The two agree on what a reader sees; the s27 narrowing, which design.md's session-29 decisions say "dissolves", is still in the code (`_narrow` in `src/core.jl`).
+- `design.md` §4.5 says "it holds the user's object" and that the view for (X, the object's type) is a constant per pair. The prototype's field is a narrowed trait object (`Dynamic{X}.t`). The two agree on what a reader sees; the s27 narrowing, which `decisions.md`'s session-29 row says "dissolves", is still in the code (`_narrow`, `src/core.jl:358`).
 
 **Which functions receive the whole object (keeping is detected).**
 - A function whose code may keep a trait object (make it a `Dynamic`, store it where a `Dynamic` is declared, or return a closure that captured it) receives the whole user's object at its entry.
@@ -618,7 +618,7 @@ colsum(MyTab(Float32[1, 2, 3]))       # the fact is broken, the worker recompile
 
 - Loaded before the trait code compiles, the pirate is in the method table, and the first call follows it.
 - **In strict mode,** loading `Pirate` after the first call is refused, naming its method and the worker it would change. Loaded before, it is followed; with piece 15, an image's facts broken by a pirate become an error ([`design.md` §3.2](../design.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached)).
-- A real case: SparseArrays' `vcat` for Base's `Number` and `Vector` wins at a fact inside `CSV._parse`, and the default mode follows it ([`performance.md`](performance.md) theme 4).
+- A real case that is not a pirate: StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse` ([`performance.md`](performance.md) theme 4). The design counts the standard libraries as Julia's own code ([`design.md`](../design.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`open-issues.md`](../open-issues.md) §1.19).
 
 **The assumption that remains: A3, values decided by inference.**
 - `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference.

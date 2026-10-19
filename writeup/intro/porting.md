@@ -4,7 +4,11 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 
 **How this document is written.** Each agent owns one section of part B and adds what its port teaches. Part A holds the rules that every port confirms; an agent adds to A only through the list "Proposed for part A" at the end, with the port that shows it, and the editor merges. Edit with care: others edit the same file (re-read before each edit). Style: short sentences, bullets, one idea per sentence, an example for each rule; say what the port showed, not what it might show.
 
-**The foundation is changing under the ports.** Julia's compiler gets parts (B) and (C) (a trait module is compiled by facts under its own cache owner, `@compiler_options facts=true`, which `@trait_module` declares) and then (D) (`Dynamic{X}` in the compiler). TraitWorld's own policy (`FactsInterp`, site caches, trampolines, view caches, witness tables, key branches, the system image) is being removed. Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, `Dynamic{X}`, `Callable`, `Like`/`Self`, concrete mode), not to its machinery. No timing or performance tuning until (D) is in.
+**The foundation under the ports.**
+- Parts (B), (C) and (D) are built in Julia's compiler (session 29). A trait module is compiled by facts under its own cache owner (`@compiler_options facts=true`, which `@trait_module` declares). `Dynamic{X}` operations are call-site splits in the compiler.
+- TraitWorld's own policy (`FactsInterp`, site caches, trampolines, view caches, witness tables, key branches, the system image) is removed.
+- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, `Dynamic{X}`, `Callable`, `Like`/`Self`, concrete mode), not to its machinery.
+- Measurements exist: [`../design/evidence.md`](../design/evidence.md).
 
 ## Part A. Rules every port confirms
 
@@ -21,7 +25,7 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 
 ### B1. Tables, DataFrames, CSV (owner: the forks agent)
 
-The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`). Correctness only, no timing. Tested so far: Tables' suite green; CSV's suite run before its last two fixes; DataFrames by smoke checks only (`forks/README.md`, "Test status"). The joins and aggregates of item 1 are written, not yet run. Traits: `Column{T}` and `TableSource` (Tables), `CSVColumn{T} <: Column` and `TextColumn{T} <: Column` (CSV). Kernels: describe, sort, groupby codes, joins on one key, additive aggregates, row selection (DataFrames). Session 30 rebuilt the kernels on the declared operations; sessions 27–28 had unwrapped the vector (`vector(c)`), which validated a function barrier, not keys (implementation review P7).
+The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`). Correctness only, no timing. Tested so far: Tables' suite green; CSV's suite run before its last two fixes; DataFrames by smoke checks only (`forks/README.md`, "Test status"). The joins and aggregates of item 1 are written, not yet run. Traits: `Column{T}` and `TableSource` (Tables), `CSVColumn{T} <: Column` and `TextColumn{T} <: Column` (CSV). Kernels: describe, sort, groupby codes, joins on one key, additive aggregates, row selection (DataFrames). Session 29 rebuilt the kernels on the declared operations; sessions 27–28 had unwrapped the vector (`vector(c)`), which validated a function barrier, not keys (implementation review P7).
 
 **1. A kernel reads a value only through its trait's operations.**
 - If a kernel's first line is `v = vector(c)`, the trait is a barrier, not a bound. The key then buys nothing that `@nospecialize` and a function barrier do not.
@@ -74,7 +78,7 @@ The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git di
 
 ### B2. Differential equations (owner: the solvers agent)
 
-Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its user package `examples/LorenzModels`, its control `baselines/PlainODE` + `PlainLorenzModels`. Session 30; correctness only, no timing.
+Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its user package `examples/LorenzModels`, its control `baselines/PlainODE` + `PlainLorenzModels`. Session 29; correctness only, no timing.
 
 **Two routes for a user's model, and both stay.**
 - *Route A:* the model is a type that implements the trait's operations (`rhs!` for `Lorenz{T}`). The solver compiles for that type, in the user's image. Its mistakes are caught at `@implement`.
@@ -111,7 +115,7 @@ Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its us
 
 ### B3. Plotting and the report (owner: the plotting agent)
 
-From TraitMakie step 2 and TraitReport with TraitTables and TraitCSV (session 30). Correctness only; nothing was timed.
+From TraitMakie step 2 and TraitReport with TraitTables and TraitCSV (session 29). Correctness only; nothing was timed.
 
 **Attributes that change shape are `Dynamic` fields, and assignment is a crossing.**
 - A plot's colour, marker and data are fields of type `Dynamic{X}` (`color::ColorSpec` in a trait module). `p.color = :red` at the prompt is Julia's `setproperty!`, which converts to the field's type.

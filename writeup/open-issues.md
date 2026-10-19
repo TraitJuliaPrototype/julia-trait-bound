@@ -43,6 +43,10 @@ New in session 29, from the three reviews of 2026-10-18 (`reviews/2026-10-18-*.m
 New at the end of session 29 (the compiler as built; `decisions.md` "Session 29, the compiler as built", last row):
 18. **Should concrete mode warn about a variable of a small `Union`?** Today it does not: the union's splits are facts, so the code is fully typed. The example `experiments/examples/warnings/teach.jl`, case e, waits for this decision (pending). Related: §2.7.
 
+New from the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md`):
+19. **Should standard libraries be separate owners?** Today Julia (Core, Base, the standard libraries) is one owner (`design.md` §1; `TraitWorld/src/ownership.jl` `owner(m)` returns `:Julia` for every standard library, `strict.jl` skips `:Julia`), so a standard library's method on Base types (SparseArrays' `vcat` for `Number` and `Vector`, loaded by StatsBase) is a stakeholder's change: followed, never refused. TraitWorld's `_type_root` already treats a standard library's types as its own. Found by the writeup review of 2026-10-19 (finding 1).
+20. **Pirates in trait modules:** refuse every pirate at definition, as the prototype does (`OwnershipError`, `design/mechanisms.md` §8), or only winning pirates under strict mode, as the design says (`design.md` §3.2, §5 rule 2)? The disagreement is listed in "Found in the writeup cleanup", item 1. Found by the writeup review of 2026-10-19 (finding 28).
+
 ## 2. Design
 
 **Keys and fields**
@@ -88,7 +92,7 @@ New at the end of session 29 (the compiler as built; `decisions.md` "Session 29,
     - what replaces the `isa` branches plain Julia emits over a known set of methods, once the call goes through `Dynamic` with witness tables.
 
 **New in session 29**
-27. **The B1 boundary: facts code that calls compiler functions directly** (the performance review of 2026-10-19, B1). TraitWorld's machinery calls `argextype`, `widenconst` and `sptypes_from_meth_instance`. Such calls hold edges to plain compiler code, whose validity is plain Julia's. Documented, not fixed (`design.md` §6). The reason: a rule that ran such calls in the compiler's world would break packages that extend the compiler for their own interpreter types. The loss is cacheability, not correctness: the nine-package load loses no facts code of TraitWorld.
+27. **The B1 boundary: facts code that calls compiler functions directly** (the performance review of 2026-10-19, B1). TraitWorld's machinery calls `argextype`, `widenconst` and `sptypes_from_meth_instance`. Such calls hold edges to plain compiler code, whose validity is plain Julia's. Documented, not fixed (`design.md` §6). The reason: a rule that ran such calls in the compiler's world would break packages that extend the compiler for their own interpreter types. The loss is cacheability, not correctness: the control's nine-package load lost no facts code in the modules it counted (TraitMakie 0; TraitWorld's own code was not counted separately).
 28. **AOT from declared targets** (`design.md` §4.8, §9.3 step 4). A conformance should compile the declared workers for its key at precompile time. This would replace hand-written workload extensions such as the forks' `CSVDataFramesInlineStringsExt` (CSV + DataFrames + InlineStrings, forks 9d512a1), which the performance review calls a workaround. Not built.
 
 

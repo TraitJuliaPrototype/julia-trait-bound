@@ -34,6 +34,8 @@ Read, in this order:
    - its "Next" section is from the start of session 29 and is done;
    - read instead the last bullets of "Autonomous run": the user's decisions on the performance review (2026-10-19: the inliner fixes for all code; next, diagnose and fix the remaining load costs, the compiler-edge hole B1 and a machinery workload; a lean held view) and the approval of the cleanup plan.
 
+**"Session 30" is session 29.** The demonstrators' READMEs and commit messages (and `intro/porting.md` until the writeup review of 2026-10-19) call session 29's autonomous run "session 30"; there is no note 30.
+
 **Standing constraints** (root [`README.md`](../../README.md) "Conventions", [`00-environment-and-workflow.md`](../../session-notes/00-environment-and-workflow.md) "Basic workflow"):
 - The machine is shared with other simulations (30 GB, 16 cores). **One Julia job at a time,** never parallel chains. A parallel chain crashed the machine on 2026-10-15 (session note 20).
 - Run Julia niced and serialized through the shared lock: `flock /tmp/claude-1000/julia-review.lock nice -n 19 …`, with `JULIA_NUM_PRECOMPILE_TASKS=4`. (The lock is used by the reviews of 2026-10-18; the workflow note itself says `nice -n 10` and does not name the lock.)
@@ -87,7 +89,7 @@ All by Fable 5.1 unless noted. "Acted on" says what the session notes record.
 | [`2026-10-18-implementation-shape.md`](../reviews/2026-10-18-implementation-shape.md) | 2026-10-18 | history (its migration is done) | TraitWorld and the patch after the pivot. The foreign cache owner is the largest path dependency; the protection is trait-independent (the control is missing); `Dynamic` belongs in the compiler; the forks validate a barrier | its migration order became the order of work: (A), (B)+(C), (D), TraitWorld's policy deleted (8,718 → 7,321 lines), the control; forks re-ported on `cell`/`nrows` and `CSVColumn{T}` |
 | [`2026-10-18-examples-and-demonstrators.md`](../reviews/2026-10-18-examples-and-demonstrators.md) | 2026-10-18 | current for its gaps list; partly done | every example and demonstrator under the user's criterion (work after an import should be instant). No strict refusal in a demonstrator, no certificate, no teaching warning; the framing's evidence only in `/tmp`; ranked new examples | `experiments/examples/` and `experiments/facts/framing/` written; the fully-typed certificate built (TraitWorld 1098fab) |
 | [`2026-10-18-decisions-revisited.md`](../reviews/2026-10-18-decisions-revisited.md) | 2026-10-18 | history (applied in design.md) | every register row for conceptual simplicity: of 87 rows, 51 keep, 5 simplify, 2 change, 16 retire, 9 merge; ten ranked changes; a simplified core | changes 1 and 3–10 adopted, 2 rejected (`Callable` keeps both modes); `design.md` written; retired rows marked history |
-| [`2026-10-19-compiler-implementation.md`](../reviews/2026-10-19-compiler-implementation.md) | 2026-10-19 | history (findings fixed or stated) | the compiler as built (julia db82407fa6..f6838f96fc). Architecture sound, images work; (D) compiled wrong code for a known receiver type (critical); the assertion exemption broke G1; `--trim` left facts flags; (C) covers codegen's call sites only; the split boxes | (1) fixed, G1.18; (2) replaced by "no asserted effect applies to a frame with a run-time site", G1.19; (3) fixed; (4) to state in design.md; (5) the typed split (bc26aa9255); (6) stated as a trade. julia 67f5c0bcc8, acceptance 19/19 |
+| [`2026-10-19-compiler-implementation.md`](../reviews/2026-10-19-compiler-implementation.md) | 2026-10-19 | history (findings fixed or stated) | the compiler as built (julia db82407fa6..f6838f96fc). Architecture sound, images work; (D) compiled wrong code for a known receiver type (critical); the assertion exemption broke G1; `--trim` left facts flags; (C) covers codegen's call sites only; the split boxes | (1) fixed, G1.18; (2) replaced by "no asserted effect applies to a frame with a run-time site", G1.19; (3) fixed; (4) stated in design.md §5 rule 1 and §6 (C), and in `design/julia-changes.md` (writeup review of 2026-10-19, finding 5); (5) the typed split (bc26aa9255); (6) stated as a trade. julia 67f5c0bcc8, acceptance 19/19 |
 | [`2026-10-19-performance-phase.md`](../reviews/2026-10-19-performance-phase.md) | 2026-10-19 | current (its next steps are the next work) | the performance phase. Theme 2 wrong (the inliner habits cost stock Julia 56×); the control's arithmetic wrong (~990 ms after loads under `all`, undiagnosed); a clean-case regression omitted; B1: machinery calling the compiler holds plain edges; the three-way extension is a workaround | the notes rewritten (now `design/performance.md`); the user: inliner fixes for all code (61852d8fb1), diagnose then fix, a lean held view (TraitWorld 375a930); B1 documented in design.md §6 |
 
 Earlier reviews, elsewhere:
@@ -152,6 +154,10 @@ Earlier reviews, elsewhere:
 | [`../other-languages.md`](../other-languages.md) | 2026-10-16 | current as research; describes our design as of session 22 (layering, projections) | how C++, Rust, Swift and Mojo arrived at their trait designs, with sources; twelve predictions for our design. The research behind `design/comparison.md` |
 | [`../porting-to-traits.md`](../porting-to-traits.md), moving to [`../intro/porting.md`](../intro/porting.md) | 2026-10-19 | in progress; superseded by `intro/porting.md` once moved | the porting guideline: part A, rules every port confirms; part B, what each port teaches; proposals for part A |
 | [`../design/performance.md`](../design/performance.md) | 2026-10-19 | current | was `notes/5-performance.md`: results of the performance phase, the themes (corrected by the review), the control, remaining costs, upstream candidates |
+| [`../design/evidence.md`](../design/evidence.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the measurements behind the design, with builds, baselines and run counts; what is not shown |
+| [`../design/julia-changes.md`](../design/julia-changes.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | every change to Julia, as built: parts (A)–(D), the performance-phase changes, the pieces, with commits and upstream status |
+| [`../design/mechanisms.md`](../design/mechanisms.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the mechanisms in detail: declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT; where the prototype differs |
+| [`../design/comparison.md`](../design/comparison.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the design's choices against C++, Rust, Swift and Mojo; the twelve predictions of `other-languages.md` checked |
 
 ## The old notes (`attic/writeup/notes-2026-10-18/`)
 
@@ -229,19 +235,19 @@ The table in [`../../experiments/README.md`](../../experiments/README.md) lists 
 
 Each is its own repository, ignored by the design repository. The root [`README.md`](../../README.md) has a table; it is partly stale (TraitWorld no longer supports stock Julia; the invalidation filter is removed; patch pieces 2 and 4 are reverted). Latest commits as of 2026-10-19:
 
-| Directory | What | Branch | Latest commit |
+| Directory | What | Branch | Latest commit (as of 2026-10-19; `git -C <dir> log -1` for the current one) |
 |---|---|---|---|
-| `.` | the design repository: `writeup/`, `session-notes/`, `attic/` | `poc-error-split` | 0cd8694 Writeup cleanup begins: notes/5-performance.md becomes design/performance.md |
-| `julia-1.13/` | worktree of `julia/`: v1.13.2 with parts (A)–(D) and the remaining pieces | `trait-world-1.13` | 61852d8fb1 Compiler: the two inliner fixes apply to all code |
+| `.` | the design repository: `writeup/`, `session-notes/`, `attic/` | `poc-error-split` | 82b8aeb Session note: the writeup cleanup |
+| `julia-1.13/` | worktree of `julia/`: v1.13.2 with parts (A)–(D) and the remaining pieces | `trait-world-1.13` | a89a91629a tw-build.sh: the workspace's niced build under a memory watchdog |
 | `julia/` | the clone; the 1.12 filter (history) | `trait-universe` | 0bf9125577 trait-world load filter: image validation keeps trait-world code … |
 | `TraitWorld/` | the prototype package; requires the patched build | `main` | 375a930 A held view for immutable values that are their own implementing value |
-| `TraitDifferentialEquations/` | demonstrator 1, ODE solvers | `main` | c571ff8 routea tests: comments |
-| `TraitMakie/` | demonstrator 2, plotting | `direct-cairo` | 63103d8 README: how the session-30 runs ran (TraitWorld's own policy) … |
-| `TraitReport/` | demonstrator 3, a data report against pandas | `main` | 6eb107c README: how the session-30 runs ran (TraitWorld's own policy) … |
+| `TraitDifferentialEquations/` | demonstrator 1, ODE solvers | `main` | 65ca602 README: session 29's status and measurements on the facts compiler … |
+| `TraitMakie/` | demonstrator 2, plotting | `direct-cairo` | 52f8591 README: session 29's status and measurements on the facts compiler … |
+| `TraitReport/` | demonstrator 3, a data report against pandas | `main` | 9749baa README: session 29's status and measurements on the facts compiler … |
 | `TraitTables/` | demonstrator 3's table library | `main` | 549d384 cellstring returns a String … |
 | `TraitCSV/` | demonstrator 3's CSV reader | `main` | 6450ae7 Test: a table with a String15 column prints … |
-| `forks/` | demonstrator 4: forks of Tables, DataFrames, CSV (paused) | `main` | 9d512a1 CSV: an extension over DataFrames and InlineStrings carries the String15 workload |
-| `experiments/` | the smaller prototypes and measurements | `main` | a0432d2 control: the facts depot path includes ~/.julia … |
+| `forks/` | demonstrator 4: forks of Tables, DataFrames, CSV (paused) | `main` | 254ace8 README: session 29's status and measurements on the facts compiler … |
+| `experiments/` | the smaller prototypes and measurements | `main` | e23ced3 README: the directories added since session 23, the design's current location |
 | `TraitWorld-hooks/`, `TraitWorld-dynkeep/`, `TraitWorld-untyped/` | untracked old branches of TraitWorld (2026-10-16); they call removed Julia symbols and will not load. Superseded, not ported | various | c62efbf, 52cbca3, 5efbb4c |
 
 ### The Julia patch in sessions 28–29
