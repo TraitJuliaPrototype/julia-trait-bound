@@ -23,11 +23,11 @@ This list continues `2026-10-19-principled-speed-plan.md`. It was revised after 
 ## Correctness first
 
 1. **The TraitMakie image flake:** "identical" broken once in five runs (a 3.3e-5 pixel difference). Reproduce, or rule out.
-2. **A `const DynamicFn` in a package image: a real crash risk (checked by reading).** The image writer resets `Ptr` fields to null only in mutable structs (`staticdata.c`), and `Erased` is immutable: its pointer is saved as the old session's address, and compiled code may fold it in as a literal.
+2. **Done (2026-10-19): a `const DynamicFn` in a package image crashed in the next session** (verified by a check, `experiments/examples/imageptr/`; fixed by a mutable pointer cell). The image writer resets `Ptr` fields to null only in mutable structs (`staticdata.c`), and `Erased` is immutable: its pointer is saved as the old session's address, and compiled code may fold it in as a literal.
    - No demonstrator stores one (they make `DynamicFn`s at run time); a package that writes `const D = dynamic_fn(…)` would crash when `D` is called in the next session.
    - Fix: `Erased` holds the pointer in a small mutable cell, which the writer resets; a call that finds null makes the pointer again, once per session. One load and one compare per call.
    - Check: a package with such a constant, loaded from its image in a fresh session.
-3. **Acceptance checks for the (c) path and its world ranges** (`_umiss`, `_pmiss`):
+3. **Done in part (2026-10-19): checks for the (c) path and its world ranges** (`TraitWorld/test/untyped.jl`):
    - an implementation redefined;
    - a family member;
    - a generic implementation;

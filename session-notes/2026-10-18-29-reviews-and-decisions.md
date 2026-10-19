@@ -287,3 +287,13 @@ Log:
 - **A dispatch profiler (`JULIA_FACTS_DISPATCH_PROFILE=1`, julia `gf.c`):** dynamic calls per callee method and per lookup path.
   - First finding (CSV + DataFrames under `all`): the hottest dynamic calls are in the compiler itself, inference's IR walking and package-image validation (`ReinferUtils.verify_call`, 144,566 calls, all through the method-cache search).
   - Also `setindex!(::Array{Any}, @nospecialize x, ::Int)` with 123,527 calls through the search: a site that sees many value types evicts stage 1's exact entries. The polymorphic case, now measurable.
+- **Correctness first (the user: "Do all three, correctness first, then the experiment with 3. then number 1."):**
+  - **A `DynamicFn` kept in a package image crashed in the next session (verified).** The image writer resets `Ptr` fields only in mutable structs, and `Erased` was immutable. Now the pointer is in a mutable cell (`_PtrCell`), reset in images and made again on the first call of a session.
+    - Check `experiments/examples/imageptr/` (package `ErasedP`, `const D = dynamic_fn(…)`): with the old TraitWorld a segfault, with the fix it passes.
+    - DynamicCall 3.89 ns (4.06 before): no cost.
+  - **Checks for the untyped calls' table** (`TraitWorld/test/untyped.jl`):
+    - an operation redefined (the older world sees the old method);
+    - a type declared after the site was used (the older world gives plain Julia's `MethodError`);
+    - a family member and a generic implementation called untyped.
+
+    All pass. All suites green.
