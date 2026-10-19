@@ -242,3 +242,12 @@ Log:
   - Stage 1 (`gf.c`, `call_cache_exact`) gives such a site an entry for the exact argument types, valid up to the latest world at insertion: 69 → 14 ns.
   - The quick subset under `all`: geomean 0.93 against the morning, `collection` 0.60. Plain is unchanged.
   - Acceptance 22 of 22 (the new G1.22); all suites green.
+- **The Fable review of the call-site cache plan and the list** (`writeup/reviews/2026-10-19-inline-caches-review.md`):
+  - The diagnosis was unsupported: the tails are monomorphic or bimorphic sites.
+  - It reports a verified per-call slow path in the facts owner's invoke path (`jl_compile_method_internal_owner`: no memo on the narrow instance), possibly hidden by stage 1.
+  - The unification is about two-thirds real: untyped trait calls need a custom-dispatch hook.
+  - Capped world ranges cost one miss per world change, unlike Julia's open `max_world`.
+  - Precedents corrected: HotSpot has no polymorphic state; V8's megamorphic path is Julia's `call_cache`; PEP 659 is the closest precedent.
+  - Order: correctness and the measurement round first.
+- **The direct check (the user asked for it):** with stage 1 off, `push!(d, pop!(d))` under `all` takes 61.7 ns, and the profile is all lookup (`lookup_arg_type_tuple`, `jl_typemap_assoc_exact`), with no normalization. With stage 1 on, 12.9 ns. The tails were the lookup; the review's path is real but latent.
+- Plan and list revised accordingly (correctness first; the measurement round; step 5; the ~990 ms; the remaining call-site work behind them).
