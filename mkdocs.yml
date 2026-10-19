@@ -53,20 +53,24 @@ nav:
       - Glossary: writeup/glossary.md
   - For core developers:
       - The design: writeup/design.md
-      - Glossary: writeup/glossary.md
-      - Mechanisms: writeup/design/mechanisms.md
-      - Changes to Julia: writeup/design/julia-changes.md
-      - Evidence: writeup/design/evidence.md
-      - Performance: writeup/design/performance.md
-      - Comparison with other languages: writeup/design/comparison.md
-      - Other languages, the research: writeup/other-languages.md
-      - Porting to traits: writeup/intro/porting.md
+      - The implementation in detail:
+          - Terms, rules and decisions: writeup/design/implementation.md
+          - Mechanisms: writeup/design/mechanisms.md
+          - Changes to Julia: writeup/design/julia-changes.md
+          - Evidence: writeup/design/evidence.md
+          - Performance: writeup/design/performance.md
+          - Comparison with other languages: writeup/design/comparison.md
+          - Other languages, the research: writeup/other-languages.md
+          - Porting to traits: writeup/intro/porting.md
+      - Alternatives considered: writeup/design/alternatives.md
       - Decisions: writeup/decisions.md
       - Open issues: writeup/open-issues.md
+      - Glossary: writeup/glossary.md
   - The record:
       - Index: writeup/record/INDEX.md
       - Writeup overview: writeup/README.md
       - Proofs, wrapping by facts: writeup/explorations/wrapping-by-facts.md
       - Strict mode: writeup/explorations/strict-mode.md
       - Findings log: writeup/design-findings.md
+      - Design history: writeup/record/design-history.md
       - Environment and workflow: session-notes/00-environment-and-workflow.md

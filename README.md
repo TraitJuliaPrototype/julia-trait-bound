@@ -22,7 +22,7 @@ Julia is fast once code is compiled, but compiled code is fragile: loading a pac
 | You are | Read |
 |---|---|
 | a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then [`writeup/intro/results.md`](writeup/intro/results.md) |
-| a core developer | [`writeup/design.md`](writeup/design.md), the source of truth; its companions in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages; [`writeup/intro/porting.md`](writeup/intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers |
+| a core developer | [`writeup/design.md`](writeup/design.md), the design in prose, and [`writeup/design/implementation.md`](writeup/design/implementation.md), the implementation in detail: together the source of truth; the details' chapters in [`writeup/design/`](writeup/design/): the mechanisms, the changes to Julia, the evidence, the performance work, the comparison with other languages; [`writeup/design/alternatives.md`](writeup/design/alternatives.md): the alternatives considered; [`writeup/intro/porting.md`](writeup/intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers |
 | an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/design.md`, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace

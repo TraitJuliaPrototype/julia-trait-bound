@@ -1,5 +1,7 @@
 # Our design among C++, Rust, Swift and Mojo
 
+> **Research of its date.** This page records what the research found on 2026-10-16. Its findings about C++, Rust, Swift and Mojo stand. Its statements about our design (the "Ours" column, "What is new in our design", the "What to do" column) describe the design of that date: representations and projections, layering, wrappers, rule 4. The current comparison is [`design/comparison.md`](design/comparison.md), which checks every prediction against the design of today; what changed, and why, is in [`design/alternatives.md`](design/alternatives.md). The page says "conformance" where the current documents say "implementation".
+
 Research of 2026-10-16 (session 22). Four research agents read primary sources:
 - **C++:** Stroustrup's HOPL papers, WG21 papers, the 2009 decision to remove concepts.
 - **Rust:** RFCs, Matsakis' and matklad's posts, rustc pull requests.

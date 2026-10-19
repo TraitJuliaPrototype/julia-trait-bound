@@ -1,6 +1,6 @@
 # The changes to Julia, as built
 
-What the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2) adds, as of 2026-10-19 (session 29). For core developers. [`../design.md`](../design.md) §6 states what the design needs from Julia; this document is the inventory of what is built, with commits and upstream status. Where they disagree, `design.md` wins. The history of the pieces (numbered 1–17 since session 23) is in [`../explorations/julia-support.md`](../explorations/julia-support.md), which predates parts (A)–(D).
+A chapter of [The implementation in detail](implementation.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2) adds, as of 2026-10-19. For core developers. [`implementation.md` §6](implementation.md#6-what-julia-provides) states what the design needs from Julia; this chapter is the inventory of what is built, with commits and upstream status. Where they disagree, `implementation.md` wins. The pieces are numbered 1–17 as in [`../explorations/julia-support.md`](../explorations/julia-support.md), which predates parts (A)–(D); pieces no longer part of the design are in [`alternatives.md`](alternatives.md#the-invalidation-filter-and-other-julia-pieces-reverted-or-moot).
 
 Size: 31 commits on v1.13.2 (one a build script), 35 files, about 1,280 lines added. The largest file is `Compiler/src/facts.jl` (446 lines), which holds the facts mode's rules.
 
@@ -15,18 +15,18 @@ Size: 31 commits on v1.13.2 (one a build script), 35 files, about 1,280 lines ad
 
 **The switch.** `JULIA_COMPILE_BY_FACTS=1`, or a system image built with it (`experiments/factscompiler/scripts/build_facts_sysimage.sh`), compiles all code by facts under owner `nothing`: the test bed. Without it, only facts methods are compiled by facts: the product setting. `--trim` turns the facts mode off: a trimmed image writes no facts flags (`jl_method_is_facts` is false under trim).
 
-## 2. Changes found in the performance phase (session 29)
+## 2. The inliner, and how the compiler's own code is compiled
 
 | Change | Why | Applies to | Commit |
 |---|---|---|---|
-| An invoke keeps the exact specialization inference made at concrete argument types when the compileable signature only widens a varargs tail (`only_vararg_widened`) | The widened specialization (`…, Vararg{Any}`) is inferred again at `Any` and boxes every argument: 72 MB per raytrace; a plain recursion through a varargs wrapper 21.9 ms on stock 1.13.2, 0.36 ms after. Julia's other widenings (types and functions passed to arguments that do not specialize on them) stay. A first, broader form crashed the system image build or overrode the widening of kinds. | all code | da4726c5cc, 61852d8fb1 |
-| An inference cycle's members are optimized callees first, each offered to the inliner of the members after it (`InliningState.cycle_results`) | Julia never inlined one member of a cycle into another, so a recursion through wrappers made one call per wrapper per turn (rtopen 542 → 384 ms) | all code | 4102b7a7a7, 61852d8fb1 |
-| The Compiler module is *never by facts* (module flag 2, inherited by submodules); `leaves_to(interp, method)` leaves a facts method to facts inference and a compiler method to plain inference; facts dispatch runs plain code for compiler methods (`jl_method_is_plain`) | A facts caller of `Compiler.typeinf_frame` compiled the abstract interpreter by facts: TraitWorld's checks ran 6× slower. Boundary: direct calls into compiler functions from facts code hold plain edges (`../design.md` §6) | facts code | c4f7e76a2f |
-| Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`; `leaves_to` leaves to facts only from the plain owner | With an explicit interpreter the compiler ran at the latest world, on code later definitions invalidate: 3.7 s per forwarding implementation after big loads | all code | bb82a82bbf |
-| `return_type_tfunc`'s facts signature is boxed | Our facts addition captured type values in the tfunc's closure, so the closure was compiled again for every query (about 70 ms each) | all code (a fix of our own bug) | e4db37bb48 |
-| `_return_type(::NativeInterpreter, ::DataType)` compiled into the image (a compiler bootstrap entry) | The run-time `return_type` entry had no code in the system image: 75–93 ms at its first call in every session, stock 1.13.2 too | all code | 40512f64c2 |
+| An invoke keeps the exact specialization inference made at concrete argument types when the compileable signature only widens a varargs tail (`only_vararg_widened`) | Without it, the widened specialization (`…, Vararg{Any}`) is inferred again at `Any` and boxes every argument: 72 MB per raytrace; a plain recursion through a varargs wrapper takes 21.9 ms on stock 1.13.2 and 0.36 ms with the change. Julia's other widenings (types and functions passed to arguments that do not specialize on them) stay. Broader forms are not safe ([`alternatives.md`](alternatives.md#the-inliner-changes-a-facts-only-form-then-a-narrower-general-form)). | all code | da4726c5cc, 61852d8fb1 |
+| An inference cycle's members are optimized callees first, each offered to the inliner of the members after it (`InliningState.cycle_results`) | Julia does not otherwise inline one member of a cycle into another, so a recursion through wrappers makes one call per wrapper per turn (rtopen 542 ms without the change, 384 ms with it) | all code | 4102b7a7a7, 61852d8fb1 |
+| The Compiler module is *never by facts* (module flag 2, inherited by submodules); `leaves_to(interp, method)` leaves a facts method to facts inference and a compiler method to plain inference; facts dispatch runs plain code for compiler methods (`jl_method_is_plain`) | Otherwise a facts caller of `Compiler.typeinf_frame` compiles the abstract interpreter by facts, and TraitWorld's checks run 6× slower. Boundary: direct calls into compiler functions from facts code hold plain edges (`implementation.md` §6) | facts code | c4f7e76a2f |
+| Base reflection runs the native compiler in the compiler's world also for an explicit `NativeInterpreter`; `leaves_to` leaves to facts only from the plain owner | Otherwise, with an explicit interpreter, the compiler runs at the latest world, on code later definitions invalidate: 3.7 s per forwarding implementation after big loads | all code | bb82a82bbf |
+| `return_type_tfunc`'s facts signature is boxed | The facts addition captured type values in the tfunc's closure, so the closure was compiled again for every query (about 70 ms each) | all code (a fix of our own bug) | e4db37bb48 |
+| `_return_type(::NativeInterpreter, ::DataType)` compiled into the image (a compiler bootstrap entry) | Without it the run-time `return_type` entry has no code in the system image: 75–93 ms at its first call in every session, stock 1.13.2 too | all code | 40512f64c2 |
 
-## 3. The pieces kept from before the compiler work
+## 3. The supporting pieces
 
 Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.md).
 
@@ -39,7 +39,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 | 10 | The inliner inlines exactly the foreign CodeInstance named by `:invoke` | (B) | f72f7368f0 |
 | 17 | A registry of type printers, `Base.Experimental.register_type_printer` | printing by bound and key (`ColTable at Vector{Vector{Float64}}`) | db82407fa6 |
 
-**Removed** (c4f7e76a2f): pieces 2 (the invalidation policy hook and the old trait-world filter, both halves) and 4 (the post-inference hook). The facts compiler superseded them. `Compiler/src/reinfer.jl` is upstream's again. Their commits remain in the branch's history (4d8eeebc19 to 87dcf22015).
+**Not in the build:** pieces 2 and 4, reverted in c4f7e76a2f (`Compiler/src/reinfer.jl` is upstream's; [`alternatives.md`](alternatives.md#the-invalidation-filter-and-other-julia-pieces-reverted-or-moot)).
 
 **Wanted for strict mode's intended design, not built:** 1′ (a deletion hook), 14 (a read-only "what would this definition invalidate" query), 15 (image validation reports the winning method). See `../explorations/strict-mode.md`.
 
@@ -51,7 +51,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
   - pieces 10, 9 and 17.
 - **After broader measurement in plain Julia:** the two inliner changes of §2 (exact specializations over a widened varargs tail; cycle members inlining each other). The system image grows 0.4% with both.
 - **Proposals:**
-  - (A) as "a facts mode for the native compiler", with the benchmark table (`../design.md` §3.3);
+  - (A) as "a facts mode for the native compiler", with the benchmark table (`implementation.md` §3.3);
   - pieces 1, 1′, 14, 15 with strict mode;
   - (B) and (C) as per-method inference modes;
   - traits in the type system (piece 7) last.
@@ -59,9 +59,9 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 5. Tests
 
-- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 19 checks (G1 identical-or-error, G2 stable caches, the cases found by the reviews: G1.15–G1.19). 19/19 on the final build of session 29.
+- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 19 checks (G1 identical-or-error, G2 stable caches, the cases found by the reviews: G1.15–G1.19). 19/19 on the final build (61852d8fb1). G1.20 (`DynamicCall` in an older world), added since, fails (`implementation.md` §4.6).
 - **TraitWorld's suite** (47 test sets) and the demonstrators' suites, on every build.
-- **Missing** (review of 2026-10-19): targeted checks for the inliner changes (a varargs wrapper in a recursion; cycle inlining) and for the compiler-plain edges; Base's test suite under the facts mode (started once in session 29, not completed).
+- **Missing** (review of 2026-10-19): targeted checks for the inliner changes (a varargs wrapper in a recursion; cycle inlining) and for the compiler-plain edges; Base's test suite under the facts mode (started once, not completed).
 
 ## 6. Building
 

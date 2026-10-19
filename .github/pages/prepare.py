@@ -54,6 +54,7 @@ def fix(m, src):
 SEARCHED = {"writeup/intro/traits-for-julia.md", "writeup/intro/results.md", "writeup/intro/porting.md",
             "writeup/design.md", "writeup/design/mechanisms.md", "writeup/design/julia-changes.md",
             "writeup/design/evidence.md", "writeup/design/performance.md", "writeup/design/comparison.md",
+            "writeup/design/implementation.md", "writeup/design/alternatives.md",
             "writeup/other-languages.md", "writeup/decisions.md", "writeup/open-issues.md",
             "writeup/glossary.md"}
 NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"

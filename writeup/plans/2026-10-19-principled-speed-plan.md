@@ -20,7 +20,14 @@ The facts mode removes Julia's speculation at calls whose argument types are not
   - **The fallback of the split itself.**
 - **Measure:** against the split (about 1 ns), the generic fallback, and plain Julia's best and worst cases (the sum and the raytrace benchmarks with 2, 4, 8 and 16 types).
 
-## 2. Guarded devirtualization at the facts mode's run-time sites
+## 2. Guarded devirtualization at the facts mode's run-time sites (postponed)
+
+**Postponed (the user, 2026-10-19).** Code bounded by traits has its calls at facts and never reaches these sites; the step serves untyped plain code under `all`, which is the case "slower is fine if traits can easily recover it" covers. It is also the largest risk. A failed guard is a cliff: that site turns dynamic for good, silently, until its caller is compiled again. If the step returns, it comes with:
+- a report of failed guards, which says the site, the method that broke the guard, and its package (as HotSpot's `PrintCompilation` "made not entrant" and V8's `--trace-deopt` do), through the warnings machinery;
+- possibly compiling the caller again after a failure (as the Java virtual machines do after deoptimization), which turns the permanent cost into one compilation.
+
+The step 0 benchmarks under `all` stay: they record what the facts mode costs untyped code.
+
 
 - **The problem it solves.** The facts mode's cost on code that is not type-stable: at an abstract call, plain Julia infers through the methods that exist today and records an edge; the facts mode does neither, so the result is `Any`.
 - **The mechanism.** At such a site, the compiler still compiles the methods plain inference would choose, but guarded, not assumed: a type check against the argument and a validity check against the method table.
@@ -73,7 +80,8 @@ The facts mode removes Julia's speculation at calls whose argument types are not
 
 ## Why this order
 
-- Step 1 fixes a correctness defect (G1.20), and its mechanism is reused by steps 2 and 3.
-- Step 2 is the largest gain and the largest risk; it builds on step 1's world check.
-- Steps 4 and 5 remove first-call costs, independent of steps 1–3. They can run in parallel with step 2, if the machine allows (one Julia job at a time).
+- Step 1 fixes a correctness defect (G1.20), and its mechanism is reused by step 3.
+- Step 2 is postponed (above): traits recover the costs it targets.
+- Steps 4 and 5 remove first-call costs, independent of steps 1 and 3.
+- The order in force: 0, 1, 3, 4, 5.
 - Step 0 comes first because it sets the targets, and because "diagnose, then fix" is the user's standing order.

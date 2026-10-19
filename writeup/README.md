@@ -10,16 +10,18 @@ The design, written for three audiences. Nothing has been deleted: superseded do
 
 ## For core developers: [`design.md`](design.md) and [`design/`](design/)
 
-- **[`design.md`](design.md) is the source of truth:** the terms, the problem, the argument in four steps, traits, the three rules, what Julia provides, the decisions in force, the evidence in short, the software and the next steps. Where another document disagrees with it, it wins.
+- **[`design.md`](design.md), the design:** the problem, the argument, traits, the rules, what Julia provides, what the evidence shows, what is not claimed, in prose. With [`design/implementation.md`](design/implementation.md) it is the source of truth: where another document disagrees with them, they win.
+- **[`design/implementation.md`](design/implementation.md), the implementation in detail:** the terms, the problem in cases, the argument with its exceptions, the trait language, the three rules precisely, what Julia provides, the decisions in force, the evidence in short, the software and the next steps. Its chapters:
+  - [`design/mechanisms.md`](design/mechanisms.md): the mechanisms in detail (declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT);
+  - [`design/julia-changes.md`](design/julia-changes.md): every change to Julia, as built, with commits and upstream status;
+  - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown;
+  - [`design/performance.md`](design/performance.md): where the costs come from, which owner each piece of code needs, the costs that remain;
+  - [`design/comparison.md`](design/comparison.md): the choices against C++, Rust, Swift and Mojo; [`other-languages.md`](other-languages.md) is the research behind it;
+  - [`intro/porting.md`](intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers.
+- [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, by topic, with the reasons.
+- [`decisions.md`](decisions.md): the decisions in force, by topic, with their origins; the superseded rows at the end.
+- [`open-issues.md`](open-issues.md): what is open; decisions waiting for the user first (§1); closed items at the end.
 - [`glossary.md`](glossary.md): every term with its origin and precedents, and a link to its precise definition.
-- [`design/mechanisms.md`](design/mechanisms.md): the mechanisms in detail (declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT).
-- [`design/julia-changes.md`](design/julia-changes.md): every change to Julia, as built, with commits and upstream status.
-- [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
-- [`design/performance.md`](design/performance.md): the performance phase of session 29: results, themes, lessons, as corrected by its review.
-- [`design/comparison.md`](design/comparison.md): the choices against C++, Rust, Swift and Mojo; [`other-languages.md`](other-languages.md) is the research behind it.
-- [`intro/porting.md`](intro/porting.md): a working guideline for porters, in the design's vocabulary; part A will be rewritten for programmers.
-- [`decisions.md`](decisions.md): the register of decisions, with history.
-- [`open-issues.md`](open-issues.md): what is open; decisions waiting for the user first (§1).
 
 ## For agents: [`record/INDEX.md`](record/INDEX.md)
 
@@ -27,6 +29,6 @@ Every review, exploration, plan, findings section and session note, with its dat
 
 ## Conventions
 
-- **Terms** as in `design.md` §1 (trait, implementation, receiver type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
+- **Terms** as in `design/implementation.md` §1 (trait, implementation, receiver type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
 - **Writing:** short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon; documents for programmers avoid the core developers' terms.
 - The machine is shared: one Julia job at a time, at `nice -n 19`; full builds alone, under a memory guard.

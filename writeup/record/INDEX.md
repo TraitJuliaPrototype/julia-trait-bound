@@ -11,13 +11,14 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
   - `results.md`: what the demonstrators show, in plain words;
   - `porting.md`: how to port a package (was `writeup/porting-to-traits.md`).
 - **Core developers** (the precise rules and the major implementation choices):
-  - [`../design.md`](../design.md): **the source of truth**;
-  - [`../design/`](../design/), its companions:
+  - [`../design.md`](../design.md): **the source of truth**, the design in prose; with [`../design/implementation.md`](../design/implementation.md), "The implementation in detail" (terms, problem, argument, traits, rules, Julia, decisions in force, evidence, software; the section numbers 1–9 that older documents cite as `design.md` §N);
+  - [`../design/`](../design/), the chapters of the details:
     - `julia-changes.md`: every change to Julia as built (parts A–D, optimizer changes, pieces kept and reverted);
     - `evidence.md`: the current measurements, one table per demonstrator and experiment;
     - `performance.md`: the performance phase of session 29, its themes and learnings;
     - `mechanisms.md`: the detail `design.md` compresses (keywords, varargs, functions that cross, several traits, parametric types, types that only convert);
-    - `comparison.md`: the choices against C++, Rust, Swift and Mojo, and their costs.
+    - `comparison.md`: the choices against C++, Rust, Swift and Mojo, and their costs;
+    - `alternatives.md`: designs tried, rejected or replaced, by topic, with the reasons.
 - **Agents:** this index, and the files it lists.
 
 **Rules for reading the record:**
@@ -28,7 +29,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 ## How to resume work
 
 Read, in this order:
-1. [`../design.md`](../design.md): the design, the decisions in force (§7), the evidence (§8), the software and the next steps (§9).
+1. [`../design.md`](../design.md), the design, then [`../design/implementation.md`](../design/implementation.md): the decisions in force (§7), the evidence (§8), the software and the next steps (§9).
 2. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 3. The latest session note, [`../../session-notes/2026-10-18-29-reviews-and-decisions.md`](../../session-notes/2026-10-18-29-reviews-and-decisions.md):
    - its "Next" section is from the start of session 29 and is done;
@@ -49,8 +50,8 @@ On 2026-10-19 the terms changed: the noun 'conformance' became 'implementation',
 ## Where to look for…
 
 - **A decision's history:** [`../decisions.md`](../decisions.md).
-  - Rows are grouped by session (the core, keys, parameters, code written without traits, runtime; then sessions 27, 28, 29 and three "Session 29" groups).
-  - Rows marked **history** were superseded, withdrawn or retired; the status column says by what.
+  - Rows in force are grouped by topic; the rows marked **history**, superseded, withdrawn or retired, are in its last section, with the status column saying by what.
+  - The reasons, by topic: [`../design/alternatives.md`](../design/alternatives.md); the order of events: [`design-history.md`](design-history.md).
   - The user's own words are quoted in the status column, and in full in the session note of that session.
 - **A measurement's numbers:**
   - current numbers: [`../design/evidence.md`](../design/evidence.md) and [`../design/performance.md`](../design/performance.md);
@@ -151,15 +152,18 @@ Earlier reviews, elsewhere:
 
 | Path | Date | Status | What it holds |
 |---|---|---|---|
-| [`../decisions.md`](../decisions.md) | 2026-10-19 | current as the register; the state in force is design.md §7 | every decision with status, where it is written, and whether the prototype runs it; history rows kept |
-| [`../open-issues.md`](../open-issues.md) | 2026-10-18 | current; items closed in session 29 not yet all marked (plan step 5) | everything open: §1 decisions for the user, §2 design, §3 TraitWorld, §4 runtime and measurements, §4b the session-23 review's triage, §5 documents |
+| [`../decisions.md`](../decisions.md) | 2026-10-19 | current as the register; the state in force in short is implementation.md §7 | every decision in force by topic, with status, origin, where it is written, and whether the prototype runs it; the superseded rows at the end |
+| [`../open-issues.md`](../open-issues.md) | 2026-10-19 | current | everything open: §1 decisions for the user, §2 design, §3 TraitWorld, §4 runtime and measurements, §4b the session-23 review's triage, §5 documents; closed items at the end, under their numbers |
+| [`../design/implementation.md`](../design/implementation.md) | 2026-10-19 | current, with `design.md` the source of truth | "The implementation in detail": the precise sections that were `design.md` §1–9, and the index of its chapters |
+| [`../design/alternatives.md`](../design/alternatives.md) | 2026-10-19 | current as history | designs tried, rejected or replaced, by topic: each with the reason and what replaced it |
+| [`design-history.md`](design-history.md) | 2026-10-19 | history | where the current documents came from, the order of work as done, the performance phase's before-and-after numbers, earlier numbers of the demonstrators |
 | [`../other-languages.md`](../other-languages.md) | 2026-10-16 | current as research; describes our design as of session 22 (layering, projections) | how C++, Rust, Swift and Mojo arrived at their trait designs, with sources; twelve predictions for our design. The research behind `design/comparison.md` |
 | [`../porting-to-traits.md`](../porting-to-traits.md), moving to [`../intro/porting.md`](../intro/porting.md) | 2026-10-19 | in progress; superseded by `intro/porting.md` once moved | the porting guideline: part A, rules every port confirms; part B, what each port teaches; proposals for part A |
-| [`../design/performance.md`](../design/performance.md) | 2026-10-19 | current | was `notes/5-performance.md`: results of the performance phase, the themes (corrected by the review), the control, remaining costs, upstream candidates |
-| [`../design/evidence.md`](../design/evidence.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the measurements behind the design, with builds, baselines and run counts; what is not shown |
-| [`../design/julia-changes.md`](../design/julia-changes.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | every change to Julia, as built: parts (A)–(D), the performance-phase changes, the pieces, with commits and upstream status |
-| [`../design/mechanisms.md`](../design/mechanisms.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the mechanisms in detail: declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT; where the prototype differs |
-| [`../design/comparison.md`](../design/comparison.md) | 2026-10-19 | current (2026-10-19); where it disagrees, design.md wins | the design's choices against C++, Rust, Swift and Mojo; the twelve predictions of `other-languages.md` checked |
+| [`../design/performance.md`](../design/performance.md) | 2026-10-19 | current | was `notes/5-performance.md`: where the costs come from, the themes (which owner code needs, the inliner, work an image could hold, what loads still cost), the control, remaining costs, upstream candidates; the phase's before-and-after numbers are in `design-history.md` |
+| [`../design/evidence.md`](../design/evidence.md) | 2026-10-19 | current (2026-10-19); a chapter of implementation.md, which wins where they disagree | the measurements behind the design, with builds, baselines and run counts; what is not shown |
+| [`../design/julia-changes.md`](../design/julia-changes.md) | 2026-10-19 | current (2026-10-19); a chapter of implementation.md, which wins where they disagree | every change to Julia, as built: parts (A)–(D), the performance-phase changes, the pieces, with commits and upstream status |
+| [`../design/mechanisms.md`](../design/mechanisms.md) | 2026-10-19 | current (2026-10-19); a chapter of implementation.md, which wins where they disagree | the mechanisms in detail: declaring and conforming, generic implementations, `Callable`, keywords, results like the input, `Dynamic`, caching, AOT; where the prototype differs |
+| [`../design/comparison.md`](../design/comparison.md) | 2026-10-19 | current (2026-10-19); a chapter of implementation.md, which wins where they disagree | the design's choices against C++, Rust, Swift and Mojo; the twelve predictions of `other-languages.md` checked |
 
 ## The old notes (`attic/writeup/notes-2026-10-18/`)
 

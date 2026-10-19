@@ -1,13 +1,13 @@
 # The mechanisms in detail
 
-The rules and mechanisms of the trait language, in more detail than [`../design.md`](../design.md) gives them, for core developers, as of 2026-10-19 (session 29).
-Where this document and `design.md` disagree, `design.md` wins.
+A chapter of [The implementation in detail](implementation.md): the rules and mechanisms of the trait language, in more detail than [`implementation.md`](implementation.md) gives them, for core developers, as of 2026-10-19.
+Where this chapter and `implementation.md` disagree, `implementation.md` wins.
 
-**Sources.** This document is taken from `notes/4-details.md` (moving to `attic/writeup/notes-2026-10-18/`), checked against `design.md` and the prototype (TraitWorld 375a930). Each section says what the prototype runs. "Design" means decided and not built. The register with history is [`../decisions.md`](../decisions.md).
+**What the prototype runs.** Checked against the prototype (TraitWorld 375a930). Each section says what the prototype runs. "Design" means decided and not built. The decisions, with their origins: [`../decisions.md`](../decisions.md); designs not chosen: [`alternatives.md`](alternatives.md).
 
-**Terms.** As defined in [`design.md` §1](../design.md#1-terms) (origins and precedents: [`glossary.md`](../glossary.md)): owner, stakeholder, pirate, fact, run-time site, trait, implementation, receiver type, key, trait object, entry and worker, trait module. Terms used only here are defined where they first appear.
+**Terms.** As defined in [`implementation.md` §1](implementation.md#1-terms) (origins and precedents: [`glossary.md`](../glossary.md)): owner, stakeholder, pirate, fact, run-time site, trait, implementation, receiver type, key, trait object, entry and worker, trait module. Terms used only here are defined where they first appear.
 
-**Syntax.** The examples use the syntax of the design, which TraitWorld accepts (`TraitWorld/test/keys_syntax.jl`). Some of the prototype's older tests still use an earlier spelling, with the receiver type as the trait's last parameter (`@trait ColTable{R}`, `ncols(r::R)`). That spelling is to be deleted (`design.md` §9.2).
+**Syntax.** The examples use the syntax of the design, which TraitWorld accepts (`TraitWorld/test/keys_syntax.jl`). Some of the prototype's tests, and its precompile workload, still use a second spelling, with the receiver type as the trait's last parameter (`@trait ColTable{R}`, `ncols(r::R)`). That spelling is to be deleted (`implementation.md` §9.2).
 
 ## Contents
 
@@ -59,8 +59,8 @@ end
 - An implementation may override it with its own method.
 - A default never throws "not implemented". A missing operation is an error at the implementation, not at a call.
 - **Defaults over fields are how record-like traits share code.** An implementation that keeps every default has no receiver type. Its key is then its declared fields' types alone. Every conforming type with fields of those types runs one worker, compiled in the library's image.
-- A type that overrides an operation becomes the receiver type. That code compiles once for it, in its own image ([`design.md` §4.2](../design.md#42-compiled-for-what-the-bound-can-see): not "once for any type").
-- **An override belongs to the implementation** ([`design.md` §4.4](../design.md#44-overrides-belong-to-the-implementation)). Which operations a default serves is fixed at the declaration. A later method that would change it is refused, naming the fix: define the method before `@implement`, or inside its block, and restart.
+- A type that overrides an operation becomes the receiver type. That code compiles once for it, in its own image ([`implementation.md` §4.2](implementation.md#42-compiled-for-what-the-bound-can-see): not "once for any type").
+- **An override belongs to the implementation** ([`implementation.md` §4.4](implementation.md#44-overrides-belong-to-the-implementation)). Which operations a default serves is fixed at the declaration. A later method that would change it is refused, naming the fix: define the method before `@implement`, or inside its block, and restart.
   - *Why refused, not followed.* The override would change the key, since a type that keeps every default shares a worker with every type of the same field types. Values already kept as `Dynamic` hold trait objects of the old key. Recompiling cannot repair either. This is why Julia long refused to redefine a struct.
   - *At load.* An image that brings such an override for an active implementation is refused too. So the order matters where plain Julia's does not: a supertype owner's method (`op(::AbstractSample)`, no pirate) is part of an implementation declared after it and refused for one declared before it.
   - *Interactively:* a restart until redeclaring an implementation is built.
@@ -123,7 +123,7 @@ end
 
 ### Concreteness
 
-- By default a key may be abstract, silently ([`design.md` §4.3](../design.md#43-concreteness-opt-in-per-trait)).
+- By default a key may be abstract, silently ([`implementation.md` §4.3](implementation.md#43-concreteness-opt-in-per-trait)).
 - A trait asks for more in its body. The design has **one declaration with three levels:** silent, warn, error. *Prototype spelling, today:*
   - `@warn_on_abstract` in a trait's body: an implementation with an abstract key warns;
   - `@concrete_only` in a trait's body: such an implementation is refused, and so is a family member at an abstract parameter, at the entry;
@@ -134,7 +134,7 @@ end
 
 ## 2. How a type conforms
 
-Every form is an explicit declaration for the type it names. Every form defines methods, so ownership ([`design.md` §5](../design.md#5-the-three-rules), rule 2) says who may write it: a stakeholder, the trait's owner or the type's owner.
+Every form is an explicit declaration for the type it names. Every form defines methods, so ownership ([`implementation.md` §5](implementation.md#5-the-three-rules), rule 2) says who may write it: a stakeholder, the trait's owner or the type's owner.
 
 ```julia
 # 1. Forwarding, inferred: the one field whose type implements the trait, else the field named `data`
@@ -176,7 +176,7 @@ end
 - **Concreteness,** for a trait that asks for it: the key is concrete, whether it is the type itself, the forwarding field's type, or a declared field's type. An abstract field is refused with its name.
 - **Precedence:** methods win over a field when a type has both, so writing operations is always deliberate. Several conforming fields need the field named `data`, or `by`.
 - **Forwarding does not chain.** A field whose type itself forwards is not a receiver type (prototype: refused, `runtests.jl` "the one-line conformance").
-- **No computed projections.** An implementation that computes a value from the type (`project(r) = …`) is refused with "computes a value" (`test/like.jl`). This is the removed representation design; see section 14 for its replacement.
+- **No computed projections.** An implementation that computes a value from the type (`project(r) = …`) is refused with "computes a value" (`test/like.jl`). A type whose data needs computing converts instead (section 14; why: [`alternatives.md`](alternatives.md#representations-and-projections-replaced-by-keys)).
 - **Redeclaration** in a session is refused, naming the reason (section 1, overrides).
 
 **The operations' methods and the implementation are separate.**
@@ -184,7 +184,7 @@ end
 - An *implementation* says how a type joins the trait, fields included. It is declared in one line (`@implement X T`). Its operations are served by the type's own methods, by a field it forwards to (`by f`), or by the trait's defaults.
 - A type that implements the operations need not have the declared fields. It then does not conform, but it can be the forwarding field of a type that does. `Vector{Vector{Float64}}` implements `ColTable`'s operations; if `ColTable` declared a field `name`, a bare vector would not conform, and a `Measurements` holding one and a name would.
 
-**Dynamic operations, a form the prototype still has.** `@implement X T dynamic by f begin … end` gives a type operations of its own on its field, called through pointers, so the library's worker for the field's type serves it. On the prototype it cost 6.3 ns per operation, 7× plain Julia per element (`design-findings.md`, before session 29). `design.md` does not mention this form. Its pointers belong to a session, so it is not in a closed world (section 18). Whether it stays is open.
+**Dynamic operations, a form the prototype has.** `@implement X T dynamic by f begin … end` gives a type operations of its own on its field, called through pointers, so the library's worker for the field's type serves it. Measured on the previous prototype, it cost 6.3 ns per operation, 7× plain Julia per element (`../design-findings.md`). `implementation.md` does not describe this form. Its pointers belong to a session, so it is not in a closed world (section 18). Whether it stays is open ([`../open-issues.md`](../open-issues.md) §2, "the design and the code disagree", item 3).
 
 ## 3. Generic implementations
 
@@ -208,12 +208,12 @@ With this, `Vector{Vector{Float64}}` is a `GTable` because it is `Indexable`, an
   - two generic implementations that overlap with neither more specific are rejected;
   - an overlap the later package cannot see, as when a trait's owner adds a generic implementation in a later version, surfaces where a call meets both.
   - *The last three are design; the prototype has no overlap check.*
-- **Predicates.** The notes required predicates to be patterns on the constraints' parameters, never conditions computed by functions, so that overlap is decidable at the declaration. The prototype's test uses `eltype(R) == Vector{Float64}`, a computed condition. This is a disagreement to settle when the overlap check is built.
+- **Predicates.** The design requires predicates to be patterns on the constraints' parameters, never conditions computed by functions, so that overlap is decidable at the declaration. The prototype's test uses `eltype(R) == Vector{Float64}`, a computed condition. This is a disagreement to settle when the overlap check is built.
 
 ## 4. Named implementations (deferred)
 
 - A named implementation would be used only where a caller names it (`via(Fast, m)`), and anyone could write one.
-- **Deferred** until traits are in the type system (Julia piece 7; [`design.md` §4.7](../design.md#47-the-rest-of-the-trait-language), decision of session 29). The simplest `Dynamic`, and membership as subtyping, have no place for a witness inside the value.
+- **Deferred** until traits are in the type system (Julia piece 7; [`implementation.md` §4.7](implementation.md#47-the-rest-of-the-trait-language)). The simplest `Dynamic`, and membership as subtyping, have no place for a witness inside the value.
 - **The preferred form, when it comes,** is a value-level wrapper that conforms, a newtype: `Via{Fast}(x)`.
 - **Until then,** a foreign trait for a foreign type needs its owner, the type's owner, or a newtype.
 - *Prototype:* none.
@@ -258,9 +258,9 @@ nf2(s::S2) = s.k
   - every variable of the trait's parameters occurs in the type (Rust's rule E0207);
   - parameter expressions are variables, constants and type constructors, never function calls;
   - the family is checked at an archetype instance, `Series{ArchT}`, because inference at the family's `UnionAll` gives `Any`.
-- **A member's implementation is fixed at its first use,** not at the family's declaration ([`design.md` §4.4](../design.md#44-overrides-belong-to-the-implementation)). The owner of a member's parameter type is a stakeholder of the member's methods and may define them after the family was declared upstream. A method defined before the member's first use is the member's own; one defined after is refused. *Prototype:* yes (`keys_syntax.jl`, "late overrides for family members").
+- **A member's implementation is fixed at its first use,** not at the family's declaration ([`implementation.md` §4.4](implementation.md#44-overrides-belong-to-the-implementation)). The owner of a member's parameter type is a stakeholder of the member's methods and may define them after the family was declared upstream. A method defined before the member's first use is the member's own; one defined after is refused. *Prototype:* yes (`keys_syntax.jl`, "late overrides for family members").
 - Workers compile per instance. `verify_main` enumerates the instances a program passes.
-- **A family member's builder** (what makes its trait object) is kept in a registry of the declaring module and saved with its image (decision of session 27).
+- **A family member's builder** (what makes its trait object) is kept in a registry of the declaring module and saved with its image.
 - *Prototype limit:* forwarding for a whole family is not built. `test/like.jl` declares `LSeries{Float64}` and `LSeries{Float32}` one by one ("forwarding for the whole family: not yet").
 
 ## 7. Traits as abstract types, and dispatch
@@ -312,7 +312,7 @@ A **trait module** is declared `@trait_module module M … end`. It sets Julia's
 | two methods with unrelated bounds on one position and no method for both | no | ambiguous for a type with both |
 | arguments of abstract types from plain callers (`Any`, `Vector{Any}`) | yes | their uses are run-time sites; concrete mode reports them |
 
-**A disagreement on pirates.** The prototype refuses any pirate defined in a trait module when the module is defined (`OwnershipError`, `runtests.jl` "ownership"). `design.md` (session 29) states the rule as strict mode's refusal of a *winning* pirate, plus a lint ([`decisions.md`](../decisions.md), "Three rules, not four"). The prototype's check is stricter than the design.
+**A disagreement on pirates.** The prototype refuses any pirate defined in a trait module when the module is defined (`OwnershipError`, `runtests.jl` "ownership"). `implementation.md` §5 states the rule as strict mode's refusal of a *winning* pirate, plus a lint ([`decisions.md`](../decisions.md), "Three rules, not four"). The prototype's check is stricter than the design ([`../open-issues.md`](../open-issues.md) §1.20).
 
 ## 9. Definition checking at archetypes
 
@@ -326,17 +326,17 @@ Library code is checked once, where it is defined, for every type that will ever
   spread(t::ColTable) = size(t)    # `size` has no method for a trait object carrying ColTable
   leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
   ```
-- **When:** at the trait module's end, an error at the package's build. For trait code defined at the prompt, a warning; the call raises it again (decision of session 27).
+- **When:** at the trait module's end, an error at the package's build. For trait code defined at the prompt, a warning; the call raises it again.
 - **Checked per signature instead,** at a worker's first call:
   - a parameter left open whose bound is not a trait (`x::ArrayLike{T}` with `T` free);
   - a `Callable` with an open result type;
   - concrete mode's findings for a trait that does not require concreteness.
-- **Concrete mode and the fully-typed certificate.** `fully_typed(f, argtypes)` walks what the code runs and reports run-time sites on normal paths, with hints. Operations on `Dynamic` values count as declared sites. A module under `@warn_on_abstract` warns at a worker's first run; under `@error_on_abstract` it raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a run-time site) ([`design.md` §3.4](../design.md#34-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap-and-can-enforce-concreteness)). A report names the root cause through any number of layers, for example "field `scale` of `CBottom.Config` is declared `Real`".
-- *Prototype:* `src/defcheck.jl`, `src/certificate.jl`. The checks run on Julia's native interpreter with a cache owner of their own (session 29). The prototype still defers keyword, vararg and every `Callable` worker to the first call, where the design defers only open result types. The cold-session cost measured before session 29 was under 200 ms for a library of five functions.
+- **Concrete mode and the fully-typed certificate.** `fully_typed(f, argtypes)` walks what the code runs and reports run-time sites on normal paths, with hints. Operations on `Dynamic` values count as declared sites. A module under `@warn_on_abstract` warns at a worker's first run; under `@error_on_abstract` it raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a run-time site) ([`implementation.md` §3.4](implementation.md#34-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap-and-can-enforce-concreteness)). A report names the root cause through any number of layers, for example "field `scale` of `CBottom.Config` is declared `Real`".
+- *Prototype:* `src/defcheck.jl`, `src/certificate.jl`. The checks run on Julia's native interpreter with a cache owner of their own. The prototype still defers keyword, vararg and every `Callable` worker to the first call, where the design defers only open result types. The cold-session cost, measured on the previous prototype, was under 200 ms for a library of five functions.
 
 ## 10. `Callable` and its two modes
 
-Julia has no type for "a function from `Float64` to `Float64`". A function handed down from plain code enters only at a declared signature: `Callable{A, S, M}`, arguments of the tuple type `A`, a result of type `S`, mode `M` ([`design.md` §4.6](../design.md#46-functions-as-arguments-callable-two-modes)).
+Julia has no type for "a function from `Float64` to `Float64`". A function handed down from plain code enters only at a declared signature: `Callable{A, S, M}`, arguments of the tuple type `A`, a result of type `S`, mode `M` ([`implementation.md` §4.6](implementation.md#46-functions-as-arguments-callable-two-modes)).
 
 ```julia
 # the library's default: a dynamic call, the worker compiled once per signature
@@ -393,7 +393,7 @@ colz(m, 1; baseline = 42)      # TraitBoundError: 42 conforms to nothing
 
 ## 12. Functions that cross the boundary
 
-A function is code, and code never crosses ([`design.md` §5](../design.md#5-the-three-rules), rule 3). A function from plain code enters only as a `Callable`. The other cases follow from the direction of the crossing.
+A function is code, and code never crosses ([`implementation.md` §5](implementation.md#5-the-three-rules), rule 3). A function from plain code enters only as a `Callable`. The other cases follow from the direction of the crossing.
 
 ```julia
 colfun(t::ColTable, i::Int) = x -> x * colmean(t, i)       # returned to plain code: a trait module's closure
@@ -437,7 +437,7 @@ shifted(r::LRec{Vector{Float64}})::Like{r} = withfields(r; u = r.u .+ 1.0)
 - **A sibling:** a constructor may return the same family at another parameter value, and the inverse rebuilds the user's type there. `tof32` turns an `LSeries{Float64}` into an `LSeries{Float32}` (`test/like.jl`). The same mechanism is meant for dual-number caches and GPU arrays.
 - **On a `Dynamic`:** called with a `Dynamic`, a `Like` function returns a `Dynamic` of the same implementation. A constructor operation on a `Dynamic` does too.
 - **AOT:** the inverses are listed with the implementations. *Not built:* `verify_main` does not list them yet.
-- *Prototype:* `Self`, `Like{t}`, `withfields`, siblings and `Dynamic` in and out all pass `test/like.jl`. `design.md` §4.7 says only `Self` constructors are exercised so far: that is true of the demonstrators (TraitCSV), not of the prototype's tests.
+- *Prototype:* `Self`, `Like{t}`, `withfields`, siblings and `Dynamic` in and out all pass `test/like.jl`. The demonstrators use only `Self` constructors (TraitCSV; `implementation.md` §4.7).
 - *Precedents:* Tables.jl's `materializer`, Base's `similar` (the receiver type's half), ConstructionBase.jl and Accessors.jl (the inverse of a forwarding field).
 
 ## 14. Types that only convert
@@ -454,12 +454,12 @@ colmean_any(t::TableLike, i::Int) = colmean(materialize(t), i)   # convert, then
 ```
 
 - **What it costs:** a copy; the conversion compiled per key of `TableLike`; the library behind it compiled once; no `Like{t}`, since the result is the library's own type; no write-through.
-- **What it replaces:** the computed projections of the representation design, which did the same implicitly at the boundary and so hid the copy and needed a written inverse.
+- **What it stands in for:** computed projections, which would do the same implicitly at the boundary and so hide the copy and need a written inverse ([`alternatives.md`](alternatives.md#representations-and-projections-replaced-by-keys)).
 - *Prototype:* this is a pattern of ordinary trait code, not a mechanism. A computed projection is refused at the implementation (section 2).
 
 ## 15. `Dynamic` values, as built
 
-A trait object lives for one call. A value that must outlive the call, an element of a collection with different keys, or a field whose key changes, is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields ([`design.md` §4.5](../design.md#45-dynamicx-a-value-of-abstract-type-x)).
+A trait object lives for one call. A value that must outlive the call, an element of a collection with different keys, or a field whose key changes, is a `Dynamic{X}`: a value of any type conforming to `X`, reached through `X`'s operations and fields ([`implementation.md` §4.5](implementation.md#45-dynamicx-a-value-of-abstract-type-x)).
 
 ```julia
 mutable struct State
@@ -486,7 +486,7 @@ start(m::Model, u0::Vector{Float64}) = State(copy(u0), 0.0, Dynamic{Model}(m), D
 - A trait object of `X`, narrowed to the views of `X` and its supertraits.
 - That trait object holds the user's object: read through for a mutable value; held whole for an immutable value that is itself the receiver (a held view, section 16); for an immutable value that forwards, the whole object, because the function that keeps it receives it (below).
 - So a `Dynamic` sees the user rebind any field, and writes through it reach the user's object. It keeps the user's object alive.
-- `design.md` §4.5 says "it holds the user's object" and that the view for (X, the object's type) is a constant per pair. The prototype's field is a narrowed trait object (`Dynamic{X}.t`). The two agree on what a reader sees; the s27 narrowing, which `decisions.md`'s session-29 row says "dissolves", is still in the code (`_narrow`, `src/core.jl:358`).
+- `implementation.md` §4.5 says "it holds the user's object" and that the view for (X, the object's type) is a constant per pair. The prototype's field is a narrowed trait object (`Dynamic{X}.t`). The two agree on what a reader sees; the decision in force says the narrowing dissolves, and it is still in the code (`_narrow`, `src/core.jl:358`; [`../open-issues.md`](../open-issues.md) §2, "the design and the code disagree", item 4).
 
 **Which functions receive the whole object (keeping is detected).**
 - A function whose code may keep a trait object (make it a `Dynamic`, store it where a `Dynamic` is declared, or return a closure that captured it) receives the whole user's object at its entry.
@@ -504,7 +504,7 @@ start(m::Model, u0::Vector{Float64}) = State(copy(u0), 0.0, Dynamic{Model}(m), D
   - values, when a `Dynamic` is made.
   - A later implementation reaches the fallback and invalidates nothing. An edge would let an unrelated package's implementation invalidate trait code.
 - The method is `@constprop :aggressive @inline`, so each caller is inferred again and splits over the candidates known when it is compiled.
-- It dispatches in the caller's world. Witness tables, the package form before (D), ran in the latest world and gave a wrong result; they are deleted.
+- It dispatches in the caller's world. Tables of pointers would run in the latest world and give a wrong result, which is why the design does not use them ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)).
 - A constructor operation (result `Self`) on a `Dynamic` returns a `Dynamic` of the same implementation.
 - *Measured* ([`evidence.md`](evidence.md) §2): a sum over `Dynamic{Shape}`, 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33.0 with four. The split stops at four candidates, as plain inference's does at three methods.
 
@@ -533,7 +533,7 @@ A view's type depends on the trait and the key, never on the user's type. So one
 |---|---|---|---|
 | mutable | `View{X, W, K, N, P}` | the user's object; the slots (byte offset and field index) of the receiver and of each declared field | a load at the offset, every time |
 | immutable, forwarding to a field or keyed by declared fields | `View`, with no object | the parts: the receiver and the declared fields' values, typed by the key | a field load from the view |
-| immutable, itself the receiver | `Held{X, W, K, N, P}` (a **held view**, session 29) | the whole value | a field load; no object, no slot, no branch |
+| immutable, itself the receiver | `Held{X, W, K, N, P}` (a **held view**) | the whole value | a field load; no object, no slot, no branch |
 
 - `W` is the view's **witness**: a type that says where the operations come from (the type's own methods with a list of those served by defaults, a generic implementation, or dynamic operations). It is a type parameter, not a table of pointers.
 - **Reads of a mutable object** carry Julia's own alias metadata, so a loop that reads `t.data[i]` while storing into another array vectorizes as in plain Julia. Without the metadata such a loop is 5× slower (`experiments/lens/layout.md`). The patched build provides the loads as intrinsics (piece 3, `getfield_at_offset`).
@@ -545,7 +545,7 @@ A view's type depends on the trait and the key, never on the user's type. So one
 
 ## 17. Caching per key
 
-Cached code is reusable because it is compiled per key. It stays valid because it holds only facts (rule 1), which only a stakeholder or a winning pirate can change (rule 2; [`design.md` §3](../design.md#3-the-argument-in-four-steps)).
+Cached code is reusable because it is compiled per key. It stays valid because it holds only facts (rule 1), which only a stakeholder or a winning pirate can change (rule 2; [`implementation.md` §3](implementation.md#3-the-argument-in-four-steps)).
 
 ```julia
 using Columns                                 # Columns' workers come from its package image
@@ -558,17 +558,17 @@ using CairoMakie                              # a stakeholder of none of Columns
 - **Shared per key.** `Mine` shares its key with every type that forwards to a `Vector{Vector{Float64}}`.
 - **Not shared:** a type that implements the operations or overrides a default gets its own workers, compiled once, in its own image.
 - **An implementation invalidates nothing.** It is a method of a registry declared `@max_methods 1` with a fallback, so it applies at no existing fact. `Dynamic` candidates are registered without an edge (section 15).
-- **Where compiled code lives** is Julia's own behaviour (the former rule 4 is retired, [`design.md` §5](../design.md#5-the-three-rules)):
+- **Where compiled code lives** is Julia's own behaviour, not a rule ([`implementation.md` §5](implementation.md#5-the-three-rules)):
   - code compiled while a package's image is built is kept in that image, `:facts` code included (part B);
   - a downstream image cannot add native code to an upstream one, so a worker at a new key lives in the image whose workload compiles it, or is compiled in the session;
-  - a worker for a pair (key owner, function owner) that no package owns needs a glue extension or a first-session compile (`decisions.md`, session 29). The forks' `String15` workload extension is such a glue, written by hand ([`performance.md`](performance.md) theme 3).
+  - a worker for a pair (key owner, function owner) that no package owns needs a glue extension or a first-session compile ([`../decisions.md`](../decisions.md)). The forks' `String15` workload extension is such a glue, written by hand ([`performance.md`](performance.md) theme 3).
 - **What a new key costs today** ([`evidence.md`](evidence.md) §3): a new model type in TraitDifferentialEquations, `@implement` 142–164 ms and a first solve 82–133 ms, in every load order. Most of the `@implement` cost is the implementation checks' inference.
-- **The next step** (`design.md` §9.3, item 4): an implementation declared in a package compiles the declared workers for its key at precompile time, replacing hand-written workload extensions.
-- **Superseded:** the prototype's view caches per key, and its warm-ups. They belonged to the external interpreter and are deleted.
+- **The next step** (`implementation.md` §9.3, item 4): an implementation declared in a package compiles the declared workers for its key at precompile time, replacing hand-written workload extensions.
+- **No view caches, no warm-ups:** caching is the package image's ([`alternatives.md`](alternatives.md#the-facts-policy-as-package-code-replaced-by-the-facts-mode-in-julias-compiler)).
 
 ## 18. AOT
 
-Dispatch between trait code, and over the types a program meets at run time, goes through declared implementations ([`design.md` §4.8](../design.md#48-aot-follows-from-declared-targets)). A build can therefore list the trait code a program can reach.
+Dispatch between trait code, and over the types a program meets at run time, goes through declared implementations ([`implementation.md` §4.8](implementation.md#48-aot-follows-from-declared-targets)). A build can therefore list the trait code a program can reach.
 
 ```julia
 function main(args::Vector{String})
@@ -589,9 +589,9 @@ verify_main(main, (Vector{String},); entrypoints = true)   # lists every target 
 - **A `--trim` build compiles the plain call.** Under `--trim` Julia has no facts mode and no facts methods: the world is closed. Nothing loads in a binary, so there is no cache to protect, and "identical or error" holds by definition. The binary's baseline is plain juliac; values decided by inference (A3) can differ between the session and the binary.
 - **In a closed build** (`verify_main(…; entrypoints = true)` under `--trim`), the caches of the `conformance` registry are filled from the listed targets, a miss is an error, and `Callable` arguments are not turned into pointers, since every function is known.
 - **Not closed:** dynamic operations (section 2) hold pointers made in a session.
-- *Measured:* a trimmed TraitMakie binary of 4.07 MB (session 25, under the prototype's former policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.
+- *Measured on the previous prototype:* a trimmed TraitMakie binary of 4.07 MB (under the package policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.
 - *Untested risk:* `--trim` is not among the flags that key package images, so an image built without it could carry facts code into a trimmed build ([`../explorations/aot-under-facts.md`](../explorations/aot-under-facts.md)).
-- *Design:* a pirate lint, listing calls reached from trait code that select a pirate (`verify_main`, the symmetric check of `design.md` §3.5).
+- *Design:* a pirate lint, listing calls reached from trait code that select a pirate (`verify_main`, the symmetric check of `implementation.md` §3.5).
 
 ## 19. Identical or error
 
@@ -602,7 +602,7 @@ verify_main(main, (Vector{String},); entrypoints = true)   # lists every target 
 - a definition, deletion or redefinition changes dispatch only where it applies and wins, and Julia's invalidation removes exactly the code with a fact there (nothing is skipped, rule P);
 - a package image's code is admitted only if its facts hold at load;
 - a run-time site records nothing and runs plain dispatch;
-- no asserted effect applies to a frame with a run-time site, so no fold rests on a call no edge records ([`design.md` §5](../design.md#5-the-three-rules), rule 1; acceptance G1.10 and G1.19);
+- no asserted effect applies to a frame with a run-time site, so no fold rests on a call no edge records ([`implementation.md` §5](implementation.md#5-the-three-rules), rule 1; acceptance G1.10 and G1.19);
 - a definition that would change an implementation's defaults is refused, so that decision stays true (section 1).
 
 It depends on no declaration. A wrong performance setting, such as a `Callable`'s mode, can make code slow, never wrong.
@@ -617,28 +617,16 @@ colsum(MyTab(Float32[1, 2, 3]))       # the fact is broken, the worker recompile
 ```
 
 - Loaded before the trait code compiles, the pirate is in the method table, and the first call follows it.
-- **In strict mode,** loading `Pirate` after the first call is refused, naming its method and the worker it would change. Loaded before, it is followed; with piece 15, an image's facts broken by a pirate become an error ([`design.md` §3.2](../design.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached)).
-- A real case that is not a pirate: StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse` ([`performance.md`](performance.md) theme 4). The design counts the standard libraries as Julia's own code ([`design.md`](../design.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`open-issues.md`](../open-issues.md) §1.19).
+- **In strict mode,** loading `Pirate` after the first call is refused, naming its method and the worker it would change. Loaded before, it is followed; with piece 15, an image's facts broken by a pirate become an error ([`implementation.md` §3.2](implementation.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached)).
+- A real case that is not a pirate: StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse` ([`performance.md`](performance.md) theme 4). The design counts the standard libraries as Julia's own code ([`implementation.md`](implementation.md#1-terms) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`open-issues.md`](../open-issues.md) §1.19).
 
 **The assumption that remains: A3, values decided by inference.**
 - `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference.
 - Plain Julia itself answers them differently in different contexts: `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded.
 - Part (A) folds `return_type` only to an answer that cannot be wider than plain inference's, else to plain inference's answer when it rests on facts. Otherwise it is answered at run time by plain inference in its own cache owner, so `map(f, Real[])` is `Vector{Float64}`, as in plain Julia.
 - It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee.
-- **A4** (no method defined concurrently with compiling trait code) and **A5** (the generator's behaviour) were assumptions of the package's own interpreter. `design.md` §5 says part (B) removes them; that interpreter is deleted.
+- No other assumption: the assumptions of the package's own interpreter went with it ([`alternatives.md`](alternatives.md#the-facts-policy-as-package-code-replaced-by-the-facts-mode-in-julias-compiler)). Threads are untested.
 
 **An open `Callable` result type,** inferred at the boundary in plain code, depends on what is loaded there. It is part of the worker's key and checked at every call.
 
 **Kept values** keep the user's object, which is what a plain holder of the object sees.
-
----
-
-## Dropped from `notes/4-details.md` as superseded
-
-- The four rules, the "trait world" and "ordinary code" as worlds, the compiler policy with its own cache (`FactsInterp`), and pointer calls into plain Julia's code: replaced by the three rules and parts (A)–(D) (`design.md` §5, §6).
-- The ownership section's long form: [`design.md` §1, §3, §5](../design.md#1-terms) state it; Lemma O is in `explorations/wrapping-by-facts.md`.
-- Where compiled code lives as a rule (rule 4): Julia's own behaviour (section 17).
-- Named implementations as adopted (by module, `via(M, x)`, witnesses carried by the value, "ColTable via Fast"): deferred (section 4).
-- View caches per key ("about 3 ms in every load order"), first-call numbers from before session 29, and the 2.09 MB trimmed binary that predates keys.
-- "Performance: no cliffs" as a section: its claims are restated by [`design.md` §3](../design.md#3-the-argument-in-four-steps) and measured in [`evidence.md`](evidence.md). The claim "loads do not change speed" belongs to the facts rule for any code (the control), not to traits.
-- Dispatch on a `Dynamic` by run-time dispatch alone (20–80 ns): replaced by the call-site split (section 15).
