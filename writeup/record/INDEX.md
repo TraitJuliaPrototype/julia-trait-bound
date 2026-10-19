@@ -268,7 +268,7 @@ Session 28 built (A) only as a forked package (`experiments/factscompiler`). Eve
 | feaad9e45c | assertions trusted only in Julia's own methods under facts (later replaced); `--trim` compiles plainly |
 | f6838f96fc | (D): a call on a dynamic value is split at the call site |
 | 67f5c0bcc8 | the implementation review's fixes (critical: (D) with a known receiver type) |
-| bc26aa9255 | the typed split: `dynamic_call` takes the declared result type |
+| bc26aa9255 | the typed split: `dynamic_call` (renamed `split_call` on 2026-10-20) takes the declared result type |
 | da4726c5cc | an invoke keeps the fact signature |
 | 4102b7a7a7 | a cycle's members inline each other |
 | c4f7e76a2f | compiler code is plain whoever calls it; pieces 2 and 4 removed |

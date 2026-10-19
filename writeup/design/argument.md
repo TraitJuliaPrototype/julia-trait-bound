@@ -47,8 +47,8 @@ With step 2 alone, in plain Julia and without traits, fully typed code satisfies
 
 "Code it depends on" is precise: the stakeholders of its facts. "Always valid" means valid except for the following, named with the guarantee wherever it is claimed:
 - **A stakeholder's definition:** edits, Revise, upgrades. This is the stated exception.
-- **A package extension (or Requires block) of a stakeholder** whose method applies at a fact without mentioning its trigger's types, activated by loading the unrelated trigger. Either refused by an extension rule or admitted as the stakeholder's own change: still open ([`../open-issues.md`](../open-issues.md) §1.10).
-- **A binding the code reads, redefined from another module** (`Core.eval(Other, …)`). The theory does not cover bindings yet, and no hook sees them (`open-issues.md` §1.10).
+- **A package extension (or Requires block) of a stakeholder** whose method applies at a fact without mentioning its trigger's types, activated by loading the unrelated trigger. It is admitted as the stakeholder's own change: followed, never refused; in strict mode a warning names the method and the trait code it affects ([facts §10.3](../reference/facts.md#strict-intended)).
+- **A binding the code reads, redefined from another module** (`Core.eval(Other, …)`). The theory does not cover bindings yet, and no hook sees them (`open-issues.md` §1.1).
 - **A pirate already in a package image** when the code was compiled. Image validation discards the facts it breaks; piece 15 turns that into an error.
 
 The refusal is narrow, so extending and hooking into existing code keep working:

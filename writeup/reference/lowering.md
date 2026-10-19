@@ -64,8 +64,8 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 |---|---|---|
 | a trait module's methods: workers, internal functions, closures, the pattern methods of untyped entries | facts, cache owner `:facts`, whoever calls them | `Base.Experimental.@compiler_options facts=true` in the module's prologue (`trait_module.jl:60`) |
 | what a worker calls (operation methods, the user's methods serving operations, Base) | inferred by facts with the worker | Julia's rule; the compiler's own code stays plain |
-| entries, `conformance` methods, entry methods for types compiled ahead | the caller's mode (a *boundary*) | `Expr(:meta, :facts, 0)` (`trait_module.jl:709`, `implement.jl:675`, `ahead.jl:182`) |
-| the machinery's slow paths: expansion of `@implement`, checks, finding builders, hooks | always facts | `@machinery`, which inserts `Expr(:meta, :facts, 1)` (`compiler.jl:35`) |
+| entries, `conformance` methods, entry methods for types compiled ahead | the caller's mode (a *boundary*) | `Expr(:meta, :facts_boundary)` (`trait_module.jl:709`, `implement.jl:675`, `ahead.jl:182`) |
+| the machinery's slow paths: expansion of `@implement`, checks, finding builders, hooks | always facts | `@machinery`, which inserts `Expr(:meta, :facts_always)` (`compiler.jl:43`) |
 | TraitWorld's small helpers (`enter`, `_assemble`, `checked_call`, `opcall`, the builders) | plain code, inlined into the code that calls them | `@inline` |
 | the definition checks' rule check | the default interpreter's reflection: a worker at archetypes is inferred by facts, in the facts cache, as the code that runs would be. An archetype never runs, so nothing it infers is called | `_worker_problems` (`checks.jl:84`) |
 | the keep analysis and the result-type checks | plain inference on a `NativeInterpreter` | own cache owner `_CheckOwner` at archetypes; the plain cache at real signatures (`compiler.jl:57`, `:66`; `defcheck.jl:229`) |
@@ -172,11 +172,12 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.5 Field mappings, several traits, stated parameters
 
-**Status: Implemented.**
+**Status: Implemented** (deviation [L-26](#18-deviations)).
 
 - **A field mapping** `name => stored` is kept in the record (`ProjRec.fmap`). The builder takes each declared field's slot from the mapped stored field (`_mapped`, `entry.jl:434`).
 - **Several traits** `(X, Y) T by f`: one `projection` record and one `conformance` method per trait. The entry merges their views into one trait object ([§8.2](#82-the-entry)).
-- **Stated parameters** `@implement X{p…} T`: `param(X, Val(:p), T)` and `param(X, Val(:p), Key{T, F})` methods (`_param_methods`, `implement.jl:1008`).
+- **Stated parameters** `@implement X{p…} T`: `param(X, Val(:p), T)` and `param(X, Val(:p), Key{T, F})` methods (`_param_methods`, `implement.jl:1008`), for the parameters no field and no equation defines.
+- **A stated value for a parameter an equation defines** makes no method: the declaration's check compares it with the equation's value at `T` and refuses the implementation if they differ ([traits §5.6](traits.md#56-stating-parameters)). The equation's `param` method serves `T`.
 
 ### 4.6 Families
 
@@ -394,14 +395,15 @@ Implementations the table does not serve take the entry's own path, `conformance
 
 ### 9.3 Entries compiled ahead
 
-**Status: Implemented** (deviation [L-22](#18-deviations)).
+**Status: Implemented.** The invalidation of plain code below is accepted, and flagged for future review ([open issues §2](../open-issues.md#2-design), item 29).
 
 While a package that declares `@implement X T` is precompiled, it defines an entry method for `T` itself, for each tabled entry whose position needs `X` (`_ahead_entry!`, `ahead.jl:168`):
 - `f(a1::T, a2…) = invoke(f, Tuple{Any, …}, a1, a2…)`, a boundary, in `T`'s module (else the declaring module);
 - it is the generic entry's folded path for `T`, compiled into that package's image;
 - an untyped caller reaches it by one dispatch; every other type reaches the generic entry and the table;
 - the package owns `T`, so the method is a stakeholder's;
-- it changes no compiled code: declaring an implementation discards nothing ([traits §5](traits.md#5-implementations)). *As built,* it is a new method of `f`, which invalidates plain callers at abstract argument types and the entry's own untyped specialization ([L-22](#18-deviations)).
+- it discards no trait code: code compiled by facts calls `f` at abstract types only at run-time sites, without edges ([traits §5](traits.md#5-implementations));
+- it is a new method of `f`, added at the declaring package's precompilation and at each load of its image. So it may invalidate plain code: plain callers compiled at an abstract argument type that `T` subtypes, and the entry's own untyped specialization, `f(::Any, …)` (the entry is `@nospecialize` on its trait position, so that is the code untyped callers run), with every plain caller holding an edge to it. Results stay the same. This is accepted ([traits §15](traits.md#15-compiling-ahead)); `experiments/docs-examples/ahead_invalidation.jl` shows it.
 
 ### 9.4 Entries specialized per type
 
@@ -498,11 +500,11 @@ An entry with keywords, a vararg or a `Callable` position is not tabled (`trait_
 
 ```julia
 Base.@constprop :aggressive @inline op(d::Dynamic{X}, a…) where {X <: Trait} =
-    Compiler.dynamic_call(family(X), RT, op, opened(d), a…)::RT
+    Compiler.split_call(family(X), RT, op, opened(d), a…)::RT
 ```
 
 - `RT` is the declared result type, with the parameters the `Dynamic`'s type fixes substituted ([traits §10](traits.md#10-dynamicx-values-of-any-conforming-type)). Where it names `Self`, or a parameter the type leaves open, it is `Any`. *As built,* it is `Any` wherever the declared type names `Self` or any parameter ([L-20](#18-deviations)).
-- Julia infers the call as `op` at the union of the family's registered **candidates**, at most four, plus a fallback, and splits it as a union: `isa` branches with direct calls, the dynamic call last, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilerdynamic_call-the-call-site-split)).
+- Julia infers the call as `op` at the union of the family's registered **candidates**, at most four, plus a fallback, and splits it as a union: `isa` branches with direct calls, the dynamic call last, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split)).
 - `@constprop :aggressive` makes each caller infer the call again, so it splits over the candidates registered when it is compiled.
 - The fallback dispatches in the caller's world.
 - An operation whose result is `Self` returns a `Dynamic` of the new value instead (`_dyn_like`).
@@ -526,7 +528,7 @@ A later implementation reaches the fallback and invalidates nothing.
 
 **Planned:** `Dynamic{(X, Y)}`, a value seen through several traits.
 
-**Optional:** for more than four implementations, a longer split for `dynamic_call` only, or a world-checked table of caller-world pointers at the fallback ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
+**Optional:** for more than four implementations, a longer split for `split_call` only, or a world-checked table of caller-world pointers at the fallback ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 
 ---
 
@@ -684,7 +686,8 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-19 | [§3](#3-trait-declarations) | a trait's body holds operations, defaults, fields, equations and concreteness lines ([`traits.md#1-syntax-summary`](traits.md#1-syntax-summary)) | `@mutating` is accepted in a trait's body and recorded as `is_mutating`, which no code reads | `trait.jl:284`; `implement.jl:132` |
 | L-20 | [§13](#13-dynamicx) | an operation on a `Dynamic` of a parametric trait asserts its declared result at the parameters the `Dynamic`'s type fixes, so a `Dynamic{StateVector{Float64}}` operation declared `::T` is typed `Float64` | the result type is `Any` wherever the declared type names `Self` or any parameter, fixed or not; the code after the call is not inferred | `trait.jl:303`–`304` (`dep`, `retx`), `:314`, `:318` |
 | L-21 | [§5](#5-keys-and-views) | an implementation whose operations are all served by defaults has no receiver type | it has one also when the trait's declarations name `Self`, or when a parameter is not defined by a field: then the conforming type is the receiver type and gets its own compiled copy | `entry.jl:456`–`465` (`_no_implementing_type`) |
-| L-22 | [§9.3](#93-entries-compiled-ahead) | The entry method compiled ahead for `T` changes no compiled code. | It is a new method of `f`, added at the declaring package's precompilation and at each load of its image. Julia invalidates the plain callers compiled at an abstract argument type that `T` subtypes, and the entry's own untyped specialization, `f(::Any, …)` (the entry is `@nospecialize` on its trait position, so that is the code untyped callers run), with every plain caller holding an edge to it. Results stay correct. Code compiled by facts is not affected: its calls at abstract types are run-time sites without edges. As [traits T-24](traits.md#19-deviations); [open issues §2](../open-issues.md#2-design), item 29. | `ahead.jl:143`, `:168`–`195`; `trait_module.jl:552`; `experiments/docs-examples/ahead_invalidation.jl` |
-| L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method. | `_has_conformance_method` finds the family's method for the member and answers that the member has one of its own: a member's declaration with a block is refused as a redeclaration; a one-line one defines no `conformance` method, builder or override record, and the family's slow path serves the member. As [traits T-28](traits.md#19-deviations). | `implement.jl:656`–`661`, `:946`–`954`, `:970`–`976`, `:1192` |
+| L-22 | [§9.3](#93-entries-compiled-ahead) | *Retired.* No longer a deviation: the invalidation of plain code by the entry compiled ahead is the intended shape, accepted and flagged for review ([§9.3](#93-entries-compiled-ahead); [traits §15](traits.md#15-compiling-ahead); [open issues §2](../open-issues.md#2-design), item 29). | — | — |
+| L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method, until the member's first use. | The member's declaration makes its own `conformance` method (`_declared_for`); a declaration after the member's first use is not refused. As [traits T-28](traits.md#19-deviations). | `implement.jl` (`_declared_for`) |
 | L-24 | [§9.2](#92-untyped-callers-the-table-of-declared-implementations) | An entry with more than five positional arguments takes the dynamic call to the pattern method. | The entry takes the pointer path for every tabled entry with one trait position, at any arity, and `_UWrap` has methods for 0 to 5 arguments only. By reading, an untyped call of an entry with six or more positional arguments then fails, when the pointer is made or called; not run. | `untyped.jl:177`–`181`; `trait_module.jl:659`–`666` |
 | L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Only types with an `implementation` method at a concrete type are registered then. A type that conforms by `by` forwarding or by a field mapping alone has only a `projection` record, and a family member's record has a `UnionAll` signature: they are registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for them. | `core.jl:397`–`420`, `:348`; `implement.jl:1363`–`1366` |
+| L-26 | [§4.5](#45-field-mappings-several-traits-stated-parameters) | A stated value for a parameter an equation defines is checked against the equation and makes no method. | For one type: checked, and no method is made when it agrees (`_param_agrees`). For a family: it becomes a `param` method with the family's `where`, replacing the equation's value, unchecked. As [traits T-37](traits.md#19-deviations). | `implement.jl` (`_param_methods`) |

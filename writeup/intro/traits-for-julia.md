@@ -34,7 +34,7 @@ A package's own extension can discard its compiled code too. With DataFrames loa
 - that activates CSV.jl's extension for InlineStrings;
 - the extension adds methods to CSV.jl's internal functions.
 
-In the trait world an extension declares an implementation instead, which discards nothing (TraitCSV's `String15`). This is a gain from traits as a coding pattern, even in a well-trodden part of the ecosystem: the compiler's facts mode alone does not prevent it.
+In the trait world an extension declares an implementation instead, which discards no trait code (TraitCSV's `String15`). This is a gain from traits as a coding pattern, even in a well-trodden part of the ecosystem: the compiler's facts mode alone does not prevent it.
 
 ### 2. A vector of mixed types is slow, or forces you to over-parametrize
 

@@ -255,11 +255,12 @@ end
   - **by an equation** of `Self`: `T = eltype(Self)`.
   - **by the implementation**, when neither defines it: `@implement ArrayLike{Float32, 1} MyVec` ([§5.6](#56-stating-parameters)).
 - A parameter defined by a field and by an equation is an error ("defined by the field").
+- **An equation always holds.** A parameter defined by an equation is never replaced. An implementation may state its value too; the stated value is checked against the equation's ([§5.6](#56-stating-parameters)).
 - Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§11](#11-checks-and-when-they-run)) cover code that computes with the parameter.
 - **Not offered:** a type conforming at several values of a parameter, equations between type functions, a parameter bound that names its own trait. `Callable` ([§9](#9-callable-functions-at-a-declared-signature)) is the one trait with several values per type.
 
-**Status:** Implemented, except bounds on parameters (Planned; the syntax is accepted, [T-1](#19-deviations)).
+**Status:** Implemented, except bounds on parameters (Planned; the syntax is accepted, [T-1](#19-deviations)) and the check of a stated value against an equation ([T-37](#19-deviations)).
 
 ### 3.5 `Self`
 
@@ -335,7 +336,7 @@ All forms share these properties:
 - It may come after the type's definition, in another package.
 - Its operations are served by the type's own methods, by a field it forwards to, or by the trait's defaults.
 - It is checked when it is declared ([§5.10](#510-checks-at-the-declaration)).
-- It changes no compiled code. Declaring one discards nothing.
+- It discards no trait code. In a package, compiling ahead may invalidate some plain code of the library's entry: accepted, to be reviewed ([§15](#15-compiling-ahead)).
 - **Defaults and forwarding serve trait code only.** An implementation adds no methods to the type for the operations a default or a field serves. Called from plain code, `describe(c)` or `area(tile)` then has no method (`MethodError`). Plain code reaches them through a bounded function or a `Dynamic` value.
 
 **The operations' methods and the implementation are separate.**
@@ -343,9 +344,9 @@ All forms share these properties:
 - The *implementation* says how a type joins the trait, fields included.
 - A type that implements the operations need not have the declared fields. It then does not conform, but it can be the field another type forwards to. `Vector{Vector{Float64}}` implements `ColTable`'s operations. If `ColTable` declared a field `name`, a bare vector would not conform, and a `Measurements` holding one and a name would.
 
-How an implementation is recorded, so that declaring one invalidates nothing: [`lowering.md`](lowering.md#4-implementations).
+How an implementation is recorded, so that declaring one invalidates no trait code: [`lowering.md`](lowering.md#4-implementations).
 
-**Status:** Implemented, except that in the product setting an entry method compiled ahead for the declaring package invalidates plain callers at abstract argument types ([T-24](#19-deviations)).
+**Status:** Implemented.
 
 ### 5.1 With a block of methods
 
@@ -433,9 +434,9 @@ No form computes a value from the type. A type whose data needs a computation (a
 ```
 
 - An implementation states the values of parameters that no field and no equation defines.
-- A stated value takes the place of the equation's value for that implementation.
+- **A stated value never replaces an equation.** An implementation may also state a parameter that an equation defines. The stated value is then checked against the equation's value for the type. If they disagree, the implementation is refused with `ImplementError`. For `KVec` (`T = eltype(Self)`, [§3.4](#34-parameters-and-associated-types)) and a type `Wrapped{T}` with no `eltype` method, `@implement KVec{T} Wrapped{T} where {T}` is refused: `eltype(Wrapped{Float64})` is `Any`, not `Float64`. With `Base.eltype(::Type{Wrapped{T}}) where {T} = T` defined first, it is accepted.
 
-**Status:** Implemented.
+**Status:** Implemented, except the check against an equation: today a stated value replaces the equation's value ([T-37](#19-deviations)).
 
 ### 5.7 Families
 
@@ -528,7 +529,7 @@ All of these run at `@implement`, never at a call. A failure raises `ImplementEr
 Not everything is caught here: a conversion that fails at run time (a `Float64` buffer receiving dual numbers) is not proved by the check.
 
 **Status:** Implemented, except:
-- redeclaration (Planned). Today a second declaration with a block is refused in a session, naming the reason: change the declaration and restart Julia. A second one-line, `by` or mapped declaration is accepted with another meaning ([T-29](#19-deviations));
+- redeclaration (Planned). Today a second declaration is refused in a session, in every form, naming the reason: change the declaration and restart Julia;
 - with a block, the type's existing methods for operations the block leaves out ([T-32](#19-deviations));
 - a refused declaration leaves definitions behind ([T-33](#19-deviations)).
 
@@ -625,7 +626,7 @@ describe(x) = "something else"                 # the fallback
 - **The fallback:** a value that conforms to none of the bounds reaches the most specific ordinary method that applies, as in plain Julia. An untyped method of the same shape, defined after the bounded ones, serves as such a fallback. Without any, the call raises `MethodError`, with a hint naming the bound.
 - Only the package that defines a function ([§12.1](#121-who-may-implement)) may add a bounded method to it where it has no entry of that shape.
 
-**Status:** Implemented, except that an entry method compiled ahead outranks a typed method on a supertype defined after it ([T-24](#19-deviations), [T-25](#19-deviations)). The hint's text: [T-22](#19-deviations). Error types of refused definitions: [T-34](#19-deviations).
+**Status:** Implemented, except that an entry method compiled ahead outranks a typed method on a supertype defined after it ([T-25](#19-deviations)). The hint's text: [T-22](#19-deviations). Error types of refused definitions: [T-34](#19-deviations).
 
 ---
 
@@ -829,15 +830,17 @@ leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
 TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 ```
 
+- **It applies to trait code:** the code of trait modules, compiled by facts. Plain code is not protected by it.
+- **The property it secures: trait code is never invalidated,** except by a change of code it depends on, a stakeholder's ([facts §10.2](facts.md#strict-mode)).
 - Strict mode refuses a pirate when it would win at a call that compiled trait code makes. The error, `TraitWorld.PirateError`, names the method and the trait code it would change. The method then does not exist, for plain code either.
 - Nothing else is refused: a pirate that wins nowhere in trait code is accepted.
 - A definition by a stakeholder is followed. A *stakeholder* of a method is the owner of its function or of a type in its signature. Define as the owner with `@eval Owner f(…) = …`.
 - `TraitWorld.delegate!(Core => Impl)` lets an implementation package count as the owner of the core package it implements (for split packages such as StaticArraysCore and StaticArrays).
 - A pirate loaded before the code it changes is refused too.
-- **A package extension's method** that wins at a fact without mentioning its triggers' types: whether it is refused is Open ([open issues §1.10](../open-issues.md#1-decisions-waiting-for-the-user)).
+- **A package extension's method** that wins at a fact of trait code without mentioning its triggers' types is followed, as its parent package's change, a stakeholder's. It is not refused. A warning names the method and the trait code it affects.
 - `verify_main` lists the calls reached from trait code that select a pirate.
 
-**Status:** Implemented as a prototype: refusal when the pirate is defined, or when an image that brings it loads, after the trait code. Planned: refusal of pirates loaded before the code they change, and the listing in `verify_main`. Open: the rule for package extensions ([open issues §1.10](../open-issues.md#1-decisions-waiting-for-the-user)). The error's text: [T-21](#19-deviations).
+**Status:** Implemented as a prototype: refusal when the pirate is defined, or when an image that brings it loads, after the trait code. The warning for a package extension's winning method is Implemented. Planned: refusal of pirates loaded before the code they change, and the listing in `verify_main`. Today strict mode also protects code that is not trait code ([facts F-4](facts.md#deviations)). The error's text: [T-21](#19-deviations).
 
 ### 12.4 No sealing
 
@@ -883,7 +886,8 @@ No syntax: it follows from `@implement` in a package.
 - Another trait position is not a concrete argument: its key is not known. So a bounded function with several trait positions (`meandiff(a::ColTable, b::ColTable)`) is compiled at its first call, not ahead.
 - The checks a first call would run are run then, and the image keeps their results. A failing check fails the build.
 - A caller that does not know the argument's type reaches the code for any declared implementation without compiling anything per type.
-- Compiling ahead changes no code compiled before: it discards nothing ([§5](#5-implementations)).
+- **Compiling ahead discards no trait code** ([§5](#5-implementations)).
+- **It may invalidate plain code of the library's entry.** The entry compiled ahead for `T` is a new method of the library's function. When it is added, at the declaring package's precompilation and at each load of its image, plain callers of the entry compiled at abstract argument types, and the entry's untyped specialization, may be invalidated. Results stay the same; that code is compiled again at its next call. This is accepted for now and flagged for future review ([open issues §2](../open-issues.md#2-design), item 29).
 - What exactly is compiled, and how untyped callers find it: [`lowering.md`](lowering.md#151-compiling-ahead-from-declarations).
 - `TraitWorld.@workload begin … end` is a precompile workload for a trait module (PrecompileTools' `@compile_workload`, reached through TraitWorld).
 - `JULIA_TW_AHEAD=0` turns compiling ahead off.
@@ -896,8 +900,7 @@ No syntax: it follows from `@implement` in a package.
 
 Plain code reached from trait code keeps plain Julia's properties, and its open dynamic calls are reported. A `--trim` build compiles plain code: nothing loads in a binary, so nothing needs protecting ([`facts.md`](facts.md#closed-builds)).
 
-**Status:** Implemented, except:
-- an entry method compiled ahead invalidates plain callers at abstract argument types and the entry's own untyped code ([T-24](#19-deviations));
+**Status:** Implemented, including the invalidation of plain code above (accepted; to be reviewed). Except:
 - functions with keywords, a vararg or a `Callable` argument are compiled per user type for untyped callers ([lowering L-12](lowering.md#18-deviations)), and what is compiled ahead is narrower ([lowering L-15](lowering.md#18-deviations));
 - the rebuilding step of `Like{t}` is not listed yet ([T-20](#19-deviations)).
 
@@ -933,6 +936,7 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | a trait's parameter in a default's body | Planned | [§3.2](#32-defaults), T-2 |
 | declared fields, `@const` | Implemented | [§3.3](#33-fields) |
 | parameters by field, by equation, stated | Implemented | [§3.4](#34-parameters-and-associated-types) |
+| a stated value checked against an equation | Planned | [§5.6](#56-stating-parameters), T-37 |
 | bounds on parameters, checked | Planned | [§3.4](#34-parameters-and-associated-types), T-1 |
 | supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | supertrait agreement check | Planned | [§3.6](#36-supertraits-and-bundles), T-3 |
@@ -979,12 +983,12 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | who may implement | Implemented | [§12.1](#121-who-may-implement) |
 | the standard libraries as owners of their own | Open | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
 | no pirates in trait modules | Implemented; whether it stays is Open | [open issues §1.20](../open-issues.md#1-decisions-waiting-for-the-user) |
-| strict mode | Implemented as a prototype; the rest Planned; the rule for package extensions Open | [§12.3](#123-strict-mode) |
+| strict mode | Implemented as a prototype; the rest Planned, with the warning for package extensions | [§12.3](#123-strict-mode) |
 | no sealing | Implemented | [§12.4](#124-no-sealing) |
 | concrete mode, `fully_typed` | Implemented | [§13](#13-concrete-mode) |
 | warning on small unions | Open | [open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user) |
 | printing by bound and key | Implemented | [§14](#14-printing) |
-| compiling ahead from `@implement` | Implemented | [§15](#15-compiling-ahead), T-24 |
+| compiling ahead from `@implement` | Implemented; the invalidation of plain code accepted, to be reviewed | [§15](#15-compiling-ahead) |
 | `verify_main`, `@workload` | Implemented | [§15](#15-compiling-ahead), T-20 |
 | `conforms(T, X)` | Implemented | [§16](#16-membership) |
 | `x isa X`, `T <: X` | Planned | [§16](#16-membership), T-23 |
@@ -1021,12 +1025,12 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-21 | [§12.3](#123-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
 | T-22 | [§6.5](#65-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | The hint says "a Int64". Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/frames.jl:75`; `src/entry.jl:499` |
 | T-23 | [§16](#16-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
-| T-24 | [§5](#5-implementations), [§15](#15-compiling-ahead) | Declaring an implementation discards nothing; compiling ahead changes no code compiled before. | While the declaring package is precompiled, the entry method compiled ahead for `T`, `f(a1::T, …) = invoke(f, Tuple{Any, …}, a1, …)`, is a new method of the library's function. When it is added, at the package's precompilation and again at each load of its image, Julia invalidates plain callers compiled at abstract argument types and the entry's own untyped specialization (`f(::Any)`, the code [lowering §9.2](lowering.md#92-untyped-callers-the-table-of-declared-implementations) keeps stable). Results stay correct. Code compiled by facts is not affected: its calls at abstract types are run-time sites without edges. Shown in a session (plain mode, the product setting) by calling `_ahead_entry!` directly. As [lowering L-22](lowering.md#18-deviations); [open issues §2](../open-issues.md#2-design), item 29. | `TraitWorld/src/ahead.jl:143`, `:168`–`195`; `experiments/docs-examples/ahead_invalidation.jl` |
+| T-24 | [§15](#15-compiling-ahead) | *Retired.* No longer a deviation: the invalidation of plain code by an entry compiled ahead is the intended shape, accepted and flagged for review ([§5](#5-implementations), [§15](#15-compiling-ahead); [open issues §2](../open-issues.md#2-design), item 29). | — | — |
 | T-25 | [§6.5](#65-dispatch-types-first-then-traits) | A trait bound ranks below every type. | An entry method compiled ahead for `T` is made only where no typed method already wins for `T`, but it is a method at `T`: a typed method on an abstract supertype of `T` defined after it (by its owner, at the prompt) loses to it. | `TraitWorld/src/ahead.jl:177`, `:182` |
 | T-26 | [§5.7](#57-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked: every family path passes no operations and a non-concrete type to the check, which returns after the ownership checks. A joint family that conforms by its fields runs no check. | `TraitWorld/src/implement.jl:514`, `:1051`, `:1103`, `:1129`, `:1256`–`1272` |
 | T-27 | [§5.7](#57-families), [§5.10](#510-checks-at-the-declaration) | A member that does not conform is refused (`ImplementError`). | A member of a family of existing methods is checked at its first use, with a warning, and keeps the slow path. A member of a family with a block is never checked: `@implement KVec A where {A <: Vector{<:Real}} begin kget(v, i) = string(v[i]) end` is accepted and fails at a call, with a `TypeError` from the result's assertion. | `TraitWorld/src/implement.jl:342`, `:345`–`349`, `:733`–`735`; `test/runtests.jl:284`–`289` |
-| T-28 | [§5.7](#57-families) | The owner of a member's parameter type may declare an override for that member until its first use. | `_has_conformance_method` takes the family's `conformance` method for the member's own, so a member's declaration with a block is refused as a redeclaration, and a one-line one is accepted without a `conformance` method, builder or override record of its own: the family's slow path serves it, and the untyped table marks it untabled. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl:656`–`661`, `:946`–`954`, `:970`–`976`, `:1192`; `src/untyped.jl:76`–`86` |
-| T-29 | [§5.10](#510-checks-at-the-declaration) | A second declaration in a session is refused, naming the reason, until redeclaration is built. | Only a second declaration with a block is refused. A second one-line, `by` or mapped declaration is accepted: `@implement ColTable Halves by right`, then `by left`, makes `projection` and `conforms` say `left`, while `conformance`, the untyped table's builder and the override records keep the builder for `right`. | `TraitWorld/src/implement.jl:943`–`955`, `:1192`, `:1371` |
+| T-28 | [§5.7](#57-families) | The owner of a member's parameter type may declare an override for that member until its first use. | A member's own declaration is accepted and gets its own `conformance` method (`_declared_for` looks at the member itself, not the family's method), but a declaration after the member's first use is not refused: nothing records the first use against later declarations. Unchecked by a test. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl` (`_declared_for`) |
+| T-29 | [§5.10](#510-checks-at-the-declaration) | *Retired (2026-10-20).* No longer a deviation: a second declaration is refused in every form (`_declared_for`, `_redeclared` in `TraitWorld/src/implement.jl`; `test/redeclare.jl`). | — | — |
 | T-30 | [§5.8](#58-generic-implementations) | Forwarding carries through a generic implementation: a type that forwards `Indexable` to a field forwards `GTable` to the same field. | A `by` declaration makes a `projection` record and no `implementation` record, so the generic implementation's constraint finds no witness for the forwarding type: it does not conform to `GTable`, and a call raises `MethodError`. Only an explicit `@implement GTable U by data` works. | `TraitWorld/src/implement.jl:337`–`367`, `:414`–`424`, `:1363`–`1366` |
 | T-31 | [§5.4](#54-field-mappings), [§5.5](#55-several-traits-at-once) | Any traits take any form of implementation, field mappings included. | Several traits at once are handled only as `(X, Y) T by f`. `(X, Y) T name => stored` is refused with "a projection needs exactly one `project(t) = …`", and `(X, Y) T by f, name => stored` with "expected `project(t) = …` or a begin … end block after the type": both name forms the design does not have. | `TraitWorld/src/implement.jl:863`–`866`, `:1280`, `:1286` |
 | T-32 | [§3.2](#32-defaults), [§5.10](#510-checks-at-the-declaration) | An implementation keeps a default or overrides it with the type's own method; a supertype owner's method defined before the declaration is part of it. | With a block, every operation the block leaves out is served by its default, whether or not the type has a method for it, and the override records leave such operations out: the existing method is not used, and a later redefinition of it is not refused. The one-line form follows the reference. | `TraitWorld/src/implement.jl:837`–`845`, `:648`; `src/core.jl:671`–`674` |
@@ -1034,3 +1038,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-34 | [§6.5](#65-dispatch-types-first-then-traits), [§11](#11-checks-and-when-they-run) | A definition in a trait module that fails ownership raises `OwnershipError`; refused definitions raise the errors of the checks table. | These are `ErrorException`s: a bounded method added to another module's function where it has no entry of that shape; a vararg of `Callable`; `@specialize`; a vararg that is not last; `::Like{x}` naming no bounded argument; a keyword with several `Callable` bounds ([T-36](#19-deviations)). | `TraitWorld/src/trait_module.jl:537`–`539`, `:268`, `:260`, `:466`, `:522`, `:341` |
 | T-35 | [§3.5](#35-self), [§7](#7-results-declared-types-like-withfields) | On a `Dynamic`, a constructor operation and a `Like` function return a `Dynamic` of the same implementation. | A constructor operation on a `Dynamic` of a trait with fields raises `TraitBoundError` ("declares fields"). A `Dynamic` of an immutable value whose views hold only its parts gives no `Like` result: `TraitBoundError`, "pass the value itself". | `TraitWorld/src/entry.jl:744`, `:691`–`693` |
 | T-36 | [§1](#1-syntax-summary), [§8](#8-keywords-defaults-and-varargs) | An operation names its receiver (`t::Shape`); a keyword takes any bound, several `Callable`s included. | An unnamed receiver, `area(::Shape)::Float64`, is accepted. A keyword with several `Callable` bounds is refused with an `ErrorException`. | `TraitWorld/src/trait.jl:156`; `src/trait_module.jl:341` |
+| T-37 | [§3.4](#34-parameters-and-associated-types), [§5.6](#56-stating-parameters) | An equation always holds: a stated value for a parameter an equation defines is checked against the equation, and an implementation where they disagree is refused with `ImplementError`. | Checked for an implementation of one type (`_param_agrees` in `TraitWorld/src/implement.jl`; `test/params.jl`). For a family (`@implement X{T} S{T} where {T}`) the stated value still replaces the equation's, unchecked: the equation is not evaluated at the family's free parameters. As [lowering L-26](lowering.md#18-deviations). | `implement.jl` (`_param_methods`) |

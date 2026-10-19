@@ -258,8 +258,8 @@ The entries are grouped by theme:
   - the result asserted to the declared type.
 
   It dispatches in the caller's world. A later implementation reaches the fallback and invalidates nothing.
-- **Origin:** Julia's union splitting, which branches over the members of a small `Union`, applied to a trait's implementations ([`comparison.md` §6](design/comparison.md#6-static-and-dynamic-positions-and-their-defaults)). It is built into Julia's compiler as `Compiler.dynamic_call`, part (D).
-- **Defined in:** [facts §9](reference/facts.md#dynamic-split); the primitive: [compiler §4.2](reference/compiler.md#42-compilerdynamic_call-the-call-site-split).
+- **Origin:** Julia's union splitting, which branches over the members of a small `Union`, applied to a trait's implementations ([`comparison.md` §6](design/comparison.md#6-static-and-dynamic-positions-and-their-defaults)). It is built into Julia's compiler as `Compiler.split_call`, part (D).
+- **Defined in:** [facts §9](reference/facts.md#dynamic-split); the primitive: [compiler §4.2](reference/compiler.md#42-compilersplit_call-the-call-site-split).
 
 ### World-checked call-site cache
 
@@ -320,13 +320,13 @@ The entries are grouped by theme:
 
 ### Strict mode
 
-- **Here:** a switch. It refuses a pirate that would win at a fact of compiled code, where the pirate is defined: at the prompt, by `include`, or as a package image's methods activate. The error names the method and the code it would have changed. The refused method then does not exist, for plain code either. The default session leaves it off: it follows the pirate, and the code with that fact recompiles once.
+- **Here:** a switch that applies to trait code. It secures one property: trait code is never invalidated, except by a stakeholder's change. It refuses a pirate that would win at a fact of trait code, where the pirate is defined: at the prompt, by `include`, or as a package image's methods activate. The error names the method and the code it would have changed. The refused method then does not exist, for plain code either. The default session leaves it off: it follows the pirate, and the code with that fact recompiles once.
 - **Origin:** the project's. Rust refuses every orphan impl at compile time. Strict mode refuses a pirate only where it would change compiled code ([`comparison.md` §5](design/comparison.md#5-who-may-implement-ownership-and-stakeholders)). It uses the definition hooks of the patched Julia ([compiler §5.1](reference/compiler.md#51-method-definition-and-image-activation-hooks)).
 - **Defined in:** [traits §12.3](reference/traits.md#123-strict-mode); [facts §10.2](reference/facts.md#strict-mode), [§10.3](reference/facts.md#strict-intended); the argument: [argument §3.2](design/argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached), [§3.5](design/argument.md#35-the-default-following-pirates-rule-p-and-what-it-gives-up).
 
 ### Package extension
 
-- **Here:** Julia's code that loads when its parent package and a trigger package are both loaded. For ownership it belongs to its parent. In the trait world an extension declares implementations, which invalidate nothing, instead of adding methods to a library's internal functions. Example: TraitCSV's extension for InlineStrings' `String15`.
+- **Here:** Julia's code that loads when its parent package and a trigger package are both loaded. For ownership it belongs to its parent: its winning methods are its parent's changes, followed (with a warning in strict mode, [facts §10.3](reference/facts.md#strict-intended)). In the trait world an extension declares implementations, which invalidate no trait code, instead of adding methods to a library's internal functions. Example: TraitCSV's extension for InlineStrings' `String15`.
 - **Origin:** Julia's own: package extensions, with `[weakdeps]` and `[extensions]` in `Project.toml`, since Julia 1.9 *(the version: not in the research)*. Before them, Requires.jl did the same.
 - **Defined in:** [facts §1](reference/facts.md#term-owner) (owners); [traits §12.1](reference/traits.md#121-who-may-implement); [`intro/porting.md`](intro/porting.md), rule 4.
 
@@ -373,7 +373,7 @@ The entries are grouped by theme:
 
 - **Here:** two related things.
   - **The boundary** (rule 3 of [the design](design.md#4-the-rules)): only values cross into trait code, each translated once by its bound.
-  - **A boundary method** carries the boundary flag and is compiled in its caller's mode, wherever it is defined: TraitWorld's entries, which do that translation, and `conformance` methods. The crossing between the modes then happens at the call the boundary method makes.
+  - **A boundary method** carries the boundary flag (`Expr(:meta, :facts_boundary)` in its body) and is compiled in its caller's mode, wherever it is defined: TraitWorld's entries, which do that translation, and `conformance` methods. The crossing between the modes then happens at the call the boundary method makes.
 - **Origin:** the project's terms.
 - **Defined in:** [traits §6](reference/traits.md#6-bounded-functions) (the boundary); [facts §6.1](reference/facts.md#kinds-of-methods) (boundary methods); the flag: [compiler §2.2](reference/compiler.md#22-the-method-flag-boundaries-and-always-facts-methods).
 

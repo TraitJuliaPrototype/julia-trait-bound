@@ -39,7 +39,7 @@ The facts mode makes "who compiles this code, under which rules" a property of e
 **The choices have costs:**
 - **`@machinery`'s clean-case cost.** The machinery is type-unstable by nature, so as facts code its run-time sites compile facts copies of Base methods in each session, unless TraitWorld's image holds them. This is the likely cause of TraitMakie's clean regression (36 → 77 ms). It is not yet measured by owner. The completion is a precompile workload for the machinery under its owner.
 - **A hole in "protected as trait code" (review B1).** `@machinery` code that calls compiler functions directly (`argextype`, `sptypes_from_meth_instance`, the `NativeInterpreter` constructor, `register_dynamic_candidate!`) holds edges to *plain* compiler CodeInstances. Those are valid only as long as plain Julia keeps them valid. Calls through Base reflection run in the typeinf world and are safe; direct calls are not.
-- **`dynamic_call` is a compiler method,** so the module flag marks it plain too. That is safe only because inference intercepts it.
+- **`split_call` is a compiler method,** so the module flag marks it plain too. That is safe only because inference intercepts it.
 
 ### 2. Two Julia inliner habits that cost recursions through wrappers, not specific to facts
 

@@ -470,6 +470,7 @@ struct Series{T}
 end
 Signals.nsamples(s::Series) = length(s.data)
 Signals.sample(s::Series, i::Int) = s.data[i]
+Base.eltype(::Type{Series{T}}) where {T} = T      # so the trait's equation gives T
 @implement Samples{T} Series{T} where {T}
 
 total([1.0, 2.0, 3.5])            # 6.5
@@ -479,7 +480,10 @@ mean64(Series([1.0, 4.0]))        # 2.5
 mean64([1, 2])                    # TraitBoundError: the bound fixes T = Float64, and Vector{Int} has T = Int
 ```
 
-- A parameter is defined by an equation (`T = eltype(Self)`), by a field's type, or by the implementation (`@implement Samples{T} Series{T} where {T}`, or `@implement ArrayLike{Float32, 1} MyVec`).
+- A parameter is defined by an equation (`T = eltype(Self)`), by a field's type, or by the implementation (`@implement ArrayLike{Float32, 1} MyVec`, for a trait with no equation for its parameters).
+- An equation always holds. `@implement Samples{T} Series{T} where {T}` states `T`, and the stated value must agree with the equation: `eltype(Series{Float32})` must be `Float32`. Without the `eltype` method it is `Any`, and the implementation is refused with `ImplementError`.
+
+> **Planned, not implemented:** the check of a stated value against the equation. Today a stated value replaces the equation's, so the example also runs without the `eltype` method ([reference T-37](../reference/traits.md#19-deviations)).
 - A bound may fix a parameter, `Samples{Float64}`, or leave it open, `Samples`.
 - Each member of a family is fixed at its first use. Workers compile per member.
 
@@ -743,8 +747,11 @@ end
 sq([1.0, 2.0, 3.0])                 # 14.0: the pirate was never defined
 ```
 
+- Strict mode applies to trait code. What it secures: compiled trait code is never invalidated by a pirate. Plain code is not protected by it.
 - A pirate that changes no compiled trait code is accepted.
-- Methods for your own types are never pirates.
+- Methods for your own types are never pirates. A package extension's method counts as its parent package's: where the parent owns the function or a type, it is followed, not refused.
+
+> **Planned, not implemented:** a warning when a package extension's method changes compiled trait code, naming the method and the trait code.
 - Strict mode is off by default. It changes nothing at run time.
 
 Rules: [reference §12.3](../reference/traits.md#123-strict-mode).

@@ -27,9 +27,9 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 | Mechanism | Implemented | Planned | Optional or Open |
 |---|---|---|---|
 | [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | Revalidating cached `return_type` answers after loads | Guarded devirtualization (Optional); standard libraries as owners of their own (Open) |
-| [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too | A memo for the facts owner's normalization (Optional); facts code behind `jl_apply` (Open) |
+| [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code, and through `jl_apply` to the default owner's code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too; a module's other compiler options in both modes | A memo for the facts owner's normalization (Optional) |
 | [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | `Dynamic` beyond four implementations; a codegen-emitted cache (both Optional) |
-| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.dynamic_call` | — | — |
+| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call` | — | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
 | [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
 | [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping, then syntax: last | — |
@@ -188,7 +188,7 @@ Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`)
 
 ### 2.1 The module option
 
-**Status: Implemented.**
+**Status: Implemented**, except a module's other compiler options in the facts mode (**Planned**, [C-6](#deviations)).
 
 ```julia
 module M
@@ -220,6 +220,9 @@ int  jl_get_module_facts(jl_module_t *m);              // 1 when the flag is 1
 - A submodule takes its parent's flag when it is created. So a submodule defined after the option inherits it.
 - Flag 2 is for the compiler's own code (§2.6). No Julia-level syntax sets it.
 - `@trait_module` declares `facts=true` ([`traits.md` §2](traits.md#2-trait-modules)).
+- `Expr(:meta, :facts, 1)` and `Expr(:meta, :facts, 0)` mean the module option only, at a module's top level. A method body names its mode with its own markers (§2.2).
+
+**Planned: the other compiler options in both modes.** A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code in both modes, as they apply to plain code. Today `compile` (`min`, `no`) is ignored for code of owner `:facts` ([C-6](#deviations)).
 
 ### 2.2 The method flag: boundaries and always-facts methods
 
@@ -229,22 +232,22 @@ A macro puts the meta first in a method's body, as `@inline` puts `Expr(:meta, :
 
 ```julia
 macro boundary(fdef)       # compiled in the mode of the code that reaches it
-    pushfirst!(fdef.args[2].args, Expr(:meta, :facts, 0)); esc(fdef)
+    pushfirst!(fdef.args[2].args, Expr(:meta, :facts_boundary)); esc(fdef)
 end
 macro always_facts(fdef)   # always compiled by facts
-    pushfirst!(fdef.args[2].args, Expr(:meta, :facts, 1)); esc(fdef)
+    pushfirst!(fdef.args[2].args, Expr(:meta, :facts_always)); esc(fdef)
 end
 ```
 
-Lives in `src/method.c` (`jl_method_set_source`), `src/ast.scm`, `src/julia-syntax.scm`, `src/module.c`.
+Lives in `src/method.c` (`jl_method_set_source`), `src/ast.c` (the symbols), `src/ast.scm`, `src/julia-syntax.scm`, `src/module.c`.
 
 **The method flag** (`Method.facts::UInt8`):
 
 | Value | Meaning | Written as |
 |---|---|---|
 | 0 | as its module's flag says | (nothing) |
-| 1 | a boundary: compiled in the mode of the code that reaches it | `Expr(:meta, :facts, 0)` |
-| 2 | always facts | `Expr(:meta, :facts, 1)` |
+| 1 | a boundary: compiled in the mode of the code that reaches it | `Expr(:meta, :facts_boundary)` |
+| 2 | always facts | `Expr(:meta, :facts_always)` |
 
 ```c
 int jl_method_is_facts(jl_method_t *m);   // flag 2, or flag 0 in a module of flag 1; 0 under --trim
@@ -254,7 +257,7 @@ int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
 **Rules.**
 - Lowering carries the meta into every method a definition lowers to: the keyword sorter and the positional forwarders of default arguments.
 - The meta may be merged with other metas, as `pushmeta!` merges `@inline`'s. It is still found.
-- The same `Expr(:meta, :facts, n)` means the module option at a module's top level (§2.1) and the method flag in a method body. Inside a body, `0` means "boundary", not "plain".
+- Each marker has one meaning. `:facts_boundary` and `:facts_always` are read in a method body only. `Expr(:meta, :facts, n)` is the module option, at a module's top level (§2.1).
 - TraitWorld marks entries as boundaries and its machinery as always facts ([`lowering.md`](lowering.md#82-the-entry)).
 
 ### 2.3 The owners, and the mode and owner of a MethodInstance's code
@@ -320,7 +323,7 @@ Lives in `src/gf.c`, `Compiler/src/typeinfer.jl` and `Compiler/src/facts.jl`.
 
 ### 2.5 Dispatch from facts code
 
-**Status: Implemented** for the calls codegen emits. **Open** for dispatch through the runtime's `jl_apply`.
+**Status: Implemented.**
 
 ```c
 jl_value_t *jl_apply_generic_facts(jl_value_t *F, jl_value_t **args, uint32_t nargs);
@@ -340,14 +343,14 @@ Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
   - `modifyfield!` and its kin through `:invoke_modify`.
 - Dispatch on a narrow MethodInstance runs the code of the wider instance Julia compiles for it.
 
-**Open: facts code behind `jl_apply`.** Dispatch through the runtime's `jl_apply` runs plain code:
+**Dispatch through the runtime's `jl_apply`** runs the callee's default owner's code (`jl_default_owner`, §2.4):
 - splats of unknown length;
 - the `invoke` builtin at run time;
 - `jl_call`;
 - `@cfunction` callbacks, including `:caller_world` pointers (§3.1);
 - finalizers and task entry.
 
-This computes the same results. The plain code reached this way is plain Julia's, with plain Julia's validity. Whether these should run facts code is not decided ([open issues §2](../open-issues.md#2-design), "Facts code behind `jl_apply`"; [facts F-3](facts.md#deviations)).
+A trait module's method is a facts method, whose default owner is `:facts`: trait code reached this way is code compiled by facts. A neutral method runs its plain code in the product setting. That is not trait code, so trait code is never invalidated through this path. The rule needs nothing of the runtime's internals: `jl_apply` asks for the default owner's code, as any call from the runtime does ([facts §5](facts.md#run-time-sites)).
 
 **Optional: a memo for the facts owner's normalization.** A call that arrives with a narrow MethodInstance looks up the wider instance's code on every call ([C-4](#deviations)). No measured workload reaches it. If one does, the fix is a memo from the narrow instance to the wider one's code, which invalidation of the wider code clears.
 
@@ -477,7 +480,7 @@ The MethodInstance for `types` in `world`, with the range of worlds where that a
 
 **Rules.**
 - Cache entries are never freed. There is one per target, and targets are rooted by their MethodInstances' caches.
-- Today the callee's code is the default owner's: a facts method's facts code, any other method's plain code (§2.5, Open; [facts F-3](facts.md#deviations)).
+- The callee's code is the default owner's: a facts method's facts code, any other method's plain code in the product setting (§2.5).
 
 ### 3.2 The per-call-site dispatch cache
 
@@ -504,7 +507,7 @@ Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keye
 ### 3.3 Further work on mechanism 3
 
 - **Planned: entries with an open `max_world`.** An exact-type entry and a `:caller_world` entry refer to the method-cache entry and the `CodeInstance` they copy, whose `max_world` invalidation lowers. A hit compares the world with both ranges. A method definition then costs a cached site nothing unless it invalidates what the site calls ([C-3](#deviations)).
-- **Optional: `Dynamic` beyond four implementations.** Raise the split limit for `dynamic_call` only (§4.2), or put a per-site table of types and `:caller_world` pointers at the split's fallback. When a demonstrator has five implementations.
+- **Optional: `Dynamic` beyond four implementations.** Raise the split limit for `split_call` only (§4.2), or put a per-site table of types and `:caller_world` pointers at the split's fallback. When a demonstrator has five implementations.
 - **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
 - **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
 
@@ -533,19 +536,19 @@ Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call
 - Code branches on it only between paths that compute the same result. Anything else makes a result depend on how the code was compiled.
 - TraitWorld's entry takes the inlined path for typed callers and the table of declared implementations where the type is not known ([`lowering.md`](lowering.md#82-the-entry)).
 
-### 4.2 `Compiler.dynamic_call`: the call-site split
+### 4.2 `Compiler.split_call`: the call-site split
 
 **Status: Implemented.**
 
 ```julia
-Compiler.dynamic_call(K, ::Type{RT}, f, x, args...)          # f(x, args...)::RT
+Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
 Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate type of K
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered
 ```
 
-Lives in `Compiler/src/facts.jl` (`abstract_dynamic_call`, `DynamicSplitInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. Not to be confused with TraitWorld's `dynamic_call(f)`, a `Callable` mode.
+Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. The name `dynamic_call` is TraitWorld's alone: `dynamic_call(f)`, a `Callable` mode.
 
-**Meaning.** `dynamic_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
+**Meaning.** `split_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
 - **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.
 - **The split.** The inliner rewrites the statement to the call of `f` and splits it over the candidates, with the dynamic call as the last branch. The split is never "fully covered": a value of another type reaches the fallback.
 - **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The inliner's split asserts the fallback's result, and any case not known to be an `RT`, to `RT`, and types the join `RT`. A caller that needs the type after the call asserts it there, as TraitWorld's lowering does ([`lowering.md`](lowering.md#13-dynamicx)).
@@ -633,7 +636,7 @@ Lives in `base/experimental.jl` and `base/show.jl` (`_show_type`).
 
 ### 5.4 Planned: hooks for strict mode's intended design
 
-**Status: Planned.** Strict mode's intended design ([`../explorations/strict-mode.md`](../explorations/strict-mode.md) §2b; [open issues §1.1, §1.10](../open-issues.md#1-decisions-waiting-for-the-user)) needs three more pieces:
+**Status: Planned.** Strict mode's intended design ([`../explorations/strict-mode.md`](../explorations/strict-mode.md) §2b; [open issues §1.1](../open-issues.md#1-decisions-waiting-for-the-user)) needs three more pieces:
 - **A deletion hook (1′):** called at method deletion (`jl_method_table_disable`). It may refuse.
 - **A "what would this definition invalidate" query (14):** read-only and transitive. It is `jl_method_table_insert`'s invalidation walk without the stores, asked from the definition hook before the method becomes visible.
 - **Image validation that reports the winning method (15):** when validation rejects a `CodeInstance` of a package image, it reports the edge and the method that now wins.
@@ -736,9 +739,9 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. | `src/gf.c:4611`; `src/runtime_ccall.cpp:424` |
 | C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3733` |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |
-| C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes. | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3775` |
+| C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3775` |
 | C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
-| C-8 | [§4.2](#42-compilerdynamic_call-the-call-site-split) | `dynamic_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl:465`; `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
+| C-8 | [§4.2](#42-compilersplit_call-the-call-site-split) | `split_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl:465`; `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
 | C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl:305` |
 | C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences, which for a facts method are not even the same answer ([C-11](#deviations)). | `Compiler/src/facts.jl:259`, `:355` |
 | C-11 | [§1.4](#14-return_type) | `return_type` gives one answer, plain inference's: the fold's and the run time's agree. | In the product setting, `return_type_interp` is a `NativeInterpreter` of owner `nothing`; its `typeinf_ext` hands a facts method to facts inference (`leaves_to`, §2.6). The fold uses `PlainRTInterp`, which infers it plainly. So the run-time answer for a facts method is facts inference's, which can be wider than the folded one. Under the test bed both routes are `PlainRTInterp`. As [facts F-10](facts.md#deviations). | `Compiler/src/facts.jl:259`, `:355`, `:69`–`78`; `Compiler/src/typeinfer.jl:1373`–`1375` |
