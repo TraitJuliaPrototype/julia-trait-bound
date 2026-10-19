@@ -4,6 +4,7 @@
 - Links into the workspace's other repositories (TraitWorld/, experiments/, julia-1.13/, ...) become
   links to those repositories on GitHub.
 - A directory linked to without a README.md gets a generated index page listing its documents.
+- Lists are rewritten from GitHub's rules into the form Python-Markdown reads the same way (gfm_lists).
 """
 import os, re, shutil, subprocess
 
@@ -60,10 +61,102 @@ SEARCHED = {"writeup/reference/README.md", "writeup/reference/traits.md", "write
             "writeup/other-languages.md", "writeup/open-issues.md", "writeup/glossary.md"}
 NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"
 
+# The documents are written for GitHub (CommonMark), and Python-Markdown reads lists differently: it nests by
+# four spaces where GitHub nests under an item's text (two spaces under "- ", three under "1. "), and it needs
+# a blank line before a list that follows a paragraph line, another kind of list, a closing fence or a block
+# quote. gfm_lists rewrites the copied documents into that form, following GitHub's rules for which item a
+# line belongs to: each line inside list items is re-indented by four spaces per enclosing item, and a blank
+# line is inserted where a list needs one. Fenced code moves with its item and is otherwise left alone. A "#"
+# that starts a line's text without a space after it is escaped: GitHub reads it as text, Python-Markdown as
+# a heading.
+QUOTE = re.compile(r"((?: {0,3}>[ ]?)*)(.*)")
+ITEM = re.compile(r"( *)([-*+]|(\d{1,9})\.)( +)\S")
+FENCE = re.compile(r" *(`{3,}|~{3,})")
+SINGLE = re.compile(r" {0,3}(#{1,6}( |$)|([*_-] *){3,}$)")  # a heading or a thematic break
+HASH = re.compile(r"( *(?:(?:[-*+]|\d{1,9}\.) +)?)#(?=[^#\s])")  # "#56660": a heading to Python-Markdown only
+
+def gfm_lists(text):
+    out = []
+    stack = []    # the open list items, outermost first: (content indent, marker kind)
+    fence = None  # the opening fence's characters, inside fenced code
+    depth0 = 0    # the block-quote depth of the previous line
+    # the block the previous line belongs to: None at a block start (after a blank line or a heading); "item"
+    # for an item's first paragraph, "para" for any other paragraph (para_in: the content indent of the item
+    # holding it), "code" for indented code, "item-fence" after a closing fence that continues an item's first
+    # paragraph, "fence" after any other closing fence
+    state, para_in, fence_in_item = None, 0, False
+    block_lead = 0  # the indent of the first line after the last blank line, where Python-Markdown's block starts
+
+    def place(body, lead):  # the line re-indented within the innermost open item
+        return " " * (4 * len(stack)) + body[min(lead, stack[-1][0]):] if stack else body
+
+    for line in text.split("\n"):
+        prefix, body = QUOTE.fullmatch(line).groups()
+        depth, lead = prefix.count(">"), len(body) - len(body.lstrip(" "))
+        if fence:
+            if re.fullmatch(rf" *{re.escape(fence[0])}{{{len(fence)},}} *", body):
+                # Python-Markdown needs a blank line after the fence before an item unless the fence
+                # continues an item's first paragraph
+                fence, state = None, "item-fence" if stack and fence_in_item else "fence"
+            out.append(prefix + place(body, lead) if body.strip() else line)
+            continue
+        if not body.strip():
+            out.append(line)
+            state, depth0, block_lead = None, depth, None
+            continue
+        quote_ended = depth < depth0
+        if depth != depth0:
+            stack, state = [], None
+        depth0 = depth
+        if block_lead is None:
+            block_lead = lead
+        top = stack[-1][0] if stack else 0
+        if state == "code" and lead < top + 4:
+            state = None
+        m = ITEM.match(body)
+        if m and (state == "code" or state is None and lead >= top + 4):
+            m = None  # indented code
+        elif m and state in ("para", "item") and lead >= (inner := para_in if state == "para" else top) \
+                and (m.group(3) not in (None, "1") or lead >= inner + 4):
+            # GitHub lets only a bullet or "1." interrupt a paragraph in its own item: the line continues the
+            # paragraph, and its marker is escaped so that Python-Markdown does not start a list there
+            mk = len(m.group(1)) + len(m.group(2)) - 1
+            body, m = body[:mk] + "\\" + body[mk:], None
+        if not (state == "code" or state is None and lead >= top + 4):
+            body = HASH.sub(r"\1\\#", body, count=1)
+        if m:
+            kind = m.group(2) if m.group(3) is None else "."
+            sibling = None
+            while stack and lead < stack[-1][0]:
+                sibling = stack.pop()
+            if quote_ended or state is not None and (state in ("para", "fence") or sibling and sibling[1] != kind
+                                                     or state == "item-fence" and not sibling or lead < block_lead):
+                # (the last: Python-Markdown would read an item less indented than its block's first line as
+                # part of the item the block continues)
+                out.append(prefix.rstrip())
+                block_lead = lead
+            out.append(prefix + " " * (4 * len(stack)) + body[lead:])
+            w, sp = len(m.group(2)), len(m.group(4))
+            stack.append((lead + w + (sp if sp <= 4 else 1), kind))
+            state = "item"
+            continue
+        if stack and lead < top and (state not in ("item", "para") or FENCE.match(body) or SINGLE.match(body)):
+            while stack and lead < stack[-1][0]:  # not a lazy continuation: the line leaves the items
+                stack.pop()
+        if f := FENCE.match(body):
+            fence, fence_in_item = f.group(1), state == "item"
+        elif SINGLE.match(body):
+            state = None
+        elif state not in ("item", "para", "code"):
+            top = stack[-1][0] if stack else 0
+            state, para_in = ("code" if state is None and lead >= top + 4 else "para"), top
+        out.append(prefix + place(body, lead))
+    return "\n".join(out)
+
 for f in files:
     os.makedirs(os.path.join(out, os.path.dirname(f)), exist_ok=True)
     s = open(os.path.join(root, f), encoding="utf-8").read()
-    s = link.sub(lambda m: fix(m, f), s)
+    s = gfm_lists(link.sub(lambda m: fix(m, f), s))
     if f not in SEARCHED:
         s = NOSEARCH + s
     open(os.path.join(out, f), "w", encoding="utf-8").write(s)
