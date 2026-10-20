@@ -58,6 +58,13 @@ plot!(ax, mark::Dynamic{Mark}) = …
 
 ## 4. Questions for the user
 
+**Answers** (user (2026-10-20), on the proposal's questions: "1. Dynamic default as exception for Callable, 2. Yes, 4. Yes, 5. Weak yes. If this causes issues, revisit. Explain 3."):
+- 1: `Callable` keeps the dynamic default, an exception to the bare rule: `Callable{A, S}` means `Dynamic{Callable{A, S}}`.
+- 2: the names `Compiled{X}`, `Dynamic{X}`, `compiled_for(x)`, `with_dynamic(x)`.
+- 4: mixed modes: compiled per the keys of the `Compiled` arguments only.
+- 5: a `Dynamic` position fixes every parameter its operations' result types use (weak yes; revisit if it causes issues).
+- 3: explained, open.
+
 1. **`Callable`'s default.** Today a bare `f::Callable{A, S}` is a dynamic call (adopted rev 988: a new closure must not recompile the solver). Under "a bare bound is `Compiled`", it would become a compiled call. Keep `Callable`'s default dynamic (an exception to the bare rule, written as `Callable{A, S} = Dynamic{Callable{A, S}}`), or make it compiled and have libraries write `Dynamic{Callable{…}}` where a function should not recompile them?
 2. **The names:** `Compiled{X}`, `Dynamic{X}`, `compiled_for(x)`, `with_dynamic(x)`. `Dynamic` is already the value type; reusing it for positions is the point.
 3. **A `Dynamic` value inside a `Compiled` function** passed on to another `Compiled` function is opened at each call. A loop over `Vector{Dynamic{Shape}}` calling a `Compiled` function per item dispatches once per item into code compiled per type. Fine as the rule, with the library choosing `Dynamic` for the inner function where that is better?
