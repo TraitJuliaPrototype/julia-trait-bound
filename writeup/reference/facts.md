@@ -378,7 +378,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 **Status: Implemented.** **Optional:** a faster path beyond four implementations ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 
-An operation on a `Dynamic{X}` value ([traits §10](traits.md)) is a call on a value of an open set of types. Lowering writes it as `split_call(K, RT, f, x, args...)`: `K` names the trait, `RT` is the operation's declared result type ([`lowering.md`](lowering.md), [`compiler.md`](compiler.md)).
+An operation on a `Dynamic{X}` value, or on a trait object at a `Dynamic` position ([traits §6.6](traits.md#66-compiled-and-dynamic-how-values-enter), [§10](traits.md#10-dynamicx-values-of-any-conforming-type)), is a call on a value of an open set of types. A declared field read there is one too. Lowering writes it as `split_call(K, RT, f, x, args...)`: `K` names the trait, `RT` is the operation's declared result type ([`lowering.md`](lowering.md), [`compiler.md`](compiler.md)).
 
 **Meaning.** `split_call(K, RT, f, x, args...)` computes `f(x, args...)::RT`.
 
@@ -392,6 +392,7 @@ An operation on a `Dynamic{X}` value ([traits §10](traits.md)) is a call on a v
 - **When inference knows `x`'s type,** the call is an ordinary call at that type.
 - **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The lowering asserts the declared type `RT` after the call, so the code after it is typed `RT`. The optimizer's split asserts each case not known to be an `RT`, and the fallback, to `RT`. A result of another type raises a `TypeError`.
 - **A later candidate** reaches the fallback. It invalidates nothing. Code compiled after its registration splits over it.
+- **Code at a `Dynamic` position** is compiled once for the position: it records no edge to the set of implementations, and each branch of its splits is a fact. So a new implementation, loaded after it was compiled, discards none of it. (Planned with `Dynamic` positions; checked by new acceptance cases when they are built.)
 
 So the split takes the place of the speculation the facts mode removes ([§4.2](#inferred-across-a-call)), from a declaration rather than from the methods that exist today.
 

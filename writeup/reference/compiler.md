@@ -463,7 +463,7 @@ Lives in `src/module.c` (`jl_method_is_facts`), `src/gf.c` (`jl_compile_by_facts
 Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), QuoteNode(:caller_world))
 ```
 
-`@cfunction` has no argument for the convention. Code writes the expression, as TraitWorld's `Callable` does ([`lowering.md`](lowering.md#12-callable-and-dynamicfn)). Lives in `src/codegen.cpp` (`emit_cfunction`, `emit_abi_call`) and `src/runtime_ccall.cpp` (`jl_get_abi_converter_caller_world`).
+`@cfunction` has no argument for the convention. Code writes the expression, as TraitWorld's `Callable` does ([`lowering.md`](lowering.md#12-callable-and-dynamiccallable)). Lives in `src/codegen.cpp` (`emit_cfunction`, `emit_abi_call`) and `src/runtime_ccall.cpp` (`jl_get_abi_converter_caller_world`).
 
 **Meaning.**
 - A call through the pointer runs in the caller's world (the task's world age), as a direct call does. A plain `@cfunction` runs in the latest world, as a callback from C must.
@@ -518,7 +518,7 @@ Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keye
   - a table per trait, indexed by the implementation: the shape of Rust's vtables and Swift's witness tables, with world-checked entries;
   - recompiling in the background: count the fallback's hits per site; past a threshold, compile the caller again with the observed types in the split, and swap the new code in (§1.6).
 
-  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations.
+  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations. `Dynamic` positions make such sites more common (§4.2); the question stays out of the work on `Compiled` and `Dynamic` (W-4).
 - **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
 - **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
 
@@ -545,7 +545,7 @@ Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call
 
 **Rules.**
 - Code branches on it only between paths that compute the same result. Anything else makes a result depend on how the code was compiled.
-- TraitWorld's entry takes the inlined path for typed callers and the table of declared implementations where the type is not known ([`lowering.md`](lowering.md#82-the-entry)).
+- TraitWorld's entry uses it to decide a plain value's attribute: a typed caller inlines the entry, where it folds to `true`, and passes a `Compiled` value; an untyped caller, and code Julia does not compile (a statement at the prompt), reach the entry compiled at `Any`, where it is `false`, and pass a `Dynamic` one ([`lowering.md`](lowering.md#82-the-entry); [`traits.md`](traits.md#66-compiled-and-dynamic-how-values-enter)). The attribute changes speed, never results, so the rule above holds. *As built,* the untyped path is the table of declared implementations ([lowering L-28](lowering.md#18-deviations)).
 
 ### 4.2 `Compiler.split_call`: the call-site split
 
@@ -557,7 +557,7 @@ Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate t
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered, in order
 ```
 
-Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. The name `dynamic_call` is TraitWorld's alone: `dynamic_call(f)`, a `Callable` mode.
+Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. The function was called `dynamic_call` until 2026-10-20; that name was a `Callable` mode of TraitWorld's, which the language replaces by `with_dynamic(f)`.
 
 **Meaning.** `split_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
 - **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.
@@ -569,9 +569,9 @@ Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssai
 **Rules.**
 - At most `MAX_FACT_SPLITS` candidates are split: the first four registered, in the order of registration. Later ones reach the fallback.
 - TraitWorld registers a trait's implementations in declaration order (the declaration's file, then its line), at each declaration and each package load, so the split covers **the first four declared**, in a session that loads a package image as in the image's own code ([`lowering.md`](lowering.md#13-dynamicx)).
-- Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split.
+- Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split. So code compiled into a package image, such as a worker at a `Dynamic` position, splits over the implementations registered while the image was built, and a user's type declared later takes the fallback (a performance issue to revisit, [open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
 - Registration is lock-free for readers: the table is replaced on each registration, never mutated.
-- How TraitWorld uses it for `Dynamic{X}` is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).
+- How TraitWorld uses it for `Dynamic{X}` values and for operations and field reads at a `Dynamic` position is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).
 
 ---
 
