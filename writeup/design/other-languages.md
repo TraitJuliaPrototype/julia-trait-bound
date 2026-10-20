@@ -36,7 +36,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 | Generic code checked | at instantiation only | at definition, against bounds | at definition | before instantiation | at definition, at archetypes; open parameters per signature |
 | Code generated | per type (templates) | per type (monomorphization) | once, dictionary passing; specialization an optimization | per type, whole program | per key: what a bound can see; per type only for a type that supplies its own behaviour |
 | Implementation through a field | — | by hand, or `Deref` | by hand | — | forwarding (`by field`), compiled per the field's type |
-| Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | `Dynamic{X}`; `Callable` in `DynamicCall` mode, the caller overrides |
+| Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | `Dynamic{X}`, a `Dynamic` position; `Callable` by default; the caller converts with `compiled_for`, `with_dynamic` |
 | Storable dynamic value | yes | `Box<dyn Trait>` | `any P` | `Variant`, `PythonObject` | `Dynamic{X}` |
 | How a dynamic call finds the method | a vtable | a vtable, carried with the pointer | a witness table, carried in the existential | witness tables at compile time only | a call-site split over the first four declared implementations, then dispatch |
 | Heterogeneous collection | a vector of pointers to a base class, or of `std::variant` *(from memory)* | `Vec<Box<dyn Trait>>`; lazily `impl Iterator<Item = &dyn Trait>` | `[any P]`; lazily `some Sequence<any P>` | `Variant`, `PythonObject` | a copy into `Vector{Dynamic{X}}` today; collection traits with a view planned |
@@ -118,7 +118,7 @@ The prototype refuses an accidental implementation: `Int` has `getindex(::Int, :
 | declared fields | the library per tuple of field types | a load at the field's offset | the fields' types |
 | `Callable`, dynamic call | the library once per signature | indirect, 3.95 ns ([evidence §2](evidence.md#2-run-time)), result declared | the signature |
 | `Callable`, compiled call | per function type | direct | the function's type |
-| `Dynamic{X}` | each operation split over the first four registered implementations; the library per key where it is opened | a split branch, else a dispatch; result declared | the operations, until opened |
+| `Dynamic{X}`, a `Dynamic` position | the library once per position; each operation split over the first four registered implementations | a split branch, else a dispatch; result declared | the operations, until `compiled_for` opens it |
 
 **Loads.** In plain Julia, the first two rows can be invalidated by any owner's method at an abstract signature. Under the facts rule every row compiled by facts (trait code and the plain code it reaches; under the test bed `all`, all code) is invalidated only by a stakeholder or a winning pirate ([the rationale §2](../design.md#2-the-argument-in-four-steps)). The control shows that this protection is the facts rule's, for any code, not the traits' ([`evidence.md`](evidence.md) §1). What traits add is that the facts rule costs nothing for them (section 9).
 
@@ -218,10 +218,10 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 
 ## 6. Static and dynamic positions, and their defaults
 
-**The choice.**
-- **Data** is compiled per key, statically.
-- **Functions from plain code** are dynamic calls by default (`DynamicCall`). The library sets the default and the caller overrides it per value, with `compiled_call(f)` or `dynamic_call(f)` ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)).
-- **Data made dynamic** is chosen explicitly: `Dynamic{X}`, or a trait's name in a field or container.
+**The choice** ([traits §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter)).
+- **Every value in trait code is `Compiled` or `Dynamic`,** set where it is first seen through a trait: `Compiled` if the code knows its concrete type, `Dynamic` if not. As in Rust and Swift, the type the code knows decides: a concrete value runs code compiled per key, a value of abstract type runs code compiled once.
+- **Overrides:** a trait may declare `@dynamic`; `Callable` does, so functions from plain code are dynamic calls by default ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)). A library sets an attribute per position, `x::Compiled{X}`, `x::Dynamic{X}`, also on a collection's items. The caller converts per value, with `compiled_for(x)` or `with_dynamic(x)`, which always wins.
+- **Data stored dynamic** is chosen explicitly: `Dynamic{X}`, or a trait's name in a field or container.
 
 **Defaults in other languages** (`other-languages-research-2026-10-16.md` §7):
 
@@ -232,11 +232,12 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 | Swift | compiled once, witness tables; specialization an optimization | indirect unless inlined | `@inlinable`, cross-module optimization, `@specialized` |
 | Mojo | compiled per type | compiled per closure type | none inside Mojo |
 | Julia today | compiled per concrete type | compiled per function type if called in the body | `@nospecialize`, `Any` fields, FunctionWrappers |
-| Ours | per key: what a bound can see | dynamic by default; the caller overrides | `Dynamic{X}` |
+| Ours | per key where the type is known, once where it is not | dynamic by default; the caller converts | `Dynamic{X}`, `Dynamic` positions, `with_dynamic` |
 
 **Why.**
+- **The known type decides, as in Rust and Swift.** Julia compiles every call for the argument's type at run time, a function barrier at every call; here that is asked for, with `compiled_for`, where it pays.
 - **Functions dynamic by default.** That is what Swift chose by design and Rust's practitioners recommend by experience ("prefer `&dyn Fn()` over `impl Fn()`", [matklad](https://matklad.github.io/2021/09/04/fast-rust-builds.html)): compiling per closure costs much and rarely pays. Unlike Rust, the caller can override, so the choice does not leak into the library's API.
-- **But both modes stay.** An ODE right-hand side needs a compiled call with a declared, checked signature, which Julia's type system cannot express otherwise.
+- **But both attributes stay.** An ODE right-hand side needs a compiled call with a declared, checked signature, which Julia's type system cannot express otherwise.
 - **Data static per key.** Operations are direct calls, with no dictionary at run time.
 - **Dynamic data is explicit.** It follows Swift's lesson to spell the slow path where it is used, and to decide it before the ecosystem grows.
 
@@ -362,7 +363,7 @@ Neither Rust nor Swift has a number to set beside these: their untyped code is i
 - Julia's arrays are shared and mutable: a function that receives a vector may write to it, and the caller sees the writes.
 
 **Ours: collection traits, and the container crossing by its bound** ([traits §10.1–10.4](../reference/traits.md#101-basetraits-traits-for-bases-concepts)).
-- Trait code over heterogeneous data is bounded by a collection trait with a declared item bound, `xs::Iterable{Shape}`, items `Dynamic{Shape}`, not by a container type. The item type is known from the bound, and each operation on an item is the `Dynamic` split, not a call at `Any`.
+- Trait code over heterogeneous data is bounded by a collection trait with a declared item bound, `xs::Iterable{Shape}`, not by a container type. Items of an abstract type are `Dynamic{Shape}`, of a concrete type `Compiled`; `Iterable{Compiled{Shape}}` and `Iterable{Dynamic{Shape}}` choose, as Rust's `impl Iterator<Item = impl Shape>` and `<Item = &dyn Shape>` do. The item type is known from the bound, and each operation on an item is the `Dynamic` split, not a call at `Any`.
 - A user's existing `Vector{Any}` or `Dict{String, Any}` is passed as it is: the function's entry translates it by its bound into a view that wraps each element when it is read. No copy, and the user's container stays the one that is read and written. This is Rust's and Swift's lazy shape, with the adaptor made by the entry rather than written at the call, as Swift's bridging of an `NSArray` is implicit.
 - An element that does not conform fails when it is read, as Swift's bridged `NSArray` of class elements does. A container whose element type cannot hold a conforming value is refused at the call.
 - Making a `Dynamic` costs 5 ns; wrapping an element of one of the split's types holds it in the box it came in, with no allocation. Within the split, the idiomatic loops run at 1–5 ns per element where trait code calling Base on the same containers pays 38–276 ns (E-134, E-144, `experiments/hetero-idiomatic/README.md`).
@@ -397,7 +398,7 @@ The design restricts what trait code may do, and only there.
 4. **Types come first.** A type caught by a type-annotated method takes it, even when it also conforms to a bound of the same function. Reaching the trait method needs a type no type method catches, or a newtype.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
-   - 3.95 ns for a `Callable` in `DynamicCall` mode, against 0.87 ns for a direct call ([`evidence.md`](evidence.md) §2).
+   - 3.95 ns for a `Dynamic` `Callable` (the prototype's `DynamicCall` mode), against 0.87 ns for a direct call ([`evidence.md`](evidence.md) §2).
    - A `Dynamic` operation: a split branch within four registered implementations, Julia's megamorphic dispatch beyond (18–68 ns per element in the review's test), and the four split are the first four declared (section 11).
    - An untyped call into trait code: 28.8 ns per call against 18.9 ns for a plain untyped call in the product setting, 30.8 against 17.6 ns under `all`, 16 bytes per call ([`evidence.md`](evidence.md) §2, the measurement round of 2026-10-20).
 7. **Each new receiver type compiles the library once,** in its own image, and the implementation checks cost time: `@implement` of a new model type 66–74 ms in every load order, and its first solve 335–371 ms, mostly the solver compiled for the new key ([`evidence.md`](evidence.md) §3, E-146).
@@ -408,7 +409,7 @@ The design restricts what trait code may do, and only there.
     - Offering traits is per module (`@trait_module`) and bottom-up.
     - One semantic exception: values Julia decides by inference (A3).
     - The orphan case: a foreign trait for a foreign type needs an owner or a newtype, until named implementations.
-11. **Heterogeneous data from plain code crosses by the bound, on TraitWorld's branch `basetraits`:** a user's `Vector{Any}` or `Dict{String, Any}` passed to a function bounded by `Iterable{Shape}` is seen through a view with `Dynamic{Shape}` items, without a copy, writes reaching the user's container; a non-conforming element fails when it is read. Beyond the split's four types the view pays two dynamic dispatches per element (section 11).
+11. **Heterogeneous data from plain code crosses by the bound:** a user's `Vector{Any}` or `Dict{String, Any}` passed to a function bounded by `Iterable{Shape}` is seen through a view with `Dynamic{Shape}` items, without a copy, writes reaching the user's container; a non-conforming element fails when it is read. Beyond the split's four types the view pays two dynamic dispatches per element (section 11).
 
 ## Other options considered
 

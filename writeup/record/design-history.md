@@ -12,6 +12,12 @@ Process history that the current documents for core developers leave out: where 
 - **The Julia pieces** have been numbered 1–17 since session 23 (`../explorations/julia-support.md`).
 - **Session 28 had no session note;** its decisions were reconstructed in session note 29.
 
+## The language of `Compiled` and `Dynamic` (2026-10-20)
+
+- Worked out with the user in one day: a proposal (`Dynamic{X}` and `Compiled{X}` positions, the caller's overrides), who decides (§1b), the simplified rule (§0), its refinement (the type the code knows decides; annotations on item parameters; no warning; no synonyms), then an implementation plan reviewed by Fable and narrowed to the semantics ([`../plans/2026-10-20-dynamic-and-compiled.md`](../plans/2026-10-20-dynamic-and-compiled.md), [`../plans/2026-10-20-dynamic-compiled-implementation.md`](../plans/2026-10-20-dynamic-compiled-implementation.md), [`../reviews/2026-10-20-dynamic-compiled-plan.md`](../reviews/2026-10-20-dynamic-compiled-plan.md)).
+- It replaced `Callable`'s two modes (rev 988), the opening of a `Dynamic` at every bound (s22), the automatic opening of an abstract key part (traits §3.7), a trait's name in a bound's parameters as its `Dynamic` (BaseTraits, the same day), and `dynamic by` ([`../design/alternatives.md`](../design/alternatives.md)).
+- The references were written to it first, as Planned, with deviations T-40 to T-46 and L-28 to L-34; the code follows in W-4.
+
 ## Session 29: the order of work, done
 
 Session 29's order (approved by the user) was done in this order: (A) in-tree; the control; (B) and (C); `Dynamic` in the compiler (D); the demonstrators measured; pieces 2 and 4 removed. Then the performance phase, and the user's order after its review: "diagnose, then fix", then acceptance checks ([`../design/implementation.md` §9.3](../design/implementation.md#93-the-order-of-work)).

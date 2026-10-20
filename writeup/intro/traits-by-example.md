@@ -814,10 +814,26 @@ Today, declare each member: `@implement Samples Labelled{Float64} by data`.
 
 ```julia
 apply(f::Callable{Tuple{Float64}, S}, x::Float64) where {S} = f(x)               # S inferred at the call
-fit(f::Callable{Tuple{Vector{Float64}}, Float64, DynamicCall, @NamedTuple{tol::Float64}}, x::Vector{Float64}) = f(x; tol = 1e-6)
+fit(f::Callable{Tuple{Vector{Float64}}, Float64, @NamedTuple{tol::Float64}}, x::Vector{Float64}) = f(x; tol = 1e-6)
 ```
 
-Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: `Callable` takes three parameters.
+Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: today `Callable`'s third parameter is its mode.
+
+**`Compiled` and `Dynamic`, chosen where a value enters:**
+
+```julia
+paint(io::IO, m::Mark) = draw(m, io)                    # Compiled where the caller knows m's type, Dynamic where not
+paint_once(io::IO, m::Dynamic{Mark}) = draw(m, io)      # compiled once, for every Mark
+render(io::IO, ms::Iterable{Mark}) = (for m in ms; paint(io, compiled_for(m)); end)   # each item's own code
+@trait Model begin
+    @dynamic                                             # values of other types enter as Dynamic{Model}
+    rhs!(m::Model, du::Vector{Float64}, u::Vector{Float64}, t::Float64)::Nothing
+end
+solve(m::Compiled{Model}, u0::Vector{Float64}) = …     # the library asks for code per model type
+Plots.paint_once(io, with_dynamic(d))                  # the caller converts
+```
+
+Today a `Dynamic` is opened at every bound and every plain value runs code compiled for its type; `Compiled`, `compiled_for`, `with_dynamic` and `@dynamic` are not defined; `x::Dynamic{X}` in a bounded function accepts only `Dynamic` values ([reference §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter)).
 
 **A value seen through several traits:** `Dynamic{(Shape, Placed)}`.
 

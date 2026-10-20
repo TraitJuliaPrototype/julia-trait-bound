@@ -23,6 +23,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Concreteness required for every trait, made opt-in
 - Overrides: followed or refused
 - `Callable` with one mode, rejected
+- `Callable`'s modes and the opening of `Dynamic` at every bound, replaced by `Compiled` and `Dynamic`
 - Automatic differentiation by a library-owned dual number, superseded
 - Other options considered and not taken
 - Plans, thresholds and settings superseded
@@ -192,6 +193,20 @@ The consistency review of s27 found two statements in conflict: "refused" (the k
 ## `Callable` with one mode, rejected
 
 Change 2 of the decisions review (`../reviews/2026-10-18-decisions-revisited.md`) proposed one mode. Rejected (s29, the user: "We need compiled call to have an ODE RHS that has the right type signature. Julia's type system can't express that otherwise."): an unbounded argument specializes but checks nothing, so a compiled call with a declared signature needs `CompiledCall`. `Callable{A, S, M}` with a default mode and the caller's override dates from rev 988; at the same time `@specialize` was retired, and "static and inlined" was corrected to "a direct call the compiler may inline" ([`../design-findings.md`](../design-findings.md) §3).
+
+## `Callable`'s modes and the opening of `Dynamic` at every bound, replaced by `Compiled` and `Dynamic`
+
+Replaced on 2026-10-20 by one language for every trait position ([traits §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter); the user's rule and its refinements: [`../plans/2026-10-20-dynamic-and-compiled.md`](../plans/2026-10-20-dynamic-and-compiled.md) §0; decision log, the rows of 2026-10-20). What it replaced, and the forms considered on the way:
+- **`Callable{A, S, M}` with the modes `DynamicCall` and `CompiledCall`** (rev 988; kept in s29 against one mode, above), with `compiled_call(f)`, `dynamic_call(f)`, `DynamicFn{A, S}`, `dynamic_fn`. Now `Callable{A, S}` declares `@dynamic`, and the attributes and conversions are the general ones. **No synonyms** (the user: "Synonyms: no."): the old spellings are not kept beside the new.
+- **A `Dynamic` opened at every bound,** an automatic function barrier: a `Dynamic` passed to a bounded function ran the worker for its object's key. Replaced: a value keeps its attribute, and `compiled_for` opens it where the code asks.
+- **An abstract part of a key opened at the next bound** (traits §3.7 before): replaced by the same rule; a value of abstract type is `Dynamic` at the next bound.
+- **A trait's name in a bound's parameters meaning its `Dynamic`** (`Iterable{Shape}` as `Iterable{Dynamic{Shape}}`, decided 2026-10-20 with BaseTraits): replaced by item positions, whose items are `Compiled` or `Dynamic` by the item type.
+- **The default `Compiled` for every plain value,** by its type at run time, whatever the caller knew (the first form of the rule, §0 before its refinement): replaced by "the type the code knows decides". It mirrored Julia; the refined rule mirrors Rust and Swift, and gives a `Dynamic` path where the code does not know the type.
+- **A warning where a boundary's attribute disagrees with the trait's default:** removed (the user: "Let's remove the warning entirely"). It would fire on every deliberate `Compiled{Callable}`.
+- **Who decides by the value's form under a bare bound** (proposal §1b): folded into the refined rule.
+- **`dynamic by`** (traits §5.9): removed; `Dynamic` positions and `@dynamic` cover it.
+- **The lowering, a second worker per bounded function taking `Dynamic{<:X}`:** not chosen. Every bounded function would get two methods, definition checking would cover both, and several bounds at one position would need `Dynamic{(X, Y)}` first. Chosen instead: a trait object at an erased key, one more key of the one worker ([lowering §5](../reference/lowering.md#5-keys-and-views); implementation plan C1, confirmed by the user).
+- **The untyped callers' table and the entries compiled ahead per type as the path of an untyped caller:** taken off the path, since an untyped caller is `Dynamic` ([lowering §9.2](../reference/lowering.md#92-untyped-callers-the-erased-worker)). The code stays; whether it serves `compiled_for` later is a performance question ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
 
 ## Automatic differentiation by a library-owned dual number, superseded
 

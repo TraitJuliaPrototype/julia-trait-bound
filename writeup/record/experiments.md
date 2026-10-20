@@ -177,6 +177,7 @@ Written 2026-10-20 from the experiments' READMEs, [the evidence](../design/evide
 | E-110 | A REPL row per demonstrator: a new type, a new closure, an edit (Revise-style) | proposed (2026-10-17/18) | — | expected under 0.3 s except the edit; the rows so far ran in fresh processes or scripted sessions | [examples review §4](../reviews/2026-10-18-examples-and-demonstrators.md), example 3 |
 | E-111 | Hardened plain baselines (no `@nospecialize` on `solve`; `invokelatest` barriers) | superseded (proposed 2026-10-17) by E-41 | — | the control answered whose property load protection is | [demonstrators review](../reviews/2026-10-17-demonstrators-fresh-eye.md) #1 |
 | E-112 | The volume of the "explosion" on a real library: CodeInstances and image bytes per conformance | proposed | — | structural (E-7); unmeasured on a real library | [evidence §5](../design/evidence.md); [examples review §4](../reviews/2026-10-18-examples-and-demonstrators.md), example 8 |
+| E-147 | After W-4 (`Compiled` and `Dynamic`, semantics only): does every demonstrator row still run, and is any row grossly slower? Each row once, product setting, one load order, from compiled closures (`rows.jl`'s `@first`: a `Compiled` measurement), against the same rows at main before W-4 (TraitWorld 5b172e1); a few minutes in all. Would change the plan if a row fails (a bug) or is slower by an order of magnitude: then it goes to open issues item 35 with its site, and W-4 checks that the slowdown is the semantics' (P1–P8), not a bug. Proper measurements: W-17 | proposed (2026-10-20) | the demonstrators' `scripts/rows.jl`; logs to `experiments/dyncomp/` (to create) | — | [the implementation plan §7](../plans/2026-10-20-dynamic-compiled-implementation.md#7-phase-5-one-short-check) |
 
 ## 8. Ahead-of-time compilation and trimming
 
@@ -224,4 +225,4 @@ Written 2026-10-20 from the experiments' READMEs, [the evidence](../design/evide
 | E-138 | A glue extension that declares conformances: does loading it invalidate anything? | done (2026-10-20) | `examples/extension/glue.jl`; `examples/logs/extension-glue*.log` | 7 of 7 (shapes first), 5 of 5 (geometry first) pass | the logs |
 | E-139 | Do the tutorial's and the traits reference's examples run as written? | done (2026-10-19/20) | `experiments/docs-examples/` (`tutorial.jl`, `strict.jl`, `reference.jl`) | tutorial 64 checks, reference 56 checks (numbers from the proving plan); no run log kept | [proving the references §1](../plans/2026-10-20-proving-the-references.md); [traits/lowering review L10](../reviews/2026-10-19-references-traits-lowering-vs-code.md) |
 
-E-140 to E-142 are in section 4; E-143 to E-145 in section 9.
+E-140 to E-142 are in section 4; E-143 to E-145 in section 9; E-146 in section 4; E-147 in section 7.

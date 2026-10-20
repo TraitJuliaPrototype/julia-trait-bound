@@ -15,9 +15,11 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Boundary and boundary method](#boundary-and-boundary-method) ·
 [Bound and bounded function](#bound-and-bounded-function) ·
 [Call-site split](#call-site-split) ·
-[`Callable`](#callable-dynamiccall-and-compiledcall) ·
+[`Callable`](#callable) ·
 [CodeInstance](#codeinstance) ·
-[`CompiledCall`](#callable-dynamiccall-and-compiledcall) ·
+[`Compiled` and `Dynamic`](#compiled-and-dynamic) ·
+[`compiled_for`, `with_dynamic`](#compiled-and-dynamic) ·
+[`CompiledCall`](#dynamiccall-compiledcall-dynamicfn-the-prototypes-spelling) ·
 [Concrete mode](#concrete-mode-and-fully-typed) ·
 [Conforms to](#conforms-to) ·
 [Declared field](#declared-field) ·
@@ -25,7 +27,11 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Definition checking and archetype](#definition-checking-and-archetype) ·
 [Dispatch](#method-table-and-dispatch) ·
 [`Dynamic{X}`](#dynamicx) ·
-[`DynamicCall`](#callable-dynamiccall-and-compiledcall) ·
+[`@dynamic`](#compiled-and-dynamic) ·
+[`DynamicCall`, `DynamicFn`](#dynamiccall-compiledcall-dynamicfn-the-prototypes-spelling) ·
+[Erased key](#compiled-and-dynamic) ·
+[First seen through a trait](#compiled-and-dynamic) ·
+[Item position](#compiled-and-dynamic) ·
 [Entry and worker](#entry-and-worker) ·
 [Fact and fact signature](#fact-and-fact-signature) ·
 [Facts mode and the setting `all`](#facts-mode-and-the-setting-all) ·
@@ -178,7 +184,7 @@ The entries are grouped by theme:
 
 ### Key
 
-- **Here:** what a bound can see of a value: the receiver type, if any, and the declared fields' types. A bounded function is compiled once per key, not per the argument's own type. Types that differ only in what the trait cannot see share compiled code.
+- **Here:** what a bound can see of a value: the receiver type, if any, and the declared fields' types. A bounded function is compiled once per key, not per the argument's own type. A [`Dynamic`](#compiled-and-dynamic) value has the erased key, one per trait. Types that differ only in what the trait cannot see share compiled code.
 - **Origin:** the project's term.
   - Go 1.18 compiles one generic instance per "GC shape", grouping types the generated code does not distinguish. .NET shares generic code among reference types ([`design/other-languages.md` §3](design/other-languages.md#3-compiled-for-what-the-bound-can-see), from memory and a review).
   - Julia compiles per concrete argument type. Its function-barrier idiom, passing only the fields an inner function needs, reaches the same shape by discipline.
@@ -190,7 +196,7 @@ The entries are grouped by theme:
 
 ### Trait object
 
-- **Here:** what library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see. It lives for one call. It is never passed bare to plain code; to keep it, the code stores it as a [`Dynamic{X}`](#dynamicx).
+- **Here:** what library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see. It is [`Compiled` or `Dynamic`](#compiled-and-dynamic). It lives for one call. It is never passed bare to plain code; to keep it, the code stores it as a [`Dynamic{X}`](#dynamicx).
 - **Origin:** Rust's "trait object" is a `dyn Trait` value, called through a table of pointers ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Ours is static: one call, compiled per key. The counterpart of Rust's trait object here is `Dynamic{X}`.
 - **Defined in:** [traits §6.2](reference/traits.md#62-what-a-bounded-function-receives); [lowering §6](reference/lowering.md#6-trait-objects-layout-fields-writes).
 
@@ -205,8 +211,8 @@ The entries are grouped by theme:
 ### Entry and worker
 
 - **Here:** a bounded function has two parts.
-  - The **entry** is an ordinary method. It translates each argument by its bound, once. It is small and is inlined into typed callers.
-  - The **worker** is the body, compiled per tuple of keys.
+  - The **entry** is an ordinary method. It decides a plain value's attribute, [`Compiled` or `Dynamic`](#compiled-and-dynamic), and translates each argument by its bound, once. It is small and is inlined into typed callers.
+  - The **worker** is the body, compiled per tuple of keys; a `Dynamic` value's key is erased, so one worker serves every type.
 - **Origin:** the project's terms. The shape is Julia's function barrier: a small outer function and a typed inner kernel (Julia's performance tips; *not in the research*). Rust's "generic hotpath, concrete coldpath" is a thin generic wrapper around a shared inner function ([`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 1).
 - **Defined in:** [traits §6.2](reference/traits.md#62-what-a-bounded-function-receives); [lowering §8](reference/lowering.md#8-bounded-functions-workers-and-entries).
 
@@ -238,9 +244,20 @@ The entries are grouped by theme:
 
 ## Values and functions of mixed types
 
+### `Compiled` and `Dynamic`
+
+- **Here:** every value in trait code has one of two attributes. They choose speed, never results.
+  - **`Compiled`:** the value runs code compiled for its [key](#key).
+  - **`Dynamic`:** the value runs code compiled once, at the **erased key**; each operation on it dispatches when it runs, through a [call-site split](#call-site-split).
+  - A value gets its attribute where it is **first seen through a trait**: at a bound; at an **item position**, a bound's parameter that names a trait (`Iterable{Shape}`), when an item is read; at a field or an operation's result declared with a trait. There it is `Compiled` if the code that sees it knows its concrete type, `Dynamic` if not. At the prompt, Julia compiles nothing, so every call there passes `Dynamic` values.
+  - **Overrides:** a trait's default, `@dynamic` (`Callable` declares it); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the conversions `compiled_for(x)` and `with_dynamic(x)`, which always win.
+  - A value keeps its attribute in the trait world, also from library to library. A `Dynamic` is opened only by `compiled_for`: a function barrier written where it is wanted.
+- **Origin:** Rust's generics (compiled per type) and `dyn Trait` (one copy, dynamic calls); Swift's `some P` and `any P`. In both languages the type the code knows decides, as here; the caller cannot change it ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)). Julia compiles every call for the argument's type at run time; `compiled_for` is that behaviour, asked for.
+- **Defined in:** [traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§3.8](reference/traits.md#38-a-traits-default-dynamic), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry). Planned; TraitWorld today opens a `Dynamic` at every bound and compiles every plain value for its type ([traits T-40, T-41](reference/traits.md#19-deviations)).
+
 ### `Dynamic{X}`
 
-- **Here:** a value of abstract type `X`: any value that conforms to `X`, reached through `X`'s operations and fields.
+- **Here:** a value of abstract type `X`: any value that conforms to `X`, reached through `X`'s operations and fields. It is the stored form of a [`Dynamic`](#compiled-and-dynamic) trait object.
   - It is for a value that outlives a call, an element of a collection of mixed keys, or a field whose key changes.
   - Its operations have declared result types, so the code after them stays typed.
   - It holds the user's object.
@@ -266,22 +283,27 @@ The entries are grouped by theme:
 - **Here:** a cache that skips a dispatch at run time and is checked against the caller's world.
   - Each cache entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid.
   - A call compares the type and the current world against a cache entry, then calls directly. A miss dispatches as Julia does and adds a cache entry.
-  - It is built for `DynamicCall`'s pointers, which run in the caller's world through it, and for every dynamic call site (Julia's per-call-site cache).
+  - It is built for a `Dynamic` `Callable`'s pointers, which run in the caller's world through it, and for every dynamic call site (Julia's per-call-site cache).
   - Its use for `Dynamic` values beyond four implementations is Optional.
 - **Origin:** the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds. The world range is a [CodeInstance](#codeinstance)'s `min_world` and `max_world`, which invalidation shortens.
 - **Defined in:** [compiler §3](reference/compiler.md#3-world-checked-caches-at-dynamic-boundaries).
 
-### `Callable`: `DynamicCall` and `CompiledCall`
+### `Callable`
 
-- **Here:** a function argument at a declared signature: `Callable{A, S, M}`, with arguments `A`, result `S` and mode `M`. Its one operation is checked at every call. Anything callable conforms; no implementation is declared. Two modes:
-  - `DynamicCall`, the default: the worker is compiled once per signature, and each call is an indirect call.
-  - `CompiledCall`: the worker is compiled per function type, with the function inferred into it. The signature is still checked.
+- **Here:** a function argument at a declared signature: `Callable{A, S}`, with arguments `A` and result `S`. Its one operation is checked at every call. Anything callable conforms; no implementation is declared. It declares `@dynamic`, so a function from plain code is [`Dynamic`](#compiled-and-dynamic):
+  - `Dynamic`, the default: the worker is compiled once per signature, and each call is an indirect call.
+  - `Compiled`: the worker is compiled per function type, with the function inferred into it. The signature is still checked.
 
-  The library sets the default. The caller overrides it per value: `compiled_call(f)`, `dynamic_call(f)`. `DynamicFn{A, S}` is a `DynamicCall` value of fixed type, for storing in a field.
+  The library may write `Compiled{Callable{A, S}}`. The caller converts per value: `compiled_for(f)`, `with_dynamic(f)`. `Dynamic{Callable{A, S}}` is a function as a value of fixed type, for storing in a field. Functions of the trait world (Base's, a trait module's) are not affected by `@dynamic`.
 - **Origin:**
   - Julia has no type for "a function from `Float64` to `Float64`". FunctionWrappers.jl provides one by hand.
   - C++'s `std::function` erases the type. Rust chooses `impl Fn` (per closure) or `&dyn Fn` (dynamic) in the callee's signature. Here the caller can override the library's choice, which Rust and Swift do not offer ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults); [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 2).
 - **Defined in:** [traits §9](reference/traits.md#9-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamiccallable).
+
+### `DynamicCall`, `CompiledCall`, `DynamicFn`: the prototype's spelling
+
+- **Here:** the prototype's spelling until the work on `Compiled` and `Dynamic` (W-4) lands. `Callable{A, S, M}` with the mode `M`, `DynamicCall` (the default) or `CompiledCall`; `compiled_call(f)`, `dynamic_call(f)`; `DynamicFn{A, S}`, made by `dynamic_fn(A, S, f)`. Intended: `Callable{A, S}` and its `@dynamic` default, `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` ([`Callable`](#callable)).
+- **Defined in:** [traits T-43](reference/traits.md#19-deviations).
 
 ### Results like the input: `Self`, `Like`, `withfields`
 
@@ -365,7 +387,7 @@ The entries are grouped by theme:
 - **Here:** without a qualifier, the *inference mode* a CodeInstance is compiled under: *facts* (the facts rule) or *plain* (Julia's own inference). Each mode's code has its own cache owner. Three other modes are always named in full:
   - **strict mode**, a switch for refusing winning pirates;
   - **concrete mode**, a report on calls that are not fully typed;
-  - a **`Callable`'s mode**, `DynamicCall` or `CompiledCall`.
+  - the prototype's **`Callable` mode**, `DynamicCall` or `CompiledCall`, which the attributes [`Compiled` and `Dynamic`](#compiled-and-dynamic) replace. An attribute is not a mode: both attributes' code is compiled in the facts mode.
 - **Origin:** the project's. The facts mode is selected per module through Julia's `@compiler_options`, beside options such as `optimize` and `infer`.
 - **Defined in:** [facts §1](reference/facts.md#term-mode), [§6](reference/facts.md#which-code-is-compiled-how).
 
