@@ -316,13 +316,13 @@ The entries are grouped by theme:
 
 - **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own. A pirate changes compiled code only if it wins at a fact.
 - **Origin:** Julia's own "type piracy", which Julia's style guide advises against and Aqua.jl checks. Here it is made strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6 ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
-- **Defined in:** [facts §1](reference/facts.md#term-pirate), [§10](reference/facts.md#pirates); the errors: [traits §12.2](reference/traits.md#122-pirates); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-trait-code-is-never-invalidated).
+- **Defined in:** [facts §1](reference/facts.md#term-pirate), [§10](reference/facts.md#pirates); the errors: [traits §12.2](reference/traits.md#122-pirates); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 
 ### Strict mode
 
 - **Here:** a switch that applies to trait code. It secures one property: trait code is never invalidated, except by a stakeholder's change. It refuses a pirate that would win at a fact of trait code, where the pirate is defined: at the prompt, by `include`, or as a package image's methods activate. The error names the method and the code it would have changed. The refused method then does not exist, for plain code either. The default session leaves it off: it follows the pirate, and the code with that fact recompiles once.
 - **Origin:** the project's. Rust refuses every orphan impl at compile time. Strict mode refuses a pirate only where it would change compiled code ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)). It uses the definition hooks of the patched Julia ([compiler §5.1](reference/compiler.md#51-method-definition-and-image-activation-hooks)).
-- **Defined in:** [traits §12.3](reference/traits.md#123-strict-mode); [facts §10.2](reference/facts.md#strict-mode), [§10.3](reference/facts.md#strict-intended); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-trait-code-is-never-invalidated), [§3.5](design.md#25-the-default-following-pirates-and-what-it-gives-up).
+- **Defined in:** [traits §12.3](reference/traits.md#123-strict-mode); [facts §10.2](reference/facts.md#strict-mode), [§10.3](reference/facts.md#strict-intended); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), [§2.5](design.md#25-the-default-following-pirates-and-what-it-gives-up).
 
 ### Package extension
 

@@ -20,7 +20,7 @@ The [glossary](../glossary.md), with links to the precise definitions: [facts: T
 
 ### 3.2 Step 2: outlaw pirates, and fully typed code is always valid and can be cached
 
-[The rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-trait-code-is-never-invalidated).
+[The rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 
 ### 3.3 Step 3: the facts rule extends the guarantee to all code, at a cost where code is not fully typed
 
