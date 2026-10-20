@@ -1,6 +1,6 @@
 # `Dynamic{X}` and `Compiled{X}`: one language for trait positions (proposal, 2026-10-20)
 
-**Status:** the rule of section 0 adopted by the user (2026-10-20); sections 1–5 are the proposal's earlier form, kept for its reasoning, and superseded by section 0 where they differ. Work item W-4 (`../record/todo.md`), open issue 33. Nothing here is built.
+**Status:** the rule of section 0 adopted by the user (2026-10-20), refined the same day (first seen through a trait: concretely typed `Compiled`, abstractly typed `Dynamic`; annotations on item parameters; no warning on disagreement; no synonyms); sections 1–5 are the proposal's earlier form, kept for its reasoning, and superseded by section 0 where they differ. In particular, a `Dynamic` passed to a `Compiled` position is not opened (rule 7), unlike section 1's table and section 2's row "opened at `Compiled` positions only". Work item W-4 (`../record/todo.md`), open issue 33. Nothing here is built.
 
 The user (2026-10-20): "I think all of this points to a unifying language. f(x::Dynamic{X}) for an erased position, and the new f2(x::Compiled{X}) for a static one. Then f(compiled_for(x)) and f2(with_dynamic(x)) override. Importantly these rules can be given without talking about receiver types at all. Receiver types are an optimization in Compiled{X} to reduce the amount of things f2 actually recompiles for using the trait information." And: "I think a bare x::X should be compiled by default, as that mirrors what Julia does now. But this is a decision that should be revisited later."
 
@@ -8,17 +8,41 @@ The user (2026-10-20): "I think all of this points to a unifying language. f(x::
 
 The user: "We can simplify this more: In trait code all values are either Dynamic, or Compiled. They get this attribute when plain values that conform to a trait cross over into trait world. Default is Compiled{X}. A traits default can override this (Callable does). A boundary default can override this (it wins against the trait default but warns). A caller (inside or outside trait code) can explicitly declare compiled_for or with_dynamic and that always wins and never warns. Untyped values that come out of values in the trait world are Dynamic and have to be cast to compiled_for explicitly."
 
-1. **Every value in trait code is either `Dynamic` or `Compiled`.** It gets this attribute when a plain value that conforms to a trait crosses into the trait world.
-2. **The default is `Compiled{X}`.** At the surface a value always has a concrete run-time type, so a plain value crosses compiled for its type, whatever its caller knew (Julia's function barrier).
+**Refined** (the user, 2026-10-20, on the review of W-4's material): "I would refine the definition we have agreed on: Whenever a value is first seen through a trait X it becomes Compiled{X} if it is concretely typed and Dynamic{X} when it is abstractly typed." And: "The clear example is: function{ms::Iterable{Mark}} for m in ms draw(m); end; end; draw(m::Mark) = ... here m enters the trait world inside a function as an untyped value when the function is compiled. The library can say: for m in ms draw(compiled_for(m)) end to get m as a Compiled{Mark} or, and this is a new idea, it could declare function{ms::Iterable{Compiled{Mark}}} to override the default at the boundary." Asked whether an annotation re-decides items that are already trait-world values (no), and whether a call at the REPL on an ordinary global is `Dynamic` (yes): "Yes on both. Repl might bear revisiting later as a special case..." Rules 1, 2, 4, 6 and 7 below are the refined form; rule 2 replaces the default `Compiled`, and rule 4 no longer warns ("Let's remove the warning entirely").
+
+1. **Every value in trait code is either `Dynamic` or `Compiled`.** It gets this attribute where it is **first seen through a trait** `X`: at an argument's bound, at an item parameter of a bound (the items of `ms::Iterable{Mark}`, each when it is read), at a field or an operation's result declared with a trait.
+2. **Concretely typed: `Compiled{X}`. Abstractly typed: `Dynamic{X}`.** The type is the one the code that sees the value knows when it is compiled, not the value's type at run time (every value is concrete at run time).
+   - A caller whose code knows the concrete type: `Compiled{X}`. A call dispatched at run time (an argument typed `Any` in the caller): `Dynamic{X}`.
+   - Items of a `Vector{Circle}` are `Compiled{Mark}`; items of a `Vector{Any}` or `Vector{AbstractMark}`, values of a `Dict{K, Any}`: `Dynamic{Mark}`.
+   - A field or an operation's result declared with a trait is `Dynamic` (its declared type is the trait).
+   - **At the REPL,** a call on an ordinary global is `Dynamic`: the global's type is abstract to the code. `compiled_for(x)`, or code inside a function, gives `Compiled`. To revisit later as a special case.
 3. **A trait's default overrides it.** `Callable` declares `Dynamic`, so a function crossing into a `Callable` bound is `Dynamic` (spelling: `@dynamic` in the trait's body, the word used everywhere else: `Dynamic{X}`, `with_dynamic`).
-4. **A boundary's annotation overrides the trait's default,** `f(x::Compiled{X})` or `f(x::Dynamic{X})`, and warns when it disagrees with it.
-5. **A caller's explicit `compiled_for(x)` or `with_dynamic(x)` always wins and never warns,** outside trait code (at the call into a library) and inside it (before a hot loop).
-6. **Untyped values that come out of values in the trait world are `Dynamic`:** items of a container with an abstract element type (`Vector{Any}`, `Vector{AbstractShape}`), values of a `Dict{K, Any}`, fields declared with an abstract type or a trait, results of operations declared with a trait. Each is a `Dynamic` of the trait its bound or declaration gives it; with none (`Iterable{Any}`), it stays a plain value. They become compiled only by an explicit `compiled_for`.
-7. **Inside the trait world a value keeps its attribute,** through every call, bound and annotation, unless an explicit conversion changes it. A `Dynamic{X}` that plain code holds and passes back is a trait-world value and keeps its attribute.
+4. **A boundary's annotation overrides the trait's default,** without a warning:
+   - on an argument, `f(x::Compiled{X})` or `f(x::Dynamic{X})`;
+   - on an item parameter, `ms::Iterable{Compiled{Mark}}` or `ms::Iterable{Dynamic{Mark}}` (also `Keyed{String, Compiled{Shape}}`, and every other item parameter).
+   - `Compiled` on an abstractly typed value opens it once, by its type at run time: a function barrier. `Dynamic` on a concretely typed value erases it.
+5. **A caller's explicit `compiled_for(x)` or `with_dynamic(x)` always wins,** outside trait code (at the call into a library) and inside it (`for m in ms; draw(compiled_for(m)); end`).
+6. **What a bound's item parameter means:** a trait's name there (`Iterable{Mark}`) means items seen through `Mark`, each with the attribute of rule 2. It no longer means the trait's `Dynamic` (traits §10, §10.2). With no trait (`Iterable{Any}`), an item stays a plain value.
+
+   | Bound | items of a `Vector{Circle}` | items of a `Vector{Any}`, `Vector{AbstractMark}` |
+   |---|---|---|
+   | `ms::Iterable{Mark}` | `Compiled{Mark}` | `Dynamic{Mark}` |
+   | `ms::Iterable{Compiled{Mark}}` | `Compiled{Mark}` | `Compiled{Mark}`: each item opened when read |
+   | `ms::Iterable{Dynamic{Mark}}` | `Dynamic{Mark}` | `Dynamic{Mark}` |
+
+7. **Inside the trait world a value keeps its attribute,** through every call, bound and annotation, unless an explicit conversion changes it. An annotation decides only for values first seen there: the items of a stored `Vector{Dynamic{Plot}}` stay `Dynamic` at `Iterable{Compiled{Plot}}`, and become compiled only by `compiled_for`. A `Dynamic{X}` that plain code holds and passes back is a trait-world value and keeps its attribute.
 8. **An annotation on a function that is neither exported nor public warns at its definition:** no plain value crosses there.
 9. **Library to library, values carry:** a value passed from library A to library B's bounded function is already a trait-world value; B's defaults and annotations do not re-decide it.
 
-**What changes in the current design:** traits §3.7 opens an abstract part of a key at the next bounded function (an automatic function barrier); under rule 6 it is a `Dynamic` and stays erased unless the code writes `compiled_for`. `Dynamic` values are no longer opened at every bound (traits §10).
+**No synonyms** (the user, 2026-10-20: "Synonyms: no."): `Callable{A, S, M}`'s mode parameter, `CompiledCall`, `DynamicCall`, `compiled_call` and `dynamic_call` are removed; `DynamicFn{A, S}` is written `Dynamic{Callable{A, S}}`. `Callable`'s tests and the demonstrators are rewritten in the new spelling.
+
+**Guidance for libraries:** with abstractly typed items, a loop is compiled once, so a `Compiled` item's type is unknown inside it. `Compiled` items pay off when the work per item is a call (`draw(m)` dispatches once per item into code compiled for the item's type). Operations called directly on the item in the loop are faster on `Dynamic` items: a typed call through the split, not a call on a value of unknown type.
+
+**What changes in the current design:**
+- Traits §3.7: an abstract part of a key is no longer opened at the next bounded function (the automatic function barrier). A value of abstract type passed to a bound is `Dynamic` (rule 2).
+- Traits §10, §10.2: a trait's name in a bound's parameter no longer means its `Dynamic` (rule 6). A `Vector{Circle}` meets `Iterable{Mark}` as it is, its loop compiled for `Circle` (needs a bound whose item parameter accepts any conforming type, close to T-16); today it crosses through the `DynamicItems` view (§10.3), which stays for abstract item types.
+- `Dynamic` values are no longer opened at every bound (traits §10). TraitTables (`summarize(t.cols[k], …)`) and TraitMakie (its drawing loops) rely on that today and need `compiled_for` at those calls.
+- Lowering §9.2: the untyped callers' path (`known_type(x)` false) becomes the `Dynamic` path.
 
 **Decided since** (the user, 2026-10-20: "library to library: Values carry. Not redecided. Rule 8 is a warning. Is there a reason to say erased, instead of dynamic which we use everywhere else?"): rule 9; rule 8 a warning; a trait's default spelled `@dynamic` (no reason for a second word).
 
@@ -121,8 +145,8 @@ Worked out in conversation with the user, after the proposal's first version (se
 
 ## 5. Prototype and measurement
 
-1. **TraitWorld:** `Compiled{X}` and `Dynamic{X}` in bounds; a `Dynamic` position's worker reuses `Dynamic`'s machinery (erase at the entry, split at operations); `compiled_for` and `with_dynamic` as per-value wrappers, as `compiled_call`/`dynamic_call` are; `Callable` re-expressed on top, its tests unchanged.
-2. **The measurement (a new registry row):** TraitDifferentialEquations' new problem type with `solve` at a `Dynamic` position, against `Compiled`: first solve in a fresh session (expected near a dynamic callable's 19–25 ms, against 335–371), and the solve's run time per step (expected a few ns per right-hand-side call more). Rows timed whole, the garbage collector's time reported, on a quiet machine.
+1. **TraitWorld:** `Compiled{X}` and `Dynamic{X}` in bounds; a `Dynamic` position's worker reuses `Dynamic`'s machinery (erase at the entry, split at operations); `compiled_for` and `with_dynamic` as per-value wrappers, as `compiled_call`/`dynamic_call` are; `Callable` re-expressed on top, its tests rewritten in the new spelling (no synonyms, section 0). As planned at the review of 2026-10-20: the attribute is the value's representation (`Compiled`: a trait object, compiled per key; `Dynamic`: a `Dynamic{X}`), so values carry by their type; every bounded function gets a second worker taking `Dynamic{X}`, compiled once; only entries decide, the untyped path (`known_type` false) being the `Dynamic` path; typed reads of declared fields on a `Dynamic` (today `getproperty` dispatches at run time and returns `Any`); `compiled_for` in TraitTables' and TraitMakie's loops.
+2. **The measurement (a new registry row):** TraitDifferentialEquations' new model type (today's `ODEModel{Float64}`; the problem trait is W-2, after W-4) with `solve_ode` at a `Dynamic` position, against `Compiled`: first solve in a fresh session (expected near a dynamic callable's 19–25 ms, against 335–371), and the solve's run time per step (expected a few ns per right-hand-side call more), with the new type among the split's first four declared implementations and beyond them (the fallback, E-145's question). TraitTables' and TraitMakie's rows before and after their `compiled_for`. Rows timed whole, the garbage collector's time reported, on a quiet machine.
 3. **The references:** traits §4, §9, §10 rewritten around the two modes; receiver types and keys moved to lowering §5 as the optimization of `Compiled`; the glossary.
 
 Order: answer the questions of section 4, then 1 and 2 together, then 3. W-2 (TDE around `ODEProblemTrait`) follows, written in the new language.
