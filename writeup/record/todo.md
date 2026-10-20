@@ -21,6 +21,8 @@ How to use it:
 | W-6 | **Run E-145** (what follows the `Dynamic` split): the idiomatic rewrites give the hot site with more than four implementations it waited for. | `../open-issues.md` item 32 (2026-10-20) | queued (after W-1) | `experiments.md` E-145 |
 | W-7 | **The first gradient with loads** (82–89 against 68–70 ms): diagnose. | E-146 | queued | `../design/evidence.md` §3 |
 | W-8 | **A problem type in a package of its own** (the proving plan's `LorenzModels`): measure what its image keeps of the solver compiled for its key, and the first solve in a fresh session. | the proving plan §3; the user's question (2026-10-20): "the compiled code is cached between sessions?" | queued (after W-2) | `../plans/2026-10-20-proving-the-references.md` §3 |
+| W-15 | **Facts F-11 against evidence §1:** F-11 says no current check counts code compiled by facts across package loads, while evidence §1 reports `g2all.jl` (ported to owner `:facts`, experiments 6cc0e09) with 12,368 such CodeInstances, 0 lost, in the round of 2026-10-20. Retire or narrow F-11 if the port is the check it asks for. | the rationale's proofreading (2026-10-20) | queued (after W-1: facts.md is being edited) | `../reference/facts.md` F-11; `../design/evidence.md` §1 |
+| W-16 | **The idiomatic heterogeneous rows on a quiet machine:** the implicit crossing against the explicit view, like for like (the machine was noisy on 2026-10-20). | the user (2026-10-20): "The machine is noisy right now" | queued | `experiments.md` E-134, E-144; `../../experiments/hetero-idiomatic/` |
 
 ## Carried over from the order of work (`../state.md` §6.3, 2026-10-19)
 
