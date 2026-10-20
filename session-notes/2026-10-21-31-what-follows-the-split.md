@@ -1,0 +1,22 @@
+# Session 31 (2026-10-20 evening to 2026-10-21 night): `compiled_for` through the table; E-145, what follows the split
+
+## To resume
+
+1. `../CLAUDE.md`; `../writeup/record/todo.md`: **next W-2** (TraitDifferentialEquations around `ODEProblemTrait`), then W-3.
+2. For the user's review: open issues item 38 (what follows the split, mine), with the plan `../writeup/plans/2026-10-21-what-follows-the-split.md` and its review.
+3. julia-1.13 `trait-world-1.13` is at 711484a23e (fast-forwarded from `split-table`), built, with the facts image rebuilt. TraitWorld main 1c45999. Nothing is pushed.
+
+## The user's words (in order)
+
+- On untyped calls: "So in plain Julia this is also table lookup followed by call, and the call can't be inlined and with Dynamic we are moving that table lookup into the function. Do you expect a big difference here?" Then: "So the new dynamic path could actually eliminate the lookup?" and "I was thinking without the lookup you could inline..."
+- The decision and the night's task: "I think the rule stands. The old behaviour gets reactivated for compiled_for, as per your suggestion. Then it's E-145. You have a quiet machine and the whole night to figure out what follows a split. Once you are done with E-145 or feel like you absolutely need a decision from me, continue with other work. Make use of fresh eyes subagents to review and critique your conclusions. try to come up with principled thoroughly reasoned proposals, rather than asking me to approve dozens of detailed points. Go ahead and implement things when you reached a satisfactory proposal and flag for later review. Finally the principle of this whole project is: Principled clean solutions that stick to establish best practices and experiences from decades of prior work, adapted to Julia's specifics. No workarounds or hacks. With all that said: implement your suggestion for routing through the table for compiled_for and then  get going out n E145"
+- Asked mid-way: "One last question for my understanding, why does the untyped call pay a dispatch in the examples?"
+
+## What was done
+
+- **`compiled_for` from untyped callers through the table** (TraitWorld a747d4a): a `compiled_for` value or a plain value at a `Compiled` position, from a caller that does not know its type, takes the table of declared implementations (`_tabled`, `_unconverted`); the entry methods compiled ahead per type deleted (they made untyped callers `Compiled`). Lowering §9.3; decision log row with the user's words.
+- **E-145** (`../experiments/fallback/`): every option emulated (e145, e145b with eight layouts and two operations at 1000 and 131072 values, e145c the table per signature and the first-use cost). The table wins against today's fallback 3–6× in the cache, 2.3× on large data; a carried witness equals it in the cache and is up to 1.5× faster on large mixes (Optional); a longer split costs code size; recompiling with observed types pays only for skewed cheap operations (Optional, open issues item 37).
+- **Revision 1 of the plan** (a "default case" composed in TraitWorld with `known_type`) conflicted with the facts rule; found while reading `facts.jl` and by the review (Fable, `../writeup/reviews/2026-10-21-what-follows-the-split.md`). **Revision 2, built:** the inliner emits the split's last branch as `typeof`, the C probe `jl_split_table_ptr`, and a typed `foreigncall` through a `:caller_world` pointer to `Base._SplitTarget` (or `_SplitTargetFacts`, compiled by facts). No TraitWorld change but `verify_main` (reads the table call as the call it stands for, 1c45999).
+- **Checks:** acceptance 24 of 24 in both settings (new G1.24); TraitWorld's suite passes in the product setting; under `all` it stops at F-8 as before, and of the later files `basetraits.jl:122` fails its allocation bound under `all` only (P12, a cost of W-4's entries, not of the table); the demonstrators and the docs examples pass (logs `../experiments/checks/logs/splittable/`).
+- **As built** (e145d): 18.5 ns per element at 64 implementations (77 before), 9.2 at 16 (47), no allocation; `collect(DynamicItems)` from a `Vector{Any}` 19 ns (72); the first use of a type about 10 ms per call signature (C-14). After each method definition every pointer looks up once (C-3), seen as 1 KB in a first G1.24 attempt that measured across a world bump.
+- **Documents:** compiler §4.3 (new) and the others listed in the design repository's commit cc2a72e.

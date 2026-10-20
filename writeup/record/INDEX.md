@@ -34,7 +34,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 Read, in this order:
 1. [`../../CLAUDE.md`](../../CLAUDE.md): the rules for the documents.
 2. [`todo.md`](todo.md): the work queue. The next item is marked **next** (since 2026-10-20: W-2, after W-4, the language of `Dynamic{X}` and `Compiled{X}`, done; its rule in [`../plans/2026-10-20-dynamic-and-compiled.md`](../plans/2026-10-20-dynamic-and-compiled.md) §0).
-3. The latest session note, [`../../session-notes/2026-10-20-30-dynamic-compiled.md`](../../session-notes/2026-10-20-30-dynamic-compiled.md): "To resume", then what was done.
+3. The latest session note, [`../../session-notes/2026-10-21-31-what-follows-the-split.md`](../../session-notes/2026-10-21-31-what-follows-the-split.md): "To resume", then what was done.
 4. [`../state.md`](../state.md), then the references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
 5. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 
