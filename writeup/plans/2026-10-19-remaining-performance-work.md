@@ -42,18 +42,22 @@ This list continues `2026-10-19-principled-speed-plan.md`. It was revised after 
 
 ## Performance, in order
 
-1. **The measurement round, on a quiet machine:**
-   - the call benchmarks;
-   - the quick subset;
-   - the demonstrators' rows, including what entries compiled ahead cost a package's image;
-   - the full BaseBenchmarks, once.
+1. **Done (2026-10-20): the measurement round** (julia-1.13 3b8085c222, TraitWorld bed3782; logs in `experiments/factscompiler/round/logs/`; the documents updated, [evidence](../design/evidence.md)). The headline numbers:
+   - calls: a typed trait call 0.8 ns (plain 0.8); an untyped trait call 28.8 ns in the product setting (plain 18.9), 30.8 ns under `all` (plain 17.6); `DynamicCall` 3.95 ns;
+   - the full BaseBenchmarks (4,342), `all` against plain: geometric mean 1.037, tails up to 27.8× (`filter!` on `Vector{Any}`); the quick subset 1.710;
+   - the control under `all`: upstream CSV+DataFrames lose 2 of 3,337 CodeInstances to nine loads (plain 561 of 4,684); first work 516 ms (plain 3,308), after the loads 435 ms (plain 4,021);
+   - G2 across ten loads, product setting: 0 of 12,368 facts-owned CodeInstances lost;
+   - a new type's `@implement` without loads: TraitMakie 22 ms (forwarding), TraitDifferentialEquations 60–62 ms;
+   - TraitReport, CSV → PNG: 0.79–0.81 s, against Python's 0.58–0.59 s;
+   - the forks' scripted session: 3.7–4.0 s wall, against upstream's 12.0–12.8 s (indicative: load average 3.4–5.2);
+   - acceptance 23 of 23 in both settings.
 
-   The documents' numbers change only after it.
+   Not covered: what entries compiled ahead cost a package's image; the run-time rows (TDE's run-time script failed to load OrdinaryDiffEq).
 2. **Step 5, the machinery's own startup.**
    - TraitWorld's slow paths compiled into its own image.
-   - The clean-case `@implement` cost: 77–97 ms, against 36 ms on the previous prototype.
+   - The clean-case `@implement` cost: 77–97 ms on the build of 2026-10-19, against 36 ms on the previous prototype; 22 ms in the round of 2026-10-20 (TraitMakie, forwarding).
    - Checks' results kept in images: started in step 4 for workers.
-3. **The ~990 ms after the loads** (the Fable plan): a differential test of `return_type` answers (stock Julia as the oracle), then red-green revalidation of the cached answers. The `vcat` part waits on whether the standard libraries should be separate owners.
+3. **The ~990 ms after the loads** (435 ms in the round of 2026-10-20; the Fable plan): a differential test of `return_type` answers (stock Julia as the oracle), then red-green revalidation of the cached answers. The `vcat` part waits on whether the standard libraries should be separate owners.
 4. **Call-site caches, the next steps** (inline-caches plan §3):
    - entries with an open `max_world`, also for step 1's thunk;
    - the facts owner's per-call normalization (a memo);
@@ -74,6 +78,6 @@ This list continues `2026-10-19-principled-speed-plan.md`. It was revised after 
 ## Why this order
 
 - Correctness ranks above every performance item.
-- The measurement round decides every number in the documents, and needs the quiet machine anyway.
+- The measurement round decided every number in the documents (done 2026-10-20).
 - Steps 5 and the ~990 ms are measured costs every session pays: milliseconds to a second.
 - The remaining call-site work is nanoseconds per call, on paths within 2× of plain Julia, or on untyped code that the user's rule lets traits recover.

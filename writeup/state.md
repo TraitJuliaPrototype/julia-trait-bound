@@ -12,13 +12,16 @@ The library, TraitWorld, works end to end:
 - **The design:** three rules, keys instead of representations, and `Callable` with `CompiledCall` and `DynamicCall`.
 - **The demonstrators** pass their suites: TraitDifferentialEquations, TraitMakie, and TraitReport with its packages TraitTables and TraitCSV. The ports of CSV.jl and DataFrames.jl pass their upstream suites (§6.1).
 
+Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) unless a row says otherwise:
+
 | Measure | Traits | Plain Julia |
 |---|---|---|
-| Typed trait call (per call, build of 2026-10-19) | 0.8 ns | 0.8 ns |
-| Untyped trait call, through the table of declared implementations (per call, build of 2026-10-19) | about 29 ns | 17 ns |
-| Untyped trait call, type compiled ahead (per call, build of 2026-10-19) | about 14 ns | 15–17 ns |
-| `@implement` of a new type (TraitMakie) | 22–49 ms | — |
-| TraitReport, CSV to PNG in a fresh session | 0.82 s | Python: 0.6 s |
+| Typed trait call, per call | 0.8 ns | 0.8 ns |
+| Untyped trait call, through the table of declared implementations, per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
+| Untyped trait call, type compiled ahead, per call (build of 2026-10-19, not in the round) | about 14 ns | 15–17 ns |
+| `Callable` in `DynamicCall` mode, per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
+| `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 60–62 ms | — |
+| TraitReport, CSV to PNG in a fresh process | 0.79–0.81 s | without traits 0.77 s; Python 0.58–0.59 s |
 
 ### Facts
 
@@ -26,10 +29,13 @@ The facts compiler is built, with two settings:
 - **The product setting:** only trait modules are compiled by facts.
 - **`all`:** everything is compiled by facts. It is the test bed.
 
-Under `all`:
-- **Correctness:** the acceptance checks pass, 23 of 23.
-- **The payoff:** CSV+DataFrames work after big loads takes 684 ms, against 3,917 ms plain, because nothing is invalidated.
-- **The cost:** a geomean of 1.73 against plain on the quick BaseBenchmarks subset. The subset was picked to include the slow cases (containers of `Any`, sort), so 1.73 is not the average cost.
+Measured in the round of 2026-10-20:
+- **Correctness:** the acceptance checks pass, 23 of 23, in both settings.
+- **G2 across package loads** (product setting): 0 of 12,368 CodeInstances of the facts owner lost after each of ten loads (`experiments/facts/g2all.jl`).
+- **The payoff under `all`:** upstream CSV+DataFrames lose 2 of 3,337 CodeInstances to nine unrelated loads (plain: 561 of 4,684). Their first work takes 516 ms (plain 3,308 ms), and 435 ms after the loads (plain 4,021 ms).
+- **The cost under `all`:** the full BaseBenchmarks (4,342) run at a geometric mean of 1.037 against plain, with tails up to 27.8× on containers of `Any`. The quick subset (148, chosen to include the tails) gives 1.710; it is not the average cost.
+
+The details, with every row: [`design/evidence.md`](design/evidence.md).
 
 ## 2. The compiler changes as four mechanisms
 
@@ -86,11 +92,15 @@ Measured on the CSV+DataFrames work under `all`, after the fix:
 
 The deviations of the implementation from the design are listed per reference, with IDs: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#18-deviations) (L-). Beyond them:
 
-- **The measurement round:** the full BaseBenchmarks and all demonstrator rows, on a quiet machine. Several numbers in the documents change only after it.
 - **Threads:** the new caches add lock-free readers; threads are untested.
 - **Base's test suite under the facts mode:** started once, not completed.
 - **Targeted checks** for the inliner changes and for the compiler-plain edges.
-- **G2 across package loads** for code compiled by facts: no current check counts it ([facts F-11](reference/facts.md#deviations)).
+- **G2 across package loads under `all`:** the check counts code compiled by facts and passes in the product setting (2026-10-20); it is not yet run under `all`, nor cited in the reference ([facts F-11](reference/facts.md#deviations)).
+- **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
+  - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build;
+  - rows that still differ by load order, e.g. a new model type's first solve in TraitDifferentialEquations with big loads before (95–97 ms, against 44–46 ms);
+  - the forks' session on a quiet machine (the round's had a load average of 3.4–5.2);
+  - the run-time rows (`Dynamic` sums, raytrace, the solver per step) on the round's build.
 - **The TraitMakie image flake:** a 3.3e-5 pixel difference, once in five runs, not reproduced.
 
 ## 6. The software: today, the target, the order of work
@@ -137,7 +147,7 @@ Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026
    - acceptance checks for the untyped calls' table and its world ranges;
    - threads;
    - a check of G2 across package loads that counts code compiled by facts.
-2. **A measurement round on a quiet machine,** before any number in the documents changes.
+2. **Done (2026-10-20): the measurement round** ([evidence](design/evidence.md)).
 3. **The rest of the machinery's startup:** the compiler's reflection code compiled again after loads.
 4. **The ~990 ms after the loads:** a differential test, then red-green revalidation of the `return_type` answers.
 5. **The next call-site cache steps:**

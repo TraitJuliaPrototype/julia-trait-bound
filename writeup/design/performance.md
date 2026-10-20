@@ -1,27 +1,28 @@
 # Performance: where the costs come from
 
-A chapter of the [rationale](../design.md): what the facts+traits compiler costs, where the costs come from, and what it teaches about placing code, on julia-1.13 with parts (A)–(D), as of 2026-10-19. The tables with builds and run counts are in [`evidence.md`](evidence.md); the detailed log, with every number, is `../../session-notes/2026-10-18-29-reviews-and-decisions.md`; the review of this work is `../reviews/2026-10-19-performance-phase.md`. How the numbers got here, from earlier builds, is in [`../record/design-history.md`](../record/design-history.md#the-performance-phase).
+A chapter of the [rationale](../design.md): what the facts+traits compiler costs, where the costs come from, and what it teaches about placing code, on julia-1.13 with parts (A)–(D). The numbers are from the measurement round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) unless a row names another build; rows marked 61852d8fb1 are from the build of 2026-10-19 (TraitWorld 375a930) and were not in the round. The tables with builds and run counts are in [`evidence.md`](evidence.md); the detailed log, with every number, is `../../session-notes/2026-10-18-29-reviews-and-decisions.md`; the review of this work is `../reviews/2026-10-19-performance-phase.md`. How the numbers got here, from earlier builds, is in [`../record/design-history.md`](../record/design-history.md#the-performance-phase).
 
 ## Where things stand
 
-The runs are one process per load order (n = 1).
+The demonstrators' rows are two processes per load order (n = 2); TraitReport's three.
 
 | What | Now | Baseline |
 |---|---|---|
-| raytrace over `Dynamic{Scene}` (rtopen) | 300–336 ms (held views, julia 61852d8fb1) | plain closed by accident 246–259 ms; plain with four `Scene` types 827–882 ms (a `max_methods = 3` effect: four types are one over plain inference's split limit, and the trait split stops at four too) |
-| raytrace, small case | 4.7–5.3 ms, 3.8 MB | plain 3.9–4.7 ms, 3.3 MB |
-| sum over `Dynamic{Shape}` (cache-resident) | 0.92–1.40 ns per element | plain closed 0.87–0.91, plain with four methods 29.5–33 ns |
-| the same over 10⁶ elements | 4.5–5.7 ns | plain closed 3.9–4.0 ns |
-| typed call `total(x, 16)`, a loop of 16, per call (julia 61852d8fb1) | 36–38 ns | the same loop with `len` an argument: 33.8–34.5 ns. On the build of 2026-10-19: 0.8 ns per typed call, plain 0.8 ns; the measurement round will update both |
-| a varargs wrapper in a plain recursion (the review's probe) | 0.36–0.44 ms, 0 bytes (patched, plain code) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB |
-| TDE: a new model type, after CSV + DataFrames + CairoMakie | 148–164 ms, 89–133 ms | without loads: 142 / 82 ms (previous prototype: 0.16–0.23 s / 33–44 ms) |
-| TraitMakie: a new data type (forwarding), after the loads | 97 ms + 89–161 ms | without loads: 77 / 107 ms |
-| TraitMakie: the same, **without loads** | 77 ms + 89–107 ms | an earlier build of the compiler: 36 ms + 40 ms: **a regression of the clean case** (probably `@machinery`'s cost, below) |
-| TraitReport form (t), fresh process | 0.76 s | the same without traits (pt) 0.72 s; Python 0.58–0.69 s (measured earlier, not rerun) |
-| TraitReport form (b), work, nine packages loaded first | 338–342 ms (41 ms without loads) | form (a′), plain: 3,086 ms. `using`: trait 1.09–1.18 s against plain 0.91–0.99 s |
-| forks: interactive session without imports | 2.85 s | upstream CSV + DataFrames 10.40 s; imports 1.70–2.09 s against upstream's 1.33–1.42 s |
-| forks: first `stringtype = String15` read (a script: the read alone) | 0.041–0.046 s | without the fixes 1.74 s. Not separated: the extension and the check by facts. The session harness's step (read and display), 1.56–1.67 s, predates the fixes and has not been rerun |
-| TDE run time per step, Lorenz | model type 158 ns | OrdinaryDiffEq 346 ns |
+| raytrace over `Dynamic{Scene}` (rtopen; julia 61852d8fb1) | 300–336 ms (held views) | plain closed by accident 246–259 ms; plain with four `Scene` types 827–882 ms (a `max_methods = 3` effect: four types are one over plain inference's split limit, and the trait split stops at four too) |
+| raytrace, small case (julia 61852d8fb1) | 4.7–5.3 ms, 3.8 MB | plain 3.9–4.7 ms, 3.3 MB |
+| sum over `Dynamic{Shape}` (cache-resident; julia 61852d8fb1) | 0.92–1.40 ns per element | plain closed 0.87–0.91, plain with four methods 29.5–33 ns |
+| the same over 10⁶ elements (julia 61852d8fb1) | 4.5–5.7 ns | plain closed 3.9–4.0 ns |
+| a typed trait call, per call | 0.8 ns (product setting and `all`) | plain 0.8 ns. Before, on julia 61852d8fb1 without inlining across owners: a loop of 16 inside the call, 36–38 ns against 33.8–34.5 ns |
+| an untyped trait call, per call | 28.8 ns (product setting), 30.8 ns (`all`), 16 bytes | plain 18.9 ns, 17.6 ns under `all` |
+| a varargs wrapper in a plain recursion (the review's probe; julia 61852d8fb1) | 0.36–0.44 ms, 0 bytes (patched, plain code) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB |
+| TDE: a new model type, `@implement` / first solve, with CSV + DataFrames + CairoMakie loaded before / after | 81–83 / 95–97 ms; 67 / 47–48 ms | without loads: 60–62 / 44–46 ms. Before, on julia 61852d8fb1: 142–164 / 82–133 ms in every order. Previous prototype: 0.16–0.23 s / 33–44 ms |
+| TraitMakie: a new data type (forwarding), `@implement` + first PNG, loads before / after | 45–47 + 81–84 ms; 39–40 + 73–76 ms | without loads: 22 + 72–74 ms |
+| TraitMakie: the same, **without loads** | 22 ms + 72–74 ms | before, on julia 61852d8fb1: 77 + 107 ms (the clean-case regression, now gone); an earlier build of the compiler: 36 + 40 ms |
+| TraitReport form (t), fresh process | 0.794–0.805 s | the same without traits (pt) 0.771–0.775 s; Python (pandas 3.0.6, matplotlib 3.11.2) 0.578–0.589 s |
+| TraitReport form (b), work, nine packages loaded first | 344 ms (41 ms without loads) | form (a′), plain: 3,106 ms (248 ms without loads). `using`: trait 1.15–1.20 s against plain 0.95–1.01 s |
+| forks: interactive session without imports (indicative: load average 3.4–5.2) | 1.35–1.37 s; wall 3.7–4.0 s | upstream CSV + DataFrames 10.7–11.2 s; wall 12.0–12.8 s. Imports 1.89–1.92 s against upstream's 0.69–1.19 s |
+| forks: `stringtype = String15` read and show, in the session | 0.060–0.062 s | upstream 0.21–1.03 s. Before the `String15` fixes (julia 61852d8fb1): 1.56–1.67 s. Not separated: the extension and the check by facts |
+| TDE run time per step, Lorenz (julia 61852d8fb1) | model type 158 ns | OrdinaryDiffEq 346 ns |
 
 ## The themes
 
@@ -37,7 +38,7 @@ The facts mode makes "who compiles this code, under which rules" a property of e
 | The first-call check's inference of a worker's call graph | the code that runs (reflection by facts: shared with the worker's compilation and kept in images) | a private cache (`_CheckOwner`): 3,100 CodeInstances per new key, shared with nothing and never in an image |
 
 **The choices have costs:**
-- **`@machinery`'s clean-case cost.** The machinery is type-unstable by nature, so as facts code its run-time sites compile facts copies of Base methods in each session, unless TraitWorld's image holds them. This is the likely cause of TraitMakie's clean regression (36 → 77 ms). It is not yet measured by owner. The completion is a precompile workload for the machinery under its owner.
+- **`@machinery`'s clean-case cost.** The machinery is type-unstable by nature, so as facts code its run-time sites compile facts copies of Base methods in each session, unless TraitWorld's image holds them. That caused TraitMakie's clean regression on the build of 2026-10-19 (36 → 77 ms). TraitWorld's image now holds the machinery's code (f7aea19), and the forwarding `@implement` takes 22 ms (round of 2026-10-20). Its first PNG, 72–74 ms, is still above the earlier build's 40 ms.
 - **A hole in "protected as trait code" (review B1).** `@machinery` code that calls compiler functions directly (`argextype`, `sptypes_from_meth_instance`, the `NativeInterpreter` constructor, `register_dynamic_candidate!`) holds edges to *plain* compiler CodeInstances. Those are valid only as long as plain Julia keeps them valid. Calls through Base reflection run in the typeinf world and are safe; direct calls are not.
 - **`split_call` is a compiler method,** so the module flag marks it plain too. That is safe only because inference intercepts it.
 
@@ -62,22 +63,26 @@ The `String15` read without the three-way extension (with the check by facts alo
 
 ### 4. The thesis, measured: what loads still cost (direction supported, residue not fully diagnosed)
 
-A new implementation after big loads costs about what it costs without them (TDE 148–164 / 89–133 ms against 142 / 82 ms; TraitMakie 97 / 89–161 ms against 77 / 107 ms). That is not yet "the only load-dependent cost". Other rows still differ after loads: TDE's row 4 after loads 171 ms against 12; row 1 with the loads before 27.8 against 10.0 ms; TraitMakie's recolour 231 against 102 ms (n = 1).
+A new implementation after big loads costs tens of milliseconds, within about 2.2× of what it costs without them (round of 2026-10-20):
+- TDE, `@implement` / first solve: 81–83 / 95–97 ms with the loads before, 67 / 47–48 ms after, against 60–62 / 44–46 ms;
+- TraitMakie, a new data type: 45–47 / 81–84 ms before, 39–40 / 73–76 ms after, against 22 / 72–74 ms.
 
-One residue is diagnosed. TraitReport's work after StatsBase or Distributions (333–410 ms against 41) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([glossary](../glossary.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
+That is not yet "the only load-dependent cost". Other TDE rows still differ: the first solve with the loads before, 29 against 10.6 ms; a second model function after the loads, 31 against 10.4 ms; a new callback closure after loads in either order, 24 against 12.7 ms. Two differences of the build of 2026-10-19 are gone: TDE's new callback after the loads (171 ms then, 24.6–24.7 ms now) and TraitMakie's recolour after the loads (231 ms then, 81–82 ms now).
+
+One residue is diagnosed. TraitReport's work after StatsBase or Distributions (344–417 ms against 41, round of 2026-10-20) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([glossary](../glossary.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
 ## The control: whose property is load protection?
 
-The same work and the same nine unrelated loads (OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations, StaticArrays, CairoMakie, REPL), loaded after the work, on the patched build, plain mode against `all` (everything compiled by facts, the test bed's system image):
+The same work and the same nine unrelated loads (OffsetArrays, StatsBase, Unitful, IntervalArithmetic, Distributions, Interpolations, StaticArrays, CairoMakie, REPL), loaded after the work, on the patched build of the round of 2026-10-20, plain mode against `all` (everything compiled by facts, the test bed's system image):
 
 | | plain mode | `all` |
 |---|---|---|
-| PlainTables + TraitMakie: CodeInstances lost to the loads | 14 of 218 | **0 of 206** |
-| their work after the loads (repeated: 27.5 / 27.8 ms) | 96.1 ms | **29.4 ms** |
-| upstream CSV + DataFrames: CodeInstances lost (their own modules only; Base is not counted) | 570 of 4,712 | **2 of 3,340** |
-| their first work / repeated / after the loads | 3,627 / 0.6 / 4,009 ms | **722 / 0.8 / 992 ms** |
+| PlainTables + TraitMakie: CodeInstances lost to the loads | 14 of 256 | **0 of 244** |
+| PlainTables' work: first / repeated / after the loads | 104 / 28.6 / 96 ms | **80 / 28.8 / 28 ms** |
+| upstream CSV + DataFrames: CodeInstances lost (their own modules only; Base is not counted) | 561 of 4,684 | **2 of 3,337** |
+| their first work / repeated / after the loads | 3,308 / 0.6 / 4,021 ms | **516 / 0.9 / 435 ms** |
 
-Under `all`, the counted packages keep their code, and PlainTables' work is unaffected by the loads. Load protection is the facts rule's property, for any code: framing step 3. Upstream CSV + DataFrames pay **~990 ms** after the loads under `all` (repeated work is 0.8 ms; plain Julia pays 4.0 s). The cost is the plain inference behind run-time `return_type`. Its cached answers rest on plain edges at abstract signatures (an `isapprox(::Integer, ::Integer)`, a `quantile!(::AbstractVector, …)`); the loads invalidate them (Unitful's `Colon(::Any, ::Any, ::Quantity)` alone 733 entries); `CSV.read` and `describe` ask again, and plain inference, optimizer included, runs again (70% of the profile). This is by design: the answers are plain Julia's, so a load that changes plain inference changes them. The optimizer cannot be skipped: without it the answers get wider (CairoMakie's workload then fails) (`experiments/factscompiler/step0/`). The compiler's own code, invalidated by REPL's interpreter methods, costs nothing here: REPL alone leaves the work at 2 ms. The harness needs `~/.julia` named in `JULIA_DEPOT_PATH`: in 1.13 a trailing `:` adds only the bundled depots.
+Under `all`, the counted packages keep their code, and PlainTables' work is unaffected by the loads. Load protection is the facts rule's property, for any code: framing step 3. Upstream CSV + DataFrames pay **435 ms** after the loads under `all` (repeated work is 0.9 ms; plain Julia pays 4.0 s). On the build of 2026-10-19 they paid ~990 ms (first work 722 ms), and the diagnosis below was made then; the 435 ms has not been profiled again. The cost is the plain inference behind run-time `return_type`. Its cached answers rest on plain edges at abstract signatures (an `isapprox(::Integer, ::Integer)`, a `quantile!(::AbstractVector, …)`); the loads invalidate them (Unitful's `Colon(::Any, ::Any, ::Quantity)` alone 733 entries); `CSV.read` and `describe` ask again, and plain inference, optimizer included, runs again (70% of the profile). This is by design: the answers are plain Julia's, so a load that changes plain inference changes them. The optimizer cannot be skipped: without it the answers get wider (CairoMakie's workload then fails) (`experiments/factscompiler/step0/`). The compiler's own code, invalidated by REPL's interpreter methods, costs nothing here: REPL alone left the work at 2 ms (build of 2026-10-19). The harness needs `~/.julia` named in `JULIA_DEPOT_PATH`: in 1.13 a trailing `:` adds only the bundled depots.
 
 ## Detail work
 
@@ -93,9 +98,9 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 
 - **The trait object's layout.** A `Dynamic` of an immutable value that is itself the receiver is a held view (TraitWorld 375a930), which holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen).
-- **Untyped calls:** two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object, 116 ns per call against about 55 for a plain untyped call (julia 61852d8fb1, TraitWorld 375a930). On the build of 2026-10-19, the table of declared implementations brings it to about 29 ns against 17 ns plain ([state](../state.md)); the measurement round will update both. Type-unstable code was never claimed fast.
-- **`@implement` of a new model type**, 142–164 ms in every load order: the implementation checks' plain-rule inference.
-- **Platform load cost:** the trait forms' `using` is 0.04–0.20 s above the plain forms' (TraitReport's two pairs).
+- **Untyped calls:** through the table of declared implementations, 28.8 ns per call against 18.9 ns for a plain untyped call (product setting), 30.8 against 17.6 ns under `all`, 16 bytes per call (round of 2026-10-20). Before, with two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object: 116 ns against about 55 ns (julia 61852d8fb1, TraitWorld 375a930). Type-unstable code was never claimed fast.
+- **`@implement` of a new model type**, 60–83 ms in every load order (round of 2026-10-20; 142–164 ms on the build of 2026-10-19): the implementation checks' plain-rule inference.
+- **Platform load cost:** the trait forms' `using` is above the plain forms' (round of 2026-10-20): TraitReport's (t) imports 0.02–0.03 s above (pt)'s, its form (b) 0.18–0.20 s above (a′)'s.
 
 ## Upstream candidates
 
@@ -113,6 +118,7 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 
 ## Not done
 
-- Python's baseline was not rerun: its venv is gone from `/tmp`.
-- Like-for-like TraitReport forms under loads (form (t) against the previous prototype's form (t)); the session harness after the `String15` fixes; the BaseBenchmarks row of [the argument §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed) on the current compiler.
+- Like-for-like TraitReport forms under loads (form (t) against the previous prototype's form (t)).
+- The BaseBenchmarks row of [the argument §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed) is measured on the current compiler (geometric mean 1.037, tails up to 27.8×; [evidence §1](evidence.md#1-the-guarantee)); the argument still quotes the earlier build.
+- A profile of the 435 ms after the loads; the forks' session on a quiet machine; the run-time rows on the round's build.
 - Acceptance checks for the inliner changes (cycle inlining, compileable signatures) and the compiler-plain edges.

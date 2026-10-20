@@ -66,7 +66,7 @@ Most code is not fully typed. Where inference ran at an abstract signature, the 
 **The cost sits exactly where code is not fully typed.**
 - For fully typed code, facts inference *is* plain inference: the same calls inferred, the same edges, the same code.
 - Elsewhere, the facts rule removes Julia's heuristics for type-unstable code: speculation over up to `max_methods` matching methods, a result type taken from the one method that matches today, compile-time evaluation over abstract calls. The result of such a call is `Any`, and `Any` spreads into the code after it.
-- Measured on an earlier build, with (A) as a forked Compiler package and Base compiled plainly in the system image, before parts B–D and the inliner changes (to rerun on the current test bed): BaseBenchmarks geometric mean 1.016, 1.064 without `scalar`; the concrete groups within 1.00–1.09; the tails from 1.3× (`io`) to about 80× (containers of `Any`), on containers of `Any`, abstract element types and small-union broadcasts. One run, `--pkgimages=no`.
+- Measured on the test bed `all` (build of 2026-10-20, julia-1.13 3b8085c222; [evidence](evidence.md)): BaseBenchmarks geometric mean 1.037 over 4,342 benchmarks against plain; the concrete groups within 1.00–1.06 (`simd` 1.002, `sparse` 1.001, `scalar` 1.027); the tails on containers of `Any` (`collection` 1.123, at most 27.8× for `filter!` on a `Vector{Any}`), abstract element types and small unions.
 
 ### 3.4 Step 4: traits say what code needs, which makes the facts rule cheap, and can enforce concreteness
 
