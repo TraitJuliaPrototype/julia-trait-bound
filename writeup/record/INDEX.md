@@ -127,6 +127,7 @@ Earlier reviews, elsewhere:
 | [`2026-10-17-dataframes-traits-plan.md`](../plans/2026-10-17-dataframes-traits-plan.md) | 2026-10-17 | paused (session 29, decision 5); the forks pass the upstream suites on the compiler (forks 8c6366a) | demonstrator 4: forks of Tables, DataFrames, CSV with traits; the falsifiable claim, the traits, the session workload, milestones M0–M6 |
 | [`2026-10-17-policy-in-compiler-plan.md`](../plans/2026-10-17-policy-in-compiler-plan.md) | 2026-10-18 | history (done in session 29); superseded by `reference/compiler.md` and `design/julia-changes.md` | the pivot: (A) a facts mode of inference, (B) a second cache owner, (C) owner-aware dispatch; the go/no-go measurement; §6b (B)+(C) as built |
 | [`2026-10-19-notes-cleanup-plan.md`](../plans/2026-10-19-notes-cleanup-plan.md) | 2026-10-19 | current (approved: attic, write now, own index file) | this cleanup: what is stale, the three-audience layout, the work file by file |
+| [`2026-10-20-dynamic-compiled-implementation.md`](../plans/2026-10-20-dynamic-compiled-implementation.md) | 2026-10-20 | proposal, under review (Fable) | W-4: the references first, the other documents, TraitWorld, the demonstrators, the measurements (E-147 to E-150), the current-state documents; design choices C1–C7 (mine) and questions Q1–Q5 |
 
 ## `design-findings.md`, by section
 
