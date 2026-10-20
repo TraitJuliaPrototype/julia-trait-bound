@@ -33,6 +33,10 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
     - untyped callers at a crossing position take the entry's own path, not the table of declared implementations;
     - `DynamicItems` and `DynamicValues` stay exported as explicit tools (the copy that checks every item first, and code that is not bounded).
 
+From the implementation plan for `Dynamic` and `Compiled` (W-4, 2026-10-20; [the plan §11](plans/2026-10-20-dynamic-compiled-implementation.md#11-questions-for-the-user), with options and recommendations):
+
+34. **The plan's open questions:** Q1, functions of the trait world under `Callable`'s `@dynamic` (recommended: `Compiled`, as trait-world values, `with_dynamic` still winning); Q3b, whether concrete mode reports an implicit `Dynamic` of a `@concrete_only` trait; Q6, the prompt: every interpreted top-level call is `Dynamic`, not only calls on ordinary globals (recommended: accept for W-4, state it precisely); Q8, erased workers compiled into a library's image (every user type then takes the split's fallback) or at the session's first call (recommended: in the image, with E-145 raised into W-4's order, decided after E-147); Q9, an operation's argument declared `Dynamic{Y}` keeps the type's meaning (recommended: yes); Q10, a `Dynamic` position with a result parameter left open (recommended: refused for annotations; per parameter value for an implicit `Dynamic`).
+
 ## 2. Design
 
 **From the acceptance suite and the design of `Dynamic`:**
