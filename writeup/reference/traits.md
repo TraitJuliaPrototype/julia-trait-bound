@@ -772,7 +772,7 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 - **Functions of the trait world** (Base's `abs2`, TraitWorld's, a trait module's own functions and closures, all the way down their fields) are not affected by `@dynamic`, which applies to values whose type is not of the trait world. Like any value, they are `Compiled` where the code that passes them knows their type: `abs2` named in `squares`, a closure written in the library.
 - **The library sets the attribute at the position, `Compiled{Callable{A, S}}`; the caller converts per value:** `compiled_for(f)`, `with_dynamic(f)`. A conversion takes the signature of the position it reaches. `with_dynamic(abs2)` erases Base's function too.
 - **Several signatures:** `f::(Callable{…}, Callable{…})`. A call picks the signature its arguments match; a call at an undeclared signature raises `MethodError`.
-- How a dynamic call is made: [`lowering.md`](lowering.md#12-callable-and-dynamicfn).
+- How a dynamic call is made: [`lowering.md`](lowering.md#12-callable-and-dynamiccallable).
 
 **Stored functions.**
 

@@ -64,7 +64,7 @@ The [traits reference](../reference/traits.md) (the language) and the [lowering 
 
 ### 4.6 Functions as arguments: `Callable`, two modes
 
-[traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamicfn); [compiler §3.1](../reference/compiler.md#31-the-cfunction-calling-convention-caller_world).
+[traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamiccallable); [compiler §3.1](../reference/compiler.md#31-the-cfunction-calling-convention-caller_world).
 
 ### 4.7 The rest of the trait language
 

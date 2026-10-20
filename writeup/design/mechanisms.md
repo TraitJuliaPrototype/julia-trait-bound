@@ -72,7 +72,7 @@ See the parent section.
 
 ## 10. `Callable` and its two modes
 
-[traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamicfn).
+[traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamiccallable).
 
 ## 11. Keyword, default and variable arguments
 

@@ -281,7 +281,7 @@ The entries are grouped by theme:
 - **Origin:**
   - Julia has no type for "a function from `Float64` to `Float64`". FunctionWrappers.jl provides one by hand.
   - C++'s `std::function` erases the type. Rust chooses `impl Fn` (per closure) or `&dyn Fn` (dynamic) in the callee's signature. Here the caller can override the library's choice, which Rust and Swift do not offer ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults); [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 2).
-- **Defined in:** [traits §9](reference/traits.md#9-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamicfn).
+- **Defined in:** [traits §9](reference/traits.md#9-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamiccallable).
 
 ### Results like the input: `Self`, `Like`, `withfields`
 
