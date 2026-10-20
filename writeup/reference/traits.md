@@ -806,7 +806,7 @@ Stats.mean([1.0, 2.0, 6.0])             # a Vector{Float64} is Iterable{Float64}
 - **Who owns them:** BaseTraits is part of TraitWorld, and TraitWorld owns its traits. As their owner it declares Base's types' conformance ([§12.1](#121-who-may-implement)). A package's own type conforms by that package's declaration. Another package's type (a `DataFrame`) conforms by its owner's declaration, or through a wrapper type ([§17](#17-named-implementations)).
 - **Names:** a module that uses TraitWorld and another module exporting the same name (`Iterable`) gets Julia's usual ambiguity, and imports the one it means: `using Other: Iterable`.
 
-**Status:** Implemented (version 0). On TraitWorld's branch `basetraits`, to be merged. Open: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues, item 31](../open-issues.md#2-design)).
+**Status:** Implemented (version 0). Open: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues, item 31](../open-issues.md#2-design)).
 
 ### 10.2 Collections whose items are dynamic values
 
@@ -826,7 +826,7 @@ end
 - A `Vector{Dynamic{Shape}}` conforms, as a `Vector`. A user's container with another element type (`Vector{Any}`, `Vector{AbstractShape}`, `Dict{String, Any}`) is taken as it is: its entry translates it by the bound ([§10.3](#103-a-users-container-seen-with-dynamic-items)).
 - Items of one concrete type that conform (`Iterable{T}` for every `T` that conforms to `Shape`, compiled per item type) need a bound on a `where` variable ([§6.1](#61-bounds)), Planned.
 
-**Status:** Implemented, except a bound on the item type through a `where` variable (Planned, [T-16](#19-deviations)). On TraitWorld's branch `basetraits`, to be merged.
+**Status:** Implemented, except a bound on the item type through a `where` variable (Planned, [T-16](#19-deviations)).
 
 ### 10.3 A user's container seen with dynamic items
 
@@ -853,7 +853,7 @@ w = collect(DynamicItems{Geometry.Shape}(v))   # a copy: a Vector{Dynamic{Shape}
 - **The copy is a new container:** writes to `collect(DynamicItems{X}(v))` do not reach `v`.
 - With several bounds at one position (`xs::(MutableIndexable{Cell}, Resizable)`), the container crosses once, for all of them. Bounds that fix dynamic items of different traits at one position do not cross.
 
-**Status:** Implemented, except a container passed as a bounded keyword ([T-39](#19-deviations)) and closed builds ([lowering L-27](lowering.md#18-deviations)). On TraitWorld's branch `basetraits`, to be merged.
+**Status:** Implemented, except a container passed as a bounded keyword ([T-39](#19-deviations)) and closed builds ([lowering L-27](lowering.md#18-deviations)).
 
 ### 10.4 Algorithms over collection traits
 
@@ -865,7 +865,7 @@ retain!(isnum, v)                         # keep the numbers of the user's vecto
 - **A generic algorithm takes the function as an ordinary argument,** compiled per function, as Base does. A `Callable`'s argument types are constant ([§9](#9-callable-functions-at-a-declared-signature)), so `f::Callable{Tuple{T}, Bool}` for the item type `T` of any collection cannot be written. A function for one item type writes the `Callable` bound: `f::Callable{Tuple{Dynamic{Cell}}, Bool}`.
 - BaseTraits' algorithms have names of their own: only Base may add bounded methods to Base's functions ([§6.5](#65-dispatch-types-first-then-traits)).
 
-**Status:** Implemented (`retain!`). On TraitWorld's branch `basetraits`, to be merged. Open: which algorithms BaseTraits provides, and their names ([open issues, item 31](../open-issues.md#2-design)).
+**Status:** Implemented (`retain!`). Open: which algorithms BaseTraits provides, and their names ([open issues, item 31](../open-issues.md#2-design)).
 
 ---
 
@@ -1078,7 +1078,7 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | opening a `Dynamic` at its concrete type | Open | [open issues §2](../open-issues.md#2-design) |
 | BaseTraits version 0: `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; Base's containers' conformance | Implemented | [§10.1](#101-basetraits-traits-for-bases-concepts) |
 | a trait's name in a bound's parameters as its `Dynamic` (`Iterable{Shape}`) | Implemented | [§10.2](#102-collections-whose-items-are-dynamic-values) |
-| a user's container taken by a bound with dynamic items (the crossing); `DynamicItems{X}(v)`, `DynamicValues{X}(d)` | Implemented (branch `basetraits`) | [§10.3](#103-a-users-container-seen-with-dynamic-items) |
+| a user's container taken by a bound with dynamic items (the crossing); `DynamicItems{X}(v)`, `DynamicValues{X}(d)` | Implemented | [§10.3](#103-a-users-container-seen-with-dynamic-items) |
 | `retain!` | Implemented | [§10.4](#104-algorithms-over-collection-traits) |
 | BaseTraits' next traits and algorithms; two traits declaring one function at one arity | Open | [open issues, item 31](../open-issues.md#2-design) |
 | definition checking | Implemented | [§11](#11-checks-and-when-they-run), T-19 |

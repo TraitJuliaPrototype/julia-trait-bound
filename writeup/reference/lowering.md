@@ -487,7 +487,7 @@ An entry with keywords, a vararg or a `Callable` position is not tabled (`trait_
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations)), on TraitWorld's branch `basetraits`, to be merged; `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations)); `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
 
 **The representation:** `struct Dynamic{X}; t::Any; end` holds the user's object (`core.jl:351`). The view of `X` for the object's type is made where it is needed, by the builder that type's implementation fixed: a constant per pair, folded where the type is known.
 - From a value, `Dynamic{X}(x)` checks that `x`'s type conforms (`TraitBoundError` otherwise) and holds `x`.
@@ -526,7 +526,7 @@ A later implementation reaches the fallback and invalidates nothing.
 
 ### 13.1 A user's container crossing by its bound
 
-**Status: Implemented** (deviation [L-27](#18-deviations)), on TraitWorld's branch `basetraits`, to be merged ([traits §10.3](traits.md#103-a-users-container-seen-with-dynamic-items)).
+**Status: Implemented** (deviation [L-27](#18-deviations)) ([traits §10.3](traits.md#103-a-users-container-seen-with-dynamic-items)).
 
 - **What a position asks:** `crossing(EntryPos{F, pos, nargs}())` is fixed with `needed` at the trait module's end (`_fix_crossing!`, `trait_module.jl:773`; `crossing_at`, `entry.jl:310`): a `Crossing{Y, R}` where the workers' bounds at the position fix parameters to dynamic values of one trait `Y` (found inside the fixed values: `Dynamic{Y}`, `Pair{K, Dynamic{Y}}`), with `R`, for each worker, the parameter tags (`PTag`) its bound requires. Elsewhere, the fallback method: `nothing`, folded.
 - **At the entry** (`enter`, `entry.jl:193`): if the position has a `Crossing` and `t`'s type is known to cross, `t` is replaced by `crossed(Y, t)` and only its view's trait object is assembled. Otherwise the trait object `v` of `t` is assembled, and the first call for the type decides; a container that crosses is then not assembled as it is again (under `all`, a `Dict{String, Any}` fails the `Iterable` family's check, and its slow path would run at each call).
