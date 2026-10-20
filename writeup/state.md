@@ -9,9 +9,9 @@ For core developers. The design itself is the four [references](reference/README
 ### Traits
 
 The library, TraitWorld, works end to end:
-- **The design:** three rules, keys instead of representations, and every value in trait code `Compiled` or `Dynamic` ([traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), Planned; today `Callable` with `CompiledCall` and `DynamicCall`, and a `Dynamic` opened at every bound).
+- **The design:** three rules, keys instead of representations, and every value in trait code `Compiled` or `Dynamic` ([traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter)).
+- **`Compiled` and `Dynamic`** (TraitWorld 7fc229c, 2026-10-20; W-4): a value is `Compiled` where the code that passes it knows its type, `Dynamic` where it does not, overridden by attributes on bounds and item parameters and by `compiled_for`, `with_dynamic`; `Dynamic` is a trait object at an erased key, one worker per key; `Callable{A, S}` defaults to `Dynamic`; items of collections cross as `CompiledItems` or `DynamicItems`. The demonstrators run on it, `compiled_for` where they loop over a value compiled for its type. Deviations: [traits T-47 to T-50](reference/traits.md#19-deviations), [lowering L-31, L-35](reference/lowering.md#18-deviations); performance issues to revisit: [open issues §4](open-issues.md#4-runtime-and-measurements), item 35.
 - **BaseTraits** (TraitWorld 9fd18db, 2026-10-20): collection traits for Base's concepts, Base's containers conforming; `Dynamic` holds the user's object (5 ns to make one), the split's candidates in declaration order; a container with untyped items crosses implicitly, by the bound ([traits §10](reference/traits.md#10-dynamicx-values-of-any-conforming-type)).
-- **Adopted, not built:** the language of `Dynamic` and `Compiled` ([the proposal §0](plans/2026-10-20-dynamic-and-compiled.md); work item W-4, next), which replaces `Callable`'s modes and "a type that supplies its own behaviour gets its own copy" as language rules.
 - **The demonstrators** pass their suites: TraitDifferentialEquations, TraitMakie, and TraitReport with its packages TraitTables and TraitCSV. The ports of CSV.jl and DataFrames.jl pass their upstream suites (§6.1).
 
 Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) unless a row says otherwise:
@@ -19,9 +19,8 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | Measure | Traits | Plain Julia |
 |---|---|---|
 | Typed trait call, per call | 0.8 ns | 0.8 ns |
-| Untyped trait call, through the table of declared implementations, per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
-| Untyped trait call, type compiled ahead, per call (build of 2026-10-19, not in the round) | about 14 ns | 15–17 ns |
-| `Callable` in `DynamicCall` mode, per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
+| Untyped trait call, through the table of declared implementations (TraitWorld bed3782; since W-4 a `Dynamic` value, not measured: W-17), per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
+| `Callable`, `Dynamic` (its default), per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
 | `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 66 ms | the same with big loads before or after (E-146) |
 | a new problem type's first solve in TraitDifferentialEquations, timed whole | 335–371 ms in every load order: the solver compiled for the new key | — |
 | TraitReport, CSV to PNG in a fresh process | 0.79–0.81 s | without traits 0.77 s; Python 0.58–0.59 s |
@@ -143,12 +142,12 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 ### 6.3 The order of work
 
-The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: BaseTraits is merged (W-1, done 2026-10-20); in progress the unifying language for trait positions, `Dynamic{X}` and `Compiled{X}` (W-4, the crucial next step; its semantics only, by [the implementation plan](plans/2026-10-20-dynamic-compiled-implementation.md): the references describe it as Planned since 2026-10-20, TraitWorld follows; performance issues are recorded for later, [open issues §4](open-issues.md#4-runtime-and-measurements) item 35, and measured in W-17); then restructure TraitDifferentialEquations around a problem trait (W-2) and make the differences between abstract types and traits clear (W-3). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
+The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: BaseTraits is merged (W-1, done 2026-10-20); the language of `Compiled` and `Dynamic` is built (W-4, done 2026-10-20; its performance issues, [open issues §4](open-issues.md#4-runtime-and-measurements) item 35, are measured in W-17); next restructure TraitDifferentialEquations around a problem trait (W-2) and make the differences between abstract types and traits clear (W-3). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
 
 Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
 1. **Correctness first:**
    - the TraitMakie image flake;
-   - a `const DynamicFn` in a package image (a stale pointer);
+   - a `const Dynamic{Callable{…}}` in a package image (a stale pointer);
    - acceptance checks for the untyped calls' table and its world ranges;
    - threads;
    - a check of G2 across package loads that counts code compiled by facts.

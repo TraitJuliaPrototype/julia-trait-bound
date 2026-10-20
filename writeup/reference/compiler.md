@@ -545,7 +545,7 @@ Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call
 
 **Rules.**
 - Code branches on it only between paths that compute the same result. Anything else makes a result depend on how the code was compiled.
-- TraitWorld's entry uses it to decide a plain value's attribute: a typed caller inlines the entry, where it folds to `true`, and passes a `Compiled` value; an untyped caller, and code Julia does not compile (a statement at the prompt), reach the entry compiled at `Any`, where it is `false`, and pass a `Dynamic` one ([`lowering.md`](lowering.md#82-the-entry); [`traits.md`](traits.md#66-compiled-and-dynamic-how-values-enter)). The attribute changes speed, never results, so the rule above holds. *As built,* the untyped path is the table of declared implementations ([lowering L-28](lowering.md#18-deviations)).
+- TraitWorld's entry uses it to decide a plain value's attribute: a typed caller inlines the entry, where it folds to `true`, and passes a `Compiled` value; an untyped caller, and code Julia does not compile (a statement at the prompt), reach the entry compiled at `Any`, where it is `false`, and pass a `Dynamic` one ([`lowering.md`](lowering.md#82-the-entry); [`traits.md`](traits.md#66-compiled-and-dynamic-how-values-enter)). The attribute changes speed, never results, so the rule above holds.
 
 ### 4.2 `Compiler.split_call`: the call-site split
 

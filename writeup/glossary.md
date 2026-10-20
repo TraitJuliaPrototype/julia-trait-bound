@@ -251,7 +251,7 @@ The entries are grouped by theme:
   - **Overrides:** a trait's default, `@dynamic` (`Callable` declares it); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the conversions `compiled_for(x)` and `with_dynamic(x)`, which always win.
   - A value keeps its attribute in the trait world, also from library to library. A `Dynamic` is opened only by `compiled_for`: a function barrier written where it is wanted.
 - **Origin:** Rust's generics (compiled per type) and `dyn Trait` (one copy, dynamic calls); Swift's `some P` and `any P`. In both languages the type the code knows decides, as here; the caller cannot change it ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)). Julia compiles every call for the argument's type at run time; `compiled_for` is that behaviour, asked for.
-- **Defined in:** [traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§3.8](reference/traits.md#38-a-traits-default-dynamic), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry). Planned; TraitWorld today opens a `Dynamic` at every bound and compiles every plain value for its type ([traits T-40, T-41](reference/traits.md#19-deviations)).
+- **Defined in:** [traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§3.8](reference/traits.md#38-a-traits-default-dynamic), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry).
 
 ### `Dynamic{X}`
 

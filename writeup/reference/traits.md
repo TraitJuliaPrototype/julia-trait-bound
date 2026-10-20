@@ -114,7 +114,7 @@ NamedImpl      ::= "Via" "{" Name "}" "(" Expr ")"
 
 The concreteness declaration with one level argument is planned too; its spelling is open ([§3.7](#37-concreteness)).
 
-**Status:** Implemented, except the forms under `(* planned *)`, and `@dynamic`, `Attribute`, `ItemParam` with an attribute, `Dynamic{Callable{…}}` and `Conversion` ([§6.6](#66-compiled-and-dynamic-how-values-enter); Planned). TraitWorld also accepts forms that are not in this grammar: [T-12](#19-deviations) to [T-15](#19-deviations), an unnamed receiver ([T-36](#19-deviations)), `Callable`'s mode parameter and its conversions ([T-43](#19-deviations)), and the form `dynamic by` ([T-46](#19-deviations)).
+**Status:** Implemented, except the forms under `(* planned *)` (Planned), and an attribute on several bounds, `Dynamic{(X, Y)}` ([T-50](#19-deviations)). TraitWorld also accepts forms that are not in this grammar: [T-12](#19-deviations) to [T-15](#19-deviations), and an unnamed receiver ([T-36](#19-deviations)).
 
 ---
 
@@ -200,7 +200,7 @@ Base.iterate(t::Iterable, state)::Union{Nothing, Tuple{eltype(Self), Any}}
 - At each implementation: every operation has a method, or a default, for the receiver type, and the method's result infers to the declared type ([§5.9](#59-checks-at-the-declaration)).
 - At every call on a trait object: the arguments against the declaration; the result is asserted to the declared type.
 
-**Status:** Implemented, except the conversion of a trait object passed to an argument declared `Dynamic{Y}` (Planned: today write `Dynamic{Y}(t)`).
+**Status:** Implemented.
 
 ### 3.2 Defaults
 
@@ -313,7 +313,7 @@ end
 - **A `@concrete_only` trait may be used at a `Dynamic` position:** an erased key is erased by choice, not abstract.
 - The design has **one declaration with a level** (silent, warn, error), for a trait and for a module. It replaces `@concrete_only`, `@warn_on_abstract` and `@error_on_abstract`.
 
-**Status:** Implemented with today's three spellings. The one declaration with a level is Planned; its spelling is Open ([open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user)). Today a value read from an abstract part of a key is opened at the next bound by its run-time type ([T-41](#19-deviations)). `@concrete_only` at a `Dynamic` position is Planned with `Dynamic` positions. Concreteness as a whole is to be revisited once `Compiled` and `Dynamic` are built.
+**Status:** Implemented with today's three spellings. The one declaration with a level is Planned; its spelling is Open ([open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user)). Concreteness as a whole is to be revisited ([open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ### 3.8 A trait's default: `@dynamic`
 
@@ -330,7 +330,7 @@ end
 - Use it for a trait with many implementations from outside and a large library behind it: a solver's model, a plot's mark. A new implementation then compiles nothing in the library.
 - `Callable` declares it ([§9](#9-callable-functions-at-a-declared-signature)).
 
-**Status:** Planned. Today `Callable`'s default mode is its `DynamicCall` ([T-43](#19-deviations)).
+**Status:** Implemented.
 
 ---
 
@@ -350,7 +350,7 @@ There is no syntax for keys. They follow from the declarations and from a value'
 
 How a key is represented in compiled code: [`lowering.md`](lowering.md#5-keys-and-views).
 
-**Status:** Implemented for `Compiled` values, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)). The erased key is Planned ([T-40](#19-deviations), [T-41](#19-deviations)).
+**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)).
 
 ---
 
@@ -588,7 +588,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - **An attribute on a bound's item parameter** sets how the items are seen: `ms::Iterable{Compiled{Mark}}`, `d::Keyed{String, Dynamic{Shape}}` ([§10.2](#102-collections-bounded-by-their-items-trait)).
 - **A `Dynamic` annotation fixes every parameter its operations' result types use:** `s::Dynamic{StateVector{Float64}}`. `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
 
-**Status:** Implemented, except `where` variables in bounds (Planned; [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Behind the notes", item 7; [T-16](#19-deviations)) and attributes (Planned; today `x::Dynamic{X}` in a bounded function is a typed argument, [T-42](#19-deviations)). Open: how `Vector{<:ColTable}` in an argument takes a user's vector ([open issues §2](../open-issues.md#2-design), item 11).
+**Status:** Implemented, except `where` variables in bounds (Planned; [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Behind the notes", item 7; [T-16](#19-deviations)) and an attribute on several bounds ([T-50](#19-deviations)). Open: how `Vector{<:ColTable}` in an argument takes a user's vector ([open issues §2](../open-issues.md#2-design), item 11).
 
 ### 6.2 What a bounded function receives
 
@@ -598,7 +598,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - It is compiled per key ([§4](#4-keys-what-code-is-compiled-for)).
 - A bounded function has two parts, which you never write separately. Its **entry** receives the caller's values and translates each by its bound, once. Its **worker** is the body, compiled per tuple of keys. How both are built: [`lowering.md`](lowering.md#8-bounded-functions-workers-and-entries).
 
-**Status:** Implemented for `Compiled` trait objects; `Dynamic` ones are Planned ([T-40](#19-deviations), [T-41](#19-deviations)).
+**Status:** Implemented.
 
 ### 6.3 What trait code may do with a trait object
 
@@ -617,7 +617,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 
 A forbidden use is a `TraitUseError` ([§11](#11-checks-and-when-they-run)). Where the check did not see it, a trait object that reaches a function bounded by another trait raises `TraitBoundError` at the call.
 
-**Status:** Implemented, except the conversions (Planned).
+**Status:** Implemented.
 
 ### 6.4 Internal functions
 
@@ -644,7 +644,7 @@ describe(x) = "something else"                 # the fallback
 - Only the package that defines a function ([§12.1](#121-who-may-implement)) may add a bounded method to it where it has no entry of that shape.
 - **A `Dynamic{X}` value** passed from plain code reaches the bounded method for `X`, and stays `Dynamic` there. Outside trait modules, `Dynamic{X}` is an ordinary concrete type with Julia's dispatch: a plain method `g(d::Dynamic{Shape})` takes it as any type does.
 
-**Status:** Implemented, except that an entry method compiled ahead outranks a typed method on a supertype defined after it ([T-25](#19-deviations)). The hint's text: [T-22](#19-deviations). Error types of refused definitions: [T-34](#19-deviations). A `Dynamic` value stays `Dynamic` at the bound: Planned ([T-40](#19-deviations)).
+**Status:** Implemented, except that an entry method compiled ahead outranks a typed method on a supertype defined after it ([T-25](#19-deviations)). The hint's text: [T-22](#19-deviations). Error types of refused definitions: [T-34](#19-deviations).
 
 ### 6.6 `Compiled` and `Dynamic`: how values enter
 
@@ -693,7 +693,7 @@ Plots.paint(io, Dot())                               # typed at the prompt: Dyna
 - An attribute on a function that is neither exported nor declared `public` warns at the trait module's end: no plain value crosses there, and the fix is a conversion at the call (`compiled_for(x)`, `with_dynamic(x)`).
 - A `Dynamic` value reached by an operation's argument declared `Dynamic{Y}` stays a `Dynamic{Y}`; a `Compiled` trait object is converted to one ([§3.1](#31-operations)).
 
-**Status:** Planned. Today TraitWorld opens a `Dynamic` at every bound ([T-40](#19-deviations)), compiles a plain value for its type whatever its caller knew ([T-41](#19-deviations)), reads `x::Dynamic{X}` in a bounded function as a typed argument and has no attributes or conversions ([T-42](#19-deviations)), and reads a trait's name in a bound's item parameter as its `Dynamic` ([T-44](#19-deviations)). Performance issues to revisit: [open issues §4, item 35](../open-issues.md#4-runtime-and-measurements).
+**Status:** Implemented, except a bounded keyword's value from a caller that does not know its type, which is `Compiled` ([T-47](#19-deviations)). Performance issues to revisit: [open issues §4, item 35](../open-issues.md#4-runtime-and-measurements).
 
 ---
 
@@ -739,7 +739,7 @@ ncols_sum(ts::ColTable...) = sum(ncols(t) for t in ts; init = 0)
 - A vararg of `Callable` is refused. A vararg keyword (`kws...`) of a bounded function passes on unchanged.
 - **A function passed down with keywords** names them in a third parameter: `Callable{A, S, K}`, with `K` a named-tuple type.
 
-**Status:** Implemented, except `Callable` with keywords (Planned; today `Callable`'s third parameter is its mode, [T-43](#19-deviations)) and attributes on keywords (Planned, [T-41](#19-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#19-deviations)).
+**Status:** Implemented, except `Callable` with keywords (Planned), a keyword's value from a caller that does not know its type ([T-47](#19-deviations)), and a function whose only bounded arguments are keywords ([T-48](#19-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#19-deviations)).
 
 ---
 
@@ -788,7 +788,7 @@ callback(f) = FunctionCallback(Dynamic{Callable{Tuple{Vector{Float64}, Float64},
 - **Bounded closures,** `(u::ColTable) -> …`, have an entry of their own, as a bounded function does.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) translates the function's results by that bound, as an argument's bound would.
 
-**Status:** Implemented with another spelling, `Callable{A, S, M}` with the modes `DynamicCall` and `CompiledCall`, `compiled_call(f)`, `dynamic_call(f)`, `DynamicFn{A, S}` and `dynamic_fn(A, S, f)` ([T-43](#19-deviations)). The spelling above is Planned. Also Planned: open result types ([T-18](#19-deviations)); bounded closures and results that are traits or `Callable`s; the refusal of a non-constant `A` ([T-17](#19-deviations); [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Found by the solvers agent", item 5).
+**Status:** Implemented. Planned: open result types ([T-18](#19-deviations)); bounded closures and results that are traits or `Callable`s; the refusal of a non-constant `A` ([T-17](#19-deviations); [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Found by the solvers agent", item 5).
 
 ---
 
@@ -835,9 +835,6 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 **Limit.** A result through a call that opens a `Dynamic` (`f(compiled_for(d))`) is not inferred. Assert it: `asdcol(compiled_for(g))::Dynamic{DCol}`.
 
 **Status:** Implemented, except:
-- Planned: a `Dynamic` stays `Dynamic` at a bound; today it is opened at every bound ([T-40](#19-deviations)). `with_dynamic` and `compiled_for` (Planned, [§6.6](#66-compiled-and-dynamic-how-values-enter)).
-- Planned: declared fields read with their declared type; today they are read at run time, typed `Any` ([T-45](#19-deviations)).
-- Planned: a trait's name in a bound's parameters as an item position; today it means the trait's `Dynamic` ([T-44](#19-deviations)).
 - Planned: the conversion on assignment for every trait. Today it exists only from a trait object ([open issues §3](../open-issues.md#3-traitworld-the-prototype), "From the demonstrators", item 2).
 - Planned: `Dynamic{(ColTable, RowTable)}`, a value seen through several traits (refused today: no such value can be made); a trait's own declared `==`; serialization of a `Dynamic` with its implementation ([open issues §2](../open-issues.md#2-design)).
 - Planned, with traits in the type system: a trait's name as its `Dynamic` outside trait modules ([lowering L-6](lowering.md#18-deviations)).
@@ -904,7 +901,7 @@ end
 - `total` is compiled per key of the collection. Over a `Vector{Circle}` it is compiled for `Circle` items. Over a `Vector{Any}`, each item is a `Dynamic{Shape}`, so each operation on it is the call-site split of [§10](#10-dynamicx-values-of-any-conforming-type), with a declared result type, not a call whose argument and result are `Any`.
 - A user's container is taken as it is: its entry translates it by the bound ([§10.3](#103-a-users-container-seen-with-dynamic-items)).
 
-**Status:** Planned. Today a trait's name in a bound's parameters means its `Dynamic`: every item is `Dynamic{Shape}`, a `Vector{Circle}` included, and attributes on item parameters are not accepted ([T-44](#19-deviations)).
+**Status:** Implemented.
 
 ### 10.3 A user's container seen with dynamic items
 
@@ -931,7 +928,7 @@ w = collect(DynamicItems{Geometry.Shape}(v))   # a copy: a Vector{Dynamic{Shape}
 - **The copy is a new container:** writes to `collect(DynamicItems{X}(v))` do not reach `v`.
 - With several bounds at one position (`xs::(MutableIndexable{Cell}, Resizable)`), the container crosses once, for all of them. Bounds that fix dynamic items of different traits at one position do not cross.
 
-**Status:** Implemented for `Dynamic` items, except a container passed as a bounded keyword ([T-39](#19-deviations)) and closed builds ([lowering L-27](lowering.md#18-deviations)). `Compiled` items, `CompiledItems`, `CompiledValues` and the crossing of a `Vector{Dynamic{X}}` are Planned ([T-44](#19-deviations)).
+**Status:** Implemented, except a container passed as a bounded keyword ([T-39](#19-deviations)) and closed builds ([lowering L-27](lowering.md#18-deviations)).
 
 ### 10.4 Algorithms over collection traits
 
@@ -974,7 +971,7 @@ leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
 - `check_definitions(M)` runs the check on demand: it returns an empty list, or raises `TraitUseError` listing the problems.
 - Keyword, vararg and `Callable` functions with declared result types are checked at the module's end like any other.
 
-**Status:** Implemented, except that keyword, vararg and every `Callable` function are checked at their first call ([T-19](#19-deviations)), and that several definitions in a trait module are refused with `ErrorException` ([T-34](#19-deviations)). The checks on attributes are Planned with them ([§6.6](#66-compiled-and-dynamic-how-values-enter)).
+**Status:** Implemented, except that keyword, vararg and every `Callable` function are checked at their first call ([T-19](#19-deviations)), and that several definitions in a trait module are refused with `ErrorException` ([T-34](#19-deviations)).
 
 ---
 
@@ -1039,7 +1036,7 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))   # a report, anywh
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values and trait objects count as declared, not as faults.
 - `@warn_on_abstract` warns at a worker's first run; `@error_on_abstract` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types).
 
-**Status:** Implemented, with today's spellings; one declaration with a level is Planned ([§3.7](#37-concreteness)). What concrete mode reports is to be revisited with concreteness, after `Compiled` and `Dynamic` are built ([§3.7](#37-concreteness)). Open: whether a variable of a small `Union` should warn ([open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user)). Today it does not: its splits have known types.
+**Status:** Implemented, with today's spellings; one declaration with a level is Planned ([§3.7](#37-concreteness)). What concrete mode reports is to be revisited with concreteness ([§3.7](#37-concreteness)). Open: whether a variable of a small `Union` should warn ([open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user)). Today it does not: its splits have known types.
 
 ---
 
@@ -1050,7 +1047,7 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))   # a report, anywh
 - A `Dynamic` value prints as its trait and its object's key: `Dynamic{Shape} at Circle`.
 - Stack traces hide TraitWorld's own frames. `JULIA_TW_ALL_FRAMES=1` shows them.
 
-**Status:** Implemented with another spelling for function bounds (`at DynamicCall`; [T-43](#19-deviations)); erased keys are Planned. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)).
+**Status:** Implemented. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)).
 
 ---
 
@@ -1076,8 +1073,8 @@ No syntax: it follows from `@implement` in a package.
 
 Plain code reached from trait code keeps plain Julia's properties, and its open dynamic calls are reported. A `--trim` build compiles plain code: nothing loads in a binary, so nothing needs protecting ([`facts.md`](facts.md#closed-builds)).
 
-**Status:** Implemented for `Compiled` values. Except:
-- an untyped caller runs code compiled for its value's key: through a table of declared implementations, an entry method compiled ahead per declared type, which may invalidate plain code of the library's entry ([open issues §2](../open-issues.md#2-design), item 29), or, for functions with keywords, a vararg or a `Callable` argument, an entry compiled per user type ([T-41](#19-deviations); [lowering L-12](lowering.md#18-deviations)); what is compiled ahead is narrower ([lowering L-15](lowering.md#18-deviations));
+**Status:** Implemented, except:
+- what is compiled ahead is narrower ([lowering L-15](lowering.md#18-deviations)); code at a `Dynamic` position is not listed as `verify_main`'s targets ([lowering L-35](lowering.md#18-deviations));
 - the rebuilding step of `Like{t}` is not listed yet ([T-20](#19-deviations)).
 
 ---
@@ -1117,11 +1114,11 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | supertrait agreement check | Planned | [§3.6](#36-supertraits-and-bundles), T-3 |
 | `@concrete_only`, `@warn_on_abstract`, `@error_on_abstract` | Implemented | [§3.7](#37-concreteness) |
-| a trait's default, `@dynamic` | Planned | [§3.8](#38-a-traits-default-dynamic) |
-| an operation's argument declared `Dynamic{Y}`: a trait object converted | Planned | [§3.1](#31-operations) |
+| a trait's default, `@dynamic` | Implemented | [§3.8](#38-a-traits-default-dynamic) |
+| an operation's argument declared `Dynamic{Y}`: a trait object converted | Implemented | [§3.1](#31-operations) |
 | one concreteness declaration with a level | Planned; spelling Open | [open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user) |
 | keys | Implemented | [§4](#4-keys-what-code-is-compiled-for) |
-| the erased key of a `Dynamic` value | Planned | [§4](#4-keys-what-code-is-compiled-for), T-40, T-41 |
+| the erased key of a `Dynamic` value | Implemented | [§4](#4-keys-what-code-is-compiled-for) |
 | `@implement X T begin … end` | Implemented | [§5.1](#51-with-a-block-of-methods) |
 | `@implement X T` (one line) | Implemented | [§5.2](#52-one-line) |
 | `by f` | Implemented | [§5.3](#53-forwarding-with-by) |
@@ -1144,14 +1141,14 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | `Vector{<:X}` arguments | Open | [open issues §2](../open-issues.md#2-design) |
 | internal functions without bounds | Implemented | [§6.4](#64-internal-functions) |
 | types first, then traits; joint-method rule; fallback | Implemented | [§6.5](#65-dispatch-types-first-then-traits) |
-| `Compiled` and `Dynamic`: the attribute where a value is first seen through a trait; carried; library to library | Planned | [§6.6](#66-compiled-and-dynamic-how-values-enter), T-40, T-41 |
-| attributes on bounds and item parameters: `Compiled{X}`, `Dynamic{X}` | Planned | [§6.1](#61-bounds), [§6.6](#66-compiled-and-dynamic-how-values-enter), T-42 |
-| `compiled_for(x)`, `with_dynamic(x)` | Planned | [§6.6](#66-compiled-and-dynamic-how-values-enter) |
-| the warning on an attribute of a function neither exported nor public | Planned | [§6.6](#66-compiled-and-dynamic-how-values-enter) |
+| `Compiled` and `Dynamic`: the attribute where a value is first seen through a trait; carried; library to library | Implemented | [§6.6](#66-compiled-and-dynamic-how-values-enter), T-47 |
+| attributes on bounds and item parameters: `Compiled{X}`, `Dynamic{X}` | Implemented | [§6.1](#61-bounds), [§6.6](#66-compiled-and-dynamic-how-values-enter), T-50 |
+| `compiled_for(x)`, `with_dynamic(x)` | Implemented | [§6.6](#66-compiled-and-dynamic-how-values-enter) |
+| the warning on an attribute of a function neither exported nor public | Implemented | [§6.6](#66-compiled-and-dynamic-how-values-enter) |
 | result types, `Like{t}`, `withfields`, siblings | Implemented | [§7](#7-results-declared-types-like-withfields) |
 | keywords, defaults, varargs | Implemented | [§8](#8-keywords-defaults-and-varargs) |
-| `Callable{A, S}`, `@dynamic`, `Compiled{Callable{A, S}}`, conversions | Planned (today `Callable{A, S, M}` with `DynamicCall`, `CompiledCall`) | [§9](#9-callable-functions-at-a-declared-signature), T-43 |
-| `Dynamic{Callable{A, S}}` as a stored function | Planned (today `DynamicFn`, `dynamic_fn`) | [§9](#9-callable-functions-at-a-declared-signature), T-43 |
+| `Callable{A, S}`, `@dynamic`, `Compiled{Callable{A, S}}`, conversions | Implemented | [§9](#9-callable-functions-at-a-declared-signature) |
+| `Dynamic{Callable{A, S}}` as a stored function | Implemented | [§9](#9-callable-functions-at-a-declared-signature) |
 | `Callable{A, S, K}` with keywords | Planned | [§8](#8-keywords-defaults-and-varargs) |
 | a constant `A`, refused otherwise | Planned | [§9](#9-callable-functions-at-a-declared-signature), T-17 |
 | open `Callable` result types | Planned | [§9](#9-callable-functions-at-a-declared-signature), T-18 |
@@ -1162,10 +1159,10 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | a faster `Dynamic` path beyond four implementations | Optional | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | opening a `Dynamic` at its concrete type | Open | [open issues §2](../open-issues.md#2-design) |
 | BaseTraits version 0: `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; Base's containers' conformance | Implemented | [§10.1](#101-basetraits-traits-for-bases-concepts) |
-| a trait's name in a bound's parameters as an item position (`Iterable{Shape}`), items `Compiled` or `Dynamic` | Planned (today: its `Dynamic`) | [§10.2](#102-collections-bounded-by-their-items-trait), T-44 |
+| a trait's name in a bound's parameters as an item position (`Iterable{Shape}`), items `Compiled` or `Dynamic` | Implemented | [§10.2](#102-collections-bounded-by-their-items-trait) |
 | a user's container taken by a bound with dynamic items (the crossing); `DynamicItems{X}(v)`, `DynamicValues{X}(d)` | Implemented | [§10.3](#103-a-users-container-seen-with-dynamic-items) |
-| `CompiledItems`, `CompiledValues`; a `Vector{Dynamic{X}}` crossing | Planned | [§10.3](#103-a-users-container-seen-with-dynamic-items), T-44 |
-| declared fields read on a `Dynamic` with their declared type | Planned | [§10](#10-dynamicx-values-of-any-conforming-type), T-45 |
+| `CompiledItems`, `CompiledValues`; a `Vector{Dynamic{X}}` crossing | Implemented | [§10.3](#103-a-users-container-seen-with-dynamic-items) |
+| declared fields read on a `Dynamic` with their declared type | Implemented | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | `retain!` | Implemented | [§10.4](#104-algorithms-over-collection-traits) |
 | BaseTraits' next traits and algorithms; two traits declaring one function at one arity | Open | [open issues, item 31](../open-issues.md#2-design) |
 | definition checking | Implemented | [§11](#11-checks-and-when-they-run), T-19 |
@@ -1177,7 +1174,7 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | concrete mode, `fully_typed` | Implemented | [§13](#13-concrete-mode) |
 | warning on small unions | Open | [open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user) |
 | printing by bound and key | Implemented | [§14](#14-printing) |
-| compiling ahead from `@implement` | Implemented; no entry methods ahead per type Planned (today made, invalidating plain code, accepted, to be reviewed) | [§15](#15-compiling-ahead), T-41 |
+| compiling ahead from `@implement` | Implemented | [§15](#15-compiling-ahead) |
 | `verify_main`, `@workload` | Implemented | [§15](#15-compiling-ahead), T-20 |
 | `conforms(T, X)` | Implemented | [§16](#16-membership) |
 | `x isa X`, `T <: X` | Planned | [§16](#16-membership), T-23 |
@@ -1214,7 +1211,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-21 | [§12.3](#123-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
 | T-22 | [§6.5](#65-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | The hint says "a Int64". Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/frames.jl:75`; `src/entry.jl:499` |
 | T-23 | [§16](#16-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
-| T-24 | — | *Retired*: see [T-41](#19-deviations). | — | — |
+| T-24 | — | *Retired*: see [§15](#15-compiling-ahead). | — | — |
 | T-25 | [§6.5](#65-dispatch-types-first-then-traits) | A trait bound ranks below every type. | An entry method compiled ahead for `T` is made only where no typed method already wins for `T`, but it is a method at `T`: a typed method on an abstract supertype of `T` defined after it (by its owner, at the prompt) loses to it. | `TraitWorld/src/ahead.jl:177`, `:182` |
 | T-26 | [§5.7](#57-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked: every family path passes no operations and a non-concrete type to the check, which returns after the ownership checks. A joint family that conforms by its fields runs no check. | `TraitWorld/src/implement.jl:514`, `:1051`, `:1103`, `:1129`, `:1256`–`1272` |
 | T-27 | [§5.7](#57-families), [§5.9](#59-checks-at-the-declaration) | A member that does not conform is refused (`ImplementError`). | A member of a family of existing methods is checked at its first use, with a warning, and keeps the slow path. A member of a family with a block is never checked: `@implement KVec A where {A <: Vector{<:Real}} begin kget(v, i) = string(v[i]) end` is accepted and fails at a call, with a `TypeError` from the result's assertion. | `TraitWorld/src/implement.jl:342`, `:345`–`349`, `:733`–`735`; `test/runtests.jl:284`–`289` |
@@ -1230,13 +1227,14 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-37 | [§3.4](#34-parameters-and-associated-types), [§5.6](#56-stating-parameters) | An equation always holds: a stated value for a parameter an equation defines is checked against the equation, and an implementation where they disagree is refused with `ImplementError`. | Checked for an implementation of one type (`_param_agrees` in `TraitWorld/src/implement.jl`; `test/params.jl`). For a family (`@implement X{T} S{T} where {T}`) the stated value still replaces the equation's, unchecked: the equation is not evaluated at the family's free parameters. As [lowering L-26](lowering.md#18-deviations). | `implement.jl` (`_param_methods`) |
 | T-38 | [§5.7](#57-families) | A family is declared as `@implement X S{P} where {P}`, also for a trait whose parameters are defined by equations (`@implement Iterable DynamicItems{X, V} where {X, V}`). | Refused with "a family `…` needs the trait's parameters": the form is taken as a joint family conforming by its fields, which requires every parameter to be defined by a field. The variable form works: `@implement Iterable D where {D <: DynamicItems}` (BaseTraits uses it). Found while writing BaseTraits. | `TraitWorld/src/implement.jl` (`_implement_expand`, the joint family branch; branch `basetraits`) |
 | T-39 | [§10.3](#103-a-users-container-seen-with-dynamic-items), [§8](#8-keywords-defaults-and-varargs) | A container crosses at a bounded keyword as at a positional argument. | A bounded keyword is translated by `enter_kw`, which does not cross. A keyword bound that fixes a parameter (`shapes::Iterable{Shape}`) fails before that, for any value: `MethodError` from `trait_ops` at the trait instance (`Iterable{Dynamic{Shape}}`) instead of its family. Found while checking §10.3. | `TraitWorld/src/entry.jl` (`enter_kw`), `src/trait_module.jl` (the keyword's trait list; branch `basetraits`); `experiments/hetero-idiomatic/reference_examples.jl` |
-| T-40 | [§6.6](#66-compiled-and-dynamic-how-values-enter), [§10](#10-dynamicx-values-of-any-conforming-type) | A `Dynamic` value stays `Dynamic` at a bound: it runs the code compiled once for the position, until `compiled_for` opens it. | It is opened at every bound: the entry's first step is `t isa Dynamic && return opened(t)`, and the worker for its object's key runs. There is no erased key. Line numbers here and in T-41 to T-46 are those of TraitWorld at 5b172e1. | `TraitWorld/src/entry.jl:194` (`enter`); `src/core.jl:438` (`opened`) |
-| T-41 | [§6.6](#66-compiled-and-dynamic-how-values-enter), [§3.7](#37-concreteness), [§15](#15-compiling-ahead) | A plain value is `Compiled` only where its caller's code knows its concrete type; a caller that does not passes a `Dynamic` value. | Every plain value runs code compiled for its own key: a typed caller as the reference says; an untyped caller through the table of declared implementations, an entry method compiled ahead per declared type, or (keywords, varargs, `Callable` positions) an entry compiled per type. A value read from an abstract part of a key is opened at the next bound the same way. | `TraitWorld/src/trait_module.jl:566`–`572`, `:652`–`700`; `src/untyped.jl`; `src/ahead.jl:146`–`153`, `:168` |
-| T-42 | [§6.1](#61-bounds), [§6.6](#66-compiled-and-dynamic-how-values-enter) | In a bounded function, `x::Dynamic{X}` is a bound with an attribute: any conforming value is accepted, and erased. | It is a typed argument of the type `Dynamic{X}`: a plain conforming value does not reach the method (`MethodError`, or another method). `Compiled{X}` is not defined (`UndefVarError`). | `TraitWorld/src/trait_module.jl:270` (`_classify`) |
-| T-43 | [§9](#9-callable-functions-at-a-declared-signature), [§14](#14-printing) | `Callable{A, S}` has no mode parameter; it declares `@dynamic`; `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` are the spellings, and `with_dynamic` erases a function of the trait world too. | The earlier spelling: `Callable{A, S, M}` with `M` one of `DynamicCall`, `CompiledCall`; `compiled_call(f)`, `dynamic_call(f)`, `Callable{A, S, M}(f)`; `DynamicFn{A, S}` and `dynamic_fn(A, S, f)`; printing `at DynamicCall`. A function of the trait world is called directly even under `dynamic_call`. | `TraitWorld/src/core.jl:30`–`33`; `src/entry.jl:720`, `:749`, `:768`–`776`; `src/core.jl:915` |
-| T-44 | [§10.2](#102-collections-bounded-by-their-items-trait), [§10.3](#103-a-users-container-seen-with-dynamic-items) | A trait's name in a bound's parameters names an item position; items of a concrete conforming type are `Compiled`; attributes on item parameters; a `Vector{Dynamic{X}}` crosses into `DynamicItems`. | A trait's name in a bound's parameters means its `Dynamic` (`Iterable{Shape}` is `Iterable{Dynamic{Shape}}`): every item is `Dynamic`, a `Vector{Circle}`'s too; there is no `CompiledItems`; a `Vector{Dynamic{X}}` meets the bound as it is. | `TraitWorld/src/trait_module.jl:179` (`_dynamic_containers`); `src/BaseTraits.jl:174` (`crossed`) |
-| T-45 | [§10](#10-dynamicx-values-of-any-conforming-type) | A declared field read on a `Dynamic` has its declared type. | It is read through the opened trait object at run time; the result is typed `Any`. | `TraitWorld/src/core.jl:687` |
-| T-46 | [§5](#5-implementations) | An implementation takes the forms of §5.1–§5.8; there is no `dynamic by`. | `@implement X T dynamic by f begin … end` is accepted: a witness of pointers per session (`Dyn`). Refused on TraitWorld's branch `dynamic-compiled` (ccc1ca7). | `TraitWorld/src/implement.jl:459`; `src/core.jl:737`, `:812` |
+| T-40 | — | *Retired*: see [§6.6](#66-compiled-and-dynamic-how-values-enter). | — | — |
+| T-41 | — | *Retired*: see [§6.6](#66-compiled-and-dynamic-how-values-enter). | — | — |
+| T-42 | — | *Retired*: see [§6.1](#61-bounds). | — | — |
+| T-43 | — | *Retired*: see [§9](#9-callable-functions-at-a-declared-signature). | — | — |
+| T-44 | — | *Retired*: see [§10.2](#102-collections-bounded-by-their-items-trait). | — | — |
+| T-45 | — | *Retired*: see [§10](#10-dynamicx-values-of-any-conforming-type). | — | — |
+| T-46 | — | *Retired*: see [§5](#5-implementations). | — | — |
 | T-47 | [§6.6](#66-compiled-and-dynamic-how-values-enter), [§8](#8-keywords-defaults-and-varargs) | A bounded keyword's value is `Dynamic` where the caller does not know its type. | It is `Compiled`: the keyword sorter is specialized on the named tuple of the supplied keywords, so `Compiler.known_type` sees the value's type there. Found while building W-4. | `TraitWorld/src/trait_module.jl` (the keyword entry); `test/attributes.jl` (`@test_broken`) |
 | T-48 | [§6](#6-bounded-functions), [§8](#8-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
 | T-49 | [§3.1](#31-operations), [§6.6](#66-compiled-and-dynamic-how-values-enter) | An operation with an argument declared with the receiver type (`Self`) works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
+| T-50 | [§6.1](#61-bounds), [§1](#1-syntax-summary) | An attribute applies to several bounds at one position: `t::Dynamic{(ColTable, RowTable)}`. | Refused as an attribute: `Dynamic{(X, Y)}` is not a type TraitWorld can make (a tuple of types is not a type parameter), so the annotation is not read as a bound. | `TraitWorld/src/trait_module.jl` (`_attributed_bound`) |
