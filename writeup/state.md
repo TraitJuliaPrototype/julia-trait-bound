@@ -10,6 +10,8 @@ For core developers. The design itself is the four [references](reference/README
 
 The library, TraitWorld, works end to end:
 - **The design:** three rules, keys instead of representations, and `Callable` with `CompiledCall` and `DynamicCall`.
+- **BaseTraits** (TraitWorld 9fd18db, 2026-10-20): collection traits for Base's concepts, Base's containers conforming; `Dynamic` holds the user's object (5 ns to make one), the split's candidates in declaration order; a container with untyped items crosses implicitly, by the bound ([traits §10](reference/traits.md#10-dynamicx-values-of-any-conforming-type)).
+- **Adopted, not built:** the language of `Dynamic` and `Compiled` ([the proposal §0](plans/2026-10-20-dynamic-and-compiled.md); work item W-4, next), which replaces `Callable`'s modes and "a type that supplies its own behaviour gets its own copy" as language rules.
 - **The demonstrators** pass their suites: TraitDifferentialEquations, TraitMakie, and TraitReport with its packages TraitTables and TraitCSV. The ports of CSV.jl and DataFrames.jl pass their upstream suites (§6.1).
 
 Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) unless a row says otherwise:
@@ -21,7 +23,7 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | Untyped trait call, type compiled ahead, per call (build of 2026-10-19, not in the round) | about 14 ns | 15–17 ns |
 | `Callable` in `DynamicCall` mode, per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
 | `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 66 ms | the same with big loads before or after (E-146) |
-| a new model type's first solve in TraitDifferentialEquations, timed whole | 335–371 ms in every load order: the solver compiled for the new key | — |
+| a new problem type's first solve in TraitDifferentialEquations, timed whole | 335–371 ms in every load order: the solver compiled for the new key | — |
 | TraitReport, CSV to PNG in a fresh process | 0.79–0.81 s | without traits 0.77 s; Python 0.58–0.59 s |
 
 ### Facts
@@ -141,7 +143,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 ### 6.3 The order of work
 
-The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: merge BaseTraits (W-1); then the unifying language for trait positions, `Dynamic{X}` and `Compiled{X}` (W-4, the crucial next step); then restructure TraitDifferentialEquations around a problem trait (W-2) and make the differences between abstract types and traits clear (W-3). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
+The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: BaseTraits is merged (W-1, done 2026-10-20); next the unifying language for trait positions, `Dynamic{X}` and `Compiled{X}` (W-4, the crucial next step); then restructure TraitDifferentialEquations around a problem trait (W-2) and make the differences between abstract types and traits clear (W-3). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
 
 Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
 1. **Correctness first:**

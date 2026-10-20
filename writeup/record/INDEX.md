@@ -32,11 +32,11 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 ## How to resume work
 
 Read, in this order:
-1. [`../state.md`](../state.md), then the references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
-2. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
-3. The latest session note, [`../../session-notes/2026-10-18-29-reviews-and-decisions.md`](../../session-notes/2026-10-18-29-reviews-and-decisions.md):
-   - its "Next" section is from the start of session 29 and is done;
-   - read instead the last bullets of "Autonomous run": the user's decisions on the performance review (2026-10-19: the inliner fixes for all code; next, diagnose and fix the remaining load costs, the compiler-edge hole B1 and a machinery workload; a lean held view) and the approval of the cleanup plan.
+1. [`../../CLAUDE.md`](../../CLAUDE.md): the rules for the documents.
+2. [`todo.md`](todo.md): the work queue. The next item is marked **next** (since 2026-10-20: W-4, the language of `Dynamic{X}` and `Compiled{X}`, its rule in [`../plans/2026-10-20-dynamic-and-compiled.md`](../plans/2026-10-20-dynamic-and-compiled.md) §0).
+3. The latest session note, [`../../session-notes/2026-10-20-29-collections-loadcosts-dynamic-compiled.md`](../../session-notes/2026-10-20-29-collections-loadcosts-dynamic-compiled.md): "To resume", then what was done.
+4. [`../state.md`](../state.md), then the references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
+5. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 
 **"Session 30" is session 29.** The demonstrators' READMEs and commit messages (and `intro/porting.md` until the writeup review of 2026-10-19) call session 29's autonomous run "session 30"; there is no note 30.
 
