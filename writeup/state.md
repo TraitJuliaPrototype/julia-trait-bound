@@ -113,7 +113,7 @@ The deviations of the implementation from the design are listed per reference, w
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
 - **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the rule check by the default interpreter's reflection, facts inference for workers; the keep analysis and the result-type checks on a plain `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers ([lowering §9.2](reference/lowering.md#92-untyped-callers-the-erased-worker)), compiling ahead from declarations ([lowering §15.1](reference/lowering.md#151-compiling-ahead-from-declarations)), concrete mode with the fully-typed certificate, `verify_main`, strict mode (scoped to trait code; the prototype protects all `:facts` code and some plain code, [facts F-4](reference/facts.md#deviations)), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.split_call` sites.
-- **Tests:** TraitWorld's 48 sets; acceptance 24/24; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
+- **Tests:** TraitWorld's 48 sets; acceptance 25/25; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
 - **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
@@ -149,9 +149,7 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
 Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
 1. **Correctness first:**
    - the TraitMakie image flake;
-   - a `const Dynamic{Callable{…}}` in a package image (a stale pointer);
-   - acceptance checks for the untyped calls' table and its world ranges;
-   - threads;
+   - threads beyond the tables (checked 2026-10-21: the split's tables and the untyped callers' table under 4 threads, `experiments/examples/threads/`);
    - a check of G2 across package loads that counts code compiled by facts.
 2. **Done (2026-10-20): the measurement round** ([evidence](design/evidence.md)).
 3. **The rest of the machinery's startup:** the compiler's reflection code compiled again after loads.

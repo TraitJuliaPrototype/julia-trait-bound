@@ -29,7 +29,7 @@ How to use it:
 
 | ID | Work | Status |
 |---|---|---|
-| W-9 | Correctness: the TraitMakie image flake; a `const DynamicFn` in a package image (a stale pointer); acceptance checks for the untyped calls' table and its world ranges; threads; G2 across package loads counting code compiled by facts. | queued |
+| W-9 | Correctness: the TraitMakie image flake; a `const DynamicFn` in a package image (a stale pointer); acceptance checks for the untyped calls' table and its world ranges; threads; G2 across package loads counting code compiled by facts. | queued | Done 2026-10-21: the const `Dynamic{Callable}` and a split's table in a package image, acceptance G1.25 (the untyped calls' table and its worlds), the tables under threads (`experiments/examples/imageptr/`, `threads/`). Open: the TraitMakie image flake, threads beyond the tables, G2 across package loads counting code compiled by facts
 | W-10 | The rest of the machinery's startup: the compiler's reflection code compiled again after loads. | queued |
 | W-11 | The `return_type` answers after loads: a differential test, then red-green revalidation (the 45–63 ms part of open issue §4.10). | queued |
 | W-12 | The next call-site cache steps: entries with an open `max_world`; the `call_cache` size. | queued |

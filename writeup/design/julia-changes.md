@@ -70,14 +70,17 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 5. Tests
 
-- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 24 checks:
+- **Acceptance:** `experiments/facts/acceptance_compiler.jl`, 25 checks:
   - G1, identical or error;
   - G2, stable caches;
   - the cases found by the reviews, G1.15–G1.19;
   - `DynamicCall` in older and alternating worlds, G1.20 and G1.21;
   - a call site cached for exact types through a redefinition, G1.22;
   - a site cached for every type at an `Any` position, then a more specific method, G1.23;
-  - beyond a split's candidates, the table of the call's targets: results, a redefinition in the new and the older world, no allocation, a missing method, G1.24.
+  - beyond a split's candidates, the table of the call's targets: results, a redefinition in the new and the older world, no allocation, a missing method, G1.24;
+  - `compiled_for` from an untyped caller through the table of declared implementations, in an older world and before a type's declaration, G1.25.
+
+  Beside it, `experiments/examples/imageptr/` (a `Dynamic{Callable}` constant and a split's table kept in a package image) and `experiments/examples/threads/` (the tables under 4 threads).
 
   23/23 on the current build, plain and under `all`.
 - **TraitWorld's suite** (48 test sets, with the untyped calls' table) and the demonstrators' suites, on every build; the examples, including the check of code compiled ahead (`experiments/examples/ahead/`).
