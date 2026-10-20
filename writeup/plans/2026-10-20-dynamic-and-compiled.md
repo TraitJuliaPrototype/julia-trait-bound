@@ -58,6 +58,10 @@ Worked out in conversation with the user, after the proposal's first version (se
 - Containers: a `Vector{Circle}` is concrete, its items keep their type, code is compiled for `Circle`; a `Vector{Any}` crosses with `Dynamic` items, erased. (This answers the BaseTraits agent's choice 1, open issues §1 item 26, with "no": concrete conforming element types keep their type. It needs `where` variables in bounds, T-16.)
 - Closed builds: a `Dynamic` value at a bare bound needs one copy, not one per declared implementation.
 
+**Annotations only where values enter from plain code** (the user, 2026-10-20: "We should then warn or error on a Compiled or Dynamic annotation in a trait bound for a non-exported function. It would be easy to assume it achieves something that it doesn't."): a `Compiled{X}` or `Dynamic{X}` annotation on a function that is neither exported nor declared `public` is reported at its definition (an error, or a warning: to settle), naming the explicit conversion as the fix (`compiled_for(x)`, `with_dynamic(x)` at the call inside the library).
+
+**Open, for the user: does `Callable` still need its exception?** Without it, a function passed from plain code is a concrete value, so a bare `Callable{A, S}` bound would compile the library per function (per closure), the cost `DynamicCall` was made to remove. Options: keep the exception; drop it and have libraries write `Dynamic{Callable{A, S}}`; or give every trait a declared default form for bare bounds (`Callable` declaring `Dynamic`), so that `Callable` is no exception but an instance.
+
 **Open, for the user: library to library.** When library A passes a value to library B's bounded function, the value is already a trait-world value, so B's annotation does not re-decide: if B declares `Dynamic{X}` to avoid per-type copies and A passes compiled values, B is compiled per type anyway. The alternative, letting each trait module's entries re-decide for values whose mode was only a default, needs a "forced" flag on every value. The proposal keeps the simple rule until a case asks for more.
 
 ## 2. What the rule absorbs
