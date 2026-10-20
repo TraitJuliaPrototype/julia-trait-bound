@@ -211,7 +211,7 @@ At a type's first call, `_witness` (`implement.jl:337`) tries each generic recor
 
 ### 4.8 Dynamic operations
 
-**Status: Open** ([`traits.md#59-dynamic-operations`](traits.md#59-dynamic-operations)).
+**Status: Open** ([`traits.md#59-dynamic-operations`](traits.md#59-dynamic-operations-removed)).
 
 `@implement X T dynamic by f begin … end` adds to the `projection` record a table of the block's functions. At the first call in a session, the witness becomes `Dyn{NT, D}`: each operation erased to a caller-world pointer at its declared signature ([§12](#12-callable-and-dynamicfn), `_dyn_witness`, `implement.jl:442`). No builder is fixed at the declaration, since pointers belong to a session. Every session finds it through the slow path.
 
