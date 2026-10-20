@@ -61,6 +61,8 @@ The user (2026-10-20): "But don't touch the table stuff yet. Right now we want t
 | P6 | `with_dynamic(x)` on an isbits value | a box per call | W-17 |
 | P7 | A `Dynamic` is no longer opened at a bound (rule 7); libraries write `compiled_for` where they relied on it (phase 4) | sites the counter of phase 4 misses run erased | W-17 (the demonstrators' rows) |
 | P8 | An implicit `Dynamic` at a bound with a result parameter left open: the erased worker compiled per parameter value (Q10) | one compile per value | W-17 |
+| P9 | A call dispatched at run time passes `Dynamic` values, also when the caller's argument types are known: a function value not known to the caller, `invoke_in_world`, Julia 1.13's `@allocated f(x)` (through `Base.allocated(f, x)`) (found while building) | measurement harnesses that call through a function value measure the `Dynamic` path; TraitWorld's allocation tests now measure in typed code | W-17 (how every row calls) |
+| P10 | The `Dynamic` path builds the value's trait object at its own key at run time and erases it (`_enter_erased`), so each new type compiles small machinery (its `conformance` call, the erasure), not the worker | a first call per type pays that compile; a `Dynamic` from a `Dynamic` value pays a dispatch | W-17 |
 
 **The machine:** one Julia job at a time through `flock /tmp/claude-1000/julia-review.lock nice -n 19`; precompile tasks 4; phase 5's short check on a quiet machine, asked of the user.
 
