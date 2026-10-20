@@ -10,16 +10,17 @@ The user: "We can simplify this more: In trait code all values are either Dynami
 
 1. **Every value in trait code is either `Dynamic` or `Compiled`.** It gets this attribute when a plain value that conforms to a trait crosses into the trait world.
 2. **The default is `Compiled{X}`.** At the surface a value always has a concrete run-time type, so a plain value crosses compiled for its type, whatever its caller knew (Julia's function barrier).
-3. **A trait's default overrides it.** `Callable` declares `Dynamic`, so a function crossing into a `Callable` bound is `Dynamic` (spelling: `@erased` in the trait's body, proposed).
+3. **A trait's default overrides it.** `Callable` declares `Dynamic`, so a function crossing into a `Callable` bound is `Dynamic` (spelling: `@dynamic` in the trait's body, the word used everywhere else: `Dynamic{X}`, `with_dynamic`).
 4. **A boundary's annotation overrides the trait's default,** `f(x::Compiled{X})` or `f(x::Dynamic{X})`, and warns when it disagrees with it.
 5. **A caller's explicit `compiled_for(x)` or `with_dynamic(x)` always wins and never warns,** outside trait code (at the call into a library) and inside it (before a hot loop).
 6. **Untyped values that come out of values in the trait world are `Dynamic`:** items of a container with an abstract element type (`Vector{Any}`, `Vector{AbstractShape}`), values of a `Dict{K, Any}`, fields declared with an abstract type or a trait, results of operations declared with a trait. Each is a `Dynamic` of the trait its bound or declaration gives it; with none (`Iterable{Any}`), it stays a plain value. They become compiled only by an explicit `compiled_for`.
 7. **Inside the trait world a value keeps its attribute,** through every call, bound and annotation, unless an explicit conversion changes it. A `Dynamic{X}` that plain code holds and passes back is a trait-world value and keeps its attribute.
-8. **An annotation on a function that is neither exported nor public is reported at its definition:** no plain value crosses there.
+8. **An annotation on a function that is neither exported nor public warns at its definition:** no plain value crosses there.
+9. **Library to library, values carry:** a value passed from library A to library B's bounded function is already a trait-world value; B's defaults and annotations do not re-decide it.
 
 **What changes in the current design:** traits §3.7 opens an abstract part of a key at the next bounded function (an automatic function barrier); under rule 6 it is a `Dynamic` and stays erased unless the code writes `compiled_for`. `Dynamic` values are no longer opened at every bound (traits §10).
 
-**Still open:** library to library (a value crossing from library A into library B's bound is already a trait-world value, so B's annotations do not re-decide); error or warning for rule 8; the spelling of a trait's default.
+**Decided since** (the user, 2026-10-20: "library to library: Values carry. Not redecided. Rule 8 is a warning. Is there a reason to say erased, instead of dynamic which we use everywhere else?"): rule 9; rule 8 a warning; a trait's default spelled `@dynamic` (no reason for a second word).
 
 ## 1. The language: what a programmer reads
 
