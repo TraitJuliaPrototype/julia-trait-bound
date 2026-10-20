@@ -48,7 +48,7 @@ What every construct becomes:
 | a family member | a builder in the family's registry | at the member's first use | as above | the declaring package's image, for members its workload uses |
 | a bounded function | a worker; an entry per shape; for untyped callers, a pattern method and two tables | at the definition; the entry's needs at the trait module's end | worker: facts; entry: a boundary | the image whose precompilation compiled them |
 | a `Callable` argument | a `CObj` holding the function or a caller-world pointer | at the entry, per call | worker per signature (`DynamicCall`) or per function type (`CompiledCall`) | as for workers |
-| `Dynamic{X}` | a struct holding a trait object; its operations are call-site splits | methods at `@trait`; values at run time | in the caller | — |
+| `Dynamic{X}` | a struct holding the user's object; its operations are call-site splits over the held object's type | methods at `@trait`; values at run time | in the caller | — |
 
 **Shared code.** A worker is compiled per view type. A view's type depends on the trait, the key and the witness, never on the user's type ([§5](#5-keys-and-views)). So every type with the key of an existing worker runs that worker, wherever it was compiled.
 
@@ -487,39 +487,53 @@ An entry with keywords, a vararg or a `Callable` position is not tabled (`trait_
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-8](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations)); `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations)), on TraitWorld's branch `basetraits`, to be merged; `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
 
-**The intended representation:** a `Dynamic{X}` holds the user's object; the view for (X, the object's type) is a constant per pair.
+**The representation:** `struct Dynamic{X}; t::Any; end` holds the user's object (`core.jl:351`). The view of `X` for the object's type is made where it is needed, by the builder that type's implementation fixed: a constant per pair, folded where the type is known.
+- From a value, `Dynamic{X}(x)` checks that `x`'s type conforms (`TraitBoundError` otherwise) and holds `x`.
+- From a trait object, `Dynamic{X}(t)` checks that it carries `X` (`ArgumentError` otherwise), narrows it to the views of `X` and its supertraits (`_narrow`), and holds the user's object the views read.
+- It holds the trait object itself in two cases, where there is no user's object to hold: the views hold only the parts of an immutable value (a worker that cannot keep received no whole object, [§8.4](#84-keeping)), and the new receiver value of a constructor operation (`_dyn_like`), which need not conform by itself.
+- Storing a trait object where a `Dynamic{X}` is declared converts it (`convert`).
+- **Opening** (`opened`, `core.jl:438`): the trait object of the held value, made from the user's object as `Dynamic{X}(x)` would see it (whole object kept, so the worker may keep it), or the trait object held. The function that opens is a value of its own type (`_Open{X}()`), so an opening at an unknown type dispatches on the object alone.
 
-**As built,** `struct Dynamic{X}; t::Any; end` holds a trait object (`core.jl:343`):
-- from a trait object, `Dynamic{X}(t)` checks that it carries `X` (`ArgumentError` otherwise) and narrows it to the views of `X` and its supertraits (`_narrow`, `core.jl:358`);
-- from a plain value, `Dynamic{X}(x)` assembles the trait object; an immutable value's views read the whole object (`entry.jl:636`);
-- storing a trait object where a `Dynamic{X}` is declared converts it (`convert`, `core.jl:381`).
-
-**An operation on it** is the method `@trait` defined (`trait.jl:318`):
+**An operation on it** is the method `@trait` defined (`trait.jl`):
 
 ```julia
 Base.@constprop :aggressive @inline op(d::Dynamic{X}, a…) where {X <: Trait} =
-    Compiler.split_call(family(X), RT, op, opened(d), a…)::RT
+    Compiler.split_call(family(X), RT, _dynop(X, op), getfield(d, :t), a…)::RT
 ```
 
+- `_dynop(X, op)` is `op` applied to the opened object, as a value of its own type (`_DynOp{X, F}`, one method per arity up to six, `core.jl:448`). The split is over the held object.
 - `RT` is the declared result type, with the parameters the `Dynamic`'s type fixes substituted ([traits §10](traits.md#10-dynamicx-values-of-any-conforming-type)). Where it names `Self`, or a parameter the type leaves open, it is `Any`. *As built,* it is `Any` wherever the declared type names `Self` or any parameter ([L-20](#18-deviations)).
-- Julia infers the call as `op` at the union of the family's registered **candidates**, at most four, plus a fallback, and splits it as a union: `isa` branches with direct calls, the dynamic call last, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split)).
+- Julia infers the call at the union of the family's registered **candidates**, the first four, plus a fallback, and splits it as a union: `isa` branches on the held object's type, in each the view folded and the operation's method called directly, the dynamic call last, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split)).
 - `@constprop :aggressive` makes each caller infer the call again, so it splits over the candidates registered when it is compiled.
 - The fallback dispatches in the caller's world.
 - An operation whose result is `Self` returns a `Dynamic` of the new value instead (`_dyn_like`).
 
-**Candidates** are trait-object types, registered with `Compiler.register_dynamic_candidate!` without an edge:
-- when a `Dynamic` is made (`core.jl:348`);
-- for each declared implementation at a concrete type, after each declaration and each package load, by inferring the trait object `Dynamic{X}(x)` would keep (`_note_conformances!`, `core.jl:397`). *As built,* only types with an `implementation` record ([L-25](#18-deviations)).
+**Candidates** are the types a `Dynamic` holds: the implementations' types (and, in the two cases above, trait-object types), registered with `Compiler.register_dynamic_candidate!` without an edge:
+- **at each declaration and each package load,** for each implementation at a concrete type, from the `implementation` and `projection` records (`_note_conformances!`, `core.jl:532`). Each batch is registered in **declaration order:** by the declaration's file, then line. The records carry the `@implement`'s own line (`_at_declaration`, `implement.jl:943`), so a session that loads a package image registers its types in the order the image's code was compiled for. *As built,* a family member is registered only when a `Dynamic` of it is made ([L-25](#18-deviations));
+- **when a `Dynamic` is made,** its object's type: once per type and session, through a flag per pair that the constructor's code holds as a constant (`_cand_flag`, `core.jl:390`), not by a search of the registry.
 
 A later implementation reaches the fallback and invalidates nothing.
 
-**Opened at a bound:** the entry passes the kept trait object, typed `Any`, to `checked_call`. That call dispatches on the trait object's type, so it selects the worker for the key once, and the worker runs compiled ([§8.2](#82-the-entry)).
+**Wrapping a value of unknown type** (an item read from a `Vector{Any}`): `@dynamic_of X x` (`core.jl:500`) splits the conformance check over the same candidates (`_ConformsTo{X}`), folded to a constant for each, and makes the `Dynamic` by an `invoke` of its constructor at `(Val{:checked}, Any)`, a fact, so `x` is held in the box it came in. Any other type is checked by a dynamic call. BaseTraits' views do this at each read ([§13.1](#131-a-users-container-crossing-by-its-bound)).
 
-**Fields:** `getproperty` and `setproperty!` on a `Dynamic` forward to the kept trait object, dispatched at run time (`core.jl:554`).
+**Opened at a bound:** the entry opens it (`opened`) and passes the trait object, typed `Any`, to `checked_call`. That call dispatches on the trait object's type, so it selects the worker for the key once, and the worker runs compiled ([§8.2](#82-the-entry)).
 
-**Equality, hashing, printing:** `===` on the kept trait objects; `hash` agrees; `Dynamic{X} at <key>` (`core.jl:431`).
+**Fields:** `getproperty` and `setproperty!` on a `Dynamic` forward to the opened trait object, dispatched at run time (`core.jl:687`).
+
+**Equality, hashing, printing:** `===` on the held user's objects (or the trait objects held); `hash` agrees; `Dynamic{X} at <key>` (`_dyn_identity`, `core.jl:475`).
+
+### 13.1 A user's container crossing by its bound
+
+**Status: Implemented** (deviation [L-27](#18-deviations)), on TraitWorld's branch `basetraits`, to be merged ([traits §10.3](traits.md#103-a-users-container-seen-with-dynamic-items)).
+
+- **What a position asks:** `crossing(EntryPos{F, pos, nargs}())` is fixed with `needed` at the trait module's end (`_fix_crossing!`, `trait_module.jl:773`; `crossing_at`, `entry.jl:310`): a `Crossing{Y, R}` where the workers' bounds at the position fix parameters to dynamic values of one trait `Y` (found inside the fixed values: `Dynamic{Y}`, `Pair{K, Dynamic{Y}}`), with `R`, for each worker, the parameter tags (`PTag`) its bound requires. Elsewhere, the fallback method: `nothing`, folded.
+- **At the entry** (`enter`, `entry.jl:193`), after the trait object `v` of the value `t` is assembled: if the position has a `Crossing` and `t` crosses, `t` is replaced by `crossed(Y, t)` and its trait object assembled instead.
+- **Whether `t` crosses** (`_crosses`, `entry.jl:249`): its trait object meets none of the tag sets in `R`, and the view's does. Decided once per crossing and container type, in a flag the entry's code holds as a constant (a family member's trait object, every Base container's, has a type known only when it is built). The decision is machinery (`_cross_decide`), listed by `verify_main` as a guard.
+- **The view** is BaseTraits' `crossed(Y, t)` (`BaseTraits.jl:174`): `DynamicItems{Y}(t)` for an `AbstractVector`, `DynamicValues{Y}(t)` for an `AbstractDict`, when its element (value) type may hold a conforming value (`_may_hold`: `Any`, abstract, a union with such a member, a concrete type that conforms; kept per pair and session once true); `nothing` otherwise, and the value stays as it is, refused as one that conforms at other parameters.
+- **Reads and writes:** each read wraps the item (`@dynamic_of`); each write stores the held object, split over the candidates so that `setindex!` on the user's container is a call at a concrete type.
+- **Untyped callers:** at a position with a `Crossing`, the table of declared implementations sends every type to the entry's own path (`_umiss`, `untyped.jl:87`), which crosses ([§9.2](#92-untyped-callers-the-table-of-declared-implementations)).
 
 **A trait's name as a type inside a trait module** means its `Dynamic`. The module's statements are rewritten (deviation [L-6](#18-deviations)):
 - struct fields: `model::Model` becomes `Dynamic{Model}`, also inside parameters, not inside `<:` (`_dynamic_fields`, `trait_module.jl:143`);
@@ -672,7 +686,7 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-5 | [§17](#17-encodings-until-traits-are-in-the-type-system) | membership is `T <: X` | `conforms(T, X)` | `entry.jl:757` |
 | L-6 | [§13](#13-dynamicx) | a trait's name as a type means its `Dynamic` | only inside trait modules, by rewriting struct fields, containers and argument types | `trait_module.jl:143`, `:179` |
 | L-7 | [§4.1](#41-what-every-form-defines), [§4.4](#44-forwarding-with-by) | forwarding is written with `by` and recorded as forwarding | `by f` is lowered to a projection `project(t) = getfield(t, :f)`; a written `project(t) = t.f` is accepted as forwarding; TraitWorld's own precompile workload and tests use `project(t) = …` and the `{R}` spelling | `implement.jl:911`, `:1298`–`1305`; `TraitWorld.jl:88`, `:103`–`106`; `test/runtests.jl:50` |
-| L-8 | [§13](#13-dynamicx) | a `Dynamic{X}` holds the user's object; the view for (X, type) is a constant per pair | it holds a trait object narrowed to `X`'s views, built per value ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 4) | `core.jl:343`–`379` |
+| L-8 | [§13](#13-dynamicx) | *Retired (2026-10-20).* No longer a deviation: a `Dynamic{X}` holds the user's object, and a trait object only where there is no user's object to hold (parts of an immutable value; a constructor operation's new receiver), the user's decision of 2026-10-20 ("What Dynamic{X} holds is correct"). On TraitWorld's branch `basetraits` (8863ea0) | — | — |
 | L-9 | [§14](#14-checks-and-where-their-results-live) | a worker checked at its definition is not checked again at its first call | the record of definition-checked methods is a session's set, filled only where the trait module's end runs; in a session that loads the package from its image, a worker signature whose checked code no image holds runs the rule check at its real signature at its first call | `defcheck.jl:119`, `:173`; `checks.jl:342` |
 | L-10 | [§14](#14-checks-and-where-their-results-live) | only open parameters and open `Callable` result types wait for the first call | keyword workers, vararg workers and every worker with a `Callable` argument wait too | `defcheck.jl:84`, `:89`, `:93` |
 | L-11 | [§9.2](#92-untyped-callers-the-table-of-declared-implementations) | an untyped caller reaches the table for every implementation once fixed | family members and generic implementations are marked untabled and take the entry's own path, cached per world | `untyped.jl:76`–`86`; `entry.jl:144`; `implement.jl:707` |
@@ -689,5 +703,7 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-22 | [§9.3](#93-entries-compiled-ahead) | *Retired.* No longer a deviation: the invalidation of plain code by the entry compiled ahead is the intended shape, accepted and flagged for review ([§9.3](#93-entries-compiled-ahead); [traits §15](traits.md#15-compiling-ahead); [open issues §2](../open-issues.md#2-design), item 29). | — | — |
 | L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method, until the member's first use. | The member's declaration makes its own `conformance` method (`_declared_for`); a declaration after the member's first use is not refused. As [traits T-28](traits.md#19-deviations). | `implement.jl` (`_declared_for`) |
 | L-24 | [§9.2](#92-untyped-callers-the-table-of-declared-implementations) | An entry with more than five positional arguments takes the dynamic call to the pattern method. | The entry takes the pointer path for every tabled entry with one trait position, at any arity, and `_UWrap` has methods for 0 to 5 arguments only. By reading, an untyped call of an entry with six or more positional arguments then fails, when the pointer is made or called; not run. | `untyped.jl:177`–`181`; `trait_module.jl:659`–`666` |
-| L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Only types with an `implementation` method at a concrete type are registered then. A type that conforms by `by` forwarding or by a field mapping alone has only a `projection` record, and a family member's record has a `UnionAll` signature: they are registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for them. | `core.jl:397`–`420`, `:348`; `implement.jl:1363`–`1366` |
+| L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Types with an `implementation` or a `projection` record at a concrete type are registered then (types that forward, or conform by a field mapping, since branch `basetraits` 8863ea0). A family member's record has a `UnionAll` signature: it is registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for it. | `core.jl:532` (`_note_conformances!`; branch `basetraits`) |
 | L-26 | [§4.5](#45-field-mappings-several-traits-stated-parameters) | A stated value for a parameter an equation defines is checked against the equation and makes no method. | For one type: checked, and no method is made when it agrees (`_param_agrees`). For a family: it becomes a `param` method with the family's `where`, replacing the equation's value, unchecked. As [traits T-37](traits.md#19-deviations). | `implement.jl` (`_param_methods`) |
+
+| L-27 | [§13.1](#131-a-users-container-crossing-by-its-bound) | A closed build lists and fills everything an entry can reach. | The crossing's decision (`_cross_decide`) is reflection run at the first call per container type; `verify_main` lists it as a guard, and `close_world!` does not fill its flags, so in a closed build the first call of a crossing position would need it. Not tried with `--trim`. | `entry.jl:249`; `verify.jl:491` (branch `basetraits`) |

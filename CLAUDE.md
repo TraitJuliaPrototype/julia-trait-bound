@@ -16,6 +16,7 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 | An alternative considered, rejected or replaced | `writeup/design/alternatives.md`, by topic | With the reason and, where measured, the experiment's ID. The references never mention alternatives. |
 | An experiment | a row in `writeup/record/experiments.md`; scripts and logs in `experiments/<dir>/` | The row comes before the run: the question, and the result that would change the design. When done: the outcome with its key numbers, the build, the write-up (the directory's README). Logs are committed; never only in `/tmp` or a scratchpad. |
 | The current numbers behind a claim | `writeup/design/evidence.md` | Each number cites its experiment (E-n) and build. Other documents link to it rather than copy. |
+| Agreed work (a todo) | `writeup/record/todo.md` | A stable ID `W-n`, the source (the user's words), a status, links to the open issue, experiment or decision it serves. `state.md` §6.3 gives the order in brief. |
 | An open question | `writeup/open-issues.md` | Numbered, stable. When resolved, it moves to "Closed items" with the resolution and a link. |
 | What is built now | `writeup/state.md` (current state only) and the Deviations tables | Changes to Julia: `writeup/design/julia-changes.md`, with commits. |
 | Why the design has its shape | `writeup/design.md`, the rationale | It cites the references for rules and the evidence for numbers, and states no rules of its own. |
