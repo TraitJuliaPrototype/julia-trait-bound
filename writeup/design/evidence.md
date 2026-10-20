@@ -138,6 +138,20 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 
 - **Before** (the build of 2026-10-19): the session without imports 2.85 s against 10.40 s. The `String15` step then took 1.56–1.67 s, before the `String15` fixes (a workload extension and the first-call check by facts; their contributions were not separated). It now takes 0.06 s.
 
+**A plotting session with upstream packages only** (no trait code; CSV, DataFrames, CairoMakie and seven analysis packages; read, four-axis figure, PNG, edits; plain against the test bed `all`; 3 fresh sessions per cell; `experiments/plotwork/`):
+
+| Load order, rows | `all` saves once | A round under `all` | Break-even |
+|---|---|---|---|
+| interleaved (as a user works), 10k | 10.0 s (session 35.0 against 43.6 s) | +169 ms (568 against 399 ms) | 59 rounds |
+| interleaved, 200k | 10.2 s | +159 ms (4.94 against 4.78 s) | 64 rounds |
+| together (plain's best case), 10k | 6.1 s | +148 ms | 42 rounds |
+| together, 200k | 6.1 s | +91 ms | 67 rounds |
+
+- What `all` saves is recompilation: 7.8–11.8 s under plain against 0.4–0.5 s. Loading everything first does not avoid it.
+- What `all` pays once: loading CairoMakie takes 4.9 against 1.9 s (not diagnosed).
+- What `all` pays per round is Makie's machinery, not the data: a figure takes 2.4× as long to build (+95–100 ms), an edit about 2×, a render +30 ms at 10k rows and within 1 % at 200k. The loss per round does not grow with the rows.
+- Break-even comes after about a minute of session time at 10k rows, six minutes at 200k. Each package loaded during the session moves it further out.
+
 ## 4. Builds and binaries
 
 - A trimmed TraitMakie binary: 4.07 MB (previous prototype, under the package policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.

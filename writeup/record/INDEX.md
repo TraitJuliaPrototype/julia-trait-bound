@@ -20,6 +20,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
     - `comparison.md`: the choices against C++, Rust, Swift and Mojo, and their costs;
     - `alternatives.md`: designs tried, rejected or replaced, by topic, with the reasons.
 - **Agents:** this index, and the files it lists.
+- **Experiments:** [`experiments.md`](experiments.md), the registry of experiments (proposed, running, done, superseded), each with an ID `E-n`, the question, where its scripts and logs are, and its outcome. A new experiment gets a row before it is run.
 
 **Rules for reading the record:**
 - `design.md` wins wherever a record document disagrees with it.
