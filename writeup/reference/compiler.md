@@ -554,7 +554,7 @@ Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call
 ```julia
 Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
 Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate type of K
-Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered
+Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered, in order
 ```
 
 Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. The name `dynamic_call` is TraitWorld's alone: `dynamic_call(f)`, a `Callable` mode.
@@ -567,7 +567,8 @@ Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssai
 - When `x`'s type is concrete, or `K` has no candidates, it is the call `f(x, args...)` as inference finds it.
 
 **Rules.**
-- At most `MAX_FACT_SPLITS` candidates are split: the first four registered. Later ones reach the fallback.
+- At most `MAX_FACT_SPLITS` candidates are split: the first four registered, in the order of registration. Later ones reach the fallback.
+- TraitWorld registers a trait's implementations in declaration order (the declaration's file, then its line), at each declaration and each package load, so the split covers **the first four declared**, in a session that loads a package image as in the image's own code ([`lowering.md`](lowering.md#13-dynamicx); on TraitWorld's branch `basetraits`, to be merged).
 - Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split.
 - Registration is lock-free for readers: the table is replaced on each registration, never mutated.
 - How TraitWorld uses it for `Dynamic{X}` is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).

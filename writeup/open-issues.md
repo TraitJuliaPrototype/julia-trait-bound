@@ -25,6 +25,14 @@ From the writeup review of 2026-10-19 (`reviews/2026-10-19-writeup-review.md`):
 
 From building BaseTraits and the idiomatic rewrites of the heterogeneous experiments (2026-10-20; choices of the agent, "mine", for the user to confirm; [decisions §3](record/decisions.md#3-dynamic-values-and-functions); [traits §10.1–10.4](reference/traits.md#101-basetraits-traits-for-bases-concepts); `experiments/hetero-idiomatic/README.md`):
 
+26. **The implicit crossing's finer rules** (built by the BaseTraits agent, TraitWorld branch `basetraits` 8799aea, 9fd18db; [traits §10.2–10.3](reference/traits.md#103-a-users-container-seen-with-dynamic-items), [lowering §13.1](reference/lowering.md)). To confirm:
+    - a vector of a concrete type that conforms crosses too (`Vector{Circle}` into `Iterable{Shape}`), as Swift converts into existentials;
+    - a container whose item type cannot hold a conforming value (`Vector{Float64}` into `Iterable{Shape}`, `Dynamic` items of another trait) is refused at the call, not at the first read;
+    - a bound the container meets as it is wins over crossing (`f(xs::Iterable{Int})` beside `f(xs::Iterable{Cell})`: a `Vector{Int}` takes the first);
+    - a bounded keyword does not cross (T-39, with a bug that predates it: a keyword bound that fixes a parameter fails with `MethodError`);
+    - untyped callers at a crossing position take the entry's own path, not the table of declared implementations;
+    - `DynamicItems` and `DynamicValues` stay exported as explicit tools (the copy that checks every item first, and code that is not bounded).
+
 ## 2. Design
 
 **From the acceptance suite and the design of `Dynamic`:**
@@ -88,7 +96,7 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
     - who provides the view: an explicit adaptor in TraitWorld (sketch name `DynamicView{X}(v)`), or conformance of Base's containers to the traits, which raises who owns that declaration;
     - what wrapping on read costs: making a `Dynamic` must become cheap (157 ns and 32 B in the review, a scan of the candidate registry; 5 ns since the branch `basetraits`, below);
     - the measurement: the review's experiments rewritten as idiomatic trait code against such a bound, compared with plain Julia, Rust's `dyn` and Swift's `any`: measured, below.
-    - **Decided (2026-10-20, mine; to confirm in §1, items 21–25):** BaseTraits as a module of TraitWorld, its names exported; the traits `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; an explicit view, `DynamicItems{X}(v)` and `DynamicValues{X}(d)`, made by the caller; the check when an item is read; Base's containers conform by Base's methods, declared by BaseTraits as the traits' owner; a trait's name in a bound's parameters means its `Dynamic` (`Iterable{Shape}`). Stated in [traits §10.1–10.4](reference/traits.md#101-basetraits-traits-for-bases-concepts).
+    - **Decided (2026-10-20, the user; open issues §1, closed items 21–25):** BaseTraits as a module of TraitWorld, its names exported; the traits `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`, Base's containers conforming by Base's methods; `Dynamic` holds the user's object, the split's candidates in declaration order; a user's container crosses implicitly, by the bound, and a non-conforming item fails when read ([traits §10.3](reference/traits.md#103-a-users-container-seen-with-dynamic-items)). The crossing's finer rules are the BaseTraits agent's, to confirm (§1, item 26).
     - **Measured (E-134, E-143, E-144; `experiments/hetero-idiomatic/README.md`):** making a `Dynamic` 5 ns (was 157); wrapping on read allocates nothing for the split's candidates. Within four types the idiomatic code recovers the tails in both settings: `filter!` 3.3–3.8 ns over the view (1.6–1.8 over a copy) against 41–43 interop and 2.2–2.4 plain; the `Dict{String,Any}` loop 4–5 ns against 274–276 interop and 2.4 plain. Beyond four the view costs about twice the copy (64 types: 162–181 against 78–84 ns, plain 99–106): two run-time sites per item outside the split. Item 32's question applies to both.
     - **Still open:**
       - which traits and algorithms come next (numbers, strings, IO; `count`, `map`, `sum` under their own names, since only Base may add bounded methods to Base's functions);

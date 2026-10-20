@@ -383,7 +383,7 @@ An operation on a `Dynamic{X}` value ([traits §10](traits.md)) is a call on a v
 **Meaning.** `split_call(K, RT, f, x, args...)` computes `f(x, args...)::RT`.
 
 **Rules.**
-- **Candidates.** The types registered for `K` are its candidates. The first four registered are used. The list is read without an edge.
+- **Candidates.** The types registered for `K` are its candidates: for a `Dynamic{X}`, the types of `X`'s implementations, registered in declaration order ([`lowering.md`](lowering.md#13-dynamicx)). The first four registered are used: the first four declared. The list is read without an edge.
 - **When inference does not know `x`'s type:**
   - the call is inferred at the union of the candidates that `x`'s type admits;
   - each split is a fact, with its edge;
