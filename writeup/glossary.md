@@ -79,12 +79,12 @@ The entries are grouped by theme:
 
 ### Trait
 
-- **Here:** an abstract type with a declared, checked contract. It declares operations with argument and result types, fields with types, and associated types as its parameters. Abstract types stay in Julia; traits are a kind of them.
+- **Here:** a kind of abstract type with a declared, checked contract. It declares operations with argument and result types, fields with types, and associated types as its parameters. It follows other rules than an abstract type: a type joins it by an [implementation](#implementation), after the type is defined, and may join several; a supertrait is a requirement, not a place in a tree; in dispatch a bound ranks below every type. Abstract types stay in Julia. The comparison, rule by rule: [traits §16](reference/traits.md#16-membership).
 - **Origin:**
   - Rust and Mojo say "trait"; Swift says "protocol"; C++20 says "concept".
   - A C++20 concept is a predicate on types. A Rust trait is not a type, except as `dyn Trait`. A Swift protocol is also a type (`any P`). Ours is an abstract type, and reads like one by position ([`design/other-languages.md` §1](design/other-languages.md#1-a-trait-is-an-abstract-type-with-behaviour)).
   - In Julia: abstract types play part of this role, without a checked contract. Base also uses "traits" for a dispatch pattern (`IndexStyle`, `IteratorSize`), known as "Holy traits": a value computed from a type, not a checked contract *(not in the research)*.
-- **Defined in:** [traits §3](reference/traits.md#3-trait-declarations).
+- **Defined in:** [traits §3](reference/traits.md#3-trait-declarations); against abstract types: [§16](reference/traits.md#16-membership).
 
 ### Operation
 

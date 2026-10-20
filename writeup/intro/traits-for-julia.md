@@ -84,7 +84,14 @@ end
 
 A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse an implementation that is not, or `@warn_on_abstract` to warn (the spelling will change to one declaration with a level). Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
 
-A trait is an abstract type with behaviour. Abstract types stay in Julia; traits are a kind of them.
+A trait is a kind of abstract type: you write it where you would write an abstract type, and it names a set of types. It follows different rules:
+- **A type joins a trait after the fact.** The type's definition does not name the trait; an implementation does, written later, by the package that owns the type or the one that owns the trait. A type joins an abstract type only in its own definition.
+- **A type can join several traits.** An abstract type gives a type one chain of supertypes.
+- **Joining is checked.** The implementation must provide the trait's operations and fields, with their types. Subtyping an abstract type promises nothing that is checked.
+- **A supertrait is a requirement.** `@trait B <: A` says a type that implements `B` implements `A` too. It is not a place in a tree.
+- **Types win in dispatch.** A method for a type, concrete or abstract, is chosen before a method bounded by a trait, so a library can adopt traits one function at a time.
+
+Abstract types stay in Julia: numbers keep `Number` and `Real`. `conforms(T, X)` asks whether a type implements a trait; `T <: X` will ask the same once traits are part of Julia's types (today it is `false`). The full comparison is in [the traits reference §16](../reference/traits.md#16-membership).
 
 ### An implementation: your type implements a trait
 

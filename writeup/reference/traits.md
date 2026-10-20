@@ -169,7 +169,7 @@ end
 ```
 
 **Meaning.**
-- `@trait X` declares `X` as an abstract type, a subtype of `TraitWorld.Trait`.
+- `@trait X` declares the trait `X`, a kind of abstract type with its own rules: a type joins it by an implementation, after the fact, and may join several ([§16](#16-membership) compares it with an abstract type).
 - The body declares what a value must provide to conform: operations, fields, and the values of the trait's parameters.
 - A trait without a body bundles other traits ([§3.6](#36-supertraits-and-bundles)).
 - Declaring a trait defines no method on any user type and changes no compiled code.
@@ -635,7 +635,7 @@ describe(t::ColTable) = "a table with $(ncols(t)) columns"
 describe(x) = "something else"                 # the fallback
 ```
 
-- **A trait bound ranks above `Any` and below every type,** concrete or abstract. `describe([1.0 2.0])` takes the `AbstractMatrix` method, although `Matrix{Float64}` is a `ColTable`. A value caught by a typed method is not translated. So a library adopts traits one function at a time.
+- **A trait bound ranks above `Any` and below every type,** concrete or abstract ([§16](#16-membership) compares traits and abstract types). `describe([1.0 2.0])` takes the `AbstractMatrix` method, although `Matrix{Float64}` is a `ColTable`. A value caught by a typed method is not translated. So a library adopts traits one function at a time.
 - **Among bounds:** a subtrait beats its supertrait; more bounds beat fewer.
 - **Unrelated bounds at one position need a joint method.** `f(t::ColTable)` and `f(t::RowTable)` need `f(t::(ColTable, RowTable))`. The trait module's end raises `TraitBoundError` otherwise. Only the function's own methods are involved, so no later load can create the ambiguity.
 - A bounded method and a typed method that are ambiguous in another position are reported at the trait module's end, as missing joint methods are.
@@ -1081,11 +1081,27 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 
 ## 16. Membership
 
-- `conforms(T, X)` answers whether type `T` conforms to trait `X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
-- `x isa X` and `T <: X` answer the same, when traits are in Julia's type system. An implementation then adds a supertype after the type is defined. That is sound because only a stakeholder declares it.
-- Numbers need no trait. `Number`, `Real` and `Integer` stay as they are.
+A trait is a kind of abstract type: it names a set of types, and it is written where an abstract type is written (an argument, a field, a type parameter). It follows other rules for membership, subtyping and dispatch:
 
-**Status:** `conforms` is Implemented. `x isa X` and `T <: X` are Planned. Today both are accepted and `false` for every conforming value and type ([T-23](#19-deviations)).
+| | An abstract type | A trait |
+|---|---|---|
+| **How a type joins** | in its own definition, `struct S <: A` | by an implementation, `@implement X S`, written after the type and apart from it ([§5](#5-implementations)) |
+| **Who may make it join** | the type's author | a stakeholder: the package that owns the type or the one that owns the trait ([§12.1](#121-who-may-implement)) |
+| **How many** | one supertype, so one chain of ancestors | any number of traits |
+| **What joining promises** | nothing that is checked: the methods a library expects are a convention | the trait's operations and fields, with their types, checked at the implementation ([§5.9](#59-checks-at-the-declaration)) |
+| **Above it** | a tree: `abstract type A <: B` places `A` under `B` | requirements: `@trait B <: A` means a type implementing `B` implements `A` too, by an implementation of its own, and a `B` bound sees `A`'s operations; a bundle combines traits without a body ([§3.6](#36-supertraits-and-bundles)) |
+| **Parameters** | fixed by the subtype's definition, and invariant: `Vector{Int} <: AbstractVector{Int}`, but not `<: AbstractVector{Real}` | set per implementation, by the conforming type's field types, the trait's equations, or stated values (associated types, [§3.4](#34-parameters-and-associated-types)): `conforms(Vector{Int}, PVec{Float64})` is `false` |
+| **Values** | each value has a concrete type, which `isa` every supertype | each value has a concrete type, which conforms; library code sees the value as a trait object at its key, and a field or a container of the trait holds it as `Dynamic{X}` ([§10](#10-dynamicx-values-of-any-conforming-type)) |
+| **Dispatch** | by subtyping: the most specific type wins | a bound ranks above `Any` and below every type, concrete or abstract; among bounds a subtrait beats its supertrait ([§6.5](#65-dispatch-types-first-then-traits)) |
+| **What code is compiled for** | the argument's concrete type, at each call | the key: what the bound can see of the value ([§4](#4-keys-what-code-is-compiled-for)) |
+| **Joining later** | no: a type's supertype is fixed where it is defined | yes: a later package may declare an implementation, if it is a stakeholder |
+
+- **`T <: X` and `x isa X`** mean "`T` conforms to `X`" and "`x`'s type conforms to `X`". An implementation adds the trait to the type's supertypes after the type is defined. That is sound because only a stakeholder declares it, and a pirate's implementation is refused.
+- **Between traits, `B <: A`** means `A` is a supertrait of `B`: every type that conforms to `B` conforms to `A`, by its own implementation of `A`.
+- **`conforms(T, X)`** answers the same question as `T <: X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
+- **Abstract types stay.** Where a tree of types is right, a library declares one, and its methods take abstract types as Julia's do. Numbers need no trait: `Number`, `Real` and `Integer` stay as they are. A type may subtype an abstract type and implement traits, and dispatch takes a typed method first.
+
+**Status:** `conforms` is Implemented. `T <: X` and `x isa X` for traits are Planned: today a trait is encoded as an abstract type that no conforming type subtypes, so both are accepted and `false` for every conforming value and type, and `B <: A` between traits is `false` too ([T-23](#19-deviations); [`lowering.md` §17](lowering.md#17-encodings-until-traits-are-in-the-type-system)).
 
 ---
 
@@ -1212,7 +1228,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-20 | [§7](#7-results-declared-types-like-withfields), [§15](#15-compiling-ahead) | `verify_main` lists the rebuilding step of `Like{t}` results. | It reports them as holes (`:inverse`). | `TraitWorld/src/verify.jl:746`, `:813` |
 | T-21 | [§12.3](#123-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
 | T-22 | [§6.5](#65-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | The hint says "a Int64". Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/frames.jl:75`; `src/entry.jl:499` |
-| T-23 | [§16](#16-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
+| T-23 | [§16](#16-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, and `B <: A` whether `A` is a supertrait of `B`, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. Between traits, `B <: A` is `false` too: every trait is a direct subtype of `Trait`, and supertraits are declarations the trait records (`supertype(B) === Trait` for `@trait B <: A`). | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
 | T-24 | — | *Retired*: see [§15](#15-compiling-ahead). | — | — |
 | T-25 | [§6.5](#65-dispatch-types-first-then-traits) | A trait bound ranks below every type. | An entry method compiled ahead for `T` is made only where no typed method already wins for `T`, but it is a method at `T`: a typed method on an abstract supertype of `T` defined after it (by its owner, at the prompt) loses to it. | `TraitWorld/src/ahead.jl:177`, `:182` |
 | T-26 | [§5.7](#57-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked: every family path passes no operations and a non-concrete type to the check, which returns after the ownership checks. A joint family that conforms by its fields runs no check. | `TraitWorld/src/implement.jl:514`, `:1051`, `:1103`, `:1129`, `:1256`–`1272` |
