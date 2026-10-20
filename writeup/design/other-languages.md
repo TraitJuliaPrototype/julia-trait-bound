@@ -38,7 +38,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 | Implementation through a field | — | by hand, or `Deref` | by hand | — | forwarding (`by field`), compiled per the field's type |
 | Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | `Dynamic{X}`, a `Dynamic` position; `Callable` by default; the caller converts with `compiled_for`, `with_dynamic` |
 | Storable dynamic value | yes | `Box<dyn Trait>` | `any P` | `Variant`, `PythonObject` | `Dynamic{X}` |
-| How a dynamic call finds the method | a vtable | a vtable, carried with the pointer | a witness table, carried in the existential | witness tables at compile time only | a call-site split over the first four declared implementations, then dispatch |
+| How a dynamic call finds the method | a vtable | a vtable, carried with the pointer | a witness table, carried in the existential | witness tables at compile time only | a call-site split over the first four declared implementations, then a table keyed by the type in the object's header |
 | Heterogeneous collection | a vector of pointers to a base class, or of `std::variant` *(from memory)* | `Vec<Box<dyn Trait>>`; lazily `impl Iterator<Item = &dyn Trait>` | `[any P]`; lazily `some Sequence<any P>` | `Variant`, `PythonObject` | a copy into `Vector{Dynamic{X}}` today; collection traits with a view planned |
 | Who may add an implementation | anyone (structural) | owner of trait or type (orphan rule) | anyone, warned since Swift 6 | the struct's author; extensions proposed | a stakeholder: the trait's or the type's owner; named implementations deferred |
 | Overlap | partial specialization | specialization unstable since 2016 | overlapping conformances banned | — | more specific beats generic (built); unordered overlap rejected (design) |
@@ -241,12 +241,12 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 - **Data static per key.** Operations are direct calls, with no dictionary at run time.
 - **Dynamic data is explicit.** It follows Swift's lesson to spell the slow path where it is used, and to decide it before the ecosystem grows.
 
-**How `Dynamic{X}` dispatches: a call-site split, not a table.**
-- An operation on a `Dynamic` value is split at the call site over the implementations registered for the trait, the first four, with direct calls, and a dynamic call as the last branch (`Compiler.split_call`, part D; [traits §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type), [compiler §4.2](../reference/compiler.md#42-compilersplit_call-the-call-site-split)). This is Julia's union splitting applied to a trait's implementations.
-- Rust's `dyn` and Swift's `any` call through a table of function pointers. The design does not: pointer tables break under world age and serialization, and a pointer runs in the latest world, not the caller's, which gave a wrong result when the package tried them ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)).
-- The split dispatches in the caller's world, as every Julia call does. Candidates are registered without an edge, so a new implementation reaches the fallback and invalidates nothing.
+**How `Dynamic{X}` dispatches: a call-site split, then a table.**
+- An operation on a `Dynamic` value is split at the call site over the implementations registered for the trait, the first four, with direct calls (`Compiler.split_call`, part D; [traits §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type), [compiler §4.2](../reference/compiler.md#42-compilersplit_call-the-call-site-split)). This is Julia's union splitting applied to a trait's implementations.
+- Any other implementation is called through a table of the call's targets keyed by the value's type ([compiler §4.3](../reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)). Rust's `dyn` and Swift's `any` carry their table with the value; ours is reached through the type in the object's header, as C++'s and the JVM's vtables are.
+- Both dispatch in the caller's world, as every Julia call does: the table's pointers run there. Candidates are registered without an edge, so a new implementation reaches the table and invalidates nothing.
 - Measured ([`evidence.md`](evidence.md) §2, the build of 2026-10-19): a sum over `Dynamic{Shape}` costs 0.92–1.40 ns per element against plain Julia's 0.87–0.91 with two types and 29.5–33 with four.
-- **The cost against a table:** beyond four implementations, and in which four are split. Section 11.
+- **The cost against Rust's and Swift's table:** which four are inlined, and the probe by type. Section 11.
 
 **Dynamic compatibility.** Rust restricts `dyn Trait` to traits without generic methods, `Self` results or `async fn`. Our operations have concrete declared signatures, and a `Self` result on a `Dynamic` returns a `Dynamic` of the same implementation (built). These restrictions would bind only if operations became generic over other bounds.
 
@@ -370,15 +370,15 @@ Neither Rust nor Swift has a number to set beside these: their untyped code is i
 - A copy into `Vector{Dynamic{X}}` remains for code that must check every element first; it loses aliasing, which Rust's conversion (it consumes the original) and Swift's value arrays rule out, and Julia's shared arrays do not ([open issues §2](../open-issues.md#2-design), item 11).
 - The user's reading: "Vector{AbstractType} is a poor substitute for an Iterable trait and this should be an argument for why we need Traits with facts mode."
 
-**The dynamic call: a table against a split.**
+**The dynamic call: a split, then a table.**
 - **Rust's `dyn` and Swift's existentials call through a table of the type's methods**, a vtable or a witness table, carried with the value. Every implementation costs the same indirect call. There is no limit on the number of implementations, and no dependence on order.
-- **Ours splits at the call site** over the implementations registered for the trait, at most four, with direct calls and a dynamic call as the fallback (section 6; [compiler §4.2](../reference/compiler.md#42-compilersplit_call-the-call-site-split)). Within the four, a sum over `Dynamic{Shape}` runs at about plain speed with two types ([evidence §2](evidence.md#2-run-time), the build of 2026-10-19).
-- **The cost, beyond four.** These numbers are from HShapes, 64 implementations, product setting (review F4, E-125, julia-1.13 of 2026-10-20, BenchmarkTools minima per element over 1,000 elements):
-  - a fifth implementation reaches the fallback, Julia's megamorphic dispatch: an element of another implementation costs 18–68 ns, against about 1 ns for the four;
-  - **which four are split: the first four declared.** In the review, an image's code split over H1–H4 and code compiled in the session over H10, H42, H64 and H14, because a load registered candidates in the method table's order. TraitWorld now registers them in declaration order (file, then line) at each load too, so both split over H1–H4 (E-130). The author chooses the four by declaring them first.
-  - Rust and Swift have neither the cliff nor the order.
-- **Why not a table:** pointer tables break under world age and serialization ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)).
-- **What could remove the cost:** the four is a constant of the facts compiler, not Julia's limit on union splitting (review F3). Raising it, or a world-checked table at the fallback, is Optional ([compiler §3.3](../reference/compiler.md#33-further-work-on-mechanism-3)). Deterministic candidates are a proposed experiment (review §3, experiment 4).
+- **Ours splits at the call site** over the implementations registered for the trait, at most four, with direct calls, and calls any other implementation through a table keyed by the value's type (section 6; [compiler §4.2, §4.3](../reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)). Within the four, a sum over `Dynamic{Shape}` runs at about plain speed with two types ([evidence §2](evidence.md#2-run-time), the build of 2026-10-19).
+- **The cost, beyond four** (E-145, julia-1.13 711484a23e, product setting, medians per element over 1,000 values; [evidence §2](evidence.md#2-run-time)):
+  - an implementation outside the four costs one probe and an indirect call: a sum over 64 implementations 18 ns per element, over 16 9 ns, with no allocation;
+  - a witness carried with the value, Rust's and Swift's form, was measured up to 1.5× faster on large mixes of many types; it is Optional;
+  - **which four are inlined: the first four declared.** TraitWorld registers candidates in declaration order (file, then line) at each load, so code compiled in an image and in the session inline the same four (E-130). The author chooses them by declaring them first.
+  - Rust and Swift inline none through `dyn` or `any`, unless the compiler proves the type.
+- **What remains Optional:** the carried witness, and recompiling with the observed types in the split ([compiler §3.3](../reference/compiler.md#33-further-work-on-mechanism-3)).
 
 ---
 
@@ -399,7 +399,7 @@ The design restricts what trait code may do, and only there.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
    - 3.95 ns for a `Dynamic` `Callable`, against 0.87 ns for a direct call ([`evidence.md`](evidence.md) §2).
-   - A `Dynamic` operation: a split branch within four registered implementations, Julia's megamorphic dispatch beyond (18–68 ns per element in the review's test), and the four split are the first four declared (section 11).
+   - A `Dynamic` operation: a split branch within four registered implementations, a table beyond (9–18 ns per element at 16–64 implementations, E-145), and the four split are the first four declared (section 11).
    - An untyped call into trait code: 28.8 ns per call against 18.9 ns for a plain untyped call in the product setting, 30.8 against 17.6 ns under `all`, 16 bytes per call ([`evidence.md`](evidence.md) §2, the measurement round of 2026-10-20).
 7. **Each new receiver type compiles the library once,** in its own image, and the implementation checks cost time: `@implement` of a new model type 66–74 ms in every load order, and its first solve 335–371 ms, mostly the solver compiled for the new key ([`evidence.md`](evidence.md) §3, E-146).
 8. **The design needs a patched Julia.** Parts (A)–(D) and the kept pieces ([`julia-changes.md`](julia-changes.md)) are built in a patched 1.13.2, not upstream. Stock-Julia support is dropped. The trait forms' `using` is 0.02–0.20 s above the plain forms' (TraitReport's two pairs, [`evidence.md`](evidence.md) §3).
@@ -432,7 +432,7 @@ The predictions are those of `other-languages-research-2026-10-16.md`, "What the
 | 10 | Early binding misses a more specific method | C++0x | **dissolved for methods:** a stakeholder's later method breaks the fact and recompiles, as in plain Julia. **Kept for one case:** an override of a default after the implementation is refused (cost 9) |
 | 11 | Implicit defaults added later break things | Swift | **decided:** concreteness opt-in per trait, one declaration with a level, chosen when a trait is published |
 | 12 | Type-level computation in traits | all four | **kept out:** symbolic reasoning about associated types; associated types themselves in first-order form |
-| 13 | Dictionary or witness dispatch for dynamic values | Swift, Rust | **rejected, and confirmed by a failure:** a witness pointer runs in the wrong world (section 6). What the split costs instead: the limit of four and its order (section 11) |
+| 13 | Dictionary or witness dispatch for dynamic values | Swift, Rust | **confirmed, in Julia's form:** a witness pointer of the package ran in the wrong world (section 6) and was dropped; behind the split, the compiler now calls through a table keyed by the value's type, with pointers that run in the caller's world (E-145, section 11) |
 | 14 | A collection of mixed types is converted where it is made, or seen through a lazy adaptor | Rust, Swift | **open:** a copy into `Vector{Dynamic{X}}` today, which loses aliasing; collection traits with a view planned, not built (section 11) |
 
 Rows 13 and 14 are not predictions of `other-languages-research-2026-10-16.md`. Row 13 is the other languages' standard mechanism, tried and dropped ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)). Row 14 is their idiom for heterogeneous data, set against ours in [the review of 2026-10-20](../reviews/2026-10-20-heterogeneous-collections.md) §5.

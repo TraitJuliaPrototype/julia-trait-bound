@@ -269,10 +269,10 @@ The entries are grouped by theme:
 
 - **Here:** how an operation on a `Dynamic` value runs.
   - `isa` branches over the declared implementations, at most four, each a direct call that can inline;
-  - then a dynamic call, as the fallback;
+  - then, as the fallback, a call through a table of the call's targets keyed by the value's type ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets));
   - the result asserted to the declared type.
 
-  It dispatches in the caller's world. A later implementation reaches the fallback and invalidates nothing.
+  It dispatches in the caller's world. A later implementation reaches the table and invalidates nothing.
 - **Origin:** Julia's union splitting, which branches over the members of a small `Union`, applied to a trait's implementations ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)). It is built into Julia's compiler as `Compiler.split_call`, part (D).
 - **Defined in:** [facts §9](reference/facts.md#dynamic-split); the primitive: [compiler §4.2](reference/compiler.md#42-compilersplit_call-the-call-site-split).
 
@@ -282,7 +282,7 @@ The entries are grouped by theme:
   - Each cache entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid.
   - A call compares the type and the current world against a cache entry, then calls directly. A miss dispatches as Julia does and adds a cache entry.
   - It is built for a `Dynamic` `Callable`'s pointers, which run in the caller's world through it, and for every dynamic call site (Julia's per-call-site cache).
-  - Its use for `Dynamic` values beyond four implementations is Optional.
+  - Behind the `Dynamic` split a table keyed by the value's type serves instead ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)).
 - **Origin:** the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds. The world range is a [CodeInstance](#codeinstance)'s `min_world` and `max_world`, which invalidation shortens.
 - **Defined in:** [compiler §3](reference/compiler.md#3-world-checked-caches-at-dynamic-boundaries).
 

@@ -157,7 +157,7 @@ Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026
 5. **The next call-site cache steps:**
    - entries with an open `max_world`;
    - the `call_cache` size;
-   - `Dynamic` beyond four implementations when a demonstrator needs it.
+   - the split tables' pointers compiled ahead (compiler C-14), and their miss after each method definition (C-3).
 6. **Upstream proposals** (julia-changes §4).
 7. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
 

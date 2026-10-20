@@ -687,7 +687,7 @@ Plots.paint(io, Dot())                               # typed at the prompt: Dyna
 **Choosing, for library authors.**
 - With items of abstract type, a loop is compiled once, so a `Compiled` item's type is unknown inside it. `Compiled` items pay off when the work per item is a call (`paint(io, m)` selects the code for each item's key). Operations called directly on the item in the loop are faster on `Dynamic` items: a typed call each, not a call on a value of unknown type.
 - `Dynamic` positions suit large code with many implementations behind them (a solver's model): a new implementation compiles nothing in the library.
-- An operation on a `Dynamic` value is a call-site split over the first four implementations declared, then a dynamic call ([`lowering.md`](lowering.md#13-dynamicx)). The split covers the implementations registered when the calling code was compiled: code compiled into a package image covers that package's and its dependencies'. What follows the split is open ([open issues §2](../open-issues.md#2-design), item 32); the performance of both attributes is to be revisited ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
+- An operation on a `Dynamic` value is a call-site split over the first four implementations declared. Any other implementation is called through a table keyed by the value's type: one lookup and an indirect call, whatever the number of implementations ([`lowering.md`](lowering.md#13-dynamicx)). The split covers the implementations registered when the calling code was compiled: code compiled into a package image covers that package's and its dependencies'. The performance of both attributes is to be revisited ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
 
 **Rules.**
 - An attribute on a function that is neither exported nor declared `public` warns at the trait module's end: no plain value crosses there, and the fix is a conversion at the call (`compiled_for(x)`, `with_dynamic(x)`).
@@ -839,7 +839,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 - Planned: `Dynamic{(ColTable, RowTable)}`, a value seen through several traits (refused today: no such value can be made); a trait's own declared `==`; serialization of a `Dynamic` with its implementation ([open issues §2](../open-issues.md#2-design)).
 - Planned, with traits in the type system: a trait's name as its `Dynamic` outside trait modules ([lowering L-6](lowering.md#18-deviations)).
 - A result type that names a parameter is not yet typed by the value the `Dynamic` fixes ([lowering L-20](lowering.md#18-deviations)).
-- Optional: a faster path beyond four implementations ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
+- Beyond the four inlined implementations, an operation costs one lookup by the value's type and an indirect call ([compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)). Optional: a witness carried in the value, and recompiling with the observed types ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 - Open: opening a `Dynamic` at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
 
 ### 10.1 BaseTraits: traits for Base's concepts
@@ -1156,7 +1156,8 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | `Dynamic{X}`, the trait name as `Dynamic` inside trait modules | Implemented | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | `convert` to `Dynamic{X}` for every trait | Planned | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | `Dynamic{(X, Y)}`, a trait's `==`, serialization | Planned | [§10](#10-dynamicx-values-of-any-conforming-type) |
-| a faster `Dynamic` path beyond four implementations | Optional | [§10](#10-dynamicx-values-of-any-conforming-type) |
+| `Dynamic` beyond four implementations: a table keyed by the value's type | Implemented | [§10](#10-dynamicx-values-of-any-conforming-type); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
+| a witness carried in a `Dynamic`; recompiling with the observed types | Optional | [compiler §3.3](compiler.md#33-further-work-on-mechanism-3) |
 | opening a `Dynamic` at its concrete type | Open | [open issues §2](../open-issues.md#2-design) |
 | BaseTraits version 0: `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; Base's containers' conformance | Implemented | [§10.1](#101-basetraits-traits-for-bases-concepts) |
 | a trait's name in a bound's parameters as an item position (`Iterable{Shape}`), items `Compiled` or `Dynamic` | Implemented | [§10.2](#102-collections-bounded-by-their-items-trait) |

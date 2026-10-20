@@ -376,7 +376,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 <a id="dynamic-split"></a>
 ## 9. The `Dynamic` split
 
-**Status: Implemented.** **Optional:** a faster path beyond four implementations ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
+**Status: Implemented.**
 
 An operation on a `Dynamic{X}` value, or on a trait object at a `Dynamic` position ([traits §6.6](traits.md#66-compiled-and-dynamic-how-values-enter), [§10](traits.md#10-dynamicx-values-of-any-conforming-type)), is a call on a value of an open set of types. A declared field read there is one too. Lowering writes it as `split_call(K, RT, f, x, args...)`: `K` names the trait, `RT` is the operation's declared result type ([`lowering.md`](lowering.md), [`compiler.md`](compiler.md)).
 
@@ -388,7 +388,7 @@ An operation on a `Dynamic{X}` value, or on a trait object at a `Dynamic` positi
   - the call is inferred at the union of the candidates that `x`'s type admits;
   - each split is a fact, with its edge;
   - the call site branches on `isa` over the candidates, with direct calls that may inline;
-  - the last branch, the **fallback**, is a run-time site for any other type.
+  - the last branch, the **fallback**, is a run-time site for any other type. It calls the call's target for the value's type through a table keyed by the type, in the caller's world, and records no edge ([compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)).
 - **When inference knows `x`'s type,** the call is an ordinary call at that type.
 - **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The lowering asserts the declared type `RT` after the call, so the code after it is typed `RT`. The optimizer's split asserts each case not known to be an `RT`, and the fallback, to `RT`. A result of another type raises a `TypeError`.
 - **A later candidate** reaches the fallback. It invalidates nothing. Code compiled after its registration splits over it.
@@ -559,7 +559,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | reflection shows the code that runs | Implemented | [§7.2](#reflection) |
 | no asserted effect over a run-time site | Implemented | [§8](#asserted-effects) |
 | the `Dynamic` split | Implemented | [§9](#dynamic-split) |
-| a faster `Dynamic` path beyond four | Optional | [§9](#dynamic-split); [compiler §3.3](compiler.md#33-further-work-on-mechanism-3) |
+| beyond four implementations, a table keyed by the value's type | Implemented | [§9](#dynamic-split); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
 | winning pirates followed by default | Implemented | [§10.1](#pirates) |
 | strict mode, prototype, scoped to trait code | Implemented | [§10.2](#strict-mode); F-4, F-5 |
 | strict mode's intended design; the warning for package extensions; the symmetric lint | Planned | [§10.3](#strict-intended); F-6, F-14 |

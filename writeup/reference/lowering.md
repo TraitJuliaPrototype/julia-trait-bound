@@ -494,7 +494,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned**; beyond four implementations **Optional** ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3); [`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned** ([`traits.md#10-dynamicx-values-of-any-conforming-type`](traits.md#10-dynamicx-values-of-any-conforming-type)).
 
 **The representation:** `struct Dynamic{X}; t::Any; end` holds the user's object (`core.jl:351`). The view of `X` for the object's type is made where it is needed, by the builder that type's implementation fixed: a constant per pair, folded where the type is known.
 - From a value, `Dynamic{X}(x)` checks that `x`'s type conforms (`TraitBoundError` otherwise) and holds `x`.
@@ -514,12 +514,12 @@ Base.@constprop :aggressive @inline op(d::Dynamic{X}, a…) where {X <: Trait} =
 
 - `_dynop(X, op)` is `op` applied to the opened object, as a value of its own type (`_DynOp{X, F}`, one method per arity up to six, `core.jl:448`). The split is over the held object.
 - `RT` is the declared result type, with the parameters the `Dynamic`'s type fixes substituted ([traits §10](traits.md#10-dynamicx-values-of-any-conforming-type)). Where it names `Self`, or a parameter the type leaves open, it is `Any`. *As built,* it is `Any` wherever the declared type names `Self` or any parameter ([L-20](#18-deviations)).
-- Julia infers the call at the union of the family's registered **candidates**, the first four, plus a fallback, and splits it as a union: `isa` branches on the held object's type, in each the view folded and the operation's method called directly, the dynamic call last, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split)).
+- Julia infers the call at the union of the family's registered **candidates**, the first four, plus a fallback, and splits it as a union: `isa` branches on the held object's type, in each the view folded and the operation's method called directly. The last branch calls the target for the object's type through the table of the call's signature, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split); [§4.3, the table](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)).
 - `@constprop :aggressive` makes each caller infer the call again, so it splits over the candidates registered when it is compiled.
-- The fallback dispatches in the caller's world.
+- The fallback dispatches in the caller's world. A type outside the four costs one probe and an indirect call, at any number of implementations, and allocates nothing for a concrete `RT`.
 - An operation whose result is `Self` returns a `Dynamic` of the new value instead (`_dyn_like`).
 
-**Which candidates a caller splits over** is fixed when the caller is compiled ([compiler §4.2](compiler.md#42-compilersplit_call-the-call-site-split)). So a worker at the erased key compiled into a package image splits over the implementations registered while that image was built, that package's and its dependencies'; a user's type takes the fallback at every operation. Code compiled in the session splits over the first four declared. What follows the split is open ([open issues §2](../open-issues.md#2-design), item 32); this is a performance issue to revisit (item 35).
+**Which candidates a caller splits over** is fixed when the caller is compiled ([compiler §4.2](compiler.md#42-compilersplit_call-the-call-site-split)). So a worker at the erased key compiled into a package image splits over the implementations registered while that image was built, that package's and its dependencies'; a user's type takes the fallback at every operation. Code compiled in the session splits over the first four declared. A type outside the split takes the table, whose cost does not depend on the number of implementations.
 
 **Candidates** are the types a `Dynamic` holds: the implementations' types (and, in the two cases above, trait-object types), registered with `Compiler.register_dynamic_candidate!` without an edge:
 - **at each declaration and each package load,** for each implementation at a concrete type, from the `implementation` and `projection` records (`_note_conformances!`, `core.jl:532`). Each batch is registered in **declaration order:** by the declaration's file, then line. The records carry the `@implement`'s own line (`_at_declaration`, `implement.jl:943`), so a session that loads a package image registers its types in the order the image's code was compiled for. *As built,* a family member is registered only when a `Dynamic` of it is made ([L-25](#18-deviations));
@@ -563,7 +563,6 @@ A later implementation reaches the fallback and invalidates nothing.
 
 **Planned:** `Dynamic{(X, Y)}`, a value seen through several traits.
 
-**Optional:** for more than four implementations, a longer split for `split_call` only, or a world-checked table of caller-world pointers at the fallback ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 
 ---
 

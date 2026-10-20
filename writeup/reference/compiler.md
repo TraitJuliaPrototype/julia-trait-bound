@@ -28,8 +28,8 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 |---|---|---|---|
 | [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | Revalidating cached `return_type` answers after loads | Guarded devirtualization (Optional); standard libraries as owners of their own (Open) |
 | [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code, and through `jl_apply` to the default owner's code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too; a module's other compiler options in both modes | A memo for the facts owner's normalization (Optional) |
-| [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | `Dynamic` beyond four implementations; a codegen-emitted cache (both Optional) |
-| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call` | — | — |
+| [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | beyond a split's table (a carried witness, a runtime table of entry points, recompiling); a codegen-emitted cache (all Optional) |
+| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets | the targets compiled ahead (C-14) | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
 | [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
 | [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping, then syntax: last | — |
@@ -181,7 +181,7 @@ Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`)
   - The objection is a permanent slowdown: a site whose guard fails stays on the fallback, silently, until its caller happens to compile again.
   - The objection goes away if the slowdown is temporary: a site that keeps taking the fallback has its caller compiled again in the background, with the observed types in the split, and the new code is swapped in once it is ready (tiered recompilation, as in HotSpot, .NET and V8).
   - In the facts mode the swap is not an invalidation. The old and the new code are valid in the same worlds and compute the same results.
-  - It shares its mechanism with the split's fallback (§3.3) and is decided with it ([open issues §2](../open-issues.md#2-design), item 32). Only if untyped code under the test bed still matters after the other work.
+  - For a split it is the last option of §3.3. Only if untyped code under the test bed still matters after the other work.
 - **Open: standard libraries as owners of their own.** Today Julia's standard libraries count as Julia's own code, so a standard library's method that wins at a fact is a stakeholder's change ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ---
@@ -511,14 +511,10 @@ Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keye
 ### 3.3 Further work on mechanism 3
 
 - **Planned: entries with an open `max_world`.** An exact-type entry and a `:caller_world` entry refer to the method-cache entry and the `CodeInstance` they copy, whose `max_world` invalidation lowers. A hit compares the world with both ranges. A method definition then costs a cached site nothing unless it invalidates what the site calls ([C-3](#deviations)).
-- **Optional: what follows the split.** The split itself stays (§4.2): it is the only path that inlines and types each branch's result. The question is what happens to a value of a type outside the split. The options:
-  - a dynamic call through the per-site cache (§3.2): what is built. Its four entries thrash when a site sees more than four types;
-  - a longer split: raise the limit for `split_call` only;
-  - a per-site cache at the fallback, from types to `:caller_world` pointers (§3.1);
-  - a table per trait, indexed by the implementation: the shape of Rust's vtables and Swift's witness tables, with world-checked entries;
-  - recompiling in the background: count the fallback's hits per site; past a threshold, compile the caller again with the observed types in the split, and swap the new code in (§1.6).
-
-  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations. `Dynamic` positions make such sites more common (§4.2).
+- **Optional: beyond the table of a split's targets** (§4.3; E-145, [`design/evidence.md`](../design/evidence.md)):
+  - **a runtime table of specialized entry points with their world ranges,** checked at the probe and never saved: one indirect call, no thunk and no target method per type;
+  - **a witness carried in the value,** the pointer arriving with it: up to 1.5× faster on large mixes of many types (E-145), at 8 bytes per value and a lookup per value made from an unknown type;
+  - **recompiling in the background** with the observed types in the split (§1.6): E-145 found it pays only for skewed mixes of cheap operations on data in the cache.
 - **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
 - **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
 
@@ -557,11 +553,11 @@ Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate t
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered, in order
 ```
 
-Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`.
+Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `handle_call!`, `ir_inline_unionsplit!`), `stmtinfo.jl`.
 
 **Meaning.** `split_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
 - **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.
-- **The split.** The inliner rewrites the statement to the call of `f` and splits it over the candidates, with the dynamic call as the last branch. The split is never "fully covered": a value of another type reaches the fallback.
+- **The split.** The inliner rewrites the statement to the call of `f` and splits it over the candidates. The last branch, the **fallback**, calls through the table of the call's targets (§4.3), or is the dynamic call where no table applies. The split is never "fully covered": a value of another type reaches the fallback.
 - **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The inliner's split asserts the fallback's result, and any case not known to be an `RT`, to `RT`, and types the join `RT`. A caller that needs the type after the call asserts it there, as TraitWorld's lowering does ([`lowering.md`](lowering.md#13-dynamicx)).
 - **No edge to the registry.** Candidates are read without an edge. A type registered later reaches the fallback, and invalidates nothing.
 - When `x`'s type is concrete, or `K` has no candidates, it is the call `f(x, args...)` as inference finds it.
@@ -572,6 +568,41 @@ Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssai
 - Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split. So code compiled into a package image, such as a worker at a `Dynamic` position, splits over the implementations registered while the image was built, and a user's type declared later takes the fallback (a performance issue to revisit, [open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
 - Registration is lock-free for readers: the table is replaced on each registration, never mutated.
 - How TraitWorld uses it for `Dynamic{X}` values and for operations and field reads at a `Dynamic` position is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).
+
+### 4.3 What follows the split: the table of a call's targets
+
+**Status: Implemented**, with the pointers made at a type's first use, not ahead ([C-14](#deviations)), and their thunks' entries capped at the latest world ([C-3](#deviations)).
+
+```c
+void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);    // the pointer for type T; made at a miss
+uint64_t jl_split_session(void);                              // this session's stamp, never 0
+void jl_set_split_table_miss(jl_value_t *f);                  // Base._split_table_miss!, set by Base.__init__
+```
+
+Lives in `src/gf.c`, `Compiler/src/facts.jl` (`SplitTable`, `SplitState`, `split_table`, `split_state_add`), `Compiler/src/ssair/inlining.jl` (`split_fallback_table`, `split_table_call!`), `base/splittable.jl` (`_SplitTarget`, `_SplitTargetFacts`, `_split_pointer`, `_split_table_miss!`).
+
+**Meaning.** A value of a type outside a split's candidates is called through a table of the call's targets, keyed by its type. The last branch of the split is:
+
+```julia
+T  = Core.typeof(x)
+fp = foreigncall(:jl_split_table_ptr, Ptr{Cvoid}, (Any, Any), table, T)
+r  = foreigncall(fp, R, (Any, Any, A...), f, x, args...)
+```
+
+- **The table** belongs to the call's signature: the function's type `F`, the other arguments' types `A`, the result type `R`, and whether the calling code is compiled by facts. Sites with the same signature share one, made when the first of them is compiled (`split_table`) and embedded in their code.
+- **The probe** looks up the address of `T` in the table's state (open addressing). A hit returns the pointer.
+- **A miss** calls `Base._split_table_miss!(table, T)` in the caller's world. It makes the pointer and adds it. A type with no method for the call gets a pointer too: calling it raises the `MethodError` the call would.
+- **The pointer** is a `:caller_world` `cfunction` (§3.1) of the target `_SplitTarget{F, T, R}()`, whose method is `(f::F)(x::T, args...)::R`, with `f` and `x` passed boxed. Under the facts mode the target is `_SplitTargetFacts`, compiled by facts whoever calls it (`Expr(:meta, :facts_always)`): code compiled by facts reaches code compiled by facts at run time, as with `jl_apply_generic_facts` (§2.5).
+- **Arguments and result:** an argument passes as its type where that is concrete and not a kind, else boxed. `R` is the split's declared result where concrete, else `Any`. The target asserts it, so a value of another type raises a `TypeError`, never a conversion.
+
+**Rules.**
+- **The fallback stays a run-time site.** It dispatches in the caller's world, through the thunk's world-checked cache, and records no edge ([`facts.md`](facts.md#dynamic-split)). A redefinition is followed as a dynamic call follows it. The table needs no invalidation.
+- **Sessions.** Pointers are valid in their session only. A state carries its session's stamp, checked by the probe on every call. A table saved in a package image counts as empty in another session and fills again. Sites compiled into different images keep tables of their own.
+- **Threads.** A table's state is replaced on each addition, never mutated (copy-on-write, published atomically). The pointer is made before the update. Readers take no lock.
+- **Where it applies:** an open split (§4.2) whose function's type is concrete and not a kind, with at most `MAX_SPLIT_TABLE_ARGS` (6) arguments after the value. Elsewhere the fallback is the dynamic call.
+- **Ahead of time** (Planned, [C-14](#deviations)): for each declared implementation the targets and their thunks are compiled into the declaring package's image, as the untyped table's pattern methods are ([`lowering.md`](lowering.md#151-compiling-ahead-from-declarations)). A session's first use of the type then only fills the table.
+- **Not in a trimmed program** (`--trim`), which makes no code at run time: there the fallback is the dynamic call.
+- The table answers what Rust's vtables and Swift's witness tables answer. Its key is the type in the object's header, as for C++'s and the JVM's vtables.
 
 ---
 
@@ -748,7 +779,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 |---|---|---|---|---|
 | C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Six places decide it: the single-request entry, `interp_for_owner`, `interp_for_mi`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. Two predicates: the module flag (`jl_method_is_plain`) and a module walk (`is_compiler_code`). They differ for a boundary or always-facts method inside the Compiler. | `Compiler/src/typeinfer.jl:1654`; `Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `src/gf.c:424`, `:4802`; `src/module.c:749` |
 | C-2 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting, and `nothing` holds plain code only. | Under the test bed, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method called by the compiler can reuse a result compiled by facts: correct, but slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [facts F-2](facts.md#deviations). | `Compiler/src/facts.jl:52`, `:60`, `:87`; `Compiler/src/typeinfer.jl:1657` |
-| C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. | `src/gf.c:4611`; `src/runtime_ccall.cpp:424` |
+| C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: about 1 KB allocated and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4611`; `src/runtime_ccall.cpp:424` |
 | C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3733` |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |
 | C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3775` |
@@ -759,3 +790,4 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-11 | [§1.4](#14-return_type) | `return_type` gives one answer, plain inference's: the fold's and the run time's agree. | In the product setting, `return_type_interp` is a `NativeInterpreter` of owner `nothing`; its `typeinf_ext` hands a facts method to facts inference (`leaves_to`, §2.6). The fold uses `PlainRTInterp`, which infers it plainly. So the run-time answer for a facts method is facts inference's, which can be wider than the folded one. Under the test bed both routes are `PlainRTInterp`. As [facts F-10](facts.md#deviations). | `Compiler/src/facts.jl:259`, `:355`, `:69`–`78`; `Compiler/src/typeinfer.jl:1373`–`1375` |
 | C-12 | [§1.4](#14-return_type), [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), [§2.9](#29-what-package-images-keep) | Only the owners whose code runs get machine code in a package image. | The image builder collects every `CodeInstance` of an owner other than `nothing` with an open `max_world` in the package's own methods, skips only `:facts` (which goes through the compile queue), and emits machine code for each whose source is cached: the `return_type` answers of `:facts_plain_return_type` and TraitWorld's `_CheckOwner` results included. Nothing calls that code: image size and build time, not correctness. | `Compiler/src/precompile.jl:396`, `:443`–`444`, `:455`–`469` (`collect_foreign_cis!`), `:470`–`489` (`add_foreign_codeinfos!`); `TraitWorld/src/compiler.jl:57` |
 | C-13 | [§1.5](#15-effects) | A statement's `@assume_effects` is ignored in a frame with a run-time site. | It is dropped only once the frame has met a run-time site: a statement before the frame's first run-time site keeps the override in its flags. The test is on the caller's frame: an assertion over a call at a fact signature whose callee holds the run-time site overrides the callee's effects, and a caller may then fold it over a dispatch no edge records. Untested. As [facts F-12](facts.md#deviations). | `Compiler/src/abstractinterpretation.jl:3644`–`3647` |
+| C-14 | [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | The targets and thunks of a split table for declared implementations are compiled ahead, into the declaring package's image. | Each pointer is made at the type's first use at the call's signature in the session: about 8 ms, its maker and thunk and target compiled (E-145, e145c). | `base/splittable.jl` (`_split_table_miss!`) |
