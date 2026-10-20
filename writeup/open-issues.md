@@ -33,10 +33,6 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
     - untyped callers at a crossing position take the entry's own path, not the table of declared implementations;
     - `DynamicItems` and `DynamicValues` stay exported as explicit tools (the copy that checks every item first, and code that is not bounded).
 
-From the implementation plan for `Dynamic` and `Compiled` (W-4, 2026-10-20; [the plan §11](plans/2026-10-20-dynamic-compiled-implementation.md#11-questions-for-the-user), with options and recommendations):
-
-34. **The plan's open questions:** Q1, functions of the trait world under `Callable`'s `@dynamic` (recommended: `Compiled`, as trait-world values, `with_dynamic` still winning); Q3b, whether concrete mode reports an implicit `Dynamic` of a `@concrete_only` trait; Q6, the prompt: every interpreted top-level call is `Dynamic`, not only calls on ordinary globals (recommended: accept for W-4, state it precisely); Q8, erased workers compiled into a library's image (every user type then takes the split's fallback) or at the session's first call (recommended: in the image, with E-145 raised into W-4's order, decided after E-147); Q9, an operation's argument declared `Dynamic{Y}` keeps the type's meaning (recommended: yes); Q10, a `Dynamic` position with a result parameter left open (recommended: refused for annotations; per parameter value for an implicit `Dynamic`).
-
 ## 2. Design
 
 **From the acceptance suite and the design of `Dynamic`:**
@@ -148,6 +144,8 @@ From the implementation plan for `Dynamic` and `Compiled` (W-4, 2026-10-20; [the
     - **To work out:** whether `Callable{A, S, M}` becomes this rule's case for a trait with one operation (`DynamicCall` = `Dynamic`, `CompiledCall` = `Compiled`); a `Dynamic{X}` value passed to a `Dynamic` position (stays erased) and to a `Compiled` one (opened); declared fields at a `Dynamic` position (per-type field slots); several bounded arguments; families and parameters; closed builds (a `Dynamic` position lists the declared implementations); what replaces `dynamic by` (traits §5.9) and the solvers' model mode (§2.15); the cost of an erased operation in practice (a `DynamicCall` costs 3.95 ns per call against 0.87 direct).
 
 
+36. **A trait-typed assertion in a body** (the user, 2026-10-20: "say a non-trait module defines a value v of a type that implements T and we introduce v_as_T = module.v::T in a function body. Then I guess this would be a compiled way to enter the trait world..."). Not in the design today. Under the `Dynamic`/`Compiled` rule it would be a place where a value is first seen through `T`: `Compiled` where the code knows the value's concrete type (a `const` or typed global), `Dynamic` for an ordinary global. To decide with W-3 (what `::` means for a trait against an abstract type); not built in W-4.
+
 ### Found in the writeup cleanup (session 29, 2026-10-19): the design and the code disagree
 
 Found while writing `design/mechanisms.md` and `intro/` from the code. Each is to decide (design or code) and then align:
@@ -241,6 +239,8 @@ State (2026-10-19): TraitWorld 227781a, 48 test sets, on the patched julia-1.13.
 
 14. **Acceptance checks for the session-29 changes** (`design/julia-changes.md` §5): the two inliner changes (a varargs wrapper in a recursion; cycle members inlining each other), the compiler-plain edges (§2.27), and held views.
 
+35. **Performance issues to revisit after W-4** (the user, 2026-10-20: "Where you make a choice that you judge performance relevant, record it as a possible performance issue to revisit."): P1–P8 of [the implementation plan §1a](plans/2026-10-20-dynamic-compiled-implementation.md#1a-scope-semantics-not-performance): untyped callers on the erased worker (a split per operation, P1); entries compiled ahead not generated, so `compiled_for` from an untyped caller takes two dispatches (P2); an erased worker in an image splits over its package's candidates only (P3, E-145); `Dynamic{Callable}`'s extra load (P4); the prompt `Dynamic` (P5); `with_dynamic` boxing isbits values (P6); sites relying on opening that `compiled_for` misses (P7); an erased worker per parameter value (P8). Each is revisited in W-17, after the idiomatic rewrites and E-145's work; W-4 adds the sites E-147 finds.
+
 ## 4b. The review of session 23
 
 Still open from `reviews/2026-10-16-wrapping-under-keys.md` (triaged in session 25; the fixed and dissolved findings are under Closed items):
@@ -264,6 +264,8 @@ What Julia must provide, in order: `explorations/julia-support.md`, reviewed in 
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 
 ### §1
+
+34. **Closed (2026-10-20, the user):** the open questions of the `Dynamic`/`Compiled` implementation plan (Q1, Q3b, Q6, Q8, Q9, Q10), answered "go with your recommendations", with Q1 explained by the user and Q3/Q4 narrowed: [the plan §11](plans/2026-10-20-dynamic-compiled-implementation.md#11-questions-for-the-user); decision log, the rows of 2026-10-20.
 
 Raised in session 26 (new trait code after big loads; analysis in session note 26 and §4.5); decided by the user in session 26: §1.3 the policy in the platform, as a prototype; §1.4 option (a), with (b) recorded as an alternative design and an experiment to run later (`decisions.md`):
 3. **Closed (s29):** superseded. The facts policy is a mode of Julia's own compiler, parts (A)–(C) (julia-1.13 880ae49dad, c3415abde6). TraitWorld's own policy and its interpreter code are deleted (TraitWorld c533f3a). The checks use Julia's `NativeInterpreter`, run in the compiler's world (julia-1.13 bb82a82bbf, TraitWorld f79727c). So no package defines the interpreter that REPL's could break. Recorded in `design/julia-changes.md` §1–2. *(Prototype built in session 26, `experiments/sysimage`: TraitWorld in the patched system image. REPL first, a new key's first call 0.22 s instead of 5.9 s. TraitReport's work after OffsetArrays, StatsBase and Unitful 1.7 s instead of 5.4 s. Startup 0.125 s against 0.10 s. Open: the demonstrators' rows on it, and the cleaner form of the policy in Julia's Compiler.)* **Where the policy's compiler code lives.** Julia's Compiler keeps the interpreter in an abstract field (`InferenceState.interp::AbstractInterpreter`), so the compiler code TraitWorld's image holds for `FactsInterp` has abstract edges such as `cache_owner(::AbstractInterpreter)`. Any package that defines its own interpreter breaks them. REPL defines one (`REPLCompletions.REPLInterpreter`), and in an interactive session REPL loads before TraitWorld, so the image's compiler code fails validation and the first new key costs 5.9 s instead of 0.13 s. GPUCompiler, Enzyme, JET and Cthulhu define interpreters too. Julia's own compiler avoids this by running in `jl_typeinf_world`, frozen at the system image. **Recommendation:** the future state, with the facts policy as part of the platform, compiled into the system image and run in a frozen compiler world like Julia's own. A prototype is a system image of the patched build with TraitWorld in it, measured against the REPL case. A workaround, not recommended: TraitWorld depends on REPL, which fixes REPL but not the other interpreters.

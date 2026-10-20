@@ -1,6 +1,6 @@
 # `Dynamic` and `Compiled`: the implementation plan (W-4)
 
-**Status:** proposal, revision 2 (2026-10-20): revised after the Fable review ([`../reviews/2026-10-20-dynamic-compiled-plan.md`](../reviews/2026-10-20-dynamic-compiled-plan.md); what was done with each finding: [§12](#12-the-reviews-findings-and-what-was-done)) and the user's answers (C1–C7 confirmed; Q2, Q3, Q4 answered). Open questions: [§11](#11-questions-for-the-user). Not normative: the rule is [the proposal §0](2026-10-20-dynamic-and-compiled.md#0-the-rule-the-user-2026-10-20-this-section-supersedes-sections-1-and-1b-where-they-differ); the references become its home in phase 1. Work item W-4 (`../record/todo.md`), open issues 33 and 34.
+**Status:** adopted, revision 3 (2026-10-20). Revision 2 followed the Fable review ([`../reviews/2026-10-20-dynamic-compiled-plan.md`](../reviews/2026-10-20-dynamic-compiled-plan.md); what was done with each finding: [§12](#12-the-reviews-findings-and-what-was-done)); revision 3 follows the user's answers to every question ([§11](#11-questions-for-the-user)) and narrows the scope to the semantics ([§1a](#1a-scope-semantics-not-performance)). Not normative: the rule is [the proposal §0](2026-10-20-dynamic-and-compiled.md#0-the-rule-the-user-2026-10-20-this-section-supersedes-sections-1-and-1b-where-they-differ); the references become its home in phase 1. Work item W-4 (`../record/todo.md`), open issues 33, 34 (closed: the answers), 35 (performance issues to revisit) and 36 (a trait-typed assertion in a body).
 
 The user (2026-10-20): "Make a detailed implementation plan first. This implementation plan needs to include updating all documents on the website to the intended design. References first, then everything else." On the first revision: "C1-C7 look good."
 
@@ -8,12 +8,13 @@ The user (2026-10-20): "Make a detailed implementation plan first. This implemen
 
 - [0. The rule in one paragraph](#0-the-rule-in-one-paragraph)
 - [1. Phases and order](#1-phases-and-order)
+- [1a. Scope: semantics, not performance](#1a-scope-semantics-not-performance)
 - [2. Design choices (C1–C8)](#2-design-choices-c1c8)
 - [3. Phase 1: the references](#3-phase-1-the-references)
 - [4. Phase 2: the other design documents](#4-phase-2-the-other-design-documents)
 - [5. Phase 3: TraitWorld](#5-phase-3-traitworld)
 - [6. Phase 4: the demonstrators, examples and experiments](#6-phase-4-the-demonstrators-examples-and-experiments)
-- [7. Phase 5: the measurements](#7-phase-5-the-measurements)
+- [7. Phase 5: one short check](#7-phase-5-one-short-check)
 - [8. Phase 6: documents that state the current state](#8-phase-6-documents-that-state-the-current-state)
 - [9. Phase 7: close](#9-phase-7-close)
 - [10. Risks and checkpoints](#10-risks-and-checkpoints)
@@ -24,7 +25,7 @@ The user (2026-10-20): "Make a detailed implementation plan first. This implemen
 
 ## 0. The rule in one paragraph
 
-Every value in trait code is `Dynamic` or `Compiled`. It gets the attribute where it is first seen through a trait `X` (an argument's bound; an item parameter of a bound, when the item is read; a field or an operation's result declared with a trait): `Compiled{X}` if the code that sees it knows its concrete type, `Dynamic{X}` if its type is abstract there. A trait may declare `@dynamic` (`Callable` does). An annotation overrides the trait's default, on an argument (`f(x::Compiled{X})`, `f(x::Dynamic{X})`) or on an item parameter (`Iterable{Compiled{Mark}}`), without a warning. `compiled_for(x)` and `with_dynamic(x)` always win. A value keeps its attribute inside the trait world, also from library to library; an annotation decides only for values first seen there. An annotation on a function that is neither exported nor public warns. At the REPL, code Julia does not compile knows no types, so its calls are `Dynamic` (to revisit; Q6). No synonyms for `Callable`'s old modes. A mode chooses speed, never results.
+Every value in trait code is `Dynamic` or `Compiled`. It gets the attribute where it is first seen through a trait `X` (an argument's bound; an item parameter of a bound, when the item is read; a field or an operation's result declared with a trait): `Compiled{X}` if the code that sees it knows its concrete type, `Dynamic{X}` if its type is abstract there. A trait may declare `@dynamic` (`Callable` does); the default applies to values whose type is not of the trait world (Q1). An annotation overrides the trait's default, on an argument (`f(x::Compiled{X})`, `f(x::Dynamic{X})`) or on an item parameter (`Iterable{Compiled{Mark}}`), without a warning. `compiled_for(x)` and `with_dynamic(x)` always win. A value keeps its attribute inside the trait world, also from library to library; an annotation decides only for values first seen there. An annotation on a function that is neither exported nor public warns. At the REPL, code Julia does not compile knows no types, so its calls are `Dynamic` (to revisit; Q6). No synonyms for `Callable`'s old modes. A mode chooses speed, never results.
 
 ## 1. Phases and order
 
@@ -34,7 +35,7 @@ Every value in trait code is `Dynamic` or `Compiled`. It gets the attribute wher
 | 2 | **The other design documents** (glossary, rationale, comparison, alternatives, open issues, the record's current documents; `intro/traits-by-example.md` §20, planned syntax) | design | the grep of §4.3 clean, with the phase-6 documents as expected hits |
 | 3 | **TraitWorld** on a branch `dynamic-compiled` (worktree `TraitWorld-dyncomp/`), from a spike on main (step 3.0) | TraitWorld | its tests and the acceptance suite pass in both settings |
 | 4 | **The demonstrators, the documentation's examples, the experiments** moved to the new spelling and the new rule | TDE, TraitMakie, TraitTables, TraitCSV, TraitReport, experiments | `run_all.sh` passes with every repository checked out at `dynamic-compiled` |
-| 5 | **The measurements**, registry rows first, on a quiet machine; then the decision on the untyped table (step 3.8) | experiments, TraitWorld | the rows in `record/experiments.md` and `design/evidence.md` |
+| 5 | **One short check** (E-147, registry row first): every demonstrator row runs once; a gross slowdown becomes a performance issue to revisit (open issue 35), not work | experiments | the row in `record/experiments.md` |
 | 6 | **The documents that state the current state** (`intro/`, results, state, README, evidence, performance, the demonstrators' READMEs) | design, demonstrators | the intro examples run in `experiments/docs-examples/` |
 | 7 | **Close:** merge, statuses flipped, deviations retired, W-4 done, session note | all | the grep of §9 clean |
 
@@ -42,11 +43,30 @@ Every value in trait code is `Dynamic` or `Compiled`. It gets the attribute wher
 
 **Commits:** each phase one or a few commits in each repository; phase 1 one commit per reference, with the decision-log rows for the choices that reference states (CLAUDE.md rule 1). At phase 7 the fix that closes a deviation retires its row, flips its check and updates `state.md` in one commit.
 
-**The machine:** one Julia job at a time through `flock /tmp/claude-1000/julia-review.lock nice -n 19`; precompile tasks 4; the measurements of phase 5 only on a quiet machine, asked of the user.
+## 1a. Scope: semantics, not performance
+
+The user (2026-10-20): "But don't touch the table stuff yet. Right now we want to implement new semantics, not do performance work. The question that E-145 has to answer is out of scope here. Where you make a choice that you judge performance relevant, record it as a possible performance issue to revisit. Proper measurements will have to wait until we have code idiomatically written to the new semantics, and the performance work informed by E-145 is done. Incidentally, keep all ecperiments you want to run as part of this implementation work minimal and short."
+
+- **W-4 builds the semantics.** No optimization, no retirement of existing fast paths, no measurement campaign.
+- **Every choice with a performance consequence** is listed below (P1–P8) and in open issue 35, to revisit after W-4, once the code is idiomatic and E-145's performance work is done.
+- **The measurements of revision 2** (E-147 to E-150 as designed there) move to work item W-17, after W-4, the idiomatic rewrites and E-145. W-4 runs one short check (§7).
+
+| ID | Choice | Possible cost | To revisit with |
+|---|---|---|---|
+| P1 | Untyped callers reach the erased worker, not the table's per-key worker (C2) | a split, or the fallback, at every operation inside the worker, where the table paid one dispatch per call (review finding 1) | W-17; E-145 |
+| P2 | The entries compiled ahead per declared type are no longer generated (C2) | `compiled_for(x)` from an untyped caller takes the entry's generic path: two run-time dispatches and an allocation | W-17; whether the table and the entries ahead serve `compiled_for`, or retire (open issue §2 item 29) |
+| P3 | An erased worker splits over the candidates registered when it is compiled (C8); no special placement | in a package image, a user's type takes the fallback at every operation | E-145 (open issue 32) |
+| P4 | `Dynamic{Callable{A, S}}` as a `Dynamic` holding the `CObj` (C5) | a heap object and a load with a type assertion per call against today's inline `DynamicFn` | W-17 |
+| P5 | Every interpreted top-level call is `Dynamic` (Q6) | the prompt runs the erased worker | the REPL special case (Q6, later) |
+| P6 | `with_dynamic(x)` on an isbits value | a box per call | W-17 |
+| P7 | A `Dynamic` is no longer opened at a bound (rule 7); libraries write `compiled_for` where they relied on it (phase 4) | sites the counter of phase 4 misses run erased | W-17 (the demonstrators' rows) |
+| P8 | An implicit `Dynamic` at a bound with a result parameter left open: the erased worker compiled per parameter value (Q10) | one compile per value | W-17 |
+
+**The machine:** one Julia job at a time through `flock /tmp/claude-1000/julia-review.lock nice -n 19`; precompile tasks 4; phase 5's short check on a quiet machine, asked of the user.
 
 ## 2. Design choices (C1–C8)
 
-C1–C7 confirmed by the user (2026-10-20: "C1-C7 look good"), with the changes the review asked for marked *(rev. 2)*. C8 is new in revision 2 and waits for Q8.
+C1–C7 confirmed by the user (2026-10-20: "C1-C7 look good"), with the changes the review asked for marked *(rev. 2)*. C8 is new in revision 2, a performance note (P3).
 
 **C1. The attribute is the value's representation.** `Compiled{X}` is a trait object (`TObj`) keyed as today; `Dynamic{X}` is an **erased trait object**: a `TObj` whose views have an erased key and an erased witness, holding the user's object as `Any`.
 - Values carry by their type: a trait object passed on reaches the worker of its key, erased or not. Rules 7 and 9 need no machinery.
@@ -64,34 +84,39 @@ C1–C7 confirmed by the user (2026-10-20: "C1-C7 look good"), with the changes 
 4. a plain value: the annotation if any, else the trait's default if any, else `Compiler.known_type(x)` (`true`: compiled, the views assembled as today; `false`: erased).
 - **Every entry's trait positions become `@nospecialize`**, also entries with keywords, varargs or `Callable` positions (today specialized per type, lowering §9.4), so that `known_type` is `false` exactly where the caller did not know the type. A typed caller inlines the entry and folds `known_type` to `true` (the spike of step 3.0 checks every entry shape first).
 - **An untyped caller reaches the erased worker by a static call:** the entry knows `X` from the bound. The conformance check of a value of unknown type is `@dynamic_of`'s split over the candidates, a dynamic call beyond them.
-- *(rev. 2)* **The untyped callers' table stays, as the lowering of `compiled_for(x)` for a value of unknown type** (and of `Compiled` items in `Compiled` mode), until E-148 and E-150 decide: it is the one-dispatch path (`_pentry`, `untyped.jl:252`) that the rule's guidance needs ("`draw(m)` dispatches once per item"). Without it, `compiled_for` from an untyped caller costs two run-time dispatches and an allocation (`_assemble`, `entry.jl:374`; `checked_call`). The entries compiled ahead (`_ahead_entry!`, `ahead.jl:168`) stay for the same reason; their per-type entry for shapes the table does not serve (`ahead.jl:146–153`) goes, since `@nospecialize` makes it `f(::Any, …)`. Retiring the table is step 3.8, after phase 5, by the criterion in E-148's row. Open issue §2 item 29 (their invalidation of plain code) is narrowed, not closed.
+- *(rev. 3)* **The untyped callers' table and the entries compiled ahead are not changed, optimized or retired** (§1a). Two routing changes are needed for the semantics, and nothing more:
+  - the entry's untyped branch (`known_type` false) goes to the erased worker; it no longer calls the table (`untyped.jl` stays in the code);
+  - the entries compiled ahead per declared type (`_ahead_entry!`, `ahead.jl:168`; `ahead.jl:146–153`) are no longer generated (a switch; the code stays): they are methods `f(::T, …)` that an untyped caller reaches by dispatch, where the type is known, so they would make it `Compiled`.
+  - `compiled_for(x)` from an untyped caller takes the entry's generic path (`_assemble`, `entry.jl:374`, then `checked_call`).
+  - Their performance consequences are P1 and P2. Open issue §2 item 29 (the entries' invalidation of plain code) is left open, not closed.
 
 **C3. The wrappers.** `compiled_for(x)` and `with_dynamic(x)` are values of their own types (`CompiledFor{T}`, `WithDynamic{T}`), resolved by the next entry, as `CallAs` is today.
-- Inside trait code, `with_dynamic(t)` on a trait object erases it directly (every view erased); `compiled_for(t)` on an erased trait object or a `Dynamic` opens it, typed `Any`, so the next call dispatches once to the worker of its key (a function barrier). On a plain value of abstract type it is the wrapper, resolved by the next entry through the table (C2).
+- Inside trait code, `with_dynamic(t)` on a trait object erases it directly (every view erased); `compiled_for(t)` on an erased trait object or a `Dynamic` opens it, typed `Any`, so the next call dispatches once to the worker of its key (a function barrier). On a plain value of abstract type it is the wrapper, resolved by the next entry's generic path (C2, P2).
 - `with_dynamic` makes a value that keeps the user's object: the keep analysis (lowering §8.4) counts it as keeping.
 
 **C4. Items.** A bound's item parameter that names a trait (`Iterable{Mark}`, `Keyed{String, Mark}`, `Iterable{Pair{K, Mark}}`) is an *item position* with a mode: default, `Compiled`, `Dynamic`.
 - The container crosses through a view of BaseTraits, decided per (position, container type) as the crossing is today: `CompiledItems{Y}(v)`, whose reads give a trait object of the item, or `DynamicItems{Y}(v)`, whose reads give an erased one.
-- Default mode: a concrete element type that conforms gives `CompiledItems` (a `Vector{Circle}`; the worker compiled per container type, the item's views folded); an abstract element type gives `DynamicItems`. `Compiled` mode with an abstract element type: `CompiledItems`, each read opening the item by its type through the table (typed `Any` in the loop). `Dynamic` mode: always `DynamicItems`.
+- Default mode: a concrete element type that conforms gives `CompiledItems` (a `Vector{Circle}`; the worker compiled per container type, the item's views folded); an abstract element type gives `DynamicItems`. `Compiled` mode with an abstract element type: `CompiledItems`, each read opening the item by its type (typed `Any` in the loop). `Dynamic` mode: always `DynamicItems`.
 - *(rev. 2)* **A `Vector{Dynamic{X}}` crosses into `DynamicItems{X}` in every mode** (its items are already `Dynamic`, rule 7); it no longer meets the bound as it is.
 - *(rev. 2)* **The item type the worker sees** (`T = eltype(Self)`, `BaseTraits.jl:45`; the archetype's `iterate` at definition checking, `defcheck.jl:64–77`) is the view's item trait object: the erased view type of `Y` for `DynamicItems`, the item's keyed view type for `CompiledItems`. Both carry `Y`'s operations and are accepted by `Y`'s bounds. The bound's tag for the item parameter (today `PTag{F, i, Dynamic{Y}}`) becomes a tag "seen through `Y`" (`Through{Y}`), carried by both views. Written as a row of lowering §17.
 - Writes store the user's object, as today.
 
 **C5. `Callable`.** `Callable{A, S}` (no mode parameter) is a trait whose default is `@dynamic`; it keeps its own lowering (lowering §12), not a `@trait` declaration.
 - A worker's `Callable` argument stays `CObj{A, S, F}`: `F = Erased{A, S}` when `Dynamic`, the function's type when `Compiled`.
-- `Dynamic{Callable{A, S}}` is the stored type (was `DynamicFn{A, S}`): a `Dynamic` holding the `CObj{A, S, Erased{A, S}}`; a call reads the field at that asserted type. *(rev. 2)* This adds a heap object and a load with a type assertion per call against today's inline `DynamicFn`; E-147 measures it on a row of its own.
+- `Dynamic{Callable{A, S}}` is the stored type (was `DynamicFn{A, S}`): a `Dynamic` holding the `CObj{A, S, Erased{A, S}}`; a call reads the field at that asserted type. This adds a heap object and a load with a type assertion per call against today's inline `DynamicFn` (P4).
 - `compiled_for(f)`, `with_dynamic(f)` replace `compiled_call(f)`, `dynamic_call(f)`; `Compiled{Callable{A, S}}` replaces `Callable{A, S, CompiledCall}`; `Dynamic{Callable{A, S}}(f)` replaces `dynamic_fn(A, S, f)`. `CallAs`, `CallMode`, `DynamicCall`, `CompiledCall` are removed. *(rev. 2)* `Callable{A, S, M}(f)`, which also fixed the signature, is removed without a `Compiled` counterpart: a wrapper takes the signature of the position it reaches.
-- **Functions of the trait world** (Base's `abs2`, a trait module's functions and closures): Q1.
+- **Functions of the trait world** (Base's `abs2`, a trait module's functions and closures) are trait-world values, concretely typed, so `Compiled`: Callable's `@dynamic` applies to functions whose type is not of the trait world (Q1). `with_dynamic(f)` erases them too (today `dynamic_call(abs2)` is ignored, `entry.jl:749`). The entry cannot see who calls; it sees the function's type (`_from_trait_world`, `entry.jl:680`), so Base's `abs2` passed from plain code is `Compiled` too.
+- **The same for every `@dynamic` trait:** its default applies to values whose type is not of the trait world.
 
 **C6. Declarations.** `@dynamic` in a trait's body sets the trait's default (`default_mode(::Type{F})`, a method per trait, folded; lowering §3). Rule 8's warning runs at the trait module's end, where `export` and `public` are known: an annotated position of a function that is neither exported nor public in its owner module (`Base.ispublic`) warns once, naming the explicit conversion as the fix. Bounded functions exist only in trait modules, so a definition at the prompt is in a module too.
 
 **C7. Abstract parts of a key** (traits §3.7): a trait object whose key has an abstract part is `Compiled` at that key, as now; the automatic opening of the part at the next bound goes: a field value of abstract type passed to a bound is a plain value of abstract type there, so `Dynamic` (rule 2).
 
-**C8. Which candidates an erased worker splits over** *(rev. 2, new; waits for Q8)*. A caller splits over the candidates registered when it is compiled (compiler §4.2; `trait.jl:318–320`), registered in declaration order, the library's at its load and the user's later (`_note_conformances!`, `core.jl:532`). So:
+**C8. Which candidates an erased worker splits over** *(rev. 2; a performance note, P3; out of W-4's scope)*. A caller splits over the candidates registered when it is compiled (compiler §4.2; `trait.jl:318–320`), registered in declaration order, the library's at its load and the user's later (`_note_conformances!`, `core.jl:532`). So:
 - an erased worker compiled into a package image splits over that package's and its dependencies' implementations; a user's type takes the fallback at every operation;
 - an erased worker compiled in the session splits over the first four declared, which are the library's own when it declares four or more.
 - The fallback's price was measured in idiomatic code: 1.0–2.0 ns per item inside the split, 8.4–9.3 ns at five types, 160–180 ns at 64 (E-144). For a solver at a `Dynamic` position the fallback may be the common case, which makes open issue 32 (what follows the split; E-145) part of W-4's value, not Optional.
-- Stated in traits §6.6 (the cost paragraph) and lowering §13, §15. E-147 measures both placements of the worker (Q8).
+- Stated in traits §6.6 (the cost paragraph) and lowering §13, §15. W-4 gives an erased worker no special placement: it is compiled wherever the worker would be compiled anyway (Q8).
 
 ## 3. Phase 1: the references
 
@@ -103,29 +128,30 @@ Written to the intended design (`reference/README.md`: "A Planned or Open item i
 |---|---|
 | §1 Syntax summary | `Compiled{X}`, `Dynamic{X}` on arguments and item parameters; `compiled_for`, `with_dynamic`; `@dynamic`; `Callable{A, S}` without a mode |
 | §3.1 Operations | an operation's argument declared `Dynamic{Y}` keeps the type's meaning: a trait object passed there is converted to a `Dynamic{Y}` (Q9) |
+| §3.8 (new) | also: a `@dynamic` default applies to values whose type is not of the trait world (Q1) |
 | new §3.8 "A trait's default: `@dynamic`" | the declaration; `Callable` as the instance; a new subsection rather than a renumbering, so links hold |
-| §3.7 Concreteness | the second bullet rewritten (C7); `@concrete_only` traits allowed at `Dynamic` positions (the user's answer to Q4); what concrete mode reports for them (§13) |
+| §3.7 Concreteness | the second bullet rewritten (C7); `@concrete_only` traits allowed at `Dynamic` positions (Q4); the rest of concreteness unchanged in W-4, to revisit once things stabilize |
 | §4 Keys | rewritten around the two attributes: `Compiled{X}` is compiled per key, `Dynamic{X}` once; the erased key's lowering in lowering §5. The refinement "only operations the function reaches count" stays out of W-4 |
 | §5.9 `dynamic by` | removed (the user's answer to Q2): a retired section with a pointer to `Dynamic` positions; its status line says so; the deviation row for TraitWorld still accepting the form until phase 3 |
-| §6.1 Bounds | annotations on arguments and item parameters; in a bounded function, `Dynamic{X}` in an argument annotation is a bound with a mode (it accepts a plain conforming value too); a `Dynamic` position whose trait has parameters its results use must fix them (decision row 81; Q10) |
+| §6.1 Bounds | annotations on arguments and item parameters; in a bounded function, `Dynamic{X}` in an argument annotation is a bound with a mode (it accepts a plain conforming value too); an annotated `Dynamic` position whose trait has parameters its results use must fix them (decision row 81; Q10); at a bare bound left open, an implicit `Dynamic` carries the parameter's value (Q10) |
 | §6.2 What a bounded function receives | a trait object, `Compiled` or `Dynamic`; what each costs |
-| **new §6.6 "`Compiled` and `Dynamic`: how values enter"** | the rule (§0) as the reference's text: first seen through a trait, concretely or abstractly typed, the overrides in order, values carry, library to library; the REPL stated precisely: "code that Julia does not compile (a top-level statement without a loop) knows no type: its calls are `Dynamic`; `compiled_for(x)` or a function gives `Compiled`" (Q6); the three spellings of items; the guidance for libraries; the cost paragraph with C8 |
+| **new §6.6 "`Compiled` and `Dynamic`: how values enter"** | the rule (§0) as the reference's text: first seen through a trait, concretely or abstractly typed, the overrides in order, values carry, library to library; the REPL stated precisely: "code that Julia does not compile (a top-level statement without a loop) knows no type: its calls are `Dynamic`; `compiled_for(x)` or a function gives `Compiled`" (Q6); the three spellings of items; the guidance for libraries; the cost paragraph: what each attribute costs in kind (a split or the fallback per operation; one compile per key), no numbers; C8; a pointer to open issue 35 |
 | §6.3 What trait code may do | `compiled_for`, `with_dynamic` inside trait code; the table's `Dynamic` row |
 | §6.5 Dispatch | inside trait modules a `Dynamic{X}` argument from plain code reaches the bounded method; outside trait modules `Dynamic{X}` stays a concrete Julia type with Julia's dispatch (TraitMakie's `convert` method, `TraitMakie.jl:73`) |
 | §7 Results | `Like` and `withfields` at a `Dynamic` position: the result made at run time (R5) |
 | §8 Keywords, defaults, varargs | bounded keywords and varargs take the attribute by the same rule |
-| §9 `Callable` | rewritten (C5): `Callable{A, S}`, its `@dynamic` default, `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` as the stored type; functions of the trait world (Q1); every example changes |
+| §9 `Callable` | rewritten (C5): `Callable{A, S}`, its `@dynamic` default, `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` as the stored type; functions of the trait world `Compiled` (Q1); every example changes |
 | §10 `Dynamic{X}` | "Opened at a bound" removed: a `Dynamic` stays `Dynamic`; `compiled_for` opens it. "The trait's name as a type": in a bound's parameters it means items seen through the trait; in fields and containers it still means its `Dynamic`. "Limit" rewritten |
 | §10.2 | retitled ("Collections bounded by their items' trait"), the three spellings, `Vector{Circle}` compiled per item type; T-16's line narrowed: the item case no longer needs `where` variables |
 | §10.3 A user's container | `CompiledItems` beside `DynamicItems`; which containers cross in which mode; `Vector{Dynamic{X}}` crosses |
 | §10.4 Algorithms | `retain!`'s `f::Callable{Tuple{Dynamic{Cell}}, Bool}` in the new spelling |
-| §11 Checks | rule 8's warning; the refusal of a `Dynamic` position with open result parameters (Q10) |
-| §13 Concrete mode | the user's definition (Q3): "concrete mode reports if a parameter of a trait that is marked `@concrete_only` is ever an abstract type at compile time of a trait-bound function"; whether an implicit `Dynamic` of such a trait is reported (Q3b) |
+| §11 Checks | rule 8's warning; the refusal of an annotated `Dynamic` position with open result parameters (Q10) |
+| §13 Concrete mode | unchanged in W-4 (Q3: "no need to change warnings yet"); the user's definition is recorded in the decision log for when concreteness is revisited |
 | §14 Printing | `Callable{…} at DynamicCall` (`traits.md:971`; `_show_cobj_type`, `core.jl:915`) replaced; how an erased trait object prints (`Dynamic{X} at <type>`) |
-| §15 Compiling ahead | workers ahead per key; the erased worker ahead (Q8); entries ahead kept for `compiled_for` until step 3.8 |
+| §15 Compiling ahead | workers ahead per key and for the erased key, wherever compiled anyway (Q8); entries ahead per declared type no longer generated (C2, P2) |
 | §16 Membership | `conforms` on an erased trait object |
 | §18 Status index | rows for every new item |
-| §19 Deviations | new T- rows for what TraitWorld does otherwise until phase 3 (one per behaviour: a `Dynamic` opened at a bound; untyped callers compiled per key; `Iterable{Shape}` meaning `Iterable{Dynamic{Shape}}`; `Callable`'s mode parameter; `DynamicFn`; no `@dynamic`; no rule 8 warning; untyped field reads on a `Dynamic`; `dynamic by` accepted; concrete mode's old reports). T-16 narrowed |
+| §19 Deviations | new T- rows for what TraitWorld does otherwise until phase 3 (one per behaviour: a `Dynamic` opened at a bound; untyped callers compiled per key; `Iterable{Shape}` meaning `Iterable{Dynamic{Shape}}`; `Callable`'s mode parameter; `DynamicFn`; no `@dynamic`; no rule 8 warning; untyped field reads on a `Dynamic`; `dynamic by` accepted). T-16 narrowed |
 
 ### 3.2 `reference/lowering.md`
 
@@ -140,21 +166,21 @@ Written to the intended design (`reference/README.md`: "A Planned or Open item i
 | §8.1 The rewrite | annotations parsed (`Compiled{X}`, `Dynamic{X}`, on arguments, keywords and item parameters); `@nospecialize` on every trait position |
 | §8.2 The entry | the decision of C2, step by step |
 | §8.4 Keeping | `with_dynamic` keeps |
-| §9 Callers | §9.1 unchanged; §9.2 rewritten: untyped callers reach the erased worker; the table serves `compiled_for`; §9.3 entries ahead for `compiled_for`; §9.4 replaced (no per-type entries) |
+| §9 Callers | §9.1 unchanged; §9.2 rewritten: untyped callers reach the erased worker; the table is no longer on the entry's path (kept in the code, its use to revisit, P1); §9.3: entries ahead per declared type not generated (P2); §9.4 replaced (no per-type entries) |
 | §10 Keywords | the decision for bounded keywords |
 | §11 Results like the input | R5 |
 | §12 `Callable` | C5; `Callable` keeps its own lowering |
 | §13 `Dynamic{X}` | no opening at a bound; the seams (C1, one rule with its list); field reads through the split; the candidates an erased worker splits over (C8) |
 | §13.1 Crossing | generalized to item positions with a mode (C4) |
 | §14 Checks | definition checking and the keep analysis at the erased key |
-| §15 Closed builds | the erased worker's fallback and the entry's conformance split (`_ConformsTo`, `core.jl:514`) list every declared implementation as targets; `close_world!` fills the crossing flags (L-27 stays until done); the erased worker compiled ahead (C8) |
-| §16 Sessions | unchanged while the table stays; its stamps (`_SESSION`, `untyped.jl:40`) go if step 3.8 retires it |
+| §15 Closed builds | the erased worker's fallback and the entry's conformance split (`_ConformsTo`, `core.jl:514`) list every declared implementation as targets; `close_world!` fills the crossing flags (L-27 stays until done) |
+| §16 Sessions | unchanged (the table's stamps stay with the table) |
 | §17 Encodings | the annotation types, `CompiledFor`, `WithDynamic`, the item tag `Through{Y}` |
 | §18 Deviations | new L- rows as for traits §19 |
 
 ### 3.3 `reference/compiler.md` and `reference/facts.md`
 
-- compiler §4.1 `known_type`: TraitWorld's use is the choice between `Compiled` and `Dynamic` at the entry; its Rules bullet that names the table (`compiler.md:547`) rewritten. §4.2 `split_call`: also field reads on erased views; the candidates fixed when the caller is compiled (C8). §3.3: its status reconsidered after E-147 (C8).
+- compiler §4.1 `known_type`: TraitWorld's use is the choice between `Compiled` and `Dynamic` at the entry; its Rules bullet that names the table (`compiler.md:547`) rewritten. §4.2 `split_call`: also field reads on erased views; the candidates fixed when the caller is compiled (C8). §3.3: unchanged (E-145, P3).
 - facts: the guarantees for code at a `Dynamic` position (no edge to the set of implementations; the split's branches are facts), where `DynamicCall` and the split are stated today; every sentence naming `DynamicCall`/`CompiledCall`.
 
 ### 3.4 Order inside phase 1
@@ -171,12 +197,12 @@ traits → lowering → compiler → facts, each one commit with the decision-lo
 | `design.md` (the rationale) | where it argues `Callable`'s modes and `Dynamic` (6 places): one language, the Rust/Swift precedent (the static type decides); no rules of its own |
 | `design/other-languages.md` | `dyn`/`any` against `Dynamic`, generics against `Compiled`; the collections paragraph gets the three spellings |
 | `design/alternatives.md` | new entries: `Dynamic` opened at every bound; the default by run-time type (proposal §0 first form); `Callable`'s mode parameter; the disagreement warning; synonyms; the second worker (C1's alternative); `dynamic by` |
-| `open-issues.md` | item 33: the references written (closed at phase 7); item 34 (new, §1): the questions of §11; items touched: 16 (opening at the object's concrete type: `compiled_for` plus an assertion), 26 (the crossing's finer rules: `Vector{Circle}` now `Compiled`), 29 (narrowed: entries ahead serve `compiled_for` only), 32 (raised by C8), §2.15 (the solvers' model mode: absorbed), the "design and code disagree" item 3 on `dynamic by` (closed: removed) |
+| `open-issues.md` | item 33: the references written (closed at phase 7); item 34 closed (the answers); item 35 (§4): the performance issues P1–P8; item 36 (§2): a trait-typed assertion in a body; items touched: 16 (opening at the object's concrete type: `compiled_for` plus an assertion), 26 (the crossing's finer rules: `Vector{Circle}` now `Compiled`), 29 (left open: entries ahead are not generated in W-4, P2), 32 (cited by C8, P3), §2.15 (the solvers' model mode: absorbed), the "design and code disagree" item 3 on `dynamic by` (closed: removed) |
 | `design/julia-changes.md` | `known_type`'s use |
 | `state.md` | §6 (the order of work): W-4 in progress |
 | `record/decisions.md` | rows for C1–C8 and the user's answers, each in the commit of the reference that states it |
-| `record/experiments.md` | rows E-147 to E-150 before any run (§7) |
-| `record/todo.md` | W-4's status and steps; W-2 in the new spelling; E-145 (W-6) raised if Q8 asks for it |
+| `record/experiments.md` | row E-147 before its run (§7) |
+| `record/todo.md` | W-4's status and steps; W-2 in the new spelling; W-17 (the measurements after W-4, the idiomatic rewrites and E-145) |
 | `record/INDEX.md` | this plan and its review listed |
 | `record/design-history.md` | one entry: the two modes of `Callable` and the opening at every bound, replaced by the rule |
 | `intro/traits-by-example.md` §20 | "Planned syntax": `Compiled{X}`, `Dynamic{X}` positions, `compiled_for`, `with_dynamic`, `@dynamic`, checked as planned by `reference.jl` |
@@ -200,15 +226,15 @@ Branch `dynamic-compiled` from main (5b172e1), worktree `TraitWorld-dyncomp/`. B
 | 3.0 | **The spike, on main, before any erased code** (R1): one test per entry shape (positional, keyword, vararg, `Callable`, several trait positions) that a typed caller, in plain code and in code compiled by facts, folds `known_type` to `true` and compiles the key's worker; and that the plain interpreter reaches `abstract_split_call` for the entry's conformance split. If a shape fails, the entry for it is changed before step 3.3 | `test/` (a new `test/known_type.jl`) |
 | 3.1 | **The erased key and witness** (C1): `View` with an erased key and witness; `_dispatch` on it through `Compiler.split_call`; typed field reads through the split; the erased trait object of a `Dynamic` and of a value of unknown type (`@dynamic_of`'s check); the seams: `opcall`, `CObj`'s call, `_cdecl`, `_like_out` convert an erased trait object to `Dynamic{X}`; printing; equality as `Dynamic`'s | `core.jl`, `trait.jl`, `compiler.jl`, `entry.jl` |
 | 3.2 | **The worker accepts the erased trait object:** the worker's signature (`tobj_bound`) admits the erased views' trait set; the parameter tags attached after the entry's check; definition checking (one body); the keep analysis at the erased key; `Like` results at the erased key (R5) | `trait_module.jl`, `defcheck.jl`, `entry.jl` |
-| 3.3 | **The entry's decision** (C2): `@nospecialize` on every trait position; `known_type`; a `Dynamic` erased, not opened; the table routed to serve `compiled_for` only. **The tests that call from the top level** reviewed in the same step (R2): each test whose check depends on a compiled specialization, an allocation count, `@inferred` or a timing either calls inside a function or states that it tests the `Dynamic` path | `entry.jl`, `trait_module.jl`, `untyped.jl`, `test/` |
-| 3.4 | **Annotations and the trait default** (C6): `_classify` reads `Compiled{X}`, `Dynamic{X}` on arguments and keywords; `@dynamic` in `@trait`; rule 8's warning at the module's end; the refusal of a `Dynamic` position with open result parameters (Q10) | `trait_module.jl`, `trait.jl` |
-| 3.5 | **The wrappers** (C3): `compiled_for`, `with_dynamic`, outside and inside trait code; the keep analysis counts `with_dynamic` | `core.jl`, `entry.jl`, `defcheck.jl`, `untyped.jl` |
+| 3.3 | **The entry's decision** (C2): `@nospecialize` on every trait position; `known_type`; a `Dynamic` erased, not opened; the untyped branch to the erased worker; the entries ahead switched off. **The tests that call from the top level** reviewed in the same step (R2): each test whose check depends on a compiled specialization, an allocation count, `@inferred` or a timing either calls inside a function or states that it tests the `Dynamic` path | `entry.jl`, `trait_module.jl`, `ahead.jl` (the switch), `test/` |
+| 3.4 | **Annotations and the trait default** (C6): `_classify` reads `Compiled{X}`, `Dynamic{X}` on arguments and keywords; `@dynamic` in `@trait`, applied to values whose type is not of the trait world (Q1); rule 8's warning at the module's end; the refusal of an annotated `Dynamic` position with open result parameters, and the erased key carrying the parameter's value at a bare bound (Q10) | `trait_module.jl`, `trait.jl` |
+| 3.5 | **The wrappers** (C3): `compiled_for`, `with_dynamic`, outside and inside trait code; the keep analysis counts `with_dynamic` | `core.jl`, `entry.jl`, `defcheck.jl` |
 | 3.6 | **`Callable`** (C5): `Callable{A, S}`, `@dynamic`, `Dynamic{Callable{A, S}}`; `CallAs`, `CallMode`, `DynamicCall`, `CompiledCall`, `DynamicFn`, `dynamic_fn`, `compiled_call`, `dynamic_call` removed; the exports; functions of the trait world by Q1 | `core.jl`, `entry.jl`, `TraitWorld.jl`, `implement.jl` |
 | 3.7 | **Items** (C4): item positions with a mode in `_classify`; `CompiledItems` beside `DynamicItems`; the crossing per (position, container type, mode); `Vector{Dynamic{X}}` crossing; the item tag `Through{Y}`; the archetype's item type at definition checking | `BaseTraits.jl`, `entry.jl`, `trait_module.jl`, `defcheck.jl` |
-| 3.8 | *(after phase 5)* **The untyped table and the entries ahead:** retired if E-148 and E-150 meet their criterion; otherwise kept and stated as the lowering of `compiled_for` | `untyped.jl`, `ahead.jl`, `trait_module.jl`, `hooks.jl` |
+| 3.8 | *(dropped in revision 3: the table is not touched in W-4, §1a)* | — |
 | 3.9 | **Abstract key parts** (C7): the automatic opening removed; **`dynamic by` removed** (Q2): the form refused with a message naming `Dynamic` positions | `entry.jl`, `implement.jl` (`Dyn`, `core.jl:737`) |
-| 3.10 | **Concrete mode** (Q3): reports a `@concrete_only` trait's parameter that is abstract at a bounded function's compile time, and nothing else | `concrete.jl` |
-| 3.11 | **Closed builds and `verify_main`:** the erased worker's fallback and the entry's conformance split complete over the declared implementations; the machinery list updated; a trimmed build of a small example | `verify.jl`, `certificate.jl` |
+| 3.10 | *(dropped in revision 3: concrete mode unchanged in W-4, Q3)* | — |
+| 3.11 | **Closed builds and `verify_main`:** the erased worker's fallback and the entry's conformance split complete over the declared implementations; the machinery list updated; `verify_main` on a small example (a trimmed build waits for W-17: it needs the machine alone) | `verify.jl`, `certificate.jl` |
 | 3.12 | **The tests per rule:** §0 rules 1–9, each with a positive and a negative case; the seams of C1; C8's split order after an image load | `test/` |
 
 Each step runs the TraitWorld suite in the product setting; steps 3.3, 3.7 and 3.12 also under `all` and the acceptance suite (`experiments/facts/acceptance_compiler.jl`, 23 checks), with new G2 cases: a new implementation loaded after code at a `Dynamic` position was compiled discards nothing.
@@ -227,29 +253,26 @@ Each repository on a branch `dynamic-compiled`. `run_all.sh` takes only a log ta
 - **`forks/`** (1 file, 2 lines): the new spelling when the forks resume (W-14); a line in its README now.
 - **The full check:** `run_all.sh dyncomp`.
 
-## 7. Phase 5: the measurements
+## 7. Phase 5: one short check
 
-Registry rows first (`record/experiments.md`), each with its question and the result that would change the design. Product setting and `all`; three runs; rows timed whole, the garbage collector's time reported (`rows.jl`'s `@first`); the build (TraitWorld commit, julia-1.13 commit); a quiet machine. **Every row says how it calls:** from a compiled closure (`rows.jl`'s `@first`, `scripts/rows.jl:24–34`: a `Compiled` measurement) or from an interpreted top-level statement (`Dynamic`, rule 2).
+The measurements wait (§1a): proper ones need idiomatic code in the new semantics and the performance work after E-145 (work item W-17). W-4 runs one short check, its registry row first:
 
-| ID | Question | Would change the design if |
+| ID | Question | Would change the plan if |
 |---|---|---|
-| E-147 | TDE: a new model type (`ODEModel{Float64}`) at a `Dynamic` position against `Compiled`. Spellings: declared by TDE (`solve_ode(m::Dynamic{…})`), by the caller (`with_dynamic(m)`), from the prompt. The erased worker compiled into TDE's image against compiled at the session's first call (C8), the user's type inside and beyond the split. First solve in a fresh session; run time per step. Baselines: today's new-type row (335–371 ms, E-146) and today's `FunctionModel` with a `DynamicFn` (25–26 ms). Separate rows: the right-hand side through `Dynamic{Callable}` against today's `DynamicFn` (C5), and the model's operations through the split | the per-step cost through the fallback is large enough that a solver cannot choose `Dynamic` (then E-145 comes before W-4 closes) |
-| E-148 | Untyped callers: the erased worker against the table (TraitWorld 5b172e1). A worker with one operation and a worker that loops over n operations (per call and per operation); one and several trait positions; from code typed `Any` and from the prompt; `compiled_for(x)` from an untyped caller through the table and through the entry's two dispatches; the erased worker's compile latency and code size on realistic workers (TraitMakie's `draw!`, TraitTables' `summarize`) | **criterion for step 3.8:** the table retires only if `compiled_for` through the entry's two dispatches is within noise of the table's path for a worker that loops; otherwise it stays as the lowering of `compiled_for` |
-| E-149 | The demonstrators before and after (TDE, TraitMakie, TraitTables, TraitReport rows; `experiments/hetero-idiomatic` r-rows): every row in the product setting, three load orders, from compiled closures; one row per demonstrator from the prompt, labelled | a row gets slower by more than its noise, and no `compiled_for` site recovers it |
-| E-150 | Items: `Iterable{Mark}` over `Vector{Circle}` (compiled per item type) against `Vector{Any}` (`Dynamic`); `Iterable{Compiled{Mark}}` and `draw(compiled_for(m))` in the loop, with work per item through a call and through direct operations; `with_dynamic(x)` on an isbits value from a typed caller (a box per call) | the guidance's claim ("`Compiled` items pay off when the work per item is a call") fails; then the reference's guidance changes |
+| E-147 | Does every demonstrator row still run, and is any row grossly slower after W-4? Each row once, product setting, one load order, from compiled closures (`rows.jl`'s `@first`, a `Compiled` measurement), against the same rows at main before W-4; a few minutes in all | a row fails (a bug) or is slower by an order of magnitude: then it goes to open issue 35 with the site, and W-4 checks that the slowdown is the semantics' (P1–P8), not a bug |
 
-Evidence rows (`design/evidence.md`) with each finished row, in the same commit. Then step 3.8.
+Revision 2's E-147 to E-150 (spellings, placements of the erased worker, the table against the erased path, the item spellings) are kept as W-17's starting design.
 
 ## 8. Phase 6: documents that state the current state
 
-After phases 3–5:
+After phases 3–5 (`design/evidence.md` and `design/performance.md` get no new numbers from W-4: the cost model in kind, and the performance issues by link to open issue 35):
 - `intro/traits-for-julia.md` ("What you write", the worked example, "What it costs"), `intro/traits-by-example.md` (§4 bounded functions: the attribute; §12 `Dynamic` rewritten; §14 `Callable` rewritten; §9 keywords; §17 concrete mode; §20 planned syntax trimmed to what is still planned), `intro/porting.md` (the `Callable` and `Dynamic` lessons), `intro/results.md` (numbers by link to the evidence): every example run in `experiments/docs-examples/`.
 - `README.md` (the home page), `state.md` (what is built), `design/evidence.md` and `design/performance.md` (numbers and the cost model), the demonstrators' READMEs (dated tables of their own; current numbers by link), TraitWorld's README.
 
 ## 9. Phase 7: close
 
 - Merge `dynamic-compiled` into each repository's main, after `run_all.sh` passes on the merged mains.
-- The references' statuses flipped to Implemented; the T- and L- rows of phase 1 retired with their commits; L-11, L-12, L-13, L-24 retired or kept by step 3.8's outcome; T-16 narrowed. One commit per reference with `state.md` (CLAUDE.md rule 1).
+- The references' statuses flipped to Implemented; the T- and L- rows of phase 1 retired with their commits; L-11, L-12, L-13, L-24 restated (the table and the entries ahead are off the entry's path, kept in the code, P1, P2); T-16 narrowed. One commit per reference with `state.md` (CLAUDE.md rule 1).
 - The glossary's marked entries (`DynamicCall`, `CompiledCall`, `DynamicFn`) become pointers to their replacements.
 - Open issues 33 and 34 closed; W-4 done; the decision log's rows marked built.
 - The grep of §4.3 over every repository, now without expected hits outside history, deviation rows and alternatives; the session note; the resume memory.
@@ -259,31 +282,35 @@ After phases 3–5:
 - **R1. `known_type` in typed callers.** The keyword sorter gets the `inline`, facts and positional `nospecialize` metas (`ast.scm:529–536`, `julia-syntax.scm:582–593`, verified by the review), so a typed keyword caller folds where the inliner honours `@inline`; the risk is where it declines (cost or recursion limits, `kws...` splats). Step 3.0 checks every shape before any erased code exists.
 - **R2. Tests that call from the top level** run `Dynamic`: reviewed in step 3.3, where the suite would otherwise break (14 files, 443 tests at 5b172e1).
 - **R3. Performance where `Dynamic` replaces the opening:** TraitTables' and TraitMakie's loops; TDE's callbacks. The counter of phase 4 finds the sites; E-149 is the check.
-- **R4. The erased worker's cost per operation**, not per call: a split, or the fallback, at every operation. E-148's looping worker and C8.
+- **R4. The erased worker's cost per operation**, not per call: P1, P3; out of scope (§1a).
 - **R5. `Like` and `withfields` at a `Dynamic` position:** the result's type is the user's, unknown to the erased worker; made at run time (`_like_out` after an inference barrier). Step 3.2.
 - **R6. Closed builds:** the erased worker and the entry's conformance split in a `--trim` build. Step 3.11.
 - **R7. Guarantees:** the facts mode's G2 at `Dynamic` positions (the acceptance suite's new cases).
 - **R8. The meaning of `x::Dynamic{X}` in existing bounded functions changes** (a typed argument becomes a bound in `Dynamic` mode). The demonstrators' uses are found in phase 4.
-- **R9. The split's coverage** (C8): an erased worker in an image never splits over a user's types. E-147; Q8.
+- **R9. The split's coverage** (C8): P3; out of scope.
 - **R10. The prompt** (Q6): every example in `intro/` run at the prompt gets the `Dynamic` path. Results are the same; any timing shown there is labelled.
 
 ## 11. Questions for the user
 
-**Answered** (2026-10-20): "Q2: Yes please. Q3: Concrete mode reports if a parameter of a trait that is marked @concrete_only is ever an abstract type at compile time of a trait bound function. Q4: Yes I think. Any reasons not to allow this? C1-C7 look good."
-- Q2: `dynamic by` (traits §5.9) is removed; `Dynamic` positions replace it, and the solvers' model mode (open issue §2.15) with it.
-- Q3: concrete mode reports a parameter of a `@concrete_only` trait that is abstract when a bounded function is compiled.
-- Q4: `@concrete_only` traits are allowed at `Dynamic` positions. The reason for care, not refusal: an implicit `Dynamic` of such a trait (from an abstract type at the caller) pays a dispatch per operation that nobody chose (Q3b).
-- C1–C7 confirmed.
+All answered (2026-10-20).
 
-**Open:**
-- **Q1. Functions of the trait world under `Callable`'s `@dynamic`** (Base's `abs2`, a trait module's functions and closures). Today they are passed as themselves, the library compiled per such function, even when the caller asks for `dynamic_call` (`entry.jl:749`). Options: (a) they are already trait-world values, concretely typed, so `Compiled` by rules 7 and 9, while `with_dynamic(f)` still wins (recommended: `@dynamic` exists for the unbounded set of user closures; the trait world's own functions are a bounded set, and erasing them runs trait code as plain code through a `cfunction`); (b) no special case: the library writes `compiled_for`; (c) only the library's own closures are `Compiled`, Base's functions from plain code are erased.
-- **Q3b.** Should concrete mode also report an implicit `Dynamic` of a `@concrete_only` trait (a value whose type was abstract at the caller)?
-- **Q6. The prompt, now rather than later** (review finding 3). `known_type` is `false` in every interpreted top-level call, so `f(Circle(1.0))` typed at the prompt is `Dynamic` too, not only a call on an ordinary global; a top-level statement with a loop is compiled, and there a `const` global is `Compiled`. Options: (a) accept for W-4 and state it precisely (recommended; the user's "revisit later as a special case"); (b) special-case interpreted callers, which needs a second compiler primitive (`known_type` cannot tell the interpreter from compiled code at `Any`; entries per declared type would also catch compiled callers at `Any`).
-- **Q8. Erased workers compiled ahead?** (C8) (a) compile them into the library's image: a new type compiles nothing, and every user type takes the fallback until open issue 32 is solved (E-145 raised into W-4's order); (b) compile them at the session's first call, after the user's declarations: user types inside the split, at one compile per session. Recommendation: (a) with E-145 raised, decided after E-147 measures both.
-- **Q9. An operation's argument declared `Dynamic{Y}`** (TDE's `condition(…, integ::Dynamic{IntegratorView})`) keeps the type's meaning: a trait object passed there is converted to a `Dynamic{Y}` (C1's seams). Recommended: yes; the alternative is to read it as a bound in `Dynamic` mode, which an operation's declaration does not have.
-- **Q10. A `Dynamic` position whose trait has a parameter its results use, left open** (`s::Dynamic{StateVector}`; decision row 81: a `Dynamic` position fixes every such parameter). Options: (a) refused at the definition, naming the fix (fix the parameter, or a `where` variable when T-16 lands) (recommended for annotations); (b) for an implicit `Dynamic` at a bare bound with the parameter open, the erased key carries the parameter's value, so the erased worker is compiled once per value (recommended: the parameter is known from the value, and results stay typed).
+**First round:** "Q2: Yes please. Q3: Concrete mode reports if a parameter of a trait that is marked @concrete_only is ever an abstract type at compile time of a trait bound function. Q4: Yes I think. Any reasons not to allow this? C1-C7 look good."
 
-These go to `../open-issues.md` §1 as item 34.
+**Second round:** "go with your recommendations. But don't touch the table stuff yet. Right now we want to implement new semantics, not do performance work. […] Q1: I think the function abs2 and the closure are concretely typed in squares and scaled and therefore are compiled. They don't enter through a Callable bound argument but directly. The subtlty arises because functions implement callable without having to declare it I guess... on the other hand, say a non-trait module defines a value v of a type that implements T and we introduce v_as_T = module.v::T in a function body. Then I guess this would be a compiled way to enter the trait world... Q4 make a choice. We will need to revisit the design of concrete only once things stabilize anyways. For Q3 no need to change warnings yet. Our work right now is focused on Dynamic/Compiled, we will need to nail down the semantics of concrete later."
+
+| Q | Resolution |
+|---|---|
+| Q1 | Functions of the trait world (Base's, TraitWorld's, a trait module's, all the way down their fields) are trait-world values, concretely typed, so `Compiled`; a `@dynamic` default applies to values whose type is not of the trait world; `with_dynamic(f)` wins. The entry sees the function's type, not its caller, so Base's `abs2` passed from plain code is `Compiled` too (C5) |
+| Q1, the assertion | `v_as_T = M.v::T` in a body is not in the design today. Under the rule it would be a place where a value is first seen through `T`: `Compiled` where the code knows `M.v`'s concrete type (a `const` or typed global), `Dynamic` for an ordinary global. Recorded as open issue 36, with W-3 (what `::` means for a trait); not built in W-4 |
+| Q2 | `dynamic by` removed (step 3.9) |
+| Q3 | concrete mode unchanged in W-4; the user's definition recorded for when concreteness is revisited |
+| Q3b | moot (no change to warnings) |
+| Q4 | `@concrete_only` traits allowed at `Dynamic` positions (my choice, as asked); concreteness revisited later |
+| Q6 | every interpreted top-level call is `Dynamic`, stated precisely in traits §6.6; the REPL special case later (P5) |
+| Q8 | no special placement of erased workers (P3) |
+| Q9 | an operation's argument declared `Dynamic{Y}` keeps the type's meaning |
+| Q10 | an annotated `Dynamic` position must fix the parameters its results use (refused at the definition otherwise); an implicit `Dynamic` at a bare bound carries the parameter's value (P8) |
+| C1–C7 | confirmed; C2 and C8 as narrowed by §1a |
 
 ## 12. The review's findings and what was done
 
@@ -291,17 +318,17 @@ These go to `../open-issues.md` §1 as item 34.
 
 | Finding | Done |
 |---|---|
-| 1 (high): C2 retires the table before E-148 | C2 keeps the table and the entries ahead as the lowering of `compiled_for`; step 3.8 after phase 5 with E-148's criterion; E-148 measures looping workers; issue 29 narrowed |
-| 2 (high): an erased worker in an image never splits over user types | C8; E-147's placements; Q8; issue 32 raised |
+| 1 (high): C2 retires the table before E-148 | revision 2: the table kept for `compiled_for`; revision 3 (the user): the table not touched at all; P1, P2; the measurement in W-17 |
+| 2 (high): an erased worker in an image never splits over user types | C8, stated in the references; P3; out of scope (E-145) |
 | 3 (high): every interpreted top-level call is `Dynamic` | §0 and traits §6.6 state it precisely; Q6 now; every measurement row says how it calls; E-149 rows from the prompt |
 | 4 (medium-high): the seams between the two representations | C1's seams rule and tags; step 3.1, 3.2; lowering §13 |
 | 5 (medium): `Dynamic{Callable}` adds an indirection; signature fixing | C5 states it; E-147's separate row; `Callable{A, S, M}(f)` removed without counterpart |
 | 6 (medium): the item encoding | C4's item type and `Through{Y}`; `Vector{Dynamic{X}}` crosses; `defcheck.jl` in step 3.7; lowering §17 |
 | 7 (medium): the phase-2 grep against phase 6 | the glossary keeps marked entries until phase 7; the grep lists expected hits; `performance.md` to phase 6 |
 | 8 (medium): missing sections | traits §3.1, §5.9, §14, §16; lowering §3, §4.8, §6, §11, §14, §16; compiler §4.1's Rules |
-| 9 (medium): ordering, R1's spike | step 3.0; test review in step 3.3; step 3.8 after phase 5; `run_all.sh` needs checkouts |
+| 9 (medium): ordering, R1's spike | step 3.0; test review in step 3.3; step 3.8 dropped (revision 3); `run_all.sh` needs checkouts |
 | 10 (medium): hidden decisions | Q6, Q9, Q10; the table's retirement now measured, not assumed |
-| 11 (low-medium): measurements | E-147 spellings, placements, baselines, separate rows; E-148 looping workers, compile latency and code size; E-150 `compiled_for` in the loop, `with_dynamic` on isbits |
+| 11 (low-medium): measurements | revision 2's E-147 to E-150 designed as asked; revision 3 moves them to W-17 (§1a); W-4 runs one short check |
 | 12 (low): stale line numbers | Appendix B at 5b172e1 |
 | 13 (low): closed builds | the per-type entry ahead goes (C2); `_ConformsTo` in step 3.11; the plain interpreter's split in step 3.0 |
 | 14 (low): faithfulness table | no change needed: rule 6's lowering (`Vector{Circle}` crossing into `CompiledItems` rather than meeting the bound as it is) gives the same result |
