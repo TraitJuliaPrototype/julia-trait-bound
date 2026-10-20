@@ -19,6 +19,12 @@ Julia is fast once code is compiled, but compiled code is fragile: loading a pac
 
 ## Where to start
 
+| You are | Read |
+|---|---|
+| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then the tutorial [`writeup/intro/traits-by-example.md`](writeup/intro/traits-by-example.md), the porting guide [`writeup/intro/porting.md`](writeup/intro/porting.md) and [`writeup/intro/results.md`](writeup/intro/results.md) |
+| a core developer | [`writeup/state.md`](writeup/state.md), the state in one page; the four references below; [`writeup/design.md`](writeup/design.md), the rationale; then [evidence](writeup/design/evidence.md), [performance](writeup/design/performance.md), the [changes to Julia](writeup/design/julia-changes.md), the [comparison with other languages](writeup/design/other-languages.md), the [alternatives considered](writeup/design/alternatives.md) and the [open issues](writeup/open-issues.md) |
+| an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/state.md`, the references' Deviations tables, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
+
 **The design is defined by four references**, each stating the intended shape first and, separately, where the implementation deviates from it (a Deviations table with stable IDs):
 
 | Reference | Defines |
@@ -29,12 +35,6 @@ Julia is fast once code is compiled, but compiled code is fragile: loading a pac
 | [Lowering](writeup/reference/lowering.md) | how the trait language is built on them |
 
 Where any other document disagrees with them, they win ([conventions](writeup/reference/README.md)).
-
-| You are | Read |
-|---|---|
-| a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then the tutorial [`writeup/intro/traits-by-example.md`](writeup/intro/traits-by-example.md), the [trait language reference](writeup/reference/traits.md) and [`writeup/intro/results.md`](writeup/intro/results.md) |
-| a core developer | [`writeup/state.md`](writeup/state.md), the state in one page; the four references above; [`writeup/design.md`](writeup/design.md), the rationale; then [evidence](writeup/design/evidence.md), [performance](writeup/design/performance.md), the [changes to Julia](writeup/design/julia-changes.md), the [comparison with other languages](writeup/design/other-languages.md), the [alternatives considered](writeup/design/alternatives.md) and the [open issues](writeup/open-issues.md) |
-| an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/state.md`, the references' Deviations tables, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace
 

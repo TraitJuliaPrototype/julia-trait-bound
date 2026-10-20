@@ -6,7 +6,7 @@ The design, written for three audiences: programmers, core developers, and agent
 
 - [`intro/traits-for-julia.md`](intro/traits-for-julia.md): what traits are, what you write, what you get, one worked example, the costs.
 - [`intro/traits-by-example.md`](intro/traits-by-example.md): a tutorial that uses every part of the trait language.
-- [`reference/traits.md`](reference/traits.md): the trait language reference, for programmers and core developers alike: the syntax, what it means, the rules, and what is implemented, planned or open.
+- [`intro/porting.md`](intro/porting.md): a working guideline for porting a package to traits.
 - [`intro/results.md`](intro/results.md): what the demonstrators show, against fair baselines.
 - [`glossary.md`](glossary.md): the project's terms in plain words, each with its origin in other languages or in Julia, and where it is defined precisely.
 
@@ -28,7 +28,6 @@ Explaining, measuring, comparing (not normative):
 - [`design/other-languages.md`](design/other-languages.md): the choices against C++, Rust, Swift and Mojo; [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md) is the research behind it.
 - [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, with the reasons.
 - [`open-issues.md`](open-issues.md): what is open; questions waiting for the user first (§1).
-- [`intro/porting.md`](intro/porting.md): a working guideline for porters.
 - [`glossary.md`](glossary.md): every term, with a link to its precise definition.
 
 ## For agents: [`record/INDEX.md`](record/INDEX.md)
