@@ -45,6 +45,7 @@ A demonstrator should exercise what none of the four does. The gaps:
 - **Composition:** two trait libraries by different authors, used together by a third package that implements both traits for its types (open: "composition beyond libraries of a few hundred lines untested").
 - **Many implementations:** a trait with ten or more implementations used through `Dynamic` (forces the Optional path beyond four).
 - **Generic implementations and families at once** (traits §5.7, §5.8), including the overlap rules (Planned).
+- **Heterogeneous collections through collection traits** ([open issue 31](../open-issues.md), added 2026-10-20): an `Iterable`-style trait with a declared item bound and a view over a user's vector, in TraitWorld itself rather than in a demonstrator. TraitMakie's lists of marks and TraitTables' columns would be its first users, and the review's heterogeneous loops (`../reviews/2026-10-20-heterogeneous-collections.md` §5) its first measurement.
 
 A small statistics library fits all three: distributions as a trait with many implementations (`Normal`, `Exponential`, … as families over their parameter types), a generic implementation for "anything with a CDF", and a second, independent library (for example a plotting trait from TraitMakie) composed in a third package. It should start small, with the conformance suite's style of checks from the first day.
 
