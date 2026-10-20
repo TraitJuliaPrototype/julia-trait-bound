@@ -91,7 +91,7 @@ A JSON parser in the suite is 3.1× slower in the facts mode, because a closure 
 
 ## TraitDifferentialEquations: ODE solvers
 
-**What it is.** The Tsit5 and Rodas5 solvers, discrete callbacks, and gradients through the solver with ForwardDiff. A model is a plain function or a type that implements the `ODEModel` trait.
+**What it is.** The Tsit5 and Rodas5 solvers, discrete callbacks, and gradients through the solver with ForwardDiff. A problem is TDE's `ODEProblem` of a plain function, or a type that implements the `ODEProblemTrait` trait.
 
 **Baselines.**
 - **SciML's OrdinaryDiffEq**, measured on stock Julia 1.12.2.
@@ -103,7 +103,7 @@ A JSON parser in the suite is 3.1× slower in the facts mode, because a closure 
 |---|---|---|---|
 | `using` | 0.48 s | 0.49 s (loads after); 0.63 s (loads before) | |
 | First Tsit5 solve, a plain function as the model | 11 ms | 11 ms (loads after); 29 ms (loads before) | 0.16 s |
-| A new model type at the prompt: `@implement`, then first solve | 61 ms + 45 ms | 67 ms + 48 ms (loads after); 82 ms + 96 ms (loads before) | 0.16 s for the solve |
+| A new problem type at the prompt: `@implement`, then first solve | 61 ms + 45 ms | 67 ms + 48 ms (loads after); 82 ms + 96 ms (loads before) | 0.16 s for the solve |
 | A new callback closure | 13 ms | 24–25 ms | 0.84–0.96 s |
 | First gradient, then a second loss closure | 33 ms, then 18 ms | 36–39 ms, then 18–20 ms | 2.0–2.7 s, then 2.5 s |
 | A `Float32` state, first solve | 0.36 s | 0.37 s (loads before); 0.40 s (loads after) | 2.1 s |
@@ -112,10 +112,10 @@ What this shows:
 - A new callback or a new loss closure costs milliseconds, against about a second in SciML. Callbacks are kept as `Dynamic` values. Gradient tags are labelled by the loss's signature, not by the closure's type.
 - With ForwardDiff's usual tag (the closure's type), the same gradient costs 0.61 s in this solver.
 - A first gradient costs 33 ms, against 2–2.7 s in SciML.
-- A new model type costs 0.11 s in all, less than SciML's 0.16 s for the solve alone.
+- A new problem type costs 0.11 s in all, less than SciML's 0.16 s for the solve alone.
 
 **Run time per solver step** (build of 2026-10-19):
-- Lorenz system (3 equations): model type 160 ns, plain function 190–200 ns, OrdinaryDiffEq 340–355 ns.
+- Lorenz system (3 equations): problem type 160 ns, plain function 190–200 ns, OrdinaryDiffEq 340–355 ns.
 - A diffusion chain (1,000 equations): 7.5–7.9 µs, OrdinaryDiffEq 6.1 µs. OrdinaryDiffEq's inner loops are fused; this solver's are not.
 
 **Types and errors:**
@@ -125,7 +125,7 @@ What this shows:
 
 Caveats:
 - **PlainODE makes the same design choices without traits.** On the previous prototype, PlainODE matched the trait form on a second model function and on gradients in a fresh session, and was faster for a first callback (5 against 17 ms). The trait form was ahead after big loads: a first callback 29 against 144 ms.
-- With big loads, some first calls cost about twice as much: a new callback closure 24–25 ms against 13 ms; a new model type's first solve, with the loads before, 96 ms against 45 ms. Under investigation.
+- With big loads, some first calls cost about twice as much: a new callback closure 24–25 ms against 13 ms; a new problem type's first solve, with the loads before, 96 ms against 45 ms. Under investigation.
 - SciML's numbers are from Julia 1.12.2, not 1.13.2.
 
 ## TraitMakie: a plotting library

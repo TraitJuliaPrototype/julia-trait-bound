@@ -80,38 +80,40 @@ The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git di
 
 Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its user package `examples/LorenzModels`, its control `baselines/PlainODE` + `PlainLorenzModels`. Session 29; correctness only, no timing.
 
-**Two routes for a user's model, and both stay.**
-- *Route A:* the model is a type that implements the trait's operations (`rhs!` for `Lorenz{T}`). The solver compiles for that type, in the user's image. Its mistakes are caught at `@implement`.
-- *Route B:* a plain function enters at a declared signature, `f::Callable{RHSSig{P, Float64}, Nothing}`. The solver compiles once per parameter type, never per function.
-- The same arithmetic in both routes gives the same values, bit for bit. Test with `==`, not `≈`: `test/routea.jl` compares `Lorenz` with `lorenz!`, `Bounce` with two closures, `RaiseSigma` with a closure that writes `p`.
+**A problem is a trait, with the library's own type as its canonical implementation.**
+- `ODEProblemTrait{T, P}` declares what the solver needs: fields `u0`, `tspan`, `p`, operations `rhs!` and `jacobian!` (with a default). `solve(prob, alg)` takes any implementation.
+- TDE's own `ODEProblem(f, u0, tspan, p)` implements it for a plain function. A user's problem type implements `rhs!` itself (`LorenzProblem{T}` in `examples/LorenzModels`); the solver compiles for that type, in the user's image, and its mistakes are caught at `@implement`.
+- The same arithmetic both ways gives the same values, bit for bit. Test with `==`, not `≈`: `test/routea.jl` compares `LorenzProblem` with `lorenz!`, `Bounce` with two closures, `RaiseSigma` with a closure that writes `p`.
 
-**`Callable` with the attribute left to the caller.**
-- Write the bound without an attribute: `f::Callable{A, S}`. `Callable`'s default is `Dynamic`; the user writes `compiled_for(f)` for speed. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
-- One struct serves both: `FunctionModel{P, T, F}` holds `f` as the bound gave it. `Dynamic`, `F` is the same type for every function; `Compiled`, `F` names the function.
-- A `Callable` bound's signature must be a constant. `f::Callable{RHSSig{P, T}, Nothing}` with `P`, `T` a method's static parameters is silently a plain argument. So write one entry per parameter type you serve (TDE: `Vector{Float64}` and `Nothing`).
-- Where no entry serves the signature, fall back to `Dynamic`. The attribute is a choice of speed, so the fallback is correct (`Float32` states, gradients, Rodas5 give the same values with `compiled_for`).
+**A stored function, with the attribute left to the caller.**
+- Keep the function as `stored(Callable{A, S}, f)` gives it, in a field typed by a parameter (`ODEProblem{T, P, R}`): `Dynamic{Callable{A, S}}` by default, the same type for every function, so the solver compiles once per state and parameter type; under `compiled_for(f)` the function itself, so the solver compiles for it. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
+- The signature can depend on the problem's types (`RHSSig{P, T}`): `stored` is called with the types at hand, so every state and parameter type is served in both attributes.
+- To call the function at another signature (the Jacobian's dual numbers), keep it as given too, and make the second stored form where it is needed.
+
+**A front end that takes any problem.**
+- Make it neither specialized nor inferred on the problem's type (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it that is compiled per problem type. Otherwise every caller's first call infers the solver's entry again (TDE's rows 1 and 2 were 2–3× slower until it was so).
 
 **What a declared result type catches.**
 - SciML users often end an in-place function with `du .= …`, which returns `du`. With `rhs!(…)::Nothing` declared:
-  - a model type is refused at `@implement`: "`rhs!` at Tuple{BadRet, …} returns `Vector{Float64}`, declared `Nothing`";
+  - a problem type is refused at `@implement`: "`rhs!` at Tuple{BadRet, …} returns `Vector{Float64}`, declared `Nothing`";
   - a plain function fails at its first call (`TypeError: expected Nothing`), in both modes.
 - An out-of-place function `f(u, p, t)` fails at its first call with a `MethodError` for the declared arguments.
-- The check at `@implement` does not catch value conversions. A `Float64` buffer in `Lorenz{T}` under `gradient` passes the family member's check (inference does not prove `Float64(::Dual)` fails inside broadcasting) and fails at run time, 28 frames deep. Fix it in the model: give the buffer the model's `T`.
+- The check at `@implement` does not catch value conversions. A `Float64` buffer in a problem type generic in `T`, under `gradient`, passes the family member's check (inference does not prove `Float64(::Dual)` fails inside broadcasting) and fails at run time, deep in Base's broadcasting. Fix it in the type: give the buffer the problem's `T`.
 
-**Associated types the solver cannot read yet.**
-- A dual model (`Lorenz{Dual}`, built by a loss) needs a dual state. The solver cannot ask the model for its `T`: a bound `m::ODEModel{T} where T` is not a trait bound, and a trait's `T` is not in scope in a default.
-- So route A's `solve` keeps `u0`'s element type, and the loss promotes: `solve(Lorenz(p...), eltype(p).(u0), …)`. Forgetting it is refused at the first operation call, naming the declared and the given argument types.
+**The state's element type is the problem's.**
+- A dual problem (`LorenzProblem{Dual}`, built by a loss) holds a dual state: the loss promotes it, `LorenzProblem(eltype(p).(u0), tspan, p...)`. The solver reads `T` from the declared field `u0::Vector{T}`, so it needs no `where` variable in its bound.
+- TDE's `ODEProblem` promotes `u0` to the parameters' dual type itself, as SciML does.
 
 **Packages and callbacks.**
 - A package is an ordinary module around its trait module: `@trait_module` is not in scope at a package's top level. `LorenzModels` wraps `Models`, as TraitCSV wraps `CSVCore`.
-- A callback that changes a parameter opens `integ.p` at the type it expects: `m = integ.p::Lorenz{Float64}; m.σ = cb.σ`. The model is mutable; the solver reads σ through the model on each call.
-- A callback type is a type with an implementation (`@implement Callback Bounce`), like a model type. New ones at the prompt compile nothing in the solver.
+- A callback that changes a parameter opens `integ.p` at the type it expects: `p = integ.p::LorenzParams{Float64}; p.σ = cb.σ`. The parameters are mutable; `rhs!` reads σ through them on each call.
+- A callback type is a type with an implementation (`@implement Callback Bounce`), like a problem type. New ones at the prompt compile nothing in the solver.
 
 **Plain Julia shows what the trait form saves.**
 - In PlainODE the default Jacobian `jacobian!(m, J::Matrix{Float64}, u::Vector{Float64}, t::Float64)` was ambiguous with the user's `jacobian!(m::Lorenz{T}, J::Matrix{T}, …)`, at the first Rodas5 solve. The fix: an untyped default. In the trait form a default belongs to the implementation, so the question never arises.
-- Keep the control complete: each feature of the port has its plain twin (route A, compiled mode, callback types, Rodas5), so that every later measurement has its control.
+- Keep the control complete: each feature of the port has its plain twin (problem types, compiled mode, callback types, Rodas5), so that every later measurement has its control.
 
-**A scripted session as the correctness check.** `scripts/session.jl` runs a REPL-like session (each entry evaluated as the REPL does, in order): a precompiled model and its callbacks, a new function, the same in compiled mode, a new model type, a new callback closure and type, two losses, Rodas5, `Float32`, and an edit of a function already used. The trait run and the plain run print the same `RESULT` lines.
+**A scripted session as the correctness check.** `scripts/session.jl` runs a REPL-like session (each entry evaluated as the REPL does, in order): a precompiled problem type and its callbacks, a new function, the same in compiled mode, a new problem type, a new callback closure and type, two losses, Rodas5, `Float32`, and an edit of a function already used. The trait run and the plain run print the same `RESULT` lines.
 
 ### B3. Plotting and the report (owner: the plotting agent)
 
@@ -170,7 +172,7 @@ From `experiments/facts/framing/` and `experiments/examples/` (READMEs there). "
 
 - **A field of type `Dynamic{X}` that users assign to needs a conversion at `X`.** Assignment from ordinary code (`p.color = :red`) is a crossing, and Julia's `setproperty!` converts to the field's type. Define `Base.convert(::Type{Dynamic{X}}, x)` as the bound's translation, with the two companions that resolve ambiguities (`::Dynamic{X}`, `::TObj`). Shown by TraitMakie step 2 (`src/TraitMakie.jl`); B3. Better in TraitWorld once, for every trait.
 - **Keep the plain control equivalent feature by feature, and compare its outputs with the trait form's.** Shown by TraitMakie (five figures pixel-identical with PlainPlots) and TraitReport (`scripts/check.sh`: the same summaries and PNGs with PlainTables on three datasets); B3. Example: a test that renders the same figure with both libraries and compares pixels. Also TraitDifferentialEquations: `scripts/session.jl trait|plain` prints identical `RESULT` lines with PlainODE (B2).
-- **Leave a `Callable` bound's attribute to the caller, and serve both with one struct.** Write `f::Callable{A, S}`; `Callable`'s default is `Dynamic`, the user asks `compiled_for(f)`; a field typed by a parameter (`FunctionModel{P, T, F}`) holds what the bound gave. The attribute changes speed, never values. Shown by TraitDifferentialEquations (`ODECore.solve_rhs`; `test/compiledcall.jl`: identical solutions either way); B2.
+- **Leave a function's attribute to the caller, and serve both with one struct.** Keep it as `stored(Callable{A, S}, f)` gives it, in a field typed by a parameter (`ODEProblem{T, P, R}`); `Callable`'s default is `Dynamic`, the user asks `compiled_for(f)`. The attribute changes speed, never values. Shown by TraitDifferentialEquations (`ODEProblem`; `test/compiledcall.jl`: identical solutions either way); B2.
 - **A package is an ordinary module around its trait module.** `@trait_module` is not in scope at a package's top level. Shown by TraitDifferentialEquations (`ODECore`), TraitCSV (`CSVCore`) and `examples/LorenzModels` (`Models`); B2.
 - **Declare result types that catch the common mistake.** `rhs!(…)::Nothing` refuses, at `@implement`, the in-place function whose last line `du .= …` returns `du`. Shown by TraitDifferentialEquations (`test/routea.jl`, case (c)); B2.
 - **Do not splat a collection into a call in trait code.** A call at a widened `Vararg` signature is no fact signature: under facts every call inside it is a run-time site over the whole tuple, quadratic in its length. Write `copy(xs)` or `reduce(vcat, parts)`, not `vcat(xs...)`. Shown by `experiments/facts/framing/vararg_splat.jl` (Julia's core.jl #10981 does not finish in facts mode); B4. A concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened one is not.

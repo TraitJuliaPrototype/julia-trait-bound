@@ -308,7 +308,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 - A library's bounded functions are checked when the trait module is defined. A call the trait does not allow is reported at its line, before any user type exists.
 - A user's implementation is checked at `@implement`, before any value reaches the library.
 - A `Callable` checks its result at every call.
-- Not everything is caught early. In the ODE demonstrator, a model type with a `Float64` buffer fails only at run time, under automatic differentiation, 28 frames deep. The check at `@implement` cannot prove that this conversion fails.
+- Not everything is caught early. In the ODE demonstrator, a problem type with a `Float64` buffer fails only at run time, under automatic differentiation, 28 frames deep. The check at `@implement` cannot prove that this conversion fails.
 
 ### 3. Readable types
 

@@ -33,6 +33,7 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
     - an untyped caller at a crossing position passes the container as `Dynamic` ([traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter));
     - `DynamicItems` and `DynamicValues` stay exported as explicit tools (the copy that checks every item first, and code that is not bounded).
 38. **To confirm: what follows the split** (mine, 2026-10-21, E-145): a table of the call's targets keyed by the value's type, with `:caller_world` pointers, emitted by the compiler as the split's last branch ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets); [the plan](plans/2026-10-21-what-follows-the-split.md); [the review](reviews/2026-10-21-what-follows-the-split.md); decision log). Open within it: compiling the pointers ahead (C-14, about 8 ms per signature and type at first use), the miss after each method definition (C-3), and whether a witness carried in the value is wanted for large mixes.
+39. **To confirm: the choices of W-2** (mine, 2026-10-21): `stored(Callable{A, S}, f)` in TraitWorld; `ODEProblem` keeping its function as given beside the stored one, for the Jacobian's dual numbers; `solve` neither specialized nor inferred on the problem, with a function barrier per problem type; user problem types with their parameters in `p` ([the decision log](record/decisions.md), "The choices of W-2"; `TraitDifferentialEquations/README.md`).
 
 ## 2. Design
 
@@ -169,7 +170,7 @@ State (2026-10-19): TraitWorld 227781a, 48 test sets, on the patched julia-1.13.
 13. The old `{R}` spelling of traits is still accepted; removing it, and converting the 23 traits in the tests, is phase 4 of the plan (D2, not done in session 23).
 
 **Found by the solvers agent (TraitDifferentialEquations 5f18148, a7d4dfd):**
-1. A bound with a `where` variable (`m::ODEModel{T} … where {T}`) is not a trait bound: the method stays plain and never matches. The solver cannot read a model's associated type to promote `u0` (behind-the-notes item 7, now with a demonstrator case).
+1. A bound with a `where` variable (`prob::ODEProblemTrait{T} … where {T}`) is not a trait bound: the method stays plain and never matches. TraitDifferentialEquations does not need it: its solver reads the element type from the declared field `u0::Vector{T}` (behind-the-notes item 7).
 2. A trait's parameter is not in scope in a default's body (`state(m::M{T}, u0)::Vector{T} = Vector{T}(u0)`: `UndefVarError T`).
 4. A `Callable` entry should check, in both modes, that `f` has a method at `A` with a result not disjoint from `S`, and raise a `TraitBoundError` naming them; today the error comes at the first call, and compiled mode first warns misleadingly ("always throws: a fallback").
 5. A `Callable` bound's signature must be constant: `Callable{RHSSig{P,T}, …}` with static parameters silently becomes a plain argument (one entry per parameter type needed).

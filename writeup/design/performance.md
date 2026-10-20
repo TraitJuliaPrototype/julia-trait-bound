@@ -15,14 +15,14 @@ The demonstrators' rows are two processes per load order (n = 2); TraitReport's 
 | a typed trait call, per call | 0.8 ns (product setting and `all`) | plain 0.8 ns. Before, on julia 61852d8fb1 without inlining across owners: a loop of 16 inside the call, 36–38 ns against 33.8–34.5 ns |
 | an untyped trait call, per call | 28.8 ns (product setting), 30.8 ns (`all`), 16 bytes | plain 18.9 ns, 17.6 ns under `all` |
 | a varargs wrapper in a plain recursion (the review's probe; julia 61852d8fb1) | 0.36–0.44 ms, 0 bytes (patched, plain code) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB |
-| TDE: a new model type, `@implement` / first solve (timed whole), with CSV + DataFrames + CairoMakie loaded before / after | 69–70 / 335–338 ms; 70–74 / 338–350 ms | without loads: 66 / 340–371 ms (E-146; the first solve is mostly the solver compiled for the new key). Before the fixes of E-146, `@implement` with the loads before: 254–259 ms. Previous prototype: `@implement` 0.16–0.23 s |
+| TDE: a new problem type (then a model type), `@implement` / first solve (timed whole), with CSV + DataFrames + CairoMakie loaded before / after | 69–70 / 335–338 ms; 70–74 / 338–350 ms | without loads: 66 / 340–371 ms (E-146; the first solve is mostly the solver compiled for the new key). Before the fixes of E-146, `@implement` with the loads before: 254–259 ms. Previous prototype: `@implement` 0.16–0.23 s |
 | TraitMakie: a new data type (forwarding), `@implement` + first PNG, loads before / after | 45–47 + 81–84 ms; 39–40 + 73–76 ms | without loads: 22 + 72–74 ms (the PNG timed inside `@elapsed`, without the call's own compilation) |
 | TraitMakie: the same, **without loads** | 22 ms + 72–74 ms | before, on julia 61852d8fb1: 77 + 107 ms (the clean-case regression, now gone); an earlier build of the compiler: 36 + 40 ms |
 | TraitReport form (t), fresh process | 0.794–0.805 s | the same without traits (pt) 0.771–0.775 s; Python (pandas 3.0.6, matplotlib 3.11.2) 0.578–0.589 s |
 | TraitReport form (b), work, nine packages loaded first | 344 ms (41 ms without loads) | form (a′), plain: 3,106 ms (248 ms without loads). `using`: trait 1.15–1.20 s against plain 0.95–1.01 s |
 | forks: interactive session without imports (indicative: load average 3.4–5.2) | 1.35–1.37 s; wall 3.7–4.0 s | upstream CSV + DataFrames 10.7–11.2 s; wall 12.0–12.8 s. Imports 1.89–1.92 s against upstream's 0.69–1.19 s |
 | forks: `stringtype = String15` read and show, in the session | 0.060–0.062 s | upstream 0.21–1.03 s. Before the `String15` fixes (julia 61852d8fb1): 1.56–1.67 s. Not separated: the extension and the check by facts |
-| TDE run time per step, Lorenz (julia 61852d8fb1) | model type 158 ns | OrdinaryDiffEq 346 ns |
+| TDE run time per step, Lorenz (julia 61852d8fb1) | problem type (then a model type) 158 ns | OrdinaryDiffEq 346 ns |
 
 ## The themes
 
@@ -99,8 +99,8 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 - **The trait object's layout.** A `Dynamic` of an immutable value that is itself the receiver is a held view (TraitWorld 375a930), which holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen).
 - **Untyped calls:** measured through the table of declared implementations (TraitWorld bed3782), 28.8 ns per call against 18.9 ns for a plain untyped call (product setting), 30.8 against 17.6 ns under `all`, 16 bytes per call (round of 2026-10-20). Before, with two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object: 116 ns against about 55 ns (julia 61852d8fb1, TraitWorld 375a930). Type-unstable code was never claimed fast. An untyped caller passes a `Dynamic` value ([traits §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter)); the table serves a value it converts with `compiled_for` ([lowering §9.3](../reference/lowering.md#93-untyped-callers-of-compiled-values-the-table)). The `Dynamic` path's costs are open issues item 35, measured in W-17.
-- **`@implement` of a new model type**, 66–74 ms in every load order (E-146; 142–164 ms on the build of 2026-10-19): the implementation checks' plain-rule inference.
-- **A new model type's first solve**, 335–371 ms timed whole: the solver compiled for the new key, about 330 ms of it (E-146). Each new receiver type compiles the library's code once; this is that once.
+- **`@implement` of a new problem type** (measured as a model type, before W-2; W-2's quick check: 97 ms, three declared fields more), 66–74 ms in every load order (E-146; 142–164 ms on the build of 2026-10-19): the implementation checks' plain-rule inference.
+- **A new problem type's first solve**, 335–371 ms timed whole: the solver compiled for the new key, about 330 ms of it (E-146). Each new receiver type compiles the library's code once; this is that once.
 - **Platform load cost:** the trait forms' `using` is above the plain forms' (round of 2026-10-20): TraitReport's (t) imports 0.02–0.03 s above (pt)'s, its form (b) 0.18–0.20 s above (a′)'s.
 
 ## Upstream candidates

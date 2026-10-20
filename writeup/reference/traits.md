@@ -456,7 +456,6 @@ No form computes a value from the type. A type whose data needs a computation (a
 
 ```julia
 @implement ArrayLike{Float32, 1} MyVec
-@implement ODEModel{Float64} Lorenz
 ```
 
 - An implementation states the values of parameters that no field and no equation defines.
@@ -582,7 +581,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - **A trait in an argument annotation is a bound.** `t::ColTable` accepts a value of any type that conforms to `ColTable`.
 - **Several bounds on one argument:** `t::(ColTable, RowTable)`. The value must conform to each. A bundle trait is the same thing named.
 - **A bound may fix parameters:** `s::StateVector{Float64}`. A value conforming at another value is refused at the call with `TraitBoundError`.
-- **A bound may leave a parameter open** with a `where` variable: `f(m::ODEModel{T}, u0::Vector{Float64}) where {T}`. The body reads `T`. A variable shared between bounds, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, requires equal values.
+- **A bound may leave a parameter open** with a `where` variable: `f(prob::ODEProblemTrait{T}, u0::Vector{Float64}) where {T}`. The body reads `T`. A variable shared between bounds, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, requires equal values.
 - Other arguments are ordinary: `i::Int`, `v::AbstractVector`, untyped. Ordinary `where` variables on ordinary arguments work as in Julia.
 - **An attribute on a bound** sets how values entering there are seen ([§6.6](#66-compiled-and-dynamic-how-values-enter)): `x::Compiled{Shape}`, `x::Dynamic{Shape}`, `t::Dynamic{(ColTable, RowTable)}`. In a bounded function, `Dynamic{X}` in an argument annotation is such a bound: it accepts any value that conforms to `X`, not only `Dynamic` values.
 - **An attribute on a bound's item parameter** sets how the items are seen: `ms::Iterable{Compiled{Mark}}`, `d::Keyed{String, Dynamic{Shape}}` ([§10.2](#102-collections-bounded-by-their-items-trait)).
@@ -778,7 +777,8 @@ end
 callback(f) = FunctionCallback(Dynamic{Callable{Tuple{Vector{Float64}, Float64}, Bool}}(f))   # in plain code
 ```
 
-- `Dynamic{Callable{A, S}}` is a function as a `Dynamic` value: its type does not depend on the function, so a library's model or callback types hold it in a field. `Dynamic{Callable{A, S}}(f)` makes one.
+- `Dynamic{Callable{A, S}}` is a function as a `Dynamic` value: its type does not depend on the function, so a library's problem or callback types hold it in a field. `Dynamic{Callable{A, S}}(f)` makes one.
+- **`stored(Callable{A, S}, f)`** is the function as a library keeps it, decided as at a bound: `Dynamic{Callable{A, S}}(f)` by default (`Callable`'s) and for `with_dynamic(f)`; `f` itself for `compiled_for(f)` and for a function of the trait world, so a type parameterized by the field's type is compiled per function; a `Dynamic{Callable{A, S}}` as it is, one of another signature refused (`TraitBoundError`). TraitDifferentialEquations' `ODEProblem(f, …)` keeps its right-hand side so.
 
 **Rules.**
 - **The argument types `A` are a constant type.** A bound whose `A` names a method's `where` variables (`f::Callable{RHSSig{P, T}, Nothing}`) is refused when the method is defined. Write one method per signature.
@@ -1149,6 +1149,7 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | keywords, defaults, varargs | Implemented | [§8](#8-keywords-defaults-and-varargs) |
 | `Callable{A, S}`, `@dynamic`, `Compiled{Callable{A, S}}`, conversions | Implemented | [§9](#9-callable-functions-at-a-declared-signature) |
 | `Dynamic{Callable{A, S}}` as a stored function | Implemented | [§9](#9-callable-functions-at-a-declared-signature) |
+| `stored(Callable{A, S}, f)`: a stored function as the caller converted it | Implemented | [§9](#9-callable-functions-at-a-declared-signature) |
 | `Callable{A, S, K}` with keywords | Planned | [§8](#8-keywords-defaults-and-varargs) |
 | a constant `A`, refused otherwise | Planned | [§9](#9-callable-functions-at-a-declared-signature), T-17 |
 | open `Callable` result types | Planned | [§9](#9-callable-functions-at-a-declared-signature), T-18 |
@@ -1204,7 +1205,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-13 | [§3.1](#31-operations) | No annotation marks a mutating operation. | `@mutating` in a `@trait` body is accepted and recorded; nothing reads it. | `TraitWorld/src/trait.jl:35`, `:284`; `src/implement.jl:132` (`_mutating`, never called) |
 | T-14 | [§5.3](#53-forwarding-with-by) | `by f` takes no block. | `@implement X T by f begin … end` is accepted: the block's methods become the implementation for the field's type. | `TraitWorld/src/implement.jl:912`, `:1347` |
 | T-15 | [§5.2](#52-one-line) | No form computes a value from the type. | The internal form `@implement X T project(t) = …` is accepted: a body that reads a field as is forwards to it; any other body is refused with "computes a value". The flags `copies` and `unproject(t, r) = …` are refused with messages about retired features. | `TraitWorld/src/implement.jl:1280`–`1305`; reference.jl, "T-15" |
-| T-16 | [§6.1](#61-bounds) | A bound may name a method's `where` variable (`m::ODEModel{T}`, `a::KVec{T}, b::KVec{T}`), read in the body. | The annotation is read as a plain type, and the method never applies (`MethodError`). | `TraitWorld/src/trait_module.jl:290`–`297` (`_classify`); reference.jl, "T-16" |
+| T-16 | [§6.1](#61-bounds) | A bound may name a method's `where` variable (`prob::ODEProblemTrait{T}`, `a::KVec{T}, b::KVec{T}`), read in the body. | The annotation is read as a plain type, and the method never applies (`MethodError`). | `TraitWorld/src/trait_module.jl:290`–`297` (`_classify`); reference.jl, "T-16" |
 | T-17 | [§9](#9-callable-functions-at-a-declared-signature) | A `Callable` bound whose argument types name a `where` variable is refused when the method is defined. | It is silently a plain argument; the method never applies to a function. | `TraitWorld/src/trait_module.jl:249` (`_callable_params`), `:290` |
 | T-18 | [§9](#9-callable-functions-at-a-declared-signature) | An open result type, `Callable{Tuple{Float64}, S} where S`, is a bound. | It is a plain argument; the call is a `MethodError`. | `TraitWorld/src/trait_module.jl:249`, `:290`; reference.jl, "T-18" |
 | T-19 | [§11](#11-checks-and-when-they-run) | Definition checking at the module's end covers keyword, vararg and `Callable` functions; a first call checks only open parameters and open `Callable` results. | Keyword, vararg and every `Callable` function are checked at their first call. | `TraitWorld/src/defcheck.jl:85`–`92` (`archetype_sig`) |
