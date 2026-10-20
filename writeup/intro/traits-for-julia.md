@@ -108,6 +108,7 @@ colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
 - Inside, on `t` it can use only what the trait declares, here `ncols` and `col`. On ordinary values, such as the column `col` returns, it calls any Julia code.
 - It is compiled for what the trait can see, not for your whole type. A type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for `Vector{Vector{Float64}}`. Its other fields never cause a recompile.
 - A method with a type annotation, concrete or abstract, wins over a bounded one; only an untyped method loses to it. So a library can adopt traits one function at a time.
+- **`Compiled` or `Dynamic`.** Where the calling code knows the value's type, the function runs code compiled for what the trait can see of it, as plain Julia compiles per type. Where it does not (an item of a `Vector{Any}`, a call typed at the prompt), the function runs code compiled once, and each operation dispatches when it runs, with its declared result type. The results are the same. `compiled_for(x)` and `with_dynamic(x)` choose for one value; a library can write `t::Compiled{ColTable}` or `t::Dynamic{ColTable}`.
 
 ### A trait module
 
@@ -125,7 +126,7 @@ For a mixed collection, or a field whose value can change type, use `Dynamic{X}`
 - Inside a trait module, a trait's name in a field or a container means its `Dynamic`. A field `shapes::Vector{Shape}` is a `Vector{Dynamic{Shape}}`.
 - Outside a trait module, write `Dynamic{Shape}` out.
 - Calling an operation on a `Dynamic` value tests for the known types first, with direct calls that inline. It falls back to a dynamic call for the rest.
-- Passing a `Dynamic` value to a bounded function runs the code compiled for the value's type.
+- Passing a `Dynamic` value to a bounded function runs the code compiled once; `compiled_for(d)` runs the code compiled for the value's type.
 
 ### `Callable`: a function with a declared signature
 
@@ -135,10 +136,10 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 
 - `f` may be any function or closure. The library calls it as `f(x)`.
 - Every call is checked: a result that is not a `Float64` raises an error.
-- **Two modes.** The library chooses a default; the caller can override it for one value.
-  - `DynamicCall`, the default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns.
-  - `CompiledCall`: the library is compiled for this particular function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this mode.
-  - The caller overrides with `compiled_call(f)` or `dynamic_call(f)`. The mode changes speed, never results.
+- **`Dynamic` or `Compiled`.** The library may choose in the bound; the caller can convert one value.
+  - `Dynamic`, `Callable`'s default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns.
+  - `Compiled` (`f::Compiled{Callable{A, S}}`): the library is compiled for this particular function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this.
+  - The caller converts with `compiled_for(f)` or `with_dynamic(f)`. The attribute changes speed, never results.
 
 ### Piracy and strict mode
 
@@ -229,9 +230,11 @@ means(s, 1)                # [1.5, 1.5]
 
 ### What happens
 
-- **`Measurements`.** The trait sees only the `data` field, a `Vector{Vector{Float64}}`. So `colmean(m, 1)` runs the code compiled for `Vector{Vector{Float64}}`. Any other type that forwards to such a field shares that code. If Columns is a package whose precompile workload runs that code, it is cached in Columns' package image.
-- **`Ramp`.** It implements the operations itself, so Columns' functions are compiled once for `Ramp`.
-- **`meandiff(m, r, 1)`** is compiled for this pair of types.
+- **At the prompt** the values are `Dynamic`: the prompt knows no types, so each function runs its code compiled once, for every type, and each operation dispatches when it runs. The results are the same as below.
+- **In a function that knows the types** (a script's functions, a package, or `colmean(compiled_for(m), 1)` at the prompt) the values are `Compiled`:
+  - **`Measurements`.** The trait sees only the `data` field, a `Vector{Vector{Float64}}`. So `colmean(m, 1)` runs the code compiled for `Vector{Vector{Float64}}`. Any other type that forwards to such a field shares that code. If Columns is a package whose precompile workload runs that code, it is cached in Columns' package image.
+  - **`Ramp`.** It implements the operations itself, so Columns' functions are compiled once for `Ramp`.
+  - **`meandiff(m, r, 1)`** is compiled for this pair of types.
 - **The shelf** holds a `Measurements` and a `Ramp` in one vector. `means` is compiled once, whatever the shelf holds.
 - **`colmap`** is compiled once for the signature `Float64 -> Float64`, not once per closure.
 

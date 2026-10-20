@@ -156,9 +156,21 @@ What a bounded function may do with its trait object:
 
 What it may not do: pass the trait object to an ordinary function (`length(s)`), return it bare (`bigger(a, b) = area(a) > area(b) ? a : b`), or ask `typeof(s)`. Code outside could then depend on what the trait does not declare. These are reported when the module is defined ([§16](#16-when-something-does-not-conform)). To return "a shape like the input", see [§11](#11-results-like-the-input).
 
-**What it is compiled for.** `ratio` is compiled for what `Shape` can see of its argument: its *key*. For `Circle`, the key is `Circle`, the *receiver type* whose methods serve the operations. So `ratio` is compiled once for `Circle` and once for `Rect`, as plain Julia would.
+**What it is compiled for: `Compiled` and `Dynamic`.** Every value in trait code is one or the other, decided where it enters. The results are the same; only the speed differs.
+- **`Compiled`:** a caller whose code knows the value's type passes it `Compiled`. `ratio` then runs code compiled for what `Shape` can see of it, its *key*. For `Circle`, the key is `Circle`, the *receiver type* whose methods serve the operations. So `ratio` is compiled once for `Circle` and once for `Rect`, as plain Julia would.
+- **`Dynamic`:** a caller that does not know the type passes it `Dynamic`. `ratio` then runs code compiled once, for every type, and each operation on `s` dispatches when it runs, with its declared result type. The prompt knows no types: the calls above, typed at the prompt, are `Dynamic`.
+- A value keeps its attribute: `ratio` passes `s` on as it came.
 
-Rules: [reference §6](../reference/traits.md#6-bounded-functions), [§4](../reference/traits.md#4-keys-what-code-is-compiled-for).
+```julia
+circle_ratio(c::Circle) = ratio(c)    # in a function: Compiled, compiled for Circle
+ratio(compiled_for(Circle(1.0)))      # at the prompt: Compiled, asked for
+ratio(with_dynamic(Circle(1.0)))      # Dynamic, asked for
+```
+
+- `compiled_for(x)` and `with_dynamic(x)` always win. A library can choose too: `s::Compiled{Shape}` or `s::Dynamic{Shape}` in a bound.
+- Inside a function, a value of an abstract type (an item of a `Vector{Any}`) is `Dynamic`, a value of a concrete type `Compiled`.
+
+Rules: [reference §6](../reference/traits.md#6-bounded-functions), [§6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§4](../reference/traits.md#4-keys-what-code-is-compiled-for).
 
 ---
 
@@ -416,7 +428,7 @@ ratio(d)                          # 1.0
 - Storing a trait object where a `Dynamic` is declared keeps it: `push!` in `add!`.
 - `totalarea` is compiled once, whatever the scene holds.
 - An operation on a `Dynamic` tests the declared implementations first, with direct calls, and falls back to a dynamic call. Its result has the declared type, so the loop stays typed.
-- Passed to a bounded function, `ratio(d)`, a `Dynamic` runs the code compiled for what it holds.
+- Passed to a bounded function, `ratio(d)`, a `Dynamic` stays `Dynamic`: the code compiled once runs. `ratio(compiled_for(d))` runs the code compiled for what it holds.
 - A shape type declared later works at once, and discards no compiled code.
 
 Rules: [reference §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type).
@@ -507,7 +519,7 @@ function transform(f::Callable{Tuple{Float64}, Float64}, s::Samples{Float64})
     end
     return out
 end
-function sumby(f::Callable{Tuple{Float64}, Float64, CompiledCall}, s::Samples{Float64})
+function sumby(f::Compiled{Callable{Tuple{Float64}, Float64}}, s::Samples{Float64})
     acc = 0.0
     for i in 1:nsamples(s)
         acc += f(sample(s, i))
@@ -518,26 +530,26 @@ end
 
 ```julia
 transform(x -> 2x, [1.0, 2.0])                  # [2.0, 4.0]
-transform(compiled_call(x -> x / 2), [1.0])     # [0.5]: the caller asks for a compiled call
+transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the caller asks for Compiled
 sumby(abs2, [1.0, 2.0])                         # 5.0
-sumby(dynamic_call(x -> x + 1), [1.0, 2.0])     # 5.0: the caller asks for a dynamic call
+sumby(with_dynamic(x -> x + 1), [1.0, 2.0])     # 5.0: the caller asks for Dynamic
 transform(x -> 1, [1.0])                        # TypeError: the result is an Int, not a Float64
 ```
 
 - Any function conforms: closures, callable structs, generic functions. Every call checks the arguments and the result.
-- **Two modes, chosen for speed, never for results:**
-  - `DynamicCall`, the default: the library is compiled once per signature, and calls the function through a pointer. A new closure compiles nothing in the library.
-  - `CompiledCall`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this.
-- The library sets the default in the bound (`sumby` asks for `CompiledCall`). The caller overrides it per value with `compiled_call(f)` or `dynamic_call(f)`.
-- Functions from Base or from a trait module, such as `abs2`, are called directly in either mode.
+- **`Compiled` or `Dynamic`, chosen for speed, never for results** ([§4](#4-functions-bounded-by-a-trait)):
+  - `Dynamic`, `Callable`'s default: the library is compiled once per signature, and calls the function through a pointer. A new closure compiles nothing in the library.
+  - `Compiled`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this.
+- The library chooses in the bound (`sumby` asks for `Compiled`). The caller converts per value with `compiled_for(f)` or `with_dynamic(f)`.
+- Functions from Base or from a trait module, such as `abs2`, are not affected by `Callable`'s default: they are `Compiled` where the code that passes them knows them.
 
-**Storing a function.** A library type holds a function as a `DynamicFn{A, S}`, made in plain code by `dynamic_fn`.
+**Storing a function.** A library type holds a function as a `Dynamic{Callable{A, S}}`.
 
 In `Signals`:
 
 ```julia
 struct Threshold
-    test::DynamicFn{Tuple{Float64}, Bool}
+    test::Dynamic{Callable{Tuple{Float64}, Bool}}
 end
 function countif(th::Threshold, s::Samples{Float64})
     n = 0
@@ -549,7 +561,7 @@ end
 ```
 
 ```julia
-th = Threshold(dynamic_fn(Tuple{Float64}, Bool, x -> x > 1.0))
+th = Threshold(Dynamic{Callable{Tuple{Float64}, Bool}}(x -> x > 1.0))
 countif(th, [0.5, 1.5, 2.5])      # 2
 ```
 
@@ -817,23 +829,7 @@ apply(f::Callable{Tuple{Float64}, S}, x::Float64) where {S} = f(x)              
 fit(f::Callable{Tuple{Vector{Float64}}, Float64, @NamedTuple{tol::Float64}}, x::Vector{Float64}) = f(x; tol = 1e-6)
 ```
 
-Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: today `Callable`'s third parameter is its mode.
-
-**`Compiled` and `Dynamic`, chosen where a value enters:**
-
-```julia
-paint(io::IO, m::Mark) = draw(m, io)                    # Compiled where the caller knows m's type, Dynamic where not
-paint_once(io::IO, m::Dynamic{Mark}) = draw(m, io)      # compiled once, for every Mark
-render(io::IO, ms::Iterable{Mark}) = (for m in ms; paint(io, compiled_for(m)); end)   # each item's own code
-@trait Model begin
-    @dynamic                                             # values of other types enter as Dynamic{Model}
-    rhs!(m::Model, du::Vector{Float64}, u::Vector{Float64}, t::Float64)::Nothing
-end
-solve(m::Compiled{Model}, u0::Vector{Float64}) = …     # the library asks for code per model type
-Plots.paint_once(io, with_dynamic(d))                  # the caller converts
-```
-
-Today a `Dynamic` is opened at every bound and every plain value runs code compiled for its type; `Compiled`, `compiled_for`, `with_dynamic` and `@dynamic` are not defined; `x::Dynamic{X}` in a bounded function accepts only `Dynamic` values ([reference §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter)).
+Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: `Callable` takes two parameters.
 
 **A value seen through several traits:** `Dynamic{(Shape, Placed)}`.
 

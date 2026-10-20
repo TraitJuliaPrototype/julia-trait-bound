@@ -65,7 +65,7 @@ This is the coding pattern traits bring: a package is extended by declaring an i
 |---|---|---|
 | A bounded function called with known argument types, per call | 0.8 ns | plain Julia: 0.8 ns |
 | A bounded function called with an argument of unknown type, per call | 29 ns | a plain dynamic call: 19 ns |
-| A `Callable` in its default mode (`DynamicCall`), per call | 4.0 ns | a direct call: 0.9 ns |
+| A `Callable`, `Dynamic` (its default), per call | 4.0 ns | a direct call: 0.9 ns |
 | Sum of areas over 2,000 shapes kept as `Dynamic{Shape}` (build of 2026-10-19) | 0.9–1.4 ns per element | plain Julia: 0.9 ns with two shape types, 30–33 ns with four |
 | The same over 10⁶ shapes, limited by memory (build of 2026-10-19) | 4.5–5.7 ns | plain Julia: 3.9–4.0 ns with two types, 34–36 ns with four |
 | A ray tracer over an open set of shape types (build of 2026-10-19) | 300–340 ms, with two or with four types | plain Julia: 250 ms with two types, 830–880 ms with four |
