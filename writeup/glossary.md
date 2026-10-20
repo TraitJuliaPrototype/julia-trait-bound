@@ -19,7 +19,6 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [CodeInstance](#codeinstance) ·
 [`Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`compiled_for`, `with_dynamic`](#compiled-and-dynamic) ·
-[`CompiledCall`](#dynamiccall-compiledcall-dynamicfn-the-prototypes-spelling) ·
 [Concrete mode](#concrete-mode-and-fully-typed) ·
 [Conforms to](#conforms-to) ·
 [Declared field](#declared-field) ·
@@ -28,7 +27,6 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Dispatch](#method-table-and-dispatch) ·
 [`Dynamic{X}`](#dynamicx) ·
 [`@dynamic`](#compiled-and-dynamic) ·
-[`DynamicCall`, `DynamicFn`](#dynamiccall-compiledcall-dynamicfn-the-prototypes-spelling) ·
 [Erased key](#compiled-and-dynamic) ·
 [First seen through a trait](#compiled-and-dynamic) ·
 [Item position](#compiled-and-dynamic) ·
@@ -300,11 +298,6 @@ The entries are grouped by theme:
   - C++'s `std::function` erases the type. Rust chooses `impl Fn` (per closure) or `&dyn Fn` (dynamic) in the callee's signature. Here the caller can override the library's choice, which Rust and Swift do not offer ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults); [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 2).
 - **Defined in:** [traits §9](reference/traits.md#9-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamiccallable).
 
-### `DynamicCall`, `CompiledCall`, `DynamicFn`: the prototype's spelling
-
-- **Here:** the prototype's spelling until the work on `Compiled` and `Dynamic` (W-4) lands. `Callable{A, S, M}` with the mode `M`, `DynamicCall` (the default) or `CompiledCall`; `compiled_call(f)`, `dynamic_call(f)`; `DynamicFn{A, S}`, made by `dynamic_fn(A, S, f)`. Intended: `Callable{A, S}` and its `@dynamic` default, `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` ([`Callable`](#callable)).
-- **Defined in:** [traits T-43](reference/traits.md#19-deviations).
-
 ### Results like the input: `Self`, `Like`, `withfields`
 
 - **Here:** how a library returns "a table like the input" without seeing the user's type.
@@ -384,10 +377,10 @@ The entries are grouped by theme:
 
 ### Mode
 
-- **Here:** without a qualifier, the *inference mode* a CodeInstance is compiled under: *facts* (the facts rule) or *plain* (Julia's own inference). Each mode's code has its own cache owner. Three other modes are always named in full:
+- **Here:** without a qualifier, the *inference mode* a CodeInstance is compiled under: *facts* (the facts rule) or *plain* (Julia's own inference). Each mode's code has its own cache owner. Two other modes are always named in full:
   - **strict mode**, a switch for refusing winning pirates;
-  - **concrete mode**, a report on calls that are not fully typed;
-  - the prototype's **`Callable` mode**, `DynamicCall` or `CompiledCall`, which the attributes [`Compiled` and `Dynamic`](#compiled-and-dynamic) replace. An attribute is not a mode: both attributes' code is compiled in the facts mode.
+  - **concrete mode**, a report on calls that are not fully typed.
+  A value's attribute, [`Compiled` or `Dynamic`](#compiled-and-dynamic), is not a mode: code for both is compiled in the facts mode.
 - **Origin:** the project's. The facts mode is selected per module through Julia's `@compiler_options`, beside options such as `optimize` and `infer`.
 - **Defined in:** [facts §1](reference/facts.md#term-mode), [§6](reference/facts.md#which-code-is-compiled-how).
 

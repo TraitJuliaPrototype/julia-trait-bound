@@ -88,7 +88,7 @@ See the parent section.
 
 ## 14. Types that only convert
 
-[traits §5.11](../reference/traits.md#511-types-that-only-convert).
+[traits §5.10](../reference/traits.md#510-types-that-only-convert).
 
 ## 15. `Dynamic` values, as built
 

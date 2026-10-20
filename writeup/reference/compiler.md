@@ -518,7 +518,7 @@ Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keye
   - a table per trait, indexed by the implementation: the shape of Rust's vtables and Swift's witness tables, with world-checked entries;
   - recompiling in the background: count the fallback's hits per site; past a threshold, compile the caller again with the observed types in the split, and swap the new code in (§1.6).
 
-  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations. `Dynamic` positions make such sites more common (§4.2); the question stays out of the work on `Compiled` and `Dynamic` (W-4).
+  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations. `Dynamic` positions make such sites more common (§4.2).
 - **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
 - **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
 
@@ -557,7 +557,7 @@ Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate t
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered, in order
 ```
 
-Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`. The function was called `dynamic_call` until 2026-10-20; that name was a `Callable` mode of TraitWorld's, which the language replaces by `with_dynamic(f)`.
+Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `ir_inline_unionsplit!`), `stmtinfo.jl`.
 
 **Meaning.** `split_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
 - **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.

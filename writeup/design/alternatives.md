@@ -41,7 +41,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 **What replaced it (6c7f088, adopted s22, built s23): keys.** Code is compiled for what the bound can see: the receiver type, if any, and the declared fields' types ([traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for)).
 - Forwarding to a field (`by f`) replaces projections.
 - Computed and copying projections and `unproject` are removed. A computed projection is refused at the implementation with "computes a value" (`test/like.jl`; an `ImplementError`).
-- A type whose data needs another layout is converted explicitly by the library ([traits §5.11](../reference/traits.md#511-types-that-only-convert)). The representation design did the same implicitly at the boundary, and so hid the copy and needed a written inverse.
+- A type whose data needs another layout is converted explicitly by the library ([traits §5.10](../reference/traits.md#510-types-that-only-convert)). The representation design did the same implicitly at the boundary, and so hid the copy and needed a written inverse.
 
 **Withdrawn with it (s22):** the held/lens split, the exit check, and the re-entering `Dynamic` of the keys plan's sections 1 and 4 (`../explorations/keys-plan.md` §5), replaced by the reference layout. Checking held parts after each call upward is obsolete under the reference layout, and kept only for an opt-in copying layout ([`../open-issues.md`](../open-issues.md) §2.21).
 

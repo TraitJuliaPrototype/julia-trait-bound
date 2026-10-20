@@ -36,12 +36,12 @@ A Planned or Open item is written as the design intends it, not as the implement
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 
-- IDs are stable: `T-n` (traits), `F-n` (facts), `C-n` (compiler), `L-n` (lowering). A removed row keeps its ID retired; numbers are not reused.
+- IDs are stable: `T-n` (traits), `F-n` (facts), `C-n` (compiler), `L-n` (lowering). A retired row keeps its ID, marked *Retired*, with a pointer to what holds its subject now and no account of what it was; numbers are not reused.
 - A Planned item is a deviation only where the implementation does something else today (accepts it with another meaning, refuses it with a misleading error). Unbuilt and refused cleanly needs no row: the status line says it.
 - "Where" names code (`file:line` in the repository), a commit, or a test.
 - Tests, commits, open issues and [`../state.md`](../state.md) cite deviations by ID.
 
-**No history, no measurements.** No "previously", no session numbers, no rejected designs (those are in [`../design/alternatives.md`](../design/alternatives.md) and the record). A number appears only when it is part of the design, such as the split limit of four.
+**The current intended state, plus deviations. No history, no measurements.** A reference describes the design as intended now, and where the implementation falls short of it, its deviations. **Never the history:** not what was removed, replaced or decided against, not how a rule came about, no "previously", "was", "until <date>", "no longer", "superseded", no session numbers. Those are in [`../design/alternatives.md`](../design/alternatives.md) and the record. A number appears only when it is part of the design, such as the split limit of four.
 
 **Terms** as in [`../glossary.md`](../glossary.md). A reference defines its own terms precisely where they first matter; the glossary links there.
 

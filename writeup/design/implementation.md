@@ -56,7 +56,7 @@ The [traits reference](../reference/traits.md) (the language) and the [lowering 
 
 ### 4.4 Overrides belong to the implementation
 
-[traits §3.2](../reference/traits.md#32-defaults); [lowering §4.9](../reference/lowering.md#49-overrides-and-redeclaration).
+[traits §3.2](../reference/traits.md#32-defaults); [lowering §4.8](../reference/lowering.md#48-overrides-and-redeclaration).
 
 ### 4.5 `Dynamic{X}`: a value of abstract type `X`
 

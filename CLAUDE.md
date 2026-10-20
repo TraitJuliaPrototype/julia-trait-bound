@@ -4,6 +4,8 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 
 **The principle: every kind of fact has one home.** Every other document links there. A copy (a number, a status, a rule) names its source and build, or it goes stale.
 
+**The current intended state, not the history.** The references, and every document that is not explicitly about the history (`design.md`, the glossary, `intro/`, `state.md`, the evidence, the comparison, the open issues, the work queue), describe the current intended state of the design, plus the deviations of the implementation from it. **Never the history:** not what was removed, replaced or decided against, not how a rule came about, not "was", "until <date>", "no longer", "superseded". Those have their own places: `design/alternatives.md` (what was considered, rejected or replaced, with the reason), the decision log, `record/design-history.md`, reviews, plans and session notes.
+
 ## Where each kind of content goes
 
 | Content | Its home | Rule |
@@ -36,7 +38,7 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
    - A finished experiment: its registry row and its evidence row.
 2. **Look for stale copies before finishing.** Grep every repository for the IDs, terms and numbers you changed; fix or remove each copy. Reviews, plans and session notes are history: leave them.
 3. **Precedence:** references, then `design.md`, then the evidence, then the record. A lower document that disagrees is fixed, or the disagreement becomes a deviation row or an open issue. It is never left standing.
-4. **IDs are permanent.** T-, F-, C-, L-, E- and open-issue numbers are never renumbered or reused. A retired row stays, with what replaced it.
+4. **IDs are permanent.** T-, F-, C-, L-, E- and open-issue numbers are never renumbered or reused. A retired deviation row stays as its ID, marked *Retired*, with a pointer to what holds its subject now; it tells no story of what it was (that is in the record).
 5. **A number says what it measures:** the build (commit), the setting (product, or the test bed `all`), strict mode on or off, the load order, the number of runs, the machine's load. And whether it measures interop (trait code calling plain code) or idiomatic trait code.
 6. **Demonstrator and experiment READMEs** say how to run, and keep dated tables of their own results. For current numbers they link to the evidence.
 7. **A moved document leaves a short "Moved" page at its old path,** because reviews and session notes cite paths; current documents get their links updated.
@@ -49,5 +51,7 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 - Do not write the user's account e-mail address anywhere. Commits use the configured identity.
 
 ## Working on this machine
+
+**No excessive benchmarking unless the work is specific performance work.** Otherwise run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
 
 The machine is shared. One Julia job at a time, niced; full builds alone, under a memory guard. Details and the push pattern: `writeup/record/INDEX.md` ("Standing constraints") and `session-notes/00-environment-and-workflow.md`.

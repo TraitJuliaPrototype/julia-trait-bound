@@ -394,11 +394,11 @@ The design restricts what trait code may do, and only there.
    - values of declared types, asserted.
 3. **Trait objects see only their keys.**
    - Code in a trait module never sees the user's type. It builds a value like its input through constructor operations and the implementation's inverse ([traits §7](../reference/traits.md#7-results-declared-types-like-withfields)).
-   - A type whose data needs computing is converted explicitly, at the cost of a copy and no write-through ([traits §5.11](../reference/traits.md#511-types-that-only-convert)).
+   - A type whose data needs computing is converted explicitly, at the cost of a copy and no write-through ([traits §5.10](../reference/traits.md#510-types-that-only-convert)).
 4. **Types come first.** A type caught by a type-annotated method takes it, even when it also conforms to a bound of the same function. Reaching the trait method needs a type no type method catches, or a newtype.
 5. **Capability traits for Base's families are declared by hand:** `@implement Indexable A where {A <: AbstractVector}`.
 6. **Dynamic positions are indirect.**
-   - 3.95 ns for a `Dynamic` `Callable` (the prototype's `DynamicCall` mode), against 0.87 ns for a direct call ([`evidence.md`](evidence.md) §2).
+   - 3.95 ns for a `Dynamic` `Callable`, against 0.87 ns for a direct call ([`evidence.md`](evidence.md) §2).
    - A `Dynamic` operation: a split branch within four registered implementations, Julia's megamorphic dispatch beyond (18–68 ns per element in the review's test), and the four split are the first four declared (section 11).
    - An untyped call into trait code: 28.8 ns per call against 18.9 ns for a plain untyped call in the product setting, 30.8 against 17.6 ns under `all`, 16 bytes per call ([`evidence.md`](evidence.md) §2, the measurement round of 2026-10-20).
 7. **Each new receiver type compiles the library once,** in its own image, and the implementation checks cost time: `@implement` of a new model type 66–74 ms in every load order, and its first solve 335–371 ms, mostly the solver compiled for the new key ([`evidence.md`](evidence.md) §3, E-146).

@@ -114,7 +114,7 @@ NamedImpl      ::= "Via" "{" Name "}" "(" Expr ")"
 
 The concreteness declaration with one level argument is planned too; its spelling is open ([§3.7](#37-concreteness)).
 
-**Status:** Implemented, except the forms under `(* planned *)`, and `@dynamic`, `Attribute`, `ItemParam` with an attribute, `Dynamic{Callable{…}}` and `Conversion` ([§6.6](#66-compiled-and-dynamic-how-values-enter); Planned). TraitWorld also accepts forms that are not in this grammar: [T-12](#19-deviations) to [T-15](#19-deviations), an unnamed receiver ([T-36](#19-deviations)), `Callable`'s mode parameter and its conversions ([T-43](#19-deviations)), and `dynamic by` ([T-46](#19-deviations)).
+**Status:** Implemented, except the forms under `(* planned *)`, and `@dynamic`, `Attribute`, `ItemParam` with an attribute, `Dynamic{Callable{…}}` and `Conversion` ([§6.6](#66-compiled-and-dynamic-how-values-enter); Planned). TraitWorld also accepts forms that are not in this grammar: [T-12](#19-deviations) to [T-15](#19-deviations), an unnamed receiver ([T-36](#19-deviations)), `Callable`'s mode parameter and its conversions ([T-43](#19-deviations)), and the form `dynamic by` ([T-46](#19-deviations)).
 
 ---
 
@@ -197,7 +197,7 @@ Base.iterate(t::Iterable, state)::Union{Nothing, Tuple{eltype(Self), Any}}
 - **An argument declared `Dynamic{Y}` is a type, as in a method:** the operation receives a `Dynamic{Y}` value (`condition(cb::Callback, …, integ::Dynamic{IntegratorView})::Bool`). A trait object passed there is converted to a `Dynamic{Y}`, which holds the user's object. Only a bounded function's own arguments are bounds ([§6.1](#61-bounds)).
 
 **What is checked.**
-- At each implementation: every operation has a method, or a default, for the receiver type, and the method's result infers to the declared type ([§5.10](#510-checks-at-the-declaration)).
+- At each implementation: every operation has a method, or a default, for the receiver type, and the method's result infers to the declared type ([§5.9](#59-checks-at-the-declaration)).
 - At every call on a trait object: the arguments against the declaration; the result is asserted to the declared type.
 
 **Status:** Implemented, except the conversion of a trait object passed to an argument declared `Dynamic{Y}` (Planned: today write `Dynamic{Y}(t)`).
@@ -210,7 +210,7 @@ firstcol(t::ColTable)::Vector{Float64} = col(t, 1)
 
 - A default is an operation with a body, written in terms of the trait's other operations and fields.
 - The trait's parameters are in scope in the body: `state(m::M{T}, u0)::Vector{T} = Vector{T}(u0)`.
-- An implementation keeps it, or overrides it with its own method. Which one is fixed when the implementation is declared ([§5.10](#510-checks-at-the-declaration)).
+- An implementation keeps it, or overrides it with its own method. Which one is fixed when the implementation is declared ([§5.9](#59-checks-at-the-declaration)).
 - A default never throws "not implemented". An operation without a default must be implemented, and its absence is an error at `@implement`.
 - A default serves trait objects and `Dynamic` values. It is not a method of the conforming type, so plain code calling the operation on the type directly finds no method ([§5](#5-implementations)).
 
@@ -231,7 +231,7 @@ end
 - `@const` makes a field read-only. It is the macro form of a struct's `const`.
 - **A writable field needs** a mutable conforming type, a stored field that is not `const`, and a stored type exactly equal to the one the key records. So a write never changes a type compiled code relies on.
 - A declared field is read from the stored field, never through `getproperty`. So a type with its own `getproperty` conforms only if it maps every declared field explicitly: the mapping says that plain `x.name` may differ from `t.name`.
-- Computed properties are not declared fields. A type whose data must be computed is converted by the library instead ([§5.11](#511-types-that-only-convert)).
+- Computed properties are not declared fields. A type whose data must be computed is converted by the library instead ([§5.10](#510-types-that-only-convert)).
 - Field types are part of the key ([§4](#4-keys-what-code-is-compiled-for)).
 
 **Status:** Implemented.
@@ -361,7 +361,7 @@ How a key is represented in compiled code: [`lowering.md`](lowering.md#5-keys-an
 All forms share these properties:
 - It may come after the type's definition, in another package.
 - Its operations are served by the type's own methods, by a field it forwards to, or by the trait's defaults.
-- It is checked when it is declared ([§5.10](#510-checks-at-the-declaration)).
+- It is checked when it is declared ([§5.9](#59-checks-at-the-declaration)).
 - It discards no trait code. In a package, compiling ahead may invalidate some plain code of the library's entry: accepted, to be reviewed ([§15](#15-compiling-ahead)).
 - **Defaults and forwarding serve trait code only.** An implementation adds no methods to the type for the operations a default or a field serves. Called from plain code, `describe(c)` or `area(tile)` then has no method (`MethodError`). Plain code reaches them through a bounded function or a `Dynamic` value.
 
@@ -410,7 +410,7 @@ Errors, each naming the operations:
 
 The one-line form needs a concrete type. A parametric type conforms as a family ([§5.7](#57-families)).
 
-No form computes a value from the type. A type whose data needs a computation (a lazily derived table, a foreign layout) does not conform by a field: the library converts it explicitly ([§5.11](#511-types-that-only-convert)).
+No form computes a value from the type. A type whose data needs a computation (a lazily derived table, a foreign layout) does not conform by a field: the library converts it explicitly ([§5.10](#510-types-that-only-convert)).
 
 **Status:** Implemented.
 
@@ -521,13 +521,7 @@ end
 
 **Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#19-deviations)); forwarding carrying through ([T-30](#19-deviations)). For a trait with parameters, see [T-8](#19-deviations). Open: what a predicate may say ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2).
 
-### 5.9 Dynamic operations (removed)
-
-`dynamic by` is not part of the language. A type that should run the library's code without a compile per type is passed as a `Dynamic` value, or reaches a `Dynamic` position ([§6.6](#66-compiled-and-dynamic-how-values-enter)); a trait can make that its default with `@dynamic` ([§3.8](#38-a-traits-default-dynamic)).
-
-**Status:** Planned: the form is refused. Today TraitWorld accepts `@implement X T dynamic by f begin … end` ([T-46](#19-deviations)).
-
-### 5.10 Checks at the declaration
+### 5.9 Checks at the declaration
 
 All of these run at `@implement`, never at a call. A failure raises `ImplementError`. A refused declaration defines nothing: no method and no record.
 
@@ -553,7 +547,7 @@ Not everything is caught here: a conversion that fails at run time (a `Float64` 
 
 Error types: [T-10](#19-deviations). Messages: [T-11](#19-deviations).
 
-### 5.11 Types that only convert
+### 5.10 Types that only convert
 
 ```julia
 @trait TableLike begin
@@ -794,7 +788,7 @@ callback(f) = FunctionCallback(Dynamic{Callable{Tuple{Vector{Float64}, Float64},
 - **Bounded closures,** `(u::ColTable) -> …`, have an entry of their own, as a bounded function does.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) translates the function's results by that bound, as an argument's bound would.
 
-**Status:** Implemented in the spelling before `Compiled` and `Dynamic`: `Callable{A, S, M}` with the modes `DynamicCall` and `CompiledCall`, `compiled_call(f)`, `dynamic_call(f)`, `DynamicFn{A, S}` and `dynamic_fn(A, S, f)` ([T-43](#19-deviations)). The spelling above is Planned. Also Planned: open result types ([T-18](#19-deviations)); bounded closures and results that are traits or `Callable`s; the refusal of a non-constant `A` ([T-17](#19-deviations); [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Found by the solvers agent", item 5).
+**Status:** Implemented with another spelling, `Callable{A, S, M}` with the modes `DynamicCall` and `CompiledCall`, `compiled_call(f)`, `dynamic_call(f)`, `DynamicFn{A, S}` and `dynamic_fn(A, S, f)` ([T-43](#19-deviations)). The spelling above is Planned. Also Planned: open result types ([T-18](#19-deviations)); bounded closures and results that are traits or `Callable`s; the refusal of a non-constant `A` ([T-17](#19-deviations); [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Found by the solvers agent", item 5).
 
 ---
 
@@ -958,7 +952,7 @@ retain!(isnum, v)                         # keep the numbers of the user's vecto
 | When | What is checked | Error |
 |---|---|---|
 | `@trait` | the body's form: result types present, the receiver typed by the trait, no parameter defined twice | `ErrorException` |
-| `@implement` | ownership, completeness, result types, fields, parameters, concreteness ([§5.10](#510-checks-at-the-declaration)) | `ImplementError` |
+| `@implement` | ownership, completeness, result types, fields, parameters, concreteness ([§5.9](#59-checks-at-the-declaration)) | `ImplementError` |
 | a method definition after `@implement` | an override of an operation a default serves | `ImplementError` |
 | a definition in a trait module | the module owns the method's function or a type in it | `OwnershipError` |
 | a bounded function's definition | a `Dynamic` attribute fixes the parameters its operations' result types use ([§6.1](#61-bounds)) | `TraitBoundError` |
@@ -1056,7 +1050,7 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))   # a report, anywh
 - A `Dynamic` value prints as its trait and its object's key: `Dynamic{Shape} at Circle`.
 - Stack traces hide TraitWorld's own frames. `JULIA_TW_ALL_FRAMES=1` shows them.
 
-**Status:** Implemented, in the spelling before `Compiled` and `Dynamic` (`at DynamicCall`; [T-43](#19-deviations)); erased keys are Planned. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)).
+**Status:** Implemented with another spelling for function bounds (`at DynamicCall`; [T-43](#19-deviations)); erased keys are Planned. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)).
 
 ---
 
@@ -1142,10 +1136,9 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | forwarding through a generic implementation | Planned | [§5.8](#58-generic-implementations), T-30 |
 | overlap rules for generic implementations | Planned | [§5.8](#58-generic-implementations), T-9 |
 | what a generic predicate may say | Open | [open issues §2](../open-issues.md#2-design) |
-| `dynamic by f` | removed: refused (Planned) | [§5.9](#59-dynamic-operations-removed), T-46 |
-| overrides fixed at the declaration; family members at first use | Implemented | [§5.10](#510-checks-at-the-declaration) |
-| redeclaring an implementation | Planned (today: restart) | [§5.10](#510-checks-at-the-declaration), T-29 |
-| types that only convert | Implemented (a pattern) | [§5.11](#511-types-that-only-convert) |
+| overrides fixed at the declaration; family members at first use | Implemented | [§5.9](#59-checks-at-the-declaration) |
+| redeclaring an implementation | Planned (today: restart) | [§5.9](#59-checks-at-the-declaration), T-29 |
+| types that only convert | Implemented (a pattern) | [§5.10](#510-types-that-only-convert) |
 | bounds on arguments, several bounds, fixed parameters | Implemented | [§6.1](#61-bounds) |
 | `where` variables in bounds, shared or not | Planned | [§6.1](#61-bounds), T-16 |
 | `Vector{<:X}` arguments | Open | [open issues §2](../open-issues.md#2-design) |
@@ -1207,7 +1200,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-7 | [§5.7](#57-families) | Forwarding for a whole family is planned as `@implement X Series{T} by f where {T}`. | Refused with "expected `project(t) = …` or a begin … end block after the type", which names a form the design does not have. Found by reading the code. | `TraitWorld/src/implement.jl:909`, `:1280` |
 | T-8 | [§5.8](#58-generic-implementations) | A generic implementation applies to a trait with parameters as to one without. | For a trait with parameters, the form is taken as a family, and the constraints (`R: Indexable`) are read as `where` bounds. Found by reading the code. | `TraitWorld/src/implement.jl:1063` |
 | T-9 | [§5.8](#58-generic-implementations) | Overlapping generic implementations are refused; a more specific one declares the same parameter values. | Nothing is checked at the declaration. At a call, a type matching two generic implementations raises `ImplementError` ("none more specific: add a specific implementation"). Specificity among generic implementations is not computed: every match counts. The parameter-value rule is not checked. | `TraitWorld/src/implement.jl:332`–`335`, `:368`, `:1110`–`1132` |
-| T-10 | [§5.10](#510-checks-at-the-declaration) | Every failure at `@implement` raises `ImplementError`. | An operation without a method or a default in a block raises an `ErrorException`. Syntax errors in `@implement` are `ErrorException`s too. | `TraitWorld/src/implement.jl:841` |
+| T-10 | [§5.9](#59-checks-at-the-declaration) | Every failure at `@implement` raises `ImplementError`. | An operation without a method or a default in a block raises an `ErrorException`. Syntax errors in `@implement` are `ErrorException`s too. | `TraitWorld/src/implement.jl:841` |
 | T-11 | [§5](#5-implementations) | Messages use the reference's terms: receiver type, implementation, forwarding. | Several messages still say "representation" or "projection", or suggest the earlier spelling: "owns neither the trait nor the representation", "the projection of T returns …", "cannot infer a concrete representation … `@implement Trait{R} T …`", "takes … the representation, last", "a projection needs exactly one `project(t) = …`", `TraitArgumentError`'s "at representation"; the one-line form's refusal of a parametric type, "the prototype does not declare parametric families this way", which does not name the `where` form. | `TraitWorld/src/implement.jl:501`, `:611`, `:618`, `:968`, `:1034`, `:1250`, `:1280`, `:1286`, `:1334`, `:1152`; `src/trait.jl:49`, `:80`; `src/core.jl:652` |
 | T-12 | [§1](#1-syntax-summary) | The grammar has one spelling of traits and implementations. | The earlier spelling, with the receiver type as the trait's last parameter, is still accepted: `@trait ColTable{R}`, `ncols(r::R)::Int`, `@implement ColTable{MyType} begin … end`, `@implement X{R} where {…}`. Tests and the precompile workload still use it. | `TraitWorld/src/trait.jl:111`; `src/implement.jl:873`, `:963`; [open issues §3](../open-issues.md#3-traitworld-the-prototype), "Dependent code", item 13 |
 | T-13 | [§3.1](#31-operations) | No annotation marks a mutating operation. | `@mutating` in a `@trait` body is accepted and recorded; nothing reads it. | `TraitWorld/src/trait.jl:35`, `:284`; `src/implement.jl:132` (`_mutating`, never called) |
@@ -1221,16 +1214,16 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-21 | [§12.3](#123-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
 | T-22 | [§6.5](#65-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | The hint says "a Int64". Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/frames.jl:75`; `src/entry.jl:499` |
 | T-23 | [§16](#16-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
-| T-24 | [§15](#15-compiling-ahead) | *Retired.* No longer a deviation: the invalidation of plain code by an entry compiled ahead is the intended shape, accepted and flagged for review ([§5](#5-implementations), [§15](#15-compiling-ahead); [open issues §2](../open-issues.md#2-design), item 29). *Superseded 2026-10-20:* the intended shape has no entry methods ahead per type ([§15](#15-compiling-ahead)); today's are part of [T-41](#19-deviations). | — | — |
+| T-24 | — | *Retired*: see [T-41](#19-deviations). | — | — |
 | T-25 | [§6.5](#65-dispatch-types-first-then-traits) | A trait bound ranks below every type. | An entry method compiled ahead for `T` is made only where no typed method already wins for `T`, but it is a method at `T`: a typed method on an abstract supertype of `T` defined after it (by its owner, at the prompt) loses to it. | `TraitWorld/src/ahead.jl:177`, `:182` |
 | T-26 | [§5.7](#57-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked: every family path passes no operations and a non-concrete type to the check, which returns after the ownership checks. A joint family that conforms by its fields runs no check. | `TraitWorld/src/implement.jl:514`, `:1051`, `:1103`, `:1129`, `:1256`–`1272` |
-| T-27 | [§5.7](#57-families), [§5.10](#510-checks-at-the-declaration) | A member that does not conform is refused (`ImplementError`). | A member of a family of existing methods is checked at its first use, with a warning, and keeps the slow path. A member of a family with a block is never checked: `@implement KVec A where {A <: Vector{<:Real}} begin kget(v, i) = string(v[i]) end` is accepted and fails at a call, with a `TypeError` from the result's assertion. | `TraitWorld/src/implement.jl:342`, `:345`–`349`, `:733`–`735`; `test/runtests.jl:284`–`289` |
+| T-27 | [§5.7](#57-families), [§5.9](#59-checks-at-the-declaration) | A member that does not conform is refused (`ImplementError`). | A member of a family of existing methods is checked at its first use, with a warning, and keeps the slow path. A member of a family with a block is never checked: `@implement KVec A where {A <: Vector{<:Real}} begin kget(v, i) = string(v[i]) end` is accepted and fails at a call, with a `TypeError` from the result's assertion. | `TraitWorld/src/implement.jl:342`, `:345`–`349`, `:733`–`735`; `test/runtests.jl:284`–`289` |
 | T-28 | [§5.7](#57-families) | The owner of a member's parameter type may declare an override for that member until its first use. | A member's own declaration is accepted and gets its own `conformance` method (`_declared_for` looks at the member itself, not the family's method), but a declaration after the member's first use is not refused: nothing records the first use against later declarations. Unchecked by a test. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl` (`_declared_for`) |
-| T-29 | [§5.10](#510-checks-at-the-declaration) | *Retired (2026-10-20).* No longer a deviation: a second declaration is refused in every form (`_declared_for`, `_redeclared` in `TraitWorld/src/implement.jl`; `test/redeclare.jl`). | — | — |
+| T-29 | — | *Retired*: see [§5.9](#59-checks-at-the-declaration). | — | — |
 | T-30 | [§5.8](#58-generic-implementations) | Forwarding carries through a generic implementation: a type that forwards `Indexable` to a field forwards `GTable` to the same field. | A `by` declaration makes a `projection` record and no `implementation` record, so the generic implementation's constraint finds no witness for the forwarding type: it does not conform to `GTable`, and a call raises `MethodError`. Only an explicit `@implement GTable U by data` works. | `TraitWorld/src/implement.jl:337`–`367`, `:414`–`424`, `:1363`–`1366` |
 | T-31 | [§5.4](#54-field-mappings), [§5.5](#55-several-traits-at-once) | Any traits take any form of implementation, field mappings included. | Several traits at once are handled only as `(X, Y) T by f`. `(X, Y) T name => stored` is refused with "a projection needs exactly one `project(t) = …`", and `(X, Y) T by f, name => stored` with "expected `project(t) = …` or a begin … end block after the type": both name forms the design does not have. | `TraitWorld/src/implement.jl:863`–`866`, `:1280`, `:1286` |
-| T-32 | [§3.2](#32-defaults), [§5.10](#510-checks-at-the-declaration) | An implementation keeps a default or overrides it with the type's own method; a supertype owner's method defined before the declaration is part of it. | With a block, every operation the block leaves out is served by its default, whether or not the type has a method for it, and the override records leave such operations out: the existing method is not used, and a later redefinition of it is not refused. The one-line form follows the reference. | `TraitWorld/src/implement.jl:837`–`845`, `:648`; `src/core.jl:671`–`674` |
-| T-33 | [§5.10](#510-checks-at-the-declaration) | A refused declaration defines nothing. | The block's methods and the `implementation` record are defined before the checks run: a result-type failure leaves `ncols(::T)` and `implementation(X, T)` defined, without a `conformance` method. With `by f begin … end` ([T-14](#19-deviations)) the methods are defined for the field's type before the ownership check. | `TraitWorld/src/implement.jl:996`–`1000`, `:1353` |
+| T-32 | [§3.2](#32-defaults), [§5.9](#59-checks-at-the-declaration) | An implementation keeps a default or overrides it with the type's own method; a supertype owner's method defined before the declaration is part of it. | With a block, every operation the block leaves out is served by its default, whether or not the type has a method for it, and the override records leave such operations out: the existing method is not used, and a later redefinition of it is not refused. The one-line form follows the reference. | `TraitWorld/src/implement.jl:837`–`845`, `:648`; `src/core.jl:671`–`674` |
+| T-33 | [§5.9](#59-checks-at-the-declaration) | A refused declaration defines nothing. | The block's methods and the `implementation` record are defined before the checks run: a result-type failure leaves `ncols(::T)` and `implementation(X, T)` defined, without a `conformance` method. With `by f begin … end` ([T-14](#19-deviations)) the methods are defined for the field's type before the ownership check. | `TraitWorld/src/implement.jl:996`–`1000`, `:1353` |
 | T-34 | [§6.5](#65-dispatch-types-first-then-traits), [§11](#11-checks-and-when-they-run) | A definition in a trait module that fails ownership raises `OwnershipError`; refused definitions raise the errors of the checks table. | These are `ErrorException`s: a bounded method added to another module's function where it has no entry of that shape; a vararg of `Callable`; `@specialize`; a vararg that is not last; `::Like{x}` naming no bounded argument; a keyword with several `Callable` bounds ([T-36](#19-deviations)). | `TraitWorld/src/trait_module.jl:537`–`539`, `:268`, `:260`, `:466`, `:522`, `:341` |
 | T-35 | [§3.5](#35-self), [§7](#7-results-declared-types-like-withfields) | On a `Dynamic`, a constructor operation and a `Like` function return a `Dynamic` of the same implementation. | A constructor operation on a `Dynamic` of a trait with fields raises `TraitBoundError` ("declares fields"). A `Dynamic` of an immutable value whose views hold only its parts gives no `Like` result: `TraitBoundError`, "pass the value itself". | `TraitWorld/src/entry.jl:744`, `:691`–`693` |
 | T-36 | [§1](#1-syntax-summary), [§8](#8-keywords-defaults-and-varargs) | An operation names its receiver (`t::Shape`); a keyword takes any bound, several `Callable`s included. | An unnamed receiver, `area(::Shape)::Float64`, is accepted. A keyword with several `Callable` bounds is refused with an `ErrorException`. | `TraitWorld/src/trait.jl:156`; `src/trait_module.jl:341` |
@@ -1243,7 +1236,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-43 | [§9](#9-callable-functions-at-a-declared-signature), [§14](#14-printing) | `Callable{A, S}` has no mode parameter; it declares `@dynamic`; `Compiled{Callable{A, S}}`, `compiled_for(f)`, `with_dynamic(f)`, `Dynamic{Callable{A, S}}` are the spellings, and `with_dynamic` erases a function of the trait world too. | The earlier spelling: `Callable{A, S, M}` with `M` one of `DynamicCall`, `CompiledCall`; `compiled_call(f)`, `dynamic_call(f)`, `Callable{A, S, M}(f)`; `DynamicFn{A, S}` and `dynamic_fn(A, S, f)`; printing `at DynamicCall`. A function of the trait world is called directly even under `dynamic_call`. | `TraitWorld/src/core.jl:30`–`33`; `src/entry.jl:720`, `:749`, `:768`–`776`; `src/core.jl:915` |
 | T-44 | [§10.2](#102-collections-bounded-by-their-items-trait), [§10.3](#103-a-users-container-seen-with-dynamic-items) | A trait's name in a bound's parameters names an item position; items of a concrete conforming type are `Compiled`; attributes on item parameters; a `Vector{Dynamic{X}}` crosses into `DynamicItems`. | A trait's name in a bound's parameters means its `Dynamic` (`Iterable{Shape}` is `Iterable{Dynamic{Shape}}`): every item is `Dynamic`, a `Vector{Circle}`'s too; there is no `CompiledItems`; a `Vector{Dynamic{X}}` meets the bound as it is. | `TraitWorld/src/trait_module.jl:179` (`_dynamic_containers`); `src/BaseTraits.jl:174` (`crossed`) |
 | T-45 | [§10](#10-dynamicx-values-of-any-conforming-type) | A declared field read on a `Dynamic` has its declared type. | It is read through the opened trait object at run time; the result is typed `Any`. | `TraitWorld/src/core.jl:687` |
-| T-46 | [§5.9](#59-dynamic-operations-removed) | `dynamic by` is not in the language. | `@implement X T dynamic by f begin … end` is accepted: a witness of pointers per session (`Dyn`). | `TraitWorld/src/implement.jl:459`; `src/core.jl:737`, `:812` |
+| T-46 | [§5](#5-implementations) | An implementation takes the forms of §5.1–§5.8; there is no `dynamic by`. | `@implement X T dynamic by f begin … end` is accepted: a witness of pointers per session (`Dyn`). Refused on TraitWorld's branch `dynamic-compiled` (ccc1ca7). | `TraitWorld/src/implement.jl:459`; `src/core.jl:737`, `:812` |
 | T-47 | [§6.6](#66-compiled-and-dynamic-how-values-enter), [§8](#8-keywords-defaults-and-varargs) | A bounded keyword's value is `Dynamic` where the caller does not know its type. | It is `Compiled`: the keyword sorter is specialized on the named tuple of the supplied keywords, so `Compiler.known_type` sees the value's type there. Found while building W-4. | `TraitWorld/src/trait_module.jl` (the keyword entry); `test/attributes.jl` (`@test_broken`) |
 | T-48 | [§6](#6-bounded-functions), [§8](#8-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
 | T-49 | [§3.1](#31-operations), [§6.6](#66-compiled-and-dynamic-how-values-enter) | An operation with an argument declared with the receiver type (`Self`) works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |

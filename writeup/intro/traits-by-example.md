@@ -288,7 +288,7 @@ Geometry.describe(c::Circle) = "a circle"
 
 To override a default, define the method before `@implement`, or in its block, as `Rect` did. To change an existing implementation, change the declaration and restart Julia.
 
-Rules: [reference §3.2](../reference/traits.md#32-defaults), [§5.10](../reference/traits.md#510-checks-at-the-declaration).
+Rules: [reference §3.2](../reference/traits.md#32-defaults), [§5.9](../reference/traits.md#59-checks-at-the-declaration).
 
 ---
 

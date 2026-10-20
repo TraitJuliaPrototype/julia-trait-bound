@@ -137,11 +137,11 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 | `implementation(X, R) = ImplRec(kind, defaults)` | the receiver type `R` implements `X`: by a block (`:methods`, the operations defaults serve), by its existing methods (`:existing`), or as a family (`:family`) (`implement.jl:24`) |
 | `projection(X, T) = ProjRec(…)` | for a type that conforms through a field or a field mapping: the receiver type `R`, the forwarding field's index (0: none), the field mapping, a table of dynamic operations (`implement.jl:45`) |
 | `conformance(::As{X}, u::T)` | the implementation as a method: an `@inline` boundary that calls the builder fixed now (`implement.jl:669`) |
-| `_declared_defaults(X, T)` | the operations defaults serve, per trait of the closure: what an override would change ([§4.9](#49-overrides-and-redeclaration)) |
+| `_declared_defaults(X, T)` | the operations defaults serve, per trait of the closure: what an override would change ([§4.8](#48-overrides-and-redeclaration)) |
 | `_declared_builder(As{X}, T)` | the same builder, for the untyped calls' table ([§9.2](#92-untyped-callers-the-erased-worker)) |
 | `_compile_ahead(mod, X, T)` | while the package is precompiled: the code calls with a `T` need ([§15](#15-compiling-ahead-workloads-closed-builds)) |
 
-**The builder** is fixed when the implementation is declared (`_declare_conformance`, `implement.jl:640`). It is data: per trait of the closure, a `VSpec` with the witness and the slots ([§5](#5-keys-and-views)). It is a constant of the declaring module, so its image keeps it. An implementation whose witness holds a session's pointers has no builder; its `conformance` method takes the slow path ([§4.8](#48-dynamic-operations-removed)).
+**The builder** is fixed when the implementation is declared (`_declare_conformance`, `implement.jl:640`). It is data: per trait of the closure, a `VSpec` with the witness and the slots ([§5](#5-keys-and-views)). It is a constant of the declaring module, so its image keeps it.
 
 **Checks** run at the declaration, from the expansion's top-level code ([§14](#14-checks-and-where-their-results-live)): `_check_implementation` for a receiver type's operations, `_check_projection` for a type that conforms through a field or mapping, `_check_own_fields` for the one-line form.
 
@@ -195,7 +195,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 **A member is fixed at its first use** (`_conf_family_slow`, `implement.jl:707`):
 - the slow path finds the member's builder, checks its operations (a family of existing methods), refuses an abstract parameter under `@concrete_only`, and stores the builder in the registry, copy-on-write;
-- the member's default-served operations are added to the override index then ([§4.9](#49-overrides-and-redeclaration));
+- the member's default-served operations are added to the override index then ([§4.8](#48-overrides-and-redeclaration));
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
 A later declaration for one member is a more specific `conformance` method.
@@ -213,13 +213,9 @@ A later declaration for one member is a more specific `conformance` method.
 
 At a type's first call, `_witness` (`implement.jl:337`) tries each generic record: the constraints' witnesses, then the predicate, in the decision world. The witness is `Generic{X, k, S, D}`, holding the constraints' witnesses. More than one match is an error. A more specific declared implementation is found first, as a `conformance` method of its own. The generic implementation's results are checked at the first concrete type, with a warning (`_generic_problems`).
 
-### 4.8 Dynamic operations (removed)
+### 4.8 Overrides and redeclaration
 
-**Status: Planned:** `dynamic by` is refused ([`traits.md#59-dynamic-operations-removed`](traits.md#59-dynamic-operations-removed)). Today TraitWorld lowers it to a `projection` record with a table of the block's functions, erased at a session's first call to the witness `Dyn{NT, D}` of caller-world pointers ([L-32](#18-deviations)).
-
-### 4.9 Overrides and redeclaration
-
-**Status: Implemented**; redeclaration **Planned** ([`traits.md#510-checks-at-the-declaration`](traits.md#510-checks-at-the-declaration)).
+**Status: Implemented**; redeclaration **Planned** ([`traits.md#59-checks-at-the-declaration`](traits.md#59-checks-at-the-declaration)).
 
 - `_declared_defaults(X, T)` records `(trait, receiver type, operations)` for each trait of the closure (`implement.jl:625`). Family members add theirs at first use.
 - From these, an index maps each operation function to the implementations its defaults serve (`_OVR_INDEX`, `hooks.jl:62`).
@@ -311,7 +307,6 @@ The key ([`traits.md#4-keys-what-code-is-compiled-for`](traits.md#4-keys-what-co
    - `Impl{D}`: a default (`op_default`, with the whole trait object, so it may call supertraits' operations) if `op ∈ D`, else `op(receiver, args…)`, the receiver type's own method;
    - `Generic`: `generic_op` on a trait object built from the constraints' witnesses;
    - `ErasedWit` (Planned): the call-site split over the held object's type, each branch the candidate's view folded and its own dispatch, the fallback a dynamic call ([§13](#13-dynamicx));
-   - `Dyn`: removed with `dynamic by` ([§4.8](#48-dynamic-operations-removed));
 4. asserts the result to `op_ret` at the key.
 
 For a concrete view type, the witness, the default test and the declared types are constants. The call to the receiver type's method is a call at concrete types: a fact. At the erased key, each branch of the split is such a call; the fallback is a run-time site.
@@ -410,17 +405,7 @@ A caller that does not know the type reaches the one entry compiled at `Any`, wh
 
 Nothing is compiled per user type. Code Julia does not compile (a statement at the prompt) is such a caller.
 
-*As built,* an untyped caller reaches code compiled for its value's key: through a table of declared implementations and a pattern method per key (`untyped.jl`), an entry method compiled ahead per declared type, or an entry compiled per type ([L-28](#18-deviations)). Whether the table stays as a lowering of `compiled_for` for untyped callers is a performance question to revisit ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
-
-### 9.3 Entries compiled ahead
-
-**Status: Planned:** none ([`traits.md#15-compiling-ahead`](traits.md#15-compiling-ahead)). An untyped caller is `Dynamic`, so no entry method is compiled ahead per declared type, no method is added to the library's function at a load, and no plain code is invalidated by one.
-
-*As built,* while a package that declares `@implement X T` is precompiled, it defines `f(a1::T, a2…) = invoke(f, Tuple{Any, …}, a1, a2…)` for each tabled entry whose position needs `X` (`_ahead_entry!`, `ahead.jl:168`), which an untyped caller reaches by dispatch, at `T`'s key, and which may invalidate plain code compiled at an abstract argument type ([L-28](#18-deviations); [open issues §2](../open-issues.md#2-design), item 29).
-
-### 9.4 Entries specialized per type
-
-**Status: Planned:** none. Every entry's trait positions are `@nospecialize` ([§8.2](#82-the-entry)), also with keywords, a vararg or a `Callable` position. *As built,* those entries are specialized per argument type ([L-12](#18-deviations)).
+*As built,* an untyped caller reaches code compiled for its value's key: through a table of declared implementations and a pattern method per key (`untyped.jl`), an entry method compiled ahead per declared type, or an entry compiled per type ([L-28](#18-deviations)). Whether the table serves `compiled_for` for untyped callers is a performance question ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
 
 ---
 
@@ -467,7 +452,7 @@ Nothing is compiled per user type. Code Julia does not compile (a statement at t
 
 ## 12. `Callable` and `Dynamic{Callable}`
 
-**Status: Implemented** in the spelling before `Compiled` and `Dynamic` ([L-30](#18-deviations)); the spelling below **Planned**; open result types **Planned** ([`traits.md#9-callable-functions-at-a-declared-signature`](traits.md#9-callable-functions-at-a-declared-signature)).
+**Status: Implemented** with another spelling ([L-30](#18-deviations)); the spelling below **Planned**; open result types **Planned** ([`traits.md#9-callable-functions-at-a-declared-signature`](traits.md#9-callable-functions-at-a-declared-signature)).
 
 `Callable` keeps a lowering of its own; it is not a `@trait` declaration. Its default attribute is `Dynamic`.
 
@@ -619,7 +604,7 @@ A later implementation reaches the fallback and invalidates nothing.
 
 While a package that declares `@implement X T` is precompiled (`_compile_ahead`, `ahead.jl:17`), for each trait module loaded at that point and each of its fixed-arity entry positions whose needs include `X` (`_compile_ahead_now`, `ahead.jl:94`):
 - **the workers** whose only trait position is that one and whose other arguments are concrete ([traits §15](traits.md#15-compiling-ahead): a function with several trait positions is compiled at its first call), at the trait object of `T`'s builder. Each one's first-call check runs now, a failure fails the build, and the signature is added to `__tw_checked__` (`_check_ahead!`, `ahead.jl:58`);
-- *As built,* also the pattern method at `T`'s builder type, the entry method for `T` itself and, for an entry the table does not serve, the specialized entry at `T` ([§9.3](#93-entries-compiled-ahead); [L-28](#18-deviations)).
+- *As built,* also the pattern method at `T`'s builder type, an entry method for `T` itself and, for an entry the table does not serve, the specialized entry at `T` ([L-28](#18-deviations)).
 
 **The worker at the erased key** is not compiled from declarations: no key of `T` names it. A workload that reaches it compiles it into the image ([§15.2](#152-workloads)), where it splits over the candidates registered then ([§13](#13-dynamicx)).
 
@@ -714,13 +699,13 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-5 | [§17](#17-encodings-until-traits-are-in-the-type-system) | membership is `T <: X` | `conforms(T, X)` | `entry.jl:757` |
 | L-6 | [§13](#13-dynamicx) | a trait's name as a type means its `Dynamic` | only inside trait modules, by rewriting struct fields, containers and argument types | `trait_module.jl:143`, `:179` |
 | L-7 | [§4.1](#41-what-every-form-defines), [§4.4](#44-forwarding-with-by) | forwarding is written with `by` and recorded as forwarding | `by f` is lowered to a projection `project(t) = getfield(t, :f)`; a written `project(t) = t.f` is accepted as forwarding; TraitWorld's own precompile workload and tests use `project(t) = …` and the `{R}` spelling | `implement.jl:911`, `:1298`–`1305`; `TraitWorld.jl:88`, `:103`–`106`; `test/runtests.jl:50` |
-| L-8 | [§13](#13-dynamicx) | *Retired (2026-10-20).* No longer a deviation: a `Dynamic{X}` holds the user's object, and a trait object only where there is no user's object to hold (parts of an immutable value; a constructor operation's new receiver), the user's decision of 2026-10-20 ("What Dynamic{X} holds is correct"). On TraitWorld's branch `basetraits` (8863ea0) | — | — |
+| L-8 | — | *Retired*: see [§13](#13-dynamicx). | — | — |
 | L-9 | [§14](#14-checks-and-where-their-results-live) | a worker checked at its definition is not checked again at its first call | the record of definition-checked methods is a session's set, filled only where the trait module's end runs; in a session that loads the package from its image, a worker signature whose checked code no image holds runs the rule check at its real signature at its first call | `defcheck.jl:119`, `:173`; `checks.jl:342` |
 | L-10 | [§14](#14-checks-and-where-their-results-live) | only open parameters and open `Callable` result types wait for the first call | keyword workers, vararg workers and every worker with a `Callable` argument wait too | `defcheck.jl:84`, `:89`, `:93` |
-| L-11 | [§9.2](#92-untyped-callers-the-erased-worker) | an untyped caller reaches the table for every implementation once fixed. *Superseded 2026-10-20:* the intended lowering takes the table off the entry's path ([§9.2](#92-untyped-callers-the-erased-worker)); the row describes the table as built, which stays in the code ([L-28](#18-deviations)). | family members and generic implementations are marked untabled and take the entry's own path, cached per world | `untyped.jl:76`–`86`; `entry.jl:144`; `implement.jl:707` |
-| L-12 | [§9.4](#94-entries-specialized-per-type) | an untyped call compiles nothing per user type: every entry's trait positions are `@nospecialize` | entries with keywords, a vararg or a `Callable` position are specialized per argument type | `trait_module.jl:543`–`559` |
-| L-13 | [§9.2](#92-untyped-callers-the-erased-worker) | a table entry is valid until invalidation ends the worlds it rests on. *Superseded 2026-10-20:* the intended lowering takes the table off the entry's path ([§9.2](#92-untyped-callers-the-erased-worker)); the row describes the table as built, which stays in the code ([L-28](#18-deviations)). | an entry's range ends at the latest world when it is made, so every entry misses once after any definition (an open `max_world`: [compiler §3.3](compiler.md#33-further-work-on-mechanism-3), Planned) | `untyped.jl:70`, `:225` |
-| L-14 | [§15.3](#153-verify_main-fully_typed-closed-builds) | a closed build fills every cache from the listed targets, and a miss is an error | `close_world!` fills only the slow path's cache; the untyped tables' miss paths have no closed-world branch and are not among `verify_main`'s guards | `verify.jl:464`, `:1011`; `untyped.jl:64`, `:220` |
+| L-11 | — | *Retired*: see [L-28](#18-deviations). | — | — |
+| L-12 | — | *Retired*: see [L-28](#18-deviations). | — | — |
+| L-13 | — | *Retired*: see [L-28](#18-deviations). | — | — |
+| L-14 | — | *Retired*: see [L-28](#18-deviations). | — | — |
 | L-15 | [§15.1](#151-compiling-ahead-from-declarations) | the workers of every bounded function with one trait position whose bound includes `X` are compiled ahead, where the other arguments are concrete | vararg positions are skipped; so are entries with several trait positions: no worker, no pattern method and no entry method is compiled ahead for them | `ahead.jl:100`, `:132`, `:138`, `:151`–`152` |
 | L-16 | [§11](#11-results-like-the-input) | the inverse is compiled for the caller's type, and its result has that type | the inverse runs behind an inference barrier through a `Dict` and the constructor; a typed caller's result is `Any` | `trait_module.jl:633`, `:702`; `entry.jl:681`–`739` |
 | L-17 | [§2](#2-modes-owners-and-images), [§14](#14-checks-and-where-their-results-live) | the machinery's code is facts code, protected as trait code | machinery that calls compiler functions directly holds edges to plain compiler code, valid only as long as plain Julia keeps it valid | `checks.jl:97`–`117`; `defcheck.jl:236`–`258`; `core.jl:348`, `:415`; `compiler.jl:57`, `:68` |
@@ -728,9 +713,9 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-19 | [§3](#3-trait-declarations) | a trait's body holds operations, defaults, fields, equations and concreteness lines ([`traits.md#1-syntax-summary`](traits.md#1-syntax-summary)) | `@mutating` is accepted in a trait's body and recorded as `is_mutating`, which no code reads | `trait.jl:284`; `implement.jl:132` |
 | L-20 | [§13](#13-dynamicx) | an operation on a `Dynamic` of a parametric trait asserts its declared result at the parameters the `Dynamic`'s type fixes, so a `Dynamic{StateVector{Float64}}` operation declared `::T` is typed `Float64` | the result type is `Any` wherever the declared type names `Self` or any parameter, fixed or not; the code after the call is not inferred | `trait.jl:303`–`304` (`dep`, `retx`), `:314`, `:318` |
 | L-21 | [§5](#5-keys-and-views) | an implementation whose operations are all served by defaults has no receiver type | it has one also when the trait's declarations name `Self`, or when a parameter is not defined by a field: then the conforming type is the receiver type and gets its own compiled copy | `entry.jl:456`–`465` (`_no_implementing_type`) |
-| L-22 | [§9.3](#93-entries-compiled-ahead) | *Retired.* No longer a deviation: the invalidation of plain code by the entry compiled ahead is the intended shape, accepted and flagged for review ([§9.3](#93-entries-compiled-ahead); [traits §15](traits.md#15-compiling-ahead); [open issues §2](../open-issues.md#2-design), item 29). *Superseded 2026-10-20:* the intended lowering has no entries compiled ahead per type ([§9.3](#93-entries-compiled-ahead)); today's are part of [L-28](#18-deviations). | — | — |
+| L-22 | — | *Retired*: see [L-28](#18-deviations). | — | — |
 | L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method, until the member's first use. | The member's declaration makes its own `conformance` method (`_declared_for`); a declaration after the member's first use is not refused. As [traits T-28](traits.md#19-deviations). | `implement.jl` (`_declared_for`) |
-| L-24 | [§9.2](#92-untyped-callers-the-erased-worker) | An entry with more than five positional arguments takes the dynamic call to the pattern method. *Superseded 2026-10-20:* the intended lowering takes the table off the entry's path ([§9.2](#92-untyped-callers-the-erased-worker)); the row describes the table as built, which stays in the code ([L-28](#18-deviations)). | The entry takes the pointer path for every tabled entry with one trait position, at any arity, and `_UWrap` has methods for 0 to 5 arguments only. By reading, an untyped call of an entry with six or more positional arguments then fails, when the pointer is made or called; not run. | `untyped.jl:177`–`181`; `trait_module.jl:659`–`666` |
+| L-24 | — | *Retired*: see [L-28](#18-deviations). | — | — |
 | L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Types with an `implementation` or a `projection` record at a concrete type are registered then (types that forward, or conform by a field mapping, since branch `basetraits` 8863ea0). A family member's record has a `UnionAll` signature: it is registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for it. | `core.jl:532` (`_note_conformances!`; branch `basetraits`) |
 | L-26 | [§4.5](#45-field-mappings-several-traits-stated-parameters) | A stated value for a parameter an equation defines is checked against the equation and makes no method. | For one type: checked, and no method is made when it agrees (`_param_agrees`). For a family: it becomes a `param` method with the family's `where`, replacing the equation's value, unchecked. As [traits T-37](traits.md#19-deviations). | `implement.jl` (`_param_methods`) |
 
@@ -739,6 +724,6 @@ The meanings are permanent ([`traits.md#16-membership`](traits.md#16-membership)
 | L-29 | [§5](#5-keys-and-views), [§8.2](#82-the-entry), [§13](#13-dynamicx) | a `Dynamic` at a bound becomes a trait object at the erased key (`ErasedKey`, `ErasedWit`); the worker at the erased key serves every type | there is no erased key; the entry opens every `Dynamic` (`t isa Dynamic && return opened(t)`) and the worker for its object's key runs. As [traits T-40](traits.md#19-deviations) | `entry.jl:194`; `core.jl:438` |
 | L-30 | [§12](#12-callable-and-dynamiccallable) | `Callable{A, S}` with the default `Dynamic`, `Compiled{Callable{A, S}}`, `compiled_for`, `with_dynamic`, `Dynamic{Callable{A, S}}` | `Callable{A, S, M}` with `M` one of `DynamicCall`, `CompiledCall`; `CallAs` wrappers from `compiled_call`, `dynamic_call`, `Callable{A, S, M}(f)`; `DynamicFn{A, S} = CObj{A, S, Erased{A, S}}`, `dynamic_fn`; a function of the trait world is never erased, even under `dynamic_call`. As [traits T-43](traits.md#19-deviations) | `core.jl:30`–`33`; `entry.jl:720`–`776` |
 | L-31 | [§6](#6-trait-objects-layout-fields-writes), [§13](#13-dynamicx) | a declared field read on a `Dynamic` is split over the candidates and typed; a trait object reaching a slot typed `Dynamic{X}` is converted | `getproperty` and `setproperty!` on a `Dynamic` dispatch at run time, typed `Any`; `opcall`'s and `CObj`'s checks refuse a trait object where a `Dynamic{X}` is declared. As [traits T-45](traits.md#19-deviations) | `core.jl:687`, `:797`, `:902` |
-| L-32 | [§4.8](#48-dynamic-operations-removed) | `dynamic by` is refused | it is lowered to a `projection` record with a table of functions, erased to the witness `Dyn{NT, D}` at a session's first call. As [traits T-46](traits.md#19-deviations) | `implement.jl:442`, `:459`; `core.jl:737`, `:812` |
+| L-32 | [§4](#4-implementations) | an implementation takes the forms of traits §5.1–§5.8 | `dynamic by` is lowered to a `projection` record with a table of functions, erased to the witness `Dyn{NT, D}` at a session's first call. As [traits T-46](traits.md#19-deviations) | `implement.jl:442`, `:459`; `core.jl:737`, `:812` |
 | L-33 | [§8.1](#81-the-rewrite), [§13.1](#131-a-users-container-crossing-by-its-bound) | a trait's name in a bound's parameter is an item position, the tag `Through{Y, A}`; `CompiledItems`, `CompiledValues`; a `Vector{Dynamic{Y}}` crosses | the name is rewritten to `Dynamic{Y}`, the tag is `PTag{F, i, Dynamic{Y}}`; every crossing gives `DynamicItems`/`DynamicValues`; a `Vector{Dynamic{Y}}` meets the bound as it is. As [traits T-44](traits.md#19-deviations) | `trait_module.jl:179`; `BaseTraits.jl:174` |
 | L-34 | [§3](#3-trait-declarations), [§8.1](#81-the-rewrite), [§8.3](#83-needs-and-the-modules-end) | `@dynamic` defines `default_attribute`; `Compiled{X}` and `Dynamic{X}` on a bound are read as attributes and fixed in `attribute(EntryPos…)`; a `Dynamic` attribute leaving a result parameter open is refused; an attribute on a function neither exported nor public warns | none of these: `@dynamic` is not defined; `x::Dynamic{X}` in a bounded function is an ordinary typed argument; `Compiled` is not defined. As [traits T-42](traits.md#19-deviations) | `trait_module.jl:270` (`_classify`); `trait.jl` |
