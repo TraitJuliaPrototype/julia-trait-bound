@@ -69,24 +69,25 @@ Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the ro
 
 ## 3. First calls and sessions
 
-**TraitDifferentialEquations** (`scripts/rows.jl`, the rerun; big loads = CSV, DataFrames, CairoMakie; 2 runs per order):
+**TraitDifferentialEquations** (`scripts/rows.jl`, each first call timed whole, the garbage collector's time subtracted; big loads = CSV, DataFrames, CairoMakie; 2 runs per order; TraitWorld 226db6a, TraitDifferentialEquations 99393b9; load average 1.1; E-146, `experiments/loadcosts/logs/rowswhole-after-fixes4-gc.log`):
 
 | Row | No loads | Loads before | Loads after |
 |---|---|---|---|
-| `using TraitDifferentialEquations` | 0.48–0.49 s | 0.63 s | 0.49 s |
-| first Tsit5 solve, a plain function | 10.5–10.7 ms | 29.0–29.1 ms | 10.7–11.8 ms |
-| a second model function | 10.3–10.5 ms | 10.6–11.6 ms | 30.7–30.8 ms |
-| a new model type: `@implement` / first solve | 60–62 / 44–46 ms | 81–83 / 95–97 ms | 67 / 47–48 ms |
-| first Rodas5 solve | 17.9 ms | 18.8–19.2 ms | 18.2–18.6 ms |
-| a new callback closure / a second | 12.6–12.8 / 5.4 ms | 23.8–24.2 / 5.4–5.5 ms | 24.6–24.7 / 5.5 ms |
-| first gradient / second loss / third loss (another model function) | 33–34 / 18–19 / 65–67 ms | 36–37 / 19–20 / 66 ms | 37–39 / 18 / 67 ms |
-| ForwardDiff's own tag, for comparison | 609–614 ms | 662–791 ms | 632–633 ms |
-| a `Float32` state, first solve | 361–367 ms | 368–370 ms | 401–402 ms |
+| `using TraitDifferentialEquations` | 0.52–0.53 s | 0.68 s | 0.52–0.54 s |
+| first Tsit5 solve, a plain function | 25–26 ms | 25–26 ms | 24–26 ms |
+| a second model function | 19–21 ms | 19 ms | 23–25 ms |
+| a new model type: `@implement` / first solve | 66 / 340–371 ms | 69–70 / 335–338 ms | 70–74 / 338–350 ms |
+| first Rodas5 solve | 27–28 ms | 30–32 ms | 29–32 ms |
+| a new callback closure / a second | 21 / 9–10 ms | 21–23 / 10 ms | 22–23 / 10–11 ms |
+| first gradient / second loss / third loss (another model function) | 68–70 / 45–48 / 89–94 ms | 82–89 / 44–48 / 97 ms | 85–88 / 41–43 / 91–92 ms |
+| ForwardDiff's own tag, for comparison | 671–678 ms | 696–703 ms | 686–689 ms |
+| a `Float32` state, first solve | 439–441 ms | 446–448 ms | 449–461 ms |
 
 - In the "loads after" column, row 1 runs before the loads; every later row runs after them.
-- **Before** (the build of 2026-10-19, n = 1 per order): a new model type took 142–164 ms to declare and 82–133 ms to solve first; a new callback closure after the loads 171 ms (not reproduced: 24.6–24.7 ms now). The changes in between: the machinery's code in TraitWorld's image (f7aea19), and the stated parameter's check compiled into it (the round's own rows, before that fix, had `@implement` at 78–101 ms).
-- On the previous prototype, a new model type took 0.16–0.23 s to declare and 33–44 ms to solve first. The first solve is now 44–46 ms without loads.
-- What still differs by load order (not diagnosed): a new model type's first solve with the loads before (95–97 against 44–46 ms); the first solve with the loads before (29 against 10.6 ms); a second model function after the loads (31 against 10.4 ms); a new callback closure after loads in either order (24 against 12.7 ms).
+- **Timed whole.** Each first call is timed from before its statement is compiled. Until 2026-10-20 `rows.jl` used `@elapsed`, which compiles its statement before it starts the clock, so the compilation of the call itself was not counted: a new model type's first solve was 44–46 ms inside that window and is 335–371 ms whole. Most of it is the solver compiled for the new key (the worker, about 330 ms; `experiments/loadcosts/logs/rows-none-1-*.log`). `@implement` was timed whole before too (`@eval`).
+- **The garbage collector** is subtracted: after the big loads, the first full collection over the larger heap (90–190 ms) falls into whichever row triggers it.
+- **The same in every load order,** within the runs' spread, except the first gradient (82–89 ms with loads, 68–70 without; not diagnosed). Before the fixes of E-146, `@implement` took 254–259 ms with the loads before, and four rows differed by load order: plain helpers of TraitWorld and of the demonstrator compiled again after the loads, and a generator's code in TraitWorld's image made invalid by a package loaded before it (E-141, `experiments/loadcosts/README.md`).
+- On the previous prototype, a new model type took 0.16–0.23 s to declare.
 
 **TraitMakie** (`scripts/rows.jl`, the rerun; 2 runs per order):
 
@@ -188,7 +189,7 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 - **Untyped trait calls cost about 1.5–1.75× a plain untyped call:** 28.8 ns against 18.9 ns (product setting), 30.8 against 17.6 ns (`all`), 16 bytes per call. Before (julia 61852d8fb1): 115–129 ns against about 55 ns.
 - **`Dynamic` values at near plain speed** (the build of 2026-10-19). A sum over `Dynamic{Shape}`: 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33 with four. The raytrace over an open set of primitives: 300–336 ms against plain's 246–259 with two types and 827–882 with four (a `max_methods` effect at four).
 - **Traits bring load stability where the facts rule cannot: a package's own extension.** CSV.jl's extension for InlineStrings adds methods to CSV's internal functions. Loaded with DataFrames, it discarded the reader's code: the first read took 2.5 s against 0.19 s. That is a stakeholder's change (3.2), which the facts rule follows. TraitCSV declares an implementation for `String15` in its extension instead, and loading InlineStrings discards none of the reader's code. Measured on the package prototype; not rerun on the compiler. The coding pattern traits bring (extension by implementations, never by methods on a library's internals) is what protects even well-trodden parts of the ecosystem.
-- **New trait code costs tens of milliseconds in every load order (within about 2.2×).** A new model type in TraitDifferentialEquations: `@implement` 60–83 ms, first solve 44–97 ms, with CSV, DataFrames and CairoMakie loaded before, after or not at all. A new data type in TraitMakie: `@implement` 22–47 ms, first PNG 72–84 ms. Before (the build of 2026-10-19): 142–164 / 82–133 ms and 77–97 / 89–161 ms.
+- **New trait code costs the same in every load order.** A new model type in TraitDifferentialEquations: `@implement` 66–74 ms, its first solve 335–371 ms, most of it the solver compiled for the new key (E-146; the first gradient still differs by 15 ms), with CSV, DataFrames and CairoMakie loaded before, after or not at all. A new data type in TraitMakie: `@implement` 22–47 ms, first PNG 72–84 ms (timed inside `@elapsed`, without the call's own compilation). Before (the build of 2026-10-19): 142–164 / 82–133 ms and 77–97 / 89–161 ms.
 - **Compiling per key, not per closure.** A new callback closure 12.6–12.8 ms with no loads, 24–25 ms with loads before or after; a second loss closure 18–20 ms in every order; ForwardDiff's own tag 609–791 ms.
 - **Sessions.** TraitReport in a fresh process: 0.794–0.805 s; without traits 0.771–0.775 s; Python (pandas 3.0.6, matplotlib 3.11.2) 0.578–0.589 s. Under nine loads, the trait module's work over upstream CSV.jl takes 344 ms against its plain twin's 3,106 ms.
 - **The solver's run time** (the build of 2026-10-19). 158 ns per step for Lorenz against OrdinaryDiffEq's 346 ns; 7.5–7.9 µs against 6.1 µs at n = 1,000.
@@ -197,6 +198,6 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 **Not shown, or not yet diagnosed:**
 - Upstream CSV + DataFrames still pay 435 ms after the loads under `all` (0.9 ms repeated; plain 4,021 ms). On the build of 2026-10-19, at ~990 ms, it was diagnosed as the plain inference behind run-time `return_type`: its cached answers rest on plain edges at abstract signatures, the loads invalidate them, and plain inference, optimizer included, runs again. This is by design: the answers are plain Julia's, so a load that changes plain inference changes them ([`performance.md`](performance.md)). The 435 ms has not been profiled again.
 - A second residue is diagnosed: TraitReport's work after StatsBase or Distributions (344–417 ms against 41 ms). StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code (§1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open (`open-issues.md` §1.19).
-- Rows that still differ by load order in TraitDifferentialEquations (a new model type's first solve with the loads before: 95–97 against 44–46 ms); TraitReport's trait plot + PNG (91–92 ms, 60 ms on the build of 2026-10-19).
+- TraitDifferentialEquations' first gradient with loads (82–89 against 68–70 ms; E-146); TraitReport's trait plot + PNG (91–92 ms, 60 ms on the build of 2026-10-19). TraitMakie's rows are timed inside `@elapsed`, which leaves out each call's own compilation (E-146): to measure again whole.
 - Reruns: TraitReport form (t) under loads; the forks' session on a quiet machine; the run-time rows on the round's build; upstream's full session under `all`; Base's tests under `all`.
 - Strict mode under `all`; threads; Revise-style edits; composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames; the volume of the "explosion" of compiled code on a real library.

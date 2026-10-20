@@ -20,7 +20,8 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | Untyped trait call, through the table of declared implementations, per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
 | Untyped trait call, type compiled ahead, per call (build of 2026-10-19, not in the round) | about 14 ns | 15–17 ns |
 | `Callable` in `DynamicCall` mode, per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
-| `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 60–62 ms | — |
+| `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 66 ms | the same with big loads before or after (E-146) |
+| a new model type's first solve in TraitDifferentialEquations, timed whole | 335–371 ms in every load order: the solver compiled for the new key | — |
 | TraitReport, CSV to PNG in a fresh process | 0.79–0.81 s | without traits 0.77 s; Python 0.58–0.59 s |
 
 ### Facts
@@ -98,7 +99,7 @@ The deviations of the implementation from the design are listed per reference, w
 - **G2 across package loads under `all`:** the check counts code compiled by facts and passes in the product setting (2026-10-20); it is not yet run under `all`, nor cited in the reference ([facts F-11](reference/facts.md#deviations)).
 - **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
   - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build;
-  - rows that still differ by load order, e.g. a new model type's first solve in TraitDifferentialEquations with big loads before (95–97 ms, against 44–46 ms);
+  - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads);
   - the forks' session on a quiet machine (the round's had a load average of 3.4–5.2);
   - the run-time rows (`Dynamic` sums, raytrace, the solver per step) on the round's build.
 - **The TraitMakie image flake:** a 3.3e-5 pixel difference, once in five runs, not reproduced.

@@ -15,8 +15,8 @@ The demonstrators' rows are two processes per load order (n = 2); TraitReport's 
 | a typed trait call, per call | 0.8 ns (product setting and `all`) | plain 0.8 ns. Before, on julia 61852d8fb1 without inlining across owners: a loop of 16 inside the call, 36–38 ns against 33.8–34.5 ns |
 | an untyped trait call, per call | 28.8 ns (product setting), 30.8 ns (`all`), 16 bytes | plain 18.9 ns, 17.6 ns under `all` |
 | a varargs wrapper in a plain recursion (the review's probe; julia 61852d8fb1) | 0.36–0.44 ms, 0 bytes (patched, plain code) | stock 1.13.2: 21.9–23.3 ms, 16.8 MB |
-| TDE: a new model type, `@implement` / first solve, with CSV + DataFrames + CairoMakie loaded before / after | 81–83 / 95–97 ms; 67 / 47–48 ms | without loads: 60–62 / 44–46 ms. Before, on julia 61852d8fb1: 142–164 / 82–133 ms in every order. Previous prototype: 0.16–0.23 s / 33–44 ms |
-| TraitMakie: a new data type (forwarding), `@implement` + first PNG, loads before / after | 45–47 + 81–84 ms; 39–40 + 73–76 ms | without loads: 22 + 72–74 ms |
+| TDE: a new model type, `@implement` / first solve (timed whole), with CSV + DataFrames + CairoMakie loaded before / after | 69–70 / 335–338 ms; 70–74 / 338–350 ms | without loads: 66 / 340–371 ms (E-146; the first solve is mostly the solver compiled for the new key). Before the fixes of E-146, `@implement` with the loads before: 254–259 ms. Previous prototype: `@implement` 0.16–0.23 s |
+| TraitMakie: a new data type (forwarding), `@implement` + first PNG, loads before / after | 45–47 + 81–84 ms; 39–40 + 73–76 ms | without loads: 22 + 72–74 ms (the PNG timed inside `@elapsed`, without the call's own compilation) |
 | TraitMakie: the same, **without loads** | 22 ms + 72–74 ms | before, on julia 61852d8fb1: 77 + 107 ms (the clean-case regression, now gone); an earlier build of the compiler: 36 + 40 ms |
 | TraitReport form (t), fresh process | 0.794–0.805 s | the same without traits (pt) 0.771–0.775 s; Python (pandas 3.0.6, matplotlib 3.11.2) 0.578–0.589 s |
 | TraitReport form (b), work, nine packages loaded first | 344 ms (41 ms without loads) | form (a′), plain: 3,106 ms (248 ms without loads). `using`: trait 1.15–1.20 s against plain 0.95–1.01 s |
@@ -63,11 +63,11 @@ The `String15` read without the three-way extension (with the check by facts alo
 
 ### 4. The thesis, measured: what loads still cost (direction supported, residue not fully diagnosed)
 
-A new implementation after big loads costs tens of milliseconds, within about 2.2× of what it costs without them (round of 2026-10-20):
-- TDE, `@implement` / first solve: 81–83 / 95–97 ms with the loads before, 67 / 47–48 ms after, against 60–62 / 44–46 ms;
-- TraitMakie, a new data type: 45–47 / 81–84 ms before, 39–40 / 73–76 ms after, against 22 / 72–74 ms.
+A new implementation costs the same with or without big loads (E-146, 2026-10-20, first calls timed whole, the garbage collector's time subtracted):
+- TDE, `@implement` / first solve: 69–70 / 335–338 ms with the loads before, 70–74 / 338–350 ms after, against 66 / 340–371 ms. The first solve is mostly the solver compiled for the new key;
+- TraitMakie, a new data type (round of 2026-10-20, the PNG timed inside `@elapsed`): 45–47 / 81–84 ms before, 39–40 / 73–76 ms after, against 22 / 72–74 ms.
 
-That is not yet "the only load-dependent cost". Other TDE rows still differ: the first solve with the loads before, 29 against 10.6 ms; a second model function after the loads, 31 against 10.4 ms; a new callback closure after loads in either order, 24 against 12.7 ms. Two differences of the build of 2026-10-19 are gone: TDE's new callback after the loads (171 ms then, 24.6–24.7 ms now) and TraitMakie's recolour after the loads (231 ms then, 81–82 ms now).
+The other TDE rows are the same in every load order too, except the first gradient (82–89 against 68–70 ms). Until E-146, four rows differed: plain helpers of TraitWorld (`_tw_type`) and of the demonstrator (`solve`'s front end) compiled again after the loads, and a generator's code in TraitWorld's image made invalid by a package loaded before it; the fixes are in TraitWorld 226db6a and TraitDifferentialEquations 99393b9 (`experiments/loadcosts/README.md`).
 
 One residue is diagnosed. TraitReport's work after StatsBase or Distributions (344–417 ms against 41, round of 2026-10-20) comes from SparseArrays, a standard library, which those packages load. Its `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The facts mode follows it (rule P) and recompiles that function. The design counts the standard libraries as Julia's own code ([glossary](../glossary.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). It falls under "code it depends on changes". Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
@@ -99,7 +99,8 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 - **The trait object's layout.** A `Dynamic` of an immutable value that is itself the receiver is a held view (TraitWorld 375a930), which holds the value whole: 0.92–0.96 ns against plain-closed 0.87–0.91 cache-resident, 4.5–5.7 against 3.9–4.0 ns at 10⁶ elements. Immutable values forwarding to a field, and mutable values, keep the read-through view.
 - **Recursion through `Dynamic`:** 1.26–1.31× plain-closed (rtopen).
 - **Untyped calls:** through the table of declared implementations, 28.8 ns per call against 18.9 ns for a plain untyped call (product setting), 30.8 against 17.6 ns under `all`, 16 bytes per call (round of 2026-10-20). Before, with two dynamic dispatches (the `conformance` lookup, the worker) and a boxed trait object: 116 ns against about 55 ns (julia 61852d8fb1, TraitWorld 375a930). Type-unstable code was never claimed fast.
-- **`@implement` of a new model type**, 60–83 ms in every load order (round of 2026-10-20; 142–164 ms on the build of 2026-10-19): the implementation checks' plain-rule inference.
+- **`@implement` of a new model type**, 66–74 ms in every load order (E-146; 142–164 ms on the build of 2026-10-19): the implementation checks' plain-rule inference.
+- **A new model type's first solve**, 335–371 ms timed whole: the solver compiled for the new key, about 330 ms of it (E-146). Each new receiver type compiles the library's code once; this is that once.
 - **Platform load cost:** the trait forms' `using` is above the plain forms' (round of 2026-10-20): TraitReport's (t) imports 0.02–0.03 s above (pt)'s, its form (b) 0.18–0.20 s above (a′)'s.
 
 ## Upstream candidates

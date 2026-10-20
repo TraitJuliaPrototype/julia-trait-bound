@@ -177,7 +177,11 @@ Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`)
 
 ### 1.6 Further work on mechanism 1
 
-- **Optional: guarded devirtualization at run-time sites.** A run-time site would call a guessed target behind a type check. Only if untyped code under the test bed still matters after the other work.
+- **Optional: guarded devirtualization at run-time sites.** A run-time site would call a guessed target behind a type check, with the dynamic call as fallback.
+  - The objection is a permanent slowdown: a site whose guard fails stays on the fallback, silently, until its caller happens to compile again.
+  - The objection goes away if the slowdown is temporary: a site that keeps taking the fallback has its caller compiled again in the background, with the observed types in the split, and the new code is swapped in once it is ready (tiered recompilation, as in HotSpot, .NET and V8).
+  - In the facts mode the swap is not an invalidation. The old and the new code are valid in the same worlds and compute the same results.
+  - It shares its mechanism with the split's fallback (§3.3) and is decided with it ([open issues §2](../open-issues.md#2-design), item 32). Only if untyped code under the test bed still matters after the other work.
 - **Open: standard libraries as owners of their own.** Today Julia's standard libraries count as Julia's own code, so a standard library's method that wins at a fact is a stakeholder's change ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ---
@@ -507,7 +511,14 @@ Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keye
 ### 3.3 Further work on mechanism 3
 
 - **Planned: entries with an open `max_world`.** An exact-type entry and a `:caller_world` entry refer to the method-cache entry and the `CodeInstance` they copy, whose `max_world` invalidation lowers. A hit compares the world with both ranges. A method definition then costs a cached site nothing unless it invalidates what the site calls ([C-3](#deviations)).
-- **Optional: `Dynamic` beyond four implementations.** Raise the split limit for `split_call` only (§4.2), or put a per-site table of types and `:caller_world` pointers at the split's fallback. When a demonstrator has five implementations.
+- **Optional: what follows the split.** The split itself stays (§4.2): it is the only path that inlines and types each branch's result. The question is what happens to a value of a type outside the split. The options:
+  - a dynamic call through the per-site cache (§3.2): what is built. Its four entries thrash when a site sees more than four types;
+  - a longer split: raise the limit for `split_call` only;
+  - a per-site cache at the fallback, from types to `:caller_world` pointers (§3.1);
+  - a table per trait, indexed by the implementation: the shape of Rust's vtables and Swift's witness tables, with world-checked entries;
+  - recompiling in the background: count the fallback's hits per site; past a threshold, compile the caller again with the observed types in the split, and swap the new code in (§1.6).
+
+  The choice is decided by a measurement on a trait with 5 to 64 implementations (registry E-145; the criteria are in [open issues §2](../open-issues.md#2-design), item 32), and only when a demonstrator has a hot site with more than four implementations.
 - **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
 - **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
 

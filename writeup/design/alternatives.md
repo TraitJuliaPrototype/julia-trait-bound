@@ -199,6 +199,8 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 
 ## Other options considered and not taken
 
+- **Guarded devirtualization at run-time sites, postponed (2026-10-19):** a failed guard leaves its site on the slow path, silently, until the caller compiles again: a permanent cliff decided by what loaded when ([the speed plan](../plans/2026-10-19-principled-speed-plan.md) §2). Refined (2026-10-20, the user): the objection is to the permanent slowdown, and it goes away if the caller is compiled again in the background with the observed types and the new code is swapped in. In that form it is Optional, decided with the split's fallback ([compiler §1.6](../reference/compiler.md); [open issues](../open-issues.md) item 32).
+- **A cache in place of the `Dynamic` split:** not an option. The split is the only path that inlines and types each branch's result; a cache can only make the fallback cheaper ([open issues](../open-issues.md) item 32).
 - **Deriving implementations from the methods that exist.** Rejected: Base's throwing fallbacks make it unsound ([`other-languages.md` §2](other-languages.md#2-implementations-are-declared)).
 - **The edge-level rule:** compile only concrete calls against the current methods and make abstract ones dynamic. Rejected in s22 for its cliff at abstract calls and for having no closed world for AOT. Adopted later in substance as the facts rule (s23, s28): the cliff is accepted as run-time sites, recovered by traits, and AOT is restated through declared targets.
 - **Absorbing dependencies:** each package brings its ordinary dependencies into its own world. Rejected: two packages that absorb Makie conflict as soon as one defines a recipe.

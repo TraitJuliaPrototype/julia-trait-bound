@@ -27,6 +27,10 @@ A rule in an Implemented section is enforced, unless the Deviations table lists 
 8. [Keywords, defaults and varargs](#8-keywords-defaults-and-varargs)
 9. [`Callable`: functions at a declared signature](#9-callable-functions-at-a-declared-signature)
 10. [`Dynamic{X}`: values of any conforming type](#10-dynamicx-values-of-any-conforming-type)
+    1. [BaseTraits: traits for Base's concepts](#101-basetraits-traits-for-bases-concepts)
+    2. [Collections whose items are dynamic values](#102-collections-whose-items-are-dynamic-values)
+    3. [A user's container seen with dynamic items](#103-a-users-container-seen-with-dynamic-items)
+    4. [Algorithms over collection traits](#104-algorithms-over-collection-traits)
 11. [Checks, and when they run](#11-checks-and-when-they-run)
 12. [Who may implement; pirates; strict mode](#12-who-may-implement-pirates-strict-mode)
 13. [Concrete mode](#13-concrete-mode)
@@ -748,10 +752,12 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 **Making one.**
 - Inside a trait module: `Dynamic{X}(t)` from a trait object, or by storing a trait object where a `Dynamic{X}` is declared (`push!(s.hooks, h)`).
 - In plain code: `Dynamic{X}(x)` for any value that conforms to `X`.
+- For each item of a user's container, as it is read: `DynamicItems{X}(v)`, `DynamicValues{X}(d)` ([§10.3](#103-a-users-container-seen-with-dynamic-items)).
 - A trait object carrying another trait cannot become a `Dynamic{X}` (`ArgumentError`).
 
 **The trait's name as a type.**
 - **Inside a trait module,** a trait's name in a struct field, a container's element type, or a container in an argument means its `Dynamic`: `model::Model`, `Vector{Hook}`, `Column[]`, `cs::Vector{Column}`.
+- **A trait's name in a bound's parameters** means its `Dynamic` too: `shapes::Iterable{Shape}` is `Iterable{Dynamic{Shape}}` ([§10.2](#102-collections-whose-items-are-dynamic-values)). A parameter is a type, and no value has a trait's own type.
 - A trait's name directly in an argument stays a bound.
 - **Outside trait modules,** write `Dynamic{X}` out.
 - **With traits in the type system** ([§16](#16-membership)), a trait's name in any field or container means its `Dynamic`, outside trait modules too.
@@ -769,6 +775,92 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 - A result type that names a parameter is not yet typed by the value the `Dynamic` fixes ([lowering L-20](lowering.md#18-deviations)).
 - Optional: a faster path beyond four implementations ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 - Open: opening a `Dynamic` at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
+
+### 10.1 BaseTraits: traits for Base's concepts
+
+```julia
+@trait_module module Stats
+using TraitWorld                        # brings BaseTraits' names: Iterable, Indexable, Keyed, …
+mean(xs::(Iterable{Float64}, HasLength)) = (s = 0.0; for x in xs; s += x; end; s / length(xs))
+end
+Stats.mean([1.0, 2.0, 6.0])             # a Vector{Float64} is Iterable{Float64} and HasLength
+```
+
+**Meaning.**
+- BaseTraits is the trait world's standard library: traits for the concepts Base defines informally (iteration, indexing, keyed access), each with its item types as associated types ([§3.4](#34-parameters-and-associated-types)). Rust's `core::iter` and Swift's `Sequence` play this part in their languages.
+- It is loaded with TraitWorld. `using TraitWorld` brings its names into scope; a package declares no dependency for it.
+- Its traits are ordinary traits. The language depends on none of them.
+- It grows with what trait code needs. Version 0 has the collection traits:
+
+| Trait | Operations | Associated types | Base's types that conform |
+|---|---|---|---|
+| `HasLength` | `length(c)::Int` | — | `AbstractArray`, `AbstractDict` |
+| `Iterable{T}` | `iterate(c)`, `iterate(c, state)`, each `::Union{Nothing, Tuple{T, Any}}` | `T = eltype(Self)` | `AbstractArray`; `AbstractDict`, whose items are `Pair{K, V}` |
+| `Indexable{T} <: HasLength` | `c[i::Int]::T` | `T = eltype(Self)` | `AbstractVector` |
+| `MutableIndexable{T} <: Indexable` | `c[i::Int] = x::T` | `T = eltype(Self)` | `Vector` |
+| `Resizable <: HasLength` | `resize!(c, n::Int)` | — | `Vector` |
+| `Keyed{K, V} <: HasLength` | `d[k::K]::V`, `haskey(d, k::K)::Bool` | `K = keytype(Self)`, `V = valtype(Self)` | `AbstractDict` |
+
+**Rules.**
+- **Base's types conform by Base's own methods,** declared in BaseTraits for families through Base's abstract types ([§5.7](#57-families)). A type conforms only where it is declared: a `Number` can be iterated in Base, but it is not `Iterable`.
+- **Who owns them:** BaseTraits is part of TraitWorld, and TraitWorld owns its traits. As their owner it declares Base's types' conformance ([§12.1](#121-who-may-implement)). A package's own type conforms by that package's declaration. Another package's type (a `DataFrame`) conforms by its owner's declaration, or through a wrapper type ([§17](#17-named-implementations)).
+- **Names:** a module that uses TraitWorld and another module exporting the same name (`Iterable`) gets Julia's usual ambiguity, and imports the one it means: `using Other: Iterable`.
+
+**Status:** Implemented (version 0). Open: which traits come next, and their names ([open issues, item 31](../open-issues.md#2-design)); a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues, item 31](../open-issues.md#2-design)). On TraitWorld's branch `basetraits`, not yet merged: its choices wait for the user ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), items 21–25).
+
+### 10.2 Collections whose items are dynamic values
+
+```julia
+@trait_module module Geometry
+using TraitWorld
+@trait Shape begin
+    area(s::Shape)::Float64
+end
+total(shapes::Iterable{Shape}) = (s = 0.0; for x in shapes; s += area(x); end; s)
+end
+```
+
+- **A trait's name as a bound's parameter means its `Dynamic`** ([§10](#10-dynamicx-values-of-any-conforming-type)): `shapes::Iterable{Shape}` is `Iterable{Dynamic{Shape}}`, "something to iterate whose items provide `Shape`". Rust writes `impl Iterator<Item = &dyn Shape>`, Swift `some Sequence<any Shape>`.
+- `total` is compiled per key of the collection. Each item is a `Dynamic{Shape}`, so each operation on it is the call-site split of [§10](#10-dynamicx-values-of-any-conforming-type), with a declared result type, not a call whose argument and result are `Any`.
+- A `Vector{Dynamic{Shape}}` conforms, as a `Vector`. A user's container with another element type (`Vector{Any}`, `Vector{AbstractShape}`) crosses through a view ([§10.3](#103-a-users-container-seen-with-dynamic-items)) or is copied.
+- Items of one concrete type that conform (`Iterable{T}` for every `T` that conforms to `Shape`, compiled per item type) need a bound on a `where` variable ([§6.1](#61-bounds)), Planned.
+
+**Status:** Implemented, except a bound on the item type through a `where` variable (Planned, [T-16](#19-deviations)). On TraitWorld's branch `basetraits`, not yet merged: its choices wait for the user ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), items 21–25).
+
+### 10.3 A user's container seen with dynamic items
+
+```julia
+v = Any[Circle(1.0), Square(2.0)]                    # the user's vector, in plain code
+Geometry.total(DynamicItems{Geometry.Shape}(v))       # no copy
+w = collect(DynamicItems{Geometry.Shape}(v))          # a copy: a Vector{Dynamic{Shape}}
+DynamicValues{Geometry.Shape}(d)                      # d::Dict{String, Any}: Keyed{String, Dynamic{Shape}}
+```
+
+**Meaning.**
+- `DynamicItems{X}(v)` is the vector `v`, its items seen as `Dynamic{X}`. It conforms to `HasLength`, `Iterable{Dynamic{X}}`, `Indexable{Dynamic{X}}` and `MutableIndexable{Dynamic{X}}`, and to `Resizable` when `v` is a `Vector`.
+- `DynamicValues{X}(d)` is the dictionary `d`, its values seen as `Dynamic{X}`. It conforms to `HasLength`, `Keyed{K, Dynamic{X}}` and `Iterable{Pair{K, Dynamic{X}}}`.
+- **No copy:** each item is wrapped when it is read. The user's container is the one that is read and written.
+- **A write stores the user's object** the `Dynamic` holds, not the `Dynamic`. After `retain!(isnum, DynamicItems{Cell}(v))`, `v` holds the user's numbers, the same objects as before.
+- **Wrapping costs a check, not a copy.** A `Dynamic` holds the user's object ([§10](#10-dynamicx-values-of-any-conforming-type)), so an item is held as it came from the container.
+
+**Rules.**
+- **An item that does not conform raises `TraitBoundError` when it is read,** after the items before it were processed, and, in a loop that writes, written. Code that must check every item before it starts copies first: `collect(DynamicItems{X}(v))` reads every item.
+- **The view is explicit.** A `Vector{Any}` does not conform to `Iterable{Dynamic{X}}`: a type conforms at one value of each parameter ([§3.4](#34-parameters-and-associated-types)), and the view names `X`. An entry never wraps a container on its own.
+- **The copy is a new container:** writes to `collect(DynamicItems{X}(v))` do not reach `v`.
+
+**Status:** Implemented. On TraitWorld's branch `basetraits`, not yet merged: its choices wait for the user ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), items 21–25).
+
+### 10.4 Algorithms over collection traits
+
+```julia
+retain!(isnum, DynamicItems{Cell}(v))     # keep the numbers, in place
+```
+
+- `retain!(f, xs)` keeps the items for which `f(x)` is `true`, in order, for `xs::(MutableIndexable, Resizable)`. It returns `nothing`. It is Base's `filter!` for trait code (Rust's `Vec::retain`).
+- **A generic algorithm takes the function as an ordinary argument,** compiled per function, as Base does. A `Callable`'s argument types are constant ([§9](#9-callable-functions-at-a-declared-signature)), so `f::Callable{Tuple{T}, Bool}` for the item type `T` of any collection cannot be written. A function for one item type writes the `Callable` bound: `f::Callable{Tuple{Dynamic{Cell}}, Bool}`.
+- BaseTraits' algorithms have names of their own: only Base may add bounded methods to Base's functions ([§6.5](#65-dispatch-types-first-then-traits)).
+
+**Status:** Implemented (`retain!`). Open: which algorithms BaseTraits provides, and their names ([open issues, item 31](../open-issues.md#2-design)). On TraitWorld's branch `basetraits`, not yet merged: its choices wait for the user ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), items 21–25).
 
 ---
 
@@ -979,6 +1071,11 @@ Plain code reached from trait code keeps plain Julia's properties, and its open 
 | `Dynamic{(X, Y)}`, a trait's `==`, serialization | Planned | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | a faster `Dynamic` path beyond four implementations | Optional | [§10](#10-dynamicx-values-of-any-conforming-type) |
 | opening a `Dynamic` at its concrete type | Open | [open issues §2](../open-issues.md#2-design) |
+| BaseTraits version 0: `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; Base's containers' conformance | Implemented | [§10.1](#101-basetraits-traits-for-bases-concepts) |
+| a trait's name in a bound's parameters as its `Dynamic` (`Iterable{Shape}`) | Implemented | [§10.2](#102-collections-whose-items-are-dynamic-values) |
+| `DynamicItems{X}(v)`, `DynamicValues{X}(d)`: a user's container seen with dynamic items | Implemented | [§10.3](#103-a-users-container-seen-with-dynamic-items) |
+| `retain!` | Implemented | [§10.4](#104-algorithms-over-collection-traits) |
+| BaseTraits' next traits and algorithms; two traits declaring one function at one arity | Open | [open issues, item 31](../open-issues.md#2-design) |
 | definition checking | Implemented | [§11](#11-checks-and-when-they-run), T-19 |
 | who may implement | Implemented | [§12.1](#121-who-may-implement) |
 | the standard libraries as owners of their own | Open | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
@@ -1039,3 +1136,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-35 | [§3.5](#35-self), [§7](#7-results-declared-types-like-withfields) | On a `Dynamic`, a constructor operation and a `Like` function return a `Dynamic` of the same implementation. | A constructor operation on a `Dynamic` of a trait with fields raises `TraitBoundError` ("declares fields"). A `Dynamic` of an immutable value whose views hold only its parts gives no `Like` result: `TraitBoundError`, "pass the value itself". | `TraitWorld/src/entry.jl:744`, `:691`–`693` |
 | T-36 | [§1](#1-syntax-summary), [§8](#8-keywords-defaults-and-varargs) | An operation names its receiver (`t::Shape`); a keyword takes any bound, several `Callable`s included. | An unnamed receiver, `area(::Shape)::Float64`, is accepted. A keyword with several `Callable` bounds is refused with an `ErrorException`. | `TraitWorld/src/trait.jl:156`; `src/trait_module.jl:341` |
 | T-37 | [§3.4](#34-parameters-and-associated-types), [§5.6](#56-stating-parameters) | An equation always holds: a stated value for a parameter an equation defines is checked against the equation, and an implementation where they disagree is refused with `ImplementError`. | Checked for an implementation of one type (`_param_agrees` in `TraitWorld/src/implement.jl`; `test/params.jl`). For a family (`@implement X{T} S{T} where {T}`) the stated value still replaces the equation's, unchecked: the equation is not evaluated at the family's free parameters. As [lowering L-26](lowering.md#18-deviations). | `implement.jl` (`_param_methods`) |
+| T-38 | [§5.7](#57-families) | A family is declared as `@implement X S{P} where {P}`, also for a trait whose parameters are defined by equations (`@implement Iterable DynamicItems{X, V} where {X, V}`). | Refused with "a family `…` needs the trait's parameters": the form is taken as a joint family conforming by its fields, which requires every parameter to be defined by a field. The variable form works: `@implement Iterable D where {D <: DynamicItems}` (BaseTraits uses it). Found while writing BaseTraits. | `TraitWorld/src/implement.jl` (`_implement_expand`, the joint family branch; branch `basetraits`) |
