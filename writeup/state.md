@@ -141,7 +141,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 ### 6.3 The order of work
 
-The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: merge BaseTraits (W-1), restructure TraitDifferentialEquations around a problem trait (W-2), make the differences between abstract types and traits clear (W-3), then work out the unifying language for trait positions (W-4). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
+The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: merge BaseTraits (W-1); then the unifying language for trait positions, `Dynamic{X}` and `Compiled{X}` (W-4, the crucial next step); then restructure TraitDifferentialEquations around a problem trait (W-2) and make the differences between abstract types and traits clear (W-3). The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
 
 Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
 1. **Correctness first:**
