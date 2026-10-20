@@ -352,7 +352,7 @@ The entry is declared `@inline` and is a boundary (`trait_module.jl:709`). Every
    - any other value, by the first that applies:
      1. the position's attribute, if the bound has one (`attribute(EntryPos{…}())`, fixed at the module's end);
      2. the traits' default (`default_attribute`), unless the value's type is of the trait world (`_tw_type`);
-     3. `Compiler.known_type(x)` ([compiler §4.1](compiler.md#41-compilerknown_type)): `true`, `Compiled`; `false`, `Dynamic`.
+     3. `Compiler.known_type(x)` ([compiler §4.1](compiler.md#41-compilerknown_type)): `true`, `Compiled`; `false`, `Dynamic`. It is evaluated in the entry's own body, before the value is passed to any helper: in code compiled by facts, a helper called with an `Any`-typed value is a run-time site, compiled for the value's type, where it folds to `true` (E-148).
    - `Compiled`: `_assemble(needed(p), x)`, one `conformance(As{X}(), x)` call per needed trait, the views merged, each trait once (`entry.jl:225`). `Dynamic`: the conformance check split over the candidates (`@dynamic_of`'s), then the trait object at the erased key;
    - a container at an item position crosses into a view ([§13.1](#131-a-users-container-crossing-by-its-bound));
 2. `NOTRAIT` (the value conforms to none of the needed traits) returns `fallback(f, args…)`: the `Untyped` fallback, else the most specific ordinary method that is neither entry nor worker, else `MethodError` with a hint naming the bound (`entry.jl:484`, `frames.jl:64`);
