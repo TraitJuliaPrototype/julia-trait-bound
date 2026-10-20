@@ -138,7 +138,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 | `projection(X, T) = ProjRec(…)` | for a type that conforms through a field or a field mapping: the receiver type `R`, the forwarding field's index (0: none), the field mapping, a table of dynamic operations (`implement.jl:45`) |
 | `conformance(::As{X}, u::T)` | the implementation as a method: an `@inline` boundary that calls the builder fixed now (`implement.jl:669`) |
 | `_declared_defaults(X, T)` | the operations defaults serve, per trait of the closure: what an override would change ([§4.8](#48-overrides-and-redeclaration)) |
-| `_declared_builder(As{X}, T)` | the same builder, for the untyped calls' table ([§9.2](#92-untyped-callers-the-erased-worker)) |
+| `_declared_builder(As{X}, T)` | the same builder, for the untyped calls' table ([§9.3](#93-untyped-callers-of-compiled-values-the-table)) |
 | `_compile_ahead(mod, X, T)` | while the package is precompiled: the code calls with a `T` need ([§15](#15-compiling-ahead-workloads-closed-builds)) |
 
 **The builder** is fixed when the implementation is declared (`_declare_conformance`, `implement.jl:640`). It is data: per trait of the closure, a `VSpec` with the witness and the slots ([§5](#5-keys-and-views)). It is a constant of the declaring module, so its image keeps it.
@@ -341,7 +341,7 @@ The entry is declared `@inline` and is a boundary (`trait_module.jl:709`). Every
 1. `enter(EntryPos{typeof(f), i, nargs}(), x)` (`entry.jl:193`) decides the attribute once, for the value as it arrives:
    - a trait object raises ([§8.1](#81-the-rewrite));
    - a `Dynamic` stays `Dynamic`: the trait object at the erased key of its held object (`erased`), never opened ([§13](#13-dynamicx));
-   - `compiled_for(y)`: the trait object of `y` at its own key, assembled for `y`'s type when it runs (`_assemble` behind a dynamic call), so the worker for that key is selected once;
+   - `compiled_for(y)`: the trait object of `y` at its own key, so the worker for that key is selected once. A typed caller assembles it in place. From an untyped caller, the table of declared implementations serves it ([§9.3](#93-untyped-callers-of-compiled-values-the-table));
    - `with_dynamic(y)`: the trait object at the erased key;
    - any other value, by the first that applies:
      1. the position's attribute, if the bound has one (`attribute(EntryPos{…}())`, fixed at the module's end);
@@ -404,7 +404,17 @@ A caller that does not know the type reaches the one entry compiled at `Any`, wh
 
 Nothing is compiled per user type. Code Julia does not compile (a statement at the prompt) is such a caller.
 
-The table of declared implementations and its pattern methods (`untyped.jl`) stay in the code, off the entry's path (`_TABLE_ON_PATH`); whether they serve `compiled_for` for untyped callers is a performance question ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
+### 9.3 Untyped callers of `Compiled` values: the table
+
+**Status: Implemented.**
+
+An untyped caller passes a `Compiled` value where it converts it (`compiled_for(x)`), or where the position's attribute is `Compiled`. The entry compiled at `Any` then finds the code for the value's key through the **table of declared implementations** (`untyped.jl`). This is how Swift opens a value of a protocol type: the per-type data is looked up, the code is shared per key.
+- **Which entries:** those of trait positions and ordinary arguments only, without keywords or varargs (`trait_module.jl:592`). Other entries take the generic path of `enter`: the trait object assembled for the value's type behind a dynamic call, then the worker selected by a second dynamic call.
+- **The test** (`_tabled`, `attributes.jl`): no trait argument's type is known, and every trait argument is a `compiled_for` or a plain value at a `Compiled` position. The table's value is the one `compiled_for` holds (`_unconverted`).
+- **Per entry position, a table** from the user's type to its implementation's builder, valid in a range of worlds: a declared implementation for the range of its dispatch, anything else for one world (`UTable`, `_umiss`). It is appended copy-on-write, and a table saved in an image is ignored in another session.
+- **One trait position:** a table per entry pattern from the user's type to a `:caller_world` pointer ([compiler §3.1](compiler.md#31-the-cfunction-calling-convention-caller_world)) to the pattern's method specialized on the builder (`_pentry`). One call through it builds the views from the builder's data and calls the worker for the key. Several trait positions: the builders from each position's table, then one dynamic call on the builders' types.
+- **The pattern's method** is compiled once per key, and compiled ahead per declared implementation ([§15.1](#151-compiling-ahead-from-declarations)).
+- A type the table does not serve (a generic implementation, a family member, a position where containers cross) takes the generic path; a type without an implementation reaches the fallback as there.
 
 ---
 
@@ -603,6 +613,8 @@ A later implementation reaches the fallback and invalidates nothing.
 
 While a package that declares `@implement X T` is precompiled (`_compile_ahead`, `ahead.jl:17`), for each trait module loaded at that point and each of its fixed-arity entry positions whose needs include `X` (`_compile_ahead_now`, `ahead.jl:94`):
 - **the workers** whose only trait position is that one and whose other arguments are concrete ([traits §15](traits.md#15-compiling-ahead): a function with several trait positions is compiled at its first call), at the trait object of `T`'s builder. Each one's first-call check runs now, a failure fails the build, and the signature is added to `__tw_checked__` (`_check_ahead!`, `ahead.jl:58`);
+
+- **the table's pattern method** at `T`'s builder, for untyped callers of `Compiled` values ([§9.3](#93-untyped-callers-of-compiled-values-the-table)).
 
 **The worker at the erased key** is not compiled from declarations: no key of `T` names it. A workload that reaches it compiles it into the image ([§15.2](#152-workloads)), where it splits over the candidates registered then ([§13](#13-dynamicx)).
 

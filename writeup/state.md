@@ -19,7 +19,7 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | Measure | Traits | Plain Julia |
 |---|---|---|
 | Typed trait call, per call | 0.8 ns | 0.8 ns |
-| Untyped trait call, through the table of declared implementations (TraitWorld bed3782; since W-4 a `Dynamic` value, not measured: W-17), per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
+| Untyped trait call of a `Compiled` value (`compiled_for`), through the table of declared implementations (measured at TraitWorld bed3782, when every untyped call took the table; an untyped call of a `Dynamic` value is not measured: W-17), per call | 28.8 ns (product setting); 30.8 ns (`all`); 16 bytes | 18.9 ns; 17.6 ns (`all`) |
 | `Callable`, `Dynamic` (its default), per call | 3.95 ns | a direct call 0.87 ns; a dynamic call at `Any` 20.3 ns |
 | `@implement` of a new type, no other packages loaded | TraitMakie 22–48 ms; TraitDifferentialEquations 66 ms | the same with big loads before or after (E-146) |
 | a new problem type's first solve in TraitDifferentialEquations, timed whole | 335–371 ms in every load order: the solver compiled for the new key | — |

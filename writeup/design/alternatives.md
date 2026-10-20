@@ -206,7 +206,7 @@ Replaced on 2026-10-20 by one language for every trait position ([traits §6.6](
 - **Who decides by the value's form under a bare bound** (proposal §1b): folded into the refined rule.
 - **`dynamic by`** (traits §5.9): removed; `Dynamic` positions and `@dynamic` cover it.
 - **The lowering, a second worker per bounded function taking `Dynamic{<:X}`:** not chosen. Every bounded function would get two methods, definition checking would cover both, and several bounds at one position would need `Dynamic{(X, Y)}` first. Chosen instead: a trait object at an erased key, one more key of the one worker ([lowering §5](../reference/lowering.md#5-keys-and-views); implementation plan C1, confirmed by the user).
-- **The untyped callers' table and the entries compiled ahead per type as the path of an untyped caller:** taken off the path, since an untyped caller is `Dynamic` ([lowering §9.2](../reference/lowering.md#92-untyped-callers-the-erased-worker)). The code stays; whether it serves `compiled_for` later is a performance question ([open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
+- **The untyped callers' table and the entries compiled ahead per type as the path of an untyped caller:** not chosen, since an untyped caller is `Dynamic` ([lowering §9.2](../reference/lowering.md#92-untyped-callers-the-erased-worker)). The table serves the `Compiled` values of untyped callers instead (`compiled_for`, [lowering §9.3](../reference/lowering.md#93-untyped-callers-of-compiled-values-the-table)). The entries compiled ahead per type (`f(::T)`, an `invoke` of the generic entry) are deleted: a dispatch at run time reaches them and makes the caller `Compiled`.
 
 ## Automatic differentiation by a library-owned dual number, superseded
 
