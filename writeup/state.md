@@ -1,4 +1,4 @@
-# The state of the prototype (2026-10-19)
+# The state of the prototype (2026-10-20)
 
 The prototype works end to end. Traits run at plain Julia's speed for typed calls, and the facts compiler stops invalidation. On the compiler side, the work reduces to four mechanisms, plus hooks for the library and fixes.
 

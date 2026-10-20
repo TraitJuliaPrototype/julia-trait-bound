@@ -119,6 +119,6 @@ Under `all`, the counted packages keep their code, and PlainTables' work is unaf
 ## Not done
 
 - Like-for-like TraitReport forms under loads (form (t) against the previous prototype's form (t)).
-- The BaseBenchmarks row of [the argument §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed) is measured on the current compiler (geometric mean 1.037, tails up to 27.8×; [evidence §1](evidence.md#1-the-guarantee)); the argument still quotes the earlier build.
+- The BaseBenchmarks row of [the rationale §2.3](../design.md#23-step-3-the-facts-rule-extends-the-guarantee-to-code-that-is-not-fully-typed) is measured on the current compiler (geometric mean 1.037, tails up to 27.8×; [evidence §1](evidence.md#1-the-guarantee)); the argument still quotes the earlier build.
 - A profile of the 435 ms after the loads; the forks' session on a quiet machine; the run-time rows on the round's build.
 - Acceptance checks for the inliner changes (cycle inlining, compileable signatures) and the compiler-plain edges.

@@ -33,7 +33,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 
 ## Representations and projections, replaced by keys
 
-**What it was (until s22, 2026-10-16).** An implementation projected the user's value onto a *representation*, by any projection, computed or copied, with a written inverse (`unproject`). Library code was compiled per representation, and per type only by choice. The research of `../other-languages.md` (s22) describes this form in its "Ours" column, and counted "projection as an enforced position" as new.
+**What it was (until s22, 2026-10-16).** An implementation projected the user's value onto a *representation*, by any projection, computed or copied, with a written inverse (`unproject`). Library code was compiled per representation, and per type only by choice. The research of `../record/other-languages-research-2026-10-16.md` (s22) describes this form in its "Ours" column, and counted "projection as an enforced position" as new.
 
 **Why it went.** Computed projections copied, needed inverses and stale views, and packed several fields into one type.
 
@@ -50,7 +50,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 
 ## Layering and its workarounds: interface packages, trait wrappers, calls upward, doors, replaced by the facts rule
 
-**Layering (until s23).** Ordinary code may use the trait world; the trait world uses only itself. This is, word for word, the C++0x rule that helped end definition checking in C++ (HOPL4 §6.2.5; [`comparison.md` §4](comparison.md#4-generic-code-is-checked-at-its-definition)). The research of s22 predicted that layering would be attacked for gradual adoption and for scaffolding (prediction 2), and the design answered with wrappers and calls upward.
+**Layering (until s23).** Ordinary code may use the trait world; the trait world uses only itself. This is, word for word, the C++0x rule that helped end definition checking in C++ (HOPL4 §6.2.5; [`other-languages.md` §4](other-languages.md#4-generic-code-is-checked-at-its-definition)). The research of s22 predicted that layering would be attacked for gradual adoption and for scaffolding (prediction 2), and the design answered with wrappers and calls upward.
 
 **Its workarounds, in turn:**
 - **Interface packages (rev 1004, 2026-10-14).** Code not written with traits was reached only through an interface package: a trait half with traits, bounded functions and handles, and an ordinary half of declared calls that also hid the outside package's globals. Doors had a direction: outward (logging, display, stdout, as dynamic calls upward without an inference edge) and inward (eval, deserialization, reflection, only as declared calls with a checked result). A trait package sealed itself, and an interface package sealed what it wrapped: a later definition that would pirate a sealed package was refused at precompile, load or definition. The opt-out was plain Julia ([`../design-findings.md`](../design-findings.md) §3; session note 16).
@@ -65,16 +65,16 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 **What dissolved with them:**
 - whether wrappers offer conversions for foreign types, once implementations never convert (s23): there are no wrappers;
 - in the review of s23 (`../reviews/2026-10-16-wrapping-under-keys.md`): F2 (implementations in ordinary modules have no place in the layering), F4 and F8 (sealing), F5 (the wrapper's role for foreign types), F7 (opaque values handed down);
-- prediction 2 of `../other-languages.md`.
+- prediction 2 of `../record/other-languages-research-2026-10-16.md`.
 
 ## Seven rules, then four, then three
 
 - **Seven rules** until rev 1110 (2026-10-15), with interface packages ([`../design-findings.md`](../design-findings.md), header).
 - **Four rules** (rev 1110 to s29): layering for calls, the boundary (rule 2), ownership (rule 3) and views and placement (rule 4). The "trait world" and "ordinary code" were worlds.
-- **Rule 4, retired (s29, change 1 of `../reviews/2026-10-18-decisions-revisited.md`).** "Views and placement: compiled code is compiled against its owners' view and lives where the type was chosen." Both halves are Julia's own behaviour: what a call sees, and where compiled code lives ([traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for)). Rule 4's early binding had been meant as a deliberate choice, paying the price C++0x's `merge` and `copy` showed (Siek; prediction 10 of `../other-languages.md`). Under the facts rule a stakeholder's later method breaks the fact and recompiles, as in plain Julia, so the prediction dissolves for methods, and "shared compiled code not inlined across packages" (prediction 9) dissolves as a rule.
+- **Rule 4, retired (s29, change 1 of `../reviews/2026-10-18-decisions-revisited.md`).** "Views and placement: compiled code is compiled against its owners' view and lives where the type was chosen." Both halves are Julia's own behaviour: what a call sees, and where compiled code lives ([traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for)). Rule 4's early binding had been meant as a deliberate choice, paying the price C++0x's `merge` and `copy` showed (Siek; prediction 10 of `../record/other-languages-research-2026-10-16.md`). Under the facts rule a stakeholder's later method breaks the fact and recompiles, as in plain Julia, so the prediction dissolves for methods, and "shared compiled code not inlined across packages" (prediction 9) dissolves as a rule.
 - **"A trait module may not define a pirate"** became strict mode's refusal of a winning pirate, plus a lint.
 - **Ownership's earlier wording (rule 3, s22):** owners are packages, and delegation is by the owner only. Today delegates are data for strict mode, marked transitional; extensions count as their parent; a pirate is judged by the method's own signature (s27, decision 2).
-- **Today:** three rules: facts, ownership, the boundary ([the facts mode reference](../reference/facts.md)). The ownership section's long form in the old notes is stated by [facts §1](../reference/facts.md#terms), [the argument §3](argument.md#3-the-argument-in-four-steps) and [traits §12](../reference/traits.md#12-who-may-implement-pirates-strict-mode); Lemma O is in `../explorations/wrapping-by-facts.md`.
+- **Today:** three rules: facts, ownership, the boundary ([the facts mode reference](../reference/facts.md)). The ownership section's long form in the old notes is stated by [facts §1](../reference/facts.md#terms), [the rationale §2](../design.md#2-the-argument-in-four-steps) and [traits §12](../reference/traits.md#12-who-may-implement-pirates-strict-mode); Lemma O is in `../explorations/wrapping-by-facts.md`.
 
 ## The facts policy as package code, replaced by the facts mode in Julia's compiler
 
@@ -136,10 +136,10 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 ## Dynamic values: pointer tables and witness tables, replaced by the call-site split
 
 - **Pointer tables, rejected (s22)** for world age, serialization and races. Rust's `dyn` and Swift's `any` call through a table of function pointers.
-- **Witness tables and key branches, built in the package anyway (s28; TraitWorld 30527ed, d3bb298).** The review of 2026-10-18 (`../reviews/2026-10-18-design-and-fixes.md`, finding 2) verified the defect: a witness pointer runs in the latest world, not the caller's, so in an older world after an implementation was redefined, a `Dynamic` call through a witness table returned the new method's result. In s29 they were first turned off by default (`JULIA_TW_WITNESS=1` turned them on; the user: "Witness table: Yes"), and then deleted (TraitWorld 3db6592) when `Dynamic` moved to the compiler (the user: "move to the compiler directly"; julia-1.13 f6838f96fc, TraitWorld 703f814). The same defect remains in `DynamicCall`'s pointer ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)). Prediction 13 of [`comparison.md`](comparison.md#predictions-from-other-languages-and-their-status) records it: the other languages' standard mechanism, tried and dropped.
+- **Witness tables and key branches, built in the package anyway (s28; TraitWorld 30527ed, d3bb298).** The review of 2026-10-18 (`../reviews/2026-10-18-design-and-fixes.md`, finding 2) verified the defect: a witness pointer runs in the latest world, not the caller's, so in an older world after an implementation was redefined, a `Dynamic` call through a witness table returned the new method's result. In s29 they were first turned off by default (`JULIA_TW_WITNESS=1` turned them on; the user: "Witness table: Yes"), and then deleted (TraitWorld 3db6592) when `Dynamic` moved to the compiler (the user: "move to the compiler directly"; julia-1.13 f6838f96fc, TraitWorld 703f814). The same defect remains in `DynamicCall`'s pointer ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)). Prediction 13 of [`other-languages.md`](other-languages.md#predictions-from-other-languages-and-their-status) records it: the other languages' standard mechanism, tried and dropped.
 - **`sealed_call`**, the prototype's exemption for TraitWorld's machinery on the path of a `Dynamic` operation, went with (D): the machinery is not on that path.
 - **Dispatch on a `Dynamic` by run-time dispatch alone** (20–80 ns per operation) was replaced by the call-site split.
-- **Shared code through witnesses**, Swift's model, one copy for every conforming type: not chosen. It buys sharing with an indirect call per operation and Swift's performance cliffs ([`comparison.md` §3](comparison.md#3-compiled-for-what-the-bound-can-see)).
+- **Shared code through witnesses**, Swift's model, one copy for every conforming type: not chosen. It buys sharing with an indirect call per operation and Swift's performance cliffs ([`other-languages.md` §3](other-languages.md#3-compiled-for-what-the-bound-can-see)).
 - **The narrowed `Dynamic` (s27, TraitWorld f4b54a5).** `Dynamic{X}` kept only the views of `X` and its supertraits, so the bounds that open it run the workers compiled for what they see (a `Column` made from a `CSVColumn` trait object had compiled new workers for the pair of views). In s29 (change 5) this dissolved into "`Dynamic{X}` holds the user's object". The narrowing is still in the code (`_narrow`, `src/core.jl:358`; [`../open-issues.md`](../open-issues.md) §2, "the design and the code disagree", item 4).
 - **The first `Dynamic` (s22):** a kept trait object; operations dispatch; opened at a bound; equality like `AnyHashable`.
 - **The boxed copy, replaced by the held view (s29, the user: "Add a lean held view"; TraitWorld 375a930).** A `Dynamic` of an immutable value that is itself the receiver was a trait object pointing to a boxed copy of the value (two pointer chases), with an `o === nothing` branch per read: 1.45–1.61 ns per element in the sum over `Dynamic{Shape}`, and recursion through `Dynamic` at 1.65× plain-closed. The held view holds the value whole: 0.92–1.40 ns, and 1.26–1.31×.
@@ -157,7 +157,7 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 
 - **`HiddenMethodError` at calls** that would select a pirate from outside the code's dependencies (the views design), rejected in s25. It was the first reading of the user's request; a hostile review found that it needs a second cache, checked run-time calls and a cache owner per mode, and reduces no invalidation (`../explorations/strict-mode.md` §5).
 - **"Never invalidated" by a skip predicate** for pirates, rejected in s25: it gives up rule P, and the refusal mode gives the same without it (`../explorations/strict-mode.md` §5).
-- **Strict mode as the default:** not chosen for now. The default session follows pirates, and strict mode is the stated guarantee's switch ([the argument §3.5](argument.md#35-the-default-following-pirates-rule-p-and-what-it-gives-up)).
+- **Strict mode as the default:** not chosen for now. The default session follows pirates, and strict mode is the stated guarantee's switch ([the rationale §2.5](../design.md#25-the-default-following-pirates-and-what-it-gives-up)).
 - **Strict mode as an option only (s25)**, then the base of the framing (s29, the user: "Strict mode first for framing is yes"). The s25 statement: a method definition (at the prompt, by `include`, or an image's methods at load) is refused if it would win at a concrete fact held by trait-world code and its package is not a stakeholder of that signature; trait-world code is then never invalidated by a pirate; G1 holds; nothing changes at run time; if pirates never win, it never errors. The user: "I would love a mode that makes defining a winning pirate an error. If pirates never win then we never error." Prototype: TraitWorld 7b328a5 (`src/strict.jl`), 32 tests; `g2all` refused nothing, 0 misses; +0.54 s on a 4.1 s load of CSV, DataFrames and CairoMakie.
 
 ## Sealing, rejected
@@ -199,7 +199,7 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 
 ## Other options considered and not taken
 
-- **Deriving implementations from the methods that exist.** Rejected: Base's throwing fallbacks make it unsound ([`comparison.md` §2](comparison.md#2-implementations-are-declared)).
+- **Deriving implementations from the methods that exist.** Rejected: Base's throwing fallbacks make it unsound ([`other-languages.md` §2](other-languages.md#2-implementations-are-declared)).
 - **The edge-level rule:** compile only concrete calls against the current methods and make abstract ones dynamic. Rejected in s22 for its cliff at abstract calls and for having no closed world for AOT. Adopted later in substance as the facts rule (s23, s28): the cliff is accepted as run-time sites, recovered by traits, and AOT is restated through declared targets.
 - **Absorbing dependencies:** each package brings its ordinary dependencies into its own world. Rejected: two packages that absorb Makie conflict as soon as one defines a recipe.
 - **Trait bounds that compete with types,** ranked like abstract types. Rejected: the conflict would surface only in an application that loads both packages.
@@ -218,10 +218,10 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 
 ## Claims withdrawn
 
-- **"Performance: no cliffs"** as a section of the notes. Its claims are restated by [the argument §3](argument.md#3-the-argument-in-four-steps) and measured in [`evidence.md`](evidence.md).
+- **"Performance: no cliffs"** as a section of the notes. Its claims are restated by [the rationale §2](../design.md#2-the-argument-in-four-steps) and measured in [`evidence.md`](evidence.md).
 - **"Loads do not change speed" as a property of traits.** The control showed that load protection belongs to the facts rule, for any code ([`evidence.md` §1](evidence.md#1-the-guarantee)).
 - **Numbers of earlier prototypes** that the current documents no longer cite: first calls through view caches ("about 3 ms in every load order"), first-call numbers from before s29, and a 2.09 MB trimmed binary of `experiments/world` that predates keys and has not been rebuilt. The evidence log in session order is [`../design-findings.md`](../design-findings.md).
-- **The research's "Ours" column of s22** (`../other-languages.md`) describes the design of that date: compiled "per representation", "dynamic operations, dynamic call (per conformance)", no storable dynamic value, "owner, or a delegate the owner names (rule 3)", "the image of the package that chose the type (rule 4)", "dynamic Julia, above the trait world". [`comparison.md`](comparison.md) has the current column.
+- **The research's "Ours" column of s22** (`../record/other-languages-research-2026-10-16.md`) describes the design of that date: compiled "per representation", "dynamic operations, dynamic call (per conformance)", no storable dynamic value, "owner, or a delegate the owner names (rule 3)", "the image of the package that chose the type (rule 4)", "dynamic Julia, above the trait world". [`other-languages.md`](other-languages.md) has the current column.
 
 ## Terms retired
 

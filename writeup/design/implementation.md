@@ -8,35 +8,35 @@ The [glossary](../glossary.md), with links to the precise definitions: [facts: T
 
 ## 2. The problem
 
-[The argument in detail §2](argument.md#2-the-problem).
+[The rationale §1](../design.md#1-the-problem).
 
 ## 3. The argument in four steps
 
-[The argument in detail §3](argument.md#3-the-argument-in-four-steps).
+[The rationale §2](../design.md#2-the-argument-in-four-steps).
 
 ### 3.1 Step 1: fully typed code is already invalidated only by stakeholders and pirates
 
-[The argument in detail §3.1](argument.md#31-step-1-fully-typed-code-is-already-invalidated-only-by-stakeholders-and-pirates).
+[The rationale §2.1](../design.md#21-step-1-fully-typed-code-is-already-invalidated-only-by-stakeholders-and-pirates).
 
 ### 3.2 Step 2: outlaw pirates, and fully typed code is always valid and can be cached
 
-[The argument in detail §3.2](argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached).
+[The rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-trait-code-is-never-invalidated).
 
 ### 3.3 Step 3: the facts rule extends the guarantee to all code, at a cost where code is not fully typed
 
-[The argument in detail §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed).
+[The rationale §2.3](../design.md#23-step-3-the-facts-rule-extends-the-guarantee-to-code-that-is-not-fully-typed).
 
 ### 3.4 Step 4: traits say what code needs, which makes the facts rule cheap, and can enforce concreteness
 
-[The argument in detail §3.4](argument.md#34-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap-and-can-enforce-concreteness).
+[The rationale §2.4](../design.md#24-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap).
 
 ### 3.5 The default: following pirates (rule P), and what it gives up
 
-[The argument in detail §3.5](argument.md#35-the-default-following-pirates-rule-p-and-what-it-gives-up); the tiers precisely: [facts: two tiers](../reference/facts.md#two-tiers).
+[The rationale §2.5](../design.md#25-the-default-following-pirates-and-what-it-gives-up); the tiers precisely: [facts: two tiers](../reference/facts.md#two-tiers).
 
 ### 3.6 How the two goals interact
 
-[The argument in detail §3.6](argument.md#36-how-the-two-goals-interact).
+[The rationale §2.6](../design.md#26-how-the-two-goals-interact).
 
 ## 4. Traits: saying what code needs
 

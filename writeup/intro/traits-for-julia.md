@@ -284,7 +284,7 @@ The numbers on this page are from the patched Julia of 2026-10-20 (julia-1.13 3b
 
 ### 1. Compiled code that loading other packages does not discard
 
-The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [the argument §3](../design/argument.md#3-the-argument-in-four-steps).)
+The patched compiler compiles trait modules in a new mode. (The design calls it the facts mode: [the rationale §2](../design.md#2-the-argument-in-four-steps).)
 - A call whose argument types are all known is compiled as plain Julia compiles it.
 - A call whose argument types are not all known is not guessed at. It is dispatched when it runs, as Julia's dynamic dispatch does.
 - So compiled code depends only on calls whose types are all known. Only two kinds of change can alter one of those:
@@ -292,7 +292,7 @@ The patched compiler compiles trait modules in a new mode. (The design calls it 
   - a pirate whose method wins at that call.
 - So an unrelated package's load cannot discard the code, in any load order.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
-- A few exceptions remain in both settings, listed in [the argument §3.2](../design/argument.md#32-step-2-outlaw-pirates-and-fully-typed-code-is-always-valid-and-can-be-cached).
+- A few exceptions remain in both settings, listed in [the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-trait-code-is-never-invalidated).
 
 **This protection comes from the compiler's facts mode, and it works for any code.** Upstream CSV.jl and DataFrames compiled in it lose 2 of 3,337 pieces of compiled code to nine unrelated loads, against 561 of 4,684 in Julia's usual mode, and their first work takes 0.52 s instead of 3.3 s ([`results.md`](results.md)). What traits add:
 - **The mode costs type-stable bounded code nothing.** A bounded function is compiled for the types the trait sees. If those are concrete, and its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. A typed call into trait code costs 0.8 ns, as a plain call does. Plain code that is not type-stable gets slower in this mode (see "What it costs").

@@ -15,7 +15,7 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 (Seeded from `explorations/dataframes-port-lessons.md` §1–3; to be confirmed or corrected by the ports.)
 
 1. **Say what code needs.** A field or container that holds "any column" is `Dynamic{Column}` (or `Vector{Dynamic{Column}}`), not `AbstractVector` or `Any`. An operation's result type is declared in the trait.
-2. **Make the hot path fully typed.** Every call at a fact signature ([the argument §3](../design/argument.md#3-the-argument-in-four-steps)): concrete argument types, small unions of them, or a closure's call. A type passed as a value, a non-constant global, an `Any` field, `parentmodule(@__MODULE__).f`: each is a run-time site, whose result is `Any`.
+2. **Make the hot path fully typed.** Every call at a fact signature ([the rationale §2](../design.md#2-the-argument-in-four-steps)): concrete argument types, small unions of them, or a closure's call. A type passed as a value, a non-constant global, an `Any` field, `parentmodule(@__MODULE__).f`: each is a run-time site, whose result is `Any`.
 3. **Entries are trait-bound.** A package's public functions that should be cached reach their work through a bounded function (a worker), not through an untyped wrapper.
 4. **Extensions become implementations.** A package extension that adds methods to another package's internals becomes an implementation of a trait for the extension's type.
 5. **Keep plain what is plain.** Bookkeeping, macros, printing to a terminal, and the parts no hot path touches stay ordinary Julia; adopt traits one function at a time.

@@ -62,7 +62,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
   The cross-owner inlining (c7f1eae1c0) and keeping facts copies in images (9892bfc288) matter only with a second cache owner, so they go with the proposals for (B) and (C).
 - **Proposals:**
-  - (A) as "a facts mode for the native compiler", with the benchmark table ([the argument §3.3](argument.md#33-step-3-the-facts-rule-extends-the-guarantee-to-all-code-at-a-cost-where-code-is-not-fully-typed));
+  - (A) as "a facts mode for the native compiler", with the benchmark table ([the rationale §2.3](../design.md#23-step-3-the-facts-rule-extends-the-guarantee-to-code-that-is-not-fully-typed));
   - pieces 1, 1′, 14, 15 with strict mode;
   - (B) and (C) as per-method inference modes;
   - traits in the type system (piece 7) last.

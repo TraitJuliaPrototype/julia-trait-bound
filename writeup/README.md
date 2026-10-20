@@ -25,7 +25,7 @@ Explaining, measuring, comparing (not normative):
 - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
 - [`design/performance.md`](design/performance.md): where the costs come from, and the costs that remain.
 - [`design/julia-changes.md`](design/julia-changes.md): the inventory of Julia changes, with commits and upstream status.
-- [`design/comparison.md`](design/comparison.md): the choices against C++, Rust, Swift and Mojo; [`other-languages.md`](other-languages.md) is the research behind it.
+- [`design/other-languages.md`](design/other-languages.md): the choices against C++, Rust, Swift and Mojo; [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md) is the research behind it.
 - [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, with the reasons.
 - [`open-issues.md`](open-issues.md): what is open; questions waiting for the user first (§1).
 - [`intro/porting.md`](intro/porting.md): a working guideline for porters.

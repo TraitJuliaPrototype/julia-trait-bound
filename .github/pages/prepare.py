@@ -55,10 +55,10 @@ def fix(m, src):
 SEARCHED = {"writeup/reference/README.md", "writeup/reference/traits.md", "writeup/reference/facts.md",
             "writeup/reference/compiler.md", "writeup/reference/lowering.md",
             "writeup/intro/traits-for-julia.md", "writeup/intro/traits-by-example.md", "writeup/intro/results.md",
-            "writeup/intro/porting.md", "writeup/state.md", "writeup/design.md", "writeup/design/argument.md",
+            "writeup/intro/porting.md", "writeup/state.md", "writeup/design.md",
             "writeup/design/julia-changes.md", "writeup/design/evidence.md", "writeup/design/performance.md",
-            "writeup/design/comparison.md", "writeup/design/alternatives.md",
-            "writeup/other-languages.md", "writeup/open-issues.md", "writeup/glossary.md"}
+            "writeup/design/other-languages.md", "writeup/design/alternatives.md",
+            "writeup/open-issues.md", "writeup/glossary.md"}
 NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"
 
 # The documents are written for GitHub (CommonMark), and Python-Markdown reads lists differently: it nests by

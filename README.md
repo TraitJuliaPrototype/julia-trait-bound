@@ -33,7 +33,7 @@ Where any other document disagrees with them, they win ([conventions](writeup/re
 | You are | Read |
 |---|---|
 | a Julia programmer | [`writeup/intro/traits-for-julia.md`](writeup/intro/traits-for-julia.md), then the tutorial [`writeup/intro/traits-by-example.md`](writeup/intro/traits-by-example.md), the [trait language reference](writeup/reference/traits.md) and [`writeup/intro/results.md`](writeup/intro/results.md) |
-| a core developer | [`writeup/state.md`](writeup/state.md), the state in one page; the four references above; [`writeup/design.md`](writeup/design.md), the rationale; then [evidence](writeup/design/evidence.md), [performance](writeup/design/performance.md), the [changes to Julia](writeup/design/julia-changes.md), the [comparison with other languages](writeup/design/comparison.md), the [alternatives considered](writeup/design/alternatives.md) and the [open issues](writeup/open-issues.md) |
+| a core developer | [`writeup/state.md`](writeup/state.md), the state in one page; the four references above; [`writeup/design.md`](writeup/design.md), the rationale; then [evidence](writeup/design/evidence.md), [performance](writeup/design/performance.md), the [changes to Julia](writeup/design/julia-changes.md), the [comparison with other languages](writeup/design/other-languages.md), the [alternatives considered](writeup/design/alternatives.md) and the [open issues](writeup/open-issues.md) |
 | an agent resuming work | [`writeup/record/INDEX.md`](writeup/record/INDEX.md), then `writeup/state.md`, the references' Deviations tables, `writeup/open-issues.md` §1, and the last bullets of the latest note in `session-notes/` |
 
 ## This workspace
