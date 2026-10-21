@@ -156,6 +156,19 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - What `all` pays per round is Makie's machinery, not the data: a figure takes 2.4× as long to build (+95–100 ms), an edit about 2×, a render +30 ms at 10k rows and within 1 % at 200k. The loss per round does not grow with the rows.
 - Break-even comes after about a minute of session time at 10k rows, six minutes at 200k. Each package loaded during the session moves it further out.
 
+**The NetworkDynamics workload, upstream code** (no trait code; tier S of [the P1 plan](../plans/2026-10-21-ndport-workload.md): swing equations on 20 vertices, the fixed point, a cascade of 16 line trips, Tsit5 and Rodas5P, symbolic indexing, a GraphMakie PNG, a figure driven by Observables; one fresh session each; julia-1.13 6d480d0753, TraitWorld e9f4bfe, the clones at `upstream`; strict mode off; load average 1–3; U and P0 2 runs, `all` and stock 1 run; E-151, `ndport/logs/p1/`):
+
+| Setting | Loads | First pass | Again | New parameters | New equations (of which compiling) | Session |
+|---|---|---|---|---|---|---|
+| upstream, patched build | 5.4–5.6 s | 39.7–40.4 s | 0.2 s | 0.7 s | 15.9–16.3 s (15.6–16.0 s) | 69.9–70.7 s |
+| the clones, TraitWorld loaded (product setting) | 6.2–6.3 s | 39.9–40.0 s | 0.2 s | 0.7–0.8 s | 16.0–16.2 s (15.8–15.9 s) | 71.1–71.3 s |
+| `all` | 11.9 s | 34.5 s | 0.3 s | 0.6 s | 15.1 s (14.8 s) | 72.7 s |
+| stock 1.13.2 | 5.7 s | 39.0 s | 0.2 s | 0.6 s | 16.1 s (15.8 s) | 69.6 s |
+
+- **The same results in every setting:** all 25 digests equal, bit for bit (`ndport/scripts/compare_digests.py`).
+- **New equations compile the stack again:** a new component function creates 6,810 CodeInstances. About 2,700 are for the fixed point (NonlinearSolve, SciMLBase, NetworkDynamics), 2,700 for the solves (OrdinaryDiffEqCore 545, SciMLBase 461, DiffEqBase 171) and 1,070 for symbolic access. Makie creates almost none: the plotting steps' 0.6 s is NetworkDynamics' and SymbolicIndexingInterface's code reading the state (the attribution run, `ndport/logs/p1-diag/`; its times are not measurements). The component function reaches the network's type, which SciML carries into the problem, the integrator and the solution ([the exploration](../explorations/ndport-principled-traits.md) §1).
+- **Under `all`,** the loads take twice as long, and the first pass is 5 s shorter (the first GraphMakie figure 9.7 against 14.6 s). One run: indicative.
+
 ## 4. Builds and binaries
 
 - A trimmed TraitMakie binary: 4.07 MB (previous prototype, under the package policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.

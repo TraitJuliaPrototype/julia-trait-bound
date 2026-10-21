@@ -1,6 +1,6 @@
 # The NetworkDynamics port, P1: setup, the workload and its baselines
 
-Status: **adopted; part P1 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-workload-plan.md`](../reviews/2026-10-21-ndport-workload-plan.md) and the first dry runs. Not normative.
+Status: **done (2026-10-21, E-151); part P1 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-workload-plan.md`](../reviews/2026-10-21-ndport-workload-plan.md) and the first dry runs. Not normative.
 
 P1 gives the port a fixed workload, the environments to run it in, and the numbers and results every later step is compared against. No trait code is written in P1.
 
