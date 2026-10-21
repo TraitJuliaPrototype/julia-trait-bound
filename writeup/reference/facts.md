@@ -417,7 +417,7 @@ Who may write a method, and the errors a user sees, are in [traits §10](traits.
 <a id="strict-mode"></a>
 ### 10.2 Strict mode
 
-**Status: Implemented** as a prototype ([F-5](#deviations)).
+**Status: Implemented** as a prototype.
 
 ```julia
 TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
@@ -431,6 +431,8 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 **When.** Before the method becomes visible:
 - at a definition: at the prompt, by `include`, by `eval`;
 - for a package image's methods, before they are activated. A refused method stays inactive, and the load reports the `PirateError`.
+
+**How it finds the facts** (`TraitWorld/src/strict.jl`, `_winning_fact`): the calls of existing code at which the method would win, from the backedges of the specializations it could take over and of the method table; from each, the callers' backedges, transitively, as Julia's invalidation follows them, to trait code. After the definition, Julia's invalidation log is checked again: a hit the walk missed deletes the method and raises `PirateError` (counted, `_STRICT_MISSES`).
 
 **What it protects: trait code,** in both settings. *Trait code* is the code of trait modules, compiled by facts. A pirate that would win in code compiled by facts that trait code calls is refused because the trait code's invalidation would follow.
 
@@ -565,7 +567,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | the `Dynamic` split | Implemented | [§9](#dynamic-split) |
 | beyond four implementations, a table keyed by the value's type | Implemented | [§9](#dynamic-split); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
 | winning pirates followed by default | Implemented | [§10.1](#pirates) |
-| strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode); F-5 |
+| strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode) |
 | strict mode's intended design; the warning for package extensions; the symmetric lint | Planned | [§10.3](#strict-intended); F-6, F-14 |
 | package images of both owners | Implemented | [§11](#package-images) |
 | the setting as part of an image's key | Open | [§11](#package-images); F-7 |
@@ -588,7 +590,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-2 | [§6.2](#the-mode-rule), [§12.2](#the-test-bed) | Under `all`, code compiled by facts goes to the facts owner, as in the product setting, and the default owner holds plain code only: plain results and results compiled by facts never share a cache. | Under `all`, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method the compiler calls can reuse a result compiled by facts: correct, slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [compiler C-2](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:52`, `:60`, `:87`; `julia-1.13/Compiler/src/typeinfer.jl:1657` |
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
-| F-5 | [§10.2](#strict-mode) | A pirate is refused before it becomes visible, wherever it would win at a fact of protected code. | The check before the definition walks the direct callers of the specializations the pirate could take over, and the method table's backedges. Dependence through plain code, and a pirate that matches too many methods to list, are left to a safety net: after the definition, Julia's invalidation log is read; on a hit the method is deleted again and `PirateError` raised. | `TraitWorld/src/strict.jl:123`, `:158`, `:197` |
+| F-5 | — | *Retired*: see [§10.2](#strict-mode). | — | — |
 | F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion by a non-owner are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
 | F-7 | [§11](#package-images) | Open: whether the setting is part of an image's key. Until decided, code from an image built under the other setting is outside the test bed's G2. | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
 | F-8 | [§12.3](#trimmed-binaries) | Open: whether `verify_main` counts as holes the run-time sites that facts compilation makes in Base under `all`. | Under `all` it reports one: `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not on an error path. In plain mode it reports none. One of the test's checks fails under `all`. | `TraitWorld/test/verify_dynamic.jl:41` |
