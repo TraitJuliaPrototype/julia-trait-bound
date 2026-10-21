@@ -430,7 +430,7 @@ An analysis of SciML's source against the references, not a port: no Julia ran f
 | `AbstractODEAlgorithm`, `alg_order(::Tsit5) = 5`, `__init(prob, alg::MyAlg)` | an `ODEAlgorithm` trait that each solver package implements for its own types; `init` a typed method naming the solver's own type, a stakeholder's ([§10.1](../reference/traits.md#101-who-may-implement), [§5.5](../reference/traits.md#55-dispatch-types-first-then-traits); below) |
 | `solve(prob::AbstractDEProblem)` in DiffEqBase | a pirate by the letter, held by joint owners; principled: the body in the owner ([§10.1](../reference/traits.md#101-who-may-implement)) |
 | `AutoSpecialize`'s function wrapper; `FullSpecialize` | `Callable{A, S}` at a struct parameter, `Dynamic` by default; `compiled_for(f)` at the constructor ([§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature), [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)) |
-| the four dual signatures | a tuple of `Callable`s ([§3.7](../reference/traits.md#37-tuples-of-traits), Planned, W-29) |
+| the dual signatures | one bounded `Callable` parameter per signature, given the function itself (TraitDifferentialEquations' form; Rosenbrock runs on it); a tuple of `Callable`s ([§3.7](../reference/traits.md#37-tuples-of-traits), W-29) would make it one parameter |
 | `DefaultODEAlgorithm`'s integer switch | `Vector{Dynamic{…}}`: the split over four, a table beyond ([facts §9](../reference/facts.md#dynamic-split)) |
 | callback types in the integrator's type; `affect!(integrator)` with the whole integrator | `Vector{Callback}` ([§7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type)); each callback sees `Dynamic{IntegratorView{U, T, P}}`, a trait of fields ([§3.3](../reference/traits.md#33-fields)) |
 | SymbolicIndexingInterface's method sets; `getproperty(::DEIntegrator, :ps)` | `IndexProvider`, `ValueProvider`, forwarding with `by` ([§4.3](../reference/traits.md#43-forwarding-with-by)); a declared field or an operation, the sugar plain (0.2) |
@@ -461,7 +461,7 @@ end
 1. **The right-hand side as a trait; the function kept at a `Callable` bound.** `ODERHS{T, P}` with `rhs!(…)::Nothing`, and the subtraits `ODEJacobian` and `ODEMassMatrix`. `ODEFunction` conforms as a family, a user's model by its own `rhs!`. The record's `f` is a struct parameter bounded by `Callable`, as in TDE's `ODEProblem` (B2).
    - Replaces the function wrapper and the specialization levels for `f`, on the in-place path.
    - Buys: a new function or model compiles nothing in the solver, and its signature is checked.
-   - Measured by proxy at NetworkDynamics' own seam (B5, E-152). Needs the tuple of `Callable`s for implicit methods' dual signatures (W-29); Tsit5 first.
+   - Measured by proxy at NetworkDynamics' own seam (B5, E-152). Implicit methods' dual signatures run on one bounded `Callable` parameter per signature (TraitDifferentialEquations' form); a tuple of `Callable`s (W-29) would tidy it. A `Callable` call costs a few nanoseconds (~4 ns, `Dynamic`); the ~390 ns of P4-1 is an entry's crossing into a family member, not this call.
 2. **Callbacks and the integrator as traits.** `Callback` with `condition` and `affect!`, kept as `Vector{Callback}`; callbacks see `IntegratorView`; the options' functions are `Callable` fields; every integrator type implements `Integrator`.
    - Replaces the callbacks and the options' functions as axes of the integrator's type, and the informal integrator interface.
    - Buys: a new callback compiles nothing in the solver; a new solver's integrator is checked at its `@implement`.
@@ -484,7 +484,7 @@ end
 **Pushback** ([exploration §5](../explorations/sciml-as-traits.md#5-pushback-where-the-principled-form-meets-the-references)). Where the principled form meets a reference; none proposes a change (0.7).
 - **PB-A.** A trait generic over another trait's implementer: the algorithm-to-integrator link is checked at the first call (above).
 - **PB-B, PB-C.** No associated constants; asking a kept value for a capability is a trait cast (Optional). The stand-ins are 0.2's: operations with declared results, explicit type parameters, defaults where the fallback is correct.
-- **PB-D.** The dual signatures need a tuple of `Callable`s (W-29, Planned). AD through `solve` with an open chunk stays plain until then.
+- **PB-D.** The dual signatures take one bounded `Callable` parameter each; a tuple of `Callable`s (W-29, Planned) would make it one. SciML's chunk per problem is entered at `init` (the W-34 plan).
 - **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs a checked downcast of a kept value ([open issues §2](../open-issues.md#2-design), item 16). Until then `P` stays in the key.
 - **PB-F.** The convenience `solve` without an algorithm is a bounded method on a foreign function, which L-3 limits today.
 - **PB-G.** The `getproperty` sugar called from plain code: answered by constant propagation into facts code ([facts §6.3](../reference/facts.md#calls-between-the-modes); open issue 50, closed).

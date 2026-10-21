@@ -151,7 +151,7 @@ Earlier reviews, elsewhere:
 | [`2026-10-21-ndport-traits.md`](../plans/2026-10-21-ndport-traits.md) | 2026-10-21 | adopted | W-32 P2 and P4's first step: the traits of this round (`ComponentDynamics` now; Graph, VertexDynamics/EdgeDynamics, ODERHS and the others later), NetworkDynamics' component dynamics behind it in steps S0–S9, the criteria, E-152, the expected pushback |
 | [`2026-10-21-ndport-graph.md`](../plans/2026-10-21-ndport-graph.md) | 2026-10-21 | done (E-154) but G3 | W-32 P4 step 2: a graph trait (`GraphInterface`; `Graph` is Graphs' alias of `SimpleGraph`) in Graphs as plain code, a family over `AbstractGraph`; consumers in NetworkDynamics and GraphMakie; correctness more than time; E-154 |
 | [`2026-10-21-ndport-inside-out.md`](../plans/2026-10-21-ndport-inside-out.md) | 2026-10-21 | done (E-155) | W-32 P6: the SciML core made trait modules bottom-up under strict mode (S0–S7), the 63 pirates classified, joint owners (SciMLBase, OrdinaryDiffEqCore), the checks per step, the merge with P4; E-155 |
-| [`2026-10-21-w34-sciml-prerequisites.md`](../plans/2026-10-21-w34-sciml-prerequisites.md) | 2026-10-21 | proposal, reviewed, to be revised | W-34: what TraitWorld and the facts mode need to validate the SciML strategy, move by move; the prototypes E-156…E-161; draft work items and open issues 51–52 |
+| [`2026-10-21-w34-sciml-prerequisites.md`](../plans/2026-10-21-w34-sciml-prerequisites.md) | 2026-10-21 | adopted (revised after its review) | W-34: what TraitWorld and the facts mode need to validate the SciML strategy, move by move; the prototypes E-156…E-161; draft work items and open issues 51–52 |
 
 ## `design-findings.md`, by section
 

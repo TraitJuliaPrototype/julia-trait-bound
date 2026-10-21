@@ -118,6 +118,17 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 
 37. **P6 continues past its failed check at S2** (option 1 of its notes): the hot callers become trait modules at S3–S6, and the steady state is judged there; the design question goes to the user as open issue 50. Reason: within the design, reversible, and its numbers inform open issue 50.
 
+38. **The prototypes live in TDE on a branch `w34`** and in packages under `TraitDifferentialEquations/examples/`, not in SciML and not in TDE's main, until a form is adopted.
+39. **Form B is move 1's form;** form A is tried only after open issue 49 is decided (E-161).
+40. **SciML's chunk per problem is entered at `init`,** with the function kept plain beside the kept one in the problem.
+41. **A Jacobian when given is a branch in `ODEFunction`'s own `jac!`,** a default otherwise; the subtrait `ODEJacobian` only for model types that declare one.
+42. **Callbacks are entered at `init`** into parametric records of `Callable` fields; the user-facing callback structs keep plain functions.
+43. **`u` is `@const` in the view,** written in place, with `set_u!` an operation.
+44. **The open set is shown by moving Rodas5 out of TDE,** with a negative control for the census, and a stand-in for CommonSolve so that L-3 bites where it would in SciML.
+45. **The integrator's link is checked by option (a+) of open issue 51** in the prototypes, pending the user's decision.
+46. **Move 5 is one check of E-157,** not an experiment of its own.
+47. **Not taken for W-34:** trait casts, the checked downcast, T-51, keyword `Callable`s, `Callable` results, forwarding for a family (§1.7), until a prototype or the workload needs one.
+
 ## State
 
 | Date | Step |
@@ -134,3 +145,4 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 | 2026-10-21 | P4 step 2 done (E-154): `GraphInterface` in Graphs; networks on seven graph types where upstream fails on three; no cost; G3 reverted for traits T-59; T-58 found; pushback P4-3, P4-4. The two deviations to be fixed in TraitWorld after P6's pin. |
 | 2026-10-21 | P6 done (E-155): the SciML core wrapped bottom-up under strict mode, bit-equal at every step; the `getproperty` cost (P6-1) gone once DiffEqBase is wrapped; the first simulation 28.9 s. The user: open issue 50 decided (constant propagation crosses from plain code into facts code, W-33); the SciML restructure following the exploration of SciML's architecture is pursued (W-34), with DiffEq.jl's solvers as an open set; the guideline holds the principles and the SciML case study (B6). TraitWorld f06b82d: T-58, T-59 fixed. |
 | 2026-10-21 | W-33 built (julia-1.13 2943086604): constant propagation from plain into facts code; SciMLBase's field reads from plain code typed. The session wrapped up; the next session starts from the pick-up note (`2026-10-21-pickup-sciml-validation.md`): W-34 first. |
+| 2026-10-21 | W-34's plan adopted after its review (form B for move 1; open issue 51 with options a–e; W-36–W-38; E-156–E-161 proposed; choices 38–47). Open issue 54 (hidden type parameters) reopened by the user. W-39's overnight measurements (E-162–E-164) started 21:52. |

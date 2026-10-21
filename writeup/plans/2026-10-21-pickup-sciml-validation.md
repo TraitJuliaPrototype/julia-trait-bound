@@ -34,16 +34,9 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 
 ## The next session: what to do, in order
 
-1. **The W-34 plan:** revised by its review at the end of session 32 (see its status line); if adopted, start at step 2.
-   **Revise the W-34 plan by its review** (if not yet done) (an Opus agent revises, the coordinator decides). The review's blockers and main points:
-   - renumber the plan's draft work items (W-35 is taken by the Makie/DataFrames strategies);
-   - move 1's main form is form B (the right-hand side at bounded `Callable` parameters, as TraitDifferentialEquations has it; it needs no tuples of traits); form A (`ODERHS{P}` with the model kept `Dynamic`) cannot be declared for `ODEFunction` without a hidden type parameter, and costs a family-registry lookup per call (open issue 49): optional, after the user decides 49;
-   - T-5 and T-57 read correctly now (T-57 corrected 2026-10-21); T-57 does not block moves 2 and 3 (the family without a block avoids it); the no-block family branch may skip the ownership check: probe it in E-156;
-   - L-3 is on move 3's main path (CommonSolve owns `solve`, `init`, `solve!`): E-159 adds a plain stand-in for CommonSolve; the route is a typed method on SciMLBase's abstract integrator that forwards to a bounded function SciMLBase owns;
-   - open issue 51 (the algorithm cannot name its integrator per problem, pushback W34-1) gets the review's three further options within the design;
-   - smaller points: callback records with `Callable` fields; E-160 without W-33 where the `getproperty` sugar is plain; W-37 (forwarding for a whole family) not needed; E-161 folded into E-157.
-2. **Put open issues 49, 51 and 52 to the user** (49: a typed call of a family member builds its trait object at run time; 51: as revised).
-3. **Run E-156** (the TraitWorld probes, with the predictions written in), then E-157 (move 1, form B), E-158 (move 2), E-159 (move 3, a solver from outside the core under strict mode), E-160 (move 4): each registered before it runs.
+1. **The W-34 plan is adopted** (revised after its review at the end of session 32): form B for move 1 (the right-hand side at bounded `Callable` parameters, TraitDifferentialEquations' form); open issue 51 with options (a)–(e); work items W-36 (L-3), W-37 (the block forms of a family), W-38 (waiting for E-156); experiments E-156–E-161 registered as proposed; its choices 38–47 in the meta plan.
+2. **Put open issues 49, 51, 52 and 54 to the user** (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
+3. **Run E-156** (the TraitWorld probes P1a–P13, predictions written in), then E-157 (move 1, form B, with move 5's check), E-158 (move 2), E-159 (move 3: Rodas5 moved out of TraitDifferentialEquations, a CommonSolve stand-in, the census's negative control), E-160 (move 4): the rows are in the registry; set each to running when it starts. W-36's study beside E-159.
 4. **On the port, in parallel where the lock allows:** G3 again; the P4/P6 merge on the current build; P4 step 3.
 
 ## Before starting
