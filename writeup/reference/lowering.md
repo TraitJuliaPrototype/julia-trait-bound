@@ -421,7 +421,9 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 - **Per entry position, a table** from the user's type to its implementation's builder, valid in a range of worlds: a declared implementation for the range of its dispatch, anything else for one world (`UTable`, `_umiss`). It is appended copy-on-write, and a table saved in an image is ignored in another session.
 - **One trait position:** a table per entry pattern from the user's type to a `:caller_world` pointer ([compiler §3.1](compiler.md#31-the-cfunction-calling-convention-caller_world)) to the pattern's method specialized on the builder (`_pentry`). One call through it builds the views from the builder's data and calls the worker for the key. Several trait positions: the builders from each position's table, then one dynamic call on the builders' types.
 - **The pattern's method** is compiled once per key, and compiled ahead per declared implementation ([§15.1](#151-compiling-ahead-from-declarations)).
-- A type the table does not serve (a generic implementation, a family member, a position where containers cross) takes the generic path; a type without an implementation reaches the fallback as there.
+- **A family member is served by the table** like a declared type: its builder enters the table after its member check (traits §4.7), valid for the worlds of the family method's dispatch.
+- A type the table does not serve (a generic implementation, a position where containers cross) takes the generic path; a type without an implementation reaches the fallback as there.
+- **The conversions of held values** (`compiled_for`, `with_dynamic`, `Kept{X}(d)`) call their constructors at the held value's concrete type, never at the `Any`-typed object it holds: in code compiled by facts such a call would be a run-time site. So `compiled_for(::Kept{X})` is a `Kept{X}`, and a crossing from trait code costs what one from plain code does.
 
 ---
 
