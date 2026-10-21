@@ -903,7 +903,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 - For each item of a user's container, as it is read ([§6.6](#66-items-of-a-users-container)).
 - A trait object carrying another trait cannot become a kept value of `X` (`ArgumentError`).
 
-**Status:** Implemented, except a result type that names a parameter, which is not yet typed by the value the form fixes ([lowering L-20](lowering.md#18-deviations)). Planned: `Dynamic{(ColTable, RowTable)}`, a value seen through several traits (refused today: no such value can be made); a trait's own declared `==`; serialization of a kept value with its implementation ([open issues §2](../open-issues.md#2-design)). Open: opening a kept value at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
+**Status:** Implemented. Planned: `Dynamic{(ColTable, RowTable)}`, a value seen through several traits (refused today: no such value can be made); a trait's own declared `==`; serialization of a kept value with its implementation ([open issues §2](../open-issues.md#2-design)). Open: opening a kept value at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
 
 ### 7.2 A trait's name as a storage type
 

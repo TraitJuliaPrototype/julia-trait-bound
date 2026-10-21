@@ -459,7 +459,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 **A constructor operation on a `Dynamic`** returns a `Dynamic` of the new value (`_dyn_like`, `entry.jl:741`).
 
-**Intended:** the inverse is compiled per key and user type where the caller knows the type, and its result has the caller's type. **As built,** it runs behind an inference barrier ([L-16](#18-deviations)).
+**Where the caller knows the user's type** (`_like_return`, `entry.jl`), the inverse is compiled for it: the slots it replaces are read from the builder the type's declaration fixed (`_declared_builder`, a constant), and the type's constructor builds the result, so it has the type it builds. Elsewhere the inverse runs when the call runs (`_like_out`): a `Dynamic` or a kept value in, an untyped caller, two positions of one trait object type, a member of a family ([L-16](#18-deviations)).
 
 ---
 
@@ -502,7 +502,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-20](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned** ([`traits.md#7-kept-values-dynamicx-compiledx-keptx`](traits.md#7-kept-values-dynamicx-compiledx-keptx)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned** ([`traits.md#7-kept-values-dynamicx-compiledx-keptx`](traits.md#7-kept-values-dynamicx-compiledx-keptx)).
 
 **The representation:** three kept forms, each holding the user's object (`core.jl`):
 - `struct Dynamic{X}; t::Any; end` and `struct Compiled{X}; t::Any; end`, one attribute each;
@@ -527,7 +527,7 @@ Base.@constprop :aggressive @inline op(d::HeldValue{X}, a…) where {X <: Trait}
 ```
 
 - `_dynop(X, op)` is `op` applied to the opened object, as a value of its own type (`_DynOp{X, F}`, one method per arity up to six, `core.jl:448`). The split is over the held object.
-- `RT` is the declared result type, with the parameters the `Dynamic`'s type fixes substituted ([traits §7](traits.md#7-kept-values-dynamicx-compiledx-keptx)). Where it names `Self`, or a parameter the type leaves open, it is `Any`. *As built,* it is `Any` wherever the declared type names `Self` or any parameter ([L-20](#18-deviations)).
+- `RT` is the declared result type, with the parameters the `Dynamic`'s type fixes substituted ([traits §7](traits.md#7-kept-values-dynamicx-compiledx-keptx)). Where it names `Self`, or a parameter the type leaves open, it is `Any`. It is computed where the call is compiled: `_erased_ft(op_ret(X, op, _erased_key_of(X), N))`, a constant, as a declared field's type is (`_dyn_getprop`).
 - Julia infers the call at the union of the family's registered **candidates**, the first four, plus a fallback, and splits it as a union: `isa` branches on the held object's type, in each the view folded and the operation's method called directly. The last branch calls the target for the object's type through the table of the call's signature, its result asserted to `RT` ([compiler §4.2, the call-site split](compiler.md#42-compilersplit_call-the-call-site-split); [§4.3, the table](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)).
 - `@constprop :aggressive` makes each caller infer the call again, so it splits over the candidates registered when it is compiled.
 - The fallback dispatches in the caller's world. A type outside the four costs one probe and an indirect call, at any number of implementations, and allocates nothing for a concrete `RT`.
@@ -743,11 +743,11 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-13 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-14 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-15 | [§15.1](#151-compiling-ahead-from-declarations) | the workers of every bounded function with one trait position whose bound includes `X` are compiled ahead, where the other arguments are concrete | vararg positions are skipped; so are entries with several trait positions: no worker, no pattern method and no entry method is compiled ahead for them | `ahead.jl:100`, `:132`, `:138`, `:151`–`152` |
-| L-16 | [§11](#11-results-like-the-input) | the inverse is compiled for the caller's type, and its result has that type | the inverse runs behind an inference barrier through a `Dict` and the constructor; a typed caller's result is `Any` | `trait_module.jl:633`, `:702`; `entry.jl:681`–`739` |
+| L-16 | [§11](#11-results-like-the-input) | the inverse is compiled for the caller's type, and its result has that type | for a member of a family implementation, the inverse runs behind an inference barrier (its builder is found at its first use, not a constant of a declaration), and a typed caller's result is `Any` | `entry.jl` (`_like_return`, `_like_typed`) |
 | L-17 | [§2](#2-modes-owners-and-images), [§14](#14-checks-and-where-their-results-live) | the machinery's code is facts code, protected as trait code | machinery that calls compiler functions directly holds edges to plain compiler code, valid only as long as plain Julia keeps it valid | `checks.jl:97`–`117`; `defcheck.jl:236`–`258`; `core.jl:348`, `:415`; `compiler.jl:57`, `:68` |
 | L-18 | [§16](#16-sessions-loads-and-hooks) | strict mode asks Julia what a definition would invalidate ([compiler §5.4](compiler.md#54-planned-hooks-for-strict-modes-intended-design)) | it reads backedges before the definition and the invalidation log after it, deleting the method again on a miss | `strict.jl:1`–`14`, `:123`, `:197` |
 | L-19 | [§3](#3-trait-declarations) | a trait's body holds operations, defaults, fields, equations and concreteness lines ([`traits.md#1-syntax-summary`](traits.md#1-syntax-summary)) | `@mutating` is accepted in a trait's body and recorded as `is_mutating`, which no code reads | `trait.jl:284`; `implement.jl:132` |
-| L-20 | [§13](#13-dynamicx) | an operation on a `Dynamic` of a parametric trait asserts its declared result at the parameters the `Dynamic`'s type fixes, so a `Dynamic{StateVector{Float64}}` operation declared `::T` is typed `Float64` | the result type is `Any` wherever the declared type names `Self` or any parameter, fixed or not; the code after the call is not inferred | `trait.jl:303`–`304` (`dep`, `retx`), `:314`, `:318` |
+| L-20 | — | *Retired*: see [§13](#13-dynamicx). | — | — |
 | L-21 | [§5](#5-keys-and-views) | an implementation whose operations are all served by defaults has no receiver type | it has one also when the trait's declarations name `Self`, or when a parameter is not defined by a field: then the conforming type is the receiver type and gets its own compiled copy | `entry.jl:456`–`465` (`_no_implementing_type`) |
 | L-22 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method, until the member's first use. | The member's declaration makes its own `conformance` method (`_declared_for`); a declaration after the member's first use is not refused. As [traits T-28](traits.md#17-deviations). | `implement.jl` (`_declared_for`) |
