@@ -66,3 +66,21 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **Blocks:** no.
 - **What the port did:** nothing; the attribution is due with the track's check J.
 
+## P4-3. An informal interface whose functions return open iterators (traits §3, operations' results)
+
+- **The code:** Graphs' `edges` and `all_neighbors` return a generator for `Graphs.Test.GenericGraph` and a different iterator per graph type; NetworkDynamics' index manager reads them (`construction.jl`, `network_structure.jl`).
+- **The idiomatic form:** an operation `edges(g::GraphInterface)` whose result is "something iterable of edges".
+- **The reference:** an operation declares its result type; an open iterator type per implementation is not one result type, and BaseTraits' `Iterable` does not cover generators.
+- **What it costs:** two new functions in Graphs with concrete results, `edge_list(g)::Vector{SimpleEdge{V}}` and `all_neighbor_list(g, v)::Vector{V}`, a copy each at the network's construction. That result type also meets traits T-58 on a `Dynamic` trait object.
+- **Blocks:** no.
+- **What the port did:** the two functions in Graphs (public, not exported: `edge_list` is a variable name in NetworkDynamics' tests); NetworkDynamics' index manager reads `edge_list` (E-154, G1–G2).
+
+## P4-4. The owner of an informal interface cannot put the trait in a package extension (traits §10.1)
+
+- **The code:** Graphs declaring `GraphInterface` for its `AbstractGraph` interface.
+- **The idiomatic form:** an extension of Graphs triggered by TraitWorld, so that Graphs does not depend on TraitWorld.
+- **The reference:** an implementation in a package extension mentions each of the extension's triggers ([traits §10.1](../reference/traits.md#101-who-may-implement)); TraitWorld owns neither the trait nor `AbstractGraph`, so the extension is refused, although the rule's reason does not apply where the extension declares the trait itself.
+- **What it costs:** TraitWorld a hard dependency of Graphs; Graphs and its dependents precompile again (29 s in `depot-p4`).
+- **Blocks:** no. A small separate interface package holding the trait answers it within the design.
+- **What the port did:** declared the trait in Graphs as plain code.
+
