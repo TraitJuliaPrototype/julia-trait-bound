@@ -68,3 +68,27 @@
 - **P2:** the Fable exploration (`writeup/explorations/ndport-principled-traits.md`); the plan `2026-10-21-ndport-traits.md` adopted after review (one trait now, `ComponentDynamics`).
 - **P3 done (E-153):** NetworkDynamics wrapped whole in `@trait_module` (three lines). It was ~1,500× slower in steady state until one promotion rule was added to Static.jl (cloned, branch `trait-port`): Static's `promote_rule` falls back to `typejoin`, which facts §8 does not fold (pushback P3-1; facts F-16: the default owner folds it). With the fix: steady state faster than upstream; the plotting load no longer discards the simulation's code (0.04 against 4.7 s recompiled); strict mode refuses a pirate on duals there; the first simulation +16 s (facts compilation in the session); the workload itself as a trait module: first plot 48 against 16 s. Census: no pirates in NetworkDynamics; DiffEqBase 28. Traits T-56 (the ownership check's gap) from the P3 review.
 - **P4 step 1 (E-152)** handed to an Opus agent in `ndport/pkgs/NetworkDynamics-p4` (branch `trait-port`, `env_p4`, `depot-p4`); the Graph step's plan being written.
+
+## Later: inside out, joint owners, open issues 48 and 50, the SciML strategy
+
+The user's words, in order:
+- "I have a thought on all this. Are you pursuing an outside in strategy, wrapping the whole package where the user calls it, or are you building inside out, with a minimal trait core that grows slowly to the boundary? I wonder whether inside-out under strict mode is a sensible strategy for trait porting core packages, even if they are not going to run under strict mode eventually. It forces the design to be piracy free at any step and can be done iteratively... Thoughts?"
+- "Joint ownership is approved, build it to enable inside out. Note whether a different package structure could avoid it (or heavy use of implement over piracy), but if building joint ownership is simpler than restructuring SciML that is the pragmatic choice. Dual track is also go. For things like split packages I think you can decide yourself to add features that are highly orthogonal. Don't make changes to existing designs and features though..."
+- On open issue 48: "Change the family members using the generic path", then "Sorry I sent that message before yours was in, out of your options (c) is correct".
+- "Looking at SciML and all the function overloads it does: Send out a Fable agent that thinks about a principled way to translate this to traits. Rather than trying a one to one port it should think about how one would achieve the same goal as as this architecture achieves in, e.g. Rust and then think about the "shortest route" from a SciML like system to a trait idiomatic one. It should stay relatively high level and identify principles. Only run absolutely minimal Julia. No need to try to verify it's ideas in practice yet."
+- "I feel like the general principles and the analysis of SciML design probably should be merged into the potting document. Maybe with SciML a separate case study. In the case of DiffEq.jl solvers should probably be considered an open set... Tackle anything that is needed in TraitWorld/Facts to validate the Fable strategy. Start by presenting open issue 50 to me"
+- On open issue 50: "Explain the trade offs for (b). Do we get more invalidations that way?", then "So we are talking about more inference not more compilation. Great! Go for (b) but also we are pursuing (d), the SciML restructure as per Fables guidelines anyways."
+- "Maybe we should have similar porting strategy Fable agent for Makie and DataFrames. Mark that as to do."
+- "We are also running into our weekly usage limits so I would like to slowly wrap up most strands of work. No need to interrupt what's running, but once things are back, record where they stand, make sure session notes, the meta plan and references are up to date, etc... also create a pick up from here note for a fresh session to start working on the SciML strategy validation, and note that as the next thing to work on."
+
+What was done (commits in the design repository from 455f53d to the end of the session; the details are in the meta plan's state table, the registry and the pushback log):
+- **Joint owners** (traits §10.1; TraitWorld a373e30) and the second track, P6, inside out under strict mode (E-155, done: the SciML core wrapped bottom-up, bit-equal at every step).
+- **Open issue 48** closed, option (c): family members served by the table, held-value conversions at fact signatures (TraitWorld 3bebf13). Open issue 49 opened (a typed call of a family member).
+- **P4 steps 1 and 2** (E-152, E-154); traits T-58, T-59 found and fixed (TraitWorld f06b82d); T-57 recorded and corrected.
+- **The SciML exploration** (Fable, `writeup/explorations/sciml-as-traits.md`); merged into the porting guideline (Part 0, B6) with the open-set correction; pushback W34-1.
+- **Open issue 50** closed: constant propagation crosses from plain into facts code (facts §6.3, F-17, W-33, being built at the end of the session); the SciML restructure W-34; Makie and DataFrames strategies W-35.
+- **W-34's inventory plan** written and reviewed (three blockers), not yet revised.
+
+## To resume
+
+Start with the pick-up note [`writeup/plans/2026-10-21-pickup-sciml-validation.md`](../writeup/plans/2026-10-21-pickup-sciml-validation.md): W-34, validating the SciML strategy, is next (revise its plan by the review first). Then the work queue (`writeup/record/todo.md`) and the meta plan's state table. Nothing is pushed.
