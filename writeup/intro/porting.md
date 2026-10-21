@@ -337,9 +337,12 @@ col = fillcolumn(compiled_for(emptylike(c)), s, spans[k])::Union{Nothing,Dynamic
 
 ### B5. Networks of dynamical systems: NetworkDynamics, SciML, GraphMakie (W-32)
 
-The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md). The pushback log: [`../explorations/ndport-pushback.md`](../explorations/ndport-pushback.md) (created at its first entry).
+The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md). The pushback log: [`../explorations/ndport-pushback.md`](../explorations/ndport-pushback.md).
 
-(To be filled by the port as it goes.)
+- **Wrapping a 15,000-line package works with three lines.** NetworkDynamics as a whole in `@trait_module` precompiles (18 s against 22 s plain), nothing is refused, and the workload's results equal upstream's bit for bit (E-153).
+- **After wrapping, profile the steady state before anything else.** Time a step twice in one session (0.6), then run the dispatch profiler and `fully_typed` on the hot function. In NetworkDynamics the second solve took 30 s against 20 ms upstream. The cause was outside the package: Static.jl's promotion of `Int` with `StaticInt` falls back to `typejoin`, which plain Julia folds and code compiled by facts does not ([facts §8](../reference/facts.md#8-asserted-effects); pushback P3-1).
+- **Fix such a case where the rule is.** One promotion rule in Static.jl removed every run-time site on that path, and the steady state became faster than upstream's. The fix serves plain users too. It is not a workaround in the port.
+- **The first call of what a trait module reaches is compiled by facts in the session.** No image holds that code yet. NetworkDynamics' first fixed point took 21.9 s against 6.5 s plain, because NonlinearSolve's code reached from the trait module was compiled by facts. A precompile workload that covers the path moves this into the image.
 
 ---
 
