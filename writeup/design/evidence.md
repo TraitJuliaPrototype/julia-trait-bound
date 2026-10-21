@@ -40,6 +40,17 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 - **Diagnosed on the build of 2026-10-19,** when it was ~990 ms: what upstream pays after the loads under `all` (now 435 ms, against 0.9 ms repeated; plain: 4.0 s) is the plain inference behind run-time `return_type`. Its cached answers rest on plain edges at abstract signatures (an `isapprox(::Integer, ::Integer)`, a `quantile!(::AbstractVector, …)`); the loads invalidate them (Unitful's `Colon(::Any, ::Any, ::Quantity)` alone 733 entries); `CSV.read` and `describe` ask again, and plain inference, optimizer included, runs again (70% of the profile then). This is by design: the answers are plain Julia's, so a load that changes plain inference changes them. The optimizer cannot be skipped: without it the answers get wider (CairoMakie's workload then fails) ([`performance.md`](performance.md)). The 435 ms has not been profiled again.
 - **A second residue is diagnosed** (§3, TraitReport): StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code ([glossary](../glossary.md) §1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open ([`../open-issues.md`](../open-issues.md) §1.19).
 
+**Load protection in the product setting for a wrapped package** (E-153; NetworkDynamics 1.3.0 wrapped whole in `@trait_module`, with Static.jl's promotion fixed; the workload of evidence §3 in order B: CairoMakie, GraphMakie and Observables, 186 packages with their extensions, loaded after the first simulation; one run each; julia-1.13 6d480d0753, TraitWorld e9f4bfe; `ndport/logs/p3-orderB/`):
+
+| Setting | Lost to the load (CodeInstances) | The next simulation pass recompiles |
+|---|---|---|
+| the unchanged stack (product setting) | 4,062 of 280,083, owner `nothing` (NetworkDynamics 386, NonlinearSolveBase 209, SciMLBase 61) | 4.7 s |
+| NetworkDynamics a trait module | 2,884, none of the facts owner | 0.04 s |
+| `all` | 1,198 (NetworkDynamics 54; not classified) | none |
+
+- **Strict mode on a wrapped package:** a pirate `sin` on ForwardDiff's duals, defined after the first Rodas5P solve, is followed with strict mode off (84 CodeInstances lost, 75 of the facts owner) and refused with it on (`PirateError`, none lost). The control, the unchanged stack with strict mode on, accepts it (81 lost): the refusal is the trait module's (`ndport/logs/p3-pirate/`).
+- Results equal to upstream's bit for bit in every setting.
+
 **The cost of the facts rule on plain code.** The full BaseBenchmarks (4,342 benchmarks), `all` against plain, one run each (`compare-full.log`):
 - **Geometric mean 1.037.**
 - By group: array 1.043, collection 1.123, sort 1.056, union 1.060, scalar 1.027, simd 1.002, sparse 1.001; io 1.231 (10 benchmarks), problem 1.167, find 1.104.
@@ -168,6 +179,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - **The same results in every setting:** all 25 digests equal, bit for bit (`ndport/scripts/compare_digests.py`).
 - **New equations compile the stack again:** a new component function creates 6,810 CodeInstances. About 2,700 are for the fixed point (NonlinearSolve, SciMLBase, NetworkDynamics), 2,700 for the solves (OrdinaryDiffEqCore 545, SciMLBase 461, DiffEqBase 171) and 1,070 for symbolic access. Makie creates almost none: the plotting steps' 0.6 s is NetworkDynamics' and SymbolicIndexingInterface's code reading the state (the attribution run, `ndport/logs/p1-diag/`; its times are not measurements). The component function reaches the network's type, which SciML carries into the problem, the integrator and the solution ([the exploration](../explorations/ndport-principled-traits.md) §1).
 - **Under `all`,** the loads take twice as long, and the first pass is 5 s shorter (the first GraphMakie figure 9.7 against 14.6 s). One run: indicative.
+- **NetworkDynamics wrapped as a trait module** (E-153, one run; Static.jl's promotion fixed): the steady state is faster (a Tsit5 and a Rodas5P solve with the cascade, 15.3 against 19.7 ms); the first simulation slower (steps a–e 37.8 against 21.5 s: the code it reaches is compiled by facts in the session, the first fixed point 21.9 against 6.5 s); the new equations the same (15 s). With the workload's own module a trait module too, the first plot takes 48.5 against 16.0 s (Makie compiled by facts in the session).
 
 ## 4. Builds and binaries
 

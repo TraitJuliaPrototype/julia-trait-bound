@@ -1,6 +1,6 @@
 # The NetworkDynamics port, P3: the facts mode first
 
-Status: **adopted; part P3 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-facts-first-plan.md`](../reviews/2026-10-21-ndport-facts-first-plan.md) and the first wrap. Not normative: the references hold ([`../reference/facts.md`](../reference/facts.md) above all).
+Status: **done (2026-10-21, E-153); part P3 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-facts-first-plan.md`](../reviews/2026-10-21-ndport-facts-first-plan.md) and the first wrap. Not normative: the references hold ([`../reference/facts.md`](../reference/facts.md) above all).
 
 **The question** (the user's goal, [W-32](../record/todo.md): "reap the biggest possible benefits of Trait and Facts mode with minimal changes to the code"): what do NetworkDynamics, SciML, GraphMakie with Makie, and Observables gain from the facts mode before any trait is written, and what is the smallest change that gets it?
 
