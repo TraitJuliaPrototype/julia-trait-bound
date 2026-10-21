@@ -729,7 +729,7 @@ Rules: [reference §9](../reference/traits.md#9-checks-and-when-they-run), [§10
 
 ## 17. Asking for concrete types
 
-By default a conforming type, or a trait's parameter, may be abstract. Then the code reads that part through a dynamic dispatch. A trait that wants a part concrete names it in its body: `Self`, the type seen through the trait, or a parameter. *Concrete* means a concrete type with concrete type parameters, all the way down.
+By default a conforming type, or a trait's parameter, may be abstract. Then the code reads that part through a dynamic dispatch. A trait that wants a part concrete names it in its body: `Self`, the type seen through the trait, or a parameter. *Concrete* means a concrete type, or a small `Union` of them (at most four, as `Union{Missing, Int}`), with type parameters concrete in the same sense, all the way down.
 
 ```julia
 @trait_module module Weights

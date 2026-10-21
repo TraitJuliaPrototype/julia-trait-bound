@@ -248,7 +248,7 @@ The entries are grouped by theme:
 - **Here:**
   - Code is **fully typed** when every call in it is at a [fact signature](#fact-and-fact-signature), and so is every call in the code compiled into it. Such code pays nothing for the facts rule.
   - **Concrete mode** reports the calls that are not, per worker, with their root cause. `fully_typed(f, argtypes)` gives the report: the **fully-typed certificate**.
-  - **Concrete:** a concrete type with concrete type parameters, all the way down. A trait may require its parameters and `Self` to be concrete, a bounded function the parts of its arguments (`@enforce_concrete_only`, `@warn_on_abstract`). Concrete mode is asked for with `@enforce_fully_typed` or `@warn_not_fully_typed`.
+  - **Concrete:** a concrete type, or a `Union` of at most four concrete types, with type parameters concrete in the same sense, all the way down. A trait may require its parameters and `Self` to be concrete, a bounded function the parts of its arguments (`@enforce_concrete_only`, `@warn_on_abstract`). Concrete mode is asked for with `@enforce_fully_typed` or `@warn_not_fully_typed`.
 - **Origin:** close to Julia's "type stability", which `@code_warntype` shows for one call *(not in the research)*. Swift's lesson, "make the slow path visible from day one", is what explicit modes and concrete mode do ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). "Fully typed" is the project's term.
 - **Defined in:** [traits §11](reference/traits.md#11-concreteness-and-concrete-mode); fully typed: [facts §1](reference/facts.md#term-fully-typed).
 

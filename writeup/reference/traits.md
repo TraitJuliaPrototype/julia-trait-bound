@@ -1183,7 +1183,7 @@ end
 fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anywhere
 ```
 
-**Concrete** means a concrete type whose type parameters are concrete, all the way down: `Vector{Float64}`, not `Vector{Real}`, `Real` or `Union{Missing, Int}`. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
+**Concrete** means a concrete type, or a `Union` of at most four concrete types, whose type parameters are concrete in the same sense, all the way down: `Vector{Float64}` and `Vector{Union{Missing, Int}}`, not `Vector{Real}`, `Real` or a union of five types. Four is Julia's limit on union splitting: a call on a small union splits into one compiled call per member, each a fact ([facts §3](facts.md#facts-and-fact-signatures)), so the code is fully typed. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
 
 ### 11.1 Per trait: concrete parameters and `Self`
 
@@ -1213,7 +1213,7 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anyw
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
 - `@warn_not_fully_typed` warns at a bounded function's first run; `@enforce_fully_typed` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). Before `@trait_module`, it applies to every function of the module.
 
-**Status:** Implemented. The choices made while building it are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45). Open: whether a small `Union` of concrete types counts as concrete here, and whether concrete mode warns about a variable of one ([open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user)). Today it is not concrete, and concrete mode does not warn.
+**Status:** Implemented. The choices made while building it are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45).
 
 ---
 
@@ -1367,7 +1367,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | concrete parameters and `Self`, per trait: `@enforce_concrete_only`, `@warn_on_abstract` | Implemented | [§11.1](#111-per-trait-concrete-parameters-and-self) |
 | concrete parameters of the bounds, per function | Implemented | [§11.2](#112-per-function-concrete-parameters-of-the-bounds) |
 | concrete mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-concrete-mode-fully-typed-code) |
-| warning on small unions | Open | [open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user) |
+| a small union: concrete, and fully typed (concrete mode is silent about it) | Implemented | [§11](#11-concreteness-and-concrete-mode) |
 | printing by bound and key | Implemented | [§12](#12-printing) |
 | compiling ahead from `@implement` | Implemented | [§13](#13-compiling-ahead) |
 | `verify_main`, `@workload` | Implemented | [§13](#13-compiling-ahead), T-20 |
