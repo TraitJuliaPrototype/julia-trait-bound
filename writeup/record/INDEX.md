@@ -134,6 +134,7 @@ Earlier reviews, elsewhere:
 | [`2026-10-17-policy-in-compiler-plan.md`](../plans/2026-10-17-policy-in-compiler-plan.md) | 2026-10-18 | history (done in session 29); superseded by `reference/compiler.md` and `design/julia-changes.md` | the pivot: (A) a facts mode of inference, (B) a second cache owner, (C) owner-aware dispatch; the go/no-go measurement; §6b (B)+(C) as built |
 | [`2026-10-19-notes-cleanup-plan.md`](../plans/2026-10-19-notes-cleanup-plan.md) | 2026-10-19 | current (approved: attic, write now, own index file) | this cleanup: what is stale, the three-audience layout, the work file by file |
 | [`2026-10-20-dynamic-compiled-implementation.md`](../plans/2026-10-20-dynamic-compiled-implementation.md) | 2026-10-20 | done (revision 3; semantics only, §1a) | W-4: the references first, the other documents, TraitWorld, the demonstrators, the measurements (E-147 to E-150), the current-state documents; design choices C1–C7 (mine) and questions Q1–Q5 |
+| [`2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md) | 2026-10-21 | adopted, in progress (W-32) | the meta plan of the large-scale test: NetworkDynamics, SciML, GraphMakie and Observables ported to the trait world; the ground rules, the parts P0–P5 and their plans, the pushback log, the state |
 
 ## `design-findings.md`, by section
 
@@ -263,6 +264,7 @@ Each is its own repository, ignored by the design repository. The root [`README.
 | `TraitTables/` | demonstrator 3's table library | `main` | 549d384 cellstring returns a String … |
 | `TraitCSV/` | demonstrator 3's CSV reader | `main` | 6450ae7 Test: a table with a String15 column prints … |
 | `forks/` | demonstrator 4: forks of Tables, DataFrames, CSV (paused) | `main` | 254ace8 README: session 29's status and measurements on the facts compiler … |
+| `ndport/` | the large-scale test (W-32): the NetworkDynamics workload, its environments and logs; the clones under `ndport/pkgs/`, each its own repository on branch `trait-port` from the tag `upstream` | `main` | see `git -C ndport log -1` |
 | `experiments/` | the smaller prototypes and measurements | `main` | e23ced3 README: the directories added since session 23, the design's current location |
 | `TraitWorld-hooks/`, `TraitWorld-dynkeep/`, `TraitWorld-untyped/` | untracked old branches of TraitWorld (2026-10-16); they call removed Julia symbols and will not load. Superseded, not ported | various | c62efbf, 52cbca3, 5efbb4c |
 
