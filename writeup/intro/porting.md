@@ -5,18 +5,17 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 **How this document is written.** Each agent owns one section of part B and adds what its port teaches. Part A holds the rules that every port confirms; an agent adds to A only through the list "Proposed for part A" at the end, with the port that shows it, and the editor merges. Edit with care: others edit the same file (re-read before each edit). Style: short sentences, bullets, one idea per sentence, an example for each rule; say what the port showed, not what it might show.
 
 **The foundation under the ports.**
-- Parts (B), (C) and (D) are built in Julia's compiler (session 29). A trait module is compiled by facts under its own cache owner (`@compiler_options facts=true`, which `@trait_module` declares). `Dynamic{X}` operations are call-site splits in the compiler.
-- TraitWorld's own policy (`FactsInterp`, site caches, trampolines, view caches, witness tables, key branches, the system image) is removed.
-- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, `Dynamic{X}`, `Callable`, `Like`/`Self`, concrete mode), not to its machinery.
+- The rules are built into the patched Julia's compiler. A trait module is compiled in the facts mode; `@trait_module` declares it.
+- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, kept values, the casts `compiled_for` and `with_dynamic`, `Callable`, `Like`/`Self`, concrete mode), not to its machinery. How values get `Compiled` or `Dynamic`: [traits §6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic).
 - Measurements exist: [`../design/evidence.md`](../design/evidence.md).
 
 ## Part A. Rules every port confirms
 
 (Seeded from `explorations/dataframes-port-lessons.md` §1–3; to be confirmed or corrected by the ports.)
 
-1. **Say what code needs.** A field or container that holds "any column" is `Dynamic{Column}` (or `Vector{Dynamic{Column}}`), not `AbstractVector` or `Any`. An operation's result type is declared in the trait.
+1. **Say what code needs.** A field or container that holds "any column" is declared with the trait's name, `col::Column` or `Vector{Column}`, not `AbstractVector` or `Any`. In a trait module that means `Kept{Column}`: each column keeps its attribute ([traits §7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type)). Write `Dynamic{Column}` where every column should be `Dynamic`. An operation's result type is declared in the trait.
 2. **Make the hot path fully typed.** Every call at a fact signature ([the rationale §2](../design.md#2-the-argument-in-four-steps)): concrete argument types, small unions of them, or a closure's call. A type passed as a value, a non-constant global, an `Any` field, `parentmodule(@__MODULE__).f`: each is a run-time site, whose result is `Any`.
-3. **Entries are trait-bound.** A package's public functions that should be cached reach their work through a bounded function (a worker), not through an untyped wrapper.
+3. **Public functions reach their work through bounds.** A package's public functions that should be cached reach their work through a bounded function, not through an untyped wrapper.
 4. **Extensions become implementations.** A package extension that adds methods to another package's internals becomes an implementation of a trait for the extension's type.
 5. **Keep plain what is plain.** Bookkeeping, macros, printing to a terminal, and the parts no hot path touches stay ordinary Julia; adopt traits one function at a time.
 6. **Upstream's tests decide.** A port that fails the upstream test suite is not a port.
@@ -25,7 +24,7 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 
 ### B1. Tables, DataFrames, CSV (owner: the forks agent)
 
-The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`). Correctness only, no timing. Tested so far: Tables' suite green; CSV's suite run before its last two fixes; DataFrames by smoke checks only (`forks/README.md`, "Test status"). The joins and aggregates of item 1 are written, not yet run. Traits: `Column{T}` and `TableSource` (Tables), `CSVColumn{T} <: Column` and `TextColumn{T} <: Column` (CSV). Kernels: describe, sort, groupby codes, joins on one key, additive aggregates, row selection (DataFrames). Session 29 rebuilt the kernels on the declared operations; sessions 27–28 had unwrapped the vector (`vector(c)`), which validated a function barrier, not keys (implementation review P7).
+The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`). Correctness only, no timing. Tested so far: Tables' suite green; CSV's suite run before its last two fixes; DataFrames by smoke checks only (`forks/README.md`, "Test status"). The joins and aggregates of item 1 are written, not yet run. Traits: `Column{T}` and `TableSource` (Tables), `CSVColumn{T} <: Column` and `TextColumn{T} <: Column` (CSV). Kernels: describe, sort, groupby codes, joins on one key, additive aggregates, row selection (DataFrames). The kernels read columns through the declared operations (implementation review P7).
 
 **1. A kernel reads a value only through its trait's operations.**
 - If a kernel's first line is `v = vector(c)`, the trait is a barrier, not a bound. The key then buys nothing that `@nospecialize` and a function barrier do not.
@@ -40,14 +39,14 @@ The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git di
 - Upstream copies for `quantile!` anyway. For a `Vector` column the statistics run on an equal `Vector`, so the results are upstream's by construction (to be confirmed by DataFrames' suite).
 
 **3. Name an associated type with an operation that returns it in a container.**
-- `f(c::Column{T}) where {T}` is not supported: the call raises `MethodError: no method matching f(::Dynamic{Column})`.
-- Declare `emptycells(c::Column{T}, n::Int)::Vector{T}` and write `T = eltype(emptycells(c, 0))`. The type is then a constant of the worker: `Dict{T, Int}()` for group codes, `T >: Missing` for `describe`.
+- `f(c::Column{T}) where {T}` is not supported yet ([traits §5.1](../reference/traits.md#51-bounds)): such a method never applies.
+- Declare `emptycells(c::Column{T}, n::Int)::Vector{T}` and write `T = eltype(emptycells(c, 0))`. The type is then a constant of the bounded function: `Dict{T, Int}()` for group codes, `T >: Missing` for `describe`.
 - An empty comprehension (`[cell(c, i) for i in 1:0]`) also gives `T`, but only through inference ([facts §2.1](../reference/facts.md#g1): a value decided by inference). Prefer the declared operation.
 
 **4. What a type does by itself is an operation, not a kernel.**
 - Row selection keeps the column's kind (a pooled column stays pooled). So `take(c, rows)::AbstractVector` is an operation; the family's method is `c[rows]`.
 - Reference pools are operations whose family method goes through DataAPI (`nlevels`, `levelcode`, `level`). Pooled and categorical columns need no separate trait and no extension: the family reads DataAPI's `refpool`/`refarray`, which those packages implement.
-- The plan's `RefColumn` subtrait was not needed: a `Dynamic{Column}` keeps only `Column`'s view, so a kernel could not ask for a subtrait anyway.
+- The plan's `RefColumn` subtrait was not needed: a kept `Column` is seen only through `Column`, so a kernel could not ask for a subtrait anyway.
 
 **5. A package extension on internal functions becomes implementations for a value that stands for the type.**
 - CSV's `stringtype = String15` passes a type. Upstream's InlineStrings extension added methods to seven internal functions (`_stringsink`, `_materializecolumn`, …).
@@ -58,11 +57,11 @@ The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git di
 
 **6. The values the reader fills are the conforming values.**
 - `CSVColumn{T} <: Column` conforms for `Vector` (the family): `TypedColumn{T}.values` and `UnionColumn{T}.uvalues`, the vectors the parse writes into.
-- The per-chunk parse loop is one worker, `parsecells!(c::CSVColumn, …)`. Each cell goes through `parsecell!`, whose family method calls CSV's own `parsevalue` for the cell type.
+- The per-chunk parse loop is one bounded function, `parsecells!(c::CSVColumn, …)`. Each cell goes through `parsecell!`, whose family method calls CSV's own `parsevalue` for the cell type.
 - A user's cell type still enters as upstream's does (`types = MyT`, parsed through `Parsers.tryparse`), since the family covers every `Vector`. An implementation of its own for `Vector{MyT}` would be a more specific declaration; not tried.
 
 **7. A constructor from a trait goes through a named bounded function.**
-- `DataFrame(x)` stays plain. If `conforms(typeof(x), TableSource)`, it calls `fromsource(t::TableSource, copycols)`, a worker. `CSV.read(src, DataFrame)` arrives as `Tables.CopiedColumns(file)` and takes the same path.
+- `DataFrame(x)` stays plain. If `conforms(typeof(x), TableSource)`, it calls `fromsource(t::TableSource, copycols)`, a bounded function. `CSV.read(src, DataFrame)` arrives as `Tables.CopiedColumns(file)` and takes the same path.
 - An operation that is also a common name elsewhere clashes on `using`. `TableSource`'s `nrow` collided with `DataAPI.nrow` and `columnnames` with `Tables.columnnames`; the ops are `tablenames`, `tablecolumn`, `tablerows`.
 
 **8. An operation's declared result is checked at the implementation, so assert at abstract calls inside the operations' methods.**
@@ -86,12 +85,12 @@ Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its us
 - The same arithmetic both ways gives the same values, bit for bit. Test with `==`, not `≈`: `test/routea.jl` compares `LorenzProblem` with `lorenz!`, `Bounce` with two closures, `RaiseSigma` with a closure that writes `p`.
 
 **A stored function, with the attribute left to the caller.**
-- Keep the function in a field whose type is a struct parameter bounded by `Callable` (`struct ODEProblem{T, P, F <: Callable{RHSSig{P, T}, Nothing}}`, [traits §10.5](../reference/traits.md#105-a-struct-parameter-bounded-by-a-trait)): the constructor applies the bound, so the field is `Dynamic{Callable{A, S}}` by default, the same type for every function, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself, and the solver compiles for it. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
+- Keep the function in a field whose type is a struct parameter bounded by `Callable` (`struct ODEProblem{T, P, F <: Callable{RHSSig{P, T}, Nothing}}`, [traits §7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)): the constructor applies the bound, so the field is `Dynamic{Callable{A, S}}` by default, the same type for every function, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself, and the solver compiles for it. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
 - The bound can name the struct's other parameters (`RHSSig{P, T}`), so every state and parameter type is served in both attributes.
 - To call the function at another signature (the Jacobian's dual numbers), give the struct a second bounded parameter at that signature and pass the function to both: each keeps the caller's attribute.
 
 **A front end that takes any problem.**
-- Make it neither specialized nor inferred on the problem's type (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it that is compiled per problem type. Otherwise every caller's first call infers the solver's entry again (TDE's rows 1 and 2 were 2–3× slower until it was so).
+- Make it neither specialized nor inferred on the problem's type (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it that is compiled per problem type. Otherwise every caller's first call infers the solver's front end again, and makes TDE's rows 1 and 2 2–3× slower.
 
 **What a declared result type catches.**
 - SciML users often end an in-place function with `du .= …`, which returns `du`. With `rhs!(…)::Nothing` declared:
@@ -119,11 +118,12 @@ Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its us
 
 From TraitMakie step 2 and TraitReport with TraitTables and TraitCSV (session 29). Correctness only; nothing was timed.
 
-**Attributes that change shape are `Dynamic` fields, and assignment is a crossing.**
-- A plot's colour, marker and data are fields of type `Dynamic{X}` (`color::ColorSpec` in a trait module). `p.color = :red` at the prompt is Julia's `setproperty!`, which converts to the field's type.
-- Define that conversion as the boundary's translation: `Base.convert(::Type{Dynamic{ColorSpec}}, x) = Dynamic{ColorSpec}(check(x))`. The ordinary layer's checks run there too, so `p.color = :magenta` is refused with the list of named colours.
-- Add the two companions, or calls become ambiguous: `convert(::Type{Dynamic{X}}, x::Dynamic{X}) = x` and `convert(::Type{Dynamic{X}}, x::TObj) = Dynamic{X}(x)`.
-- The same conversion makes the default constructor take plain values: a user writes `Lines(matrix, :red, 2.0)` and the fields become `Dynamic`s.
+**Attributes that change shape are kept values, and assignment is a crossing.**
+- A plot's colour, marker and data are fields of a trait's name (`color::ColorSpec` in a trait module), so of type `Kept{X}`. `p.color = :red` at the prompt is Julia's `setproperty!`, which converts to the field's type.
+- A plain value stored there takes the trait's default ([traits §7.3](../reference/traits.md#73-assigning-from-plain-code)). A trait object, a kept value or a cast keeps its attribute.
+- To translate a value first, define `Base.convert` to `Kept{X}` for the trait: `Base.convert(::Type{Kept{ColorSpec}}, x) = Kept{ColorSpec}(check(x))`. The ordinary layer's checks run there too, so `p.color = :magenta` is refused with the list of named colours.
+- Add the companions that keep an attribute, or calls become ambiguous: `x::Kept{X}` returns `x`; a trait object, a `Dynamic{X}`, a `Compiled{X}` or a cast becomes `Kept{X}(x)` (`TraitMakie/src/TraitMakie.jl`).
+- The same conversion makes the default constructor take plain values: a user writes `Lines(matrix, :red, 2.0)` and the fields become kept values.
 - Fields without a bound (`step::Symbol`) are not checked when set; check them where they are used, with the same message.
 
 **A recipe with children rebuilds its children from its own fields before each use.**
@@ -157,7 +157,7 @@ From `experiments/facts/framing/` and `experiments/examples/` (READMEs there). "
 
 - **Fully typed code is safe from everyone but stakeholders and pirates. Check it, do not assume it.** S1–S10 ran in plain Julia and in the facts mode, as the design says. A stakeholder's method (S4), a winning pirate (S5) and a redefined `const` (S7, S10) invalidate code at concrete signatures. Nothing else does in facts mode. Shown: `facts/framing/inval_cases.jl`, 20/20 in both modes.
 - **A hook on your own type hurts callers only at narrow abstract signatures.** `Base.show(io, ::MyIrr)` invalidates a caller at `show(::IOBuffer, ::AbstractIrrational)` (S1b). On 1.13 it leaves a caller at `show(::IOBuffer, ::Any)` alone, since a call with many matches records no edge (S1c). So the fragile code is the half-abstract kind: `Vector{AbstractShape}` with two or three methods. Shown: S1b, S1c.
-- **Do not splat a collection into a call in trait code.** `vcat(xs...)` with many arguments compiles at a widened `Vararg` signature. That signature is not a fact signature. Under facts every call inside it is a run-time site, over the whole argument tuple each time. Write `copy(xs)` or `reduce(vcat, parts)` instead. Shown: `facts/framing/vararg_splat.jl` (10 run-time sites in facts mode, none plain; Julia's core.jl #10981 does not finish). Decided since: a tuple of concrete types ending in a concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened `Vararg{Any}` tail is not. To recheck against this case.
+- **Do not splat a collection into a call in trait code.** `vcat(xs...)` with many arguments compiles at a widened `Vararg` signature. That signature is not a fact signature. Under facts every call inside it is a run-time site, over the whole argument tuple each time. Write `copy(xs)` or `reduce(vcat, parts)` instead. Shown: `facts/framing/vararg_splat.jl` (10 run-time sites in facts mode, none plain; Julia's core.jl #10981 does not finish). A tuple of concrete types ending in a concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened `Vararg{Any}` tail is not. To recheck against this case.
 - **Customize trait code by implementations, never by a method of someone else's function for someone else's type.** A harmless-looking pirate (`+` on the solver's duals, same values) is refused under strict mode at its definition, and the pirate never runs, for plain code either. In the default tier it is followed and recompiles the solver's dual code. Shown: `examples/strict/dual_pirate.jl`. At the prompt the definer is `Main`: write `@eval Owner f(…) = …` when you are the owner (TraitWorld `test/strict.jl`).
 - **Until piece 15, strict mode guards only against pirates that load after the code they break.** A pirate defined or loaded before a trait package's image is followed silently, in both tiers. Shown: `pirate_tiers.jl before|prompt-before`, `dual_pirate.jl before` (2,192 pirate calls under strict mode).
 - **An extension method at a fact invalidates; an extension's implementation does not.** S9: an owner's extension that adds `score(::Float64)` invalidates the trait code that calls it, in both tiers. This is the named exception, and the extension rule is open. Shown: `s9_extension.jl`. A glue extension that only declares implementations (`examples/extension/glue.jl`) is expected to invalidate nothing.
@@ -177,6 +177,6 @@ From `experiments/facts/framing/` and `experiments/examples/` (READMEs there). "
 - **Declare result types that catch the common mistake.** `rhs!(…)::Nothing` refuses, at `@implement`, the in-place function whose last line `du .= …` returns `du`. Shown by TraitDifferentialEquations (`test/routea.jl`, case (c)); B2.
 - **Do not splat a collection into a call in trait code.** A call at a widened `Vararg` signature is no fact signature: under facts every call inside it is a run-time site over the whole tuple, quadratic in its length. Write `copy(xs)` or `reduce(vcat, parts)`, not `vcat(xs...)`. Shown by `experiments/facts/framing/vararg_splat.jl` (Julia's core.jl #10981 does not finish in facts mode); B4. A concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened one is not.
 - **Configure trait code by arguments or fields, not by a `const` another module redefines.** No tier of the guarantee sees bindings. Shown by `experiments/facts/framing/pirate_tiers.jl binding`; B4.
-- **A kernel reads a value only through its trait's operations; heavy library code runs over the gathered cells.** A first line `v = vector(c)` makes the trait a function barrier. Write sorts, joins and group codes against `cell`/`nrows`; for Base or Statistics over many cells, gather them into the trait's `Vector{T}` (`emptycells`) so that code compiles per cell type and is shared by every column kind. Shown by the forks (`DataFrames/src/other/kernels.jl`: `refine!`, `innerrows`, `firstcodes!`, `colstats`); B1. Corrects the sessions 27–28 kernels (implementation review P7).
+- **A kernel reads a value only through its trait's operations; heavy library code runs over the gathered cells.** A first line `v = vector(c)` makes the trait a function barrier. Write sorts, joins and group codes against `cell`/`nrows`; for Base or Statistics over many cells, gather them into the trait's `Vector{T}` (`emptycells`) so that code compiles per cell type and is shared by every column kind. Shown by the forks (`DataFrames/src/other/kernels.jl`: `refine!`, `innerrows`, `firstcodes!`, `colstats`); B1. See implementation review P7.
 - **Name an associated type through an operation that returns it in a container.** `f(c::Column{T}) where {T}` is not supported; declare `emptycells(c::Column{T}, n)::Vector{T}` and write `T = eltype(emptycells(c, 0))`. Shown by the forks (`Tables/src/ColumnCore.jl`); B1. Also met by TraitReport (B3), which names `T` from the cells; a TraitWorld feature would serve both.
 - **A hook on a type passed as a value becomes implementations for a value that stands for the type.** For `stringtype = String15` the reader calls the trait's operations on `String15[]`; the extension declares `@implement TextColumn Vector{String15}` and adds no method to the package's functions. Guard the run-time `conforms` query with a static test (`S <: AbstractString`). Shown by the forks (`CSV/ext/CSVInlineStringsExt.jl`, `CSV/src/api.jl`); B1. Refines rule A4.

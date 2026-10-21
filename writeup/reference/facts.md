@@ -63,7 +63,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 - <a id="term-owner"></a>**Owner.** A package owns the functions, types and bindings it defines.
   - Julia (Core, Base, the standard libraries) is one owner.
   - A package extension belongs to its parent package.
-  - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own ([traits §12.1](traits.md#121-who-may-implement)).
+  - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own ([traits §10.1](traits.md#101-who-may-implement)).
 - <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of every type in its own signature. A `Union`'s members count one by one.
 - **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s`, of their supertypes, and of the types bounding their parameters.
 - <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. This is Julia's "type piracy", made strict for unions.
@@ -102,7 +102,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 
 **Meaning.**
 - "The same world" is the caller's world. A task in an older world sees that world's methods and implementations.
-- "Or raises": the facts mode raises where plain code does not only where a value lacks a declared result type: a `Dynamic` operation's ([§9](#dynamic-split)), a `Callable`'s ([traits §9](traits.md)).
+- "Or raises": the facts mode raises where plain code does not only where a value lacks a declared result type: a `Dynamic` operation's ([§9](#dynamic-split)), a `Callable`'s ([traits §5.8](traits.md)).
 - A method that strict mode refuses ([§10](#pirates)) exists for plain code neither. The comparison is with the world without it.
 
 **Why it holds.** Every valid CodeInstance has all its facts true in the current method table:
@@ -380,7 +380,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 **Status: Implemented.**
 
-An operation on a `Dynamic{X}` value, or on a trait object at a `Dynamic` position ([traits §6.6](traits.md#66-compiled-and-dynamic-how-values-enter), [§10](traits.md#10-dynamicx-values-of-any-conforming-type)), is a call on a value of an open set of types. A declared field read there is one too. Lowering writes it as `split_call(K, RT, f, x, args...)`: `K` names the trait, `RT` is the operation's declared result type ([`lowering.md`](lowering.md), [`compiler.md`](compiler.md)).
+An operation on a `Dynamic{X}` value, or on a trait object at a `Dynamic` position ([traits §6](traits.md#6-values-in-trait-code-compiled-and-dynamic), [§7](traits.md#7-kept-values-dynamicx-compiledx-keptx)), is a call on a value of an open set of types. A declared field read there is one too. Lowering writes it as `split_call(K, RT, f, x, args...)`: `K` names the trait, `RT` is the operation's declared result type ([`lowering.md`](lowering.md), [`compiler.md`](compiler.md)).
 
 **Meaning.** `split_call(K, RT, f, x, args...)` computes `f(x, args...)::RT`.
 
@@ -403,7 +403,7 @@ So the split takes the place of the speculation the facts mode removes ([§4.2](
 <a id="pirates"></a>
 ## 10. Pirates and strict mode
 
-Who may write a method, and the errors a user sees, are in [traits §12](traits.md). This section says how pirates affect validity.
+Who may write a method, and the errors a user sees, are in [traits §10](traits.md). This section says how pirates affect validity.
 
 ### 10.1 What a winning pirate does
 
@@ -472,7 +472,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
 - Code for other packages' methods that its workload compiled, under either owner: copies of Base methods compiled by facts, for example. With machine code (with keep-compiled, [compiler §2.9](compiler.md#29-what-package-images-keep)).
-- What trait code a declared implementation brings ahead of time is [traits §15](traits.md)'s; how, [`lowering.md`](lowering.md)'s.
+- What trait code a declared implementation brings ahead of time is [traits §13](traits.md)'s; how, [`lowering.md`](lowering.md)'s.
 
 **When it stays valid.**
 - At load, a CodeInstance is used if all its facts hold in the loading session. Otherwise it is discarded, and compiled again when needed.
@@ -520,7 +520,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 - **A `--trim` build has no facts mode and no facts methods.** It compiles every method plainly.
 - **Why:** a binary is a closed world. Nothing loads later, so there is no cache to protect.
 - G1 holds by definition. Values decided by inference ([§2.1](#g1)) can differ between a session and the binary.
-- **`verify_main`** lists the targets a program can reach through trait code ([traits §15](traits.md)). Plain code reached from trait code keeps plain Julia's AOT properties. Its open dynamic sites are reported as holes.
+- **`verify_main`** lists the targets a program can reach through trait code ([traits §13](traits.md)). Plain code reached from trait code keeps plain Julia's AOT properties. Its open dynamic sites are reported as holes.
 - `verify_main` scans each MethodInstance in the mode it runs in: a facts method, and code reached from code compiled by facts, by facts ([F-9](#deviations)).
 
 ---

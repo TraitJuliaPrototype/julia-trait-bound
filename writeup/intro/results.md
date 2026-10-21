@@ -43,7 +43,7 @@ A piece of compiled code is one method compiled for one set of argument types. T
 In the product setting, where only trait modules are compiled in the facts mode, the trait code of TraitDifferentialEquations and TraitMakie keeps all its 12,368 pieces of compiled code through ten package loads (CSV, DataFrames, and the nine above except REPL).
 
 What this shows:
-- **Unrelated loads no longer discard compiled code,** for code written without traits too. Upstream CSV.jl and DataFrames keep their code through nine loads.
+- **Unrelated loads do not discard compiled code,** for code written without traits too. Upstream CSV.jl and DataFrames keep their code through nine loads.
 - **The first work is also faster:** 0.52 s against 3.3 s for upstream CSV.jl and DataFrames.
 - The facts mode makes Julia stop guessing at calls whose argument types it cannot know, so code that is not type-stable can get slower. That is where traits come in (below).
 

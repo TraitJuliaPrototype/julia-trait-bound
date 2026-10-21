@@ -17,7 +17,7 @@ Every example of an implemented feature runs as written. The scripts are in [`ex
 9. [Keywords, defaults and varargs](#9-keywords-defaults-and-varargs)
 10. [Types first, then traits](#10-types-first-then-traits)
 11. [Results like the input](#11-results-like-the-input)
-12. [Collections of mixed types: `Dynamic`](#12-collections-of-mixed-types-dynamic)
+12. [Kept values: collections of mixed types](#12-kept-values-collections-of-mixed-types)
 13. [Parameters and associated types](#13-parameters-and-associated-types)
 14. [Functions as arguments: `Callable`](#14-functions-as-arguments-callable)
 15. [Generic implementations](#15-generic-implementations)
@@ -122,7 +122,7 @@ Defaults, and the forwarding of [§5](#5-forwarding-to-a-field), serve the libra
 
 **Who may write `@implement`:** the package that defines the trait, or the package that defines the type. Here the user's code defines `Circle` and `Rect`, so it may.
 
-Rules: [reference §5.1, §5.2](../reference/traits.md#51-with-a-block-of-methods), [§12.1](../reference/traits.md#121-who-may-implement).
+Rules: [reference §4.1, §4.2](../reference/traits.md#41-with-a-block-of-methods), [§10.1](../reference/traits.md#101-who-may-implement).
 
 ---
 
@@ -156,21 +156,28 @@ What a bounded function may do with its trait object:
 
 What it may not do: pass the trait object to an ordinary function (`length(s)`), return it bare (`bigger(a, b) = area(a) > area(b) ? a : b`), or ask `typeof(s)`. Code outside could then depend on what the trait does not declare. These are reported when the module is defined ([§16](#16-when-something-does-not-conform)). To return "a shape like the input", see [§11](#11-results-like-the-input).
 
-**What it is compiled for: `Compiled` and `Dynamic`.** Every value in trait code is one or the other, decided where it enters. The results are the same; only the speed differs.
-- **`Compiled`:** a caller whose code knows the value's type passes it `Compiled`. `ratio` then runs code compiled for what `Shape` can see of it, its *key*. For `Circle`, the key is `Circle`, the *receiver type* whose methods serve the operations. So `ratio` is compiled once for `Circle` and once for `Rect`, as plain Julia would.
-- **`Dynamic`:** a caller that does not know the type passes it `Dynamic`. `ratio` then runs code compiled once, for every type, and each operation on `s` dispatches when it runs, with its declared result type. The prompt knows no types: the calls above, typed at the prompt, are `Dynamic`.
-- A value keeps its attribute: `ratio` passes `s` on as it came.
+**What it is compiled for: `Compiled` and `Dynamic`.** Every value seen through a trait is one or the other. This is its *attribute*. The results are the same; only the speed differs.
+- **`Compiled`:** `ratio` runs code compiled for what `Shape` can see of the value, its *key*. For `Circle`, the key is `Circle`: its own methods serve the operations, so it is the *receiver type*. So `ratio` is compiled once for `Circle` and once for `Rect`, as plain Julia would.
+- **`Dynamic`:** `ratio` runs code compiled once, for every type. Each operation on `s` dispatches when it runs, and its result has the declared type.
+
+**The rule: values carry. Annotations give defaults where a plain value enters trait code. Explicit casts always win.**
+- **Where a plain value enters.** A *plain value* carries no attribute yet. It gets one where it is first seen through a trait, here at the bound. It is `Compiled` if the code that passes it knows its concrete type, and `Dynamic` if not.
+  - Inside a function, a value of a concrete type is `Compiled`. A value of an abstract type, such as an item of a `Vector{Any}`, is `Dynamic`.
+  - The prompt knows no types. So the calls above, typed at the prompt, pass `Dynamic` values.
+- **Values carry.** A value keeps its attribute through calls, bounds and storage. `ratio` passes `s` on to `area` as it came.
+- **Defaults.** A library may set the default for plain values. Each default decides only for a value that enters trait code at that place.
+  - A trait may declare one in its body: `@default_with_dynamic_self` or `@default_compiled_for_self`.
+  - A bound may carry one: `s::Compiled{Shape}` or `s::Dynamic{Shape}`. Such a bound still accepts any value that conforms.
+  - Plain values come from plain callers, at the functions a module exports or declares `public`. On any other function, an annotation warns: write a cast at the call instead.
+- **Casts.** `compiled_for(x)` and `with_dynamic(x)` are the only casts. A cast always wins. Of two casts, the later wins.
 
 ```julia
 circle_ratio(c::Circle) = ratio(c)    # in a function: Compiled, compiled for Circle
-ratio(compiled_for(Circle(1.0)))      # at the prompt: Compiled, asked for
-ratio(with_dynamic(Circle(1.0)))      # Dynamic, asked for
+ratio(compiled_for(Circle(1.0)))      # at the prompt: Compiled, by a cast
+ratio(with_dynamic(Circle(1.0)))      # Dynamic, by a cast
 ```
 
-- `compiled_for(x)` and `with_dynamic(x)` always win. A library can choose too: `s::Compiled{Shape}` or `s::Dynamic{Shape}` in a bound.
-- Inside a function, a value of an abstract type (an item of a `Vector{Any}`) is `Dynamic`, a value of a concrete type `Compiled`.
-
-Rules: [reference §6](../reference/traits.md#6-bounded-functions), [§6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§4](../reference/traits.md#4-keys-what-code-is-compiled-for).
+Rules: [reference §5](../reference/traits.md#5-bounded-functions), [§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.7](../reference/traits.md#67-what-compiled-code-is-compiled-for).
 
 ---
 
@@ -202,7 +209,7 @@ ratio(Window(Rect(3.0, 3.0), Rect(1.0, 2.0)))       # 0.3333333333333333
 - Forwarding gives the bounded functions the field's behaviour. It adds no methods to `Tile` itself: `area(Tile(…))` called directly from plain code has no method.
 - Forwarding does not chain: the field's type must implement the operations itself.
 
-Rules: [reference §5.2, §5.3](../reference/traits.md#53-forwarding-with-by).
+Rules: [reference §4.3](../reference/traits.md#43-forwarding-with-by).
 
 ---
 
@@ -254,7 +261,7 @@ greet(Book("Julia", 300))          # "hello, Julia"
 - A writable field needs a mutable type, a field that is not `const`, and exactly the declared type. `@const` fields may be in immutable types.
 - A trait with fields only has no receiver type. Its key is the fields' types. So every type with two `Float64` fields `x` and `y` runs the same compiled `move!`, whatever else it holds.
 
-Rules: [reference §3.3](../reference/traits.md#33-fields), [§5.4](../reference/traits.md#54-field-mappings).
+Rules: [reference §3.3](../reference/traits.md#33-fields), [§4.4](../reference/traits.md#44-field-mappings).
 
 ---
 
@@ -277,10 +284,10 @@ report(sp)        # "a shape of area 0.7853981633974483 at (1.0, 2.0)"
 ```
 
 - The value must conform to each trait. Each trait may be served differently: `Shape` by the field `body`, `Placed` by `Sprite`'s own fields.
-- Both views read the same object, so they always agree.
+- Both traits see the same object, so they always agree.
 - A library can name a combination as a bundle, `@trait Sprite2D <: (Shape, Placed)`, and write `s::Sprite2D`.
 
-Rules: [reference §6.1](../reference/traits.md#61-bounds), [§3.6](../reference/traits.md#36-supertraits-and-bundles), [§5.5](../reference/traits.md#55-several-traits-at-once).
+Rules: [reference §5.1](../reference/traits.md#51-bounds), [§3.6](../reference/traits.md#36-supertraits-and-bundles), [§4.5](../reference/traits.md#45-several-traits-at-once).
 
 ---
 
@@ -300,7 +307,7 @@ Geometry.describe(c::Circle) = "a circle"
 
 To override a default, define the method before `@implement`, or in its block, as `Rect` did. To change an existing implementation, change the declaration and restart Julia.
 
-Rules: [reference §3.2](../reference/traits.md#32-defaults), [§5.9](../reference/traits.md#59-checks-at-the-declaration).
+Rules: [reference §3.2](../reference/traits.md#32-defaults), [§4.9](../reference/traits.md#49-checks-at-the-declaration).
 
 ---
 
@@ -325,10 +332,11 @@ fits(Circle(1.0); margin = 1)                    # TypeError: margin is declared
 fits(Circle(1.0); within = 42)                   # TraitBoundError: 42 conforms to nothing
 ```
 
-- A keyword may be bounded, like `within`. It is translated at the call; it selects no method.
+- A keyword may be bounded, like `within`. Its value is seen through the trait at the call; it selects no method.
 - The elements of a vararg may be of different types: `largest` takes a `Circle`, a `Rect` and a `Tile` at once.
+- Bounded keywords and vararg elements get their attribute as positional arguments do ([§4](#4-functions-bounded-by-a-trait)).
 
-Rules: [reference §8](../reference/traits.md#8-keywords-defaults-and-varargs).
+Rules: [reference §5.7](../reference/traits.md#57-keywords-defaults-and-varargs).
 
 ---
 
@@ -353,7 +361,7 @@ kind(42)              # "something else"
 - So a library can adopt traits one function at a time. Existing calls that reached a typed method keep reaching it.
 - Two bounds that are unrelated, `f(s::Shape)` and `f(p::Placed)`, need a method for both, `f(x::(Shape, Placed))`. Otherwise the module's definition fails with `TraitBoundError`.
 
-Rules: [reference §6.5](../reference/traits.md#65-dispatch-types-first-then-traits).
+Rules: [reference §5.5](../reference/traits.md#55-dispatch-types-first-then-traits).
 
 ---
 
@@ -385,15 +393,15 @@ doubled(Tile("door", Rect(1.0, 2.0)))     # Tile("door", Rect(2.0, 4.0)): the la
 nudged(sp)                                # a new Sprite, x = 2.0; `sp` is unchanged
 ```
 
-- `Self` is each implementation's receiver type: `Circle` for `Circle`, `Rect` for `Tile`.
+- `Self` is the type of the value seen through the trait: `Circle` for `Circle`, and `Rect` for `Tile`, which forwards to its `Rect`.
 - For a type that forwards, the result is the user's object rebuilt with the field replaced.
 - `withfields` replaces declared fields, for a trait with fields.
 
-Rules: [reference §3.5](../reference/traits.md#35-self), [§7](../reference/traits.md#7-results-declared-types-like-withfields).
+Rules: [reference §3.5](../reference/traits.md#35-self), [§5.6](../reference/traits.md#56-results-declared-types-like-withfields).
 
 ---
 
-## 12. Collections of mixed types: `Dynamic`
+## 12. Kept values: collections of mixed types
 
 A scene holds shapes of different types. Its field is declared with the trait's name.
 
@@ -418,20 +426,31 @@ end
 sc = Scene()
 add!(sc, Circle(1.0)); add!(sc, Rect(2.0, 3.0)); add!(sc, Tile("door", Rect(1.0, 2.0)))
 totalarea(sc)                     # 11.141592653589793
+sc.shapes[1]                      # Kept{Shape}: Dynamic at Circle: added at the prompt
+add!(sc, compiled_for(Circle(1.0)))
+sc.shapes[4]                      # Kept{Shape}: Compiled at Circle: the cast is kept
 
-d = Dynamic{Shape}(Circle(2.0))   # in plain code, write Dynamic out
+d = Dynamic{Shape}(Circle(2.0))   # in plain code, write the form out
 area(d)                           # 12.566370614359172
 ratio(d)                          # 1.0
 ```
 
-- `Dynamic{X}` is a value of any type that conforms to `X`. Inside a trait module, a trait's name in a field or a container means `Kept{X}`: a value of `X` that keeps its attribute, `Compiled` or `Dynamic`. Outside, write the form out: `Dynamic{Shape}`, `Compiled{Shape}`, or `Kept{Shape}` for both.
-- Storing a trait object where a trait's name is declared keeps it, with its attribute: `push!` in `add!`. Only `compiled_for` and `with_dynamic` change an attribute.
+- A *kept value* is a value of any type that conforms to a trait, kept where the code does not know its type. It has one of three forms:
+  - `Dynamic{X}`, a value whose attribute is `Dynamic`;
+  - `Compiled{X}`, a value whose attribute is `Compiled`;
+  - `Kept{X}`, a value with either attribute.
+- **Inside a trait module, a trait's name in a field or as a container's element type means `Kept{X}`.** `Vector{Shape}` is a `Vector{Kept{Shape}}`. Each value keeps the attribute it came with.
+- `Dynamic{Shape}` and `Compiled{Shape}` written there mean those types as written: such a field holds values of that attribute only.
+- Outside trait modules, write the form out: `Dynamic{Shape}`, `Compiled{Shape}`, or `Kept{Shape}` for both.
+- **Storing keeps the attribute.** `push!` in `add!` stores the trait object as it came. A value read back has the attribute it was stored with.
+- A plain value stored where a trait's name is declared is first seen there. It takes the trait's default: `Compiled`, unless the trait declares `@default_with_dynamic_self`.
+- **The constructors never change an attribute.** `Dynamic{Shape}(x)` and `Compiled{Shape}(x)` make a kept value from a plain one. Given a value of the other attribute, they refuse with `TraitBoundError`, naming the cast to write.
 - `totalarea` is compiled once, whatever the scene holds.
-- An operation on a `Dynamic` tests the declared implementations first, with direct calls, and falls back to a dynamic call. Its result has the declared type, so the loop stays typed.
+- An operation on a kept value runs the method of the type it holds. Its result has the declared type, so the loop stays typed. The first four implementations declared take the fastest path; any other costs one lookup and an indirect call.
 - Passed to a bounded function, `ratio(d)`, a `Dynamic` stays `Dynamic`: the code compiled once runs. `ratio(compiled_for(d))` runs the code compiled for what it holds.
 - A shape type declared later works at once, and discards no compiled code.
 
-Rules: [reference §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type).
+Rules: [reference §7](../reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§6.5](../reference/traits.md#65-values-carry), [§6.8](../reference/traits.md#68-costs-and-choosing).
 
 ---
 
@@ -455,7 +474,7 @@ In `Signals`:
 
 ```julia
 @trait Samples{T} begin
-    T = eltype(Self)                     # T is defined by an equation of the receiver type
+    T = eltype(Self)                     # T is defined by an equation of Self
     nsamples(s::Samples)::Int
     sample(s::Samples{T}, i::Int)::T
 end
@@ -495,13 +514,13 @@ mean64([1, 2])                    # TraitBoundError: the bound fixes T = Float64
 - A parameter is defined by an equation (`T = eltype(Self)`), by a field's type, or by the implementation (`@implement ArrayLike{Float32, 1} MyVec`, for a trait with no equation for its parameters).
 - An equation always holds. `@implement Samples{T} Series{T} where {T}` states `T`, and the stated value must agree with the equation: `eltype(Series{Float32})` must be `Float32`. Without the `eltype` method it is `Any`, and the implementation is refused with `ImplementError`.
 
-> **Planned, not implemented:** the check of a stated value against the equation. Today a stated value replaces the equation's, so the example also runs without the `eltype` method ([reference T-37](../reference/traits.md#19-deviations)).
+> **Planned, not implemented:** the check of a stated value against the equation. Today a stated value replaces the equation's, so the example also runs without the `eltype` method ([reference T-37](../reference/traits.md#17-deviations)).
 - A bound may fix a parameter, `Samples{Float64}`, or leave it open, `Samples`.
-- Each member of a family is fixed at its first use. Workers compile per member.
+- Each member of a family is fixed at its first use. Code is compiled per member.
 
 > **Planned, not implemented:** naming a parameter with `where` in a bound, `f(s::Samples{T}) where {T}`, and reading `T` in the body. Today such a method is a plain method that never applies. Get the type from a value instead: `zero(sample(s, 1))` above. See [§20](#20-planned-syntax).
 
-Rules: [reference §3.4](../reference/traits.md#34-parameters-and-associated-types), [§5.6, §5.7](../reference/traits.md#57-families).
+Rules: [reference §3.4](../reference/traits.md#34-parameters-and-associated-types), [§4.6, §4.7](../reference/traits.md#46-stating-parameters).
 
 ---
 
@@ -530,9 +549,9 @@ end
 
 ```julia
 transform(x -> 2x, [1.0, 2.0])                  # [2.0, 4.0]
-transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the caller asks for Compiled
+transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the caller casts to Compiled
 sumby(abs2, [1.0, 2.0])                         # 5.0
-sumby(with_dynamic(x -> x + 1), [1.0, 2.0])     # 5.0: the caller asks for Dynamic
+sumby(with_dynamic(x -> x + 1), [1.0, 2.0])     # 5.0: the caller casts to Dynamic
 transform(x -> 1, [1.0])                        # TypeError: the result is an Int, not a Float64
 ```
 
@@ -540,16 +559,16 @@ transform(x -> 1, [1.0])                        # TypeError: the result is an In
 - **`Compiled` or `Dynamic`, chosen for speed, never for results** ([§4](#4-functions-bounded-by-a-trait)):
   - `Dynamic`, `Callable`'s default: the library is compiled once per signature, and calls the function through a pointer. A new closure compiles nothing in the library.
   - `Compiled`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this.
-- The library chooses in the bound (`sumby` asks for `Compiled`). The caller converts per value with `compiled_for(f)` or `with_dynamic(f)`.
-- Functions from Base or from a trait module, such as `abs2`, are not affected by `Callable`'s default: they are `Compiled` where the code that passes them knows them.
+- `Callable`'s default is `@default_with_dynamic_self`. It applies to functions from outside the trait world, such as a closure written in the user's code. Functions from Base or from a trait module, such as `abs2`, are `Compiled` where the code that passes them knows them.
+- The library sets a default in the bound: `sumby` asks for `Compiled`. A cast by the caller, `compiled_for(f)` or `with_dynamic(f)`, always wins.
 
-**Storing a function.** A library type holds a function as a `Dynamic{Callable{A, S}}`.
+**Storing a function.** In a trait module, `Callable{A, S}` in a field means `Kept{Callable{A, S}}`: the function is kept with its attribute.
 
 In `Signals`:
 
 ```julia
 struct Threshold
-    test::Dynamic{Callable{Tuple{Float64}, Bool}}
+    test::Callable{Tuple{Float64}, Bool}      # in a trait module: Kept{Callable{…}}
 end
 function countif(th::Threshold, s::Samples{Float64})
     n = 0
@@ -561,11 +580,35 @@ end
 ```
 
 ```julia
-th = Threshold(Dynamic{Callable{Tuple{Float64}, Bool}}(x -> x > 1.0))
-countif(th, [0.5, 1.5, 2.5])      # 2
+th = Threshold(x -> x > 1.0)                       # Callable's default: Dynamic
+countif(th, [0.5, 1.5, 2.5])                       # 2
+Threshold(compiled_for(x -> x > 1.0)).test         # Compiled: the cast is kept
 ```
 
-Rules: [reference §9](../reference/traits.md#9-callable-functions-at-a-declared-signature).
+`countif` is compiled once, whatever function `th` keeps.
+
+**A struct parameter bounded by `Callable`.** Code over the struct can be compiled per function, when the caller asks. In a trait module, a struct parameter whose bound is a trait or a `Callable` is bounded by it.
+
+In `Signals`:
+
+```julia
+struct Gate{F <: Callable{Tuple{Float64}, Bool}}
+    test::F
+end
+countgate(g::Gate, s::Samples{Float64}) = count(i -> g.test(sample(s, i)), 1:nsamples(s))
+```
+
+```julia
+Gate(x -> x > 1.0)                  # Gate{Dynamic{Callable{…}}}: the same type for every function
+Gate(compiled_for(x -> x > 1.0))    # Gate{F} with F the closure's type: compiled per function
+countgate(Gate(x -> x > 1.0), [0.5, 1.5, 2.5])   # 2
+```
+
+- The struct's constructor is a bound. The value's attribute, by the same rule as at a bounded function, decides the parameter.
+- `Dynamic`: the parameter is `Dynamic{Callable{A, S}}`, and code over the struct is compiled once.
+- `Compiled`: the parameter is the function's own type, and code over the struct is compiled per function, at plain Julia's speed.
+
+Rules: [reference §5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature), [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), [§7.5](../reference/traits.md#75-functions-kept).
 
 ---
 
@@ -611,9 +654,9 @@ energy(Ring([3.0, 4.0]))  # 25.0
 - A more specific implementation, for one type, beats the generic one.
 - A generic implementation makes members only of a trait without declared fields.
 
-> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §5.8](../reference/traits.md#58-generic-implementations).
+> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §4.8](../reference/traits.md#48-generic-implementations).
 
-Rules: [reference §5.8](../reference/traits.md#58-generic-implementations).
+Rules: [reference §4.8](../reference/traits.md#48-generic-implementations).
 
 ---
 
@@ -678,9 +721,9 @@ end
 # OwnershipError: … is defined by Meddler, which owns neither its function nor its types …
 ```
 
-**Printing.** Types print by bound and key, not as the machinery's types. A trait object's type, in messages and stack frames, prints as `Shape at Circle`. A `Dynamic` prints as `Dynamic{Shape} at Circle`.
+**Printing.** Types print by bound and key, not as the machinery's types. A trait object's type, in messages and stack frames, prints as `Shape at Circle`. A kept value prints with its form and attribute: `Dynamic{Shape} at Circle`, `Kept{Shape}: Compiled at Circle`.
 
-Rules: [reference §11](../reference/traits.md#11-checks-and-when-they-run), [§12](../reference/traits.md#12-who-may-implement-pirates-strict-mode), [§14](../reference/traits.md#14-printing).
+Rules: [reference §9](../reference/traits.md#9-checks-and-when-they-run), [§10](../reference/traits.md#10-who-may-implement-pirates-strict-mode), [§12](../reference/traits.md#12-printing).
 
 ---
 
@@ -723,11 +766,11 @@ isfullytyped(fully_typed(Geometry.totalarea, (Geometry.Scene,)))         # true
 isfullytyped(fully_typed(Weights.wscaled, (Vector{Float64}, Vector{Any})))   # false: k[1] is Any
 ```
 
-`@warn_on_abstract` or `@error_on_abstract` in front of `@trait_module`, or of one function, checks this at each worker's first run.
+`@warn_on_abstract` or `@error_on_abstract` in front of `@trait_module`, or of one function, checks this at a bounded function's first run.
 
 > **Planned, not implemented:** one declaration with a level (silent, warn, error) replaces `@concrete_only`, `@warn_on_abstract` and `@error_on_abstract`. Its spelling is open.
 
-Rules: [reference §3.7](../reference/traits.md#37-concreteness), [§13](../reference/traits.md#13-concrete-mode).
+Rules: [reference §11](../reference/traits.md#11-concreteness-and-concrete-mode).
 
 ---
 
@@ -761,12 +804,11 @@ sq([1.0, 2.0, 3.0])                 # 14.0: the pirate was never defined
 
 - Strict mode applies to trait code. What it secures: compiled trait code is never invalidated by a pirate. Plain code is not protected by it.
 - A pirate that changes no compiled trait code is accepted.
-- Methods for your own types are never pirates. A package extension's method counts as its parent package's: where the parent owns the function or a type, it is followed, not refused.
-
-> **Planned, not implemented:** a warning when a package extension's method changes compiled trait code, naming the method and the trait code.
+- Methods for your own types are never pirates.
+- A package extension's method counts as its parent package's change. It is followed, not refused. Where it changes compiled trait code, a warning names the method and the trait code.
 - Strict mode is off by default. It changes nothing at run time.
 
-Rules: [reference §12.3](../reference/traits.md#123-strict-mode).
+Rules: [reference §10.3](../reference/traits.md#103-strict-mode).
 
 ---
 
@@ -797,7 +839,7 @@ This section shows the layout of a package; it is taken from the demonstrators a
   Loading InlineStrings then discards none of the reader's compiled code.
 - `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`.
 
-Rules: [reference §15](../reference/traits.md#15-compiling-ahead).
+Rules: [reference §13](../reference/traits.md#13-compiling-ahead).
 
 ---
 
@@ -837,4 +879,4 @@ Today the first is a plain argument, so the method never applies to a function. 
 
 **Named implementations:** `Via{Fast}(m)`, a wrapper that selects a second implementation.
 
-The full list, with where each is decided: [reference §18](../reference/traits.md#18-status-index).
+The full list, with where each is decided: [reference §16](../reference/traits.md#16-status-index).

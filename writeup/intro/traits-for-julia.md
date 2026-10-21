@@ -91,7 +91,7 @@ A trait is a kind of abstract type: you write it where you would write an abstra
 - **A supertrait is a requirement.** `@trait B <: A` says a type that implements `B` implements `A` too. It is not a place in a tree.
 - **Types win in dispatch.** A method for a type, concrete or abstract, is chosen before a method bounded by a trait, so a library can adopt traits one function at a time.
 
-Abstract types stay in Julia: numbers keep `Number` and `Real`. `conforms(T, X)` asks whether a type implements a trait; `T <: X` will ask the same once traits are part of Julia's types (today it is `false`). The full comparison is in [the traits reference §16](../reference/traits.md#16-membership).
+Abstract types stay in Julia: numbers keep `Number` and `Real`. `conforms(T, X)` asks whether a type implements a trait; `T <: X` will ask the same once traits are part of Julia's types (today it is `false`). The full comparison is in [the traits reference §14](../reference/traits.md#14-membership).
 
 ### An implementation: your type implements a trait
 
@@ -115,7 +115,13 @@ colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
 - Inside, on `t` it can use only what the trait declares, here `ncols` and `col`. On ordinary values, such as the column `col` returns, it calls any Julia code.
 - It is compiled for what the trait can see, not for your whole type. A type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for `Vector{Vector{Float64}}`. Its other fields never cause a recompile.
 - A method with a type annotation, concrete or abstract, wins over a bounded one; only an untyped method loses to it. So a library can adopt traits one function at a time.
-- **`Compiled` or `Dynamic`.** Where the calling code knows the value's type, the function runs code compiled for what the trait can see of it, as plain Julia compiles per type. Where it does not (an item of a `Vector{Any}`, a call typed at the prompt), the function runs code compiled once, and each operation dispatches when it runs, with its declared result type. The results are the same. `compiled_for(x)` and `with_dynamic(x)` choose for one value; a library can write `t::Compiled{ColTable}` or `t::Dynamic{ColTable}`.
+- **`Compiled` or `Dynamic`.** Every value seen through a trait is one or the other. The results are the same; only the speed differs.
+  - Where the calling code knows the value's type, the value is `Compiled`. The function runs code compiled for what the trait can see of it, as plain Julia compiles per type.
+  - Where it does not (an item of a `Vector{Any}`, a call typed at the prompt), the value is `Dynamic`. The function runs code compiled once, and each operation dispatches when it runs, with its declared result type.
+- **The rule: values carry. Annotations give defaults where a plain value enters trait code. Explicit casts always win.**
+  - A value keeps its attribute through calls, bounds and storage, also from one library to another.
+  - A library sets defaults for plain values: a trait may declare `@default_with_dynamic_self` or `@default_compiled_for_self`, and a bound may say `t::Compiled{ColTable}` or `t::Dynamic{ColTable}`.
+  - `compiled_for(x)` and `with_dynamic(x)` are the casts. They always win; of two, the later.
 
 ### A trait module
 
@@ -126,15 +132,15 @@ Library code that uses traits lives in a *trait module*, marked `@trait_module m
 
 Code outside trait modules is ordinary Julia. It calls bounded functions as it calls any function. A trait module can call any Julia code: Base, CSV.jl, Cairo, ForwardDiff.
 
-### `Dynamic{X}`: a value of any type that implements `X`
+### Kept values: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`
 
-For a mixed collection, or a field whose value can change type, use `Dynamic{X}`, or `Kept{X}`.
-- `Dynamic{X}(v)` holds your value `v`, seen through trait `X`. `Compiled{X}(v)` does too, and runs the code compiled for its type at a bound.
-- Inside a trait module, a trait's name in a field or a container means `Kept{X}`: each value keeps its attribute. A field `shapes::Vector{Shape}` is a `Vector{Kept{Shape}}`.
-- Outside a trait module, write the form out: `Dynamic{Shape}`, or `Kept{Shape}` for values of both attributes.
-- A value keeps its attribute when it is stored. Only `compiled_for(x)` and `with_dynamic(x)` change it.
-- Calling an operation on a `Dynamic` value tests for the known types first, with direct calls that inline. It falls back to a dynamic call for the rest.
-- Passing a `Dynamic` value to a bounded function runs the code compiled once; `compiled_for(d)` runs the code compiled for the value's type.
+For a mixed collection, or a field whose value can change type, keep the values as *kept values*: values of any type that implements `X`, seen through `X`.
+- **Inside a trait module, declare the field with the trait's name.** A field `shapes::Vector{Shape}` is a `Vector{Kept{Shape}}`: each value keeps its attribute, `Compiled` or `Dynamic`.
+- `Dynamic{X}` and `Compiled{X}` hold values of that attribute only. `Kept{X}` holds either.
+- Outside a trait module, write the form out: `Dynamic{Shape}(v)`, `Compiled{Shape}(v)`, or `Kept{Shape}` for values of both attributes.
+- A value keeps its attribute when it is stored. Only `compiled_for(x)` and `with_dynamic(x)` change it; the constructors never do.
+- An operation on a kept value runs the method of the type it holds, and its result has the declared type. The first four implementations declared take the fastest path, a direct call. Any other costs one lookup and an indirect call.
+- Passing a kept value to a bounded function keeps its attribute. A `Dynamic` one runs the code compiled once; `compiled_for(d)` runs the code compiled for the value's type.
 
 ### `Callable`: a function with a declared signature
 
@@ -144,10 +150,11 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 
 - `f` may be any function or closure. The library calls it as `f(x)`.
 - Every call is checked: a result that is not a `Float64` raises an error.
-- **`Dynamic` or `Compiled`.** The library may choose in the bound; the caller can convert one value.
+- **`Dynamic` or `Compiled`.** The library sets a default in the bound; a caller's cast wins.
   - `Dynamic`, `Callable`'s default: the library is compiled once for the signature, not once per function. Each call is an indirect call, about 4 ns.
   - `Compiled` (`f::Compiled{Callable{A, S}}`): the library is compiled for this particular function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this.
-  - The caller converts with `compiled_for(f)` or `with_dynamic(f)`. The attribute changes speed, never results.
+  - The caller casts with `compiled_for(f)` or `with_dynamic(f)`. The attribute changes speed, never results.
+  - `Callable`'s default, `Dynamic`, applies to functions from outside the trait world, such as a user's closure. Base's functions and a trait module's own are `Compiled` where the code that passes them knows them.
 
 ### Piracy and strict mode
 
@@ -186,7 +193,7 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 
 # tables of any conforming types, kept together
 struct Shelf
-    tables::Vector{ColTable}       # in a trait module: a Vector{Dynamic{ColTable}}
+    tables::Vector{ColTable}       # in a trait module: a Vector{Kept{ColTable}}
 end
 shelf() = Shelf(ColTable[])
 add!(s::Shelf, t::ColTable) = (push!(s.tables, t); s)
@@ -322,7 +329,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 
 - A bounded argument prints as the trait and the type its code was compiled for: `ColTable at Vector{Vector{Float64}}`. The `label` of a `Measurements` never appears.
 - The ODE demonstrator's integrator type is `Tsit5Integrator{Float64, Vector{Float64}}`, with or without callbacks. SciML's is 3,553 characters.
-- TraitWorld hides most of its own frames in stack traces (the entry's frame remains).
+- TraitWorld hides most of its own frames in stack traces.
 - Printing by trait needs the patched Julia.
 
 ### 4. Mixed collections at near plain speed
@@ -346,10 +353,10 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 
 ### Code that is not type-stable can become slower
 
-- In the new mode, Julia no longer guesses at calls whose types are unknown. It dispatches them at run time, and their results are typed `Any`. Type-stable code over concrete types is unaffected.
+- In the new mode, Julia does not guess at calls whose types are unknown. It dispatches them at run time, and their results are typed `Any`. Type-stable code over concrete types is unaffected.
 - This applies to trait modules and to the plain code they call.
 - With *all* code in this mode, Julia's benchmark suite (4,342 benchmarks) is 3.7% slower on the geometric mean. The worst cases, on containers of `Any`, are up to 28× slower.
-- **How traits recover it.** Where values are mixed on purpose, declare it with `Dynamic{X}` or `Callable`. Their operations have declared result types, so the code after them stays typed.
+- **How traits recover it.** Where values are mixed on purpose, declare it with a kept value (a trait's name in a field, `Dynamic{X}`) or `Callable`. Their operations have declared result types, so the code after them stays typed.
   - A ray tracer over four shape types (build of 2026-10-19): plain Julia about 850 ms, the trait form about 320 ms.
   - With two shape types, plain Julia stays faster: about 250 ms.
 - The rule the project follows: a slowdown is acceptable when rewriting the code with traits recovers it.
@@ -372,7 +379,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 - **Revise and redefinition:** changing an implementation in a running session needs a restart.
 - **`where` variables in bounds:** a bounded function cannot yet name the trait's type parameters with `where`.
 - **Traits in the type system:** a trait is not yet a supertype that `isa` and subtyping understand. Until then:
-  - outside trait modules, `Dynamic{X}` is written out;
+  - outside trait modules, a kept value's form is written out: `Kept{X}`, `Dynamic{X}` or `Compiled{X}`;
   - `conforms(T, X)` answers "does type `T` implement trait `X`?" as a function.
 - **Strict mode** is a prototype. On a stack with CSV, DataFrames and CairoMakie it refuses nothing; its load cost is 0.5 s on a 4.1 s load (measured on the previous prototype).
 - **Ahead-of-time binaries:** a trimmed TraitMakie binary is 4.07 MB (measured on the previous prototype).

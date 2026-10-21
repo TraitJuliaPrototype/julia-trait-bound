@@ -13,9 +13,11 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 
 [Associated type](#associated-type) ·
 [Boundary and boundary method](#boundary-and-boundary-method) ·
+[Bundle](#supertrait-and-bundle) ·
 [Bound and bounded function](#bound-and-bounded-function) ·
 [Call-site split](#call-site-split) ·
 [`Callable`](#callable) ·
+[Cast](#cast) ·
 [CodeInstance](#codeinstance) ·
 [`Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`compiled_for`, `with_dynamic`](#compiled-and-dynamic) ·
@@ -26,10 +28,12 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Definition checking and archetype](#definition-checking-and-archetype) ·
 [Dispatch](#method-table-and-dispatch) ·
 [`Dynamic{X}`](#dynamicx) ·
-[`@dynamic`](#compiled-and-dynamic) ·
+[`@default_with_dynamic_self`, `@default_compiled_for_self`](#compiled-and-dynamic) ·
 [Erased key](#compiled-and-dynamic) ·
 [First seen through a trait](#compiled-and-dynamic) ·
 [Item position](#compiled-and-dynamic) ·
+[Joint family](#family) ·
+[Kept value: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`](#dynamicx) ·
 [Entry and worker](#entry-and-worker) ·
 [Fact and fact signature](#fact-and-fact-signature) ·
 [Facts mode and the setting `all`](#facts-mode-and-the-setting-all) ·
@@ -46,14 +50,17 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Method table](#method-table-and-dispatch) ·
 [Mode](#mode) ·
 [Named implementation](#named-implementation) ·
+[Of the trait world](#of-the-trait-world) ·
 [Operation](#operation) ·
 [Owner](#owner) ·
 [Package extension](#package-extension) ·
 [Pirate and piracy](#pirate-and-piracy) ·
+[Plain value](#compiled-and-dynamic) ·
 [Receiver type](#receiver-type) ·
 [Results like the input](#results-like-the-input-self-like-withfields) ·
 [Run-time site](#run-time-site) ·
 [`Self`](#results-like-the-input-self-like-withfields) ·
+[Sibling](#results-like-the-input-self-like-withfields) ·
 [Stakeholder](#stakeholder) ·
 [Strict mode](#strict-mode) ·
 [Trait](#trait) ·
@@ -79,12 +86,18 @@ The entries are grouped by theme:
 
 ### Trait
 
-- **Here:** a kind of abstract type with a declared, checked contract. It declares operations with argument and result types, fields with types, and associated types as its parameters. It follows other rules than an abstract type: a type joins it by an [implementation](#implementation), after the type is defined, and may join several; a supertrait is a requirement, not a place in a tree; in dispatch a bound ranks below every type. Abstract types stay in Julia. The comparison, rule by rule: [traits §16](reference/traits.md#16-membership).
+- **Here:** a kind of abstract type with a declared, checked contract. It declares operations with argument and result types, fields with types, and associated types as its parameters. It follows other rules than an abstract type: a type joins it by an [implementation](#implementation), after the type is defined, and may join several; a supertrait is a requirement, not a place in a tree; in dispatch a bound ranks below every type. Abstract types stay in Julia. The comparison, rule by rule: [traits §14](reference/traits.md#14-membership).
 - **Origin:**
   - Rust and Mojo say "trait"; Swift says "protocol"; C++20 says "concept".
   - A C++20 concept is a predicate on types. A Rust trait is not a type, except as `dyn Trait`. A Swift protocol is also a type (`any P`). Ours is an abstract type, and reads like one by position ([`design/other-languages.md` §1](design/other-languages.md#1-a-trait-is-an-abstract-type-with-behaviour)).
   - In Julia: abstract types play part of this role, without a checked contract. Base also uses "traits" for a dispatch pattern (`IndexStyle`, `IteratorSize`), known as "Holy traits": a value computed from a type, not a checked contract *(not in the research)*.
-- **Defined in:** [traits §3](reference/traits.md#3-trait-declarations); against abstract types: [§16](reference/traits.md#16-membership).
+- **Defined in:** [traits §3](reference/traits.md#3-trait-declarations); against abstract types: [§14](reference/traits.md#14-membership).
+
+### Supertrait and bundle
+
+- **Here:** `@trait B <: A` makes `A` a supertrait of `B`: a type implementing `B` implements `A` too, and a `B` bound sees `A`'s operations. A **bundle** is a trait without a body that names a combination of traits: `@trait Table <: (ColTable, RowTable)`.
+- **Origin:** Rust's supertraits and Swift's protocol inheritance and composition (`P & Q`).
+- **Defined in:** [traits §3.6](reference/traits.md#36-supertraits-and-bundles).
 
 ### Operation
 
@@ -98,13 +111,13 @@ The entries are grouped by theme:
 - **Origin:**
   - Rust calls `T: Trait` a trait bound. Rust and Swift check generic code against its bounds ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)).
   - In Julia: an argument annotated with an abstract type, `f(x::AbstractArray)`, plays the same role. A bound is written the same way ([`design/other-languages.md` §1](design/other-languages.md#1-a-trait-is-an-abstract-type-with-behaviour)).
-- **Defined in:** [traits §6](reference/traits.md#6-bounded-functions) (rule 3, the boundary), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); dispatch: [traits §6.5](reference/traits.md#65-dispatch-types-first-then-traits).
+- **Defined in:** [traits §5](reference/traits.md#5-bounded-functions) (rule 3, the boundary), [§6.7](reference/traits.md#67-what-compiled-code-is-compiled-for); dispatch: [traits §5.5](reference/traits.md#55-dispatch-types-first-then-traits).
 
 ### Conforms to
 
 - **Here:** type `T` conforms to trait `X` when an [implementation](#implementation) of `X` for `T` is declared. A "conforming type" is such a type. TraitWorld answers the question with `conforms(T, X)`, which stands in for `T <: X` until traits are in the type system. `Callable` is the exception: anything callable conforms to it.
 - **Origin:** Swift's wording: "a type conforms to a protocol". Mojo uses the same word ([`record/other-languages-research-2026-10-16.md` §1](record/other-languages-research-2026-10-16.md#1-conformance-declared-or-structural)). Rust says "a type implements a trait".
-- **Defined in:** [traits §5](reference/traits.md#5-implementations), [§16](reference/traits.md#16-membership).
+- **Defined in:** [traits §4](reference/traits.md#4-implementations), [§14](reference/traits.md#14-membership).
 
 ### Implementation
 
@@ -117,15 +130,15 @@ The entries are grouped by theme:
   - Rust's `impl Trait for Type`; Java's and C#'s "implements" ([`decisions.md`](record/decisions.md), the row on terms of 2026-10-19). Go also says that a type "implements" an interface, but Go infers it from the methods *(not in the research)*.
   - Swift and Mojo call the declaration a "conformance". C++0x called it a "concept map", and C++20 dropped the declaration: its concepts match structurally ([`design/other-languages.md` §2](design/other-languages.md#2-implementations-are-declared)).
   - Declared implementations won in Rust, Swift and Mojo. Mojo added structural matching in 2024 and removed it in 2025 ([`record/other-languages-research-2026-10-16.md` §1](record/other-languages-research-2026-10-16.md#1-conformance-declared-or-structural)).
-- **Defined in:** [traits §5](reference/traits.md#5-implementations); how it is recorded: [lowering §4](reference/lowering.md#4-implementations).
+- **Defined in:** [traits §4](reference/traits.md#4-implementations); how it is recorded: [lowering §4](reference/lowering.md#4-implementations).
 
 ### Generic implementation
 
-- **Here:** one implementation that covers every type that meets other traits: `@implement GTable R where {R: Indexable, eltype(R) == Vector{Float64}}`. Workers are still compiled per concrete key. A more specific implementation beats a generic one. That it must declare the same parameter values is Planned ([traits §5.8](reference/traits.md#58-generic-implementations)).
+- **Here:** one implementation that covers every type that meets other traits: `@implement GTable R where {R: Indexable, eltype(R) == Vector{Float64}}`. Workers are still compiled per concrete key. A more specific implementation beats a generic one. That it must declare the same parameter values is Planned ([traits §4.8](reference/traits.md#48-generic-implementations)).
 - **Origin:**
   - Rust's blanket impls. Rust made adding a blanket impl a breaking change; Rust's specialization, which orders overlapping impls, has been unstable since 2016 ([`record/other-languages-research-2026-10-16.md` §5](record/other-languages-research-2026-10-16.md#5-overlap-more-specific-beats-generic)).
   - In Julia: a method at an abstract type, or with a `where` clause, serves every type it covers ([`design/other-languages.md` §1](design/other-languages.md#1-a-trait-is-an-abstract-type-with-behaviour), the table).
-- **Defined in:** [traits §5.8](reference/traits.md#58-generic-implementations); overlap: [`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders).
+- **Defined in:** [traits §4.8](reference/traits.md#48-generic-implementations); overlap: [`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders).
 
 ### Named implementation
 
@@ -134,13 +147,14 @@ The entries are grouped by theme:
   - Jordan Rose lists "named conformances" among the options Swift should have had, beside owner-only conformances and wrapper types ([`record/other-languages-research-2026-10-16.md` §4](record/other-languages-research-2026-10-16.md#4-who-may-add-a-conformance-or-a-method)). Named impls are being proposed for Rust ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
   - Scala's implicits select an instance by imported scope; the design rejected that ([`design/other-languages.md`](design/other-languages.md), "Other options considered").
   - Haskell allows one instance of a class per type and uses newtypes for the others *(not in the research)*. That is the newtype form preferred here.
-- **Defined in:** [traits §17](reference/traits.md#17-named-implementations).
+- **Defined in:** [traits §15](reference/traits.md#15-named-implementations).
 
 ### Family
 
-- **Here:** one implementation for all instances of a parametric type, declared with `where`: `@implement Fam2 S2{P} where {P}`. Each member is fixed at its first use. Workers compile per instance.
+- **Here:** one implementation for all instances of a parametric type, declared with `where`: `@implement Fam2 S2{P} where {P}`. Each member is fixed at its first use. Code is compiled per member.
+  - A **joint family** ties the trait's parameters to the type's: `@implement StateVector{T} Series{T} where {T}`.
 - **Origin:** C++0x's templated concept maps ([`record/other-languages-research-2026-10-16.md` §1](record/other-languages-research-2026-10-16.md#1-conformance-declared-or-structural)). In Julia: a method with a `where` clause over a type's parameters.
-- **Defined in:** [traits §5.7](reference/traits.md#57-families).
+- **Defined in:** [traits §4.7](reference/traits.md#47-families).
 
 ### Default
 
@@ -166,9 +180,9 @@ The entries are grouped by theme:
 
 ### Forwarding (`by`)
 
-- **Here:** an implementation that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [receiver type](#receiver-type). So every type that forwards to a field of that type shares the library's code for it. Without `by`, the one-line form means the type implements the operations itself; it never picks a field, not one named `data`, not the only conforming one ([traits §5.2](reference/traits.md#52-one-line)). Forwarding does not chain.
+- **Here:** an implementation that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [receiver type](#receiver-type). So every type that forwards to a field of that type shares the library's code for it. Without `by`, the one-line form means the type implements the operations itself; it never picks a field, not one named `data`, not the only conforming one ([traits §4.2](reference/traits.md#42-one-line)). Forwarding does not chain.
 - **Origin:** Kotlin's `by` forwards an interface's methods to a field. Go's struct embedding satisfies an interface through the embedded field's methods. Rust writes it by hand or uses `Deref` ([`design/other-languages.md` §3](design/other-languages.md#3-compiled-for-what-the-bound-can-see), "At a glance"). None of them makes the forwarded field the compile key.
-- **Defined in:** [traits §5.3](reference/traits.md#53-forwarding-with-by).
+- **Defined in:** [traits §4.3](reference/traits.md#43-forwarding-with-by).
 
 ### Receiver type
 
@@ -178,7 +192,7 @@ The entries are grouped by theme:
   - There is none when the trait's defaults serve every operation.
   - The value itself is the receiver.
 - **Origin:** the receiver of a method call in Go, Kotlin and Swift ([`decisions.md`](record/decisions.md), the row on terms of 2026-10-19). Rust's reference also calls `self` the receiver ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions), "`Self` only as receiver").
-- **Defined in:** [traits §4](reference/traits.md#4-keys-what-code-is-compiled-for); [lowering §5](reference/lowering.md#5-keys-and-views).
+- **Defined in:** [traits §4.3](reference/traits.md#43-forwarding-with-by), [§6.7](reference/traits.md#67-what-compiled-code-is-compiled-for); [lowering §5](reference/lowering.md#5-keys-and-views).
 
 ### Key
 
@@ -186,7 +200,7 @@ The entries are grouped by theme:
 - **Origin:** the project's term.
   - Go 1.18 compiles one generic instance per "GC shape", grouping types the generated code does not distinguish. .NET shares generic code among reference types ([`design/other-languages.md` §3](design/other-languages.md#3-compiled-for-what-the-bound-can-see), from memory and a review).
   - Julia compiles per concrete argument type. Its function-barrier idiom, passing only the fields an inner function needs, reaches the same shape by discipline.
-- **Defined in:** [traits §4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is represented: [lowering §5](reference/lowering.md#5-keys-and-views).
+- **Defined in:** [traits §6.7](reference/traits.md#67-what-compiled-code-is-compiled-for); how it is represented: [lowering §5](reference/lowering.md#5-keys-and-views).
 
 ---
 
@@ -194,9 +208,9 @@ The entries are grouped by theme:
 
 ### Trait object
 
-- **Here:** what library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see. It is [`Compiled` or `Dynamic`](#compiled-and-dynamic). It lives for one call. It is never passed bare to plain code; to keep it, the code stores it, as a [`Kept{X}`, `Dynamic{X}` or `Compiled{X}`](#dynamicx).
+- **Here:** what library code receives for a bounded argument: the user's own object, seen through the bound. It is [`Compiled` or `Dynamic`](#compiled-and-dynamic). It lives for one call. It is never passed bare to plain code; to keep it, the code stores it as a [kept value](#dynamicx), with its attribute.
 - **Origin:** Rust's "trait object" is a `dyn Trait` value, called through a table of pointers ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Ours is static: one call, compiled per key. The counterpart of Rust's trait object here is `Dynamic{X}`, or a `Kept{X}` holding `Dynamic`.
-- **Defined in:** [traits §6.2](reference/traits.md#62-what-a-bounded-function-receives); [lowering §6](reference/lowering.md#6-trait-objects-layout-fields-writes).
+- **Defined in:** [traits §5.2](reference/traits.md#52-what-a-bounded-function-receives); [lowering §6](reference/lowering.md#6-trait-objects-layout-fields-writes).
 
 ### View and held view
 
@@ -209,10 +223,10 @@ The entries are grouped by theme:
 ### Entry and worker
 
 - **Here:** a bounded function has two parts.
-  - The **entry** is an ordinary method. It decides a plain value's attribute, [`Compiled` or `Dynamic`](#compiled-and-dynamic), and translates each argument by its bound, once. It is small and is inlined into typed callers.
+  - The **entry** is an ordinary method. It decides a plain value's attribute, [`Compiled` or `Dynamic`](#compiled-and-dynamic), and sees each argument through its bound, once. It is small and is inlined into typed callers.
   - The **worker** is the body, compiled per tuple of keys; a `Dynamic` value's key is erased, so one worker serves every type.
 - **Origin:** the project's terms. The shape is Julia's function barrier: a small outer function and a typed inner kernel (Julia's performance tips; *not in the research*). Rust's "generic hotpath, concrete coldpath" is a thin generic wrapper around a shared inner function ([`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 1).
-- **Defined in:** [traits §6.2](reference/traits.md#62-what-a-bounded-function-receives); [lowering §8](reference/lowering.md#8-bounded-functions-workers-and-entries).
+- **Defined in:** lowering's terms, not the language's: [lowering §8](reference/lowering.md#8-bounded-functions-workers-and-entries).
 
 ### Trait module
 
@@ -227,7 +241,7 @@ The entries are grouped by theme:
   - "Archetype" is C++0x's term. C++0x checked definitions through archetypes, and concepts were removed in 2009. C++20 checks only uses.
   - Rust, Swift and Mojo check generic bodies before instantiation ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written); [`design/other-languages.md` §4](design/other-languages.md#4-generic-code-is-checked-at-its-definition)).
   - Julia has no definition checking: such a mistake appears at run time, as a `MethodError`.
-- **Defined in:** [traits §11](reference/traits.md#11-checks-and-when-they-run); where it runs: [lowering §14](reference/lowering.md#14-checks-and-where-their-results-live).
+- **Defined in:** [traits §9](reference/traits.md#9-checks-and-when-they-run); where it runs: [lowering §14](reference/lowering.md#14-checks-and-where-their-results-live).
 
 ### Concrete mode and fully typed
 
@@ -236,7 +250,7 @@ The entries are grouped by theme:
   - **Concrete mode** reports the calls that are not, per worker, with their root cause. `fully_typed(f, argtypes)` gives the report: the **fully-typed certificate**.
   - A trait or a module may ask for concreteness at a level: silent (the default), warn, or error.
 - **Origin:** close to Julia's "type stability", which `@code_warntype` shows for one call *(not in the research)*. Swift's lesson, "make the slow path visible from day one", is what explicit modes and concrete mode do ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). "Fully typed" is the project's term.
-- **Defined in:** [traits §13](reference/traits.md#13-concrete-mode), [§3.7](reference/traits.md#37-concreteness); fully typed: [facts §1](reference/facts.md#term-fully-typed).
+- **Defined in:** [traits §11](reference/traits.md#11-concreteness-and-concrete-mode); fully typed: [facts §1](reference/facts.md#term-fully-typed).
 
 ---
 
@@ -248,15 +262,28 @@ The entries are grouped by theme:
   - **`Compiled`:** the value runs code compiled for its [key](#key).
   - **`Dynamic`:** the value runs code compiled once, at the **erased key**; each operation on it dispatches when it runs, through a [call-site split](#call-site-split).
   - **Values carry. Annotations give defaults where a plain value enters trait code. Explicit casts always win.**
+  - A **plain value** is one that carries no attribute yet: it gets one where it is first seen through a trait.
   - A value gets its attribute where it is **first seen through a trait**: at a bound; at an **item position**, a bound's parameter that names a trait (`Iterable{Shape}`), when an item is read; at a struct parameter bounded by a trait; at an operation's result declared with a trait. There it is `Compiled` if the code that sees it knows its concrete type, `Dynamic` if not. At the prompt, Julia compiles nothing, so every call there passes `Dynamic` values.
-  - **Overrides:** a trait's default, `@dynamic` (`Callable` declares it); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the **casts** `compiled_for(x)` and `with_dynamic(x)`, which always win, the later one of two.
+  - **Overrides:** a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self` (`Callable`'s default is `Dynamic`); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the **casts** `compiled_for(x)` and `with_dynamic(x)`, which always win, the later one of two.
   - A value keeps its attribute in the trait world, through calls, bounds and storage, also from library to library. Only the casts change it; constructors and types never do. A `Dynamic` is opened only by `compiled_for`: a function barrier written where it is wanted.
 - **Origin:** Rust's generics (compiled per type) and `dyn Trait` (one copy, dynamic calls); Swift's `some P` and `any P`. In both languages the type the code knows decides, as here; the caller cannot change it ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)). Julia compiles every call for the argument's type at run time; `compiled_for` is that behaviour, asked for.
-- **Defined in:** [traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§3.8](reference/traits.md#38-a-traits-default-dynamic), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry).
+- **Defined in:** [traits §6](reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.2](reference/traits.md#62-how-plain-values-enter-the-trait-world), [§6.3](reference/traits.md#63-defaults-a-traits-default-and-annotations), [§6.7](reference/traits.md#67-what-compiled-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry).
+
+### Cast
+
+- **Here:** `compiled_for(x)` and `with_dynamic(x)`, the only two ways to change a value's attribute. A cast always wins over defaults and annotations; of two casts, the later wins. Constructors and types never cast.
+- **Origin:** the project's term, from a cast between types; here between attributes. Julia's `@nospecialize` is a library's choice made in its own code; a cast is the caller's, per value.
+- **Defined in:** [traits §6.4](reference/traits.md#64-casts).
+
+### Of the trait world
+
+- **Here:** a type is *of the trait world* when it is defined in Julia itself (Core, Base, the standard libraries), in TraitWorld or in a trait module, and so are its fields' types, all the way down. A trait's `Dynamic` default (`@default_with_dynamic_self`) does not apply to such a value: it is the trait world's own.
+- **Origin:** the project's term.
+- **Defined in:** [traits §6.3](reference/traits.md#63-defaults-a-traits-default-and-annotations).
 
 ### `Dynamic{X}`
 
-`Compiled{X}`, `Kept{X}`.
+`Compiled{X}`, `Kept{X}`: the *kept values*.
 
 - **Here:** a value of abstract type `X`: any value that conforms to `X`, reached through `X`'s operations and fields, kept where the code does not know its type. Three forms, the stored forms of trait objects:
   - `Dynamic{X}`, with the attribute [`Dynamic`](#compiled-and-dynamic); `Compiled{X}`, with `Compiled`;
@@ -268,7 +295,7 @@ The entries are grouped by theme:
 - **Origin:**
   - Rust's `dyn Trait` and `Box<dyn Trait>`; Swift's existential `any P` ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Both call through a table of pointers. Ours splits at the call site ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)).
   - In Julia: a field typed with an abstract type, which holds a boxed value. `Kept{X}` is the package's spelling, until traits are in the type system; a struct parameter bounded by a trait is Julia's parametric field, with the attribute choosing the parameter.
-- **Defined in:** [traits §10](reference/traits.md#10-dynamicx-values-of-any-conforming-type), [§10.5](reference/traits.md#105-a-struct-parameter-bounded-by-a-trait); how it is built: [lowering §13](reference/lowering.md#13-dynamicx).
+- **Defined in:** [traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§7.4](reference/traits.md#74-a-struct-parameter-bounded-by-a-trait); how it is built: [lowering §13](reference/lowering.md#13-dynamicx).
 
 ### Call-site split
 
@@ -293,24 +320,25 @@ The entries are grouped by theme:
 
 ### `Callable`
 
-- **Here:** a function argument at a declared signature: `Callable{A, S}`, with arguments `A` and result `S`. Its one operation is checked at every call. Anything callable conforms; no implementation is declared. It declares `@dynamic`, so a function from plain code is [`Dynamic`](#compiled-and-dynamic):
-  - `Dynamic`, the default: the worker is compiled once per signature, and each call is an indirect call.
-  - `Compiled`: the worker is compiled per function type, with the function inferred into it. The signature is still checked.
+- **Here:** a function argument at a declared signature: `Callable{A, S}`, with arguments `A` and result `S`. Its one operation is checked at every call. Anything callable conforms; no implementation is declared. Its default is `Dynamic` (`@default_with_dynamic_self`), so a plain function is [`Dynamic`](#compiled-and-dynamic):
+  - `Dynamic`, the default: the library's code is compiled once per signature.
+  - `Compiled`: the library's code is compiled per function, with the function inferred into it. The signature is still checked.
 
-  The library may write `Compiled{Callable{A, S}}`. The caller converts per value: `compiled_for(f)`, `with_dynamic(f)`. `Dynamic{Callable{A, S}}` is a function as a value of fixed type, for storing in a field. Functions of the trait world (Base's, a trait module's) are not affected by `@dynamic`.
+  The library may write `Compiled{Callable{A, S}}`. The caller casts per value: `compiled_for(f)`, `with_dynamic(f)`. A function kept in a field is a kept value: `Callable{A, S}` in a trait module's field means `Kept{Callable{A, S}}`, with the function's attribute. Functions of the trait world (Base's, a trait module's) are not affected by the `Dynamic` default.
 - **Origin:**
   - Julia has no type for "a function from `Float64` to `Float64`". FunctionWrappers.jl provides one by hand.
   - C++'s `std::function` erases the type. Rust chooses `impl Fn` (per closure) or `&dyn Fn` (dynamic) in the callee's signature. Here the caller can override the library's choice, which Rust and Swift do not offer ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults); [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md#what-is-new-in-our-design), "What is new in our design", item 2).
-- **Defined in:** [traits §9](reference/traits.md#9-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamiccallable).
+- **Defined in:** [traits §5.8](reference/traits.md#58-callable-functions-at-a-declared-signature); how it is built: [lowering §12](reference/lowering.md#12-callable-and-dynamiccallable).
 
 ### Results like the input: `Self`, `Like`, `withfields`
 
 - **Here:** how a library returns "a table like the input" without seeing the user's type.
-  - A **constructor operation** declared to return `Self` makes a new value of the receiver type.
+  - A **constructor operation** declared to return `Self` makes a new value like the one seen through the trait.
+  - A **sibling:** the same type family at another parameter, rebuilt as the result (`LSeries{Float64}` in, `LSeries{Float32}` out).
   - `::Like{t}` declares that the result is like argument `t`. The entry rebuilds a value of the caller's type.
   - `withfields(t; u = …)` replaces declared fields.
-- **Origin:** Rust's `-> Self` and Swift's `init` requirements. In Julia: Base's `similar`, Tables.jl's `materializer`, ConstructionBase.jl's `setproperties` and Accessors.jl ([traits §7](reference/traits.md#7-results-declared-types-like-withfields)).
-- **Defined in:** [traits §3.5](reference/traits.md#35-self), [§7](reference/traits.md#7-results-declared-types-like-withfields); how the result is rebuilt: [lowering §11](reference/lowering.md#11-results-like-the-input).
+- **Origin:** Rust's `-> Self` and Swift's `init` requirements. In Julia: Base's `similar`, Tables.jl's `materializer`, ConstructionBase.jl's `setproperties` and Accessors.jl ([traits §5.6](reference/traits.md#56-results-declared-types-like-withfields)).
+- **Defined in:** [traits §3.5](reference/traits.md#35-self), [§5.6](reference/traits.md#56-results-declared-types-like-withfields); how the result is rebuilt: [lowering §11](reference/lowering.md#11-results-like-the-input).
 
 ---
 
@@ -318,9 +346,9 @@ The entries are grouped by theme:
 
 ### Owner
 
-- **Here:** a package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. At the prompt, `Main` is one owner, and each module defined directly under it is an owner of its own ([traits §12.1](reference/traits.md#121-who-may-implement)).
+- **Here:** a package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. At the prompt, `Main` is one owner, and each module defined directly under it is an owner of its own ([traits §10.1](reference/traits.md#101-who-may-implement)).
 - **Origin:** Rust's crate, the unit of its orphan rule ([`record/other-languages-research-2026-10-16.md` §4](record/other-languages-research-2026-10-16.md#4-who-may-add-a-conformance-or-a-method)). Julia's piracy convention uses the same idea of "your own" functions and types.
-- **Defined in:** [facts §1](reference/facts.md#term-owner); who may implement: [traits §12.1](reference/traits.md#121-who-may-implement).
+- **Defined in:** [facts §1](reference/facts.md#term-owner); who may implement: [traits §10.1](reference/traits.md#101-who-may-implement).
 
 ### Stakeholder
 
@@ -336,19 +364,19 @@ The entries are grouped by theme:
 
 - **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own. A pirate changes compiled code only if it wins at a fact.
 - **Origin:** Julia's own "type piracy", which Julia's style guide advises against and Aqua.jl checks. Here it is made strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6 ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
-- **Defined in:** [facts §1](reference/facts.md#term-pirate), [§10](reference/facts.md#pirates); the errors: [traits §12.2](reference/traits.md#122-pirates); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
+- **Defined in:** [facts §1](reference/facts.md#term-pirate), [§10](reference/facts.md#pirates); the errors: [traits §10.2](reference/traits.md#102-pirates); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 
 ### Strict mode
 
 - **Here:** a switch that applies to trait code. It secures one property: trait code is never invalidated, except by a stakeholder's change. It refuses a pirate that would win at a fact of trait code, where the pirate is defined: at the prompt, by `include`, or as a package image's methods activate. The error names the method and the code it would have changed. The refused method then does not exist, for plain code either. The default session leaves it off: it follows the pirate, and the code with that fact recompiles once.
 - **Origin:** the project's. Rust refuses every orphan impl at compile time. Strict mode refuses a pirate only where it would change compiled code ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)). It uses the definition hooks of the patched Julia ([compiler §5.1](reference/compiler.md#51-method-definition-and-image-activation-hooks)).
-- **Defined in:** [traits §12.3](reference/traits.md#123-strict-mode); [facts §10.2](reference/facts.md#strict-mode), [§10.3](reference/facts.md#strict-intended); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), [§2.5](design.md#25-the-default-following-pirates-and-what-it-gives-up).
+- **Defined in:** [traits §10.3](reference/traits.md#103-strict-mode); [facts §10.2](reference/facts.md#strict-mode), [§10.3](reference/facts.md#strict-intended); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), [§2.5](design.md#25-the-default-following-pirates-and-what-it-gives-up).
 
 ### Package extension
 
 - **Here:** Julia's code that loads when its parent package and a trigger package are both loaded. For ownership it belongs to its parent: its winning methods are its parent's changes, followed (with a warning in strict mode, [facts §10.3](reference/facts.md#strict-intended)). In the trait world an extension declares implementations, which invalidate no trait code, instead of adding methods to a library's internal functions. Example: TraitCSV's extension for InlineStrings' `String15`.
 - **Origin:** Julia's own: package extensions, with `[weakdeps]` and `[extensions]` in `Project.toml`, since Julia 1.9 *(the version: not in the research)*. Before them, Requires.jl did the same.
-- **Defined in:** [facts §1](reference/facts.md#term-owner) (owners); [traits §12.1](reference/traits.md#121-who-may-implement); [`intro/porting.md`](intro/porting.md), rule 4.
+- **Defined in:** [facts §1](reference/facts.md#term-owner) (owners); [traits §10.1](reference/traits.md#101-who-may-implement); [`intro/porting.md`](intro/porting.md), rule 4.
 
 ---
 
@@ -395,7 +423,7 @@ The entries are grouped by theme:
   - **The boundary** (rule 3 of [the design](design.md#3-the-design-in-brief)): only values cross into trait code, each translated once by its bound.
   - **A boundary method** carries the boundary flag (`Expr(:meta, :facts_boundary)` in its body) and is compiled in its caller's mode, wherever it is defined: TraitWorld's entries, which do that translation, and `conformance` methods. The crossing between the modes then happens at the call the boundary method makes.
 - **Origin:** the project's terms.
-- **Defined in:** [traits §6](reference/traits.md#6-bounded-functions) (the boundary); [facts §6.1](reference/facts.md#kinds-of-methods) (boundary methods); the flag: [compiler §2.2](reference/compiler.md#22-the-method-flag-boundaries-and-always-facts-methods).
+- **Defined in:** [traits §5](reference/traits.md#5-bounded-functions) (the boundary); [facts §6.1](reference/facts.md#kinds-of-methods) (boundary methods); the flag: [compiler §2.2](reference/compiler.md#22-the-method-flag-boundaries-and-always-facts-methods).
 
 ### Identical or error
 

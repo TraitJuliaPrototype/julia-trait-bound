@@ -44,15 +44,15 @@ The [traits reference](../reference/traits.md) (the language) and the [lowering 
 
 ### 4.1 Traits and implementations
 
-[traits §5](../reference/traits.md#5-implementations).
+[traits §4](../reference/traits.md#4-implementations).
 
 ### 4.2 Compiled for what the bound can see
 
-[traits §4](../reference/traits.md#4-keys-what-code-is-compiled-for); [lowering §5](../reference/lowering.md#5-keys-and-views), [lowering §6](../reference/lowering.md#6-trait-objects-layout-fields-writes).
+[traits §6.7](../reference/traits.md#67-what-compiled-code-is-compiled-for); [lowering §5](../reference/lowering.md#5-keys-and-views), [lowering §6](../reference/lowering.md#6-trait-objects-layout-fields-writes).
 
 ### 4.3 Concreteness, opt-in per trait
 
-[traits §3.7](../reference/traits.md#37-concreteness).
+[traits §11](../reference/traits.md#11-concreteness-and-concrete-mode).
 
 ### 4.4 Overrides belong to the implementation
 
@@ -60,11 +60,11 @@ The [traits reference](../reference/traits.md) (the language) and the [lowering 
 
 ### 4.5 `Dynamic{X}`: a value of abstract type `X`
 
-[traits §10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type); [lowering §13](../reference/lowering.md#13-dynamicx).
+[traits §7](../reference/traits.md#7-kept-values-dynamicx-compiledx-keptx); [lowering §13](../reference/lowering.md#13-dynamicx).
 
 ### 4.6 Functions as arguments: `Callable`, two modes
 
-[traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamiccallable); [compiler §3.1](../reference/compiler.md#31-the-cfunction-calling-convention-caller_world).
+[traits §5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature); [lowering §12](../reference/lowering.md#12-callable-and-dynamiccallable); [compiler §3.1](../reference/compiler.md#31-the-cfunction-calling-convention-caller_world).
 
 ### 4.7 The rest of the trait language
 
@@ -72,7 +72,7 @@ The [traits reference](../reference/traits.md).
 
 ### 4.8 AOT follows from declared targets
 
-[traits §15](../reference/traits.md#15-compiling-ahead); [lowering §15](../reference/lowering.md#15-compiling-ahead-workloads-closed-builds).
+[traits §13](../reference/traits.md#13-compiling-ahead); [lowering §15](../reference/lowering.md#15-compiling-ahead-workloads-closed-builds).
 
 ### 4.9 Entries: typed callers, untyped callers, types compiled ahead
 
@@ -80,7 +80,7 @@ The [traits reference](../reference/traits.md).
 
 ## 5. The three rules
 
-Rules 1 and 2: the [facts mode reference](../reference/facts.md). Rule 3, the boundary: [traits §6](../reference/traits.md#6-bounded-functions). Who may implement: [traits §12](../reference/traits.md#12-who-may-implement-pirates-strict-mode).
+Rules 1 and 2: the [facts mode reference](../reference/facts.md). Rule 3, the boundary: [traits §5](../reference/traits.md#5-bounded-functions). Who may implement: [traits §10](../reference/traits.md#10-who-may-implement-pirates-strict-mode).
 
 ## 6. What Julia provides
 
