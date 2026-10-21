@@ -450,7 +450,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 <a id="strict-intended"></a>
 ### 10.3 Strict mode's intended design
 
-**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented.
+**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented. Open: who counts as deleting a method, since a deletion carries no caller ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 44).
 
 In strict mode, trait code, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or, for a stakeholder's package extension, a warning:
 

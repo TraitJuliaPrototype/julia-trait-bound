@@ -197,6 +197,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 **A member is fixed at its first use** (`_conf_family_slow`, `implement.jl:707`):
 - the slow path checks the member once (`_member_problems`: the operations the family's methods serve, as at a single type's declaration, the parameters' bounds, and the parts the concreteness declarations name, `_concrete_problems`; a member that does not conform is refused with `ImplementError`), finds its builder and stores it in the registry, copy-on-write;
+- a member that does not conform has no witness (`_witness` returns `nothing` for it), so no other path takes it as conforming;
 - the member's default-served operations are added to the override index then ([§4.8](#48-overrides-and-redeclaration));
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
@@ -213,7 +214,7 @@ A later declaration for one member is a more specific `conformance` method.
 - each operation as a method of `generic_op(X, Val(k), Val(op), t, args…)`, where `t` is a trait object carrying the constraint traits;
 - no `conformance` method: the generic `conformance` fallback finds the implementation ([§8.2](#82-the-entry)).
 
-At a type's first call, `_witness` (`implement.jl:337`) tries each generic record: the constraints' witnesses, then the predicate, in the decision world. The witness is `Generic{X, k, S, D}`, holding the constraints' witnesses. More than one match is an error. A more specific declared implementation is found first, as a `conformance` method of its own. The generic implementation's results are checked at the first concrete type, with a warning (`_generic_problems`).
+At a type's first use, `_generic_concrete_check` (`entry.jl`) checks the parts the concreteness declarations name, as `_concrete_problems` does at a declaration, and refuses the type with `ImplementError`; the operations' results are checked by `_witness` with a warning only ([traits T-52](traits.md#17-deviations)). At a type's first call, `_witness` (`implement.jl:337`) tries each generic record: the constraints' witnesses, then the predicate, in the decision world. The witness is `Generic{X, k, S, D}`, holding the constraints' witnesses. More than one match is an error. A more specific declared implementation is found first, as a `conformance` method of its own. The generic implementation's results are checked at the first concrete type, with a warning (`_generic_problems`).
 
 ### 4.8 Overrides and redeclaration
 
@@ -330,6 +331,8 @@ For a concrete view type, the witness, the default test and the declared types a
 
 
 **`where` variables in bounds** (`f(v::KVec{T}) where {T}`): `_classify` evaluates the bound with the variables open, a family bound without their parameter tags. A variable that only bounds name is taken off the worker's `where` list, and the body begins with `T = _trait_param(v, KVec, Val(1))`, a constant per key read from the trait object's type (`core.jl`); one that an ordinary argument or a second bound also fixes is checked against it (`_param_mismatch`), and a bound on the variable is checked there too. A `Callable` bound naming one is refused (`_uses_callable`).
+
+**Concreteness prefixes** (`@enforce_concrete_only T v f(…)`, [traits §11.2](traits.md#112-per-function-concrete-parameters-of-the-bounds)): `_process` reads the level and names into a scoped value (`_PART_CONCRETE`), which `_rewrite_fdef` reads for every method the definition makes, defaults included. The worker's body starts with a check per name, after the `where` variables are bound: `_concrete_part(T, …)` for a variable, `_concrete_self(v, …)` for a bounded argument. Both are generators over types: for a key known where the worker is compiled the check is a constant; `_concrete_self` reads the receiver type from the trait object's type, and skips an erased key (a `Dynamic`) and an archetype. A failure raises `TraitBoundError`, or warns once per function, name and type.
 
 An untyped method of an existing entry's shape becomes the entry's **fallback**: `f(::Untyped, args…)` (`trait_module.jl:456`). An ordinary method that would take an entry's signature is refused (`_check_entries_intact`).
 
@@ -473,7 +476,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 - `Dynamic`: `F = Erased{A, S}`, the same type for every function: one worker per signature;
 - `Compiled`: `F` is the function's type: one worker per function type, the function's call inferred into it.
 
-**At the entry,** `enter_callable(A, S, attribute, f)` (`entry.jl:720`):
+**At the entry,** `enter_callable(A, S, attribute, f)` (`entry.jl:720`; deviation [L-36](#18-deviations)):
 - a cast, `compiled_for(f)` or `with_dynamic(f)`, wins; it takes the position's signature;
 - a kept function, `Dynamic{Callable{…}}`, `Compiled{Callable{…}}` or `Kept{Callable{…}}` at any signature: its attribute, carried; a `Dynamic` one at another signature becomes `CObj{A, S}(Erased{A, S}(f))` of its function (`_erased_at`);
 - otherwise: the position's attribute (`Compiled{Callable{A, S}}`), else `Callable`'s default `Dynamic` for a function whose type is not of the trait world (`_tw_type`, `entry.jl:697`), else `Compiler.known_type(f)`;
@@ -764,3 +767,4 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-33 | — | *Retired*: see [§13.1](#131-a-users-container-crossing-by-its-bound). | — | — |
 | L-34 | — | *Retired*: see [§8.3](#83-needs-and-the-modules-end). | — | — |
 | L-35 | [§15.3](#153-verify_main-fully_typed-closed-builds) | `verify_main` lists, at the erased key, every declared implementation as a target of the split's fallback and of the entry's conformance check | not done: for a program with untyped calls `verify_main` reports the program's run-time sites as holes, as before the erased key (checked by reading and one run, 2026-10-20); a closed build of code at a `Dynamic` position is not tried | `TraitWorld/src/verify.jl` |
+| L-36 | [§12](#12-callable-and-dynamiccallable), [§8.2](#82-the-entry) | an entry inlined into a typed caller runs at plain speed, a `Callable` argument included: the function's form decided where the call is compiled | `enter_callable` is `@noinline` with the function and the attribute unspecialized, so its result is `Any` even where the caller knows the function's type, and the worker's call after it is a dynamic dispatch with an `Any` result (seen in `code_typed`; not measured: [open issues](../open-issues.md#4-runtime-and-measurements) item 43) | `entry.jl` (`enter_callable`) |

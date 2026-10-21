@@ -298,7 +298,7 @@ end
 - **A type's implementation of `B` must agree with its implementation of `A`:** the same forwarding field, or both served by the type's own methods, with the fields mapped alike. A disagreement is refused.
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
 
-**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
+**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own (a choice made while building, to be confirmed: [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 42).
 
 ---
 
@@ -466,8 +466,9 @@ end
   - two overlapping generic implementations with neither more specific are refused;
   - an overlap the later package cannot see, as when a trait's owner adds a generic implementation in a later version, is reported where a call meets both.
 - **Predicates** are to be patterns on the constraints' parameters, so that overlap is decidable at the declaration. The example above uses a computed condition, `eltype(R) == …`.
+- **A type that conforms through a generic implementation is checked at its first use,** as a family member is ([§4.7](#47-families)): the operations' results, the parameters' bounds, the parts the concreteness declarations name ([§11.1](#111-per-trait-concrete-parameters-and-self)). One that does not conform is refused (`ImplementError`).
 
-**Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#17-deviations)); forwarding carrying through ([T-30](#17-deviations)). For a trait with parameters, see [T-8](#17-deviations). Open: what a predicate may say ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2).
+**Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#17-deviations)); forwarding carrying through ([T-30](#17-deviations)); the refusal of a type whose operations do not conform ([T-52](#17-deviations)); the check at the first use is a choice made while building, to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 42). For a trait with parameters, see [T-8](#17-deviations). Open: what a predicate may say ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2).
 
 ### 4.9 Checks at the declaration
 
@@ -784,7 +785,7 @@ Each decides only for a plain value. A value that carries an attribute keeps it 
 - **An annotation on a bound of a function that is neither exported nor declared `public` warns** at the trait module's end. Plain values are expected from plain callers, at public functions; elsewhere an annotation is easily mistaken for a cast, which it is not. The fix is a cast at the call (`compiled_for(x)`, `with_dynamic(x)`). An annotation on an item parameter does not warn.
 - A `Dynamic` annotation fixes the parameters the trait's operations' result types use ([§5.1](#51-bounds)).
 
-**Status:** Implemented.
+**Status:** Implemented. The choices made while building it (the `Compiled` default for every plain value; disagreeing defaults cancel) are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 39).
 
 ### 6.4 Casts
 
@@ -1434,3 +1435,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-49 | [§3.1](#31-operations), [§6](#6-values-in-trait-code-compiled-and-dynamic) | An operation with an argument declared `Self` works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-51 | [§5.8](#58-callable-functions-at-a-declared-signature) | A `Callable` takes any number of arguments, in either attribute. | A `Dynamic` function takes at most six: the erased call has fixed arities up to six. | `TraitWorld/src/core.jl` (`_CallWrap`, `Erased`'s call) |
+| T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
