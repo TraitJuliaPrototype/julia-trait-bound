@@ -20,3 +20,22 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **Blocks:** no.
 - **What the port did:** fixed it where the rule is, in Static.jl. One method, `Base.promote_rule(::Type{<:StaticInt}, T2::Type{<:Signed}) = promote_type(T2, Int)` (`ndport/pkgs/Static.jl`, branch `trait-port`). Static's own tests state this intent (`test/core_tests.jl:80–82`) and pass. With it, the wrapped package is fully typed on that path and its steady state is faster than upstream's. Under `all` the same code runs at plain speed even without the fix, which §8 does not allow: [facts F-16](../reference/facts.md#deviations).
 - **What it teaches:** a package that is correct in plain Julia can lean on Base folding its type computations. Under the facts mode it then dispatches at run time. Run the dispatch profiler on the steady state after wrapping a package ([the porting guideline, B5](../intro/porting.md)).
+
+## P4-1. A per-batch crossing into a family member costs more from trait code than a function barrier (lowering §9.3; the traits plan's PB-4)
+
+- **The code:** NetworkDynamics' core loop keeps each batch's model as `Kept{ComponentDynamics}` and calls `run_vertex_batch!(compiled_for(batch.model), batches, k, args)` once per batch per pass (`ndport/pkgs/NetworkDynamics-p4`, `src/coreloop.jl`, `_process_kept!`, commit c9339fd).
+- **The idiomatic form:** a library's own family opened at a loop over its data (the guideline's A12). Upstream does the same with a plain function barrier over a `Vector` of batches: one dynamic call, no allocation.
+- **The reference:** a family member takes the entry's generic path ([lowering §9.3](../reference/lowering.md#93-untyped-callers-of-compiled-values-the-table)): the trait object assembled behind one dynamic call, the worker selected by a second. When trait code calls it, that machinery is compiled by facts and has run-time sites (`_pmiss`, `_assemble(TraitList, Any)`, `PEntry`; found by `fully_typed`).
+- **What it costs:** a crossing from trait code ~13 allocations and 0.8 µs; the same call from plain code 2 and 0.28 µs. A right-hand side 32 allocations and 3.1 µs against upstream's 0 and 0.5 µs; the workload's steady-state solve 46.8 against 15.3 ms (E-152, `ndport/logs/p4/NOTES.md`, `barrier-s6.log`, `barrier-facts-s6.log`). The gain it buys: changing the equations compiles 0.45 s instead of 15 s.
+- **Blocks:** the steady-state criterion of the port's first step; not the results.
+- **What the port did:** kept the principled shape and stopped before step 2; [open issue 48](../open-issues.md#1-decisions-waiting-for-the-user) asks for the TraitWorld work (the table for family members, a typed generic path).
+
+## P4-2. A package's loop macro receives the trait object bare (the traits plan's PB-7)
+
+- **The code:** NetworkDynamics' `PolyesterExecution` runs batches with `Polyester.@batch`. Its expansion hands the loop's variables to Polyester's own functions (`wrap_type`, `batch`), not inside a closure.
+- **The idiomatic form:** the same erased batches as the sequential and threaded styles.
+- **The reference:** a trait object passed to a function outside trait modules is refused by the definition check ([traits §2](../reference/traits.md#2-trait-modules), §9); a five-line trait module confirms `TraitUseError`.
+- **What it costs:** Polyester keeps its typed batches, so a change of equations still changes the network's type there.
+- **Blocks:** no; the sequential and threaded styles carry the benefit.
+- **What the port did:** left `PolyesterExecution` typed. Joining it to the erased path would need a rule for trait objects passed through another package's loop machinery: a question only if wanted.
+
