@@ -92,3 +92,4 @@ What was done (commits in the design repository from 455f53d to the end of the s
 ## To resume
 
 Start with the pick-up note [`writeup/plans/2026-10-21-pickup-sciml-validation.md`](../writeup/plans/2026-10-21-pickup-sciml-validation.md): W-34, validating the SciML strategy, is next (revise its plan by the review first). Then the work queue (`writeup/record/todo.md`) and the meta plan's state table. Nothing is pushed.
+- **W-33 done** at the session's end (julia-1.13 2943086604; acceptance G1.27–G1.29; every suite passes, `experiments/checks/logs/w33/`): constant propagation from plain code into code compiled by facts; facts §6.3 Implemented, F-17 retired; open issue 52 (mine: concrete evaluation does not cross). Every package image is rebuilt at its first use on the new build (`env_p6` already, 433 s).

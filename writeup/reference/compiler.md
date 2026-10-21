@@ -367,6 +367,7 @@ A trait module's method is a facts method, whose default owner is `:facts`: trai
 ```julia
 Compiler.leaves_to(interp, method)    # the interpreter `method`'s code belongs to, or nothing
 Compiler.facts_edge(interp, other, method, mi, caller, edgecycle, edgelimited)
+Compiler.facts_const_prop_call(interp, other, result, si, match, sv)   # constant propagation into a facts callee
 Compiler.is_facts_method(m), Compiler.is_plain_method(m)
 ```
 
@@ -375,7 +376,8 @@ Lives in `Compiler/src/facts.jl`, `typeinfer.jl` (`typeinf_edge`), `abstractinte
 **Meaning.** When inference reaches a method whose code belongs to the other mode (§2.3):
 - the callee is inferred by the other interpreter, in an inference of its own, as a request from the runtime would be (`facts_edge`);
 - the call names that `CodeInstance`, with an edge to it;
-- the caller does not propagate constants into it, nor evaluate it concretely.
+- a plain caller propagates constants into a facts callee: `facts_const_prop_call` infers the callee again for the constants with the facts interpreter, in a call stack of its own, the result local and the edges that inference's ([facts §6.3](facts.md#calls-between-the-modes)); concrete and semi-concrete evaluation do not cross;
+- a facts caller of the compiler's plain code propagates no constants.
 
 Neither owner infers the other's methods by its own rules.
 

@@ -17,7 +17,11 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 
 ## W-33
 
-(Filled in when the build and its checks report; see the end of this note.)
+- **Done** (julia-1.13 2943086604, `facts_const_prop_call`): a plain caller propagates constants into a facts method; the callee is inferred again by facts rules in a call stack of its own; the result is local and the caller's edges stay on the constant's path. Facts §6.3 Implemented, F-17 retired.
+- Acceptance G1.27–G1.29 (29 of 29, product and `all`); every suite passes (`experiments/checks/logs/w33/`; under `all` the known F-8 hole).
+- SciMLBase's `getproperty` reads from plain code: 0 of 17 wider than `getfield` (17 of 17 before; `ndport/logs/p6-diag/constprop-w33.log`). The S2 steady state was not timed again.
+- **The build changed:** every package image is rebuilt at its first use. `env_p6` is precompiled again (433 s); the other environments are not yet.
+- Open issue 52 (mine): concrete evaluation does not cross the modes.
 
 ## The next session: what to do, in order
 
@@ -28,7 +32,7 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
    - L-3 is on move 3's main path (CommonSolve owns `solve`, `init`, `solve!`): E-159 adds a plain stand-in for CommonSolve; the route is a typed method on SciMLBase's abstract integrator that forwards to a bounded function SciMLBase owns;
    - open issue 51 (the algorithm cannot name its integrator per problem, pushback W34-1) gets the review's three further options within the design;
    - smaller points: callback records with `Callable` fields; E-160 without W-33 where the `getproperty` sugar is plain; W-37 (forwarding for a whole family) not needed; E-161 folded into E-157.
-2. **Put open issues 49 and 51 to the user** (49: a typed call of a family member builds its trait object at run time; 51: as revised).
+2. **Put open issues 49, 51 and 52 to the user** (49: a typed call of a family member builds its trait object at run time; 51: as revised).
 3. **Run E-156** (the TraitWorld probes, with the predictions written in), then E-157 (move 1, form B), E-158 (move 2), E-159 (move 3, a solver from outside the core under strict mode), E-160 (move 4): each registered before it runs.
 4. **On the port, in parallel where the lock allows:** G3 again; the P4/P6 merge on the current build; P4 step 3.
 

@@ -117,7 +117,7 @@ A trait names what generic code needs from a value, not how a type stores it.
   - An abstract tree may stay beside a trait, as documentation and for typed dispatch; a typed method still wins over a bound. `Number`, `Real` and `Integer` stay. For containers, a BaseTraits bound says what generic code needs ([§8](../reference/traits.md#8-collections)).
 - **Operations or fields:** a declared field where code reads or writes stored data ([§3.3](../reference/traits.md#33-fields)); an operation otherwise, with its result type ([§3.1](../reference/traits.md#31-operations)). A computed property is no field: the library converts such a type ([§4.10](../reference/traits.md#410-types-that-only-convert)).
   - **Declared fields and operations, not `getproperty` switches.** A switch on a property's name (`integrator.ps`, `sol.t`) is sugar for scripts. It stays in the ordinary layer, on the concrete type. Trait code reads declared fields and calls operations for what is computed.
-  - Julia resolves such a switch only where it sees the name as a constant, and constants are not carried across the modes ([facts §6.3](../reference/facts.md#calls-between-the-modes)). Reached from the other mode, the switch gives the union of all fields' types (B5; [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user)).
+  - Julia resolves such a switch only where it sees the name as a constant. Constants are carried from plain callers into code compiled by facts ([facts §6.3](../reference/facts.md#calls-between-the-modes)), so a plain caller's `x.field` stays typed; trait code reads declared fields and operations, never the switch.
 - **Associated types:** element and parameter types become the trait's parameters ([§3.4](../reference/traits.md#34-parameters-and-associated-types)):
 
   ```julia
@@ -380,7 +380,7 @@ The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-
 - **Code that leans on static values folding** (a tuple sliced by a computed range) needs a typed path once those values are run-time values; `fully_typed` on the helper finds it.
 - **A package's loop macro** (`Polyester.@batch`) hands its loop variables to that package's functions, not to a closure: the definition check refuses a trait object there. Read the expansion first.
 - **Beside upstream's per-style methods,** one method on a `Union` of styles is ambiguous: one method per style, each calling a shared internal function.
-- **After wrapping a package that other plain packages call on hot paths, profile the callers' steady state too.** No constant propagation crosses the modes ([facts §6.3](../reference/facts.md#calls-between-the-modes)): a plain caller's `x.field` on a wrapped package's `getproperty` overload infers to the union of all fields. With SciMLBase wrapped and its callers plain, the steady-state solve doubled (pushback P6-1). Check `x.field` against `getfield` (`ndport/scripts/p6_constprop_probe.jl`), and wrap a core together with its hot callers.
+- **After wrapping a package that other plain packages call on hot paths, profile the callers' steady state too.** A plain caller's `x.field` on a wrapped package's `getproperty` overload is typed by constant propagation into the facts code ([facts §6.3](../reference/facts.md#calls-between-the-modes)); without it, the steady-state solve doubled with SciMLBase wrapped and its callers plain (pushback P6-1). Check `x.field` against `getfield` (`ndport/scripts/p6_constprop_probe.jl`): every read should be as narrow.
 - **Wrap the entry point of a call chain early.** Inside out, the cost of a wrapped core under plain callers lasted only until the package whose trait code calls those callers was wrapped (DiffEqBase), since plain packages reached from trait code are compiled by facts (E-155).
 - **Profile the steady state by owner at each step;** the profiler's default-owner column shows plain callers that lost types. Order B and the image rejections at load (`ndport/scripts/p6_loadinv.jl`) explain load-time rises with no compilation in them.
 - **Strict mode's refusal names the first fact only;** to see whose code a pirate would change, list the trait roots of its callee's backedges (`ndport/scripts/p6_pirate_roots.jl`).
@@ -471,7 +471,7 @@ end
    - Buys: no pirate by the letter in the core, so strict mode holds without joint owners' exception ([§10.1](../reference/traits.md#101-who-may-implement), "What it costs"); a checked contract where an algorithm joins.
    - Needs L-3 retired (PB-F). It buys guarantees, not speed, so it comes after moves 1 and 2. It restructures SciML, which the port does not do: joint owners stand in for it (0.1a).
 4. **Symbolic access as traits; the sugar plain.** `IndexProvider` and `ValueProvider`; `symbolic_container`'s delegation as `by` forwarding where the container is a field; `ps` an operation; the `getproperty` switches in the packages' ordinary modules.
-   - Buys: getters compiled per index shape, not per provider. Trait callers read declared fields, so P6-1's cost falls away on the trait side; open issue 50 decides the plain side.
+   - Buys: getters compiled per index shape, not per provider. Trait callers read declared fields, so P6-1's cost falls away on the trait side; on the plain side, constant propagation into facts code (facts §6.3) keeps the sugar typed.
 5. **The solution as a trajectory.** `Trajectory{U, T}` with `times`, `state` and `at`; `ODESolution` conforms and keeps its problem as a kept value. Buys: plotting compiled once per key, and a solution type independent of the model.
 
 **What stays plain.**
@@ -487,7 +487,7 @@ end
 - **PB-D.** The dual signatures need a tuple of `Callable`s (W-29, Planned). AD through `solve` with an open chunk stays plain until then.
 - **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs a checked downcast of a kept value ([open issues §2](../open-issues.md#2-design), item 16). Until then `P` stays in the key.
 - **PB-F.** The convenience `solve` without an algorithm is a bounded method on a foreign function, which L-3 limits today.
-- **PB-G.** The `getproperty` sugar called from plain code: [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user).
+- **PB-G.** The `getproperty` sugar called from plain code: answered by constant propagation into facts code ([facts §6.3](../reference/facts.md#calls-between-the-modes); open issue 50, closed).
 - **PB-H, PB-I, PB-J.** Keyword-heavy front ends stay plain (0.5); a `Dynamic` function takes at most six arguments (T-51; 0.4); a default algorithm over six solvers puts two beyond the split's four (0.4, "Which four").
 
 ---
