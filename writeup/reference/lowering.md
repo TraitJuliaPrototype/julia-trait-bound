@@ -609,7 +609,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 | an image's activation | overrides and, in strict mode, winning pirates left inactive | the image hook | reported after the load |
 | a trait module's statement | ownership of each new method; no plain method in an entry's place | `_check_methods`, `_check_entries_intact` (`trait_module.jl:731`, `:746`) | — |
 | a trait module's end | needs and keep flags fixed; overrides; joint methods; ambiguities; definition checking | `_finish_module` (`trait_module.jl:794`) | `needed` and `keeps` methods, in the module's image |
-| a worker signature's first call | no worker at these parameters; overrides; the rules at the real signature, unless checked at the definition; concrete mode | `_check_once` (`checks.jl:334`) | a flag embedded in the signature's compiled code; `__tw_checked__` while an image is built |
+| a worker signature's first call | no worker at these parameters; overrides; the rules at the real signature, unless checked at the definition; fully typed mode | `_check_once` (`checks.jl:334`) | a flag embedded in the signature's compiled code; `__tw_checked__` while an image is built |
 | every call at the entry | conformance; bounded keywords; a family member's concreteness | [§8.2](#82-the-entry) | — |
 | every operation call | arguments and result | `opcall` | — |
 | every `Callable` call | arguments and result | `CObj` | — |
@@ -622,7 +622,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 
 **The first-call check** (`checked_call`, `checks.jl:253`) is a generated function. Each worker signature gets its own flag, a `Ref` embedded in its compiled code. The check runs once per signature, through `invokelatest`, behind an inference barrier, so compiled code holds no edge to it. Its rule check reflects the worker with the default interpreter: for a facts method that is facts inference, the code that runs, kept with it.
 
-**Concrete mode** runs in the first-call check (`_check_concrete`, `concrete.jl:513`): abstract values traced to their root causes, and the fully-typed certificate ([§15](#15-compiling-ahead-workloads-closed-builds)). Its level is a constant `__tw_concrete__` of the module, or a `concrete_level(::typeof(f))` method for one function.
+**Fully typed mode** runs in the first-call check (`_check_fully_typed`, `concrete.jl`): abstract values traced to their root causes, and the fully-typed certificate ([§15](#15-compiling-ahead-workloads-closed-builds)). Its level is a constant `__tw_concrete__` of the module, or a `concrete_level(::typeof(f))` method for one function.
 
 **Kept in images:**
 - the declarations' records, builders and `conformance` methods;

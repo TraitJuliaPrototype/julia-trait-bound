@@ -52,7 +52,7 @@ The [traits reference](../reference/traits.md) (the language) and the [lowering 
 
 ### 4.3 Concreteness, opt-in per trait
 
-[traits §11](../reference/traits.md#11-concreteness-and-concrete-mode).
+[traits §11](../reference/traits.md#11-concreteness-and-fully-typed-mode).
 
 ### 4.4 Overrides belong to the implementation
 

@@ -21,7 +21,7 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [CodeInstance](#codeinstance) ·
 [`Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`compiled_for`, `with_dynamic`](#compiled-and-dynamic) ·
-[Concrete mode](#concrete-mode-and-fully-typed) ·
+[Concrete](#concrete-parts) ·
 [Conforms to](#conforms-to) ·
 [Declared field](#declared-field) ·
 [Default](#default) ·
@@ -39,7 +39,7 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Facts mode and the setting `all`](#facts-mode-and-the-setting-all) ·
 [Family](#family) ·
 [Forwarding (`by`)](#forwarding-by) ·
-[Fully typed, the certificate](#concrete-mode-and-fully-typed) ·
+[Fully typed, fully typed mode, the certificate](#fully-typed-and-fully-typed-mode) ·
 [Generic implementation](#generic-implementation) ·
 [Held view](#view-and-held-view) ·
 [Identical or error](#identical-or-error) ·
@@ -245,14 +245,20 @@ The entries are grouped by theme:
   - Julia has no definition checking: such a mistake appears at run time, as a `MethodError`.
 - **Defined in:** [traits §9](reference/traits.md#9-checks-and-when-they-run); where it runs: [lowering §14](reference/lowering.md#14-checks-and-where-their-results-live).
 
-### Concrete mode and fully typed
+### Fully typed and fully typed mode
 
 - **Here:**
   - Code is **fully typed** when every call in it is at a [fact signature](#fact-and-fact-signature), and so is every call in the code compiled into it. Such code pays nothing for the facts rule.
-  - **Concrete mode** reports the calls that are not, per worker, with their root cause. `fully_typed(f, argtypes)` gives the report: the **fully-typed certificate**.
-  - **Concrete:** a concrete type, or a `Union` of at most four concrete types, with type parameters concrete in the same sense, all the way down. A trait may require its parameters and `Self` to be concrete, a bounded function the parts of its arguments (`@enforce_concrete_only`, `@warn_on_abstract`). Concrete mode is asked for with `@enforce_fully_typed` or `@warn_not_fully_typed`.
-- **Origin:** close to Julia's "type stability", which `@code_warntype` shows for one call *(not in the research)*. Swift's lesson, "make the slow path visible from day one", is what explicit modes and concrete mode do ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). "Fully typed" is the project's term.
-- **Defined in:** [traits §11](reference/traits.md#11-concreteness-and-concrete-mode); fully typed: [facts §1](reference/facts.md#term-fully-typed).
+  - **Fully typed mode** checks a bounded function's code at each signature it runs at: `@warn_not_fully_typed` warns, `@enforce_fully_typed` raises. `fully_typed(f, argtypes)` gives the report, with root causes: the **fully-typed certificate**.
+  - Not the same as [concrete parts](#concrete-parts): those are promised per implementation, fully typed code is checked per function and signature.
+- **Origin:** close to Julia's "type stability", which `@code_warntype` shows for one call *(not in the research)*. Swift's lesson, "make the slow path visible from day one", is what explicit modes and fully typed mode do ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). "Fully typed" is the project's term.
+- **Defined in:** [traits §11.3](reference/traits.md#113-fully-typed-mode); fully typed: [facts §1](reference/facts.md#term-fully-typed).
+
+### Concrete parts
+
+- **Here:** *concrete* is a concrete type, or a `Union` of at most four concrete types, with type parameters concrete in the same sense, all the way down. A trait may require its parameters and `Self` to be concrete at every implementation, a bounded function the parts of its arguments: `@enforce_concrete_only` refuses, `@warn_on_abstract` warns. The code compiled for such an implementation is compiled for concrete types.
+- **Origin:** the user's (2026-10-21), per part; Julia's `isconcretetype`, widened to small unions.
+- **Defined in:** [traits §11.1, §11.2](reference/traits.md#111-per-trait-concrete-parameters-and-self).
 
 ---
 
@@ -420,7 +426,7 @@ The entries are grouped by theme:
 
 - **Here:** without a qualifier, the *inference mode* a CodeInstance is compiled under: *facts* (the facts rule) or *plain* (Julia's own inference). Each mode's code has its own cache owner. Two other modes are always named in full:
   - **strict mode**, a switch for refusing winning pirates;
-  - **concrete mode**, a report on calls that are not fully typed.
+  - **fully typed mode**, a check that a function's calls have known argument types.
   A value's attribute, [`Compiled` or `Dynamic`](#compiled-and-dynamic), is not a mode: code for both is compiled in the facts mode.
 - **Origin:** the project's. The facts mode is selected per module through Julia's `@compiler_options`, beside options such as `optimize` and `infer`.
 - **Defined in:** [facts §1](reference/facts.md#term-mode), [§6](reference/facts.md#which-code-is-compiled-how).

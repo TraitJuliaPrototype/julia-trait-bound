@@ -31,7 +31,6 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
     - an untyped caller at a crossing position passes the container as `Dynamic` ([traits §6](reference/traits.md#6-values-in-trait-code-compiled-and-dynamic));
     - `DynamicItems` and `DynamicValues` stay exported as explicit tools (the copy that checks every item first, and code that is not bounded).
 38. **To confirm: what follows the split** (mine, 2026-10-21, E-145): a table of the call's targets keyed by the value's type, with `:caller_world` pointers, emitted by the compiler as the split's last branch ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets); [the plan](plans/2026-10-21-what-follows-the-split.md); [the review](reviews/2026-10-21-what-follows-the-split.md); decision log). Open within it: compiling the pointers ahead (C-14, about 8 ms per signature and type at first use), the miss after each method definition (C-3), and whether a witness carried in the value is wanted for large mixes.
-45. **The spelling of concrete mode's macros** (the user, 2026-10-21: "I confirm everything except the spelling, let's cycle back to that in a moment"; [traits §11.3](reference/traits.md#113-concrete-mode-fully-typed-code)). Built: `@enforce_fully_typed` and `@warn_not_fully_typed`, so that `@warn_on_abstract` and `@enforce_concrete_only` keep one meaning, the concreteness of named parts. The other choices of per-part concreteness are confirmed.
 
 ## 2. Design
 
@@ -51,7 +50,7 @@ From building BaseTraits and the idiomatic rewrites of the heterogeneous experim
 **Parameters and types**
 
 6. Input parameters (several values per type), associated type constructors beyond one family, and results bounded by their own trait (`view`, Swift's `SubSequence`).
-7. Whether an operation may return a small `Union` of concrete types, and what concrete mode reports for it (makie-rewrite.md §8.4). The reporting half is decided: a small union is fully typed, and concrete mode is silent about it (closed §1.18).
+7. Whether an operation may return a small `Union` of concrete types, and what fully typed mode reports for it (makie-rewrite.md §8.4). The reporting half is decided: a small union is fully typed, and fully typed mode is silent about it (closed §1.18).
 8. Numeric traits: numbers that conform after the fact or forward to a field, and promotion across receiver types. Definition checking of code that computes with an element type needs a numeric archetype or a bound (solvers.md §11.6).
 9. Automatic-differentiation tags as part of a key; units (solvers.md §11.4, §11.11).
 10. `Callable` bounds whose argument types are chosen by the callee, a type-level function of the algorithm's configuration (solvers.md §11.9).
@@ -156,7 +155,7 @@ State (2026-10-19): TraitWorld 227781a, 48 test sets, on the patched julia-1.13.
 3. Field mappings (`name => stored`) work. Agreement of a subtrait's implementation with its supertrait's is not checked.
 4. Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
 5. AOT for results like the input: the inverse per user type is not listed for `verify_main`.
-6. Concrete mode does not yet trace field types of keys as root causes.
+6. Fully typed mode does not yet trace field types of keys as root causes.
 7. Results through an opened `Dynamic` are not inferred; library code asserts them. (Bounds naming `where` variables: closed below.)
 8. Family implementations (`@implement X{T} S{T} where {T}`, and by fields) go through the slow path: a builder per type per session, cached.
 
@@ -235,14 +234,16 @@ Closed, decided or superseded items, under their numbers, with how and where eac
 
 40. **Closed (2026-10-21, the user, with the reading of `Dynamic{X}` in storage: "The plain type (Recommended)"):** a plain value assigned from plain code to a field of a trait's name gets the trait's default, option (a) ([traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), "Assigning from plain code"; TraitWorld's `convert(::Type{Kept{X}}, x)`).
 
+45. **Closed (2026-10-21, the user: "The spelling of the macros is great, but @enforce_fully_typed needs to be called "Fully Typed Mode""):** `@enforce_fully_typed` and `@warn_not_fully_typed` keep their spelling; what they ask for is *fully typed mode*, the name "concrete mode" retired ([traits §11.3](reference/traits.md#113-fully-typed-mode)). The other choices of per-part concreteness were confirmed before.
+
 39. **Closed (2026-10-21, the user: "looks good"):** the choices of W-2, W-18 and the trait defaults, as built ([traits §6.3](reference/traits.md#63-defaults-a-traits-default-and-annotations), §7; the decision log's rows, marked confirmed).
 41. **Closed (2026-10-21, the user: "Refuse"):** a trait's name on an argument outside trait modules is refused when the method is defined, now and with traits in the type system ([traits §2](reference/traits.md#2-trait-modules); TraitWorld's definition hook).
 42. **Closed (2026-10-21, the user: "for pragmatic reasons we have to live with the checked at first use choice"):** a family's members, and a generic implementation's, are checked at their first use; the declaration checks ownership ([traits §4.7](reference/traits.md#47-families); T-26 retired). W-23's other choices confirmed with it.
 44. **Closed (2026-10-21, the user: "(b)"):** in strict mode, every deletion of a method that trait code depends on is an error, whoever deletes, except TraitWorld's own deletions of a refused declaration's methods and of a refused pirate ([facts §10.3](reference/facts.md#strict-intended); F-6).
 
-18. **Closed (2026-10-21, the user, on the proposal to count a small union as concrete: "Yes please."):** a variable of a `Union` of at most four concrete types is fully typed, and concrete mode is silent about it; the same union counts as concrete for `@enforce_concrete_only` and `@warn_on_abstract` ([traits §11](reference/traits.md#11-concreteness-and-concrete-mode)). `experiments/examples/warnings/teach.jl` case e checks the silence.
+18. **Closed (2026-10-21, the user, on the proposal to count a small union as concrete: "Yes please."):** a variable of a `Union` of at most four concrete types is fully typed, and fully typed mode is silent about it; the same union counts as concrete for `@enforce_concrete_only` and `@warn_on_abstract` ([traits §11](reference/traits.md#11-concreteness-and-fully-typed-mode)). `experiments/examples/warnings/teach.jl` case e checks the silence.
 
-15. **Closed (2026-10-21, the user: "concreteness guarantees should apply to Trait parameters and to Self individually … @enforce_concrete_only T V Self … The other spelling would be @warn_on_abstract"):** the concreteness declaration's spelling: per part, `@enforce_concrete_only` and `@warn_on_abstract` with names ([traits §11](reference/traits.md#11-concreteness-and-concrete-mode); decision row "Concrete parameters and `Self`").
+15. **Closed (2026-10-21, the user: "concreteness guarantees should apply to Trait parameters and to Self individually … @enforce_concrete_only T V Self … The other spelling would be @warn_on_abstract"):** the concreteness declaration's spelling: per part, `@enforce_concrete_only` and `@warn_on_abstract` with names ([traits §11](reference/traits.md#11-concreteness-and-fully-typed-mode); decision row "Concrete parameters and `Self`").
 
 34. **Closed (2026-10-20, the user):** the open questions of the `Dynamic`/`Compiled` implementation plan (Q1, Q3b, Q6, Q8, Q9, Q10), answered "go with your recommendations", with Q1 explained by the user and Q3/Q4 narrowed: [the plan §11](plans/2026-10-20-dynamic-compiled-implementation.md#11-questions-for-the-user); decision log, the rows of 2026-10-20.
 

@@ -35,7 +35,7 @@ A rule in an Implemented section is enforced, unless the Deviations table lists 
 8. [Collections](#8-collections)
 9. [Checks, and when they run](#9-checks-and-when-they-run)
 10. [Who may implement; pirates; strict mode](#10-who-may-implement-pirates-strict-mode)
-11. [Concreteness and concrete mode](#11-concreteness-and-concrete-mode)
+11. [Concreteness and fully typed mode](#11-concreteness-and-fully-typed-mode)
 12. [Printing](#12-printing)
 13. [Compiling ahead](#13-compiling-ahead)
 14. [Membership](#14-membership)
@@ -53,7 +53,7 @@ The grammar below is the language as designed. `X?` is optional, `X*` repeats ze
 (* where trait code lives *)
 TraitModule    ::= FullyTyped? "@trait_module" "module" Name Statement* "end"
                  | "@trait_module" "begin" Statement* "end"
-FullyTyped     ::= "@warn_not_fully_typed" | "@enforce_fully_typed"      (* concrete mode *)
+FullyTyped     ::= "@warn_not_fully_typed" | "@enforce_fully_typed"      (* fully typed mode *)
 Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*   (* names: parameters, Self, bounded arguments *)
 
 (* declaring a trait *)
@@ -153,7 +153,7 @@ end
 - A trait module may not define a pirate ([§10.2](#102-pirates)).
 - A package is an ordinary module around its trait module. The package's own `module` line cannot carry `@trait_module`, since TraitWorld is not loaded yet there. Write `include("Core.jl")` with a `@trait_module module Core … end` inside, or a `@trait_module begin … end` block after `using TraitWorld`.
 
-A prefix sets concrete mode for every function in the module ([§11](#11-concreteness-and-concrete-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
+A prefix sets fully typed mode for every function in the module ([§11](#11-concreteness-and-fully-typed-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
 
 **Status:** Implemented. Whether a trait module keeps refusing every pirate is Open ([open issues §1.20](../open-issues.md#1-decisions-waiting-for-the-user)).
 
@@ -171,7 +171,7 @@ end
 
 **Meaning.**
 - `@trait X` declares the trait `X`, a kind of abstract type with its own rules: a type joins it by an implementation, after the fact, and may join several ([§14](#14-membership) compares it with an abstract type).
-- The body declares what a value must provide to conform: operations, fields, and the values of the trait's parameters. It may also declare the trait's default attribute (`@default_with_dynamic_self` or `@default_compiled_for_self`, [§6.3](#63-defaults-a-traits-default-and-annotations)) and its concreteness ([§11](#11-concreteness-and-concrete-mode)).
+- The body declares what a value must provide to conform: operations, fields, and the values of the trait's parameters. It may also declare the trait's default attribute (`@default_with_dynamic_self` or `@default_compiled_for_self`, [§6.3](#63-defaults-a-traits-default-and-annotations)) and its concreteness ([§11](#11-concreteness-and-fully-typed-mode)).
 - A trait without a body bundles other traits ([§3.6](#36-supertraits-and-bundles)).
 - Declaring a trait defines no method on any user type and changes no compiled code.
 
@@ -266,7 +266,7 @@ end
 - **An equation always holds.** A parameter defined by an equation is never replaced. An implementation may state its value too; the stated value is checked against the equation's ([§4.6](#46-stating-parameters)).
 - Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
-- **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-concrete-mode)).
+- **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-fully-typed-mode)).
 - **Not offered:** a type conforming at several values of a parameter, equations between type functions, a parameter bound that names its own trait. `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is the one trait with several values per type.
 
 **Status:** Implemented, except the check of a stated value against an equation ([T-37](#17-deviations)).
@@ -393,7 +393,7 @@ No form computes a value from the type. A type whose data needs a computation (a
 - The field's type must implement the operations itself. **Forwarding does not chain:** a field whose type itself forwards is refused.
 - `by` is the only way to forward: `@implement X T` without it never picks a field ([§4.2](#42-one-line)).
 - The forwarding field may not also be a writable declared field: a write through the trait would replace the value the operations are called on.
-- A trait that requires a concrete `Self` ([§11](#11-concreteness-and-concrete-mode)) refuses a forwarding field of an abstract type, naming the field.
+- A trait that requires a concrete `Self` ([§11](#11-concreteness-and-fully-typed-mode)) refuses a forwarding field of an abstract type, naming the field.
 
 **Status:** Implemented, except the check on a writable forwarding field (Planned; [T-4](#17-deviations)).
 
@@ -456,7 +456,7 @@ end
   - every variable of the trait's parameters must occur in the type;
   - the trait's parameters are written with variables, constants and type constructors, never function calls.
 - A joint family may come with a block of methods, as a family of one type does.
-- A member that a trait's concreteness declaration refuses (`S{Any}`, [§11](#11-concreteness-and-concrete-mode)) is refused at its first use, as a member that does not conform.
+- A member that a trait's concreteness declaration refuses (`S{Any}`, [§11](#11-concreteness-and-fully-typed-mode)) is refused at its first use, as a member that does not conform.
 - **Forwarding for a whole family,** `@implement X Series{T} by f where {T}`: as for one type, the field is named with `by`. The family of field types must be covered by one implementation's family.
 
 **Status:** Implemented, except:
@@ -503,7 +503,7 @@ All of these run at `@implement`, never at a call; for a member of a family or a
   ```
 - **Writable fields** follow [§3.3](#33-fields).
 - **Parameters:** values that fields define match; values within their bounds ([§3.4](#34-parameters-and-associated-types)).
-- **Concreteness,** for a trait that asks for it ([§11](#11-concreteness-and-concrete-mode)).
+- **Concreteness,** for a trait that asks for it ([§11](#11-concreteness-and-fully-typed-mode)).
 - **Overrides belong to the implementation.** Which operations are served by defaults is fixed now. A later method of such an operation for the type is refused when it is defined, naming the fix: define the method before `@implement`, or in its block, and restart Julia. A package image that brings such an override is refused when it loads. So the order matters where plain Julia's does not: a supertype owner's method (`op(::AbstractSample)`) is part of an implementation declared after it, and refused for one declared before it.
 - **Redeclaration.** Declaring an implementation again changes it, as Julia 1.13 redefines a struct.
 
@@ -581,7 +581,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 | keep it beyond the call, where a trait's name or a kept form is declared ([§7](#7-kept-values-dynamicx-compiledx-keptx)); it keeps its attribute | yes |
 | cast it: `compiled_for(t)`, `with_dynamic(t)` ([§6.4](#64-casts)) | yes |
 | call any Julia code on ordinary values, such as the column `col` returns | yes |
-| take arguments of abstract types from plain callers (`Any`, `Vector{Any}`) | yes: their uses dispatch when they run; concrete mode reports them ([§11](#11-concreteness-and-concrete-mode)) |
+| take arguments of abstract types from plain callers (`Any`, `Vector{Any}`) | yes: their uses dispatch when they run; fully typed mode reports them ([§11](#11-concreteness-and-fully-typed-mode)) |
 | pass it where a different trait is expected | no: declare both bounds |
 | pass it bare to an ordinary function (`sum(t)`), store it bare, return it bare, `typeof(t)`, a field no trait declares | no: code must not depend on the user's type |
 
@@ -1199,7 +1199,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 
 ---
 
-## 11. Concreteness and concrete mode
+## 11. Concreteness and fully typed mode
 
 ```julia
 @trait KVec{T} begin
@@ -1214,10 +1214,16 @@ end
     @const p::P
 end
 @enforce_concrete_only T v total(v::KVec{T}) where {T} = …     # one function's calls, inside a trait module
-@enforce_fully_typed @trait_module module Fast … end            # concrete mode, every function of the module
-@warn_not_fully_typed cold(t::ColTable, k::Vector{Any}) = …    # concrete mode, one function
+@enforce_fully_typed @trait_module module Fast … end            # fully typed mode, every function of the module
+@warn_not_fully_typed cold(t::ColTable, k::Vector{Any}) = …    # fully typed mode, one function
 fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anywhere
 ```
+
+Two guarantees, asked for separately:
+- **Concrete parts** (§11.1, §11.2) are a property of an implementation, or of a call: the receiver type and the parameters named are concrete. What it buys: the code compiled for the trait is compiled for concrete types, so its reads of the receiver and its calls on values typed by those parameters are compiled direct calls, not dispatches when the code runs. It holds for every implementation, decided when a type joins the trait, whoever calls.
+- **Fully typed code** (§11.3) is a property of a function at the signature it runs at: every call in it, and in what it calls, has known argument types. What it buys: the trait modules' compiler mode costs it nothing, since every call is a fact ([facts §1](facts.md#term-fully-typed)); and in strict mode it is never invalidated by another package's load, except by a stakeholder's change ([facts §10.2](facts.md#strict-mode)).
+
+**They differ.** Concrete parts do not make code fully typed: the function's own code (an argument of type `Vector{Any}`, a variable whose type changes), an abstract declared result, an abstract field an implementation's method reads, or a plain helper can each leave a call with unknown types. Fully typed code, in turn, is checked at the signatures it ran at, while concrete parts are promised for every implementation.
 
 **Concrete** means a concrete type, or a `Union` of at most four concrete types, whose type parameters are concrete in the same sense, all the way down: `Vector{Float64}` and `Vector{Union{Missing, Int}}`, not `Vector{Real}`, `Real` or a union of five types. Four is Julia's limit on union splitting: a call on a small union splits into one compiled call per member, each a fact ([facts §3](facts.md#facts-and-fact-signatures)), so the code is fully typed. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
 
@@ -1243,13 +1249,14 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anyw
 - A function may require more than its traits do.
 - **Cost:** for a `Compiled` value, the answer is decided where the call is compiled, and nothing runs. For a `Dynamic` value, `Self` is unknown by choice and not checked; a parameter its type leaves open is checked at the call.
 
-### 11.3 Concrete mode: fully typed code
+### 11.3 Fully typed mode
 
 - Code is **fully typed** when every call in it, and in what it calls, has known argument types. Such code pays nothing for the trait modules' compiler mode.
+- **Fully typed mode** checks a bounded function's code at each signature it runs at, the first time it runs there. `@warn_not_fully_typed` warns; `@enforce_fully_typed` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). Before `@trait_module`, it applies to every function of the module.
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
-- `@warn_not_fully_typed` warns at a bounded function's first run; `@enforce_fully_typed` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). Before `@trait_module`, it applies to every function of the module.
+- `check_fully_typed(sig)` gives the findings for a worker signature whatever the function's level, for tests and CI.
 
-**Status:** Implemented. The spelling of concrete mode's two macros is Open ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45).
+**Status:** Implemented.
 
 ---
 
@@ -1406,8 +1413,8 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | no sealing | Implemented | [§10.4](#104-no-sealing) |
 | concrete parameters and `Self`, per trait: `@enforce_concrete_only`, `@warn_on_abstract` | Implemented | [§11.1](#111-per-trait-concrete-parameters-and-self) |
 | concrete parameters of the bounds, per function | Implemented | [§11.2](#112-per-function-concrete-parameters-of-the-bounds) |
-| concrete mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-concrete-mode-fully-typed-code) |
-| a small union: concrete, and fully typed (concrete mode is silent about it) | Implemented | [§11](#11-concreteness-and-concrete-mode) |
+| fully typed mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-fully-typed-mode) |
+| a small union: concrete, and fully typed (fully typed mode is silent about it) | Implemented | [§11](#11-concreteness-and-fully-typed-mode) |
 | printing by bound and key | Implemented | [§12](#12-printing) |
 | compiling ahead from `@implement` | Implemented | [§13](#13-compiling-ahead) |
 | `verify_main`, `@workload` | Implemented | [§13](#13-compiling-ahead), T-20 |

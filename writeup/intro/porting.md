@@ -6,7 +6,7 @@ Written jointly by the agents porting the demonstrators (session 29), for people
 
 **The foundation under the ports.**
 - The rules are built into the patched Julia's compiler. A trait module is compiled in the facts mode; `@trait_module` declares it.
-- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, kept values, the casts `compiled_for` and `with_dynamic`, `Callable`, `Like`/`Self`, concrete mode), not to its machinery. How values get `Compiled` or `Dynamic`: [traits §6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic).
+- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, kept values, the casts `compiled_for` and `with_dynamic`, `Callable`, `Like`/`Self`, fully typed mode), not to its machinery. How values get `Compiled` or `Dynamic`: [traits §6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic).
 - Measurements exist: [`../design/evidence.md`](../design/evidence.md).
 
 ## Part A. Rules every port confirms
@@ -166,7 +166,7 @@ From `experiments/facts/framing/` and `experiments/examples/` (READMEs there). "
 - **Do not configure trait code through a `const` that someone else redefines.** A const redefined from another module invalidates the trait code that read it. No tier sees it: there is no rule and no hook for bindings. Pass configuration as an argument or a field. Shown: `pirate_tiers.jl binding` (strict tier).
 - **A `Dynamic` answers in the caller's world.** After redefinitions, a call pinned to an older world sees the old methods. An implementation declared later is seen only in the latest world. Shown: `g1_16_dynamic_world.jl`, 6/6 with witness tables off.
 - **Split-core packages need their delegate before they load.** Expected, from reading the code: the curated pairs are registered after a package loads, but its image is checked during activation (`examples/strict/split_core.jl`; see that README). `delegate!(Core => Impl)` takes both modules, so it cannot be declared ahead.
-- **Concrete mode names root causes, not yet fixes.** Expected, from reading `concrete.jl`: a warning names the line and the root cause (an abstract field, a non-constant global, a boxed variable). The fix is not named. A type passed as a value warns about nothing, though it is a run-time site under facts. Both are the fully-typed certificate's job (`examples/warnings/teach.jl`).
+- **Fully typed mode names root causes, not yet fixes.** Expected, from reading `concrete.jl`: a warning names the line and the root cause (an abstract field, a non-constant global, a boxed variable). The fix is not named. A type passed as a value warns about nothing, though it is a run-time site under facts. Both are the fully-typed certificate's job (`examples/warnings/teach.jl`).
 
 ## Proposed for part A
 

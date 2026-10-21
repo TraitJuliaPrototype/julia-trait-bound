@@ -58,7 +58,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 
 **Why ours differs.** Julia types already serve both roles. An abstract type in an argument is specialized, in a field it is boxed, and Julia's performance tips teach both. A trait that reads like an abstract type by position follows a convention Julia users know.
 - **The cost the position hides is smaller than Swift's.** A `Dynamic` operation has a declared result type and splits over the declared implementations (section 6), not an open `Any`.
-- **Concrete mode reports it** in a hot loop ([traits §11](../reference/traits.md#11-concreteness-and-concrete-mode)).
+- **Fully typed mode reports it** in a hot loop ([traits §11](../reference/traits.md#11-concreteness-and-fully-typed-mode)).
 - **Inside trait modules only.** A trait's name in a field means `Kept{X}` there, a value that keeps its attribute; the explicit spellings `Dynamic{X}`, `Compiled{X}`, `Kept{X}` always work. Membership as subtyping waits for traits in the type system (Julia piece 7).
 
 **What traits add over abstract types** is in the declaration, not the use:

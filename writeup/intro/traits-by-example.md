@@ -798,7 +798,7 @@ isfullytyped(fully_typed(Weights.wscaled, (Vector{Float64}, Vector{Any})))   # f
 
 `@warn_not_fully_typed` or `@enforce_fully_typed` in front of `@trait_module`, or of one function, checks this at a bounded function's first run.
 
-Rules: [reference §11](../reference/traits.md#11-concreteness-and-concrete-mode).
+Rules: [reference §11](../reference/traits.md#11-concreteness-and-fully-typed-mode).
 
 ---
 

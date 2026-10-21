@@ -78,7 +78,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 - <a id="term-edge"></a>**Edge:** a dependency that a CodeInstance records. It is a fact, a CodeInstance it calls or inlined, or a global binding it reads. Julia invalidates a CodeInstance when one of its edges breaks, and its callers through their edges to it.
 - <a id="term-run-time-site"></a>**Run-time site:** a call in code compiled by facts whose argument types are not a fact signature ([§5](#run-time-sites)).
 - <a id="term-fully-typed"></a>**Fully typed:** code in which every call is at a fact signature, and every call in the code compiled into it, transitively.
-- <a id="term-mode"></a>**Mode** (the inference mode): the rules a CodeInstance is inferred under. *Facts:* the rules of this page. *Plain:* Julia's own inference. Other "modes" (strict mode, concrete mode, a `Callable`'s mode) are named in full.
+- <a id="term-mode"></a>**Mode** (the inference mode): the rules a CodeInstance is inferred under. *Facts:* the rules of this page. *Plain:* Julia's own inference. Other "modes" (strict mode, fully typed mode, a `Callable`'s mode) are named in full.
 - <a id="term-cache-owner"></a>**Cache owner:** the key under which Julia caches code compiled under one set of rules. A lookup returns only code of the owner it asks for. So code of one mode never stands in for code of the other. The design uses two cache owners for code that runs, in both settings:
   - the **default owner**, plain Julia's, for plain code;
   - the **facts owner**, for code compiled by facts.
