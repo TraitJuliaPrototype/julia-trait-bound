@@ -289,5 +289,13 @@ The verb stays: a type still *conforms to* a trait, and the query is still `conf
 - **Restructuring:** move each method to the package that owns the function or a type (the solve front end into SciMLBase, or the abstract problem types into DiffEqBase). It changes SciML's package structure and its dependents.
 - **Implementations instead of methods:** declare SciMLBase's interface functions as a trait's operations, and let DiffEqBase implement the trait for its own types. It works where DiffEqBase owns a type; where both the function and the types are SciMLBase's, there is no owned type to implement for.
 - **`delegate!`:** data for strict mode only; it does not lift the refusal in a trait module.
-- **Chosen: joint owners**, declared by the owner (the user, 2026-10-21: "if building joint ownership is simpler than restructuring SciML that is the pragmatic choice"). Which of the census's pirates a different structure or an implementation would remove is assessed in the inside-out plan of W-32 (P6).
+- **Chosen: joint owners**, declared by the owner (the user, 2026-10-21: "if building joint ownership is simpler than restructuring SciML that is the pragmatic choice").
+- **What a different structure would allow** (the inside-out plan of W-32, P6, Appendix A; none made). Eight one-line moves remove a pirate by the letter each, but no declaration, since DiffEqBase and OrdinaryDiffEqCore are named as joint owners anyway:
+  - `Base.isempty` on `CallbackSet` and the two abstract callback types (DiffEqBase `callbacks.jl:81`, `:84`, `:85`) into SciMLBase, which owns the types;
+  - `SciMLBase.isfunctionwrapper` and `unwrap_fw` on `FunctionWrapper` (DiffEqBase `DiffEqBase.jl:116`, `norecompile.jl:26`) into SciMLBase, which then depends on FunctionWrappers;
+  - the `SciMLBase.isadaptive(alg) = false` fallback (OrdinaryDiffEqCore `alg_utils.jl:312`) into SciMLBase: it changes SciMLBase's contract (`false` where a `MethodError` came before);
+  - `SciMLBase.interp_summary` (OrdinaryDiffEqCore `interp_func.jl:73`) narrowed to `Union{OrdinaryDiffEqCache, StochasticDiffEqCache}`; narrowing to `OrdinaryDiffEqCache` alone breaks showing an SDE solution;
+  - Enzyme's `inactive_noinl` rule for `check_error!` (OrdinaryDiffEqCore `enzyme_rules.jl:25`) into `SciMLBaseEnzymeExt`.
+  - Related: `promote_tspan` (DiffEqBase `solve.jl:858`) could move into SciMLBase; `Base.resize!(::LinearSolve.LinearCache, i)` (OrdinaryDiffEqDifferentiation `linsolve_utils.jl:124`) is a true pirate, to move into LinearSolve or replace by a function of OrdinaryDiffEq's own (Differentiation stays plain in P6); on the plotting side, Makie's moves into ComputePipeline and ShaderAbstractions.
+- **Implementations instead of methods** remove none of them: a pirate names no type its definer owns, and an implementation follows ordinary ownership.
 

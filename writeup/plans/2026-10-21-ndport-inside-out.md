@@ -58,7 +58,7 @@ No Julia was run for this plan. Counts of rebuilt packages come from `env_p3/Man
   - the first simulation's cost against N's 37.8 s and U's 21.5 s;
   - the precompile cost of the step;
   - at two milestones (S4, S7), order B and the joint owners' loads; the packages' own quick tests after S2, S6, S7.
-- **TraitWorld is pinned** to one commit for S0–S7. S0 waits for the TraitWorld work on open issue 48 to land (§3.2).
+- **TraitWorld is pinned** to 3bebf13 for S0–S7, the commit that closes open issue 48 (§3.2).
 - **The tracks meet** after P6's step 6 and before P4's step 4 (`ODERHS`), in a fresh environment, on new branches (§4).
 - **About 10 builds and 30 sessions** through the lock, about 2–2.5 hours of lock time, spread between P4's runs (§3.4).
 
@@ -281,8 +281,7 @@ The P0 census by the letter (`TraitWorld.owned_method`, TraitWorld e9f4bfe, `ndp
 
 - **TraitWorld, pinned.**
   - Every wrapped package depends on TraitWorld, loaded from source. A TraitWorld commit rebuilds every wrapped package and its dependents, and moves I0.
-  - TraitWorld is changing now: family members served by the table of declared implementations, and the generic path made fully typed from facts code (open issue 48). **S0 is taken after that work lands,** on the commit the coordinator names.
-  - S0–S7 then use that one commit, named in each log header.
+  - **S0–S7 use TraitWorld 3bebf13,** named in each log header. It closes open issue 48: family members are served by the table of declared implementations, and held values convert at fact signatures.
   - If TraitWorld must change mid-track, I0 and the last step run again on the new commit, and the README's table says so.
 - **Trees.** Each is on a branch from the tag `upstream`. Worktrees and branches add refs to P0's clone repositories, as P3 and P4 did (the meta plan's choice 8); P0's working trees stay untouched.
   - git worktrees of the clones, branch `p6-inside-out`: `ndport/pkgs/SymbolicIndexingInterface-p6`, `RecursiveArrayTools-p6`, `SciMLBase-p6`, `DiffEqCallbacks-p6`;
@@ -349,7 +348,7 @@ P6's S7 may finish before or after the merge. It touches no package P4 changes.
   - Static as before.
 - **New branches.** Each tree gets a branch `port` from its last tag (P6's `p6-s<k>`, P4's last step). The tracks' branches (`p6-inside-out`, `p6-inside-out-ros`, `trait-port`, `trait-port-p4`) stay as their records, as `env_p4` and `env_p6` do.
 - **The merge's checks:** P; R with strict mode **off** first, then R with strict mode on (E-152 and E-154 ran strict off, so this is P4's code's first strict run, and a refusal must be attributable); C+H; F; T; L.
-- **The steady-state reference after the merge** is P4's, not I0: NetworkDynamics is then P4's code. E-152 measured step d at 46.8–47.1 ms with P4-1's crossing. That cost is being reduced by the TraitWorld work on open issue 48. So the reference is **P4 after open issue 48's fix**, to be measured on the merge's TraitWorld commit.
+- **The steady-state reference after the merge** is P4's, not I0: NetworkDynamics is then P4's code. The reference is **P4 after open issue 48's fix** (TraitWorld 3bebf13): step d 33.1–41.2 ms, a right-hand side 5 allocations and 208 bytes (two runs, `ndport/logs/p4-issue48/`). If the merge's TraitWorld commit is another, P4's last step runs again on it, and that run is the reference.
 - **GraphMakie's two pirates** (G13) are written into GraphMakie by Makie's `@recipe`. With strict mode on, they matter if `GraphMakie-p4`'s trait submodule holds facts they change. That is P4's to check at the merge.
 - The merged first pass is the first number with both effects: P4's workload in NetworkDynamics' image and P6's facts code in SciML's images.
 - **After the merge, one line of work** on the `port` branches. `env_merged` becomes the port's environment. P4's later trait declarations in SciML go there.
@@ -458,8 +457,8 @@ Numbered from 25 (the graph plan takes 17–24):
 32. **The fixed point's path (step 4) before the solver (step 5),** in the order the workload runs.
 33. **Strict mode on for every check, during precompilation too, and shown on in each log;** a positive control at S2; order B and J with strict mode off, because they read the invalidation log.
 34. **Quick checks per step:** the workload session, and the census with the dispatch profile of a steady-state pass. The packages' own quick tests after S2, S6 and S7. Order B, the attribution and J at S4 and S7; the pirate at S7.
-35. **The merge:** after P6's S6 and P4's step 2 or 3, before P4's step 4, in a fresh `env_merged` and `depot-merged`, on new `port` branches; one TraitWorld commit; strict off, then strict on; the steady-state reference P4 after open issue 48's fix.
-36. **TraitWorld pinned** for S0–S7. S0 waits for the TraitWorld work on open issue 48 to land.
+35. **The merge:** after P6's S6 and P4's step 2 or 3, before P4's step 4, in a fresh `env_merged` and `depot-merged`, on new `port` branches; one TraitWorld commit; strict off, then strict on; the steady-state reference P4 after open issue 48's fix (step d 33.1–41.2 ms, `ndport/logs/p4-issue48/`).
+36. **TraitWorld pinned** to 3bebf13 for S0–S7 (open issue 48 closed).
 
 ---
 
@@ -485,7 +484,7 @@ Each with the step where it starts and the check that catches it.
 
 ## 9. Done when
 
-1. E-155 is registered; the trees, `env_p6`, `depot-p6` and the harness's setting `I` exist; TraitWorld's commit is pinned after open issue 48's work; S0's extended census reproduces P0's 63 and is logged, with the joint-owner probe.
+1. E-155 is registered; the trees, `env_p6`, `depot-p6` and the harness's setting `I` exist; TraitWorld is pinned at 3bebf13; S0's extended census reproduces P0's 63 and is logged, with the joint-owner probe.
 2. S1–S7 are committed and tagged, each with P, R, S, C, H, F, T and L logged in `ndport/logs/p6/`, strict mode shown on.
 3. The census shows no pirate in a wrapped package at every step. The methods resting on joint ownership are counted per package.
 4. The positive control has run at S2; the packages' quick tests after S2, S6 and S7.
