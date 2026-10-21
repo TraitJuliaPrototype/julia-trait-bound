@@ -51,9 +51,10 @@ The grammar below is the language as designed. `X?` is optional, `X*` repeats ze
 
 ```ebnf
 (* where trait code lives *)
-TraitModule    ::= Level? "@trait_module" "module" Name Statement* "end"
+TraitModule    ::= FullyTyped? "@trait_module" "module" Name Statement* "end"
                  | "@trait_module" "begin" Statement* "end"
-Level          ::= "@warn_on_abstract" | "@error_on_abstract"
+FullyTyped     ::= "@warn_not_fully_typed" | "@enforce_fully_typed"      (* concrete mode *)
+Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*   (* names: parameters, Self, bounded arguments *)
 
 (* declaring a trait *)
 Trait          ::= "@trait" Name Params? ( "<:" Supertraits )? ( "begin" TraitItem* "end" )?
@@ -63,7 +64,7 @@ Supertraits    ::= TraitRef | "(" TraitRef ( "," TraitRef )* ")"
 TraitItem      ::= Operation | Operation "=" Expr          (* an operation; a default *)
                  | "@const"? Name "::" Type                 (* a declared field *)
                  | Name "=" Expr                            (* an equation: a parameter as a function of Self *)
-                 | "@concrete_only" | "@warn_on_abstract"   (* concreteness *)
+                 | Concrete                                 (* concreteness of parameters and Self *)
                  | "@default_with_dynamic_self" | "@default_compiled_for_self"   (* the trait's default attribute *)
 Operation      ::= OpName "(" Name "::" Receiver ( "," OpArg )* ")" "::" Type
 OpName         ::= Name | Module "." Name
@@ -84,7 +85,7 @@ How            ::= "begin" MethodDef* "end"                          (* the oper
 FieldMap       ::= FieldName "=>" FieldName
 
 (* using a trait, inside a trait module *)
-Method         ::= Name "(" Arg* ( ";" KwArg* )? ")" ( "::" Result )? ( "where" TypeVars )? "=" Expr
+Method         ::= FullyTyped? Concrete? Name "(" Arg* ( ";" KwArg* )? ")" ( "::" Result )? ( "where" TypeVars )? "=" Expr
 Arg            ::= Name "::" Bound | Name "::" Type | Name
                  | Arg "=" Expr                                      (* a positional default *)
                  | Name "::" TraitBound "..."                        (* a vararg of trait objects *)
@@ -106,7 +107,6 @@ KeptForm       ::= "Dynamic" | "Compiled" | "Kept"
 Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"
 
 (* planned *)
-SharedParam    ::= Name "(" Name "::" TraitName "{" Name "}" "," Name "::" TraitName "{" Name "}" ")" "where" "{" Name "}"
 FamilyForward  ::= "@implement" Traits Type "by" FieldName "where" "{" TypeVar* "}"
 KwCallable     ::= "Callable" "{" TupleType "," Type "," NamedTupleType "}"
 OpenResult     ::= Name "::" "Callable" "{" TupleType "," Name "}" "where" Name
@@ -156,7 +156,7 @@ end
 - A trait module may not define a pirate ([§10.2](#102-pirates)).
 - A package is an ordinary module around its trait module. The package's own `module` line cannot carry `@trait_module`, since TraitWorld is not loaded yet there. Write `include("Core.jl")` with a `@trait_module module Core … end` inside, or a `@trait_module begin … end` block after `using TraitWorld`.
 
-A prefix sets concrete mode for every function in the module ([§11](#11-concreteness-and-concrete-mode)): `@warn_on_abstract @trait_module module M … end`, or `@error_on_abstract`.
+A prefix sets concrete mode for every function in the module ([§11](#11-concreteness-and-concrete-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
 
 **Status:** Implemented. Whether a trait module keeps refusing every pirate is Open ([open issues §1.20](../open-issues.md#1-decisions-waiting-for-the-user)).
 
@@ -269,6 +269,7 @@ end
 - **An equation always holds.** A parameter defined by an equation is never replaced. An implementation may state its value too; the stated value is checked against the equation's ([§4.6](#46-stating-parameters)).
 - Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
+- **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-concrete-mode)).
 - **Not offered:** a type conforming at several values of a parameter, equations between type functions, a parameter bound that names its own trait. `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is the one trait with several values per type.
 
 **Status:** Implemented, except the check of a stated value against an equation ([T-37](#17-deviations)).
@@ -371,7 +372,7 @@ No form computes a value from the type. A type whose data needs a computation (a
 - The field's type must implement the operations itself. **Forwarding does not chain:** a field whose type itself forwards is refused.
 - `by` is the only way to forward: `@implement X T` without it never picks a field ([§4.2](#42-one-line)).
 - The forwarding field may not also be a writable declared field: a write through the trait would replace the value the operations are called on.
-- A trait with `@concrete_only` refuses a forwarding field of an abstract type, naming the field.
+- A trait that requires a concrete `Self` ([§11](#11-concreteness-and-concrete-mode)) refuses a forwarding field of an abstract type, naming the field.
 
 **Status:** Implemented, except the check on a writable forwarding field (Planned; [T-4](#17-deviations)).
 
@@ -434,7 +435,7 @@ end
   - every variable of the trait's parameters must occur in the type;
   - the trait's parameters are written with variables, constants and type constructors, never function calls.
 - A joint family may come with a block of methods, as a family of one type does.
-- With `@concrete_only`, a member at an abstract parameter (`S{Any}`) is refused at the call.
+- A member that a trait's concreteness declaration refuses (`S{Any}`, [§11](#11-concreteness-and-concrete-mode)) is refused at its first use, as a member that does not conform.
 - **Forwarding for a whole family,** `@implement X Series{T} by f where {T}`: as for one type, the field is named with `by`. The family of field types must be covered by one implementation's family.
 
 **Status:** Implemented, except:
@@ -1165,31 +1166,54 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 ## 11. Concreteness and concrete mode
 
 ```julia
-@trait Hot begin
-    @concrete_only                     # an abstract field type is refused
-    hval(h::Hot)::Float64
+@trait KVec{T} begin
+    @enforce_concrete_only T Self      # T and the type seen through KVec: concrete
+    T = eltype(Self)
+    klen(v::KVec)::Int
+    kget(v::KVec{T}, i::Int)::T
 end
-@error_on_abstract @trait_module module Fast … end      # every function of the module
-@warn_on_abstract cold(t::ColTable, k::Vector{Any}) = …  # one function, inside a trait module
-fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))   # a report, anywhere
+@trait Integrator{U, P} begin
+    @warn_on_abstract P                # an abstract P warns
+    u::U
+    @const p::P
+end
+@enforce_concrete_only T v total(v::KVec{T}) where {T} = …     # one function's calls, inside a trait module
+@enforce_fully_typed @trait_module module Fast … end            # concrete mode, every function of the module
+@warn_not_fully_typed cold(t::ColTable, k::Vector{Any}) = …    # concrete mode, one function
+fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anywhere
 ```
 
-**Per trait.**
-- By default, a declared field's type, or the type of a field forwarded to, may be abstract, silently. Then one compiled copy serves that type, and operations on it dispatch when they run ([§6.7](#67-what-compiled-code-is-compiled-for)).
-- `@warn_on_abstract` in the body: an implementation with an abstract field type warns.
-- `@concrete_only` in the body: such an implementation is refused (`ImplementError`), and so is a family member at an abstract parameter, at the call (`TraitBoundError`).
-- *Concrete* means a concrete type with concrete parameters, all the way down. Fields the trait does not declare are not looked at.
-- Decide this when the trait is published. Adding it later breaks conforming types whose field types are abstract.
-- **A `@concrete_only` trait may be used at a `Dynamic` position:** a `Dynamic` value's type is unknown by choice, not abstract.
+**Concrete** means a concrete type whose type parameters are concrete, all the way down: `Vector{Float64}`, not `Vector{Real}`, `Real` or `Union{Missing, Int}`. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
 
-**Per function and per module: concrete mode.**
+### 11.1 Per trait: concrete parameters and `Self`
+
+- `@enforce_concrete_only names…` in a trait's body: a type conforms only if each named part is concrete at its implementation. Otherwise the implementation is refused (`ImplementError`).
+- `@warn_on_abstract names…`: the implementation is accepted, with a warning naming the part.
+- **The names** are the trait's parameters, and `Self`: the type of the value seen through the trait, the conforming type itself or the field it forwards to ([§3.5](#35-self)).
+- **Without names,** a declaration names `Self` and every parameter.
+- Each declaration appears at most once in a body, and a name in at most one of them.
+- **A declared field** is constrained through a parameter: declare it `x::X`, with `X` a parameter (bounded, `X <: Real`, where needed), and name `X`. A declared field whose type names no parameter is not checked.
+- **Supertraits:** a trait's declaration applies to its own parameters, at every implementation of the trait and of its subtraits. `Self` is shared: the strictest level among a trait and its supertraits applies.
+- **When:** at the declaration. A member of a family at its first use ([§4.7](#47-families)), and a type conforming through a generic implementation at its first use ([§4.8](#48-generic-implementations)), refused as a member that does not conform.
+- Where an implementation has no receiver type (every operation served by a default, a trait of fields only), the code compiled for the trait does not depend on the conforming type, and `Self` is not checked.
+- Decide this when the trait is published. Adding it later breaks conforming types whose parts are abstract.
+- **A `Dynamic` value** of such a trait is fine: its object's type is unknown by choice, not abstract, and its implementation was checked when it was declared.
+
+### 11.2 Per function: concrete parameters of the bounds
+
+- In a trait module, `@enforce_concrete_only names…` before a bounded function's definition refuses a call where a named part is not concrete (`TraitBoundError`). `@warn_on_abstract names…` warns instead, once per function and type.
+- **The names** are the method's `where` variables that its bounds name (`T` in `v::KVec{T}`, [§5.1](#51-bounds)), and bounded arguments, each standing for its `Self`.
+- The names are required: a function has no default list.
+- A function may require more than its traits do.
+- **Cost:** for a `Compiled` value, the answer is decided where the call is compiled, and nothing runs. For a `Dynamic` value, `Self` is unknown by choice and not checked; a parameter its type leaves open is checked at the call.
+
+### 11.3 Concrete mode: fully typed code
+
 - Code is **fully typed** when every call in it, and in what it calls, has known argument types. Such code pays nothing for the trait modules' compiler mode.
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
-- `@warn_on_abstract` warns at a bounded function's first run; `@error_on_abstract` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). On a trait module, it applies to every function of the module.
+- `@warn_not_fully_typed` warns at a bounded function's first run; `@enforce_fully_typed` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). Before `@trait_module`, it applies to every function of the module.
 
-**One declaration.** The design has one declaration with a level (silent, warn, error), for a trait and for a module. It replaces `@concrete_only`, `@warn_on_abstract` and `@error_on_abstract`.
-
-**Status:** Implemented with today's three spellings. The one declaration with a level is Planned; its spelling is Open ([open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user)). Concreteness as a whole, and what concrete mode reports, are to be revisited ([open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user)). Open: whether a variable of a small `Union` should warn ([open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user)). Today it does not: its splits have known types.
+**Status:** Implemented. The choices made while building it are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45). Open: whether a small `Union` of concrete types counts as concrete here, and whether concrete mode warns about a variable of one ([open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user)). Today it is not concrete, and concrete mode does not warn.
 
 ---
 
@@ -1340,8 +1364,9 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | no pirates in trait modules | Implemented; whether it stays is Open | [open issues §1.20](../open-issues.md#1-decisions-waiting-for-the-user) |
 | strict mode | Implemented as a prototype; the rest Planned, with the warning for package extensions | [§10.3](#103-strict-mode) |
 | no sealing | Implemented | [§10.4](#104-no-sealing) |
-| `@concrete_only`, `@warn_on_abstract`, `@error_on_abstract`; concrete mode, `fully_typed` | Implemented | [§11](#11-concreteness-and-concrete-mode) |
-| one concreteness declaration with a level | Planned; spelling Open | [open issues §1.15](../open-issues.md#1-decisions-waiting-for-the-user) |
+| concrete parameters and `Self`, per trait: `@enforce_concrete_only`, `@warn_on_abstract` | Implemented | [§11.1](#111-per-trait-concrete-parameters-and-self) |
+| concrete parameters of the bounds, per function | Implemented | [§11.2](#112-per-function-concrete-parameters-of-the-bounds) |
+| concrete mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-concrete-mode-fully-typed-code) |
 | warning on small unions | Open | [open issues §1.18](../open-issues.md#1-decisions-waiting-for-the-user) |
 | printing by bound and key | Implemented | [§12](#12-printing) |
 | compiling ahead from `@implement` | Implemented | [§13](#13-compiling-ahead) |

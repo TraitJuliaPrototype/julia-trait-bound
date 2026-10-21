@@ -82,7 +82,7 @@ A trait can also declare fields with types (writable unless marked `@const`), de
 end
 ```
 
-A trait can require that what it sees of a conforming type be concrete. Put `@concrete_only` in the trait's body to refuse an implementation that is not, or `@warn_on_abstract` to warn (the spelling will change to one declaration with a level). Without either, an abstract field type is allowed, and code reads it with dynamic dispatch.
+A trait can require that what it sees of a conforming type be concrete: the type seen through it (`Self`), or a parameter. Put `@enforce_concrete_only Self T` in the trait's body to refuse an implementation where a named part is abstract, or `@warn_on_abstract` to warn. Without either, an abstract part is allowed, and code reads it with dynamic dispatch.
 
 A trait is a kind of abstract type: you write it where you would write an abstract type, and it names a set of types. It follows different rules:
 - **A type joins a trait after the fact.** The type's definition does not name the trait; an implementation does, written later, by the package that owns the type or the one that owns the trait. A type joins an abstract type only in its own definition.

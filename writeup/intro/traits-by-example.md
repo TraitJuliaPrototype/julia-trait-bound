@@ -729,14 +729,14 @@ Rules: [reference §9](../reference/traits.md#9-checks-and-when-they-run), [§10
 
 ## 17. Asking for concrete types
 
-By default a key may be abstract. Then the code reads that part through a dynamic dispatch. A trait that wants every key concrete says so in its body.
+By default a conforming type, or a trait's parameter, may be abstract. Then the code reads that part through a dynamic dispatch. A trait that wants a part concrete names it in its body: `Self`, the type seen through the trait, or a parameter. *Concrete* means a concrete type with concrete type parameters, all the way down.
 
 ```julia
 @trait_module module Weights
 using TraitWorld
 export Weighted, weight, wscaled
 @trait Weighted begin
-    @concrete_only
+    @enforce_concrete_only Self
     weight(w::Weighted)::Float64
 end
 @implement Weighted A where {A <: AbstractVector{Float64}} begin
@@ -751,12 +751,30 @@ struct Crate
 end
 @implement Weighted Crate by data
 # ImplementError: field `data` of Crate is declared `AbstractVector{Float64}`, which is not concrete,
-# and Weighted asks for concrete keys (`@concrete_only`) …
+# and Weighted asks for a concrete Self (`@enforce_concrete_only`) …
 
 struct Box
     data::Vector{Float64}
 end
 @implement Weighted Box by data        # fine
+```
+
+- `@warn_on_abstract Self` accepts the implementation and warns.
+- `@enforce_concrete_only T Self` names a parameter too: `T = eltype(Self)` must then be concrete, so a `Vector{Any}` does not conform.
+- Without names, the declaration names `Self` and every parameter.
+
+A bounded function can ask the same of its arguments, for one function. The names are `where` variables its bounds name, and bounded arguments, each standing for its `Self`:
+
+```julia
+@trait_module module Strictly
+using TraitWorld, ..Signals
+export firstsample
+@enforce_concrete_only T firstsample(s::Samples{T}) where {T} = sample(s, 1)
+end
+using .Strictly
+
+firstsample([1.5, 2.0])          # 1.5
+firstsample(Real[1.5, 2.0])      # TraitBoundError: `firstsample`: `T` is Real, which is not concrete …
 ```
 
 `fully_typed` reports the calls whose argument types are not known, with their root cause:
@@ -766,9 +784,7 @@ isfullytyped(fully_typed(Geometry.totalarea, (Geometry.Scene,)))         # true
 isfullytyped(fully_typed(Weights.wscaled, (Vector{Float64}, Vector{Any})))   # false: k[1] is Any
 ```
 
-`@warn_on_abstract` or `@error_on_abstract` in front of `@trait_module`, or of one function, checks this at a bounded function's first run.
-
-> **Planned, not implemented:** one declaration with a level (silent, warn, error) replaces `@concrete_only`, `@warn_on_abstract` and `@error_on_abstract`. Its spelling is open.
+`@warn_not_fully_typed` or `@enforce_fully_typed` in front of `@trait_module`, or of one function, checks this at a bounded function's first run.
 
 Rules: [reference §11](../reference/traits.md#11-concreteness-and-concrete-mode).
 

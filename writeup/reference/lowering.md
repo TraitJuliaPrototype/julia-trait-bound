@@ -109,7 +109,7 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 | `trait_params(X)`, `param(X, Val(p), K)`, `param_bound(X, Val(p))` | the parameters; a parameter's value at a key (by equation, or matched from a field's type through `_fieldmatch`); a declared bound |
 | `trait_field_params(X)`, `trait_uses_self(X)` | which parameters fields define; whether the declarations name `Self` |
 | `supertraits(X)`, `bundle(X)` | supertraits; a bundle's traits |
-| `trait_concreteness(X)` | `:none`, `:warn` or `:concrete_only` |
+| `trait_concreteness(X)` | the parts the trait asks to be concrete: `((name, level), …)`, a parameter or `:Self`, with `:error` or `:warn` |
 
 Every record function is declared `Base.Experimental.@max_methods 1` (`core.jl:303`–`641`). Code compiled at an abstract argument where at least two of a record's methods apply infers nothing from them and holds no edge to them. So a declaration changes no compiled code ([§17](#17-encodings-until-traits-are-in-the-type-system)).
 - A fallback (*sentinel*) method makes two apply: `trait_params`, `trait_fields`, `trait_uses_self`, `trait_field_params`, `field_isrep`, `has_default`, `is_mutating`, `trait_concreteness`, `supertraits`, `bundle`, `implementation`, `projection`, `conformance`, `needed`, `keeps`, `_declared_builder` have one; so do `default_attribute`, `attribute`, `result_params` and `is_operation_function`.
@@ -196,7 +196,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 - `conformance(::As{X}, u::S{P}) where {P} = _conf_family(reg, X, u)`.
 
 **A member is fixed at its first use** (`_conf_family_slow`, `implement.jl:707`):
-- the slow path refuses an abstract parameter under `@concrete_only`, checks the member once (`_member_problems`: the operations the family's methods serve, as at a single type's declaration, and the parameters' bounds; a member that does not conform is refused with `ImplementError`), finds its builder and stores it in the registry, copy-on-write;
+- the slow path checks the member once (`_member_problems`: the operations the family's methods serve, as at a single type's declaration, the parameters' bounds, and the parts the concreteness declarations name, `_concrete_problems`; a member that does not conform is refused with `ImplementError`), finds its builder and stores it in the registry, copy-on-write;
 - the member's default-served operations are added to the override index then ([§4.8](#48-overrides-and-redeclaration));
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
