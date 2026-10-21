@@ -143,7 +143,9 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 **The builder** is fixed when the implementation is declared (`_declare_conformance`, `implement.jl:640`). It is data: per trait of the closure, a `VSpec` with the witness and the slots ([§5](#5-keys-and-views)). It is a constant of the declaring module, so its image keeps it.
 
-**Checks** run at the declaration, from the expansion's top-level code ([§14](#14-checks-and-where-their-results-live)): `_check_implementation` for a receiver type's operations, `_check_projection` for a type that conforms through a field or mapping, `_check_own_fields` for the one-line form.
+**Checks** run at the declaration, from the expansion's top-level code ([§14](#14-checks-and-where-their-results-live)): `_check_implementation` for a receiver type's operations, `_check_projection` for a type that conforms through a field or mapping, `_check_own_fields` for the one-line form. `_declare_conformance` checks the parameters' bounds (`_param_bound_problems`) and the agreement with the type's implementations of related traits (`_agreement_problems`).
+
+**A refused declaration defines nothing.** The checks infer the operations' results, so the expansion defines the methods before it checks them. It begins with `_declaration_begins()`, which records the world. A check that refuses deletes the methods the declaring module defined since then: the operations' methods of the trait and its supertraits, and the records (`implementation`, `projection`, `param`, `conformance`; `_rollback!`). While a package is built, a refusal fails the build, and nothing is deleted.
 
 ### 4.2 A block of methods
 
@@ -185,7 +187,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.6 Families
 
-**Status: Implemented** (deviation [L-23](#18-deviations); the family-wide check [traits T-26, T-27](traits.md#17-deviations)); forwarding for a family **Planned**.
+**Status: Implemented** (deviation [L-23](#18-deviations); the family-wide check [traits T-26](traits.md#17-deviations)); forwarding for a family **Planned**.
 
 `@implement X S{P} where {P} [begin … end]` ([`traits.md#47-families`](traits.md#47-families)) defines (`_family_conformance_methods`, `implement.jl:690`):
 - the operations' methods with the `where` clause, for a block;
@@ -194,7 +196,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 - `conformance(::As{X}, u::S{P}) where {P} = _conf_family(reg, X, u)`.
 
 **A member is fixed at its first use** (`_conf_family_slow`, `implement.jl:707`):
-- the slow path finds the member's builder, checks its operations (a family of existing methods), refuses an abstract parameter under `@concrete_only`, and stores the builder in the registry, copy-on-write;
+- the slow path refuses an abstract parameter under `@concrete_only`, checks the member once (`_member_problems`: the operations the family's methods serve, as at a single type's declaration, and the parameters' bounds; a member that does not conform is refused with `ImplementError`), finds its builder and stores it in the registry, copy-on-write;
 - the member's default-served operations are added to the override index then ([§4.8](#48-overrides-and-redeclaration));
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
@@ -324,7 +326,7 @@ For a concrete view type, the witness, the default test and the declared types a
 - **the entry,** once per *shape* (the pattern of annotated positions): a method with the bounded positions untyped and `@nospecialize`, compiled in its caller's mode ([§8.2](#82-the-entry));
 - **a note of each trait position** (`_note_position`), from which the entry's needs and the position's attribute are fixed ([§8.3](#83-needs-and-the-modules-end)).
 
-**Attributes:** `x::Compiled{X}` and `x::Dynamic{X}` (also `Compiled{Callable{A, S}}`; `Dynamic{(X, Y)}`: [traits T-50](traits.md#17-deviations)) are read by `_classify` as the bound `X` with an attribute, recorded in the position's note. An attribute on a bound's item parameter (`Iterable{Compiled{Mark}}`) becomes the item tag `Through{Mark, Compiled}`, and a bare trait name there `Through{Mark, Nothing}` ([§13.1](#131-a-users-container-crossing-by-its-bound)). A `Dynamic` attribute whose trait leaves a parameter its result types use open is refused here (`TraitBoundError`).
+**Attributes:** `x::Compiled{X}` and `x::Dynamic{X}` (also `Compiled{Callable{A, S}}`; `Dynamic{(X, Y)}`, read from the syntax, since a tuple of traits is not a type parameter) are read by `_classify` as the bound `X` with an attribute, recorded in the position's note. An attribute on a bound's item parameter (`Iterable{Compiled{Mark}}`) becomes the item tag `Through{Mark, Compiled}`, and a bare trait name there `Through{Mark, Nothing}` ([§13.1](#131-a-users-container-crossing-by-its-bound)). A `Dynamic` attribute whose trait leaves a parameter its result types use open is refused here (`TraitBoundError`).
 
 
 **`where` variables in bounds** (`f(v::KVec{T}) where {T}`): `_classify` evaluates the bound with the variables open, a family bound without their parameter tags. A variable that only bounds name is taken off the worker's `where` list, and the body begins with `T = _trait_param(v, KVec, Val(1))`, a constant per key read from the trait object's type (`core.jl`); one that an ordinary argument or a second bound also fixes is checked against it (`_param_mismatch`), and a bound on the variable is checked there too. A `Callable` bound naming one is refused (`_uses_callable`).

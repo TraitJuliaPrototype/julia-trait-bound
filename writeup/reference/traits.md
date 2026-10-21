@@ -118,7 +118,7 @@ NamedImpl      ::= "Via" "{" Name "}" "(" Expr ")"
 
 The concreteness declaration with one level argument is planned too; its spelling is open ([§11](#11-concreteness-and-concrete-mode)).
 
-**Status:** Implemented, except the forms under `(* planned *)` (Planned), and an attribute on several bounds, `Dynamic{(X, Y)}` ([T-50](#17-deviations)). TraitWorld also accepts forms that are not in this grammar: [T-12](#17-deviations) to [T-15](#17-deviations), and an unnamed receiver ([T-36](#17-deviations)).
+**Status:** Implemented, except the forms under `(* planned *)` (Planned). TraitWorld also accepts forms that are not in this grammar: [T-12](#17-deviations) to [T-15](#17-deviations), and an unnamed receiver ([T-36](#17-deviations)).
 
 ---
 
@@ -271,7 +271,7 @@ end
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
 - **Not offered:** a type conforming at several values of a parameter, equations between type functions, a parameter bound that names its own trait. `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is the one trait with several values per type.
 
-**Status:** Implemented, except bounds on parameters (Planned; the syntax is accepted, [T-1](#17-deviations)) and the check of a stated value against an equation ([T-37](#17-deviations)).
+**Status:** Implemented, except the check of a stated value against an equation ([T-37](#17-deviations)).
 
 ### 3.5 `Self`
 
@@ -297,7 +297,7 @@ end
 - **A type's implementation of `B` must agree with its implementation of `A`:** the same forwarding field, or both served by the type's own methods, with the fields mapped alike. A disagreement is refused.
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
 
-**Status:** Implemented, except the agreement check (Planned; [T-3](#17-deviations)).
+**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
 
 ---
 
@@ -426,6 +426,7 @@ end
 
 - A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
 - It is checked for the family as a whole: the methods must cover the family, with results that infer to the declared types.
+- **A member that does not conform is refused** at its first use, with `ImplementError`: its methods are checked as a single type's implementation is at its declaration, and its parameters against their bounds.
 - **A member's implementation is fixed at its first use,** not at the family's declaration. The package that owns a member's parameter type (`MyT` in `S{MyT}`) may define an override for that member until then, and not after.
 - Code is compiled per member.
 - **Joint families** tie the trait's parameters to the type's:
@@ -438,7 +439,7 @@ end
 
 **Status:** Implemented, except:
 - Planned: forwarding for a whole family (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [open issues §2](../open-issues.md#2-design), "Keys and fields", item 4; [T-7](#17-deviations));
-- Planned: the check for the family as a whole. Today nothing is checked at the family's declaration but ownership ([T-26](#17-deviations)), and members are checked at their first use only for a family of existing methods ([T-27](#17-deviations));
+- Planned: the check for the family as a whole at its declaration. Today the declaration checks ownership; each member is checked at its first use ([T-26](#17-deviations); [open issues](../open-issues.md#1-decisions-waiting-for-the-user) item 42);
 - Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
 - a family with a block whose target is a parametric type expression ([T-5](#17-deviations));
 - the check on parameter expressions ([T-6](#17-deviations)).
@@ -488,8 +489,7 @@ Not everything is caught here: a conversion that fails at run time (a `Float64` 
 
 **Status:** Implemented, except:
 - redeclaration (Planned). Today a second declaration is refused in a session, in every form, naming the reason: change the declaration and restart Julia;
-- with a block, the type's existing methods for operations the block leaves out ([T-32](#17-deviations));
-- a refused declaration leaves definitions behind ([T-33](#17-deviations)).
+- with a block, the type's existing methods for operations the block leaves out ([T-32](#17-deviations)).
 
 Error types: [T-10](#17-deviations). Messages: [T-11](#17-deviations).
 
@@ -537,7 +537,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - **An attribute on a bound's item parameter,** `ms::Iterable{Compiled{Mark}}`, `d::Keyed{String, Dynamic{Shape}}`, is the default for plain items ([§6.6](#66-items-of-a-users-container), [§8.2](#82-item-positions)).
 - **A `Dynamic` annotation fixes every parameter its operations' result types use:** `s::Dynamic{StateVector{Float64}}`. `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
 
-**Status:** Implemented, except an attribute on several bounds ([T-50](#17-deviations)). Open: how `Vector{<:ColTable}` in an argument takes a user's vector ([open issues §2](../open-issues.md#2-design), item 11).
+**Status:** Implemented. Open: how `Vector{<:ColTable}` in an argument takes a user's vector ([open issues §2](../open-issues.md#2-design), item 11).
 
 ### 5.2 What a bounded function receives
 
@@ -1278,9 +1278,9 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | declared fields, `@const` | Implemented | [§3.3](#33-fields) |
 | parameters by field, by equation, stated | Implemented | [§3.4](#34-parameters-and-associated-types) |
 | a stated value checked against an equation | Planned | [§4.6](#46-stating-parameters), T-37 |
-| bounds on parameters, checked | Planned | [§3.4](#34-parameters-and-associated-types), T-1 |
+| bounds on parameters, checked | Implemented | [§3.4](#34-parameters-and-associated-types) |
 | supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
-| supertrait agreement check | Planned | [§3.6](#36-supertraits-and-bundles), T-3 |
+| supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | an operation's argument declared `Dynamic{Y}`, `Compiled{Y}`, `Kept{Y}`: a type | Implemented | [§3.1](#31-operations), [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | `@implement X T begin … end` | Implemented | [§4.1](#41-with-a-block-of-methods) |
 | `@implement X T` (one line) | Implemented | [§4.2](#42-one-line) |
@@ -1290,7 +1290,8 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | several traits at once | Implemented | [§4.5](#45-several-traits-at-once) |
 | stated parameters `X{P…} T` | Implemented | [§4.6](#46-stating-parameters) |
 | families, joint families | Implemented | [§4.7](#47-families), T-5, T-6 |
-| the family-wide check; a member's override | Planned | [§4.7](#47-families), T-26, T-27, T-28 |
+| a family member refused at its first use | Implemented | [§4.7](#47-families) |
+| the family-wide check at the declaration; a member's override | Planned | [§4.7](#47-families), T-26, T-28 |
 | forwarding for a whole family | Planned | [§4.7](#47-families), T-7 |
 | generic implementations | Implemented | [§4.8](#48-generic-implementations), T-8 |
 | forwarding through a generic implementation | Planned | [§4.8](#48-generic-implementations), T-30 |
@@ -1298,6 +1299,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | what a generic predicate may say | Open | [open issues §2](../open-issues.md#2-design) |
 | overrides fixed at the declaration; family members at first use | Implemented | [§4.9](#49-checks-at-the-declaration) |
 | redeclaring an implementation | Planned (today: restart) | [§4.9](#49-checks-at-the-declaration) |
+| a refused declaration defines nothing | Implemented | [§4.9](#49-checks-at-the-declaration) |
 | types that only convert | Implemented (a pattern) | [§4.10](#410-types-that-only-convert) |
 | bounds on arguments, several bounds, fixed parameters | Implemented | [§5.1](#51-bounds) |
 | `where` variables in bounds, shared or not | Implemented | [§5.1](#51-bounds) |
@@ -1312,7 +1314,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | open `Callable` result types | Planned | [§5.8](#58-callable-functions-at-a-declared-signature), T-18 |
 | bounded closures; `Callable` results that are traits | Planned | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | `Compiled` and `Dynamic`: where plain values enter, the first-seen rule | Implemented | [§6.2](#62-how-plain-values-enter-the-trait-world), T-47 |
-| a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`; annotations as defaults; the table by position | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations), T-50 |
+| a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`; annotations as defaults; the table by position | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | the warning on an annotation of a function neither exported nor public | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | casts `compiled_for(x)`, `with_dynamic(x)`; constructors and types never cast | Implemented | [§6.4](#64-casts) |
 | values carry through calls, bounds and storage; library to library | Implemented | [§6.5](#65-values-carry) |
@@ -1356,9 +1358,9 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| T-1 | [§3.4](#34-parameters-and-associated-types) | A parameter's bound (`T <: Real`) is checked at every implementation; a trait bound serves definition checking. | The bound is recorded and read by nothing. `@implement ArrayLike{String, 1} StrVec` is accepted for `T <: Real`. | `TraitWorld/src/trait.jl:206` (`param_bound`); reference.jl, "T-1" |
+| T-1 | — | *Retired*: see [§3.4](#34-parameters-and-associated-types). | — | — |
 | T-2 | [§3.2](#32-defaults) | The trait's parameters are in scope in a default's body. | `UndefVarError: T` when the default runs. | reference.jl, "T-2" |
-| T-3 | [§3.6](#36-supertraits-and-bundles) | A type's implementation of a subtrait agrees with its implementation of the supertrait. | Not checked: only that the receiver implements each supertrait. | `TraitWorld/src/implement.jl:526` (`_check_projection_now`) |
+| T-3 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
 | T-4 | [§4.3](#43-forwarding-with-by) | The forwarding field may not also be a writable declared field. | Not checked. | `TraitWorld/src/implement.jl:526`, `:560` (`_field_problems`) |
 | T-5 | [§4.7](#47-families) | A family takes a block of methods, also when its target is a parametric type expression: `@implement Fam S{P} where {P} begin … end`, the joint `@implement StateVector{T} Series{T} where {T} begin … end`. | Not lowered as a family whenever the target is not a bare variable (`A where {A <: …}`), with trait parameters or without: `S{P} where {P}` is taken as one type, the `UnionAll`, which no member matches. The block's `conformance` method has no builder, the members get no implementation, and a call raises `MethodError` with the hint. Only the earlier spelling (T-12) handles the joint form. Found by reading the code. | `TraitWorld/src/implement.jl:896`, `:900`–`902` |
 | T-6 | [§4.7](#47-families) | A joint family's trait parameters are variables, constants and type constructors, never function calls. | Any expression is accepted and evaluated per member. | `TraitWorld/src/implement.jl:1008` (`_param_methods`) |
@@ -1381,14 +1383,14 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-23 | [§14](#14-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, and `B <: A` whether `A` is a supertrait of `B`, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. Between traits, `B <: A` is `false` too: every trait is a direct subtype of `Trait`, and supertraits are declarations the trait records (`supertype(B) === Trait` for `@trait B <: A`). | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
 | T-24 | — | *Retired*: see [§13](#13-compiling-ahead). | — | — |
 | T-25 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
-| T-26 | [§4.7](#47-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked: every family path passes no operations and a non-concrete type to the check, which returns after the ownership checks. A joint family that conforms by its fields runs no check. | `TraitWorld/src/implement.jl:514`, `:1051`, `:1103`, `:1129`, `:1256`–`1272` |
-| T-27 | [§4.7](#47-families), [§4.9](#49-checks-at-the-declaration) | A member that does not conform is refused (`ImplementError`). | A member of a family of existing methods is checked at its first use, with a warning, and keeps the slow path. A member of a family with a block is never checked: `@implement KVec A where {A <: Vector{<:Real}} begin kget(v, i) = string(v[i]) end` is accepted and fails at a call, with a `TypeError` from the result's assertion. | `TraitWorld/src/implement.jl:342`, `:345`–`349`, `:733`–`735`; `test/runtests.jl:284`–`289` |
+| T-26 | [§4.7](#47-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked. Each member is checked at its first use, and refused if it does not conform. A family of an abstract type's existing methods cannot be checked for coverage at the declaration (Base has no `length(::AbstractDict)`; each subtype has one): [open issues](../open-issues.md#1-decisions-waiting-for-the-user) item 42. | `TraitWorld/src/implement.jl` (`_check_implementation_now`, `_member_problems`) |
+| T-27 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-28 | [§4.7](#47-families) | The owner of a member's parameter type may declare an override for that member until its first use. | A member's own declaration is accepted and gets its own `conformance` method (`_declared_for` looks at the member itself, not the family's method), but a declaration after the member's first use is not refused: nothing records the first use against later declarations. Unchecked by a test. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl` (`_declared_for`) |
 | T-29 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |
 | T-30 | [§4.8](#48-generic-implementations) | Forwarding carries through a generic implementation: a type that forwards `Indexable` to a field forwards `GTable` to the same field. | A `by` declaration makes a `projection` record and no `implementation` record, so the generic implementation's constraint finds no witness for the forwarding type: it does not conform to `GTable`, and a call raises `MethodError`. Only an explicit `@implement GTable U by data` works. | `TraitWorld/src/implement.jl:337`–`367`, `:414`–`424`, `:1363`–`1366` |
 | T-31 | [§4.4](#44-field-mappings), [§4.5](#45-several-traits-at-once) | Any traits take any form of implementation, field mappings included. | Several traits at once are handled only as `(X, Y) T by f`. `(X, Y) T name => stored` is refused with "a projection needs exactly one `project(t) = …`", and `(X, Y) T by f, name => stored` with "expected `project(t) = …` or a begin … end block after the type": both name forms the design does not have. | `TraitWorld/src/implement.jl:863`–`866`, `:1280`, `:1286` |
 | T-32 | [§3.2](#32-defaults), [§4.9](#49-checks-at-the-declaration) | An implementation keeps a default or overrides it with the type's own method; a supertype owner's method defined before the declaration is part of it. | With a block, every operation the block leaves out is served by its default, whether or not the type has a method for it, and the override records leave such operations out: the existing method is not used, and a later redefinition of it is not refused. The one-line form follows the reference. | `TraitWorld/src/implement.jl:837`–`845`, `:648`; `src/core.jl:671`–`674` |
-| T-33 | [§4.9](#49-checks-at-the-declaration) | A refused declaration defines nothing. | The block's methods and the `implementation` record are defined before the checks run: a result-type failure leaves `ncols(::T)` and `implementation(X, T)` defined, without a `conformance` method. With `by f begin … end` ([T-14](#17-deviations)) the methods are defined for the field's type before the ownership check. | `TraitWorld/src/implement.jl:996`–`1000`, `:1353` |
+| T-33 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |
 | T-34 | [§5.5](#55-dispatch-types-first-then-traits), [§9](#9-checks-and-when-they-run) | A definition in a trait module that fails ownership raises `OwnershipError`; refused definitions raise the errors of the checks table. | These are `ErrorException`s: a bounded method added to another module's function where it has no entry of that shape; a vararg of `Callable`; `@specialize`; a vararg that is not last; `::Like{x}` naming no bounded argument; a keyword with several `Callable` bounds ([T-36](#17-deviations)). | `TraitWorld/src/trait_module.jl:537`–`539`, `:268`, `:260`, `:466`, `:522`, `:341` |
 | T-35 | [§3.5](#35-self), [§5.6](#56-results-declared-types-like-withfields) | On a kept value, a constructor operation and a `Like` function return a kept value of the same form and attribute. | A constructor operation on a kept value of a trait with fields raises `TraitBoundError` ("declares fields"). A kept value of an immutable value kept by its parts, not whole, gives no `Like` result: `TraitBoundError`, "pass the value itself". | `TraitWorld/src/entry.jl` (`_dyn_like`, `_like_out`) |
 | T-36 | [§1](#1-syntax-summary), [§5.7](#57-keywords-defaults-and-varargs) | An operation names its receiver (`t::Shape`); a keyword takes any bound, several `Callable`s included. | An unnamed receiver, `area(::Shape)::Float64`, is accepted. A keyword with several `Callable` bounds is refused with an `ErrorException`. | `TraitWorld/src/trait.jl:156`; `src/trait_module.jl:341` |
@@ -1405,5 +1407,5 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-47 | [§6](#6-values-in-trait-code-compiled-and-dynamic), [§5.7](#57-keywords-defaults-and-varargs) | A bounded keyword's value is `Dynamic` where the caller does not know its type. | It is `Compiled`: the keyword sorter is specialized on the named tuple of the supplied keywords, so `Compiler.known_type` sees the value's type there. Found while building W-4. | `TraitWorld/src/trait_module.jl` (the keyword entry); `test/attributes.jl` (`@test_broken`) |
 | T-48 | [§5](#5-bounded-functions), [§5.7](#57-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
 | T-49 | [§3.1](#31-operations), [§6](#6-values-in-trait-code-compiled-and-dynamic) | An operation with an argument declared `Self` works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
-| T-50 | [§5.1](#51-bounds), [§1](#1-syntax-summary) | An attribute applies to several bounds at one position: `t::Dynamic{(ColTable, RowTable)}`. | Refused as an attribute: `Dynamic{(X, Y)}` is not a type TraitWorld can make (a tuple of types is not a type parameter), so the annotation is not read as a bound. | `TraitWorld/src/trait_module.jl` (`_attributed_bound`) |
+| T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-51 | [§5.8](#58-callable-functions-at-a-declared-signature) | A `Callable` takes any number of arguments, in either attribute. | A `Dynamic` function takes at most six: the erased call has fixed arities up to six. | `TraitWorld/src/core.jl` (`_CallWrap`, `Erased`'s call) |
