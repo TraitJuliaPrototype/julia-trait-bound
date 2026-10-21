@@ -38,9 +38,9 @@ The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git di
 - Only the small gather loop is per key. This is "compiled for what the bound sees" on a real library.
 - Upstream copies for `quantile!` anyway. For a `Vector` column the statistics run on an equal `Vector`, so the results are upstream's by construction (to be confirmed by DataFrames' suite).
 
-**3. Name an associated type with an operation that returns it in a container.**
-- `f(c::Column{T}) where {T}` is not supported yet ([traits §5.1](../reference/traits.md#51-bounds)): such a method never applies.
-- Declare `emptycells(c::Column{T}, n::Int)::Vector{T}` and write `T = eltype(emptycells(c, 0))`. The type is then a constant of the bounded function: `Dict{T, Int}()` for group codes, `T >: Missing` for `describe`.
+**3. Name an associated type with a `where` variable.**
+- `f(c::Column{T}) where {T}` reads the column's element type in the body ([traits §5.1](../reference/traits.md#51-bounds)). It is a constant of the bounded function: `Dict{T, Int}()` for group codes, `T >: Missing` for `describe`.
+- A variable named by two bounds, `f(a::Column{T}, b::Column{T}) where {T}`, requires equal values; a call with different ones raises `TraitBoundError`.
 - An empty comprehension (`[cell(c, i) for i in 1:0]`) also gives `T`, but only through inference ([facts §2.1](../reference/facts.md#g1): a value decided by inference). Prefer the declared operation.
 
 **4. What a type does by itself is an operation, not a kernel.**

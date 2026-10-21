@@ -518,7 +518,19 @@ mean64([1, 2])                    # TraitBoundError: the bound fixes T = Float64
 - A bound may fix a parameter, `Samples{Float64}`, or leave it open, `Samples`.
 - Each member of a family is fixed at its first use. Code is compiled per member.
 
-> **Planned, not implemented:** naming a parameter with `where` in a bound, `f(s::Samples{T}) where {T}`, and reading `T` in the body. Today such a method is a plain method that never applies. Get the type from a value instead: `zero(sample(s, 1))` above. See [§20](#20-planned-syntax).
+A bound may name a parameter with a `where` variable, read in the body. A variable shared between bounds requires equal values:
+
+```julia
+@trait_module module Dots
+using TraitWorld, ..Signals
+export dotp
+dotp(a::Samples{T}, b::Samples{T}) where {T} = sum(sample(a, i) * sample(b, i) for i in 1:nsamples(a); init = zero(T))
+end
+using .Dots
+
+dotp([1.0, 2.0], [3.0, 4.0])     # 11.0
+dotp([1.0], [1])                 # TraitBoundError: argument `b`: parameter 1 of Samples is Int64, but `T` is Float64
+```
 
 Rules: [reference §3.4](../reference/traits.md#34-parameters-and-associated-types), [§4.6, §4.7](../reference/traits.md#46-stating-parameters).
 
@@ -862,14 +874,6 @@ Rules: [reference §13](../reference/traits.md#13-compiling-ahead).
 ## 20. Planned syntax
 
 > **None of this is implemented.** Written today, each form fails or means something else, as stated. The syntax is the design's; it may still change.
-
-**A parameter shared between bounds,** and read in the body:
-
-```julia
-dot(a::Samples{T}, b::Samples{T}) where {T} = sum(sample(a, i) * sample(b, i) for i in 1:nsamples(a); init = zero(T))
-```
-
-Today the annotation is read as a plain type, and the method never applies.
 
 **Forwarding for a whole family:**
 
