@@ -634,7 +634,7 @@ ncols_sum(ts::ColTable...) = sum(ncols(t) for t in ts; init = 0)
 - A vararg of `Callable` is refused. A vararg keyword (`kws...`) of a bounded function passes on unchanged.
 - **A function passed down with keywords** names them in a third parameter: `Callable{A, S, K}`, with `K` a named-tuple type.
 
-**Status:** Implemented, except `Callable` with keywords (Planned), a keyword's value from a caller that does not know its type ([T-47](#17-deviations)), and a function whose only bounded arguments are keywords ([T-48](#17-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#17-deviations)).
+**Status:** Implemented, except `Callable` with keywords (Planned) and a function whose only bounded arguments are keywords ([T-48](#17-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#17-deviations)).
 
 ### 5.8 `Callable`: functions at a declared signature
 
@@ -729,7 +729,7 @@ Plots.paint(io, Dot())                               # typed at the prompt: Dyna
 
 Defaults and casts decide otherwise (§6.3, §6.4). A value that already carries an attribute keeps it (§6.5).
 
-**Status:** Implemented, except a bounded keyword's value from a caller that does not know its type, which is `Compiled` ([T-47](#17-deviations)).
+**Status:** Implemented.
 
 ### 6.3 Defaults: a trait's default, and annotations
 
@@ -1307,13 +1307,13 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | internal functions without bounds | Implemented | [§5.4](#54-internal-functions) |
 | types first, then traits; joint-method rule; fallback | Implemented | [§5.5](#55-dispatch-types-first-then-traits), L-3 |
 | result types, `Like{t}`, `withfields`, siblings | Implemented | [§5.6](#56-results-declared-types-like-withfields) |
-| keywords, defaults, varargs | Implemented | [§5.7](#57-keywords-defaults-and-varargs), T-47, T-48 |
+| keywords, defaults, varargs | Implemented | [§5.7](#57-keywords-defaults-and-varargs), T-48 |
 | `Callable{A, S}`, its `Dynamic` default, `Compiled{Callable{A, S}}`, casts | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature), T-51 |
 | `Callable{A, S, K}` with keywords | Planned | [§5.7](#57-keywords-defaults-and-varargs) |
 | a constant `A`, refused otherwise | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | open `Callable` result types | Planned | [§5.8](#58-callable-functions-at-a-declared-signature), T-18 |
 | bounded closures; `Callable` results that are traits | Planned | [§5.8](#58-callable-functions-at-a-declared-signature) |
-| `Compiled` and `Dynamic`: where plain values enter, the first-seen rule | Implemented | [§6.2](#62-how-plain-values-enter-the-trait-world), T-47 |
+| `Compiled` and `Dynamic`: where plain values enter, the first-seen rule | Implemented | [§6.2](#62-how-plain-values-enter-the-trait-world) |
 | a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`; annotations as defaults; the table by position | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | the warning on an annotation of a function neither exported nor public | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | casts `compiled_for(x)`, `with_dynamic(x)`; constructors and types never cast | Implemented | [§6.4](#64-casts) |
@@ -1404,7 +1404,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-44 | — | *Retired*: see [§8.2](#82-item-positions). | — | — |
 | T-45 | — | *Retired*: see [§7](#7-kept-values-dynamicx-compiledx-keptx). | — | — |
 | T-46 | — | *Retired*: see [§4](#4-implementations). | — | — |
-| T-47 | [§6](#6-values-in-trait-code-compiled-and-dynamic), [§5.7](#57-keywords-defaults-and-varargs) | A bounded keyword's value is `Dynamic` where the caller does not know its type. | It is `Compiled`: the keyword sorter is specialized on the named tuple of the supplied keywords, so `Compiler.known_type` sees the value's type there. Found while building W-4. | `TraitWorld/src/trait_module.jl` (the keyword entry); `test/attributes.jl` (`@test_broken`) |
+| T-47 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
 | T-48 | [§5](#5-bounded-functions), [§5.7](#57-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
 | T-49 | [§3.1](#31-operations), [§6](#6-values-in-trait-code-compiled-and-dynamic) | An operation with an argument declared `Self` works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |

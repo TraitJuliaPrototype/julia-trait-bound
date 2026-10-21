@@ -339,7 +339,7 @@ Internal functions without bounds take trait objects as ordinary arguments. Juli
 
 ### 8.2 The entry
 
-**Status: Implemented**, except a keyword's value from a caller that does not know its type ([traits T-47](traits.md#17-deviations)).
+**Status: Implemented.**
 
 The entry is declared `@inline` and is a boundary (`trait_module.jl:709`). Every trait position is `@nospecialize`: a typed caller inlines the entry, an untyped caller reaches the one entry compiled at `Any` ([§9](#9-callers-typed-untyped-compiled-ahead)). Its body, for each bounded position `i`:
 1. `enter(EntryPos{typeof(f), i, nargs}(), x)` (`entry.jl:193`) decides the attribute once, for the value as it arrives:
@@ -427,8 +427,8 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 **Status: Implemented**; `Callable` with keywords **Planned** ([`traits.md#57-keywords-defaults-and-varargs`](traits.md#57-keywords-defaults-and-varargs)).
 
 **The entry translates, the worker sorts:**
-- The entry takes `f(args…; kws…)` and makes the supplied keywords a named tuple (`trait_module.jl:580`).
-- A bounded keyword, if supplied, is translated by `enter_kw`, which refuses a value that conforms to none of its traits (`TraitBoundError`, `entry.jl:331`), and decides its attribute as `enter` does, but for a caller that does not know the type ([traits T-47](traits.md#17-deviations)). A `Callable` keyword by `enter_kw_callable`.
+- The entry is its own keyword sorter, `Core.kwcall(@nospecialize(nt::NamedTuple), ::typeof(f), args…)`, beside `f(args…)`, which calls it with no keywords. Julia's sorter would be specialized on the named tuple of the supplied keywords, where `known_type` always sees their types. Unspecialized, the named tuple is as a positional argument is: a typed caller inlines the entry and sees the types, an untyped caller reaches the entry compiled at `NamedTuple` and does not.
+- A bounded keyword, if supplied, is translated by `enter_kw`, which refuses a value that conforms to none of its traits (`TraitBoundError`, `entry.jl:331`), and decides its attribute as `enter` does. A `Callable` keyword by `enter_kw_callable`.
 - `checked_kwcall(nt, f, views…)` calls `Core.kwcall(nt, f, views…)`: the worker's own keyword sorter, which Julia lowers from the worker's definition (`checks.jl:283`). It fills the defaults inside the worker, compiled by facts, so a default sees the trait objects.
 - In the worker, a bounded keyword is typed `TObj` and a `Callable` keyword `CObj{A, S}`.
 
