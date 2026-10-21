@@ -24,6 +24,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Overrides: followed or refused
 - `Callable` with one mode, rejected
 - `Callable`'s modes and the opening of `Dynamic` at every bound, replaced by `Compiled` and `Dynamic`
+- Storage as always `Dynamic`, and `stored`, replaced by values that carry through storage
 - Automatic differentiation by a library-owned dual number, superseded
 - Other options considered and not taken
 - Plans, thresholds and settings superseded
@@ -208,6 +209,20 @@ Replaced on 2026-10-20 by one language for every trait position ([traits §6.6](
 - **`dynamic by`** (traits §5.9): removed; `Dynamic` positions and `@dynamic` cover it.
 - **The lowering, a second worker per bounded function taking `Dynamic{<:X}`:** not chosen. Every bounded function would get two methods, definition checking would cover both, and several bounds at one position would need `Dynamic{(X, Y)}` first. Chosen instead: a trait object at an erased key, one more key of the one worker ([lowering §5](../reference/lowering.md#5-keys-and-views); implementation plan C1, confirmed by the user).
 - **The untyped callers' table and the entries compiled ahead per type as the path of an untyped caller:** not chosen, since an untyped caller is `Dynamic` ([lowering §9.2](../reference/lowering.md#92-untyped-callers-the-erased-worker)). The table serves the `Compiled` values of untyped callers instead (`compiled_for`, [lowering §9.3](../reference/lowering.md#93-untyped-callers-of-compiled-values-the-table)). The entries compiled ahead per type (`f(::T)`, an `invoke` of the generic entry) are deleted: a dispatch at run time reaches them and makes the caller `Compiled`.
+
+## Storage as always `Dynamic`, and `stored`, replaced by values that carry through storage
+
+Replaced on 2026-10-21 (W-18; [traits §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§10](../reference/traits.md#10-dynamicx-values-of-any-conforming-type), [§10.5](../reference/traits.md#105-a-struct-parameter-bounded-by-a-trait); [the plan](../plans/2026-10-21-values-carry-through-storage.md), [the review](../reviews/2026-10-21-values-carry-through-storage.md); the decision log, the row of 2026-10-21). The user: "I thought of Values carry as just that: It persists through storage."
+- **A trait's name in storage meaning its `Dynamic`** (from rev 1125, kept when the attributes came on 2026-10-20 as "a field … declared with a trait is `Dynamic`"): a value stored lost a `Compiled` attribute, the caller's `compiled_for` among them, which re-created the library's switch. It followed Rust's `Box<dyn P>` and Swift's `[any P]`, which store a value at an abstract type only behind a table because they compile ahead; Julia compiles per type when the code runs.
+- **`stored(Callable{A, S}, f)`,** a function applying the bound by hand where a library keeps a function (W-2): replaced by struct parameters bounded by a trait, whose constructor is the bound.
+- **The kept form as the union `Union{Compiled{X}, Dynamic{X}}`:** not chosen (the user: "One concrete type"). Julia boxes a union of types that hold a pointer: measured while W-18 was built (the union form, before TraitWorld 1d09112), reading 200 items of a `Vector{Any}` through the view allocated 3,248 bytes against 48 with `Kept{X}`.
+- **The attribute as a type parameter** (as `Callable{A, S, M}` had): serves one stored value, at a struct parameter (kept, §10.5), not heterogeneous storage: left open per item it is an abstract type, boxed like the union; fixed per container it forces one attribute on every item.
+- **A slot declared `Dynamic{X}` converting what it receives** (the plan's first revision, §4.2): rejected after the review (F1). It moved the library's switch from a function to a field.
+- **`Dynamic{X}` written in a trait module's storage meaning `Kept{X}` with `Dynamic` as a default** (the plan's revision 2): replaced by the plain type (the user: "The plain type"), after the review of the traits reference (F2). The default decided almost nothing, since stored values carry, and it made one spelling widen in one place and refuse in the others.
+- **Constructors as casts** (`Dynamic{X}(t)` for a `Compiled` trait object; `Dynamic{Callable{A, S}}(compiled_for(f))` dropping the cast silently): replaced by one spelling for a cast (the user: "make compiled_for(x)/with_dynamic(x) the only way to do the cast"). Constructors make or keep, and refuse a change.
+- **Of two explicit casts, the caller's winning, or an error:** not chosen (the user: "The library wins"). The later cast wins.
+- **A function of several signatures stored as a `Dynamic` of all of them** (SciML's `FunctionWrappersWrapper`), for TraitDifferentialEquations' Jacobian at the duals: not needed. A `Dynamic` function at another signature is the same function there, through a pointer of its own; the problem keeps the function at two bounded parameters.
+- **A write through a view always storing the user's object** (the review, F5): not chosen; it drops a cast written back. A write stores what reads back the same.
 
 ## Automatic differentiation by a library-owned dual number, superseded
 

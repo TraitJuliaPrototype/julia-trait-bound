@@ -328,7 +328,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 ### 7.1 `return_type`
 
-**Status: Implemented**, except one answer in the product setting ([F-10](#deviations), [open issues §2](../open-issues.md#2-design), item 30) and the walk's limit ([F-13](#deviations)). **Planned:** cached answers revalidated after loads, instead of inferred again. That changes speed, not answers.
+**Status: Implemented**, with one exception in the product setting (below; to be revisited, [open issues §2](../open-issues.md#2-design), item 30), except the walk's limit ([F-13](#deviations)). **Planned:** cached answers revalidated after loads, instead of inferred again. That changes speed, not answers.
 
 **Meaning.** `return_type` (and what uses it: `collect`, `map` over an empty collection, broadcasting, `promote_op`) asks what *plain* inference gives. Under the facts mode the answer is plain inference's, in the same world.
 
@@ -343,6 +343,8 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 3. **Otherwise the answer is computed at run time,** by plain inference, in both settings. Plain inference infers every method plainly, facts methods included. So the fold and the run time give one answer: plain inference's, as stock Julia's would be. The answers have a cache owner of their own.
 
 **Consequence.** A load changes a folded answer exactly when it changes plain Julia's. An answer computed at run time is computed again when plain Julia's would change.
+
+**Exception, to be revisited** ([open issues §2](../open-issues.md#2-design), item 30). In the product setting, rule 3 holds for plain methods only. For a method compiled by facts (a worker, an always-facts method), the answer computed at run time is facts inference's, which can be wider than the folded answer, plain inference's, where the method has a run-time site: `map(worker, [])` then makes a `Vector{Any}` at run time. So a facts method's `return_type` can differ between a folded query and the same query at run time. Under `all` both are plain inference's.
 
 <a id="reflection"></a>
 ### 7.2 Reflection
@@ -415,7 +417,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 <a id="strict-mode"></a>
 ### 10.2 Strict mode
 
-**Status: Implemented** as a prototype ([F-4](#deviations), [F-5](#deviations)).
+**Status: Implemented** as a prototype ([F-5](#deviations)).
 
 ```julia
 TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
@@ -430,9 +432,11 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - at a definition: at the prompt, by `include`, by `eval`;
 - for a package image's methods, before they are activated. A refused method stays inactive, and the load reports the `PirateError`.
 
-**What it protects: trait code,** in both settings. *Trait code* is the code of trait modules, compiled by facts. A pirate that would win in code compiled by facts that trait code calls is refused because the trait code's invalidation would follow. Plain code is not protected.
+**What it protects: trait code,** in both settings. *Trait code* is the code of trait modules, compiled by facts. A pirate that would win in code compiled by facts that trait code calls is refused because the trait code's invalidation would follow.
 
-**The property it secures: trait code is never invalidated,** except by a stakeholder's change, with the exceptions of [§2.2](#g2). Today the prototype protects more than trait code ([F-4](#deviations)).
+**The property it secures: trait code is never invalidated,** except by a stakeholder's change, with the exceptions of [§2.2](#g2). The property says nothing against protecting more.
+
+**Note: it also protects other code.** Strict mode refuses a pirate that would win in every CodeInstance of the facts owner, and in plain code whose method is in Base, Core, a standard library, TraitWorld or a trait module (`TraitWorld/src/strict.jl`, `_trait_world`). So in the product setting plain code of Base, the standard libraries and TraitWorld, and the plain code of a trait module's entries, is protected too, and a pirate that wins only there is refused. Under `all`, other packages' code compiled by facts (owner `nothing`) is not protected.
 
 **Effects.**
 - The refused method does not exist, for plain code either. G1 holds, against the world without it.
@@ -506,7 +510,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
   - a system image built with it, the facts system image. `JULIA_COMPILE_BY_FACTS=0` turns it off there.
   - Use a depot of its own ([F-7](#deviations)).
 - **Planned spelling:** `--compile-by-facts=no|all|traits`.
-- G1 and G2 hold under `all` for all code, but for the shared cache of [F-2](#deviations). Strict mode under `all` protects trait code, as in the product setting; what the prototype protects there is [F-4](#deviations)'s; untested.
+- G1 and G2 hold under `all` for all code, but for the shared cache of [F-2](#deviations). Strict mode under `all` protects trait code, as in the product setting; what else it protects there is §10.2's note; untested.
 
 <a id="trimmed-binaries"></a><a id="closed-builds"></a>
 ### 12.3 Trimmed binaries
@@ -554,14 +558,14 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
 | direct calls into the compiler from code compiled by facts | Open | [§6.4](#the-compilers-own-code); [open issues §2](../open-issues.md#2-design) |
-| `return_type`: plain inference's answer | Implemented; in the product setting a second answer at run time (F-10), the fix Open | [§7.1](#return-type); [open issues §2](../open-issues.md#2-design), item 30 |
+| `return_type`: plain inference's answer | Implemented, with an exception in the product setting for facts methods (to be revisited) | [§7.1](#return-type); [open issues §2](../open-issues.md#2-design), item 30 |
 | `return_type`: revalidation after loads | Planned | [§7.1](#return-type) |
 | reflection shows the code that runs | Implemented | [§7.2](#reflection) |
 | no asserted effect over a run-time site | Implemented | [§8](#asserted-effects) |
 | the `Dynamic` split | Implemented | [§9](#dynamic-split) |
 | beyond four implementations, a table keyed by the value's type | Implemented | [§9](#dynamic-split); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
 | winning pirates followed by default | Implemented | [§10.1](#pirates) |
-| strict mode, prototype, scoped to trait code | Implemented | [§10.2](#strict-mode); F-4, F-5 |
+| strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode); F-5 |
 | strict mode's intended design; the warning for package extensions; the symmetric lint | Planned | [§10.3](#strict-intended); F-6, F-14 |
 | package images of both owners | Implemented | [§11](#package-images) |
 | the setting as part of an image's key | Open | [§11](#package-images); F-7 |
@@ -583,13 +587,13 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-1 | [§6.2](#the-mode-rule) | One rule decides the mode and cache owner of a MethodInstance's code, in one place. | As [compiler C-1](compiler.md#deviations): six places decide it, with two predicates for "compiler code". | `julia-1.13/Compiler/src/typeinfer.jl:1654`; `julia-1.13/Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `julia-1.13/src/gf.c:424`, `:4802`; `julia-1.13/src/module.c:749` |
 | F-2 | [§6.2](#the-mode-rule), [§12.2](#the-test-bed) | Under `all`, code compiled by facts goes to the facts owner, as in the product setting, and the default owner holds plain code only: plain results and results compiled by facts never share a cache. | Under `all`, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method the compiler calls can reuse a result compiled by facts: correct, slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [compiler C-2](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:52`, `:60`, `:87`; `julia-1.13/Compiler/src/typeinfer.jl:1657` |
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
-| F-4 | [§10.2](#strict-mode) | Strict mode protects trait code: the code of trait modules, compiled by facts, and through it the code it depends on. | It protects more than trait code: every CodeInstance of the facts owner, and code of the default owner whose method is in Base, Core, a standard library, TraitWorld or a trait module. So in the product setting plain code of Base, the standard libraries and TraitWorld, and the plain code of a trait module's entries, is protected too: a pirate that wins only there is refused. Under `all`, other packages' code compiled by facts (owner `nothing`, [F-2](#deviations)) is not protected, as intended. | `TraitWorld/src/strict.jl:87` (`_trait_world_code`); `TraitWorld/src/trait_module.jl:38` (`is_trait_world`) |
+| F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
 | F-5 | [§10.2](#strict-mode) | A pirate is refused before it becomes visible, wherever it would win at a fact of protected code. | The check before the definition walks the direct callers of the specializations the pirate could take over, and the method table's backedges. Dependence through plain code, and a pirate that matches too many methods to list, are left to a safety net: after the definition, Julia's invalidation log is read; on a hit the method is deleted again and `PirateError` raised. | `TraitWorld/src/strict.jl:123`, `:158`, `:197` |
 | F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion by a non-owner are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
 | F-7 | [§11](#package-images) | Open: whether the setting is part of an image's key. Until decided, code from an image built under the other setting is outside the test bed's G2. | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
 | F-8 | [§12.3](#trimmed-binaries) | Open: whether `verify_main` counts as holes the run-time sites that facts compilation makes in Base under `all`. | Under `all` it reports one: `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not on an error path. In plain mode it reports none. One of the test's checks fails under `all`. | `TraitWorld/test/verify_dynamic.jl:41` |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |
-| F-10 | [§7.1](#return-type) | `return_type` gives one answer, plain inference's, at compile time and at run time, in both settings. | In the product setting the run-time route is a `NativeInterpreter` of owner `nothing`, whose `typeinf_ext` hands a facts method (a worker, an always-facts method) to facts inference. The fold uses `PlainRTInterp`, which infers it plainly. So `return_type` of a facts method folded inside facts code is plain inference's answer, and the same query at run time is facts inference's, which can be wider where the method has a run-time site (`map(worker, [])` then makes a `Vector{Any}`). Stock Julia infers it plainly. Under `all` both routes are `PlainRTInterp`. As [compiler C-11](compiler.md#deviations); [open issues §2](../open-issues.md#2-design), item 30. | `julia-1.13/Compiler/src/facts.jl:259`, `:355`, `:69`–`78`; `julia-1.13/Compiler/src/typeinfer.jl:1373`–`1375` |
+| F-10 | — | *Retired*: see [§7.1](#return-type), the exception. | — | — |
 | F-11 | [§2.2](#g2) | G2 holds across package loads, in any order, and is checked there. | G2 across package loads is checked in the product setting: `g2all.jl` counts the valid CodeInstances of the facts owner after each of ten loads interleaved with the demonstrators' work (0 of 12,835 lost on julia-1.13 711484a23e, 2026-10-21). It is not run under `all` (E-29), nor in the order with the loads first | `experiments/facts/g2all.jl`; log `experiments/checks/logs/w9/g2all-interleaved.log` |
 | F-12 | [§8](#asserted-effects) | In a frame with a run-time site, no asserted effect applies, at either level. | A statement's assertion is dropped only once the frame has met a run-time site: one before the frame's first run-time site keeps it in its flags. And the test is on the caller's frame: `Base.@assume_effects :foldable g(y)` at a fact signature, where `g`'s own frame holds the run-time site, overrides `g`'s effects in the caller, which a caller of that frame may then fold. Untested. As [compiler C-13](compiler.md#deviations). | `julia-1.13/Compiler/src/abstractinterpretation.jl:3644`–`3647` |
 | F-13 | [§7.1](#return-type) | Plain inference's answer is folded when it rests on facts. | The walk that decides it gives up after 2000 CodeInstances, and the query is answered at run time. As [compiler C-9](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:305` |

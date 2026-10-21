@@ -401,7 +401,7 @@ In `Geometry`:
 
 ```julia
 struct Scene
-    shapes::Vector{Shape}       # in a trait module: Vector{Dynamic{Shape}}
+    shapes::Vector{Shape}       # in a trait module: Vector{Kept{Shape}}, each shape with its attribute
 end
 Scene() = Scene(Shape[])
 add!(sc::Scene, s::Shape) = (push!(sc.shapes, s); sc)
@@ -424,8 +424,8 @@ area(d)                           # 12.566370614359172
 ratio(d)                          # 1.0
 ```
 
-- `Dynamic{X}` is a value of any type that conforms to `X`. Inside a trait module, a trait's name in a field or a container means its `Dynamic`. Outside, write `Dynamic{Shape}`.
-- Storing a trait object where a `Dynamic` is declared keeps it: `push!` in `add!`.
+- `Dynamic{X}` is a value of any type that conforms to `X`. Inside a trait module, a trait's name in a field or a container means `Kept{X}`: a value of `X` that keeps its attribute, `Compiled` or `Dynamic`. Outside, write the form out: `Dynamic{Shape}`, `Compiled{Shape}`, or `Kept{Shape}` for both.
+- Storing a trait object where a trait's name is declared keeps it, with its attribute: `push!` in `add!`. Only `compiled_for` and `with_dynamic` change an attribute.
 - `totalarea` is compiled once, whatever the scene holds.
 - An operation on a `Dynamic` tests the declared implementations first, with direct calls, and falls back to a dynamic call. Its result has the declared type, so the loop stays typed.
 - Passed to a bounded function, `ratio(d)`, a `Dynamic` stays `Dynamic`: the code compiled once runs. `ratio(compiled_for(d))` runs the code compiled for what it holds.

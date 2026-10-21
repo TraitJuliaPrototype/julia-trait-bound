@@ -128,10 +128,11 @@ Code outside trait modules is ordinary Julia. It calls bounded functions as it c
 
 ### `Dynamic{X}`: a value of any type that implements `X`
 
-For a mixed collection, or a field whose value can change type, use `Dynamic{X}`.
-- `Dynamic{X}(v)` holds your value `v`, seen through trait `X`.
-- Inside a trait module, a trait's name in a field or a container means its `Dynamic`. A field `shapes::Vector{Shape}` is a `Vector{Dynamic{Shape}}`.
-- Outside a trait module, write `Dynamic{Shape}` out.
+For a mixed collection, or a field whose value can change type, use `Dynamic{X}`, or `Kept{X}`.
+- `Dynamic{X}(v)` holds your value `v`, seen through trait `X`. `Compiled{X}(v)` does too, and runs the code compiled for its type at a bound.
+- Inside a trait module, a trait's name in a field or a container means `Kept{X}`: each value keeps its attribute. A field `shapes::Vector{Shape}` is a `Vector{Kept{Shape}}`.
+- Outside a trait module, write the form out: `Dynamic{Shape}`, or `Kept{Shape}` for values of both attributes.
+- A value keeps its attribute when it is stored. Only `compiled_for(x)` and `with_dynamic(x)` change it.
 - Calling an operation on a `Dynamic` value tests for the known types first, with direct calls that inline. It falls back to a dynamic call for the rest.
 - Passing a `Dynamic` value to a bounded function runs the code compiled once; `compiled_for(d)` runs the code compiled for the value's type.
 

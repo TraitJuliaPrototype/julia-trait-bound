@@ -194,8 +194,8 @@ The entries are grouped by theme:
 
 ### Trait object
 
-- **Here:** what library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see. It is [`Compiled` or `Dynamic`](#compiled-and-dynamic). It lives for one call. It is never passed bare to plain code; to keep it, the code stores it as a [`Dynamic{X}`](#dynamicx).
-- **Origin:** Rust's "trait object" is a `dyn Trait` value, called through a table of pointers ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Ours is static: one call, compiled per key. The counterpart of Rust's trait object here is `Dynamic{X}`.
+- **Here:** what library code receives for a bounded argument: the user's object, seen through the offsets of what the bound can see. It is [`Compiled` or `Dynamic`](#compiled-and-dynamic). It lives for one call. It is never passed bare to plain code; to keep it, the code stores it, as a [`Kept{X}`, `Dynamic{X}` or `Compiled{X}`](#dynamicx).
+- **Origin:** Rust's "trait object" is a `dyn Trait` value, called through a table of pointers ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Ours is static: one call, compiled per key. The counterpart of Rust's trait object here is `Dynamic{X}`, or a `Kept{X}` holding `Dynamic`.
 - **Defined in:** [traits §6.2](reference/traits.md#62-what-a-bounded-function-receives); [lowering §6](reference/lowering.md#6-trait-objects-layout-fields-writes).
 
 ### View and held view
@@ -247,23 +247,28 @@ The entries are grouped by theme:
 - **Here:** every value in trait code has one of two attributes. They choose speed, never results.
   - **`Compiled`:** the value runs code compiled for its [key](#key).
   - **`Dynamic`:** the value runs code compiled once, at the **erased key**; each operation on it dispatches when it runs, through a [call-site split](#call-site-split).
-  - A value gets its attribute where it is **first seen through a trait**: at a bound; at an **item position**, a bound's parameter that names a trait (`Iterable{Shape}`), when an item is read; at a field or an operation's result declared with a trait. There it is `Compiled` if the code that sees it knows its concrete type, `Dynamic` if not. At the prompt, Julia compiles nothing, so every call there passes `Dynamic` values.
-  - **Overrides:** a trait's default, `@dynamic` (`Callable` declares it); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the conversions `compiled_for(x)` and `with_dynamic(x)`, which always win.
-  - A value keeps its attribute in the trait world, also from library to library. A `Dynamic` is opened only by `compiled_for`: a function barrier written where it is wanted.
+  - **Values carry. Annotations give defaults where a plain value enters trait code. Explicit casts always win.**
+  - A value gets its attribute where it is **first seen through a trait**: at a bound; at an **item position**, a bound's parameter that names a trait (`Iterable{Shape}`), when an item is read; at a struct parameter bounded by a trait; at an operation's result declared with a trait. There it is `Compiled` if the code that sees it knows its concrete type, `Dynamic` if not. At the prompt, Julia compiles nothing, so every call there passes `Dynamic` values.
+  - **Overrides:** a trait's default, `@dynamic` (`Callable` declares it); an attribute on a bound or an item parameter, `x::Compiled{X}`, `ms::Iterable{Dynamic{Mark}}`; the **casts** `compiled_for(x)` and `with_dynamic(x)`, which always win, the later one of two.
+  - A value keeps its attribute in the trait world, through calls, bounds and storage, also from library to library. Only the casts change it; constructors and types never do. A `Dynamic` is opened only by `compiled_for`: a function barrier written where it is wanted.
 - **Origin:** Rust's generics (compiled per type) and `dyn Trait` (one copy, dynamic calls); Swift's `some P` and `any P`. In both languages the type the code knows decides, as here; the caller cannot change it ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)). Julia compiles every call for the argument's type at run time; `compiled_for` is that behaviour, asked for.
 - **Defined in:** [traits §6.6](reference/traits.md#66-compiled-and-dynamic-how-values-enter), [§3.8](reference/traits.md#38-a-traits-default-dynamic), [§4](reference/traits.md#4-keys-what-code-is-compiled-for); how it is built: [lowering §5](reference/lowering.md#5-keys-and-views), [§8.2](reference/lowering.md#82-the-entry).
 
 ### `Dynamic{X}`
 
-- **Here:** a value of abstract type `X`: any value that conforms to `X`, reached through `X`'s operations and fields. It is the stored form of a [`Dynamic`](#compiled-and-dynamic) trait object.
-  - It is for a value that outlives a call, an element of a collection of mixed keys, or a field whose key changes.
-  - Its operations have declared result types, so the code after them stays typed.
-  - It holds the user's object.
-  - Inside a trait module, a trait's name in a field or container means its `Dynamic`: `hooks::Vector{Hook}`.
+`Compiled{X}`, `Kept{X}`.
+
+- **Here:** a value of abstract type `X`: any value that conforms to `X`, reached through `X`'s operations and fields, kept where the code does not know its type. Three forms, the stored forms of trait objects:
+  - `Dynamic{X}`, with the attribute [`Dynamic`](#compiled-and-dynamic); `Compiled{X}`, with `Compiled`;
+  - `Kept{X}`, with either as data: one concrete type, for storage where values of both sit side by side.
+  - They are for a value that outlives a call, an element of a collection of mixed keys, or a field whose key changes.
+  - Their operations have declared result types, so the code after them stays typed.
+  - They hold the user's object.
+  - Inside a trait module, a trait's name in a field or container means `Kept{X}`: `hooks::Vector{Hook}`.
 - **Origin:**
   - Rust's `dyn Trait` and `Box<dyn Trait>`; Swift's existential `any P` ([`record/other-languages-research-2026-10-16.md` §7](record/other-languages-research-2026-10-16.md#7-static-and-dynamic-positions)). Both call through a table of pointers. Ours splits at the call site ([`design/other-languages.md` §6](design/other-languages.md#6-static-and-dynamic-positions-and-their-defaults)).
-  - In Julia: a field typed with an abstract type, which holds a boxed value. `Dynamic{X}` is the package's spelling, until traits are in the type system.
-- **Defined in:** [traits §10](reference/traits.md#10-dynamicx-values-of-any-conforming-type); how it is built: [lowering §13](reference/lowering.md#13-dynamicx).
+  - In Julia: a field typed with an abstract type, which holds a boxed value. `Kept{X}` is the package's spelling, until traits are in the type system; a struct parameter bounded by a trait is Julia's parametric field, with the attribute choosing the parameter.
+- **Defined in:** [traits §10](reference/traits.md#10-dynamicx-values-of-any-conforming-type), [§10.5](reference/traits.md#105-a-struct-parameter-bounded-by-a-trait); how it is built: [lowering §13](reference/lowering.md#13-dynamicx).
 
 ### Call-site split
 

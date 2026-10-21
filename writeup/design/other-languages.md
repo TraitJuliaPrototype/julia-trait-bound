@@ -59,7 +59,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 **Why ours differs.** Julia types already serve both roles. An abstract type in an argument is specialized, in a field it is boxed, and Julia's performance tips teach both. A trait that reads like an abstract type by position follows a convention Julia users know.
 - **The cost the position hides is smaller than Swift's.** A `Dynamic` operation has a declared result type and splits over the declared implementations (section 6), not an open `Any`.
 - **Concrete mode reports it** in a hot loop ([traits §3.7](../reference/traits.md#37-concreteness)).
-- **Inside trait modules only.** A trait's name in a field means its `Dynamic` there; the explicit spelling `Dynamic{X}` always works. Membership as subtyping waits for traits in the type system (Julia piece 7).
+- **Inside trait modules only.** A trait's name in a field means `Kept{X}` there, a value that keeps its attribute; the explicit spellings `Dynamic{X}`, `Compiled{X}`, `Kept{X}` always work. Membership as subtyping waits for traits in the type system (Julia piece 7).
 
 **What traits add over abstract types** is in the declaration, not the use:
 - a type joins a trait after it is defined, and joins several (Julia fixes a type's supertypes at its definition);
@@ -220,8 +220,8 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 
 **The choice** ([traits §6.6](../reference/traits.md#66-compiled-and-dynamic-how-values-enter)).
 - **Every value in trait code is `Compiled` or `Dynamic`,** set where it is first seen through a trait: `Compiled` if the code knows its concrete type, `Dynamic` if not. As in Rust and Swift, the type the code knows decides: a concrete value runs code compiled per key, a value of abstract type runs code compiled once.
-- **Overrides:** a trait may declare `@dynamic`; `Callable` does, so functions from plain code are dynamic calls by default ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)). A library sets an attribute per position, `x::Compiled{X}`, `x::Dynamic{X}`, also on a collection's items. The caller converts per value, with `compiled_for(x)` or `with_dynamic(x)`, which always wins.
-- **Data stored dynamic** is chosen explicitly: `Dynamic{X}`, or a trait's name in a field or container.
+- **Overrides:** a trait may declare `@dynamic`; `Callable` does, so functions from plain code are dynamic calls by default ([traits §9](../reference/traits.md#9-callable-functions-at-a-declared-signature)). A library sets an attribute per position, `x::Compiled{X}`, `x::Dynamic{X}`, also on a collection's items: a default for values first seen there. The caller casts per value, with `compiled_for(x)` or `with_dynamic(x)`, which always wins.
+- **Values carry through storage.** A value stored in a field or container keeps its attribute (`Kept{X}`), and a struct parameter bounded by a trait keeps the value itself under `Compiled`. Rust and Swift store a value at an abstract type only behind a table (`Box<dyn P>`, `any P`), since they compile ahead; Julia compiles per type when the code runs, so a stored `Compiled` value selects its key's code once per call, a function barrier.
 
 **Defaults in other languages** (`other-languages-research-2026-10-16.md` §7):
 
@@ -305,7 +305,7 @@ Sources: `other-languages-research-2026-10-16.md` §8.
 - **AOT.** A `--trim` build compiles the plain call in a closed world, as Mojo does for every program. What traits add is the list of targets: declared implementations and `Callable` signatures ([traits §15](../reference/traits.md#15-compiling-ahead)).
 
 **Strict mode as a switch** ([facts §10.2](../reference/facts.md#strict-mode), [traits §12.3](../reference/traits.md#123-strict-mode); [the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated)).
-- **It applies to trait code:** the code of trait modules, compiled by facts. The property it secures is that trait code is never invalidated, except by a stakeholder's change. Plain code is not protected by it. (Today the prototype protects more than trait code, facts F-4.)
+- **It applies to trait code:** the code of trait modules, compiled by facts. The property it secures is that trait code is never invalidated, except by a stakeholder's change. It also protects some other code ([facts §10.2](../reference/facts.md#strict-mode), the note).
 - It refuses a pirate that would win at a fact of trait code, or of code compiled by facts that trait code depends on, where it is defined, naming the method and the trait code it would change. Off by default; the default follows the pirate, as plain Julia does.
 - **A package extension's winning method is followed, with a warning,** as its parent's change: a stakeholder's extension activated by an unrelated package is not refused ([facts §10.3](../reference/facts.md#strict-intended)).
 - **Against the others:** it sits between Rust and Swift. Rust refuses every orphan at compile time. Swift warns and leaves the winner "indeterminate". Strict mode refuses exactly the pirate that would change trait code, and nothing else, at the moment it is defined.
