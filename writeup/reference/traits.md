@@ -779,6 +779,8 @@ callback(f) = FunctionCallback(Dynamic{Callable{Tuple{Vector{Float64}, Float64},
 
 - `Dynamic{Callable{A, S}}` is a function as a `Dynamic` value: its type does not depend on the function, so a library's problem or callback types hold it in a field. `Dynamic{Callable{A, S}}(f)` makes one.
 - **`stored(Callable{A, S}, f)`** is the function as a library keeps it, decided as at a bound: `Dynamic{Callable{A, S}}(f)` by default (`Callable`'s) and for `with_dynamic(f)`; `f` itself for `compiled_for(f)` and for a function of the trait world, so a type parameterized by the field's type is compiled per function; a `Dynamic{Callable{A, S}}` as it is, one of another signature refused (`TraitBoundError`). TraitDifferentialEquations' `ODEProblem(f, …)` keeps its right-hand side so.
+  - It is for `Callable` because a function is the value whose type a caller cannot write: every closure has its own. A value of another trait is kept `Dynamic{X}(x)`, or `Compiled` as plain Julia keeps any value, in a field typed by a parameter.
+  - A function of the trait world is kept as itself, whether or not the calling code knows its type (a bound decides by `known_type`): the field's type becomes a parameter of the keeping type, so the code that reads it is compiled for it either way.
 
 **Rules.**
 - **The argument types `A` are a constant type.** A bound whose `A` names a method's `where` variables (`f::Callable{RHSSig{P, T}, Nothing}`) is refused when the method is defined. Write one method per signature.
