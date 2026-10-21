@@ -46,7 +46,7 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **The reference:** [facts §6.3](../reference/facts.md#calls-between-the-modes): "No constant propagation crosses the modes." A facts method reached from plain code is still compiled by facts (§6.2).
 - **What it costs:** results bit for bit the same. With SciMLBase a trait module, each such field read in plain code infers to the union of the struct's field types, and the code after it dispatches at run time: the steady-state solve 29.2 against 15.0 ms; the first simulation's solve 30.9 against 11.1 s (E-155, S2; `ndport/logs/p6/NOTES.md`; `ndport/scripts/p6_constprop_probe.jl`). Nothing warns.
 - **Blocks:** the inside-out track's steady-state check at S2, while SciMLBase's hot callers are still plain.
-- **What the port did:** stopped at S2; [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user). The track continues within the design (the hot callers become trait code at S3–S6).
+- **What the port did:** continued within the design; the cost vanished once DiffEqBase was wrapped (S5: the solver's code is then reached from trait code; 98,419 plain dynamic calls down to 5, the solve 16.0 ms). The user decided [open issue 50](../open-issues.md) (closed): constant propagation crosses from plain code into code compiled by facts (facts §6.3, F-17, W-33), for plain users of a wrapped package.
 
 ## P6-2. Strict mode refuses a plotting package's `reshape` pirate to protect Base's own code (facts §10.2)
 
@@ -83,4 +83,31 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **What it costs:** TraitWorld a hard dependency of Graphs; Graphs and its dependents precompile again (29 s in `depot-p4`).
 - **Blocks:** no. A small separate interface package holding the trait answers it within the design.
 - **What the port did:** declared the trait in Graphs as plain code.
+
+## P6-4. Packages' own inference tests fail under the facts mode by design (facts §4.2, §7.2)
+
+- **The code:** SciMLBase's `test/interpolation_tests.jl:157–158` (`Base.return_types(…) <: AbstractDiffEqArray`) and `test/solution_interface.jl:355–396` (`@inferred`).
+- **The idiomatic form:** a package pins inference precision with `@inferred` and `return_types`.
+- **The reference:** reflection shows facts inference for a facts method ([facts §7.2](../reference/facts.md#72-reflection)); a run-time site's result is `Any`, with no result type taken from the one matching method (§4.2).
+- **What it costs:** 5 assertions of 1,555 in SciMLBase's subset; no result differs.
+- **Blocks:** no.
+- **What the port did:** recorded (E-155, S2).
+
+## P6-5. Run-time `return_type` answers are a large share of the session's new code (facts §7.1)
+
+- **The code:** facts code on NonlinearSolve's path and on the solution's access calling `return_type` (`collect`, `map`, broadcasting) where facts §7.1's rules 1 and 2 do not fold.
+- **The idiomatic form:** `map`, `collect` and broadcasting over values whose element type comes from inference.
+- **The reference:** [facts §7.1](../reference/facts.md#71-return_type) rule 3: computed at run time by plain inference, under an owner of its own.
+- **What it costs:** 2,094 and 2,903 CodeInstances of `:facts_plain_return_type` in the first simulation's steps c and e; part of their first-call time, not measured apart. The plotting load discards 235 of them (order B).
+- **Blocks:** no.
+- **What the port did:** recorded (E-155, S4 and S7).
+
+## W34-1. A solver's algorithm trait cannot name its integrator per problem (the exploration's PB-A)
+
+- **The code:** DiffEq.jl's solvers are an open set (the user, 2026-10-21): each solver package adds algorithms, and `init(prob, alg)` builds an integrator whose cache depends on the algorithm and the problem's state together.
+- **The idiomatic form:** Rust's `trait Algorithm<P: Problem> { type Integrator: Integrator<P>; fn init(&self, p: P) -> Self::Integrator; }`.
+- **The reference:** a trait has no input parameters beside `Self` and no associated types that depend on another trait's implementer ([traits §3](../reference/traits.md), §4.6).
+- **What it costs:** the algorithm and the integrator are each checked at their `@implement`; the link between them only at the first call, where `solve!` raises `TraitBoundError`. Every new solver package meets it.
+- **Blocks:** no; the closest form is in [the porting guideline, B6](../intro/porting.md) ("The solvers are an open set").
+- **What the port did:** nothing yet; recorded for W-34.
 

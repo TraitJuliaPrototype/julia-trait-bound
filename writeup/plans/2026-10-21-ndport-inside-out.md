@@ -1,6 +1,6 @@
 # The NetworkDynamics port, P6: inside out, under strict mode
 
-Status: **adopted; part P6 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-inside-out-plan.md`](../reviews/2026-10-21-ndport-inside-out-plan.md); every finding accepted. Not normative: the references hold ([`../reference/traits.md`](../reference/traits.md) §10 and [`../reference/facts.md`](../reference/facts.md) above all).
+Status: **done (2026-10-21, E-155); part P6 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md).** The merge with P4 (§4) is scheduled with W-34. Revised 2026-10-21 after the review [`../reviews/2026-10-21-ndport-inside-out-plan.md`](../reviews/2026-10-21-ndport-inside-out-plan.md); every finding accepted. Not normative: the references hold ([`../reference/traits.md`](../reference/traits.md) §10 and [`../reference/facts.md`](../reference/facts.md) above all).
 
 **The user's words** (2026-10-21), on outside-in against inside-out:
 - "I wonder whether inside-out under strict mode is a sensible strategy for trait porting core packages, even if they are not going to run under strict mode eventually. It forces the design to be piracy free at any step and can be done iteratively..."

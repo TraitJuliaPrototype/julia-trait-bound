@@ -298,10 +298,11 @@ The mode and cache owner of a MethodInstance's code depend on three things: the 
 <a id="calls-between-the-modes"></a>
 ### 6.3 Calls between the modes
 
-**Status: Implemented.**
+**Status: Implemented**, except constant propagation into code compiled by facts: **Planned** ([F-17](#deviations); W-33).
 
 - **By inference.** The callee is inferred in its own mode, in an inference of its own. The caller names that CodeInstance, with an edge to it, and uses its result type and effects.
-- **No constant propagation crosses the modes.** The callee's result is its CodeInstance's.
+- **Constant propagation crosses from plain code into code compiled by facts.** A plain call with constant arguments infers the facts callee again for those constants, by the facts rules, in an inference of its own. The result stays the caller's, as constant propagation's always does, and the caller keeps that inference's edges: facts on the path the constants take, which only a stakeholder or a pirate can change. No CodeInstance of the facts owner is made or changed by it. Otherwise the callee's result is its CodeInstance's.
+- **The other direction,** code compiled by facts calling the compiler's own plain code, propagates no constants.
 - **Inlining crosses.** The caller may inline the callee's code from the callee's owner's cache. The inlined code is not inferred again. The caller keeps an edge to that CodeInstance only.
 - **At run time.** Dispatch from plain code to a facts method runs its facts code. Dispatch from code compiled by facts to a plain method runs its plain code.
 - **A boundary method does not cross.** It is compiled in its caller's mode, so the crossing happens at the call it makes.
@@ -603,3 +604,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-14 | — | *Retired*: see [§10.3](#strict-intended). | — | — |
 | F-15 | [§3](#3-fact-signatures) | A top-level union splits at most four ways, and the limit of four is Julia's own. | Julia's rule is a cost (`unionsplitcost`: the union lengths multiplied, the largest counted as 2; a split at a cost of at most 4). One union argument of any length splits, each split a fact; two union arguments of three members each are a run-time site. Unions in tuple arguments: at most four concrete tuple types (`MAX_FACT_SPLITS`). Which rule is intended: [open issue 46](../open-issues.md#1-decisions-waiting-for-the-user). | `julia-1.13/Compiler/src/abstractinterpretation.jl:377`; `typeutils.jl:201`; `facts.jl:211`; measured in [the review of 2026-10-20, F3](../reviews/2026-10-20-heterogeneous-collections.md) |
 | F-16 | [§8](#8-asserted-effects) | In a frame compiled by facts that has a run-time site, no asserted effect applies, Base's methods included. | Facts inference with the default owner (as under `all`) still folds a Base method asserted `:foldable` over run-time sites: `promote_type(Int, Static.StaticInt{2})` falls back to `typejoin` and gives `Type{Number}` there, `Any` with the facts owner. So under `all` code that reaches it runs at plain speed, and in a trait module it dispatches at run time. Probably the shared cache of F-2 (plain results reused); not diagnosed. | `ndport/scripts/p3_promote3.jl`, `ndport/logs/p3-dev/`; the W-32 pushback log, entry P3-1 |
+| F-17 | [§6.3](#calls-between-the-modes) | Constant propagation crosses from plain code into code compiled by facts. | No constant propagation crosses the modes: a plain caller of a facts method gets the callee's cached result. With SciMLBase a trait module and its callers plain, `x.field` on its `getproperty` overloads infers to the union of all fields (E-155, S2: the steady-state solve 29.2 against 15.0 ms). | `julia-1.13/Compiler/src/abstractinterpretation.jl:896`; W-33 |

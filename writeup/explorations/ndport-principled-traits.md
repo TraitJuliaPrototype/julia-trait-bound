@@ -2,6 +2,8 @@
 
 Status: exploration, input to the W-32 traits plan (P2); 2026-10-21. Not normative: the references hold ([`../reference/traits.md`](../reference/traits.md) above all). Where this page says the design should be otherwise, that is pushback for the log ([the meta plan](../plans/2026-10-21-networkdynamics-port.md), "The pushback log"), not a change.
 
+**Addendum (2026-10-21):** the user: "In the case of DiffEq.jl solvers should probably be considered an open set...". Where this page treats algorithms as a closed family (a type tree, plain methods), the porting guideline's case study (`../intro/porting.md`, B6, "The solvers are an open set") holds the corrected form; the gap is pushback W34-1.
+
 Every claim about the packages is read from the clones in `ndport/pkgs/` (versions: `ndport/pkgs/VERSIONS.tsv`). File and line references are to those clones. No Julia was run for this page; what needs a measurement is listed in §11.
 
 ## Summary

@@ -64,6 +64,13 @@ Planned, so not to be written yet: tuples of traits anywhere but bounds, `@imple
 
 The method for a new port. It cites part A's rules and part B's evidence rather than restating them.
 
+**The principles, and where each is.** They hold for any package. [B6](#b6-case-study-scimls-architecture-as-traits) applies them to SciML; [the SciML exploration, §3](../explorations/sciml-as-traits.md#3-the-principles-for-the-design-as-it-stands) gives the argument.
+- [0.2](#02-find-the-principled-traits-first): traits for open sets, types for closed ones; questions about a type become declarations; capabilities per type, with defaults; declared fields and operations, not `getproperty` switches; extension by implementation, never by overloading the entry.
+- [0.3](#03-the-order-seams-first-a-function-at-a-time) and A4: extensions add methods for their triggers' types only.
+- [0.4](#04-where-dynamic-where-compiled): the attribute chosen per position, not per problem; values cross by their bound, code never crosses; the key holds what the hot code must know, and no more.
+- [0.5](#05-what-to-keep-plain): front ends plain and thin.
+- [0.6](#06-how-to-check): every step keeps results equal.
+
 **The first steps, in order:**
 1. Baselines and environments: the upstream packages unchanged, on the patched Julia, with a workload a user would run.
 2. The facts mode on the unchanged code (0.1), with the dispatch profiler.
@@ -104,7 +111,13 @@ A trait names what generic code needs from a value, not how a type stores it.
 
 - **Read the generic functions, not the types.** For each function users pass their own types to, list what it calls on the argument: `length`, `getindex`, `f(du, u, p, t)`, `integ.u`. That list is a trait.
 - **Find the seams:** the functions users extend for their own types (a right-hand side, a callback, a plot recipe, a column). Each seam is an operation.
+- **Traits for open sets, types for closed ones** ([§14](../reference/traits.md#14-membership), "Abstract types stay").
+  - A set is open when packages other than its owner add members: problems, right-hand sides, callbacks, and DiffEq's solvers, which each solver package adds (B6). A trait states what every member provides, checked at `@implement`.
+  - A set is closed when one package holds every member, as a solver package holds its caches and tableaus: types, selected by dispatch.
+  - An abstract tree may stay beside a trait, as documentation and for typed dispatch; a typed method still wins over a bound. `Number`, `Real` and `Integer` stay. For containers, a BaseTraits bound says what generic code needs ([§8](../reference/traits.md#8-collections)).
 - **Operations or fields:** a declared field where code reads or writes stored data ([§3.3](../reference/traits.md#33-fields)); an operation otherwise, with its result type ([§3.1](../reference/traits.md#31-operations)). A computed property is no field: the library converts such a type ([§4.10](../reference/traits.md#410-types-that-only-convert)).
+  - **Declared fields and operations, not `getproperty` switches.** A switch on a property's name (`integrator.ps`, `sol.t`) is sugar for scripts. It stays in the ordinary layer, on the concrete type. Trait code reads declared fields and calls operations for what is computed.
+  - Julia resolves such a switch only where it sees the name as a constant, and constants are not carried across the modes ([facts §6.3](../reference/facts.md#calls-between-the-modes)). Reached from the other mode, the switch gives the union of all fields' types (B5; [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user)).
 - **Associated types:** element and parameter types become the trait's parameters ([§3.4](../reference/traits.md#34-parameters-and-associated-types)):
 
   ```julia
@@ -116,6 +129,12 @@ A trait names what generic code needs from a value, not how a type stores it.
       jacobian!(prob::ODEProblemTrait{T, P}, J::Matrix{T}, u::Vector{T}, t::Float64)::Nothing = fd_jacobian!(prob, J, u, t)
   end
   ```
+- **Questions about a type become declarations.** A library that asks a type questions through functions (`isinplace(f)`, `has_jac(f)`, `alg_order(alg)`) answers each in the trait:
+  - the call's form (`isinplace`) is the operation's declared signature: `rhs!(…)::Nothing`;
+  - element and parameter types are the trait's parameters (above);
+  - an optional capability (`has_jac`) is a subtrait, `ODEJacobian <: ODERHS` ([§3.6](../reference/traits.md#36-supertraits-and-bundles)), with the library's fallback (finite differences) as the trait's default operation ([§3.2](../reference/traits.md#32-defaults));
+  - a number that decides types (a dimension) is an explicit type parameter of the implementing type; one that does not is an operation with a declared result, `alg_order(a::ODEAlgorithm)::Int`. Traits have no associated constants ([§3.4](../reference/traits.md#34-parameters-and-associated-types), "Not offered").
+- **Capabilities per type, with defaults.** Membership is per type ([§14](../reference/traits.md#14-membership)). A record whose optional field is given conforms to the subtrait, as a family member; one whose field is `nothing` does not. The library asks nothing: it calls the operation, which is the type's own or the default. Asking a kept value for a capability is a trait cast, which is Optional ([§6.9](../reference/traits.md#69-trait-casts)).
 - **`Self`** where code returns "a value like the input": `emptylike(c::CSVColumn)::Self`, or `::Like{t}` ([§3.5](../reference/traits.md#35-self), [§5.6](../reference/traits.md#56-results-declared-types-like-withfields)).
 - **How each type joins** ([§4](../reference/traits.md#4-implementations)):
   - **An informal interface becomes a trait over its existing functions.** Graphs' `nv`, `ne`, `outneighbors`, SymbolicIndexingInterface's functions: declare the operations with qualified names, and let existing types join by their existing methods, one line or as a family over the abstract type, as BaseTraits does for Base's containers ([§3.1](../reference/traits.md#31-operations), [§4.7](../reference/traits.md#47-families), [§8.1](../reference/traits.md#81-basetraits-traits-for-bases-concepts)). The package's code does not change.
@@ -132,9 +151,13 @@ A trait names what generic code needs from a value, not how a type stores it.
   - by its own methods: a block, or one line after the methods;
   - by forwarding to a field that holds the data, `@implement Positions Live{Matrix{Float64}} by val`: the type shares the code compiled for the field's type;
   - as a family, for every instance of a parametric type; by a generic implementation, for every type that conforms to other traits.
+- **Extension is by implementation, never by overloading the entry** ([§10.1](../reference/traits.md#101-who-may-implement), [§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)).
+  - The owner writes the entry (`solve`, `init`) once.
+  - A package that adds a member implements the trait for its own type, or adds a typed method naming its own type: a stakeholder's method, which dispatch takes before any bound.
+  - A package that adds a convenience form (a `solve` without an algorithm) declares a trait it owns and adds a bounded method with it. L-3 limits this today.
+  - A method of a foreign function for a foreign abstract type is a pirate. Joint owners hold such methods where a split package keeps its shape (0.1a); the principled form puts the body in the owner (B6, move 3).
 - **Supertraits and tuples:** `@trait CSVColumn{T} <: Column` when every implementation of the one is one of the other; `t::(ColTable, RowTable)` when a function needs both ([§3.6](../reference/traits.md#36-supertraits-and-bundles), [§3.7](../reference/traits.md#37-tuples-of-traits)).
 - **Concreteness is decided when the trait is published** ([§11.1](../reference/traits.md#111-per-trait-concrete-parameters-and-self)): adding it later breaks conforming types.
-- **Keep abstract types where a tree is right:** `Number`, `Real` and `Integer` stay ([§14](../reference/traits.md#14-membership)). For containers, a BaseTraits bound says what generic code needs ([§8](../reference/traits.md#8-collections)).
 - **Names:** an operation is a function of the trait's module; a common name clashes on `using` (B1 item 7).
 - **Write the traits down before the port, and revisit them** as the port meets real code.
 
@@ -142,19 +165,22 @@ A trait names what generic code needs from a value, not how a type stores it.
 
 - **Layout:** an ordinary module around the trait module (A7). The ordinary layer keeps the public API: keyword parsing, conversions, name checks, printing. The trait module holds the work.
 - **Start where new user types enter.** A function users pass their own types to is the first to bound.
-- **One function at a time.** A bound ranks below every type in dispatch ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). Upstream's typed methods and the port's bounded ones stand side by side. An untyped method of the same shape does not, today (L-3): the bounded methods come first in the source, and only the function's owner adds a bounded method of a new shape. So the port adds the bounded method in the package that owns the function, above upstream's untyped method.
+- **One function at a time.** A bound ranks below every type in dispatch ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). Upstream's typed methods and the port's bounded ones stand side by side. Add the bounded method in the package that owns the function, above upstream's untyped method of the same shape (L-3).
 - **Keyword APIs:** the ordinary layer takes the keywords and builds a concrete options struct; the bounded function takes it positionally (`SolverOptions` in `TraitDifferentialEquations/src/TraitDifferentialEquations.jl:69`). A keyword body compiles per set of keywords, so a workload covers the sets users pass (B1 item 11). `Callable` with keywords is Planned ([§5.7](../reference/traits.md#57-keywords-defaults-and-varargs)).
-- **Extensions become implementations** (A4).
+- **Extensions add implementations, and methods for their triggers' types only** (A4). That is the rule for implementations ([§10.1](../reference/traits.md#101-who-may-implement)), carried to plain methods. A method that wins at a signature naming none of its triggers' types changes trait code at every load (pushback P6-3; B6, G-L).
 - **Workloads:** `@implement X T` in a package compiles ahead the bounded functions with one trait position and concrete other arguments; not varargs, nor several trait positions ([§13](../reference/traits.md#13-compiling-ahead), [lowering L-15](../reference/lowering.md#18-deviations)). A `TraitWorld.@workload` covers the rest.
 
 ### 0.4 Where `Dynamic`, where `Compiled`
 
 The attribute chooses speed, never results ([§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.8](../reference/traits.md#68-costs-and-choosing)).
 
+- **Per position, not per problem.** A library's specialization levels (SciML's six, B6) become one attribute per position: the stored function, the callbacks, the model. The callee's signature gives the default; the caller overrides per value with a cast ([§6.4](../reference/traits.md#64-casts)).
+- **The key holds what the hot code must know, and no more.** For a solver: the algorithm with its cache, the state, the element type, the parameters, and for implicit methods the dual chunk and the linear solver. Cut everything else by a position: functions by `Callable`, callbacks by `Vector{Callback}`, the options' functions by `Callable` fields, a solution's problem by a kept value. A value that decides types in hot code goes in the key as an explicit type parameter (B5); a knob that need not vary is a constant (B2).
 - **A new user type should not compile the library again.** Where user types enter and a large library stands behind, take them `Dynamic`: `@default_with_dynamic_self` on the trait, or `Dynamic{X}` on a public function's bound (exported or `public`; elsewhere the annotation warns, [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)). `Callable` is `Dynamic` by default. Loops over the data run `compiled_for` the data (A12).
 - **A kernel whose work per call is large:** `@default_compiled_for_self` on its trait.
 - **Leave the choice to the caller** where both are useful: one port's experience (B2, "A stored function").
 - **Stored user functions,** including RuntimeGeneratedFunctions: a struct parameter bounded by `Callable` at the declared signature ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), B2).
+  - **Values cross by their bound; code never crosses.** The function enters once, at the constructor, and is seen at its declared signature from then on ([§6.2](../reference/traits.md#62-how-plain-values-enter-the-trait-world), [§6.5](../reference/traits.md#65-values-carry)). No wrapper is installed before the call, and no state type is an exception: the bound converts nothing. The signature is checked at every call, and the result asserted ([§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature)).
   - A generated function's type is not of the trait world, so at a bare `Callable` it is `Dynamic`: the library compiles once per signature, not per generated function. The package's own closures are of the trait world and run `Compiled` where the code knows their type ([§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)).
   - T-51 limits a `Dynamic` function to six arguments. NetworkDynamics' edge function `g(ysrc, ydst, x, insrc, indst, p, t)` has seven, eight with external inputs: a blocking deviation, so a work item.
   - Reflection on the function (a type inferred from `g`'s methods) runs on the plain function, before it is kept.
@@ -165,7 +191,8 @@ The attribute chooses speed, never results ([§6](../reference/traits.md#6-value
 
 ### 0.5 What to keep plain
 
-- Bookkeeping, macros, printing to a terminal, options parsing, name checks: the ordinary layer (A5).
+- Bookkeeping, macros, printing to a terminal, options parsing, name checks, `getproperty` sugar: the ordinary layer (A5).
+- **Front ends and rebuilding (`remake`): plain and thin,** behind a function barrier (B2, "A front end"). Their cost is per call. Bounded keywords are limited today (T-39, T-48). What a trait declares is rebuilt with `withfields` and `Like{t}` ([§5.6](../reference/traits.md#56-results-declared-types-like-withfields)), the rest by the constructor.
 - Abstract type hierarchies that are right as they are.
 - **Plain means: not in a trait module.** A plain function that trait code calls is compiled by facts on that path ([facts §6.2](../reference/facts.md#the-mode-rule)). Keep it plain only where trait code does not call it, or make it fully typed.
 - **Notification graphs:** TraitMakie keeps its `onchange` plain, and its trait code never calls it; it has no Observables. Where trait code reads an observable, its value's type is what the code knows: type the observable (`Observable{T}`), or read it at the boundary and assert. Makie has many `Observable{Any}`: measure with the dispatch profiler before porting Observables.
@@ -173,6 +200,7 @@ The attribute chooses speed, never results ([§6](../reference/traits.md#6-value
 ### 0.6 How to check
 
 - **Per step:** the workload, with a digest of its results compared to upstream's, and a chosen part of upstream's suite: minutes at most. **At milestones:** the full suites (A6). Outside performance work, no benchmarks: a speed suspicion becomes an open issue. One Julia job at a time ([`../record/INDEX.md`](../record/INDEX.md), "Standing constraints").
+- **Every step keeps results equal.** The attribute and the mode change speed, never results ([facts §2.1](../reference/facts.md#g1)). A step that changes a digest is a bug, not a design question.
 - **Compare with `==`**, not `≈`: the same arithmetic gives the same bits. Where `==` fails, check the site for `@muladd` or `@fastmath` before calling it a port bug, and record the case.
 - **A scripted session** that a user would type, run trait and plain (A8; B3's REPL harness).
 - **The tools:**
@@ -200,7 +228,7 @@ One line per rule; the evidence is in part B, the rule's home in the references.
 - **A1. Say what code needs:** fields and containers of a trait's name, results declared ([§7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type); B1, B3).
 - **A2. Make the hot path fully typed:** what makes a run-time site and the fixes, [facts §3](../reference/facts.md#facts-and-fact-signatures); B1 item 10, B4.
 - **A3. Public functions reach their work in a trait module,** bounded where user types enter ([lowering §2](../reference/lowering.md#2-modes-owners-and-images); B1 item 7, B2 "A front end", B3 "A report").
-- **A4. Extensions become implementations,** naming each trigger ([§10.1](../reference/traits.md#101-who-may-implement); B1 item 5, B3 "Tables", B4).
+- **A4. Extensions become implementations,** naming each trigger; their plain methods name a trigger's types too ([§10.1](../reference/traits.md#101-who-may-implement); 0.3; B1 item 5, B3 "Tables", B4, B5).
 - **A5. Keep plain what is plain,** and adopt traits one function at a time (0.5; `forks/README.md`, "Kept plain").
 - **A6. Upstream's tests decide** (B1 item 9).
 - **A7. A package is an ordinary module around its trait module** ([§2](../reference/traits.md#2-trait-modules); every demonstrator).
@@ -339,7 +367,7 @@ col = fillcolumn(compiled_for(emptylike(c)), s, spans[k])::Union{Nothing,Dynamic
 
 ### B5. Networks of dynamical systems: NetworkDynamics, SciML, GraphMakie (W-32)
 
-The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md). The pushback log: [`../explorations/ndport-pushback.md`](../explorations/ndport-pushback.md).
+The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md). The pushback log: [`../explorations/ndport-pushback.md`](../explorations/ndport-pushback.md). This section holds what the port measured; the architecture its lessons point to is the case study, [B6](#b6-case-study-scimls-architecture-as-traits).
 
 - **Wrapping a 15,000-line package works with three lines.** NetworkDynamics as a whole in `@trait_module` precompiles (18 s against 22 s plain), nothing is refused, and the workload's results equal upstream's bit for bit (E-153).
 - **After wrapping, profile the steady state before anything else.** Time a step twice in one session (0.6), then run the dispatch profiler and `fully_typed` on the hot function. In NetworkDynamics the second solve took 30 s against 20 ms upstream. The cause was outside the package: Static.jl's promotion of `Int` with `StaticInt` falls back to `typejoin`, which plain Julia folds and code compiled by facts does not ([facts §8](../reference/facts.md#8-asserted-effects); pushback P3-1).
@@ -353,12 +381,114 @@ The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-
 - **A package's loop macro** (`Polyester.@batch`) hands its loop variables to that package's functions, not to a closure: the definition check refuses a trait object there. Read the expansion first.
 - **Beside upstream's per-style methods,** one method on a `Union` of styles is ambiguous: one method per style, each calling a shared internal function.
 - **After wrapping a package that other plain packages call on hot paths, profile the callers' steady state too.** No constant propagation crosses the modes ([facts §6.3](../reference/facts.md#calls-between-the-modes)): a plain caller's `x.field` on a wrapped package's `getproperty` overload infers to the union of all fields. With SciMLBase wrapped and its callers plain, the steady-state solve doubled (pushback P6-1). Check `x.field` against `getfield` (`ndport/scripts/p6_constprop_probe.jl`), and wrap a core together with its hot callers.
+- **Wrap the entry point of a call chain early.** Inside out, the cost of a wrapped core under plain callers lasted only until the package whose trait code calls those callers was wrapped (DiffEqBase), since plain packages reached from trait code are compiled by facts (E-155).
+- **Profile the steady state by owner at each step;** the profiler's default-owner column shows plain callers that lost types. Order B and the image rejections at load (`ndport/scripts/p6_loadinv.jl`) explain load-time rises with no compilation in them.
+- **Strict mode's refusal names the first fact only;** to see whose code a pirate would change, list the trait roots of its callee's backedges (`ndport/scripts/p6_pirate_roots.jl`).
 - **`@joint_owners` works inside the wrap's `@trait_module begin … end`;** the census after loading tells whether the list of names is complete.
 - **A full workload with strict mode on and Makie loaded refuses OffsetArrays' `reshape` pirate** (Base's own code is protected): expected, not a regression (pushback P6-2).
 - **A trait over an informal interface** (E-154): check its name against the package's exports (`Graphs.Graph` is `SimpleGraph`); declare it in the interface's owner as plain code, so only the consumers' bounded functions are trait code; make common-word names `public` rather than exported; test it against the package's own generic test types and against a type whose method returns the wrong type; declare concrete arguments (`v::V`) so the member check infers each operation; bound the readers, not the front end that stores the user's object.
 - **Before moving untyped code into a bounded function, check what its closures capture** (traits T-59), and test bounded calls from typed callers: a top-level loop over mixed types passes `Dynamic` values (traits T-58).
 - **In a shared harness, select a variant by `Val`, not by a `Symbol` keyword:** a keyword made every default pass infer the variant's network too, 5 s more at the first step.
 - **The first call of what a trait module reaches is compiled by facts in the session.** No image holds that code yet. NetworkDynamics' first fixed point took 21.9 s against 6.5 s plain, because NonlinearSolve's code reached from the trait module was compiled by facts. A precompile workload that covers the path moves this into the image.
+
+### B6. Case study: SciML's architecture as traits
+
+An analysis of SciML's source against the references, not a port: no Julia ran for it. It applies part 0's principles. The argument in full: [the SciML exploration](../explorations/sciml-as-traits.md). What the port measured on the same packages: B5. "SciML" here means SciMLBase, DiffEqBase, OrdinaryDiffEqCore and its solver packages, DiffEqCallbacks and SymbolicIndexingInterface, as cloned in `ndport/pkgs/`.
+
+**The goals** ([exploration §1](../explorations/sciml-as-traits.md#1-the-goals-scimls-architecture-achieves)): what a user of SciML can do that a monolithic solver would not allow, and what the mechanism costs today.
+
+| | Goal | Mechanism | What it costs |
+|---|---|---|---|
+| G-A | an open set of problem kinds | a tree of abstract types | a type has one kind; what a kind promises is a convention, with fallbacks that throw |
+| G-B | an open set of algorithms: each solver package adds its own | methods of `__init`, `alg_order`, `alg_cache`, `perform_step!` on the solver's types | the front end's own methods live in DiffEqBase: pirates by the letter, 57 of 63 |
+| G-C | one front end: `solve`, `init`, `step!` | CommonSolve's functions; DiffEqBase's keyword handling | about 1,400 lines per family, plain, which a load can discard (B2) |
+| G-D | an open set of state and number types | `uType`, `tType`, `pType` parameters; promotion rules | promotion methods that win at signatures without their triggers' types (P6-3) |
+| G-E | peak speed | everything a type parameter (`ODEIntegrator` has 26) | new equations recompile the core loop and the driver |
+| G-F | low latency | six specialization levels; the function wrapped at fixed signatures | chosen per problem, not per position; listed exceptions |
+| G-G | optional capabilities (Jacobian, mass matrix) | fields that are `nothing` when absent; predicates on the value | a given Jacobian's signature is unchecked until it runs |
+| G-H | symbolic access: `sol[x]`, `integrator.ps[k]` | SymbolicIndexingInterface's method sets; `getproperty` switches | the switches' cost depends on the caller's mode (P6-1) |
+| G-I | interactive stepping: `step!`, `add_tstop!`, `terminate!` | an informal method set on `DEIntegrator` | a new integrator type learns what it lacks at run time |
+| G-J | events | callback types in the integrator's type | a new callback recompiles the driver |
+| G-K | rebuilding a problem (`remake`) | keywords, plain | fine |
+| G-L | refinement by extensions | 20 extensions of SciMLBase | a few win at signatures without their triggers' types |
+
+**The pattern behind the costs.** SciML has one tool for an open set, the abstract type with methods, and one for speed, the type parameter. So the open sets have unchecked contracts, extension lands on the entry function, and speed and latency compete for the same type parameters.
+
+**The same goals in Rust and Swift** ([exploration §2](../explorations/sciml-as-traits.md#2-the-same-goals-in-a-trait-idiomatic-language)):
+- The open sets are traits with associated types. A solver crate adds `impl Algorithm<P> for Tsit5`, a model crate `impl OdeProblem for Network`. Neither touches `solve`.
+- The front end is one generic function its owner writes; nobody overloads it. The orphan rule refuses DiffEqBase's shape, a method of a foreign function for a foreign type.
+- Speed or latency is chosen per position, in the signature: `impl Trait` is compiled per type, `dyn Trait` once. SciML's function wrapper is `Box<dyn Fn(…)>` written in the type.
+- The questions become declarations: `isinplace` is the one signature of `rhs`, `has_jac` a provided method or a supertrait, `alg_order` an associated constant. An integrator that lacks a required method does not compile.
+- Swift compiles generic code once by default and specializes as an optimization. Its protocols require properties, as our traits declare fields. It allows a conformance from a third module, which its designers regret.
+
+**SciML's mechanisms in the design** ([exploration §2.3](../explorations/sciml-as-traits.md#23-scimls-mechanisms-against-rusts-and-the-designs)):
+
+| SciML today | The design |
+|---|---|
+| an abstract tree whose fallbacks throw | a trait, its operations checked at `@implement` ([§3](../reference/traits.md#3-trait-declarations), [§4.9](../reference/traits.md#49-checks-at-the-declaration)) |
+| `uType`, `tType`, `pType`; `isinplace`; `f.jac === nothing`, `__has_jac` | the trait's parameters; the declared signature `rhs!(…)::Nothing`; a subtrait `ODEJacobian <: ODERHS` with a default operation (0.2) |
+| `AbstractODEAlgorithm`, `alg_order(::Tsit5) = 5`, `__init(prob, alg::MyAlg)` | an `ODEAlgorithm` trait that each solver package implements for its own types; `init` a typed method naming the solver's own type, a stakeholder's ([§10.1](../reference/traits.md#101-who-may-implement), [§5.5](../reference/traits.md#55-dispatch-types-first-then-traits); below) |
+| `solve(prob::AbstractDEProblem)` in DiffEqBase | a pirate by the letter, held by joint owners; principled: the body in the owner ([§10.1](../reference/traits.md#101-who-may-implement)) |
+| `AutoSpecialize`'s function wrapper; `FullSpecialize` | `Callable{A, S}` at a struct parameter, `Dynamic` by default; `compiled_for(f)` at the constructor ([§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature), [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)) |
+| the four dual signatures | a tuple of `Callable`s ([§3.7](../reference/traits.md#37-tuples-of-traits), Planned, W-29) |
+| `DefaultODEAlgorithm`'s integer switch | `Vector{Dynamic{…}}`: the split over four, a table beyond ([facts §9](../reference/facts.md#dynamic-split)) |
+| callback types in the integrator's type; `affect!(integrator)` with the whole integrator | `Vector{Callback}` ([§7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type)); each callback sees `Dynamic{IntegratorView{U, T, P}}`, a trait of fields ([§3.3](../reference/traits.md#33-fields)) |
+| SymbolicIndexingInterface's method sets; `getproperty(::DEIntegrator, :ps)` | `IndexProvider`, `ValueProvider`, forwarding with `by` ([§4.3](../reference/traits.md#43-forwarding-with-by)); a declared field or an operation, the sugar plain (0.2) |
+| `remake` | plain (0.5) |
+
+**The solvers are an open set.** Each solver package (OrdinaryDiffEqTsit5, OrdinaryDiffEqRosenbrock, Sundials) adds algorithm types, and the front end runs any of them. So the algorithm is a trait, and so is the integrator it builds:
+- **`ODEAlgorithm`,** owned by SciMLBase: what the front end asks of any algorithm without the problem, as operations with declared results and defaults (`alg_order`, `isadaptive`). Each solver package implements it for its own algorithm types. A type that depends on the algorithm alone, such as a Rosenbrock method's tableau, can be a parameter each implementation states ([§4.6](../reference/traits.md#46-stating-parameters)).
+- **`Integrator{U, T, P}`:** the stepping interface of G-I (`step!`, `add_tstop!`, `terminate!`, `set_proposed_dt!`), as operations. It extends the callbacks' `IntegratorView`, whose declared fields `u`, `t` and `p` define the parameters. Each integrator type implements it: OrdinaryDiffEqCore's `ODEIntegrator` as a family, Sundials its own.
+- **`init` stays a typed method** naming the solver's own algorithm type, a stakeholder's method. It returns that solver's integrator. The owner's driver, `solve!(integ::Integrator)`, is a bounded function.
+- **Inside a solver package the set is closed:** its caches, tableaus, `perform_step!` and controllers are types, selected by dispatch. The abstract algorithm tree stays beside the trait, for typed dispatch over related algorithms.
+
+```julia
+# a sketch, not yet run
+@trait ODEAlgorithm begin                     # in SciMLBase
+    alg_order(a::ODEAlgorithm)::Int
+    isadaptive(a::ODEAlgorithm)::Bool = true
+end
+@implement ODEAlgorithm Tsit5 begin           # in OrdinaryDiffEqTsit5, which owns Tsit5
+    alg_order(a::Tsit5) = 5
+end
+```
+
+**The gap, recorded as pushback.** Rust ties the two traits together: `Algorithm<P>` names `type Integrator: Integrator<P>`, an integrator type per problem type. The design has no trait generic over another trait's implementer: no input parameters, no generic associated types ([§3.4](../reference/traits.md#34-parameters-and-associated-types), "Not offered"; [PB-A](../explorations/sciml-as-traits.md#5-pushback-where-the-principled-form-meets-the-references)). The cache depends on the algorithm and the state together, so it is no associated type of either. The closest form is the one above: each end checked at its `@implement`, the link between them at the first call, where `solve!` refuses an integrator that does not conform (`TraitBoundError`). Every new solver package meets this gap.
+
+**The shortest route** ([exploration §4](../explorations/sciml-as-traits.md#4-the-shortest-route)): the moves in order. Each keeps the results equal (0.6).
+
+0. **Wrap by facts** (done; B5). Buys the guarantees: compiled code that survives loads, and strict mode. Not the shape: each move below removes a cost B5 met.
+1. **The right-hand side as a trait; the function kept at a `Callable` bound.** `ODERHS{T, P}` with `rhs!(…)::Nothing`, and the subtraits `ODEJacobian` and `ODEMassMatrix`. `ODEFunction` conforms as a family, a user's model by its own `rhs!`. The record's `f` is a struct parameter bounded by `Callable`, as in TDE's `ODEProblem` (B2).
+   - Replaces the function wrapper and the specialization levels for `f`, on the in-place path.
+   - Buys: a new function or model compiles nothing in the solver, and its signature is checked.
+   - Measured by proxy at NetworkDynamics' own seam (B5, E-152). Needs the tuple of `Callable`s for implicit methods' dual signatures (W-29); Tsit5 first.
+2. **Callbacks and the integrator as traits.** `Callback` with `condition` and `affect!`, kept as `Vector{Callback}`; callbacks see `IntegratorView`; the options' functions are `Callable` fields; every integrator type implements `Integrator`.
+   - Replaces the callbacks and the options' functions as axes of the integrator's type, and the informal integrator interface.
+   - Buys: a new callback compiles nothing in the solver; a new solver's integrator is checked at its `@implement`.
+   - Not yet measured. The workload's line trips are events, so this move reaches it.
+3. **The algorithms as an open set; the front end's body in its owner.** `ODEAlgorithm`, implemented by each solver package. The body of `solve` and `init` for `AbstractDEProblem` moves to SciMLBase, which owns the types; solver packages keep their typed methods on their own algorithm types. The default algorithm is a value of an owned type, chosen by the umbrella package through a bounded method with a trait it owns (0.2).
+   - Replaces the joint-owner declarations that hold DiffEqBase's front-end methods, and the per-algorithm functions with fallbacks.
+   - Buys: no pirate by the letter in the core, so strict mode holds without joint owners' exception ([§10.1](../reference/traits.md#101-who-may-implement), "What it costs"); a checked contract where an algorithm joins.
+   - Needs L-3 retired (PB-F). It buys guarantees, not speed, so it comes after moves 1 and 2. It restructures SciML, which the port does not do: joint owners stand in for it (0.1a).
+4. **Symbolic access as traits; the sugar plain.** `IndexProvider` and `ValueProvider`; `symbolic_container`'s delegation as `by` forwarding where the container is a field; `ps` an operation; the `getproperty` switches in the packages' ordinary modules.
+   - Buys: getters compiled per index shape, not per provider. Trait callers read declared fields, so P6-1's cost falls away on the trait side; open issue 50 decides the plain side.
+5. **The solution as a trajectory.** `Trajectory{U, T}` with `times`, `state` and `at`; `ODESolution` conforms and keeps its problem as a kept value. Buys: plotting compiled once per key, and a solution type independent of the model.
+
+**What stays plain.**
+- Each solver package's caches, tableaus, `perform_step!` and controllers: closed within the package, and fully typed over the key, so the facts mode costs them nothing.
+- `remake`, the promotion helpers and the keyword front ends: per call, behind a barrier (0.5).
+- The AD-rule extensions: methods on owned functions for their triggers' types.
+- LinearSolve and NonlinearSolve behind their own front ends, until move 3 reaches them; ensembles.
+- The abstract trees of problems and algorithms, beside the traits.
+
+**Pushback** ([exploration §5](../explorations/sciml-as-traits.md#5-pushback-where-the-principled-form-meets-the-references)). Where the principled form meets a reference; none proposes a change (0.7).
+- **PB-A.** A trait generic over another trait's implementer: the algorithm-to-integrator link is checked at the first call (above).
+- **PB-B, PB-C.** No associated constants; asking a kept value for a capability is a trait cast (Optional). The stand-ins are 0.2's: operations with declared results, explicit type parameters, defaults where the fallback is correct.
+- **PB-D.** The dual signatures need a tuple of `Callable`s (W-29, Planned). AD through `solve` with an open chunk stays plain until then.
+- **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs a checked downcast of a kept value ([open issues §2](../open-issues.md#2-design), item 16). Until then `P` stays in the key.
+- **PB-F.** The convenience `solve` without an algorithm is a bounded method on a foreign function, which L-3 limits today.
+- **PB-G.** The `getproperty` sugar called from plain code: [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user).
+- **PB-H, PB-I, PB-J.** Keyword-heavy front ends stay plain (0.5); a `Dynamic` function takes at most six arguments (T-51; 0.4); a default algorithm over six solvers puts two beyond the split's four (0.4, "Which four").
 
 ---
 
@@ -379,6 +509,7 @@ Rules one port shows; each links to its evidence.
 - Part 0 is the method for a new port; it cites parts A and B and the references.
 - Part A holds rules every port confirms, one line each.
 - **Each port owns its section of part B** and adds to it as it goes, in the present tense: what holds, shown by the port.
+- A case study in part B (B6) is an analysis of a package's architecture against the references, not a port. It says so, links its exploration, and keeps apart from the measured section of the same packages.
 - A port proposes a rule for part A under "Proposed for part A", naming its evidence. Whoever merges (the coordinator of the port in progress) moves it into part A once a second port confirms it.
 - Re-read the file before each edit: several ports edit it.
 - Style: short sentences, bullets, one idea per sentence, an example for each rule, in the current spelling. Numbers live in [`../design/evidence.md`](../design/evidence.md); link them.
