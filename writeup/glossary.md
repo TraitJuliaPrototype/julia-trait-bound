@@ -361,6 +361,7 @@ The entries are grouped by theme:
 ### Owner
 
 - **Here:** a package owns its functions and types. Julia (Core, Base, the standard libraries) is one owner. A package extension belongs to its parent. At the prompt, `Main` is one owner, and each module defined directly under it is an owner of its own ([traits §10.1](reference/traits.md#101-who-may-implement)).
+- **Joint owners:** packages a package names (`@joint_owners`) to own its functions and types with it, for split packages such as SciMLBase and DiffEqBase. Only the owner names them ([traits §10.1](reference/traits.md#101-who-may-implement), "Joint owners").
 - **Origin:** Rust's crate, the unit of its orphan rule ([`record/other-languages-research-2026-10-16.md` §4](record/other-languages-research-2026-10-16.md#4-who-may-add-a-conformance-or-a-method)). Julia's piracy convention uses the same idea of "your own" functions and types.
 - **Defined in:** [facts §1](reference/facts.md#term-owner); who may implement: [traits §10.1](reference/traits.md#101-who-may-implement).
 

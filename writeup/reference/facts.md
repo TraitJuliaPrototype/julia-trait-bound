@@ -64,6 +64,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
   - Julia (Core, Base, the standard libraries) is one owner.
   - A package extension belongs to its parent package.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own ([traits §10.1](traits.md#101-who-may-implement)).
+  - A package's *joint owners*, which it names, own what it owns with it ([traits §10.1](traits.md#101-who-may-implement)). Wherever a package is an owner below, its joint owners are too.
 - <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of every type in its own signature. A `Union`'s members count one by one.
 - **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s`, of their supertypes, and of the types bounding their parameters.
 - <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. This is Julia's "type piracy", made strict for unions.
@@ -426,7 +427,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 **Rule.** A definition is refused if all three hold:
 1. **It is a pirate.** An extension counts as its parent package. Methods of Julia's own code (Core, Base, the standard libraries) are not checked: Julia is one owner ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 2. **It would win at a fact of valid trait code,** or of code compiled by facts that trait code depends on: at a concrete signature, or at any split of a fact signature.
-3. **Its package is no stakeholder of that signature,** and no declared delegate of one. A *delegate* is an implementation package that counts as the owner of the core package it implements (`TraitWorld.delegate!(Core => Impl)`). Delegates are data, and transitional.
+3. **Its package is no stakeholder of that signature** (joint owners are owners, §1), and no declared delegate of one. A *delegate* is an implementation package that counts as the owner of the core package it implements (`TraitWorld.delegate!(Core => Impl)`). Delegates are data, and transitional.
 
 **When.** Before the method becomes visible:
 - at a definition: at the prompt, by `include`, by `eval`;

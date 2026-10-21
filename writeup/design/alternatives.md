@@ -30,6 +30,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Plans, thresholds and settings superseded
 - Claims withdrawn
 - Terms retired
+- Split packages: restructuring, or implementations, instead of joint owners
 
 ---
 
@@ -281,4 +282,12 @@ The verb stays: a type still *conforms to* a trait, and the query is still `conf
 - **What it was:** a function kept at one signature was the same function at another: passed to a `Callable` bound of another signature, it was seen there with its attribute, unchecked until its first call (W-18, mine, confirmed with open issue 39). A kept value of one trait passed to a bound of another was seen through it where its object conformed, without a rule saying so.
 - **The options (2026-10-21):** (a) *trait casts*, the user's name: seeing a value through another trait as one casts between abstract types, the attribute kept, checked at the cast; implicit at a bound, or explicit by a kept form's constructor; (b) a value enters through every trait it will be seen through, as a tuple of traits, and is seen through those only.
 - **Decided (the user: "Trait casts sound like a possible future extension then … We could define a tuple of Traits as a valid Trait"):** (b). A trait cast stays a possible direction (traits §6.9, Optional). The reasons: entering through a tuple covers the cases met (TraitDifferentialEquations' right-hand side at two signatures); a trait object inside bounded code may hold only the parts its traits see, so a cast there could fail for reasons the code cannot see, and the code compiled for it covers only its traits, which definition checking relies on.
+
+## Split packages: restructuring, or implementations, instead of joint owners
+
+- **The case:** DiffEqBase defines methods of SciMLBase's functions on SciMLBase's types (`__solve`, `__init` on `AbstractDEProblem`; `Base.isempty(::CallbackSet)`): 28 pirates by the letter, NonlinearSolve and NonlinearSolveBase 22, OrdinaryDiffEqCore 3 (E-153's census). A trait module refuses them.
+- **Restructuring:** move each method to the package that owns the function or a type (the solve front end into SciMLBase, or the abstract problem types into DiffEqBase). It changes SciML's package structure and its dependents.
+- **Implementations instead of methods:** declare SciMLBase's interface functions as a trait's operations, and let DiffEqBase implement the trait for its own types. It works where DiffEqBase owns a type; where both the function and the types are SciMLBase's, there is no owned type to implement for.
+- **`delegate!`:** data for strict mode only; it does not lift the refusal in a trait module.
+- **Chosen: joint owners**, declared by the owner (the user, 2026-10-21: "if building joint ownership is simpler than restructuring SciML that is the pragmatic choice"). Which of the census's pirates a different structure or an implementation would remove is assessed in the inside-out plan of W-32 (P6).
 

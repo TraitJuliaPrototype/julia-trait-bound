@@ -1161,7 +1161,27 @@ leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
 - **An implementation in a package extension mentions each of the extension's triggers:** each trigger package owns the trait or a type the declaration names. Otherwise whether a call sees it would depend on whether that package happens to be loaded. It is refused with `ImplementError`.
 - Operations that are existing functions (`Base.size`) may be implemented only for types the declaring package owns. Otherwise declare the existing methods: `@implement Sized Vector{Float32}` without a block, by Base's own methods.
 
-**Status:** Implemented. Open: whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Joint owners.**
+
+```julia
+module SciMLBase                        # the owner names its joint owners
+using TraitWorld
+@joint_owners DiffEqBase OrdinaryDiffEqCore
+abstract type AbstractDEProblem end
+function __solve end
+# …
+end
+```
+
+- **A package may name joint owners:** packages that own its functions and types with it. DiffEqBase may then define `SciMLBase.__solve(::SciMLBase.AbstractDEProblem, …)` or `Base.isempty(::SciMLBase.CallbackSet)`, and neither is a pirate.
+- **Only the owner declares,** at the top level of its own module. A package cannot make itself a joint owner.
+- **Joint owners are owners wherever the declaring package is one:** who may implement (this section), pirates (§10.2), strict mode's stakeholders (§10.3), the stakeholders of [`facts.md`](facts.md#term-stakeholder) and Lemma O.
+- **Not symmetric, not transitive.** The owner does not own its joint owners' functions and types, and a joint owner's own joint owners are not the owner's. A joint owner's package extension is a joint owner too, since an extension belongs to its parent.
+- **Named by package name.**
+- **What it costs:** a joint owner's change is a stakeholder's change. It may discard the owner's compiled trait code (facts §2.2's exception), and strict mode does not refuse it.
+- **For split packages:** a core package that declares an interface, and packages that implement it on the core's own types, as SciMLBase and DiffEqBase do. `TraitWorld.delegate!` (§10.3) is data for strict mode only, where the owner has not declared anything.
+
+**Status:** Implemented, joint owners included (TraitWorld a373e30: `src/ownership.jl`, `@joint_owners`, `owns`; `test/joint.jl`). Open: whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ### 10.2 Pirates
 
@@ -1182,7 +1202,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - **The property it secures: trait code is never invalidated,** except by a change of code it depends on, a stakeholder's ([facts §10.2](facts.md#strict-mode)).
 - Strict mode refuses a pirate when it would win at a call that compiled trait code makes. The error, `TraitWorld.PirateError`, names the method and the trait code it would change. The method then does not exist, for plain code either.
 - Nothing else is refused: a pirate that wins nowhere in trait code is accepted.
-- A definition by a stakeholder is followed. A *stakeholder* of a method is the owner of its function or of a type in its signature. Define as the owner with `@eval Owner f(…) = …`.
+- A definition by a stakeholder is followed. A *stakeholder* of a method is the owner of its function or of a type in its signature, joint owners included (§10.1). Define as the owner with `@eval Owner f(…) = …`.
 - `TraitWorld.delegate!(Core => Impl)` lets an implementation package count as the owner of the core package it implements (for split packages such as StaticArraysCore and StaticArrays).
 - A pirate loaded before the code it changes is refused too.
 - **A package extension's method** that wins at a fact of trait code without mentioning its triggers' types is followed, as its parent package's change, a stakeholder's. It is not refused. A warning names the method and the trait code it affects.
