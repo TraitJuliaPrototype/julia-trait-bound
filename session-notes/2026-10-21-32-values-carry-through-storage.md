@@ -48,3 +48,8 @@
 - **W-21, in part** (TraitWorld 2341fce): strict mode's check follows callers transitively, as invalidation does (F-5 retired). No chain the direct walk missed could be built: plain code that trait code calls is compiled by facts. F-6 needs hooks in the patched Julia, and for a deletion a rule for who deletes (open issue 44).
 - **Not started:** W-22 (one rule for a MethodInstance's mode, the `return_type` exception) and the rest of W-21 and W-25: changes to the patched Julia, with a full build and every image rebuilt; W-27 last. Left for the user's review.
 - Checks after each step: `experiments/checks/logs/w23`, `w26`, `w25`, `w21`: all pass; under `all` the known F-8 holes.
+
+## Concrete parameters and `Self` (W-28)
+
+- **The user:** "Let's look at concrete guarantees. I feel like concreteness guarantees should apply to Trait parameters and to Self individually. A trait declaration could have @enforce_concrete_only T V Self. The idea would be that a type only confirms if T, V and Self are deeply concrete. Within a trait bound function we could allow the same syntax to constrain parameters of the trait bounds. The other spelling would be @warn_on_abstract. Feasible?" On the proposal with seven recommended points: "Yes".
+- Built: traits §11 (§11.1 per trait, §11.2 per function, §11.3 concrete mode as `@enforce_fully_typed` / `@warn_not_fully_typed`); TraitWorld 9b45afc, `test/concreteness.jl`; tutorial 77 of 77; all checks pass (`experiments/checks/logs/conc`). The seven choices wait in open issue 45; issue 15 closed.
