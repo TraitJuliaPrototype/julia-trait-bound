@@ -115,6 +115,7 @@ Earlier reviews, elsewhere:
 
 | Path | Date | Status | What it holds |
 |---|---|---|---|
+| [`ndport-principled-traits.md`](../explorations/ndport-principled-traits.md) | 2026-10-21 | input to the W-32 traits plan (P2); written by a Fable agent | the principled traits of Graphs, NetworkDynamics, SciML, Makie/GraphMakie and Observables for the NetworkDynamics port; why changing the equations recompiles everything (the component functions reach the `Network`'s type and SciML's `sys`); the ranking; thirteen pushback points |
 | [`wrapping-by-facts.md`](../explorations/wrapping-by-facts.md) | 2026-10-17 | **current for the proofs**; its mechanisms (TraitWorld's `FactsInterp`) are now Julia's compiler | the design for using code written without traits: rule R, rule P, Theorems 1–3, Lemmas D and O; evidence on stock 1.13.2; validation (session 24, A3–A5, implementation rules 1–7); synthesis of three fresh designs |
 | [`wrapping-designs/`](../explorations/wrapping-designs/) (`brief.md`, `proof-first.md`, `views.md`, `trusted-base-ffi.md`) | 2026-10-16 | history (inputs to the synthesis) | the brief given to three agents, and their three independent designs |
 | [`strict-mode.md`](../explorations/strict-mode.md) | 2026-10-17 | current as detail; the guarantee is design.md §2.2; §2b deferred | rule S (defining a winning pirate is an error), the prototype (§2a), the intended design with Julia pieces 1′, 14, 15 (§2b, open-issues §1.1), split-core packages, the mode first assessed and not pursued |
