@@ -1,10 +1,10 @@
-# Session 31 (2026-10-20 evening to 2026-10-21 night): `compiled_for` through the table; E-145, what follows the split
+# Session 31 (2026-10-20 evening to 2026-10-21 night): `compiled_for` through the table; E-145, what follows the split; W-2, W-3; W-9 and W-15 in part
 
 ## To resume
 
-1. `../CLAUDE.md`; `../writeup/record/todo.md`: **next W-2** (TraitDifferentialEquations around `ODEProblemTrait`), then W-3.
-2. For the user's review: open issues item 38 (what follows the split, mine), with the plan `../writeup/plans/2026-10-21-what-follows-the-split.md` and its review.
-3. julia-1.13 `trait-world-1.13` is at 711484a23e (fast-forwarded from `split-table`), built, with the facts image rebuilt. TraitWorld main 1c45999. Nothing is pushed.
+1. `../CLAUDE.md`; `../writeup/record/todo.md`: W-2, W-3, W-6 (E-145) and W-15 are done, W-9 in part. What is queued is mostly measurement (W-5, W-7, W-8, W-16, W-17), held for performance work.
+2. For the user's review: open issues items 38 (what follows the split) and 39 (W-2's choices), both mine; the plan `../writeup/plans/2026-10-21-what-follows-the-split.md` and its review; a second review of tonight's code and of W-2 (`../writeup/reviews/2026-10-21-tonights-code-and-w2.md`, when written).
+3. julia-1.13 `trait-world-1.13` is at 711484a23e, built, with the facts image rebuilt. TraitWorld main 8d29f20; TraitDifferentialEquations main 2765285. Nothing is pushed.
 
 ## The user's words (in order)
 
@@ -20,3 +20,7 @@
 - **Checks:** acceptance 24 of 24 in both settings (new G1.24); TraitWorld's suite passes in the product setting; under `all` it stops at F-8 as before, and of the later files `basetraits.jl:122` fails its allocation bound under `all` only (P12, a cost of W-4's entries, not of the table); the demonstrators and the docs examples pass (logs `../experiments/checks/logs/splittable/`).
 - **As built** (e145d): 18.5 ns per element at 64 implementations (77 before), 9.2 at 16 (47), no allocation; `collect(DynamicItems)` from a `Vector{Any}` 19 ns (72); the first use of a type about 10 ms per call signature (C-14). After each method definition every pointer looks up once (C-3), seen as 1 KB in a first G1.24 attempt that measured across a world bump.
 - **Documents:** compiler §4.3 (new) and the others listed in the design repository's commit cc2a72e.
+- **W-2** (TraitDifferentialEquations e37829f, TraitWorld 8d29f20): `ODEProblemTrait{T, P}` (fields `u0`, `tspan`, `p`; `rhs!`, `jacobian!`); TDE's `ODEProblem{T, P, R}` its canonical implementation, the function kept as TraitWorld's new `stored(Callable{A, S}, f)` gives it (`Dynamic{Callable}` by default, the function itself under `compiled_for`, now for every state and parameter type), and as given for the Jacobian's dual numbers; `solve(prob, alg)` the one entry point, `@nospecializeinfer` with a function barrier per problem type (first a front end specialized on the problem made each caller infer the solver's entry: rows 1–2 at 2–3×; then `compiled_for` through the table made a pointer per session and type). LorenzModels: `LorenzProblem{T}` with `LorenzParams{T}`; PlainODE mirrors it. Suite, session (identical `RESULT` lines), rows once against TDE before W-2 on the same build (logs `../experiments/checks/logs/w2/`).
+- **W-3:** traits §16 compares traits and abstract types rule by rule; `B <: A` between traits is `false` today (verified, T-23); the glossary and `intro/traits-for-julia.md`.
+- **W-9 in part:** a split's table kept in a package image (HShapes) is filled again in a new session; the tables under 4 threads; acceptance G1.25 (`compiled_for` from an untyped caller, worlds); two stale examples fixed (ErasedP, ahead). Acceptance 25 of 25 in both settings; the examples all pass.
+- **W-15:** `g2all.jl` ported to the problem trait and run again: 0 of 12,835 facts-owned CodeInstances lost after ten loads; F-11 narrowed to `all` and the loads-first order.
