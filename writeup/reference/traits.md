@@ -149,7 +149,7 @@ end
 - `@trait_module` runs each top-level statement after the ones before it. So a trait is known when a later function definition mentions it. `include` passes the same treatment on to the included file.
 
 **Rules.**
-- Bounded functions ([§5](#5-bounded-functions)) exist only inside trait modules. Outside, a trait in an argument annotation is an ordinary abstract type that no value has, so the method never applies.
+- Bounded functions ([§5](#5-bounded-functions)) exist only inside trait modules. Outside, a method with a trait's name as an argument's type is refused when it is defined (`TraitUseError`), now and with traits in the type system. Outside trait modules a value is taken as a kept value (`Kept{X}`) or by a type.
 - `@trait` and `@implement` work in any module. A user's types usually conform in plain code.
 - A trait module may use and call any Julia code: Base, CSV, Cairo, ForwardDiff.
 - At the end of a trait module, its bounded functions are checked ([§9](#9-checks-and-when-they-run)).
@@ -298,7 +298,7 @@ end
 - **A type's implementation of `B` must agree with its implementation of `A`:** the same forwarding field, or both served by the type's own methods, with the fields mapped alike. A disagreement is refused.
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
 
-**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own (a choice made while building, to be confirmed: [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 42).
+**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
 
 ---
 
@@ -426,8 +426,8 @@ end
 ```
 
 - A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
-- It is checked for the family as a whole: the methods must cover the family, with results that infer to the declared types.
-- **A member that does not conform is refused** at its first use, with `ImplementError`: its methods are checked as a single type's implementation is at its declaration, and its parameters against their bounds.
+- **Each member is checked at its first use,** not at the family's declaration, which checks ownership. Its methods are checked as a single type's implementation is at its declaration: they exist, and their results infer to the declared types. Its parameters are checked against their bounds. A family over an abstract type cannot be checked as a whole: the abstract type's interface is implemented by each subtype (Base has no `length(::AbstractDict)`).
+- **A member that does not conform is refused** at its first use, with `ImplementError`.
 - **A member's implementation is fixed at its first use,** not at the family's declaration. The package that owns a member's parameter type (`MyT` in `S{MyT}`) may define an override for that member until then, and not after.
 - Code is compiled per member.
 - **Joint families** tie the trait's parameters to the type's:
@@ -440,7 +440,6 @@ end
 
 **Status:** Implemented, except:
 - Planned: forwarding for a whole family (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [open issues §2](../open-issues.md#2-design), "Keys and fields", item 4; [T-7](#17-deviations));
-- Planned: the check for the family as a whole at its declaration. Today the declaration checks ownership; each member is checked at its first use ([T-26](#17-deviations); [open issues](../open-issues.md#1-decisions-waiting-for-the-user) item 42);
 - Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
 - a family with a block whose target is a parametric type expression ([T-5](#17-deviations));
 - the check on parameter expressions ([T-6](#17-deviations)).
@@ -468,11 +467,11 @@ end
 - **Predicates** are to be patterns on the constraints' parameters, so that overlap is decidable at the declaration. The example above uses a computed condition, `eltype(R) == …`.
 - **A type that conforms through a generic implementation is checked at its first use,** as a family member is ([§4.7](#47-families)): the operations' results, the parameters' bounds, the parts the concreteness declarations name ([§11.1](#111-per-trait-concrete-parameters-and-self)). One that does not conform is refused (`ImplementError`).
 
-**Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#17-deviations)); forwarding carrying through ([T-30](#17-deviations)); the refusal of a type whose operations do not conform ([T-52](#17-deviations)); the check at the first use is a choice made while building, to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 42). For a trait with parameters, see [T-8](#17-deviations). Open: what a predicate may say ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2).
+**Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#17-deviations)); forwarding carrying through ([T-30](#17-deviations)); the refusal of a type whose operations do not conform ([T-52](#17-deviations)). For a trait with parameters, see [T-8](#17-deviations). Open: what a predicate may say ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2).
 
 ### 4.9 Checks at the declaration
 
-All of these run at `@implement`, never at a call. A failure raises `ImplementError`. A refused declaration defines nothing: no method and no record.
+All of these run at `@implement`, never at a call; for a member of a family or a generic implementation, at the member's first use ([§4.7](#47-families), [§4.8](#48-generic-implementations)). A failure raises `ImplementError`. A refused declaration defines nothing: no method and no record.
 
 - **Who:** the declaring package owns the trait or the type ([§10](#10-who-may-implement-pirates-strict-mode)).
 - **Completeness:** every operation has a method or a default for the type it is called on (`Self`). Every declared field exists, with the declared type.
@@ -771,7 +770,7 @@ Each decides only for a plain value. A value that carries an attribute keeps it 
 
 | Spelling | on a bounded function's argument | on a bound's item parameter | on an operation's argument | as a parameter of an argument's type (`cs::Vector{…}`) | as a field's or element type, inside a trait module | as a struct parameter's bound | outside trait modules |
 |---|---|---|---|---|---|---|---|
-| `X` (the trait's name) | a bound | an item position | the first argument: the value seen through the trait ([§3.1](#31-operations)) | any kept form | `Kept{X}` | a bounded parameter ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)) | in a field or container, `Kept{X}` (Planned, [§7.2](#72-a-traits-name-as-a-storage-type)); in an argument, no bound today ([§2](#2-trait-modules)); with traits in the type system Open ([open issues, item 41](../open-issues.md#1-decisions-waiting-for-the-user)) |
+| `X` (the trait's name) | a bound | an item position | the first argument: the value seen through the trait ([§3.1](#31-operations)) | any kept form | `Kept{X}` | a bounded parameter ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)) | in a field or container, `Kept{X}` (Planned, [§7.2](#72-a-traits-name-as-a-storage-type)); in an argument, refused ([§2](#2-trait-modules)) |
 | `Compiled{X}`, `Dynamic{X}` | a bound, with that default | an item position, with that default for plain items | the type, converting | the type | the type, converting | Julia's bound, as written | the type |
 | `Kept{X}` | the type | refused | the type, converting | the type | the type, converting | Julia's bound, as written | the type |
 
@@ -785,7 +784,7 @@ Each decides only for a plain value. A value that carries an attribute keeps it 
 - **An annotation on a bound of a function that is neither exported nor declared `public` warns** at the trait module's end. Plain values are expected from plain callers, at public functions; elsewhere an annotation is easily mistaken for a cast, which it is not. The fix is a cast at the call (`compiled_for(x)`, `with_dynamic(x)`). An annotation on an item parameter does not warn.
 - A `Dynamic` annotation fixes the parameters the trait's operations' result types use ([§5.1](#51-bounds)).
 
-**Status:** Implemented. The choices made while building it (the `Compiled` default for every plain value; disagreeing defaults cancel) are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 39).
+**Status:** Implemented.
 
 ### 6.4 Casts
 
@@ -1214,7 +1213,7 @@ fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anyw
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
 - `@warn_not_fully_typed` warns at a bounded function's first run; `@enforce_fully_typed` raises `AbstractTypeError` (an abstract value used) or `NotFullyTypedError` (a call with unknown types). Before `@trait_module`, it applies to every function of the module.
 
-**Status:** Implemented. The choices made while building it are to be confirmed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45).
+**Status:** Implemented. The spelling of concrete mode's two macros is Open ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 45).
 
 ---
 
@@ -1409,7 +1408,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-23 | [§14](#14-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, and `B <: A` whether `A` is a supertrait of `B`, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. Between traits, `B <: A` is `false` too: every trait is a direct subtype of `Trait`, and supertraits are declarations the trait records (`supertype(B) === Trait` for `@trait B <: A`). | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
 | T-24 | — | *Retired*: see [§13](#13-compiling-ahead). | — | — |
 | T-25 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
-| T-26 | [§4.7](#47-families) | A family is checked as a whole: its methods cover the family, with results that infer to the declared types. | At the declaration only ownership is checked. Each member is checked at its first use, and refused if it does not conform. A family of an abstract type's existing methods cannot be checked for coverage at the declaration (Base has no `length(::AbstractDict)`; each subtype has one): [open issues](../open-issues.md#1-decisions-waiting-for-the-user) item 42. | `TraitWorld/src/implement.jl` (`_check_implementation_now`, `_member_problems`) |
+| T-26 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-27 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-28 | [§4.7](#47-families) | The owner of a member's parameter type may declare an override for that member until its first use. | A member's own declaration is accepted and gets its own `conformance` method (`_declared_for` looks at the member itself, not the family's method), but a declaration after the member's first use is not refused: nothing records the first use against later declarations. Unchecked by a test. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl` (`_declared_for`) |
 | T-29 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |

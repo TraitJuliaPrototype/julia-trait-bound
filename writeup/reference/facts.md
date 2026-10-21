@@ -450,7 +450,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 <a id="strict-intended"></a>
 ### 10.3 Strict mode's intended design
 
-**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented. Open: who counts as deleting a method, since a deletion carries no caller ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 44).
+**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented.
 
 In strict mode, trait code, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or, for a stakeholder's package extension, a warning:
 
@@ -459,7 +459,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | a pirate loaded before a package image whose facts it breaks | at the image's validation, naming the pirate and the code |
 | a pirate that wins inside plain code that trait code depends on (a folded `return_type`, the compiler) | at the definition: the check follows callers transitively |
 | a package extension's winning method at a fact whose signature contains none of its triggers' types | no error: followed, as its parent's change (a stakeholder's), with a warning when the extension's methods become visible, naming the method and the trait code it affects |
-| a deletion of a method by anyone but its owner | at the deletion |
+| a deletion of a method that trait code depends on, by anyone (a deletion carries no caller to name), except TraitWorld's own deletion of a refused declaration's methods and of a refused pirate | at the deletion |
 
 - Edits stay the one exception, with a stakeholder's package extension, which is followed with a warning. An edit is meant to change what the code computes; an extension is its parent's code.
 - **The symmetric check** is a lint, not a session default: `verify_main` reports a fact of trait code that selects a pirate defined before the code was compiled. **Planned.**
@@ -591,7 +591,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
 | F-5 | — | *Retired*: see [§10.2](#strict-mode). | — | — |
-| F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion by a non-owner are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
+| F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion of a method that trait code depends on are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
 | F-7 | [§11](#package-images) | Open: whether the setting is part of an image's key. Until decided, code from an image built under the other setting is outside the test bed's G2. | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
 | F-8 | [§12.3](#trimmed-binaries) | Open: whether `verify_main` counts as holes the run-time sites that facts compilation makes in Base under `all`. | Under `all` it reports one: `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not on an error path. In plain mode it reports none. One of the test's checks fails under `all`. | `TraitWorld/test/verify_dynamic.jl:41` |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |

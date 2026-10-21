@@ -187,7 +187,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.6 Families
 
-**Status: Implemented** (deviation [L-23](#18-deviations); the family-wide check [traits T-26](traits.md#17-deviations)); forwarding for a family **Planned**.
+**Status: Implemented** (deviation [L-23](#18-deviations)); forwarding for a family **Planned**.
 
 `@implement X S{P} where {P} [begin … end]` ([`traits.md#47-families`](traits.md#47-families)) defines (`_family_conformance_methods`, `implement.jl:690`):
 - the operations' methods with the `where` clause, for a block;
