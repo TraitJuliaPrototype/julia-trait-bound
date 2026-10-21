@@ -1,184 +1,365 @@
 # Porting to traits: a guideline
 
-Written jointly by the agents porting the demonstrators (session 29), for people porting Julia packages to the trait world. Status: **in progress**. Design: [`../design.md`](../design.md), and the rules and the terms precisely in the [references](../reference/README.md). Evidence so far: `explorations/dataframes-port-lessons.md` (the DataFrames/CSV port, sessions 27–28).
+For people about to port a Julia package written without traits into the trait world. It teaches and points: each rule's home is a [reference](../reference/README.md), and each section links to it. Why the design has its shape: [`../design.md`](../design.md). The terms: [`../glossary.md`](../glossary.md). The current numbers: [`../design/evidence.md`](../design/evidence.md). Status: **in progress**; every port adds what it learns ([how this document is kept](#how-this-document-is-kept)).
 
-**How this document is written.** Each agent owns one section of part B and adds what its port teaches. Part A holds the rules that every port confirms; an agent adds to A only through the list "Proposed for part A" at the end, with the port that shows it, and the editor merges. Edit with care: others edit the same file (re-read before each edit). Style: short sentences, bullets, one idea per sentence, an example for each rule; say what the port showed, not what it might show.
+**A port does not change the design.** Where idiomatic trait code pushes back against a reference, the port records it in its pushback log, or as an [open issue](../open-issues.md), and goes on with the reference as it stands. A part the port needs whose status is Planned, or a Deviations row that blocks it, becomes a work item; the port pauses for it.
 
-**The foundation under the ports.**
-- The rules are built into the patched Julia's compiler. A trait module is compiled in the facts mode; `@trait_module` declares it.
-- Write to TraitWorld's language (`@trait`, `@implement`, `@trait_module`, bounds, kept values, the casts `compiled_for` and `with_dynamic`, `Callable`, `Like`/`Self`, fully typed mode), not to its machinery. How values get `Compiled` or `Dynamic`: [traits §6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic).
-- Measurements exist: [`../design/evidence.md`](../design/evidence.md).
+Each example is quoted from the file it names; that package's suite runs it.
+
+## Contents
+
+- [The language in one screen](#the-language-in-one-screen)
+- [Part 0. Porting a package written without traits: the method](#part-0-porting-a-package-written-without-traits-the-method)
+- [Part A. Rules every port confirms](#part-a-rules-every-port-confirms)
+- [Part B. What each port teaches](#part-b-what-each-port-teaches)
+- [Proposed for part A](#proposed-for-part-a)
+- [How this document is kept](#how-this-document-is-kept)
+
+---
+
+## The language in one screen
+
+Write to TraitWorld's language, never to its internals (names that start with `_`, or that the references do not name). The one exception today: the companion `convert` methods of B3.
+
+| Construct | What a port uses it for | Home |
+|---|---|---|
+| `@trait_module module Core … end`, `@trait_module begin … end` | the module whose code is trait code, compiled by facts | [traits §2](../reference/traits.md#2-trait-modules) |
+| `@trait X begin op(x::X, …)::R; f::T; … end` | the operations and fields generic code needs, each with its type | [§3](../reference/traits.md#3-trait-declarations) |
+| `@trait X{T} begin T = eltype(Self); … end` | associated types: by a field, an equation of `Self`, or stated | [§3.4](../reference/traits.md#34-parameters-and-associated-types) |
+| `@default_with_dynamic_self`, `@default_compiled_for_self` | the trait's default attribute for plain values | [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations) |
+| `@enforce_concrete_only T Self`, `@warn_on_abstract P` | concrete parameters and `Self`, per trait or per function | [§11.1](../reference/traits.md#111-per-trait-concrete-parameters-and-self) |
+| `@implement X T begin … end`, `@implement X T`, `@implement X T by f` | a type joins: its own methods, or forwarding to a field | [§4.1–4.3](../reference/traits.md#4-implementations) |
+| `@implement X S{P} where {P}`, `@implement X R where {R: Y}` | families; generic implementations | [§4.7](../reference/traits.md#47-families), [§4.8](../reference/traits.md#48-generic-implementations) |
+| `f(t::X, i::Int)`, `f(a::X{T}, b::X{T}) where {T}` | bounded functions; `where` variables in bounds | [§5.1](../reference/traits.md#51-bounds) |
+| `f(g::Callable{Tuple{Float64}, Float64}, …)` | a function argument at a declared signature | [§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature) |
+| `::Like{t}`, `withfields` | "a value like the input" | [§5.6](../reference/traits.md#56-results-declared-types-like-withfields) |
+| `compiled_for(x)`, `with_dynamic(x)`; `x::Dynamic{X}` on a bound | the attribute: code compiled per key, or compiled once | [§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic) |
+| `field::X`, `Vector{X}` in a trait module; `Dynamic{X}`, `Compiled{X}`, `Kept{X}` | values kept beyond a call, with their attribute | [§7](../reference/traits.md#7-kept-values-dynamicx-compiledx-keptx) |
+| `struct S{F <: Callable{…}}; f::F; end` | a struct parameter bounded by a trait: the field keeps the value as its bound gives it | [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait) |
+| `Iterable{X}`, `Indexable{X}`, `Keyed{K, X}` | loops over a user's container, its items seen through `X` | [§8](../reference/traits.md#8-collections) |
+| `TraitWorld.strict!(true)`, `TraitWorld.delegate!(Core => Impl)` | refuse a pirate that would change trait code | [§10.3](../reference/traits.md#103-strict-mode) |
+| `@warn_not_fully_typed`, `@enforce_fully_typed`, `fully_typed(f, types)` | find the calls whose argument types are unknown | [§11.3](../reference/traits.md#113-fully-typed-mode) |
+| `TraitWorld.@workload begin … end` | a precompile workload for a trait module | [§13](../reference/traits.md#13-compiling-ahead) |
+
+**Where the code differs today**, the rows a port meets ([traits §17](../reference/traits.md#17-deviations), [lowering §18](../reference/lowering.md#18-deviations), [compiler](../reference/compiler.md#deviations)):
+- **L-3:** an untyped method of a bounded method's shape must come after the bounded methods, and only the function's owner may add a bounded method of a shape the function has none of yet. Define the bounded method first, in the owner's package.
+- **T-2:** a trait's parameter is not in scope in a default's body. Call a helper that reads it from an argument's type, as TDE's default `jacobian!` calls `fd_jacobian!(prob, J::Matrix{T}, …) where {T}`.
+- **T-5, T-38:** a family with a block over a parametric type expression (`S{P} where {P} begin … end`) is not lowered as a family; for a trait whose parameters are defined by equations, the one-line `S{P} where {P}` is refused too. The variable form works: `A where {A <: S}`.
+- **T-12:** TraitWorld's own tests and workload use an earlier spelling (`@trait ColTable{R}`). Copy trait code from the references and the demonstrators, not from TraitWorld's tests.
+- **T-19:** keyword, vararg and `Callable` functions are checked at their first call, not at the module's end. A workload or a test must call each one.
+- **T-32:** with a block, an existing method for an operation the block leaves out is not used. Put every override in the block.
+- **T-39:** a user's container is not taken at a bounded keyword. **T-48:** a function whose only bounded arguments are keywords does not work. Bound a positional argument.
+- **T-49:** an operation with an argument declared `Self` fails on a `Dynamic` value.
+- **T-51:** a `Dynamic` function takes at most six arguments.
+- **T-52:** a type that conforms through a generic implementation but whose operations do not conform is accepted with a warning. Read the warnings.
+- **T-53, T-54:** a kept value or function passed to a bound of another trait or signature is accepted, though the reference refuses it. Do not rely on it.
+- **C-6:** a module's other compiler options are meant to apply to its facts code too; `compile` is ignored there today.
+
+Planned, so not to be written yet: tuples of traits anywhere but bounds, `@implement` and supertrait lists ([§3.7](../reference/traits.md#37-tuples-of-traits), W-29); forwarding for a whole family ([§4.7](../reference/traits.md#47-families)); `Callable` with keywords or an open result type ([§5.7](../reference/traits.md#57-keywords-defaults-and-varargs), [§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature)); redeclaring an implementation in a session ([§4.9](../reference/traits.md#49-checks-at-the-declaration)). Trait casts are Optional ([§6.9](../reference/traits.md#69-trait-casts)). Every construct's status: [traits §16](../reference/traits.md#16-status-index).
+
+---
+
+## Part 0. Porting a package written without traits: the method
+
+The method for a new port. It cites part A's rules and part B's evidence rather than restating them.
+
+**The first steps, in order:**
+1. Baselines and environments: the upstream packages unchanged, on the patched Julia, with a workload a user would run.
+2. The facts mode on the unchanged code (0.1), with the dispatch profiler.
+3. The package as a trait module (0.1a), its pirates and extensions resolved.
+4. The traits written down (0.2).
+5. The seams, a function at a time (0.3), with results equal to upstream at every step.
+6. Each step recorded, with what it buys (0.6).
+
+### 0.1 What the facts mode gives an unchanged package
+
+- **Two settings** ([facts §12](../reference/facts.md#settings)):
+  - **the product setting**, the default: only trait modules are compiled by facts, and what they reach;
+  - **the test bed `all`** (`JULIA_COMPILE_BY_FACTS=1`, with a depot of its own): everything but the compiler is compiled by facts. It tests the facts rule on code as written; it is not a user setting.
+- **Compiled by facts:** a call is inferred only at a *fact signature*, where its argument types are known ([facts §3](../reference/facts.md#facts-and-fact-signatures)). Every other call is a *run-time site*: dispatched when it runs, as plain Julia does, with the result `Any`.
+- **What it buys** ([facts §2](../reference/facts.md#the-guarantees)): plain Julia's results or an error (G1); no load of an unrelated package discards the compiled code (G2), with the exceptions [facts §2.2](../reference/facts.md#g2) names.
+- **What it costs:** nothing for fully typed code. At a run-time site, plain Julia would speculate over the methods that match today (up to `max_methods`): type the result from them, inline them, evaluate them at compile time. The facts mode does none of this ([facts §4.2](../reference/facts.md#inferred-across-a-call)). After one run-time site, every call on its `Any` result is one too.
+- **Code that trait code reaches is compiled by facts too, whoever owns it** (Base's, and every package's), in the product setting ([facts §6.2](../reference/facts.md#the-mode-rule)). Trait code that loops over a `Vector{Any}` through Base's functions pays tens to hundreds of times plain code's cost per element ([evidence §2](../design/evidence.md#2-run-time), "idiomatic loops over heterogeneous containers", the interop column).
+- **Credit the right part.** Protection against loads is the facts mode's property, for any code it compiles. Traits add code compiled per key instead of per type, checks at the declaration, declared implementations instead of methods on internals, readable types, and code that says what it needs, which makes the facts mode cheap ([the rationale §2.4](../design.md#24-step-4-traits-say-what-code-needs-which-makes-the-facts-rule-cheap)).
+- **Measure the facts mode first, before any trait.** Run the workload three ways: upstream on the patched Julia; the package wrapped as a trait module (0.1a), in the product setting; and unchanged under `all`. In the product setting an unchanged package is plain code and gains nothing.
+
+### 0.1a Making an unchanged package a trait module
+
+- **How:** in the package's module file, `using TraitWorld`, then `@trait_module begin … end` around the package's `include`s ([traits §2](../reference/traits.md#2-trait-modules)). Submodules inherit the mode. TraitWorld becomes a dependency (with `[sources]`, mind B1 item 9).
+  - A port uses `@trait_module`, which also brings TraitWorld's checks: ownership, pirates, and strict mode's protection of trait code. The bare compiler option `Base.Experimental.@compiler_options facts=true`, which `@trait_module` sets ([compiler §2.1](../reference/compiler.md#21-the-module-option), [facts §6.1](../reference/facts.md#kinds-of-methods)), is a diagnostic for experiments, not a porting step.
+- **Each top-level statement runs after the ones before it** ([traits §2](../reference/traits.md#2-trait-modules)). Whether that holds up on a package of SciMLBase's or Makie's size is still to be seen.
+- **Package extensions are modules of their own.** An extension of a trait module is plain unless it is wrapped too. An extension that only declares implementations needs no wrapping (A4).
+- **Pirates are refused at their definition** (`OwnershipError`, [traits §10.2](../reference/traits.md#102-pirates)). Find them before wrapping, and move them to a plain module.
+  - **Split packages meet this at once.** DiffEqBase defines `solve(prob::AbstractDEProblem, args...; …)` (`ndport/pkgs/OrdinaryDiffEq.jl/lib/DiffEqBase/src/solve.jl:653`), a method of SciMLBase's function for SciMLBase's type.
+  - `TraitWorld.delegate!(Core => Impl)` serves strict mode only. The trait module's ownership check, `owned_method` (`TraitWorld/src/ownership.jl:213`), does not read delegates. The known delegates name `SciMLBase => OrdinaryDiffEq`, not DiffEqBase or OrdinaryDiffEqCore (`TraitWorld/src/strict.jl:26`).
+  - Where this blocks, it goes to the port's pushback log; it touches [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 20 (whether trait modules keep refusing every pirate).
+- **Compiler options** the package sets (`@max_methods 1` in SciMLBase, DiffEqBase, OrdinaryDiffEqCore and Makie; `@optlevel` in Observables): meant to apply in both modes; `compile` is ignored for facts code today (C-6). `@max_methods` changes nothing at a run-time site, where the facts mode speculates over nothing.
+- **Workloads:** once the module has bounded functions, the package's `@compile_workload` becomes `TraitWorld.@workload` inside the trait module, which fixes the entries first ([lowering §15.2](../reference/lowering.md#152-workloads)).
+
+### 0.2 Find the principled traits first
+
+A trait names what generic code needs from a value, not how a type stores it.
+
+- **Read the generic functions, not the types.** For each function users pass their own types to, list what it calls on the argument: `length`, `getindex`, `f(du, u, p, t)`, `integ.u`. That list is a trait.
+- **Find the seams:** the functions users extend for their own types (a right-hand side, a callback, a plot recipe, a column). Each seam is an operation.
+- **Operations or fields:** a declared field where code reads or writes stored data ([§3.3](../reference/traits.md#33-fields)); an operation otherwise, with its result type ([§3.1](../reference/traits.md#31-operations)). A computed property is no field: the library converts such a type ([§4.10](../reference/traits.md#410-types-that-only-convert)).
+- **Associated types:** element and parameter types become the trait's parameters ([§3.4](../reference/traits.md#34-parameters-and-associated-types)):
+
+  ```julia
+  @trait ODEProblemTrait{T, P} begin             # TraitDifferentialEquations/src/ODECore.jl
+      @const u0::Vector{T}                       # T and P defined by the fields' types
+      @const tspan::Tuple{Float64, Float64}
+      @const p::P
+      rhs!(prob::ODEProblemTrait{T, P}, du::Vector{T}, u::Vector{T}, t::Float64)::Nothing
+      jacobian!(prob::ODEProblemTrait{T, P}, J::Matrix{T}, u::Vector{T}, t::Float64)::Nothing = fd_jacobian!(prob, J, u, t)
+  end
+  ```
+- **`Self`** where code returns "a value like the input": `emptylike(c::CSVColumn)::Self`, or `::Like{t}` ([§3.5](../reference/traits.md#35-self), [§5.6](../reference/traits.md#56-results-declared-types-like-withfields)).
+- **How each type joins** ([§4](../reference/traits.md#4-implementations)):
+  - **An informal interface becomes a trait over its existing functions.** Graphs' `nv`, `ne`, `outneighbors`, SymbolicIndexingInterface's functions: declare the operations with qualified names, and let existing types join by their existing methods, one line or as a family over the abstract type, as BaseTraits does for Base's containers ([§3.1](../reference/traits.md#31-operations), [§4.7](../reference/traits.md#47-families), [§8.1](../reference/traits.md#81-basetraits-traits-for-bases-concepts)). The package's code does not change.
+
+    ```julia
+    # a sketch, not yet run
+    @trait Graph begin
+        Graphs.nv(g::Graph)::Int
+        Graphs.outneighbors(g::Graph, v::Int)::Vector{Int}
+    end
+    @implement Graph G where {G <: Graphs.AbstractGraph}
+    ```
+    Limits: a block of methods for an existing function only for types the package owns ([§10.1](../reference/traits.md#101-who-may-implement)); a bounded method on another package's function only where the package owns a trait the bound names ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)), and L-3. A function that returns another object to work on (`symbolic_container(x)`) is forwarding where the object is a stored field (`by`, [§4.3](../reference/traits.md#43-forwarding-with-by)), and a type that only converts where it is computed.
+  - by its own methods: a block, or one line after the methods;
+  - by forwarding to a field that holds the data, `@implement Positions Live{Matrix{Float64}} by val`: the type shares the code compiled for the field's type;
+  - as a family, for every instance of a parametric type; by a generic implementation, for every type that conforms to other traits.
+- **Supertraits and tuples:** `@trait CSVColumn{T} <: Column` when every implementation of the one is one of the other; `t::(ColTable, RowTable)` when a function needs both ([§3.6](../reference/traits.md#36-supertraits-and-bundles), [§3.7](../reference/traits.md#37-tuples-of-traits)).
+- **Concreteness is decided when the trait is published** ([§11.1](../reference/traits.md#111-per-trait-concrete-parameters-and-self)): adding it later breaks conforming types.
+- **Keep abstract types where a tree is right:** `Number`, `Real` and `Integer` stay ([§14](../reference/traits.md#14-membership)). For containers, a BaseTraits bound says what generic code needs ([§8](../reference/traits.md#8-collections)).
+- **Names:** an operation is a function of the trait's module; a common name clashes on `using` (B1 item 7).
+- **Write the traits down before the port, and revisit them** as the port meets real code.
+
+### 0.3 The order: seams first, a function at a time
+
+- **Layout:** an ordinary module around the trait module (A7). The ordinary layer keeps the public API: keyword parsing, conversions, name checks, printing. The trait module holds the work.
+- **Start where new user types enter.** A function users pass their own types to is the first to bound.
+- **One function at a time.** A bound ranks below every type in dispatch ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). Upstream's typed methods and the port's bounded ones stand side by side. An untyped method of the same shape does not, today (L-3): the bounded methods come first in the source, and only the function's owner adds a bounded method of a new shape. So the port adds the bounded method in the package that owns the function, above upstream's untyped method.
+- **Keyword APIs:** the ordinary layer takes the keywords and builds a concrete options struct; the bounded function takes it positionally (`SolverOptions` in `TraitDifferentialEquations/src/TraitDifferentialEquations.jl:69`). A keyword body compiles per set of keywords, so a workload covers the sets users pass (B1 item 11). `Callable` with keywords is Planned ([§5.7](../reference/traits.md#57-keywords-defaults-and-varargs)).
+- **Extensions become implementations** (A4).
+- **Workloads:** `@implement X T` in a package compiles ahead the bounded functions with one trait position and concrete other arguments; not varargs, nor several trait positions ([§13](../reference/traits.md#13-compiling-ahead), [lowering L-15](../reference/lowering.md#18-deviations)). A `TraitWorld.@workload` covers the rest.
+
+### 0.4 Where `Dynamic`, where `Compiled`
+
+The attribute chooses speed, never results ([§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.8](../reference/traits.md#68-costs-and-choosing)).
+
+- **A new user type should not compile the library again.** Where user types enter and a large library stands behind, take them `Dynamic`: `@default_with_dynamic_self` on the trait, or `Dynamic{X}` on a public function's bound (exported or `public`; elsewhere the annotation warns, [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)). `Callable` is `Dynamic` by default. Loops over the data run `compiled_for` the data (A12).
+- **A kernel whose work per call is large:** `@default_compiled_for_self` on its trait.
+- **Leave the choice to the caller** where both are useful: one port's experience (B2, "A stored function").
+- **Stored user functions,** including RuntimeGeneratedFunctions: a struct parameter bounded by `Callable` at the declared signature ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), B2).
+  - A generated function's type is not of the trait world, so at a bare `Callable` it is `Dynamic`: the library compiles once per signature, not per generated function. The package's own closures are of the trait world and run `Compiled` where the code knows their type ([§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)).
+  - T-51 limits a `Dynamic` function to six arguments. NetworkDynamics' edge function `g(ysrc, ydst, x, insrc, indst, p, t)` has seven, eight with external inputs: a blocking deviation, so a work item.
+  - Reflection on the function (a type inferred from `g`'s methods) runs on the plain function, before it is kept.
+- **Dual numbers through caches:** the buffer's element type is the problem's `T`; tag duals by the primal signature; fix the chunk (B2).
+- **What the caller passes:** values typed at the prompt, or by a top-level statement without a loop in a test or script, are `Dynamic` ([§6.2](../reference/traits.md#62-how-plain-values-enter-the-trait-world)). Test a `Compiled` path from inside a function, or with `compiled_for`.
+- **Items of mixed type:** take the user's container by its bound (`xs::Iterable{Shape}`, [§8.3](../reference/traits.md#83-a-users-container-taken-as-it-is)). A copy into `Vector{Dynamic{X}}` costs a pass and loses aliasing; the view over the user's container costs none within the split's four implementations ([evidence §2](../design/evidence.md#2-run-time), "idiomatic loops over heterogeneous containers").
+- **Which four:** the first four implementations declared take the fastest path, as known where the calling code was compiled. A library's image knows its own and its dependencies' implementations; with four of its own, a user's type takes the path beyond them ([§6.8](../reference/traits.md#68-costs-and-choosing)).
+
+### 0.5 What to keep plain
+
+- Bookkeeping, macros, printing to a terminal, options parsing, name checks: the ordinary layer (A5).
+- Abstract type hierarchies that are right as they are.
+- **Plain means: not in a trait module.** A plain function that trait code calls is compiled by facts on that path ([facts §6.2](../reference/facts.md#the-mode-rule)). Keep it plain only where trait code does not call it, or make it fully typed.
+- **Notification graphs:** TraitMakie keeps its `onchange` plain, and its trait code never calls it; it has no Observables. Where trait code reads an observable, its value's type is what the code knows: type the observable (`Observable{T}`), or read it at the boundary and assert. Makie has many `Observable{Any}`: measure with the dispatch profiler before porting Observables.
+
+### 0.6 How to check
+
+- **Per step:** the workload, with a digest of its results compared to upstream's, and a chosen part of upstream's suite: minutes at most. **At milestones:** the full suites (A6). Outside performance work, no benchmarks: a speed suspicion becomes an open issue. One Julia job at a time ([`../record/INDEX.md`](../record/INDEX.md), "Standing constraints").
+- **Compare with `==`**, not `≈`: the same arithmetic gives the same bits. Where `==` fails, check the site for `@muladd` or `@fastmath` before calling it a port bug, and record the case.
+- **A scripted session** that a user would type, run trait and plain (A8; B3's REPL harness).
+- **The tools:**
+  - `check_definitions(M)`: a trait module's definition check, on demand ([§9](../reference/traits.md#9-checks-and-when-they-run));
+  - `fully_typed(f, argtypes)` and `@warn_not_fully_typed`: the calls with unknown argument types and their root cause ([§11.3](../reference/traits.md#113-fully-typed-mode));
+  - `JULIA_FACTS_DISPATCH_PROFILE=1`: dynamic calls per callee and call site ([compiler §6.5](../reference/compiler.md#65-the-dispatch-profiler));
+  - `--trace-compile=stderr --trace-compile-timing` with a mark per step: what each step compiles, and `# recompile` where a load discarded code;
+  - `verify_main`: what a program reaches through trait code ([§13](../reference/traits.md#13-compiling-ahead)).
+- **Time a step twice in one session:** the second time separates run time from compilation. Time a first call whole. One harness per claim; say how many runs; keep a column without loads.
+- **Under `all`, a depot of its own** ([facts §12.2](../reference/facts.md#the-test-bed)): `JULIA_DEPOT_PATH=$TMPDIR/depot-facts:$HOME/.julia:`. The trailing `:` adds Julia's bundled depots, not the user's.
+
+### 0.7 Pushback
+
+- Record where idiomatic trait code meets a rule that hurts: the code, the idiomatic form, the reference section, whether it blocks.
+- A question for the user becomes an [open issue](../open-issues.md). A blocking Planned part or deviation becomes a work item.
+- Never change a reference to make a port pass.
+- Where code and a reference disagree and no Deviations row covers it, report it: whoever changes that reference adds the row (CLAUDE.md).
+
+---
 
 ## Part A. Rules every port confirms
 
-(Seeded from `explorations/dataframes-port-lessons.md` §1–3; to be confirmed or corrected by the ports.)
+One line per rule; the evidence is in part B, the rule's home in the references.
 
-1. **Say what code needs.** A field or container that holds "any column" is declared with the trait's name, `col::Column` or `Vector{Column}`, not `AbstractVector` or `Any`. In a trait module that means `Kept{Column}`: each column keeps its attribute ([traits §7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type)). Write `Dynamic{Column}` where every column should be `Dynamic`. An operation's result type is declared in the trait.
-2. **Make the hot path fully typed.** Every call at a fact signature ([the rationale §2](../design.md#2-the-argument-in-four-steps)): concrete argument types, small unions of them, or a closure's call. A type passed as a value, a non-constant global, an `Any` field, `parentmodule(@__MODULE__).f`: each is a run-time site, whose result is `Any`.
-3. **Public functions reach their work through bounds.** A package's public functions that should be cached reach their work through a bounded function, not through an untyped wrapper.
-4. **Extensions become implementations.** A package extension that adds methods to another package's internals becomes an implementation of a trait for the extension's type.
-5. **Keep plain what is plain.** Bookkeeping, macros, printing to a terminal, and the parts no hot path touches stay ordinary Julia; adopt traits one function at a time.
-6. **Upstream's tests decide.** A port that fails the upstream test suite is not a port.
+- **A1. Say what code needs:** fields and containers of a trait's name, results declared ([§7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type); B1, B3).
+- **A2. Make the hot path fully typed:** what makes a run-time site and the fixes, [facts §3](../reference/facts.md#facts-and-fact-signatures); B1 item 10, B4.
+- **A3. Public functions reach their work in a trait module,** bounded where user types enter ([lowering §2](../reference/lowering.md#2-modes-owners-and-images); B1 item 7, B2 "A front end", B3 "A report").
+- **A4. Extensions become implementations,** naming each trigger ([§10.1](../reference/traits.md#101-who-may-implement); B1 item 5, B3 "Tables", B4).
+- **A5. Keep plain what is plain,** and adopt traits one function at a time (0.5; `forks/README.md`, "Kept plain").
+- **A6. Upstream's tests decide** (B1 item 9).
+- **A7. A package is an ordinary module around its trait module** ([§2](../reference/traits.md#2-trait-modules); every demonstrator).
+- **A8. Keep a plain control, feature by feature, and compare outputs** (B2 "A scripted session", B3 "Keep the control").
+- **A9. Declare result types that catch the common mistake; assert where the type is unknown** ([§4.9](../reference/traits.md#49-checks-at-the-declaration), [§7.6](../reference/traits.md#76-equality-and-inference); B1 item 8, B2 "What a declared result catches", B3 "Recipes").
+- **A10. A kernel reads a value through its trait's operations; heavy library code runs over gathered cells** (B1 items 1–2, B3 "Tables").
+- **A11. A type passed as a value becomes a value that stands for it** (B1 item 5, B3 "Tables").
+- **A12. Take user types `Dynamic` at public entries; run loops `compiled_for` the data** ([§6.8](../reference/traits.md#68-costs-and-choosing); B3 "Recipes", B3 "Tables").
+
+---
 
 ## Part B. What each port teaches
 
-### B1. Tables, DataFrames, CSV (owner: the forks agent)
+### B1. Tables, DataFrames, CSV
 
-The port: forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`). Correctness only, no timing. Tested so far: Tables' suite green; CSV's suite run before its last two fixes; DataFrames by smoke checks only (`forks/README.md`, "Test status"). The joins and aggregates of item 1 are written, not yet run. Traits: `Column{T}` and `TableSource` (Tables), `CSVColumn{T} <: Column` and `TextColumn{T} <: Column` (CSV). Kernels: describe, sort, groupby codes, joins on one key, additive aggregates, row selection (DataFrames). The kernels read columns through the declared operations (implementation review P7).
+Forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstream`); paused. The upstream suites passed at forks 8c6366a ([`forks/README.md`](../../forks/README.md), "Test status"). Traits: `Column{T}`, `TableSource`, `CSVColumn{T} <: Column`, `TextColumn{T} <: Column`.
 
-**1. A kernel reads a value only through its trait's operations.**
-- If a kernel's first line is `v = vector(c)`, the trait is a barrier, not a bound. The key then buys nothing that `@nospecialize` and a function barrier do not.
-- Write the algorithm against the operations instead. Example: `refine!(perm, c, rev)` sorts `perm` with `lt = (i, j) -> isless(cell(c, i), cell(c, j))`; the inner join's merge, hash and integer-table paths read `cell(l, i)` and `cell(r, j)`.
-- A closure over a trait object may go to Base (`sort!`, `sum`): definition checking follows it.
-- Keep one operation for the API's way back (`vector(c)`, so `df.a === v` holds). Kernels do not call it.
+1. **A kernel reads through the operations.** `refine!(perm, c, rev)` sorts with `lt = (i, j) -> isless(cell(c, i), cell(c, j))`; the join reads `cell(l, i)`. A closure over a trait object may go to Base: definition checking follows it ([§5.3](../reference/traits.md#53-what-trait-code-may-do-with-a-trait-object)). One operation is the API's way back (`vector(c)`, so `df.a === v`); kernels do not call it.
+2. **Heavy library code runs over gathered cells.** `describe` gathers into `emptycells(c, n)::Vector{T}` and runs Statistics there: compiled once per `T`, shared by every column kind; only the gather loop is per key.
+3. **A `where` variable names an associated type:** `f(c::Column{T}) where {T}` gives `Dict{T, Int}()` ([§5.1](../reference/traits.md#51-bounds)). An empty comprehension gives `T` only through inference ([facts §2.1](../reference/facts.md#g1)).
+4. **What a type does by itself is an operation.** Row selection keeps a pooled column pooled, so `take(c, rows)` is an operation; reference pools go through DataAPI's functions.
+5. **A type passed as a value becomes a value that stands for it.** `stringtype = String15` passes a type; the port's reader makes `S[]` and calls `TextColumn`'s operations on it, and the InlineStrings extension declares implementations only.
+   - Guard a run-time `conforms(Vector{S}, TextColumn)` with a static test (`S <: AbstractString`); unguarded, every cell of `CSV.Rows` asks, and upstream's allocation test fails (`forks/README.md`).
+   - A family pattern must not admit more than it means: `Vector{<:Union{Missing, InlineString}}` admits `Vector{Missing}`. Spell out the members.
+6. **The values the reader fills are the conforming values:** `CSVColumn{T}` conforms for `Vector`, and the parse loop is one bounded function, `parsecells!(c::CSVColumn, …)`.
+7. **A constructor from a trait goes through a named bounded function:** `DataFrame(x)` stays plain and calls `fromsource(t::TableSource, copycols)`. A `nrow` operation collides with `DataAPI.nrow` on `using`; the operations are `tablenames`, `tablecolumn`, `tablerows`.
+8. **A declared result is checked at the implementation:** `tablecolumn(t, i) = tocolumn(columns(t.table)[i])` is refused, "returns `Any`, declared `Dynamic{Column}`". Assert inside: `tocolumn(…)::Dynamic{Column}`.
+9. **Upstream's tests catch what the port's checks miss:** a `Missing` string type, a per-cell allocation, an extension that fails to precompile (only its tests error).
+   - A path source in `[sources]` must also be in `[deps]` or `[extras]`.
+   - Pkg may not refresh a path package's `weakdeps` and `extensions` after its `Project.toml` changes: check that a new extension loads.
+   - Upstream's `@inferred` tests hold only where the port asserts its results: `DataFrame(::TableSource)` asserts.
+10. **Run-time sites in real code, and their fixes** (A2):
+    - an abstract argument type (`Any` fields, `Vector{Any}`, `Dict{Symbol, Any}`, non-constant globals);
+    - a type held as a `DataType` (`allocatecolumn(T, …)`): carry it as a value that stands for it, `Val(T)` or a type parameter;
+    - union-typed options meeting at one call: normalize them where they enter, assert where they are read. Two union-typed arguments of three types each are already a run-time site;
+    - a large stage's result typed `Any`: assert it, `p = _prepare(buf; kw...)::Prepared`;
+    - `parentmodule(@__MODULE__)._file(…)`: `const _CSV = parentmodule(@__MODULE__)`;
+    - a loop over mixed data: a BaseTraits bound first ([§8.3](../reference/traits.md#83-a-users-container-taken-as-it-is)); for Base's own internals over `Vector{Any}`, `invoke` at the declared signature is a fact ([facts §3](../reference/facts.md#facts-and-fact-signatures)).
+11. **Where compiled code lives.**
+    - Code for a key from one package and a function from another lives in no image unless a glue extension with a workload compiles it (`CSV/ext/CSVDataFramesExt.jl`): a plain-Julia remedy ([open issues §2](../open-issues.md#2-design), item 28).
+    - A workload covers keyword sets and IO types: a keyword body compiles per set, a printer per IO type. Render into an `IOContext{IOBuffer}` with the terminal's properties, then write once.
+    - A standard library counts as Julia's code, so its methods on Base's types are followed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 19). SparseArrays' `vcat` wins at `vcat(::Int64, ::Vector{Int64})`, which CSV's reader reaches through `[0; v]`, so loading it recompiles the reader. In a hot path, avoid concatenation syntax on Base's types.
+12. **A storage change behind an adapter:** `DataFrame.columns::Vector{Dynamic{Column}}`, with `_columns(df)` a view that reads and writes through the kept values; the storage sites and the suite run unchanged.
 
-**2. Heavy library code goes over the cells, gathered into a plain vector, so it compiles per cell type.**
-- `describe` copies the cells into `emptycells(c, n)::Vector{T}` and runs Statistics on that.
-- Then `quantile!`, `std` and `extrema` compile once per `T`. Every column kind with those cells shares them: `Vector{Float64}`, a view, a pooled vector, a CSV column.
-- Only the small gather loop is per key. This is "compiled for what the bound sees" on a real library.
-- Upstream copies for `quantile!` anyway. For a `Vector` column the statistics run on an equal `Vector`, so the results are upstream's by construction (to be confirmed by DataFrames' suite).
+### B2. Differential equations
 
-**3. Name an associated type with a `where` variable.**
-- `f(c::Column{T}) where {T}` reads the column's element type in the body ([traits §5.1](../reference/traits.md#51-bounds)). It is a constant of the bounded function: `Dict{T, Int}()` for group codes, `T >: Missing` for `describe`.
-- A variable named by two bounds, `f(a::Column{T}, b::Column{T}) where {T}`, requires equal values; a call with different ones raises `TraitBoundError`.
-- An empty comprehension (`[cell(c, i) for i in 1:0]`) also gives `T`, but only through inference ([facts §2.1](../reference/facts.md#g1): a value decided by inference). Prefer the declared operation.
+`TraitDifferentialEquations` (TDE: Tsit5, Rodas5, callbacks, gradients), its user package `examples/LorenzModels`, its control `baselines/PlainODE` ([`TraitDifferentialEquations/README.md`](../../TraitDifferentialEquations/README.md)).
 
-**4. What a type does by itself is an operation, not a kernel.**
-- Row selection keeps the column's kind (a pooled column stays pooled). So `take(c, rows)::AbstractVector` is an operation; the family's method is `c[rows]`.
-- Reference pools are operations whose family method goes through DataAPI (`nlevels`, `levelcode`, `level`). Pooled and categorical columns need no separate trait and no extension: the family reads DataAPI's `refpool`/`refarray`, which those packages implement.
-- The plan's `RefColumn` subtrait was not needed: a kept `Column` is seen only through `Column`, so a kernel could not ask for a subtrait anyway.
+**A problem is a trait, with the library's own type as its canonical implementation.** `ODEProblemTrait{T, P}` (0.2) declares what the solver needs. TDE's `ODEProblem` implements it as a joint family; a user's problem type implements `rhs!` itself, and the solver compiles for it in the user's image.
 
-**5. A package extension on internal functions becomes implementations for a value that stands for the type.**
-- CSV's `stringtype = String15` passes a type. Upstream's InlineStrings extension added methods to seven internal functions (`_stringsink`, `_materializecolumn`, …).
-- The port: a trait `TextColumn{T} <: Column` over the column the text is converted into. The reader makes the value that stands for the type, `S[]`, and calls the operations on it: `textcolumn(c, maxlen, n, withmissing)` (the column `S` settles to; the auto width lives here), `settext!`, `rowtexttype`, `rowtext`.
-- The extension declares 18 implementations (`Vector{S}`, `Vector{Union{S, Missing}}` for 8 widths and `InlineString`), and nothing else. It adds no method to a CSV function.
-- The validation hook becomes a query: `conforms(Vector{S}, TextColumn)`. Guard it with a static test first (`S <: AbstractString`). Otherwise every typed cell of `CSV.Rows` asks the registry at run time: upstream's allocation test failed (192 bytes per cell).
-- A family pattern must not admit more than the implementation means. `Vector{<:Union{Missing, InlineString}}` admits `Vector{Missing}`, and `Missing` became a string type (two upstream tests failed). Spell out the members.
+```julia
+@implement ODEProblemTrait{T, LorenzParams{T}} LorenzProblem{T} where {T}   # examples/LorenzModels
+```
 
-**6. The values the reader fills are the conforming values.**
-- `CSVColumn{T} <: Column` conforms for `Vector` (the family): `TypedColumn{T}.values` and `UnionColumn{T}.uvalues`, the vectors the parse writes into.
-- The per-chunk parse loop is one bounded function, `parsecells!(c::CSVColumn, …)`. Each cell goes through `parsecell!`, whose family method calls CSV's own `parsevalue` for the cell type.
-- A user's cell type still enters as upstream's does (`types = MyT`, parsed through `Parsers.tryparse`), since the family covers every `Vector`. An implementation of its own for `Vector{MyT}` would be a more specific declaration; not tried.
+**A stored function, with the attribute left to the caller** ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)). The constructor is the bound: by default the field is `Dynamic{Callable{A, S}}`, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself.
 
-**7. A constructor from a trait goes through a named bounded function.**
-- `DataFrame(x)` stays plain. If `conforms(typeof(x), TableSource)`, it calls `fromsource(t::TableSource, copycols)`, a bounded function. `CSV.read(src, DataFrame)` arrives as `Tables.CopiedColumns(file)` and takes the same path.
-- An operation that is also a common name elsewhere clashes on `using`. `TableSource`'s `nrow` collided with `DataAPI.nrow` and `columnnames` with `Tables.columnnames`; the ops are `tablenames`, `tablecolumn`, `tablerows`.
+```julia
+struct ODEProblem{T,P,F<:Callable{RHSSig{P,T},Nothing},D<:Callable{DualSig{P,DUAL_CHUNK},Nothing}}
+    f::F; u0::Vector{T}; tspan::Tuple{Float64,Float64}; p::P; fd::D
+end
+solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())   # compiled for lorenz!
+```
+- The bound may name the struct's other parameters (`RHSSig{P, T}`).
+- For a second signature (the Jacobian's duals), a second bounded parameter, given the function itself: a kept value is seen at the signatures it entered with ([§6.5](../reference/traits.md#65-values-carry)). One parameter bounded by a tuple of `Callable`s is Planned ([§3.7](../reference/traits.md#37-tuples-of-traits), W-29; TDE adopts it in W-30).
 
-**8. An operation's declared result is checked at the implementation, so assert at abstract calls inside the operations' methods.**
-- `tablecolumn(t, i) = tocolumn(columns(t.table)[i])` was refused: "returns `Any`, declared `Dynamic{Column}`". The column's static type is `AbstractVector`. Assert the result: `tocolumn(…)::Dynamic{Column}`.
+**A front end.** `solve` is neither specialized nor inferred on the problem (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it; otherwise each caller's first call infers the solver's front end again. The front end is plain code, and a load can discard it: IntervalArithmetic's ForwardDiff extension did, and a new callback took over ten times as long (the README's dated table). Keep it thin.
 
-**9. Upstream's tests catch what the port's own checks miss.**
-- Each failure in the suites came from a port mistake that the smoke checks did not show: the `Missing` string type, the per-cell allocation, the extension's `Any` result (it failed to precompile, and only the extension's tests errored).
-- A path source in a package's `[sources]` must also be listed in `[deps]`, `[weakdeps]` is not enough: `Pkg.test` refuses ("Sources for `DataFrames` not listed in `deps` or `extras`"). Add it to `[extras]`.
+**A knob fixed, not a type parameter.** The dual chunk is a constant (`DUAL_CHUNK = 8`), so it is no part of the problem's type.
 
-**10. Workarounds this port needed in TraitWorld's place (reported to the parent).**
-- Family implementations in two packages can collide: the registry is keyed by a `gensym`, and counters start alike in each precompilation process. CSV advances its counter (`foreach(_ -> gensym(), 1:4096)`) until TraitWorld keys it by module.
-- A family member's results are not checked as a single type's are: the extension's `rowtext`, inferred `Any` against `AbstractString`, passed in a family implementation and was refused only when the family was split into single types.
+**What a declared result catches.** With `rhs!(…)::Nothing`, an in-place function that ends with `du .= …` is refused: a problem type at `@implement`; a plain function under `compiled_for` at its first use, as a family member that does not conform (`ImplementError`); a `Dynamic` one at its first call (`TypeError`). The check does not prove conversions: a `Float64` buffer in a problem generic in `T` fails at run time under `gradient`. Give the buffer the problem's `T`.
 
-### B2. Differential equations (owner: the solvers agent)
+**The state's element type is the problem's:** a loss promotes it (`LorenzProblem(eltype(p).(u0), …)`); the solver reads `T` from `u0::Vector{T}`.
 
-Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its user package `examples/LorenzModels`, its control `baselines/PlainODE` + `PlainLorenzModels`. Session 29; correctness only, no timing.
+**Callbacks** are types with implementations (`@implement Callback Bounce`), kept as `Vector{Callback}`, and see the integrator as an explicit `Dynamic{IntegratorView}(i)`: callback code compiles once. A callback that writes a parameter asserts its type, `integ.p::LorenzParams{Float64}` (opening a kept value at its own type is Open, [§7.1](../reference/traits.md#71-the-three-forms)).
 
-**A problem is a trait, with the library's own type as its canonical implementation.**
-- `ODEProblemTrait{T, P}` declares what the solver needs: fields `u0`, `tspan`, `p`, operations `rhs!` and `jacobian!` (with a default). `solve(prob, alg)` takes any implementation.
-- TDE's own `ODEProblem(f, u0, tspan, p)` implements it for a plain function. A user's problem type implements `rhs!` itself (`LorenzProblem{T}` in `examples/LorenzModels`); the solver compiles for that type, in the user's image, and its mistakes are caught at `@implement`.
-- The same arithmetic both ways gives the same values, bit for bit. Test with `==`, not `≈`: `test/routea.jl` compares `LorenzProblem` with `lorenz!`, `Bounce` with two closures, `RaiseSigma` with a closure that writes `p`.
+**Gradients:** ForwardDiff is called directly. A loss as `Dynamic{Callable{Tuple{Vector{D}}, D}}(loss)` makes ForwardDiff's driver compile once per signature; TDE tags the duals by the loss's primal signature.
 
-**A stored function, with the attribute left to the caller.**
-- Keep the function in a field whose type is a struct parameter bounded by `Callable` (`struct ODEProblem{T, P, F <: Callable{RHSSig{P, T}, Nothing}}`, [traits §7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)): the constructor applies the bound, so the field is `Dynamic{Callable{A, S}}` by default, the same type for every function, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself, and the solver compiles for it. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
-- The bound can name the struct's other parameters (`RHSSig{P, T}`), so every state and parameter type is served in both attributes.
-- To call the function at another signature (the Jacobian's dual numbers), give the struct a second bounded parameter at that signature and pass the function to both: each keeps the caller's attribute. A function kept at one signature is not seen at another; pass the function itself to each.
+**The plain control shows what the trait form saves:** PlainODE's default `jacobian!(m, J::Matrix{Float64}, …)` is ambiguous with a user's `jacobian!(m::Lorenz{T}, J::Matrix{T}, …)`; a trait's default belongs to the implementation.
 
-> **Planned, not implemented:** one parameter bounded by a tuple, `F <: (Callable{RHSSig{P, T}, Nothing}, Callable{DualSig{P, T}, Nothing})`: the function enters once and is seen at both signatures ([traits §3.7](../reference/traits.md#37-tuples-of-traits)).
+**A scripted session:** `scripts/session.jl trait|plain` runs new functions, problem types, callbacks, losses, Rodas5, `Float32` and an edit, and both print the same `RESULT` lines.
 
-**A front end that takes any problem.**
-- Make it neither specialized nor inferred on the problem's type (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it that is compiled per problem type. Otherwise every caller's first call infers the solver's front end again, and makes TDE's rows 1 and 2 2–3× slower.
+### B3. Plotting and the report
 
-**What a declared result type catches.**
-- SciML users often end an in-place function with `du .= …`, which returns `du`. With `rhs!(…)::Nothing` declared:
-  - a problem type is refused at `@implement`: "`rhs!` at Tuple{BadRet, …} returns `Vector{Float64}`, declared `Nothing`";
-  - a plain function fails at its first call (`TypeError: expected Nothing`), in both modes.
-- An out-of-place function `f(u, p, t)` fails at its first call with a `MethodError` for the declared arguments.
-- The check at `@implement` does not catch value conversions. A `Float64` buffer in a problem type generic in `T`, under `gradient`, passes the family member's check (inference does not prove `Float64(::Dual)` fails inside broadcasting) and fails at run time, deep in Base's broadcasting. Fix it in the type: give the buffer the problem's `T`.
+TraitMakie, and TraitReport with TraitTables and TraitCSV ([`TraitMakie/README.md`](../../TraitMakie/README.md), [`TraitReport/README.md`](../../TraitReport/README.md)).
 
-**The state's element type is the problem's.**
-- A dual problem (`LorenzProblem{Dual}`, built by a loss) holds a dual state: the loss promotes it, `LorenzProblem(eltype(p).(u0), tspan, p...)`. The solver reads `T` from the declared field `u0::Vector{T}`, so it needs no `where` variable in its bound.
-- TDE's `ODEProblem` promotes `u0` to the parameters' dual type itself, as SciML does.
+**Attributes are kept values; assignment converts.** A plot's colour, marker and data are fields of a trait's name, `Kept{X}`; `p.color = :red` converts to the field's type ([§7.3](../reference/traits.md#73-assigning-from-plain-code)). To translate first, define `Base.convert` to `Kept{X}`; the ordinary layer's checks run there, so `p.color = :magenta` is refused with the named colours.
 
-**Packages and callbacks.**
-- A package is an ordinary module around its trait module: `@trait_module` is not in scope at a package's top level. `LorenzModels` wraps `Models`, as TraitCSV wraps `CSVCore`.
-- A callback that changes a parameter opens `integ.p` at the type it expects: `p = integ.p::LorenzParams{Float64}; p.σ = cb.σ`. The parameters are mutable; `rhs!` reads σ through them on each call.
-- A callback type is a type with an implementation (`@implement Callback Bounce`), like a problem type. New ones at the prompt compile nothing in the solver.
+```julia
+Base.convert(::Type{Kept{ColorSpec}}, x) = Kept{ColorSpec}(_color(x))    # TraitMakie/src/TraitMakie.jl
+```
+- Three companion methods per trait let values that carry an attribute pass unchanged (`TraitMakie/src/TraitMakie.jl:73`–`76`). They name TraitWorld's internal types: the one exception to "write to the language".
+- Fields without a trait (`step::Symbol`) are checked where they are used.
 
-**Plain Julia shows what the trait form saves.**
-- In PlainODE the default Jacobian `jacobian!(m, J::Matrix{Float64}, u::Vector{Float64}, t::Float64)` was ambiguous with the user's `jacobian!(m::Lorenz{T}, J::Matrix{T}, …)`, at the first Rodas5 solve. The fix: an untyped default. In the trait form a default belongs to the implementation, so the question never arises.
-- Keep the control complete: each feature of the port has its plain twin (problem types, compiled mode, callback types, Rodas5), so that every later measurement has its control.
+**Recipes kept `Dynamic`, loops compiled per key.** The axis keeps `Dynamic{Plot}`; the public `add_*` functions take `Dynamic{Positions}`; each recipe calls its loop with `compiled_for` and asserts the result:
 
-**A scripted session as the correctness check.** `scripts/session.jl` runs a REPL-like session (each entry evaluated as the REPL does, in order): a precompiled problem type and its callbacks, a new function, the same in compiled mode, a new problem type, a new callback closure and type, two losses, Rodas5, `Float32`, and an edit of a function already used. The trait run and the plain run print the same `RESULT` lines.
+```julia
+datalimits(p::Lines) = limits(compiled_for(p.pos))::NTuple{4,Float64}    # TraitMakie/src/PlotCore.jl
+```
 
-### B3. Plotting and the report (owner: the plotting agent)
+**A parent rebuilds its children from its own fields before each use** (`refresh!` of `Hist`, `Stairs`, `Band`): a child follows every change of the parent, and a live source, without a notification graph.
 
-From TraitMakie step 2 and TraitReport with TraitTables and TraitCSV (session 29). Correctness only; nothing was timed.
+**Live data conforms by forwarding,** per parameter value (`@implement Positions Live{Matrix{Float64}} by val`); forwarding for a whole family is Planned.
 
-**Attributes that change shape are kept values, and assignment is a crossing.**
-- A plot's colour, marker and data are fields of a trait's name (`color::ColorSpec` in a trait module), so of type `Kept{X}`. `p.color = :red` at the prompt is Julia's `setproperty!`, which converts to the field's type.
-- A plain value stored there takes the trait's default ([traits §7.3](../reference/traits.md#73-assigning-from-plain-code)). A trait object, a kept value or a cast keeps its attribute.
-- To translate a value first, define `Base.convert` to `Kept{X}` for the trait: `Base.convert(::Type{Kept{ColorSpec}}, x) = Kept{ColorSpec}(check(x))`. The ordinary layer's checks run there too, so `p.color = :magenta` is refused with the list of named colours.
-- Add the companions that keep an attribute, or calls become ambiguous: `x::Kept{X}` returns `x`; a trait object, a `Dynamic{X}`, a `Compiled{X}` or a cast becomes `Kept{X}(x)` (`TraitMakie/src/TraitMakie.jl`).
-- The same conversion makes the default constructor take plain values: a user writes `Lines(matrix, :red, 2.0)` and the fields become kept values.
-- Fields without a bound (`step::Symbol`) are not checked when set; check them where they are used, with the same message.
+**Tables.** TraitTables keeps columns as `Vector{Column}`; each summary runs `summarize(compiled_for(t.cols[k]), name)`. TraitCSV passes candidate column types as empty columns and returns parsed columns `Dynamic`:
 
-**A recipe with children rebuilds its children from its own fields before each use.**
-- `Hist` keeps the sample, `bins` and `color`; `refresh!(h)` recomputes its `Bars` child's points, width and colour, then the child draws itself.
-- A child then follows every change of the parent, and a live source, with no notification graph. A cache between renders is an optimization for later.
-- A user's recipe made of the library's recipes is plain code: fields of the library's concrete recipe types, the trait's operations delegated to them, `@implement Plot Ribbon`.
+```julia
+col = fillcolumn(compiled_for(emptylike(c)), s, spans[k])::Union{Nothing,Dynamic{Column}}   # TraitCSV/src/CSVCore.jl
+```
+- Its InlineStrings extension declares `@implement CSVColumn Vector{String15}` and nothing else.
+- A `sizehint!` on a trait object fails the package's precompilation, naming the line: not an operation of `CSVColumn`.
+- TraitTables names a cell type from the cells; a `where` variable names it directly (B1 item 3).
 
-**Live data is a value that conforms by forwarding.**
-- A `Live{T}` with a field `val` conforms to `Positions` by `by val`. A trait object reads the user's object at its offsets, so a render after `live[] = new` sees the new value. A user's mutable type mutated in place works the same way.
-- The notification (`onchange`) is ordinary code.
-- Forwarding is declared per parameter value (`Live{Matrix{Float64}}`, `Live{Vector{NTuple{2,Float64}}}`); forwarding for a family is not in TraitWorld yet.
+**A report calls plain packages from its trait module.** TraitReport's trait module calls CSV and DataFrames as they are; a `DataFrame` does not conform, so the report converts it (`columns(df)::Columns`, [§4.10](../reference/traits.md#410-types-that-only-convert)).
 
-**Keep the control equivalent feature by feature, and compare outputs, not just tests.**
-- PlainPlots draws the same reference figures through the same Cairo calls; the test compares the two libraries' PNGs pixel by pixel, and both with committed references. A difference is a bug in one of them.
-- PlainTables prints the same summaries as TraitTables, missing cells included (`TraitReport/scripts/check.sh` diffs them for three datasets).
-- Where the trait form cannot name something, make the control compute it the same way. A bounded function cannot name the trait's associated type (`Column{T}`'s `T`), so TraitTables names a column's cell type from its cells, and PlainTables does the same instead of using `eltype`.
+**Controls compare outputs.** PlainPlots draws the same figures; the test compares PNGs pixel by pixel. PlainTables prints the same summaries (`TraitReport/scripts/check.sh`).
 
-**Validate names in the ordinary layer, with messages that list the choices.**
-- Symbols are values of one conforming type, so a bound cannot refuse `:magenta`. The ordinary layer checks colour, marker, step, alignment and bin count where they are given and lists the alternatives.
-- "A missing cell" errors name the fix (`skipmissing = true`).
+**Names are validated in the ordinary layer,** with messages that list the choices: a bound cannot refuse `:magenta`, since every symbol is one conforming type.
 
-**A scripted REPL session is the correctness check for interactivity.**
-- Feed a session line by line to a real REPL on a pseudo-terminal (`script -qec "julia -i" /dev/null < session.jl`) and print `CHECK <what> ok` lines. Strip terminal escapes before matching (`sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'`).
-- Each session defines a new data type, a new plot type and changes an attribute at the prompt (`TraitMakie/scripts/session.jl`, `TraitReport/scripts/session.jl`).
-- The REPL displays every result, which tests do not. TraitReport's session found that printing a table with a `String15` column raised a `TypeError`: `string` of an InlineStrings value keeps its type, and the printer asserted `String`. List the `ERROR` lines of the transcript and allow only the deliberate mistakes.
-- A result type asserted in trait code (`cellstring(c, i)::String`) holds for the implementations you tested, not for the ones an extension adds later. Convert where the type matters (`String(string(x))`).
+**A scripted REPL session checks interactivity.** Feed a session to a real REPL on a pseudo-terminal (`script -qec "julia -i" /dev/null < session.jl`), print `CHECK <what> ok` lines, strip terminal escapes, allow only deliberate `ERROR` lines. The REPL displays every result, which tests do not: `string` of a `String15` stays a `String15`, so convert where the type matters, `String(string(cell(c, i)))`.
 
-### B4. Small examples and acceptance cases (owner: the examples agent)
+### B4. Small examples and acceptance cases
 
-From `experiments/facts/framing/` and `experiments/examples/` (READMEs there). "Shown" means run once in session 29, with TraitWorld's own policy; "expected" means written but not yet run.
+`experiments/facts/framing/` and `experiments/examples/`; their READMEs give each case and its last run.
 
-- **Fully typed code is safe from everyone but stakeholders and pirates. Check it, do not assume it.** S1–S10 ran in plain Julia and in the facts mode, as the design says. A stakeholder's method (S4), a winning pirate (S5) and a redefined `const` (S7, S10) invalidate code at concrete signatures. Nothing else does in facts mode. Shown: `facts/framing/inval_cases.jl`, 20/20 in both modes.
-- **A hook on your own type hurts callers only at narrow abstract signatures.** `Base.show(io, ::MyIrr)` invalidates a caller at `show(::IOBuffer, ::AbstractIrrational)` (S1b). On 1.13 it leaves a caller at `show(::IOBuffer, ::Any)` alone, since a call with many matches records no edge (S1c). So the fragile code is the half-abstract kind: `Vector{AbstractShape}` with two or three methods. Shown: S1b, S1c.
-- **Do not splat a collection into a call in trait code.** `vcat(xs...)` with many arguments compiles at a widened `Vararg` signature. That signature is not a fact signature. Under facts every call inside it is a run-time site, over the whole argument tuple each time. Write `copy(xs)` or `reduce(vcat, parts)` instead. Shown: `facts/framing/vararg_splat.jl` (10 run-time sites in facts mode, none plain; Julia's core.jl #10981 does not finish). A tuple of concrete types ending in a concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened `Vararg{Any}` tail is not. To recheck against this case.
-- **Customize trait code by implementations, never by a method of someone else's function for someone else's type.** A harmless-looking pirate (`+` on the solver's duals, same values) is refused under strict mode at its definition, and the pirate never runs, for plain code either. In the default tier it is followed and recompiles the solver's dual code. Shown: `examples/strict/dual_pirate.jl`. At the prompt the definer is `Main`: write `@eval Owner f(…) = …` when you are the owner (TraitWorld `test/strict.jl`).
-- **Until piece 15, strict mode guards only against pirates that load after the code they break.** A pirate defined or loaded before a trait package's image is followed silently, in both tiers. Shown: `pirate_tiers.jl before|prompt-before`, `dual_pirate.jl before` (2,192 pirate calls under strict mode).
-- **An extension method at a fact invalidates; an extension's implementation does not.** S9: an owner's extension that adds `score(::Float64)` invalidates the trait code that calls it, in both tiers. This is the named exception, and the extension rule is open. Shown: `s9_extension.jl`. A glue extension that only declares implementations (`examples/extension/glue.jl`) is expected to invalidate nothing.
-- **Do not configure trait code through a `const` that someone else redefines.** A const redefined from another module invalidates the trait code that read it. No tier sees it: there is no rule and no hook for bindings. Pass configuration as an argument or a field. Shown: `pirate_tiers.jl binding` (strict tier).
-- **A `Dynamic` answers in the caller's world.** After redefinitions, a call pinned to an older world sees the old methods. An implementation declared later is seen only in the latest world. Shown: `g1_16_dynamic_world.jl`, 6/6 with witness tables off.
-- **Split-core packages need their delegate before they load.** Expected, from reading the code: the curated pairs are registered after a package loads, but its image is checked during activation (`examples/strict/split_core.jl`; see that README). `delegate!(Core => Impl)` takes both modules, so it cannot be declared ahead.
-- **Fully typed mode names root causes, not yet fixes.** Expected, from reading `concrete.jl`: a warning names the line and the root cause (an abstract field, a non-constant global, a boxed variable). The fix is not named. A type passed as a value warns about nothing, though it is a run-time site under facts. Both are the fully-typed certificate's job (`examples/warnings/teach.jl`).
+- **Check, do not assume:** S1–S10 (`inval_cases.jl`) show which definitions invalidate code at concrete signatures: a stakeholder's method, a winning pirate, a redefined `const`.
+- **A splat is a fact only with concrete elements** (`vararg_splat.jl`; [facts §3](../reference/facts.md#facts-and-fact-signatures)): splat collections of a concrete element type, or write `reduce(vcat, parts)`.
+- **Customize by implementations, never by a pirate** (`strict/dual_pirate.jl`; [§10.3](../reference/traits.md#103-strict-mode)). At the prompt the definer is `Main`: the owner writes `@eval Owner f(…) = …`.
+- **An extension's method at a fact is followed, with a warning in strict mode; an extension of implementations invalidates nothing** (`s9_extension.jl`, `extension/glue.jl`).
+- **Print types through a type printer**, not a method on `Type` ([compiler §5.3](../reference/compiler.md#53-type-printers)): `show(::IO, ::Type{<:X})` widens a function plain code calls at abstract signatures.
+- **Configure by arguments or fields**, not by a `const` another module redefines ([facts §2.2](../reference/facts.md#g2); `pirate_tiers.jl binding`).
+- **A `Dynamic` answers in the caller's world**, the set of methods a call sees, fixed when it starts (Julia's world age; `g1_16_dynamic_world.jl`).
+- **Errors at the declaration, not deep in a trace** (`errors/definition_errors.jl`; [§4.9](../reference/traits.md#49-checks-at-the-declaration)).
+- **Fully typed mode names the line, the root cause and a fix** (`warnings/teach.jl`; [§11.3](../reference/traits.md#113-fully-typed-mode)).
+- **One `Dynamic` position, many implementations, one compiled copy** (`heterogeneous/collections.jl`).
+- **One declaration per session:** a second `@implement`, or an override after it, is refused; restart Julia (`redefinition/prompt.jl`; [§4.9](../reference/traits.md#49-checks-at-the-declaration)).
+
+### B5. Networks of dynamical systems: NetworkDynamics, SciML, GraphMakie (W-32)
+
+The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-21-networkdynamics-port.md). The pushback log: [`../explorations/ndport-pushback.md`](../explorations/ndport-pushback.md) (created at its first entry).
+
+(To be filled by the port as it goes.)
+
+---
 
 ## Proposed for part A
 
-(Each item: the rule, the port that shows it, the example.)
+Rules one port shows; each links to its evidence.
 
-- **A field that users assign to needs a conversion at `X`.** Assignment from ordinary code (`p.color = :red`) is a crossing, and Julia's `setproperty!` converts to the field's type. TraitWorld converts a plain value for every trait, to the trait's default; a library that needs to translate a value first (a symbol to a colour) defines `Base.convert` to `Kept{X}` for its trait. Shown by TraitMakie step 2 (`src/TraitMakie.jl`); B3.
-- **Keep the plain control equivalent feature by feature, and compare its outputs with the trait form's.** Shown by TraitMakie (five figures pixel-identical with PlainPlots) and TraitReport (`scripts/check.sh`: the same summaries and PNGs with PlainTables on three datasets); B3. Example: a test that renders the same figure with both libraries and compares pixels. Also TraitDifferentialEquations: `scripts/session.jl trait|plain` prints identical `RESULT` lines with PlainODE (B2).
-- **Leave a function's attribute to the caller, and serve both with one struct.** Keep it at a struct parameter bounded by `Callable` (`ODEProblem{T, P, F, D}`); `Callable`'s default is `Dynamic`, the user asks `compiled_for(f)`. The attribute changes speed, never values. Shown by TraitDifferentialEquations (`ODEProblem`; `test/compiledcall.jl`: identical solutions either way); B2.
-- **A package is an ordinary module around its trait module.** `@trait_module` is not in scope at a package's top level. Shown by TraitDifferentialEquations (`ODECore`), TraitCSV (`CSVCore`) and `examples/LorenzModels` (`Models`); B2.
-- **Declare result types that catch the common mistake.** `rhs!(…)::Nothing` refuses, at `@implement`, the in-place function whose last line `du .= …` returns `du`. Shown by TraitDifferentialEquations (`test/routea.jl`, case (c)); B2.
-- **Do not splat a collection into a call in trait code.** A call at a widened `Vararg` signature is no fact signature: under facts every call inside it is a run-time site over the whole tuple, quadratic in its length. Write `copy(xs)` or `reduce(vcat, parts)`, not `vcat(xs...)`. Shown by `experiments/facts/framing/vararg_splat.jl` (Julia's core.jl #10981 does not finish in facts mode); B4. A concrete `Vararg` tail is a fact signature ([facts §3](../reference/facts.md#facts-and-fact-signatures)); a widened one is not.
-- **Configure trait code by arguments or fields, not by a `const` another module redefines.** No tier of the guarantee sees bindings. Shown by `experiments/facts/framing/pirate_tiers.jl binding`; B4.
-- **A kernel reads a value only through its trait's operations; heavy library code runs over the gathered cells.** A first line `v = vector(c)` makes the trait a function barrier. Write sorts, joins and group codes against `cell`/`nrows`; for Base or Statistics over many cells, gather them into the trait's `Vector{T}` (`emptycells`) so that code compiles per cell type and is shared by every column kind. Shown by the forks (`DataFrames/src/other/kernels.jl`: `refine!`, `innerrows`, `firstcodes!`, `colstats`); B1. See implementation review P7.
-- **Name an associated type through an operation that returns it in a container.** `f(c::Column{T}) where {T}` is not supported; declare `emptycells(c::Column{T}, n)::Vector{T}` and write `T = eltype(emptycells(c, 0))`. Shown by the forks (`Tables/src/ColumnCore.jl`); B1. Also met by TraitReport (B3), which names `T` from the cells; a TraitWorld feature would serve both.
-- **A hook on a type passed as a value becomes implementations for a value that stands for the type.** For `stringtype = String15` the reader calls the trait's operations on `String15[]`; the extension declares `@implement TextColumn Vector{String15}` and adds no method to the package's functions. Guard the run-time `conforms` query with a static test (`S <: AbstractString`). Shown by the forks (`CSV/ext/CSVInlineStringsExt.jl`, `CSV/src/api.jl`); B1. Refines rule A4.
+- **A field users assign to converts at `X` when the value must be translated** (TraitMakie; B3 "Attributes").
+- **Leave a function's attribute to the caller, one struct serving both** (TDE; B2 "A stored function").
+- **Configure trait code by arguments or fields, not by a redefined `const`** (B4).
+- **Splat only collections of a concrete element type** (B4).
+- **Cover keyword sets and IO types in workloads** (the forks; B1 item 11).
+
+---
+
+## How this document is kept
+
+- Part 0 is the method for a new port; it cites parts A and B and the references.
+- Part A holds rules every port confirms, one line each.
+- **Each port owns its section of part B** and adds to it as it goes, in the present tense: what holds, shown by the port.
+- A port proposes a rule for part A under "Proposed for part A", naming its evidence. Whoever merges (the coordinator of the port in progress) moves it into part A once a second port confirms it.
+- Re-read the file before each edit: several ports edit it.
+- Style: short sentences, bullets, one idea per sentence, an example for each rule, in the current spelling. Numbers live in [`../design/evidence.md`](../design/evidence.md); link them.
