@@ -352,6 +352,9 @@ The meta plan: [`../plans/2026-10-21-networkdynamics-port.md`](../plans/2026-10-
 - **Code that leans on static values folding** (a tuple sliced by a computed range) needs a typed path once those values are run-time values; `fully_typed` on the helper finds it.
 - **A package's loop macro** (`Polyester.@batch`) hands its loop variables to that package's functions, not to a closure: the definition check refuses a trait object there. Read the expansion first.
 - **Beside upstream's per-style methods,** one method on a `Union` of styles is ambiguous: one method per style, each calling a shared internal function.
+- **After wrapping a package that other plain packages call on hot paths, profile the callers' steady state too.** No constant propagation crosses the modes ([facts §6.3](../reference/facts.md#calls-between-the-modes)): a plain caller's `x.field` on a wrapped package's `getproperty` overload infers to the union of all fields. With SciMLBase wrapped and its callers plain, the steady-state solve doubled (pushback P6-1). Check `x.field` against `getfield` (`ndport/scripts/p6_constprop_probe.jl`), and wrap a core together with its hot callers.
+- **`@joint_owners` works inside the wrap's `@trait_module begin … end`;** the census after loading tells whether the list of names is complete.
+- **A full workload with strict mode on and Makie loaded refuses OffsetArrays' `reshape` pirate** (Base's own code is protected): expected, not a regression (pushback P6-2).
 - **The first call of what a trait module reaches is compiled by facts in the session.** No image holds that code yet. NetworkDynamics' first fixed point took 21.9 s against 6.5 s plain, because NonlinearSolve's code reached from the trait module was compiled by facts. A precompile workload that covers the path moves this into the image.
 
 ---

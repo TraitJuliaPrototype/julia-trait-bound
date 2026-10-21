@@ -39,3 +39,30 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **Blocks:** no; the sequential and threaded styles carry the benefit.
 - **What the port did:** left `PolyesterExecution` typed. Joining it to the erased path would need a rule for trait objects passed through another package's loop machinery: a question only if wanted.
 
+## P6-1. Plain callers lose constant propagation into a wrapped package's `getproperty` overloads (facts §6.3)
+
+- **The code:** SciMLBase's `Base.getproperty` on its abstract types, each a `sym === :x ? … : getfield` switch: `DEIntegrator` (`integrator_interface.jl:833`), `AbstractSolution` (`solution_interface.jl:72`), `AbstractSciMLProblem` (`problem_interface.jl:1`), `AbstractSciMLFunction` (`scimlfunctions.jl:6190`). Their plain callers: DiffEqBase (`callbacks.jl:150–171`, `integrator.sol.stats.ncondition += 1`), OrdinaryDiffEqCore, Tsit5, Rosenbrock, LinearSolve.
+- **The idiomatic form:** an interface package overloads `getproperty` on its abstract types; callers write `x.field` and get the field's type by constant propagation of the `Symbol`.
+- **The reference:** [facts §6.3](../reference/facts.md#calls-between-the-modes): "No constant propagation crosses the modes." A facts method reached from plain code is still compiled by facts (§6.2).
+- **What it costs:** results bit for bit the same. With SciMLBase a trait module, each such field read in plain code infers to the union of the struct's field types, and the code after it dispatches at run time: the steady-state solve 29.2 against 15.0 ms; the first simulation's solve 30.9 against 11.1 s (E-155, S2; `ndport/logs/p6/NOTES.md`; `ndport/scripts/p6_constprop_probe.jl`). Nothing warns.
+- **Blocks:** the inside-out track's steady-state check at S2, while SciMLBase's hot callers are still plain.
+- **What the port did:** stopped at S2; [open issue 50](../open-issues.md#1-decisions-waiting-for-the-user). The track continues within the design (the hot callers become trait code at S3–S6).
+
+## P6-2. Strict mode refuses a plotting package's `reshape` pirate to protect Base's own code (facts §10.2)
+
+- **The code:** OffsetArrays' `Base.reshape(A::AbstractArray, inds::Tuple{Vararg{Union{Colon,Integer,AbstractUnitRange}}})`, loaded with Makie; Base's compiled `reshape(::Vector{Dict{Symbol,Any}}, ::Val)` holds the fact it would change.
+- **The idiomatic form:** a package that extends Base's array API for all arrays, a pirate by the letter, long accepted.
+- **The reference:** [facts §10.2](../reference/facts.md#strict-mode) and its note: strict mode also protects plain code of Base and the standard libraries ([traits §10.3](../reference/traits.md#103-strict-mode)).
+- **What it costs:** the method stays inactive in strict sessions that load Makie; the workload's results are unchanged; each strict run logs the refusal.
+- **Blocks:** no. Present before any SciML package is wrapped.
+- **What the port did:** nothing; recorded.
+
+## P6-3. A plain package's extension rewrites a wrapped core's facts at every load (traits §10.3; facts §2.2)
+
+- **The code:** `PreallocationToolsForwardDiffExt`'s `forwarddiff_compat_chunk_size(::Int)` wins at a fact of SciMLBase's keyword body; `SciMLBaseForwardDiffExt`'s `anyeltypedual` methods win at facts of `promote_u0`.
+- **The idiomatic form:** extensions that refine a function for a trigger's types, loaded whenever the trigger is.
+- **The reference:** an extension's winning method is its parent's change, a stakeholder's: followed, with a warning ([traits §10.3](../reference/traits.md#103-strict-mode)); G2's exception ([facts §2.2](../reference/facts.md#g2)).
+- **What it costs:** warnings at every load; SciMLBase's facts code at those sites compiles again; the solvers' load rose from 0.33 to 4.3 s at S2 (with strict mode off too; not yet attributed).
+- **Blocks:** no.
+- **What the port did:** nothing; the attribution is due with the track's check J.
+

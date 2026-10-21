@@ -116,6 +116,8 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 35. **The merge:** after P6's S6 and P4's step 2 or 3, before P4's step 4, in a fresh `env_merged` and `depot-merged`, on new `port` branches; one TraitWorld commit; strict off, then strict on; the steady-state reference P4 after open issue 48's fix (step d 33.1–41.2 ms, `ndport/logs/p4-issue48/`).
 36. **TraitWorld pinned** to 3bebf13 for S0–S7 (open issue 48 closed).
 
+37. **P6 continues past its failed check at S2** (option 1 of its notes): the hot callers become trait modules at S3–S6, and the steady state is judged there; the design question goes to the user as open issue 50. Reason: within the design, reversible, and its numbers inform open issue 50.
+
 ## State
 
 | Date | Step |
@@ -128,3 +130,4 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 | 2026-10-21 | The user: inside out under strict mode as a second track (P6), joint owners approved. Joint owners built (TraitWorld a373e30, traits §10.1); the P6 plan being written; the Graph step's plan written (`2026-10-21-ndport-graph.md`, review after E-152). |
 | 2026-10-21 | P4 step 1 done (E-152): the network's type independent of the equations; new equations compile 0.43–0.49 s against 15 s, nothing in SciML; results bit-equal; the steady state 46.8 against 15.3 ms from the crossing into a family member (open issue 48, pushback P4-1). The P6 plan written, in review. |
 | 2026-10-21 | Open issue 48 decided by the user (c) and built (TraitWorld 3bebf13): family members served by the table, held-value conversions at fact signatures; NetworkDynamics' right-hand side 5 allocations against 32, step d 33–41 against 47 ms (N 15.3). Open issue 49 (a typed call of a family member) and traits T-57 found. The P6 plan revised after its review; the Graph plan reviewed (start now, smaller). |
+| 2026-10-21 | P6 S0–S2 (E-155): S1 clean; at S2 SciMLBase wrapped doubles the steady-state solve, because plain callers lose constant propagation into its `getproperty` overloads (facts §6.3; pushback P6-1, open issue 50). The track continues to S3–S6 within the design. The full checks pass after open issue 48's TraitWorld change. |
