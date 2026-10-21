@@ -227,4 +227,12 @@ Written 2026-10-20 from the experiments' READMEs, [the evidence](../design/evide
 | E-138 | A glue extension that declares conformances: does loading it invalidate anything? | done (2026-10-20) | `examples/extension/glue.jl`; `examples/logs/extension-glue*.log` | 7 of 7 (shapes first), 5 of 5 (geometry first) pass | the logs |
 | E-139 | Do the tutorial's and the traits reference's examples run as written? | done (2026-10-19/20) | `experiments/docs-examples/` (`tutorial.jl`, `strict.jl`, `reference.jl`) | tutorial 64 checks, reference 56 checks (numbers from the proving plan); no run log kept | [proving the references §1](../plans/2026-10-20-proving-the-references.md); [traits/lowering review L10](../reviews/2026-10-19-references-traits-lowering-vs-code.md) |
 
-E-140 to E-142 are in section 4; E-143 to E-145 in section 9; E-146 in section 4; E-147 in section 7; E-148 in section 5.
+## 11. The large-scale port: NetworkDynamics (W-32)
+
+Upstream NetworkDynamics, SciML, GraphMakie and Observables, then the port a function at a time ([the meta plan](../plans/2026-10-21-networkdynamics-port.md)). Scripts and logs in `ndport/`, its own repository.
+
+| ID | Question | Status (date) | Where (scripts/logs) | Outcome | Written up in |
+|---|---|---|---|---|---|
+| E-151 | W-32 P1: the NetworkDynamics workload's baselines (tier S, upstream code without traits; [the P1 plan](../plans/2026-10-21-ndport-workload.md) §2). (1) Does tier S's first session run in under 2 minutes on the patched build? (2) Are the results the same in every setting: `env_port` exactly equal to `env_upstream`, and `all` and stock 1.13.2 within tolerance? (3) What does a change of equations (a new component function) compile again upstream, by package? **Would change the plan:** tier S over 2 minutes (trimmed by §2.4's rule); P0 differing from U in an exact field, or any setting failing a tolerance field (a bug, fixed before P3); the stack failing to precompile or run under `all` (a work item ahead of P3); "changed" compiling under 2 s upstream (then P4 aims at loads and first calls, not at the rerun). | running (2026-10-21) | `ndport/` (its own repository, not pushed): `scripts/workload.jl`, `workload_steps.jl`, `run_workload.sh`, `compare_digests.py`; `logs/setup/precompile-upstream.log`, `precompile-port.log`; `logs/p1-*/` | — | `ndport/README.md`; [the P1 plan](../plans/2026-10-21-ndport-workload.md) |
+
+E-140 to E-142 are in section 4; E-143 to E-145 in section 9; E-146 in section 4; E-147 in section 7; E-148 in section 5; E-149 in section 5; E-151 in section 11.

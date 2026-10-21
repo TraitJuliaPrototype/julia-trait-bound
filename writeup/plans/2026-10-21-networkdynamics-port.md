@@ -31,7 +31,7 @@ Status: **adopted** (the user, 2026-10-21; work item [W-32](../record/todo.md)).
 ## Where things are
 
 - **`ndport/`** (the workspace root; its own repository, ignored by the design repository): the workload, the environments, the scripts, the logs, and a README with dated tables of its own results.
-- **`ndport/pkgs/`**: the clones, each its own git repository. Each is on a branch `trait-port` that starts at the resolved release, tagged `upstream`, so `git diff upstream` is the port. The versions, commits and tree-hash checks are in `ndport/pkgs/VERSIONS.tsv`, written by `ndport/scripts/clone.sh`.
+- **`ndport/pkgs/`**: the clones, each its own git repository. Each is on a branch `trait-port` that starts at the resolved release, tagged `upstream`, so `git diff upstream` is the port. The versions, commits and tree-hash checks are in `ndport/VERSIONS.tsv`, written by `ndport/scripts/clone.sh`.
 
 | Package | Version | Repository (subdirectory) |
 |---|---|---|
@@ -73,4 +73,4 @@ Where idiomatic trait code pushes back against the design, the entry goes to [`.
 
 | Date | Step |
 |---|---|
-| 2026-10-21 | W-32 and this plan. `ndport/` created; the upstream environment resolved on the patched Julia (julia 1.13.2, 352 packages); the clones checked out at the resolved releases (`ndport/pkgs/VERSIONS.tsv`). |
+| 2026-10-21 | W-32 and this plan. `ndport/` created; the upstream environment resolved on the patched Julia (julia 1.13.2, 352 packages); the clones checked out at the resolved releases (`ndport/VERSIONS.tsv`). |
