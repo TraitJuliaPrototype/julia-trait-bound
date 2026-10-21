@@ -6,6 +6,8 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 
 **The current intended state, not the history.** The references, and every document that is not explicitly about the history (`design.md`, the glossary, `intro/`, `state.md`, the evidence, the comparison, the open issues, the work queue), describe the current intended state of the design, plus the deviations of the implementation from it. **Never the history:** not what was removed, replaced or decided against, not how a rule came about, not "was", "until <date>", "no longer", "superseded". Those have their own places: `design/alternatives.md` (what was considered, rejected or replaced, with the reason), the decision log, `record/design-history.md`, reviews, plans and session notes.
 
+**The demonstrators follow the design.** A demonstrator already built never constrains the design. When the design changes, the demonstrators are changed to follow it. Experience from writing idiomatic trait code in Julia feeds back into the design only through review: an open issue or a proposal, decided like any other change.
+
 ## Where each kind of content goes
 
 | Content | Its home | Rule |
