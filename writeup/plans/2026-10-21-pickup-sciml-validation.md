@@ -23,9 +23,19 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 - **The build changed:** every package image is rebuilt at its first use. `env_p6` is precompiled again (433 s); the other environments are not yet.
 - Open issue 52 (mine): concrete evaluation does not cross the modes.
 
+## Overnight (W-39)
+
+- **Running on the idle machine** (started 2026-10-21 21:52, `experiments/overnight-2026-10-21/run.sh`, detached): the environments re-precompiled on the new build; E-162 (the NetworkDynamics workload, five runs per setting U, P0, N, P4, I, A0, and order B); E-163 (the round of 2026-10-20 again: calls, the quick subset, the demonstrators' rows, the full BaseBenchmarks); E-164 (W-16's heterogeneous rows).
+- **First thing next session:** read `experiments/overnight-2026-10-21/logs/driver.log` (a line per part, with the load), then the summaries (`e162-summary.txt`, `e162-orderB-summary.txt`, `e162-digests.txt`, `compare-full.log`, `compare-*-vs-round.log`, `logs/demos/`, `hetero-idiomatic/logs/night1-*`); write the outcomes into the registry (E-162–E-164), the evidence and `ndport/README.md`; commit the logs (experiments, ndport).
+
+## Also reopened
+
+- **Open issue 54, hidden type parameters** (the user reopened it, 2026-10-21): the points where they came up are listed there; options to be worked out when the user takes it up.
+
 ## The next session: what to do, in order
 
-1. **Revise the W-34 plan by its review** (an Opus agent revises, the coordinator decides). The review's blockers and main points:
+1. **The W-34 plan:** revised by its review at the end of session 32 (see its status line); if adopted, start at step 2.
+   **Revise the W-34 plan by its review** (if not yet done) (an Opus agent revises, the coordinator decides). The review's blockers and main points:
    - renumber the plan's draft work items (W-35 is taken by the Makie/DataFrames strategies);
    - move 1's main form is form B (the right-hand side at bounded `Callable` parameters, as TraitDifferentialEquations has it; it needs no tuples of traits); form A (`ODERHS{P}` with the model kept `Dynamic`) cannot be declared for `ODEFunction` without a hidden type parameter, and costs a family-registry lookup per call (open issue 49): optional, after the user decides 49;
    - T-5 and T-57 read correctly now (T-57 corrected 2026-10-21); T-57 does not block moves 2 and 3 (the family without a block avoids it); the no-block family branch may skip the ownership check: probe it in E-156;
