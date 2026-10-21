@@ -3,8 +3,8 @@
 ## To resume
 
 1. `../CLAUDE.md`; `../writeup/record/todo.md`: W-2, W-3, W-6 (E-145) and W-15 are done, W-9 in part. What is queued is mostly measurement (W-5, W-7, W-8, W-16, W-17), held for performance work.
-2. For the user's review: open issues items 38 (what follows the split) and 39 (W-2's choices), both mine; the plan `../writeup/plans/2026-10-21-what-follows-the-split.md` and its review; a second review of tonight's code and of W-2 (`../writeup/reviews/2026-10-21-tonights-code-and-w2.md`, when written).
-3. julia-1.13 `trait-world-1.13` is at 711484a23e, built, with the facts image rebuilt. TraitWorld main 8d29f20; TraitDifferentialEquations main 2765285. Nothing is pushed.
+2. For the user's review: open issues items 38 (what follows the split) and 39 (W-2's choices), both mine; the plan `../writeup/plans/2026-10-21-what-follows-the-split.md` and its review; a second review of tonight's code and of W-2 (`../writeup/reviews/2026-10-21-tonights-code-and-w2.md`), with what was done.
+3. julia-1.13 `trait-world-1.13` is at 6d480d0753, built, with the facts image rebuilt. TraitWorld main 4834cfc; TraitDifferentialEquations main 7ff312d. Nothing is pushed.
 
 ## The user's words (in order)
 
@@ -24,3 +24,4 @@
 - **W-3:** traits §16 compares traits and abstract types rule by rule; `B <: A` between traits is `false` today (verified, T-23); the glossary and `intro/traits-for-julia.md`.
 - **W-9 in part:** a split's table kept in a package image (HShapes) is filled again in a new session; the tables under 4 threads; acceptance G1.25 (`compiled_for` from an untyped caller, worlds); two stale examples fixed (ErasedP, ahead). Acceptance 25 of 25 in both settings; the examples all pass.
 - **W-15:** `g2all.jl` ported to the problem trait and run again: 0 of 12,835 facts-owned CodeInstances lost after ten loads; F-11 narrowed to `all` and the loads-first order.
+- **The second review** (Fable): high, the split table's typed call copied mutable arguments and failed on results with references (C ABI by value): fixed (isbits by value, else boxed; julia-1.13 6d480d0753), with G1.26, which failed before and passes now (26 of 26, both settings; every suite passes). W-2: the function at the duals kept as a typed field with the chunk fixed at 8 (TDE 7ff312d); TraitWorld makes a stored function's pointer at its first call (4834cfc). The rows once more: rows 1–2 at their earlier values, callbacks' pointers now made inside the rows' window.
