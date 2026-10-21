@@ -38,6 +38,7 @@ Write to TraitWorld's language, never to its internals (names that start with `_
 | `struct S{F <: Callable{…}}; f::F; end` | a struct parameter bounded by a trait: the field keeps the value as its bound gives it | [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait) |
 | `Iterable{X}`, `Indexable{X}`, `Keyed{K, X}` | loops over a user's container, its items seen through `X` | [§8](../reference/traits.md#8-collections) |
 | `TraitWorld.strict!(true)`, `TraitWorld.delegate!(Core => Impl)` | refuse a pirate that would change trait code | [§10.3](../reference/traits.md#103-strict-mode) |
+| `@joint_owners P1 P2` | in a package's module: the packages named own its functions and types with it (split packages) | [§10.1](../reference/traits.md#101-who-may-implement) |
 | `@warn_not_fully_typed`, `@enforce_fully_typed`, `fully_typed(f, types)` | find the calls whose argument types are unknown | [§11.3](../reference/traits.md#113-fully-typed-mode) |
 | `TraitWorld.@workload begin … end` | a precompile workload for a trait module | [§13](../reference/traits.md#13-compiling-ahead) |
 
@@ -91,8 +92,9 @@ The method for a new port. It cites part A's rules and part B's evidence rather 
 - **Package extensions are modules of their own.** An extension of a trait module is plain unless it is wrapped too. An extension that only declares implementations needs no wrapping (A4).
 - **Pirates are refused at their definition** (`OwnershipError`, [traits §10.2](../reference/traits.md#102-pirates)). Find them before wrapping, and move them to a plain module.
   - **Split packages meet this at once.** DiffEqBase defines `solve(prob::AbstractDEProblem, args...; …)` (`ndport/pkgs/OrdinaryDiffEq.jl/lib/DiffEqBase/src/solve.jl:653`), a method of SciMLBase's function for SciMLBase's type.
-  - `TraitWorld.delegate!(Core => Impl)` serves strict mode only. The trait module's ownership check, `owned_method` (`TraitWorld/src/ownership.jl:213`), does not read delegates. The known delegates name `SciMLBase => OrdinaryDiffEq`, not DiffEqBase or OrdinaryDiffEqCore (`TraitWorld/src/strict.jl:26`).
-  - Where this blocks, it goes to the port's pushback log; it touches [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 20 (whether trait modules keep refusing every pirate).
+  - **The owner names its joint owners** (`@joint_owners DiffEqBase …` in SciMLBase; [traits §10.1](../reference/traits.md#101-who-may-implement), "Joint owners"). Their methods of the owner's functions on the owner's types are then no pirates, in a trait module and for strict mode. Wrap the owner first: the declaration is the owner's.
+  - Before declaring, check whether a pirate is a one-line move to the package that owns the function or a type; then move it (as Static's promotion rule was fixed where the rule is).
+  - `TraitWorld.delegate!(Core => Impl)` is data for strict mode only, where the owner has declared nothing.
 - **Compiler options** the package sets (`@max_methods 1` in SciMLBase, DiffEqBase, OrdinaryDiffEqCore and Makie; `@optlevel` in Observables): meant to apply in both modes; `compile` is ignored for facts code today (C-6). `@max_methods` changes nothing at a run-time site, where the facts mode speculates over nothing.
 - **Workloads:** once the module has bounded functions, the package's `@compile_workload` becomes `TraitWorld.@workload` inside the trait module, which fixes the entries first ([lowering §15.2](../reference/lowering.md#152-workloads)).
 
