@@ -13,7 +13,7 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 
 [Associated type](#associated-type) ·
 [Boundary and boundary method](#boundary-and-boundary-method) ·
-[Bundle](#supertrait-and-bundle) ·
+[Bundle](#supertrait-bundle-and-tuple-of-traits) ·
 [Bound and bounded function](#bound-and-bounded-function) ·
 [Call-site split](#call-site-split) ·
 [`Callable`](#callable) ·
@@ -65,7 +65,9 @@ The terms changed on 2026-10-19. Documents before that date say "conformance" fo
 [Strict mode](#strict-mode) ·
 [Trait](#trait) ·
 [Trait module, trait code, plain code](#trait-module) ·
+[Trait cast](#trait-cast) ·
 [Trait object](#trait-object) ·
+[Tuple of traits](#supertrait-bundle-and-tuple-of-traits) ·
 [View](#view-and-held-view) ·
 [`withfields`](#results-like-the-input-self-like-withfields) ·
 [World and world age](#world-and-world-age) ·
@@ -93,11 +95,11 @@ The entries are grouped by theme:
   - In Julia: abstract types play part of this role, without a checked contract. Base also uses "traits" for a dispatch pattern (`IndexStyle`, `IteratorSize`), known as "Holy traits": a value computed from a type, not a checked contract *(not in the research)*.
 - **Defined in:** [traits §3](reference/traits.md#3-trait-declarations); against abstract types: [§14](reference/traits.md#14-membership).
 
-### Supertrait and bundle
+### Supertrait, bundle and tuple of traits
 
-- **Here:** `@trait B <: A` makes `A` a supertrait of `B`: a type implementing `B` implements `A` too, and a `B` bound sees `A`'s operations. A **bundle** is a trait without a body that names a combination of traits: `@trait Table <: (ColTable, RowTable)`.
+- **Here:** `@trait B <: A` makes `A` a supertrait of `B`: a type implementing `B` implements `A` too, and a `B` bound sees `A`'s operations. A **bundle** is a trait without a body that names a combination of traits: `@trait Table <: (ColTable, RowTable)`. A **tuple of traits**, `(ColTable, RowTable)`, is a trait itself: the values that conform to each member. It stands wherever a trait stands; a bundle names one.
 - **Origin:** Rust's supertraits and Swift's protocol inheritance and composition (`P & Q`).
-- **Defined in:** [traits §3.6](reference/traits.md#36-supertraits-and-bundles).
+- **Defined in:** [traits §3.6](reference/traits.md#36-supertraits-and-bundles); tuples: [§3.7](reference/traits.md#37-tuples-of-traits).
 
 ### Operation
 
@@ -274,6 +276,12 @@ The entries are grouped by theme:
 - **Here:** `compiled_for(x)` and `with_dynamic(x)`, the only two ways to change a value's attribute. A cast always wins over defaults and annotations; of two casts, the later wins. Constructors and types never cast.
 - **Origin:** the project's term, from a cast between types; here between attributes. Julia's `@nospecialize` is a library's choice made in its own code; a cast is the caller's, per value.
 - **Defined in:** [traits §6.4](reference/traits.md#64-casts).
+
+### Trait cast
+
+- **Here:** seeing a value through another trait than it entered with, or a function at another signature, its attribute kept. Not part of the language: a possible direction (Optional). A value is seen through the traits it entered with; a tuple of traits enters it through all it needs.
+- **Origin:** a cast between abstract types, as the user named it (2026-10-21).
+- **Defined in:** [traits §6.9](reference/traits.md#69-trait-casts).
 
 ### Of the trait world
 

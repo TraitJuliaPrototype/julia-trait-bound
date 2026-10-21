@@ -87,7 +87,9 @@ Port: `TraitDifferentialEquations` (Tsit5, Rodas5, callbacks, gradients), its us
 **A stored function, with the attribute left to the caller.**
 - Keep the function in a field whose type is a struct parameter bounded by `Callable` (`struct ODEProblem{T, P, F <: Callable{RHSSig{P, T}, Nothing}}`, [traits §7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)): the constructor applies the bound, so the field is `Dynamic{Callable{A, S}}` by default, the same type for every function, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself, and the solver compiles for it. Example: `solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())`.
 - The bound can name the struct's other parameters (`RHSSig{P, T}`), so every state and parameter type is served in both attributes.
-- To call the function at another signature (the Jacobian's dual numbers), give the struct a second bounded parameter at that signature and pass the function to both: each keeps the caller's attribute.
+- To call the function at another signature (the Jacobian's dual numbers), give the struct a second bounded parameter at that signature and pass the function to both: each keeps the caller's attribute. A function kept at one signature is not seen at another; pass the function itself to each.
+
+> **Planned, not implemented:** one parameter bounded by a tuple, `F <: (Callable{RHSSig{P, T}, Nothing}, Callable{DualSig{P, T}, Nothing})`: the function enters once and is seen at both signatures ([traits §3.7](../reference/traits.md#37-tuples-of-traits)).
 
 **A front end that takes any problem.**
 - Make it neither specialized nor inferred on the problem's type (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it that is compiled per problem type. Otherwise every caller's first call infers the solver's front end again, and makes TDE's rows 1 and 2 2–3× slower.

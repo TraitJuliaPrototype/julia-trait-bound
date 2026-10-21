@@ -59,8 +59,8 @@ Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*   (*
 (* declaring a trait *)
 Trait          ::= "@trait" Name Params? ( "<:" Supertraits )? ( "begin" TraitItem* "end" )?
 Params         ::= "{" Param ( "," Param )* "}"
-Param          ::= Name ( "<:" Type )?
-Supertraits    ::= TraitRef | "(" TraitRef ( "," TraitRef )* ")"
+Param          ::= Name ( "<:" ( Type | TraitExpr ) )?
+Supertraits    ::= TraitExpr
 TraitItem      ::= Operation | Operation "=" Expr          (* an operation; a default *)
                  | "@const"? Name "::" Type                 (* a declared field *)
                  | Name "=" Expr                            (* an equation: a parameter as a function of Self *)
@@ -71,6 +71,8 @@ OpName         ::= Name | Module "." Name
 Receiver       ::= TraitName | TraitName "{" Type ( "," Type )* "}" | "Self"
 OpArg          ::= Name "::" Type | "::" Type | Name
 TraitRef       ::= TraitName ( "{" Type ( "," Type )* "}" )?
+TraitExpr      ::= TraitRef | CallableRef | "(" TraitExpr ( "," TraitExpr )* ")"   (* a trait; a tuple of traits is one (§3.7) *)
+CallableRef    ::= "Callable" "{" TupleType "," Type "}"
 
 (* joining a trait *)
 Implementation ::= "@implement" Traits Target How?
@@ -88,21 +90,17 @@ FieldMap       ::= FieldName "=>" FieldName
 Method         ::= FullyTyped? Concrete? Name "(" Arg* ( ";" KwArg* )? ")" ( "::" Result )? ( "where" TypeVars )? "=" Expr
 Arg            ::= Name "::" Bound | Name "::" Type | Name
                  | Arg "=" Expr                                      (* a positional default *)
-                 | Name "::" TraitBound "..."                        (* a vararg of trait objects *)
+                 | Name "::" TraitExpr "..."                         (* a vararg of trait objects *)
 KwArg          ::= ( Name "::" Bound | Name "::" Type | Name ) ( "=" Expr )?
-Bound          ::= TraitBound | Attribute "{" TraitBound "}"
-                 | CallableBound | "(" CallableBound ( "," CallableBound )* ")"
-TraitBound     ::= TraitRef | "(" TraitRef ( "," TraitRef )* ")"
-CallableBound  ::= CallableRef | Attribute "{" CallableRef "}"
-CallableRef    ::= "Callable" "{" TupleType "," Type "}"
+Bound          ::= TraitExpr | Attribute "{" TraitExpr "}"
 Attribute      ::= "Compiled" | "Dynamic"
-ItemParam      ::= TraitName | Attribute "{" TraitRef "}"       (* a bound's parameter naming a trait: an item position *)
+ItemParam      ::= TraitExpr | Attribute "{" TraitExpr "}"     (* a bound's parameter naming a trait: an item position *)
 Result         ::= Type | "Like" "{" ArgName "}"
 Struct         ::= "mutable"? "struct" Name ( "{" StructParam ( "," StructParam )* "}" )? StructBody "end"   (* StructBody: Julia's fields *)
-StructParam    ::= Name | Name "<:" Type | Name "<:" ( TraitBound | CallableRef )   (* the last: bounded by a trait *)
+StructParam    ::= Name | Name "<:" Type | Name "<:" TraitExpr     (* the last: bounded by a trait *)
 
 (* values *)
-KeptType       ::= KeptForm "{" ( TraitRef | CallableRef ) "}"
+KeptType       ::= KeptForm "{" TraitExpr "}"
 KeptForm       ::= "Dynamic" | "Compiled" | "Kept"
 Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"
 
@@ -110,13 +108,12 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"
 FamilyForward  ::= "@implement" Traits Type "by" FieldName "where" "{" TypeVar* "}"
 KwCallable     ::= "Callable" "{" TupleType "," Type "," NamedTupleType "}"
 OpenResult     ::= Name "::" "Callable" "{" TupleType "," Name "}" "where" Name
-DynamicMulti   ::= "Dynamic" "{" "(" TraitRef ( "," TraitRef )* ")" "}"
-BoundedClosure ::= "(" Name "::" TraitBound ")" "->" Expr
-Membership     ::= Expr "isa" TraitRef | Type "<:" TraitRef
+BoundedClosure ::= "(" Name "::" TraitExpr ")" "->" Expr
+Membership     ::= Expr "isa" TraitExpr | Type "<:" TraitExpr
 NamedImpl      ::= "Via" "{" Name "}" "(" Expr ")"
 ```
 
-The concreteness declaration with one level argument is planned too; its spelling is open ([§11](#11-concreteness-and-concrete-mode)).
+A tuple of traits is in the grammar wherever a trait is (`TraitExpr`); where it is built yet: [§3.7](#37-tuples-of-traits).
 
 **Status:** Implemented, except the forms under `(* planned *)` (Planned). TraitWorld also accepts forms that are not in this grammar: [T-12](#17-deviations) to [T-15](#17-deviations), and an unnamed receiver ([T-36](#17-deviations)).
 
@@ -299,6 +296,30 @@ end
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
 
 **Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
+
+### 3.7 Tuples of traits
+
+```julia
+t::(ColTable, RowTable)                                         # a bound
+both(f::(Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}), …)   # a function at two signatures
+struct ODEProblem{T, P, F <: (Callable{RHSSig{P, T}, Nothing}, Callable{DualSig{P, T}, Nothing})}   # a struct parameter
+    f::F
+    …
+end
+marks::Vector{(Shape, Placed)}                                  # in a trait module: each item Kept{(Shape, Placed)}
+Dynamic{(Shape, Placed)}(x)                                     # a kept value
+```
+
+- **A tuple of traits is a trait.** `(X, Y, …)` is the trait of the values that conform to each member: their intersection, not a union. Its operations and fields are its members'.
+- **It stands wherever a trait stands:** a bound, and an attribute on one; an item parameter; a parameter's trait bound; a supertrait list; a struct parameter's bound; a field's or an element type in a trait module; the kept forms; `@implement`, which implements each member ([§4.5](#45-several-traits-at-once)).
+- **`Callable` is a trait.** A tuple of `Callable`s is a function at several signatures: a call picks the signature its arguments match ([§5.8](#58-callable-functions-at-a-declared-signature)). A tuple may mix `Callable`s and other traits.
+- **A bundle names a tuple:** after `@trait Table <: (ColTable, RowTable)`, `Table` and `(ColTable, RowTable)` are the same trait ([§3.6](#36-supertraits-and-bundles)).
+- **One trait, whatever the order:** members are flattened (a tuple or a bundle inside a tuple), duplicates dropped, and the order does not matter.
+- **A value enters a tuple once,** and is seen through every member from then on. It has one attribute, decided as for one trait. Members' defaults that disagree cancel ([§6.3](#63-defaults-a-traits-default-and-annotations)).
+- **Parameters** stay each member's. A `Dynamic` form fixes the parameters each member's results use ([§5.1](#51-bounds)).
+- **A value seen through some members is not seen through the others** later: enter it through the tuple ([§6.5](#65-values-carry)).
+
+**Status:** Implemented for bounds and attributes on them, supertrait lists, bundles and `@implement`. Planned everywhere else a trait stands (struct parameters, kept forms, item parameters, fields and element types, parameters' trait bounds): [W-29](../record/todo.md).
 
 ---
 
@@ -527,7 +548,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 ### 5.1 Bounds
 
 - **A trait in an argument annotation is a bound.** `t::ColTable` accepts a value of any type that conforms to `ColTable`.
-- **Several bounds on one argument:** `t::(ColTable, RowTable)`. The value must conform to each. A bundle trait is the same thing named. Where the traits declare different defaults, neither applies ([§6.3](#63-defaults-a-traits-default-and-annotations)).
+- **Several bounds on one argument:** `t::(ColTable, RowTable)`, a tuple of traits ([§3.7](#37-tuples-of-traits)). The value must conform to each. A bundle trait is the same thing named. Where the traits declare different defaults, neither applies ([§6.3](#63-defaults-a-traits-default-and-annotations)).
 - **A bound may fix parameters:** `s::StateVector{Float64}`. A value conforming at another value is refused at the call with `TraitBoundError`.
 - **A bound may leave a parameter open** with a `where` variable: `f(prob::ODEProblemTrait{T}, u0::Vector{Float64}) where {T}`. The body reads `T`, the parameter's value for the value passed.
   - A variable shared between bounds, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, or with an ordinary argument, `f(v::KVec{T}, w::Vector{T}) where {T}`, requires equal values: `TraitBoundError` at the call otherwise.
@@ -659,7 +680,7 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
   - `Dynamic`: the library's code is compiled once per signature, not per function. After a method of the function is redefined, a call computes what a plain call would compute at that point.
   - `Compiled`: the library's code is compiled per function, with the function inferred into it, at plain Julia's speed. The signature is still checked.
 - A cast takes the signature of the position it reaches. `with_dynamic(abs2)` makes Base's function `Dynamic` too.
-- **Several signatures:** `f::(Callable{…}, Callable{…})`. A call picks the signature its arguments match; a call at an undeclared signature raises `MethodError`.
+- **Several signatures:** `f::(Callable{…}, Callable{…})`, a tuple of traits ([§3.7](#37-tuples-of-traits)). A call picks the signature its arguments match; a call at an undeclared signature raises `MethodError`.
 - Functions kept beyond a call: [§7.5](#75-functions-kept). How a call is made: [`lowering.md`](lowering.md#12-callable-and-dynamiccallable).
 
 **Rules.**
@@ -766,6 +787,8 @@ end
 
 Each decides only for a plain value. A value that carries an attribute keeps it at every position (§6.5).
 
+A tuple of traits stands wherever a trait's name stands in the table below, with the same meaning ([§3.7](#37-tuples-of-traits)).
+
 **What each spelling means, by position.**
 
 | Spelling | on a bounded function's argument | on a bound's item parameter | on an operation's argument | as a parameter of an argument's type (`cs::Vector{…}`) | as a field's or element type, inside a trait module | as a struct parameter's bound | outside trait modules |
@@ -810,8 +833,9 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **Storage keeps it.** A value read back from a field or a container has the attribute it was stored with ([§7](#7-kept-values-dynamicx-compiledx-keptx)). The items of a stored `Vector{Dynamic{Plot}}` are `Dynamic` at `Iterable{Compiled{Plot}}` too.
 - **Library to library:** a value one library passes to another's bounded function is already a trait-world value; the second library's defaults and annotations do not decide it again.
 - **Up and down:** a kept value that plain code holds and passes back keeps its attribute.
+- **A value is seen through the traits it entered with.** A kept value of `X` passed to a bound of another trait `Y`, or a function kept at one signature passed to a bound of another, is refused (`TraitBoundError`). Enter it through every trait it will be seen through, as a tuple ([§3.7](#37-tuples-of-traits)). Seeing a value through another trait later would be a *trait cast* ([§6.9](#69-trait-casts)).
 
-**Status:** Implemented.
+**Status:** Implemented, except the refusal at a bound of another trait ([T-53](#17-deviations)).
 
 ### 6.6 Items of a user's container
 
@@ -865,6 +889,17 @@ How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
 
 **Status:** Implemented. Optional: a witness carried in the value, and recompiling with the observed types ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 
+### 6.9 Trait casts
+
+- **A trait cast** would see a value through another trait than it entered with, or a function at another signature, keeping its attribute. A cast ([§6.4](#64-casts)) changes the attribute; a trait cast would change the traits.
+- **It is not part of the language.** A value is seen through the traits it entered with ([§6.5](#65-values-carry)); a tuple of traits enters it through all it needs ([§3.7](#37-tuples-of-traits)).
+- **As a possible direction,** it would be:
+  - explicit, by a kept form's constructor from a kept value of another trait, `Kept{B}(d)`, with the attribute kept;
+  - checked at the cast: the held object conforms to `B` (`TraitBoundError` otherwise); for a function, a method at the new signature whose inferred result is not disjoint from the declared one;
+  - for kept values that hold the user's whole object only. A trait object inside bounded code may hold only the parts its traits see, and the code compiled for it covers only those traits.
+
+**Status:** Optional.
+
 ---
 
 ## 7. Kept values: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`
@@ -904,7 +939,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 - For each item of a user's container, as it is read ([§6.6](#66-items-of-a-users-container)).
 - A trait object carrying another trait cannot become a kept value of `X` (`ArgumentError`).
 
-**Status:** Implemented. Planned: `Dynamic{(ColTable, RowTable)}`, a value seen through several traits (refused today: no such value can be made); a trait's own declared `==`; serialization of a kept value with its implementation ([open issues §2](../open-issues.md#2-design)). Open: opening a kept value at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
+**Status:** Implemented. Planned: the kept forms of a tuple of traits, `Dynamic{(ColTable, RowTable)}` ([§3.7](#37-tuples-of-traits); refused today: no such value can be made); a trait's own declared `==`; serialization of a kept value with its implementation ([open issues §2](../open-issues.md#2-design)). Open: opening a kept value at the conforming value's own concrete type, a checked downcast ([open issues §2](../open-issues.md#2-design), item 16). Today, assert it in plain Julia: `m = integ.p::Lorenz{Float64}`.
 
 ### 7.2 A trait's name as a storage type
 
@@ -943,7 +978,7 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 ```
 
 **Meaning.**
-- **Inside a trait module, a struct parameter whose upper bound is a trait or a `Callable`** (or an instance of either) is bounded by it. Its field keeps a value of that trait, as its bound gives it.
+- **Inside a trait module, a struct parameter whose upper bound is a trait, a `Callable`, or a tuple of them** ([§3.7](#37-tuples-of-traits)), or an instance of one, is bounded by it. Its field keeps a value of that trait, as its bound gives it.
 - **The parameter becomes the stored form's type:**
   - for a `Compiled` value, the user's object itself, whose type is the parameter; code over the struct is compiled per type, at plain Julia's speed. A `Compiled{X}` or a `Kept{X}` holding `Compiled` is opened by its type there;
   - for a `Dynamic` value, `Dynamic{X}`; code over the struct is compiled once.
@@ -958,7 +993,7 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 - Every other parameter is named by a field outside a bound.
 - A struct with a bounded parameter has no inner constructor of its own; write an outer constructor that calls the bounded one.
 
-**Status:** Implemented. Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
+**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
 
 ### 7.5 Functions kept
 
@@ -974,10 +1009,10 @@ callback(f) = FunctionCallback(Kept{Callable{Tuple{Vector{Float64}, Float64}, Bo
   - `Compiled{Callable{A, S}}`: the function itself; a call selects its code by its type;
   - `Kept{Callable{A, S}}`: either, with its attribute.
 - Each call is the checked call: the arguments against `A`, the result asserted to `S`.
-- **A function kept at one signature is the same function at another.** Passed to a bound of another signature, it is seen there with its attribute.
+- **A function is kept at the signatures it entered with.** To keep it at several, keep it as a tuple: `Dynamic{(Callable{A1, S1}, Callable{A2, S2})}`, or a struct parameter bounded by the tuple (§7.4). Passed to a bound of another signature, it is refused (`TraitBoundError`, [§6.5](#65-values-carry)).
 - **Kept at a struct parameter bounded by `Callable`, a function is the field itself** (§7.4): the function under `Compiled`, so the code that reads it is compiled per function; a `Dynamic{Callable{A, S}}` under `Dynamic`. TraitDifferentialEquations' `ODEProblem` keeps its right-hand side so.
 
-**Status:** Implemented.
+**Status:** Implemented, except: a function at a bound of another signature is accepted ([T-54](#17-deviations)); keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)).
 
 ### 7.6 Equality and inference
 
@@ -1040,6 +1075,7 @@ end
 
 - **A trait's name as a bound's parameter names an item position:** `shapes::Iterable{Shape}` is "something to iterate whose items are seen through `Shape`". Rust writes `impl Iterator<Item = impl Shape>` or `impl Iterator<Item = &dyn Shape>`, Swift `some Sequence<some Shape>` or `some Sequence<any Shape>`; here the item type in the caller's code chooses.
 - `Iterable{Compiled{Shape}}` and `Iterable{Dynamic{Shape}}` set the default for plain items. Each item's attribute: [§6.6](#66-items-of-a-users-container).
+- A tuple of traits names an item position too: `Iterable{(Shape, Placed)}` ([§3.7](#37-tuples-of-traits), Planned).
 - `total` is compiled per key of the collection. Over a `Vector{Circle}` it is compiled for `Circle` items. Over a `Vector{Any}`, each item is a `Kept{Shape}`, so each operation on it has a declared result type, not an argument and a result of type `Any`.
 
 **Status:** Implemented.
@@ -1304,6 +1340,10 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | a stated value checked against an equation | Planned | [§4.6](#46-stating-parameters), T-37 |
 | bounds on parameters, checked | Implemented | [§3.4](#34-parameters-and-associated-types) |
 | supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
+| tuples of traits: bounds, attributes on bounds, supertrait lists, `@implement` | Implemented | [§3.7](#37-tuples-of-traits) |
+| tuples of traits everywhere else a trait stands | Planned | [§3.7](#37-tuples-of-traits), W-29 |
+| a value seen through the traits it entered with | Implemented, except T-53, T-54 | [§6.5](#65-values-carry) |
+| trait casts | Optional | [§6.9](#69-trait-casts) |
 | supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | an operation's argument declared `Dynamic{Y}`, `Compiled{Y}`, `Kept{Y}`: a type | Implemented | [§3.1](#31-operations), [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | `@implement X T begin … end` | Implemented | [§4.1](#41-with-a-block-of-methods) |
@@ -1435,3 +1475,5 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-51 | [§5.8](#58-callable-functions-at-a-declared-signature) | A `Callable` takes any number of arguments, in either attribute. | A `Dynamic` function takes at most six: the erased call has fixed arities up to six. | `TraitWorld/src/core.jl` (`_CallWrap`, `Erased`'s call) |
 | T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
+| T-53 | [§6.5](#65-values-carry) | A kept value of `X` passed to a bound of another trait `Y` is refused (`TraitBoundError`). | It is accepted when its object conforms to `Y`: the entry assembles `Y`'s view from the held object, a trait cast. One whose object does not conform raises `MethodError`. | `TraitWorld/src/entry.jl` (`enter`, `_dyn_held`) |
+| T-54 | [§7.5](#75-functions-kept), [§6.5](#65-values-carry) | A function kept at one signature, passed to a bound of another signature, is refused (`TraitBoundError`). | It is accepted and seen there with its attribute: a `Dynamic` one through a new pointer (`_erased_at`), unchecked until its first call. TraitDifferentialEquations relies on it until its problem keeps the function as a tuple ([W-30](../record/todo.md)). | `TraitWorld/src/entry.jl` (`enter_callable`, `_erased_at`); `TraitDifferentialEquations/test/compiledcall.jl` |

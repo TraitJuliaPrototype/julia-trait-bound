@@ -275,3 +275,10 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 | the trait world and ordinary code, as worlds | trait code and plain code, compiled by facts or plainly | s29 |
 
 The verb stays: a type still *conforms to* a trait, and the query is still `conforms(T, X)`. The glossary's [retired terms](../glossary.md#retired-terms).
+
+## Seeing a value through another trait: trait casts, or tuples of traits
+
+- **What it was:** a function kept at one signature was the same function at another: passed to a `Callable` bound of another signature, it was seen there with its attribute, unchecked until its first call (W-18, mine, confirmed with open issue 39). A kept value of one trait passed to a bound of another was seen through it where its object conformed, without a rule saying so.
+- **The options (2026-10-21):** (a) *trait casts*, the user's name: seeing a value through another trait as one casts between abstract types, the attribute kept, checked at the cast; implicit at a bound, or explicit by a kept form's constructor; (b) a value enters through every trait it will be seen through, as a tuple of traits, and is seen through those only.
+- **Decided (the user: "Trait casts sound like a possible future extension then … We could define a tuple of Traits as a valid Trait"):** (b). A trait cast stays a possible direction (traits §6.9, Optional). The reasons: entering through a tuple covers the cases met (TraitDifferentialEquations' right-hand side at two signatures); a trait object inside bounded code may hold only the parts its traits see, so a cast there could fail for reasons the code cannot see, and the code compiled for it covers only its traits, which definition checking relies on.
+

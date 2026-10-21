@@ -478,7 +478,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 **At the entry,** `enter_callable(A, S, attribute, f)` (`entry.jl:720`; deviation [L-36](#18-deviations)):
 - a cast, `compiled_for(f)` or `with_dynamic(f)`, wins; it takes the position's signature;
-- a kept function, `Dynamic{Callable{…}}`, `Compiled{Callable{…}}` or `Kept{Callable{…}}` at any signature: its attribute, carried; a `Dynamic` one at another signature becomes `CObj{A, S}(Erased{A, S}(f))` of its function (`_erased_at`);
+- a kept function, `Dynamic{Callable{…}}`, `Compiled{Callable{…}}` or `Kept{Callable{…}}` at any signature: its attribute, carried; a `Dynamic` one at another signature becomes `CObj{A, S}(Erased{A, S}(f))` of its function (`_erased_at`; [traits T-54](traits.md#17-deviations): the design refuses it);
 - otherwise: the position's attribute (`Compiled{Callable{A, S}}`), else `Callable`'s default `Dynamic` for a function whose type is not of the trait world (`_tw_type`, `entry.jl:697`), else `Compiler.known_type(f)`;
 - `Compiled`: `CObj{A, S}(f)`; `Dynamic`: `CObj{A, S}(Erased{A, S}(f))`;
 - caches the wrapper per (signature, attribute, type) for functions that capture nothing.
@@ -505,7 +505,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 ## 13. `Dynamic{X}`
 
-**Status: Implemented** (deviations [L-6](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned** ([`traits.md#7-kept-values-dynamicx-compiledx-keptx`](traits.md#7-kept-values-dynamicx-compiledx-keptx)).
+**Status: Implemented** (deviations [L-6](#18-deviations), [L-25](#18-deviations), [L-31](#18-deviations)); `Dynamic{(X, Y)}` **Planned** ([`traits.md#37-tuples-of-traits`](traits.md#37-tuples-of-traits)): a tuple of traits needs an encoding as a type parameter, since a tuple is not one.
 
 **The representation:** three kept forms, each holding the user's object (`core.jl`):
 - `struct Dynamic{X}; t::Any; end` and `struct Compiled{X}; t::Any; end`, one attribute each;
