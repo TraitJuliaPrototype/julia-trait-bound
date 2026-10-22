@@ -21,7 +21,7 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 - Acceptance G1.27–G1.29 (29 of 29, product and `all`); every suite passes (`experiments/checks/logs/w33/`; under `all` the known F-8 hole).
 - SciMLBase's `getproperty` reads from plain code: 0 of 17 wider than `getfield` (17 of 17 before; `ndport/logs/p6-diag/constprop-w33.log`). The S2 steady state was not timed again.
 - **The build changed:** every package image is rebuilt at its first use. `env_p6` is precompiled again (433 s); the other environments are not yet.
-- Open issue 52 (mine): concrete evaluation does not cross the modes.
+- Open issue 52 decided (2026-10-22): concrete and semi-concrete evaluation cross the modes too (facts §6.3, F-18), W-41.
 
 ## Overnight (W-39)
 
@@ -35,7 +35,7 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 ## The next session: what to do, in order
 
 1. **The W-34 plan is adopted** (revised after its review at the end of session 32): form B for move 1 (the right-hand side at bounded `Callable` parameters, TraitDifferentialEquations' form); open issue 51 with options (a)–(e); work items W-36 (L-3), W-37 (the block forms of a family), W-38 (waiting for E-156); experiments E-156–E-161 registered as proposed; its choices 38–47 in the meta plan.
-2. **Put open issues 52 and 54 to the user** (decided 2026-10-22: 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
+2. **Put open issue 54 to the user** (decided 2026-10-22: 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
 3. **Run E-156** (the TraitWorld probes P1a–P15, predictions written in), then E-157 (move 1, form B, with move 5's check), E-158 (move 2), E-159 (move 3: Rodas5 moved out of TraitDifferentialEquations, a CommonSolve stand-in, the census's negative control), E-160 (move 4): the rows are in the registry; set each to running when it starts. W-36's study beside E-159.
 4. **On the port, in parallel where the lock allows:** G3 again; the P4/P6 merge on the current build; P4 step 3.
 

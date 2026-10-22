@@ -31,6 +31,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Claims withdrawn
 - Terms retired
 - Split packages: restructuring, or implementations, instead of joint owners
+- Concrete evaluation kept within a mode
 
 ---
 
@@ -299,3 +300,7 @@ The verb stays: a type still *conforms to* a trait, and the query is still `conf
   - Related: `promote_tspan` (DiffEqBase `solve.jl:858`) could move into SciMLBase; `Base.resize!(::LinearSolve.LinearCache, i)` (OrdinaryDiffEqDifferentiation `linsolve_utils.jl:124`) is a true pirate, to move into LinearSolve or replace by a function of OrdinaryDiffEq's own (Differentiation stays plain in P6); on the plotting side, Makie's moves into ComputePipeline and ShaderAbstractions.
 - **Implementations instead of methods** remove none of them: a pirate names no type its definer owns, and an implementation follows ordinary ownership.
 
+## Concrete evaluation kept within a mode
+
+- **The option:** a plain caller of code compiled by facts gets constant propagation only; concrete and semi-concrete evaluation do not cross, so the caller's edges stay on the constant's path (the agent building W-33, 2026-10-21; open issue 52).
+- **Why not:** the wider edge, to the callee's whole facts CodeInstance, costs little. Such a CodeInstance is invalidated only by a change to a fact it rests on, and inlining already crosses with the same edge. Crossing folds more (loops, lookups that constant propagation cannot evaluate) and infers less (the user, 2026-10-22: "trait code is never (rarely) invalidated, right? So the trade-off is actually mild?").

@@ -48,7 +48,7 @@ Status words:
 | Capability | Status | Needed | Action |
 |---|---|---|---|
 | Constant propagation from plain code into facts code ([facts §6.3](../reference/facts.md#63-calls-between-the-modes)) | Implemented (julia-1.13 2943086604) | for plain callers of a wrapped package (P6-1) | the P4/P6 merge confirms it on the workload (§4) |
-| Concrete evaluation across the modes | Open (open issue 52) | no | — |
+| Concrete evaluation across the modes | Planned (open issue 52, decided 2026-10-22; facts F-18, W-41) | no | — |
 | Extensions that rewrite a wrapped core's facts at load (P6-3) | Implemented as designed (followed, with a warning) | no | the attribution at the inside-out track's check J |
 
 ### 1.2 Move 1: the right-hand side
