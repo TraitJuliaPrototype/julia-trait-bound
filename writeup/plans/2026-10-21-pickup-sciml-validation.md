@@ -30,12 +30,12 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 
 ## Also reopened
 
-- **Open issue 54, hidden type parameters** (the user reopened it, 2026-10-21): the points where they came up are listed there; options to be worked out when the user takes it up.
+- **Open issue 54, hidden type parameters:** decided 2026-10-22 (closed item 54): the rejection stands; a bounded parameter may be declared at its field, `f::(F <: Bound)` (traits §7.4, W-42).
 
 ## The next session: what to do, in order
 
 1. **The W-34 plan is adopted** (revised after its review at the end of session 32): form B for move 1 (the right-hand side at bounded `Callable` parameters, TraitDifferentialEquations' form); open issue 51 with options (a)–(e); work items W-36 (L-3), W-37 (the block forms of a family), W-38 (waiting for E-156); experiments E-156–E-161 registered as proposed; its choices 38–47 in the meta plan.
-2. **Put open issue 54 to the user** (decided 2026-10-22: 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
+2. **Open issues decided 2026-10-22:** 54, hidden parameters stay rejected, the bound may be declared at its field (W-42); 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
 3. **Run E-156** (the TraitWorld probes P1a–P15, predictions written in), then E-157 (move 1, form B, with move 5's check), E-158 (move 2), E-159 (move 3: Rodas5 moved out of TraitDifferentialEquations, a CommonSolve stand-in, the census's negative control), E-160 (move 4): the rows are in the registry; set each to running when it starts. W-36's study beside E-159.
 4. **On the port, in parallel where the lock allows:** G3 again; the P4/P6 merge on the current build; P4 step 3.
 

@@ -994,7 +994,22 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 - Every other parameter is named by a field outside a bound.
 - A struct with a bounded parameter has no inner constructor of its own; write an outer constructor that calls the bounded one.
 
-**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
+**The bound at the field.** A bounded parameter may be declared where its field is:
+
+```julia
+struct ODEProblem{T, P}
+    f::(F <: Callable{RHSSig{P, T}, Nothing})   # ODEProblem{T, P, F <: Callable{…}} with f::F
+    u0::Vector{T}
+    p::P
+end
+```
+
+- `name::(F <: Bound)` adds the parameter `F <: Bound` to the struct and types the field by it. The struct is the one written with the parameter in its header.
+- The parameters added this way follow the header's, in the order of their fields.
+- The parameter is an ordinary one: it is printed, and it can be written (`ODEProblem{Float64, Nothing, typeof(lorenz!)}`).
+- Every rule above applies. A field written `f::Bound`, without a parameter, keeps a value of the trait (`Kept{X}`, §7.2).
+
+**Status:** Implemented, except the bound at the field: Planned (W-42, [T-60](#17-deviations)). Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
 
 ### 7.5 Functions kept
 
@@ -1510,3 +1525,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-57 | [§4.7](#47-families) | A family with a block of methods is declared as `@implement X A where {A <: S} begin … end`, by the trait's or the type's owner. | Declared outside the trait's module, it is refused by the rule-3 precheck, which evaluates `A` without its `where`. (The block form `@implement X S{T} where {T} begin … end` is not lowered as a family in any module: T-5.) The family without a block, by the type owner's own methods, avoids both. | `TraitWorld/src/implement.jl` (`_implement_where`, the precheck in `_op_method`); probes of 2026-10-21; [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md) |
 | T-58 | — | *Retired*: see [§5.2](#52-what-a-bounded-function-receives). | — | — |
 | T-59 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
+| T-60 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | A bounded parameter may be declared at its field, `f::(F <: Bound)`. | Not built: the struct lowering takes bounded parameters from the header only; `f::(F <: Bound)` in a trait module's struct is an error. W-42. | `TraitWorld` (the trait module's struct lowering) |

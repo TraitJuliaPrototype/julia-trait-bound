@@ -78,7 +78,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 
 **Numbers need no trait.** Base's numeric tower stays, and promotion runs on concrete types in Base. A numeric trait, for numbers that conform after the fact, would need operations across two receiver types, which is promotion; that is open.
 
-**No hidden type parameters:** a struct is never implicitly parametric in the types of fields declared by bounds ([`alternatives.md`](alternatives.md#other-options-considered-and-not-taken)). Stored state of a fixed type uses explicit parameters; of a changing type, `Dynamic{X}`.
+**No hidden type parameters:** a struct is never implicitly parametric in the types of fields declared by bounds ([`alternatives.md`](alternatives.md#other-options-considered-and-not-taken)). Stored state of a fixed type uses explicit parameters, declared in the header or at the field (`f::(F <: Bound)`, [traits §7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)); of a changing type, `Dynamic{X}`.
 
 ## 2. Implementations are declared
 
