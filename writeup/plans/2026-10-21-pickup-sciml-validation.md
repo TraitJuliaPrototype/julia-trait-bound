@@ -25,8 +25,8 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 
 ## Overnight (W-39)
 
-- **Running on the idle machine** (started 2026-10-21 21:52, `experiments/overnight-2026-10-21/run.sh`, detached): the environments re-precompiled on the new build; E-162 (the NetworkDynamics workload, five runs per setting U, P0, N, P4, I, A0, and order B); E-163 (the round of 2026-10-20 again: calls, the quick subset, the demonstrators' rows, the full BaseBenchmarks); E-164 (W-16's heterogeneous rows).
-- **First thing next session:** read `experiments/overnight-2026-10-21/logs/driver.log` (a line per part, with the load), then the summaries (`e162-summary.txt`, `e162-orderB-summary.txt`, `e162-digests.txt`, `compare-full.log`, `compare-*-vs-round.log`, `logs/demos/`, `hetero-idiomatic/logs/night1-*`); write the outcomes into the registry (E-162–E-164), the evidence and `ndport/README.md`; commit the logs (experiments, ndport).
+- **Not run.** The launch of 2026-10-21 21:52 died at its first step: it was started from the sandboxed Bash tool, which ends every process it started when the command returns (`experiments/overnight-2026-10-21/README.md`). No measurements; E-162–E-164 are back to proposed.
+- **To do:** start `experiments/overnight-2026-10-21/run.sh` again from outside the sandbox (the README says how) when the machine can be left to it for several hours. It holds the Julia lock throughout. Then read `logs/driver.log` and the summaries, and write the outcomes into the registry, the evidence and `ndport/README.md`.
 
 ## Also reopened
 
