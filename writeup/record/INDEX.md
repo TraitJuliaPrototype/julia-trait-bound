@@ -34,7 +34,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 Read, in this order:
 1. [`../../CLAUDE.md`](../../CLAUDE.md): the rules for the documents.
 2. **The pick-up note** [`../plans/2026-10-21-pickup-sciml-validation.md`](../plans/2026-10-21-pickup-sciml-validation.md): where the work stands and what to do next (W-34, validating the SciML strategy).
-3. [`todo.md`](todo.md): the work queue. The next item is marked **next** (since 2026-10-21: W-34). The latest session note, [`../../session-notes/2026-10-21-32-values-carry-through-storage.md`](../../session-notes/2026-10-21-32-values-carry-through-storage.md): "To resume", then what was done.
+3. [`todo.md`](todo.md): the work queue. The next item is marked **next** (since 2026-10-21: W-34). The latest session note, [`../../session-notes/2026-10-22-33-decisions-and-validation.md`](../../session-notes/2026-10-22-33-decisions-and-validation.md): "To resume", then what was done; the pick-up note [`../plans/2026-10-21-pickup-sciml-validation.md`](../plans/2026-10-21-pickup-sciml-validation.md).
 4. [`../state.md`](../state.md), then the references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
 5. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 
