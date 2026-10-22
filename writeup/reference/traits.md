@@ -295,8 +295,12 @@ end
 - `@implement B T` implements `B`'s own operations. `T` must conform to `A` too, by its own implementation.
 - **A type's implementation of `B` must agree with its implementation of `A`:** the same forwarding field, or both served by the type's own methods, with the fields mapped alike. A disagreement is refused.
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
+- **A supertrait with parameters,** `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`, takes the subtrait's parameters by name:
+  - a type implements `Integrator` at `U, T, P` only if it implements `IntegratorView` at the same values;
+  - a subtrait's parameter that a supertrait's field defines takes its value from there;
+  - the supertrait's parameters are written with the subtrait's variables, constants and type constructors, as a joint family's are ([§4.7](#47-families)).
 
-**Status:** Implemented. The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own. **Open:** a supertrait with parameters, `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`: how the subtrait's parameters bind the supertrait's ([open issue 55](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Status:** Implemented, except a supertrait with parameters: Planned (W-46, [T-67](#17-deviations)). The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
 
 ### 3.7 Tuples of traits
 
@@ -1536,3 +1540,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-64 | [§6.2](#62-how-plain-values-enter-the-trait-world) | An operation's result declared with a trait is `Dynamic`: its declared type is the trait. | The call asserts the result to the trait's type (`TypeError`), and a member's first-use check compares the inferred result with the trait's type and refuses a conforming implementation ("returns `Tsit5Integ{…}`, declared `Integrator{…}`"). W-45. | `TraitWorld/src/core.jl:1060` (`opcall`, `return x::RT`); julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P12, P14 |
 | T-65 | [§5.3](#53-what-trait-code-may-do-with-a-trait-object) | Trait code reads and writes a declared field as Julia reads and writes a field, in-place broadcasts included. | `integ.u .+= du` on a declared field is refused (`TraitUseError`): Julia lowers it to `Base.dotgetproperty`, which the definition check takes for an ordinary function. `u = integ.u; u .+= du` works. W-45. | `TraitWorld/src/checks.jl:150`, `:218`; julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P11 |
 | T-66 | [§5.5](#55-dispatch-types-first-then-traits) | A bounded method in a trait module defines a method of the function its name resolves to as in Julia: a name not imported or used before is a new function of the module. | `peek(x::X) = …` is taken as `Base.peek` (an export of Base) and refused under rule 3 ("belongs to Base"). W-45. | `TraitWorld/src/trait_module.jl:828–831`; julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 X1 |
+| T-67 | [§3.6](#36-supertraits-and-bundles) | A supertrait with parameters takes the subtrait's parameters by name. | `supertraits` is emitted without a `where`, so the first bounded function on the subtrait raises `UndefVarError`; a subtrait's parameters are not taken from a supertrait's fields. The bare form `Integrator <: IntegratorView` works. W-46. | `TraitWorld/src/trait.jl:335`; `src/implement.jl:1477–1478`; E-156 P5 |

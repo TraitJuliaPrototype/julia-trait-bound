@@ -117,7 +117,7 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **The code:** move 2's integrator interface, `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`.
 - **The reference:** §3.6 has no rule for a supertrait with parameters; TraitWorld raises `UndefVarError` at the first bounded function.
 - **Blocks:** no: the bare `Integrator <: IntegratorView` with a joint family works, parameters untied.
-- **What the port does:** the bare form in E-158; [open issue 55](../open-issues.md#1-decisions-waiting-for-the-user).
+- **What the port does:** the bare form in E-158 until W-46. **Decided (2026-10-22, open issue 55):** the supertrait's parameters are the subtrait's, by name (traits §3.6).
 
 ## W34-3. In-place update of a declared field (E-156 P11)
 
