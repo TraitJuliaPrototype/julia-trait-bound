@@ -957,9 +957,12 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 
 - A field declared with a trait's name takes any kept value of `X`, a trait object, and a plain value that conforms to `X`.
 - A plain value is first seen there and takes the trait's default: `Compiled`, or `Dynamic` under `@default_with_dynamic_self` for a value not of the trait world ([§6.3](#63-defaults-a-traits-default-and-annotations)). A cast decides otherwise: `obj.field = with_dynamic(x)`.
-- A library that translates a value before it is stored (a symbol to a colour) defines `Base.convert` to `Kept{X}` for its trait.
+- **A library that translates a value before it is stored** (a symbol to a colour) defines `Base.convert` to its trait: `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
+  - A plain value that does not conform to `X` is converted by `convert(X, x)` first; the result is then kept as above.
+  - A value that conforms is not converted. Where its type is known, this is settled when the code is compiled.
+  - The library owns `X`, so the method is its own, and it names no type of TraitWorld's.
 
-**Status:** Implemented.
+**Status:** Implemented, except the conversion to the trait: Planned (W-44, [T-61](#17-deviations)).
 
 ### 7.4 A struct parameter bounded by a trait
 
@@ -1261,7 +1264,7 @@ Two guarantees, asked for separately:
 
 **They differ.** Concrete parts do not make code fully typed: the function's own code (an argument of type `Vector{Any}`, a variable whose type changes), an abstract declared result, an abstract field an implementation's method reads, or a plain helper can each leave a call with unknown types. Fully typed code, in turn, is checked at the signatures it ran at, while concrete parts are promised for every implementation.
 
-**Concrete** means a concrete type, or a `Union` of at most four concrete types, whose type parameters are concrete in the same sense, all the way down: `Vector{Float64}` and `Vector{Union{Missing, Int}}`, not `Vector{Real}`, `Real` or a union of five types. Four is Julia's limit on union splitting: a call on a small union splits into one compiled call per member, each a fact ([facts §3](facts.md#facts-and-fact-signatures)), so the code is fully typed. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
+**Concrete** means a concrete type, or a `Union` of at most four concrete types, whose type parameters are concrete in the same sense, all the way down: `Vector{Float64}` and `Vector{Union{Missing, Int}}`, not `Vector{Real}`, `Real` or a union of five types. Four is this definition's own limit. Whether a call over such parts splits into one compiled call per member is Julia's union splitting ([facts §3](facts.md#facts-and-fact-signatures)): a call on one small union splits; a call where it does not is a run-time site, which fully typed mode reports. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete.
 
 ### 11.1 Per trait: concrete parameters and `Self`
 
@@ -1526,3 +1529,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-58 | — | *Retired*: see [§5.2](#52-what-a-bounded-function-receives). | — | — |
 | T-59 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
 | T-60 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | A bounded parameter may be declared at its field, `f::(F <: Bound)`. | Not built: the struct lowering takes bounded parameters from the header only; `f::(F <: Bound)` in a trait module's struct is an error. W-42. | `TraitWorld` (the trait module's struct lowering) |
+| T-61 | [§7.3](#73-assigning-from-plain-code) | A library translates a plain value before it is stored by `convert(X, x)` to its trait; TraitWorld's `convert` to `Kept{X}` calls it for a value that does not conform. | Not built: a library defines `convert` to `Kept{X}` itself, with methods naming TraitWorld's cast types (`CompiledFor`, `WithDynamic`, `TObj`) against ambiguities (TraitMakie's loop). W-44. | `TraitWorld/src/core.jl` (`convert` to `Kept{X}`); `TraitMakie/src/TraitMakie.jl` |

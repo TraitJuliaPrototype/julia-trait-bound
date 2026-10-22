@@ -96,7 +96,7 @@ Lives in `Compiler/src/facts.jl`.
 
 **Meaning.** `is_fact_sig(T)` is true when `T` is one of:
 - a dispatch tuple (`isdispatchtuple(T)`);
-- a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, with at most `MAX_FACT_SPLITS` concrete tuples in all;
+- a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, split by Julia's union-splitting cost (`unionsplitcost`) over the tuple's elements, at the interpreter's `max_union_splitting` (planned: today at most `MAX_FACT_SPLITS` concrete tuples in all, [facts F-15](facts.md#15-deviations), W-43);
 - a tuple of *concrete members* with a `Vararg{E}` tail of a concrete member `E`. A concrete member is a dispatch element that is not a kind (a concrete type, or `Type{T}` with `T` known), or a tuple type of concrete members;
 - a closure's call at kinds: the first argument is a closure type (its name is generated, `#…`), and every argument is concrete or one of `DataType`, `UnionAll`, `Union`.
 
@@ -104,7 +104,7 @@ A union at the top level of a call's arguments is split as Julia splits unions (
 
 **Not gated: `invoke` and `hasmethod` at a declared signature.** Only `find_method_matches` asks `is_fact_sig`. `abstract_invoke` and `hasmethod`'s tfunc resolve the declared signature with `findsup`, as plain Julia does, in facts code too, and record an invoke edge at the declared signature (`abstractinterpretation.jl:2369`, `tfuncs.jl:3269`). Julia invalidates such an edge only when the resolution of the declared signature changes: an edge at the method's own signature only when the method is replaced (`src/gf.c:2470`–`2475`). That is the sixth form of fact ([`facts.md`](facts.md#facts-and-fact-signatures)).
 
-Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-signatures). The limit of four is Julia's own bound on union splitting.
+Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-signatures). Which unions split is Julia's cost model, exactly ([facts §3](facts.md#facts-and-fact-signatures); F-15).
 
 ### 1.3 Run-time sites
 

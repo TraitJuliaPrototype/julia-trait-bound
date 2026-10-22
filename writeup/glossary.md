@@ -256,7 +256,7 @@ The entries are grouped by theme:
 
 ### Concrete parts
 
-- **Here:** *concrete* is a concrete type, or a `Union` of at most four concrete types, with type parameters concrete in the same sense, all the way down. A trait may require its parameters and `Self` to be concrete at every implementation, a bounded function the parts of its arguments: `@enforce_concrete_only` refuses, `@warn_on_abstract` warns. The code compiled for such an implementation is compiled for concrete types.
+- **Here:** *concrete* is a concrete type, or a `Union` of at most four concrete types ([traits §11](reference/traits.md#11-concreteness-and-fully-typed-mode)), with type parameters concrete in the same sense, all the way down. A trait may require its parameters and `Self` to be concrete at every implementation, a bounded function the parts of its arguments: `@enforce_concrete_only` refuses, `@warn_on_abstract` warns. The code compiled for such an implementation is compiled for concrete types.
 - **Origin:** the user's (2026-10-21), per part; Julia's `isconcretetype`, widened to small unions.
 - **Defined in:** [traits §11.1, §11.2](reference/traits.md#111-per-trait-concrete-parameters-and-self).
 

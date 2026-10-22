@@ -4,7 +4,7 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 
 ## Where things stand
 
-- **W-32, the NetworkDynamics port** ([the meta plan](2026-10-21-networkdynamics-port.md); its state table and its "Choices for the user to review", 1–37):
+- **W-32, the NetworkDynamics port** ([the meta plan](2026-10-21-networkdynamics-port.md); its state table and its "Choices for the user to review", 1–47, accepted 2026-10-22):
   - **P0** done: the porting guideline ([`../intro/porting.md`](../intro/porting.md)) holds the principles (Part 0), the measured lessons of the port (B5) and the SciML case study (B6).
   - **P1** done (E-151): the workload, its harness (`ndport/scripts/run_workload.sh`), and the baselines.
   - **P3** done (E-153): NetworkDynamics wrapped whole; Static.jl's promotion fixed.
@@ -35,13 +35,13 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 ## The next session: what to do, in order
 
 1. **The W-34 plan is adopted** (revised after its review at the end of session 32): form B for move 1 (the right-hand side at bounded `Callable` parameters, TraitDifferentialEquations' form); open issue 51 with options (a)–(e); work items W-36 (L-3), W-37 (the block forms of a family), W-38 (waiting for E-156); experiments E-156–E-161 registered as proposed; its choices 38–47 in the meta plan.
-2. **Open issues decided 2026-10-22:** 54, hidden parameters stay rejected, the bound may be declared at its field (W-42); 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
+2. **Open issues decided 2026-10-22:** 46, unions split by Julia's cost model exactly (W-43); 47, a library's `convert(X, x)` (W-44); 54, hidden parameters stay rejected, the bound may be declared at its field (W-42); 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
 3. **Run E-156** (the TraitWorld probes P1a–P15, predictions written in), then E-157 (move 1, form B, with move 5's check), E-158 (move 2), E-159 (move 3: Rodas5 moved out of TraitDifferentialEquations, a CommonSolve stand-in, the census's negative control), E-160 (move 4): the rows are in the registry; set each to running when it starts. W-36's study beside E-159.
 4. **On the port, in parallel where the lock allows:** G3 again; the P4/P6 merge on the current build; P4 step 3.
 
 ## Before starting
 
-- `CLAUDE.md` (the rules for the documents), [`../record/todo.md`](../record/todo.md) (W-32…W-35), [`../open-issues.md`](../open-issues.md) §1 (46, 47, 49 for the user; 51 to come), the meta plan's choices list (1–37, for the user to review), the latest session note [`../../session-notes/2026-10-21-32-values-carry-through-storage.md`](../../session-notes/2026-10-21-32-values-carry-through-storage.md).
+- `CLAUDE.md` (the rules for the documents), [`../record/todo.md`](../record/todo.md) (W-32…W-35), [`../open-issues.md`](../open-issues.md) §1 (46, 47, 49, 51, 52, 54 decided 2026-10-22), the meta plan's choices list (1–47 accepted 2026-10-22), the latest session note [`../../session-notes/2026-10-21-32-values-carry-through-storage.md`](../../session-notes/2026-10-21-32-values-carry-through-storage.md).
 - The machine's rules: one Julia job at a time through the lock; quick checks; full builds alone (`julia-1.13/tw-build.sh`); [`../record/INDEX.md`](../record/INDEX.md), "Standing constraints".
 - The user's standing rules for this work: the design is not changed by the port; agents may add highly orthogonal features for port needs; changes to existing designs or features go to the user; a Planned reference part the work needs is implemented first.
 - The workspace: `ndport/README.md` (settings U, P0, A0, S, N, W, P4, I; environments and depots per track; never touch another track's worktree or environment).
