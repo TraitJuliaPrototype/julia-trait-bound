@@ -112,3 +112,33 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **What the port did:** nothing yet; recorded for W-34.
 - **Decided (2026-10-22, open issue 51):** option (a+), the driver bounded by both traits at shared parameters; (d) and (e) probed in E-156 and recorded in the porting guideline as options.
 
+## W34-2. A parametric subtrait (E-156 P5)
+
+- **The code:** move 2's integrator interface, `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`.
+- **The reference:** §3.6 has no rule for a supertrait with parameters; TraitWorld raises `UndefVarError` at the first bounded function.
+- **Blocks:** no: the bare `Integrator <: IntegratorView` with a joint family works, parameters untied.
+- **What the port does:** the bare form in E-158; [open issue 55](../open-issues.md#1-decisions-waiting-for-the-user).
+
+## W34-3. In-place update of a declared field (E-156 P11)
+
+- **The code:** `integ.u .+= integ.du`, ordinary Julia.
+- **What it costs:** refused by the definition check (traits T-65); `u = integ.u; u .+= du` works.
+- **Blocks:** no. W-45.
+
+## W34-4. An open set extends the core's bounded function by its own types (E-156 P14)
+
+- **The code:** a solver package adds `__init(prob::ODEProblemTrait, alg::MyAlg)` beside the core's `__init(prob::ODEProblemTrait, alg)`: Julia's usual extension by a typed argument.
+- **The reference:** traits §5.5 allows it by ownership (the solver owns `MyAlg`); lowering L-3 refuses it, since the entry's shape includes the ordinary arguments' declared types.
+- **Blocks:** move 3's route in the W-34 plan (§1.4). W-36 is on E-159's path.
+
+## W34-5. A bounded function named like a Base export (E-156 X1)
+
+- **The code:** `peek(x::X) = …` in a trait module, meant as the module's own function.
+- **What it costs:** taken as `Base.peek` and refused under rule 3 (traits T-66); plain Julia defines a new function.
+- **Blocks:** no; rename. W-45.
+
+## W34-6. Trait-typed results for the declared link (E-156 P12, P14)
+
+- **The code:** open issue 51's options (d), `init(prob)::Integrator{U, T, P}`, and (e), the configured algorithm family.
+- **What it costs:** both need an operation's result declared with a trait, which fails today (traits T-64). Only (a+) is usable; (d) and (e) are measured for the porting guideline after W-45.
+
