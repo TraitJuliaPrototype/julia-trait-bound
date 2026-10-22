@@ -142,3 +142,21 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **The code:** open issue 51's options (d), `init(prob)::Integrator{U, T, P}`, and (e), the configured algorithm family.
 - **What it costs:** both need an operation's result declared with a trait, which fails today (traits T-64). Only (a+) is usable; (d) and (e) are measured for the porting guideline after W-45.
 
+## W34-7. A function the solver enters at a signature it chooses (E-157)
+
+- **The code:** SciML's Rosenbrock methods pick the dual chunk per problem at `init`, so the right-hand side is entered at a signature the problem's type does not name.
+- **What it costs:** the problem hands out its user's function as an `::Any` result (`rhs_function`), and `init` enters it at the integrator's bounded parameter (`DualJacobian{P, N, FD <: Callable{DualSig{P, N}, Nothing}}`); the driver compiles per chunk. Open issues §2 item 10.
+- **Blocks:** no.
+
+## W34-8. No optional bounded parameter (E-157)
+
+- **The code:** a Jacobian that the user may give or not.
+- **What it costs:** an absent Jacobian is a library marker function (`no_jacobian`, cast `compiled_for`) at the bounded parameter `J`; a problem with a Jacobian and one without are two types, and the solver compiles once for each.
+- **Blocks:** no.
+
+## W34-9. The mass matrix (E-157)
+
+- **The code:** SciML's `ODEFunction` carries a mass matrix.
+- **What it costs:** TDE's record carries it, but its solvers take only the identity (`ArgumentError` otherwise). A solver-side gap, not a design one.
+- **Blocks:** no.
+
