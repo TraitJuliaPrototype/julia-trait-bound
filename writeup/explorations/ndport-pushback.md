@@ -160,3 +160,16 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **What it costs:** TDE's record carries it, but its solvers take only the identity (`ArgumentError` otherwise). A solver-side gap, not a design one.
 - **Blocks:** no.
 
+## W34-10. A callback for every parameter type (E-158)
+
+- **The code:** a user's callback type (`Bounce`) meant for any problem.
+- **The reference:** a type conforming at every value of a parameter is not offered (traits §3.4; open issues §2 item 6).
+- **What it costs:** the callback type states its problem's types, or keeps a type parameter of its own, or stays a plain record (as `DiscreteCallback` does).
+- **Blocks:** no.
+
+## W34-11. Two families on every callback call (E-158)
+
+- **The code:** the callback records are parametric (their `Callable`s name `U, T, P`), and so are the integrators.
+- **What it costs:** each callback call crosses into two family members: +1.35 µs and 1 kB per step with two callbacks (lowering L-37), about 35 ns with the hot members declared on their own; 16 B per call while the view is boxed (open issues §4 item 35). `compiled_for` closures in a kept field are slower than `Dynamic` ones (about 275 ns per call, a run-time dispatch).
+- **Blocks:** move 2 in SciML, until W-40.
+
