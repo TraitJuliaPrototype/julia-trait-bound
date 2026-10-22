@@ -26,7 +26,7 @@ Status: **current; the pick-up note for the next session** (written 2026-10-21, 
 ## Overnight (W-39)
 
 - **Not run.** The launch of 2026-10-21 21:52 died at its first step: it was started from the sandboxed Bash tool, which ends every process it started when the command returns (`experiments/overnight-2026-10-21/README.md`). No measurements; E-162–E-164 are back to proposed.
-- **To do:** start `experiments/overnight-2026-10-21/run.sh` again from outside the sandbox (the README says how) when the machine can be left to it for several hours. It holds the Julia lock throughout. Then read `logs/driver.log` and the summaries, and write the outcomes into the registry, the evidence and `ndport/README.md`.
+- **Tonight (2026-10-22/23):** `experiments/overnight-2026-10-22/tonight.sh`, started by the user outside the sandbox: the W-41/W-43 build (julia-1.13 fa4e7f5798), the facts image, every suite and check (`experiments/checks/logs/w41-w43/`), then W-39's measurements on the new build. Read `experiments/overnight-2026-10-22/logs/driver.log` first; then the W-39 summaries (`experiments/overnight-2026-10-21/logs/`), and write the outcomes into the registry, the evidence and `ndport/README.md`; retire F-15 and F-18 if the checks pass.
 
 ## Also reopened
 
