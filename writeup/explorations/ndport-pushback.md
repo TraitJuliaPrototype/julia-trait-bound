@@ -117,13 +117,13 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **The code:** move 2's integrator interface, `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`.
 - **The reference:** §3.6 has no rule for a supertrait with parameters; TraitWorld raises `UndefVarError` at the first bounded function.
 - **Blocks:** no: the bare `Integrator <: IntegratorView` with a joint family works, parameters untied.
-- **What the port does:** the bare form in E-158 until W-46. **Decided (2026-10-22, open issue 55):** the supertrait's parameters are the subtrait's, by name (traits §3.6).
+- **What the port does:** the parametric form (W-46 built, TraitWorld 2e9ed68). **Decided (2026-10-22, open issue 55):** the supertrait's parameters are the subtrait's, by name (traits §3.6).
 
 ## W34-3. In-place update of a declared field (E-156 P11)
 
 - **The code:** `integ.u .+= integ.du`, ordinary Julia.
 - **What it costs:** refused by the definition check (traits T-65); `u = integ.u; u .+= du` works.
-- **Blocks:** no. W-45.
+- **Blocks:** no. Fixed (T-65, TraitWorld 0620fc9).
 
 ## W34-4. An open set extends the core's bounded function by its own types (E-156 P14)
 
@@ -135,12 +135,12 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 
 - **The code:** `peek(x::X) = …` in a trait module, meant as the module's own function.
 - **What it costs:** taken as `Base.peek` and refused under rule 3 (traits T-66); plain Julia defines a new function.
-- **Blocks:** no; rename. W-45.
+- **Blocks:** no. Fixed (T-66, TraitWorld 4ad02e8).
 
 ## W34-6. Trait-typed results for the declared link (E-156 P12, P14)
 
 - **The code:** open issue 51's options (d), `init(prob)::Integrator{U, T, P}`, and (e), the configured algorithm family.
-- **What it costs:** both need an operation's result declared with a trait, which fails today (traits T-64). Only (a+) is usable; (d) and (e) are measured for the porting guideline after W-45.
+- **What it costs:** both need an operation's result declared with a trait, which fails today (traits T-64). Fixed (T-64, TraitWorld 006f10c): (d) works (E-156 P12); (e) still meets L-3 for `configure` (P14). Measured for the porting guideline next.
 
 ## W34-7. A function the solver enters at a signature it chooses (E-157)
 

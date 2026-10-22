@@ -297,10 +297,10 @@ end
 - A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
 - **A supertrait with parameters,** `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`, takes the subtrait's parameters by name:
   - a type implements `Integrator` at `U, T, P` only if it implements `IntegratorView` at the same values;
-  - a subtrait's parameter that a supertrait's field defines takes its value from there;
+  - a subtrait's parameter written bare in the supertrait and defined by the supertrait's fields (or its supertraits') takes its value from there; another parameter is stated at the implementation and checked against the supertrait's;
   - the supertrait's parameters are written with the subtrait's variables, constants and type constructors, as a joint family's are ([§4.7](#47-families)).
 
-**Status:** Implemented, except a supertrait with parameters: Planned (W-46, [T-67](#17-deviations)). The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
+**Status:** Implemented ([T-68](#17-deviations) for a mapped field). The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
 
 ### 3.7 Tuples of traits
 
@@ -467,7 +467,6 @@ end
 **Status:** Implemented, except:
 - Planned: forwarding for a whole family (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [open issues §2](../open-issues.md#2-design), "Keys and fields", item 4; [T-7](#17-deviations));
 - Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
-- a family with a block whose target is a parametric type expression ([T-5](#17-deviations));
 - the check on parameter expressions ([T-6](#17-deviations));
 - the ownership check of the no-block family by fields ([T-62](#17-deviations)).
 
@@ -618,6 +617,7 @@ describe(x) = "something else"                 # the fallback
 - A bounded method and a typed method that are ambiguous in another position are reported at the trait module's end, as missing joint methods are.
 - **The fallback:** a value that conforms to none of the bounds reaches the most specific ordinary method that applies, as in plain Julia. Without any, the call raises `MethodError`, with a hint naming the bound.
 - **Who may add a bounded method:** a package may add one to a function it owns ([§10.1](#101-who-may-implement)), or to another package's function where the package owns a trait the bound names.
+- **A bounded method's name resolves as in Julia:** a name the module has only through `using` (`peek`, from Base) defines a new function of the module, whether the module used the name before or not; a name imported by name (`import Base: peek`) or qualified (`Base.peek(…) = …`) extends that function.
 - **A kept value** passed from plain code reaches the bounded method for its trait, with its attribute ([§6.5](#65-values-carry)). Outside trait modules, `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are ordinary concrete types with Julia's dispatch: a plain method `g(d::Dynamic{Shape})` takes a `Dynamic{Shape}` as any type does.
 
 **Status:** Implemented, except that TraitWorld's encoding requires an untyped fallback of a bounded method's shape to be defined after it, and lets only the function's owner add a bounded method of a shape the function has no bounded method of yet ([lowering L-3](lowering.md#18-deviations)). The hint's text: [T-22](#17-deviations). Error types of refused definitions: [T-34](#17-deviations).
@@ -753,7 +753,7 @@ Plots.paint(io, Dot())                               # typed at the prompt: Dyna
 - **At the prompt,** Julia does not compile a statement without a loop, so it knows no types: every call typed at the prompt passes `Dynamic` values. `compiled_for(x)`, or the call inside a function, gives `Compiled`.
 - **`Kept{X}(x)`, and a store into a field or container of a trait's name,** take the trait's default, whoever calls: `Compiled`, unless the trait declares `@default_with_dynamic_self` ([§6.3](#63-defaults-a-traits-default-and-annotations)). `Dynamic{X}(x)` and `Compiled{X}(x)` say the attribute themselves.
 - **A struct parameter bounded by a trait is a bound:** its constructor applies the first-seen rule as a bounded function does ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
-- An operation's result declared with a trait is `Dynamic`: its declared type is the trait.
+- An operation's result declared with a trait is `Dynamic`: its declared type is the trait. A returned value that does not conform, at the parameters the declaration fixes, is refused with `TraitBoundError`. At the implementation's check, an inferred result conforms when it is a concrete type, or a union of concrete types, that conforms to the trait, or a kept value of it; another abstract result is refused there.
 
 Defaults and casts decide otherwise (§6.3, §6.4). A value that already carries an attribute keeps it (§6.5).
 
@@ -1478,7 +1478,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-2 | [§3.2](#32-defaults) | The trait's parameters are in scope in a default's body. | `UndefVarError: T` when the default runs. | reference.jl, "T-2" |
 | T-3 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
 | T-4 | [§4.3](#43-forwarding-with-by) | The forwarding field may not also be a writable declared field. | Not checked. | `TraitWorld/src/implement.jl:526`, `:560` (`_field_problems`) |
-| T-5 | [§4.7](#47-families) | A family takes a block of methods, also when its target is a parametric type expression: `@implement Fam S{P} where {P} begin … end`, the joint `@implement StateVector{T} Series{T} where {T} begin … end`. | Not lowered as a family whenever the target is not a bare variable (`A where {A <: …}`), with trait parameters or without: `S{P} where {P}` is taken as one type, the `UnionAll`, which no member matches. The block's `conformance` method has no builder, the members get no implementation, and a call raises `MethodError` with the hint. Only the earlier spelling (T-12) handles the joint form. Found by reading the code. The joint form with a block, `@implement SV{T} Ser{T} where {T} begin … end`, raises `UndefVarError: T` at the declaration, inside and outside the trait's module (`implement.jl:1169`, `_param_methods` with no `where` variables; E-156 P1a). | `TraitWorld/src/implement.jl:896`, `:900`–`902` |
+| T-5 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-6 | [§4.7](#47-families) | A joint family's trait parameters are variables, constants and type constructors, never function calls. | Any expression is accepted and evaluated per member. | `TraitWorld/src/implement.jl:1008` (`_param_methods`) |
 | T-7 | [§4.7](#47-families) | Forwarding for a whole family is planned as `@implement X Series{T} by f where {T}`. | Refused with "expected `project(t) = …` or a begin … end block after the type", which names a form the design does not have. Found by reading the code. | `TraitWorld/src/implement.jl:909`, `:1280` |
 | T-8 | [§4.8](#48-generic-implementations) | A generic implementation applies to a trait with parameters as to one without. | For a trait with parameters, the form is taken as a family, and the constraints (`R: Indexable`) are read as `where` bounds. Found by reading the code. | `TraitWorld/src/implement.jl:1063` |
@@ -1537,7 +1537,8 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-61 | [§7.3](#73-assigning-from-plain-code) | A library translates a plain value before it is stored by `convert(X, x)` to its trait; TraitWorld's `convert` to `Kept{X}` calls it for a value that does not conform. | Not built: a library defines `convert` to `Kept{X}` itself, with methods naming TraitWorld's cast types (`CompiledFor`, `WithDynamic`, `TObj`) against ambiguities (TraitMakie's loop). W-44. | `TraitWorld/src/core.jl` (`convert` to `Kept{X}`); `TraitMakie/src/TraitMakie.jl` |
 | T-62 | [§4.7](#47-families), [§4.9](#49-checks-at-the-declaration) | A family's declaration checks ownership, as a single type's does. | The no-block family by fields, `@implement X S{T} where {T}` for a trait without parameters or with field-defined ones, is defined without `_check_implementation`: a third package that owns neither the trait nor `S` is accepted, and its members work; the extension-trigger check is skipped too. `A where {A <: S}`, the joint form and a single type are refused. W-38. | `TraitWorld/src/implement.jl:1473–1488` (`_implement_projection`, the family-by-fields branch); julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P1c |
 | T-63 | — | *Retired*: see [§4.7](#47-families). | — | — |
-| T-64 | [§6.2](#62-how-plain-values-enter-the-trait-world) | An operation's result declared with a trait is `Dynamic`: its declared type is the trait. | The call asserts the result to the trait's type (`TypeError`), and a member's first-use check compares the inferred result with the trait's type and refuses a conforming implementation ("returns `Tsit5Integ{…}`, declared `Integrator{…}`"). W-45. | `TraitWorld/src/core.jl:1060` (`opcall`, `return x::RT`); julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P12, P14 |
-| T-65 | [§5.3](#53-what-trait-code-may-do-with-a-trait-object) | Trait code reads and writes a declared field as Julia reads and writes a field, in-place broadcasts included. | `integ.u .+= du` on a declared field is refused (`TraitUseError`): Julia lowers it to `Base.dotgetproperty`, which the definition check takes for an ordinary function. `u = integ.u; u .+= du` works. W-45. | `TraitWorld/src/checks.jl:150`, `:218`; julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P11 |
-| T-66 | [§5.5](#55-dispatch-types-first-then-traits) | A bounded method in a trait module defines a method of the function its name resolves to as in Julia: a name not imported or used before is a new function of the module. | `peek(x::X) = …` is taken as `Base.peek` (an export of Base) and refused under rule 3 ("belongs to Base"). W-45. | `TraitWorld/src/trait_module.jl:828–831`; julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 X1 |
-| T-67 | [§3.6](#36-supertraits-and-bundles) | A supertrait with parameters takes the subtrait's parameters by name. | `supertraits` is emitted without a `where`, so the first bounded function on the subtrait raises `UndefVarError`; a subtrait's parameters are not taken from a supertrait's fields. The bare form `Integrator <: IntegratorView` works. W-46. | `TraitWorld/src/trait.jl:335`; `src/implement.jl:1477–1478`; E-156 P5 |
+| T-64 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
+| T-65 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
+| T-66 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
+| T-67 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-68 | [§3.4](#34-parameters-and-associated-types), [§3.6](#36-supertraits-and-bundles) | A parameter defined by a field takes its value from the stored field the implementation maps it to. | At a conforming type the parameter is read through the trait's field-matching method, which uses the field's declared name: a field mapped to another stored name (`t => _t`) fails there, for a plain field parameter and for one a subtrait takes from its supertrait (by reading, TraitWorld 2e9ed68; not reproduced by a test). | `TraitWorld/src/trait.jl` (the field-matching `param` methods) |

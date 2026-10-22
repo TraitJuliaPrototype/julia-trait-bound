@@ -463,7 +463,7 @@ solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, 
 - The link is checked at each call: an integrator at other parameters than the problem's raises `TraitBoundError`; one that conforms to nothing meets `MethodError` with the bound's hint ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)).
 - The cache depends on the algorithm and the state together, so it is no associated type of either.
 
-Other ways to build the link, for a port that wants it declared: `init` as an operation of the problem trait with the result `::Integrator{U, T, P}` (one `Dynamic` result per solve), or the algorithm configured for a problem as a family `Tsit5For{U, T, P}` whose trait names its integrator. Both need an operation's result declared with a trait, which does not work yet ([traits T-64](../reference/traits.md#17-deviations)); their costs are written here once it does.
+Other ways to build the link, for a port that wants it declared: `init` as an operation of the problem trait with the result `::Integrator{U, T, P}` (one `Dynamic` result per solve), or the algorithm configured for a problem as a family `Tsit5For{U, T, P}` whose trait names its integrator. Both rest on an operation's result declared with a trait, a `Dynamic` value ([§6.2](../reference/traits.md#62-how-plain-values-enter-the-trait-world)); their costs are written here once measured.
 
 **The shortest route** ([exploration §4](../explorations/sciml-as-traits.md#4-the-shortest-route)): the moves in order. Each keeps the results equal (0.6).
 
