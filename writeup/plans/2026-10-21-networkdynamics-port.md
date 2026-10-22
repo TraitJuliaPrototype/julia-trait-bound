@@ -119,7 +119,7 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 37. **P6 continues past its failed check at S2** (option 1 of its notes): the hot callers become trait modules at S3–S6, and the steady state is judged there; the design question goes to the user as open issue 50. Reason: within the design, reversible, and its numbers inform open issue 50.
 
 38. **The prototypes live in TDE on a branch `w34`** and in packages under `TraitDifferentialEquations/examples/`, not in SciML and not in TDE's main, until a form is adopted.
-39. **Form B is move 1's form;** form A is tried only after open issue 49 is decided (E-161).
+39. **Form B is move 1's form;** form A is tried only after open issue 49 is decided (E-161). Decided 2026-10-22: option (b), W-40; E-161 after it.
 40. **SciML's chunk per problem is entered at `init`,** with the function kept plain beside the kept one in the problem.
 41. **A Jacobian when given is a branch in `ODEFunction`'s own `jac!`,** a default otherwise; the subtrait `ODEJacobian` only for model types that declare one.
 42. **Callbacks are entered at `init`** into parametric records of `Callable` fields; the user-facing callback structs keep plain functions.

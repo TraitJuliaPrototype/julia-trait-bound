@@ -450,7 +450,7 @@ end
 - A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
 - **Each member is checked at its first use,** not at the family's declaration, which checks ownership. Its methods are checked as a single type's implementation is at its declaration: they exist, and their results infer to the declared types. Its parameters are checked against their bounds. A family over an abstract type cannot be checked as a whole: the abstract type's interface is implemented by each subtype (Base has no `length(::AbstractDict)`).
 - **A member that does not conform is refused** at its first use, with `ImplementError`.
-- **A member's implementation is fixed at its first use,** not at the family's declaration. The package that owns a member's parameter type (`MyT` in `S{MyT}`) may define an override for that member until then, and not after.
+- **A member's implementation is fixed at its first use,** not at the family's declaration. Compiling a caller that knows the member's type is a use: the member is checked and fixed then, and its typed calls cost what a declared type's do (planned, [lowering §4.6](lowering.md#46-families), L-37). The package that owns a member's parameter type (`MyT` in `S{MyT}`) may define an override for that member until then, and not after.
 - Code is compiled per member.
 - **Joint families** tie the trait's parameters to the type's:
   - each member conforms at one value of each trait parameter, so the parameters stay associated types;

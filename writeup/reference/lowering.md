@@ -187,7 +187,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.6 Families
 
-**Status: Implemented** (deviation [L-23](#18-deviations)); forwarding for a family **Planned**.
+**Status: Implemented** (deviations [L-23](#18-deviations), [L-37](#18-deviations)); forwarding for a family **Planned**; a member's builder fixed in its callers' code **Planned** (W-40).
 
 `@implement X S{P} where {P} [begin … end]` ([`traits.md#47-families`](traits.md#47-families)) defines (`_family_conformance_methods`, `implement.jl:690`):
 - the operations' methods with the `where` clause, for a block;
@@ -202,6 +202,8 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
 A later declaration for one member is a more specific `conformance` method.
+
+**A member's builder is a constant in a caller that knows its type,** as a declaration's is. While the compiler infers such a caller, it checks the member and finds its builder as the slow path does, and puts the builder into the caller's code. The caller has edges on the methods the check read, so a redefinition invalidates it as usual. A member that does not conform compiles to a raise of `ImplementError`, so the error comes at the call. A typed call of a family member then costs what one of a declared type does. Planned (W-40; [L-37](#18-deviations)).
 
 **Planned: forwarding for a family**, `@implement X S{T} by f where {T}`: the family's `conformance` method with a builder per member that reads field `f`.
 
@@ -770,3 +772,4 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-34 | — | *Retired*: see [§8.3](#83-needs-and-the-modules-end). | — | — |
 | L-35 | [§15.3](#153-verify_main-fully_typed-closed-builds) | `verify_main` lists, at the erased key, every declared implementation as a target of the split's fallback and of the entry's conformance check | not done: for a program with untyped calls `verify_main` reports the program's run-time sites as holes, as before the erased key (checked by reading and one run, 2026-10-20); a closed build of code at a `Dynamic` position is not tried | `TraitWorld/src/verify.jl` |
 | L-36 | [§12](#12-callable-and-dynamiccallable), [§8.2](#82-the-entry) | an entry inlined into a typed caller runs at plain speed, a `Callable` argument included: the function's form decided where the call is compiled | `enter_callable` is `@noinline` with the function and the attribute unspecialized, so its result is `Any` even where the caller knows the function's type, and the worker's call after it is a dynamic dispatch with an `Any` result (seen in `code_typed`; not measured: [open issues](../open-issues.md#4-runtime-and-measurements) item 43) | `entry.jl` (`enter_callable`) |
+| L-37 | [§4.6](#46-families) | a member's builder is a constant in a caller that knows the member's type | `conformance` reaches `_conf_family` at every call: a lookup in the family's registry (`IdDict`) and a call on the builder at the abstract type `Builder`, 304 bytes per call against 0 for a declared type (`TraitWorld/test/untyped.jl`'s setting, one probe). A port that needs the speed declares its hot members one by one (`@implement X S{Float64}`). Measured in idiomatic code by E-156 (P15); fixed by W-40 | `TraitWorld/src/implement.jl` (`_conf_family`) |

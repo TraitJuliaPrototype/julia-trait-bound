@@ -38,6 +38,7 @@ Statuses:
 | Concreteness: one declaration with a level (change 7): silent, warn, error, at a trait or a module, replacing `@concrete_only`, `@warn_on_abstract` (two forms), `@error_on_abstract`. | superseded (2026-10-21, the user): concreteness per part, row "Concrete parameters and `Self`" | `design/alternatives.md` | — |
 | A family implementation (`@implement X T{…} where {…}`) keeps its members' builders in a registry of the declaring module, filled on the slow path and saved with its image. | adopted (s27, mine), a runtime fix (row 1: 47 → 7 ms) | `mechanisms.md` §6 | yes (a19ba7e) |
 | Implied, recorded: a family member's implementation is fixed at first use *because* the owner of a member's parameter type is a stakeholder of the member's methods. | adopted (s29) | `implementation.md` §4.4; `reviews/2026-10-18-decisions-revisited.md` §4 | yes |
+| **A family member's builder is fixed in the code of a caller that knows its type** (open issue 49, option (b)): the compiler checks the member and folds its builder while inferring the caller, with edges on the methods the check read; compiling such a caller is a use of the member. First a probe in idiomatic code (E-156 P15) of how much the per-call lookup costs; W-40 builds it if the gap is real. | adopted (2026-10-22, the user: "yes", to the recommendation "probe first, then (b)") | `reference/lowering.md` §4.6, L-37; `reference/traits.md` §4.7 | not yet (W-40) |
 
 ## 2. Parameters, checking and results
 
