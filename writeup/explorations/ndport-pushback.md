@@ -110,4 +110,5 @@ An entry that needs the user's decision is also an open issue. A Planned referen
 - **What it costs:** the algorithm and the integrator are each checked at their `@implement`; the link between them only at the first call, where `solve!` refuses an integrator that does not conform (a `MethodError` with the bound's hint, [traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). Forms within the design that check more (a driver bounded by both traits at shared parameters; `init` as an operation of the problem trait) are in [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md). Every new solver package meets it.
 - **Blocks:** no; the closest form is in [the porting guideline, B6](../intro/porting.md) ("The solvers are an open set").
 - **What the port did:** nothing yet; recorded for W-34.
+- **Decided (2026-10-22, open issue 51):** option (a+), the driver bounded by both traits at shared parameters; (d) and (e) probed in E-156 and recorded in the porting guideline as options.
 

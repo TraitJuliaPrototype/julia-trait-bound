@@ -125,7 +125,7 @@ The user (2026-10-21): "Make your own choices and document the ones I should rev
 42. **Callbacks are entered at `init`** into parametric records of `Callable` fields; the user-facing callback structs keep plain functions.
 43. **`u` is `@const` in the view,** written in place, with `set_u!` an operation.
 44. **The open set is shown by moving Rodas5 out of TDE,** with a negative control for the census, and a stand-in for CommonSolve so that L-3 bites where it would in SciML.
-45. **The integrator's link is checked by option (a+) of open issue 51** in the prototypes, pending the user's decision.
+45. **The integrator's link is checked by option (a+) of open issue 51** in the prototypes. Decided by the user on 2026-10-22 (open issue 51, closed).
 46. **Move 5 is one check of E-157,** not an experiment of its own.
 47. **Not taken for W-34:** trait casts, the checked downcast, T-51, keyword `Callable`s, `Callable` results, forwarding for a family (§1.7), until a prototype or the workload needs one.
 

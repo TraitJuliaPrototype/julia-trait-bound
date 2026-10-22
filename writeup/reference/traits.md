@@ -268,6 +268,7 @@ end
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
 - **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-fully-typed-mode)).
 - **Not offered:** a type conforming at several values of a parameter, equations between type functions, a parameter bound that names its own trait. `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is the one trait with several values per type.
+- **Two traits' implementers linked by their parameters** (an algorithm and the integrator it builds for a problem): a function bounded by both at shared `where` variables ([§5.1](#51-bounds)) checks the link at each call, `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`. A trait does not declare which implementer of another trait goes with its own; Julia's generic functions carry the link.
 
 **Status:** Implemented, except the check of a stated value against an equation ([T-37](#17-deviations)).
 

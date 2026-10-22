@@ -453,7 +453,17 @@ end
 end
 ```
 
-**The gap, recorded as pushback.** Rust ties the two traits together: `Algorithm<P>` names `type Integrator: Integrator<P>`, an integrator type per problem type. The design has no trait generic over another trait's implementer: no input parameters, no generic associated types ([§3.4](../reference/traits.md#34-parameters-and-associated-types), "Not offered"; [PB-A](../explorations/sciml-as-traits.md#5-pushback-where-the-principled-form-meets-the-references)). The cache depends on the algorithm and the state together, so it is no associated type of either. The closest form is the one above: each end checked at its `@implement`, the link between them at the first call, where `solve!` refuses an integrator that does not conform (a `MethodError` with the bound's hint, [§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). Every new solver package meets this gap.
+**The link between the two traits.** Rust ties the two traits together: `Algorithm<P>` names `type Integrator: Integrator<P>`, an integrator type per problem type. Rust needs this because its generic code goes through traits only. Julia's generic functions carry the link without a trait: the driver is bounded by both traits at shared parameters ([§3.4](../reference/traits.md#34-parameters-and-associated-types); [§5.1](../reference/traits.md#51-bounds)):
+
+```julia
+solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}
+```
+
+- Each end is checked at its `@implement`.
+- The link is checked at each call: an integrator at other parameters than the problem's raises `TraitBoundError`; one that conforms to nothing meets `MethodError` with the bound's hint ([§5.5](../reference/traits.md#55-dispatch-types-first-then-traits)).
+- The cache depends on the algorithm and the state together, so it is no associated type of either.
+
+Other ways to build the link, for a port that wants it declared: `init` as an operation of the problem trait with the result `::Integrator{U, T, P}` (one `Dynamic` result per solve), or the algorithm configured for a problem as a family `Tsit5For{U, T, P}` whose trait names its integrator. Their costs are measured by E-156 (P12, P14) and written here when it is done.
 
 **The shortest route** ([exploration §4](../explorations/sciml-as-traits.md#4-the-shortest-route)): the moves in order. Each keeps the results equal (0.6).
 
@@ -482,7 +492,7 @@ end
 - The abstract trees of problems and algorithms, beside the traits.
 
 **Pushback** ([exploration §5](../explorations/sciml-as-traits.md#5-pushback-where-the-principled-form-meets-the-references)). Where the principled form meets a reference; none proposes a change (0.7).
-- **PB-A.** A trait generic over another trait's implementer: the algorithm-to-integrator link is checked at the first call (above).
+- **PB-A.** A trait generic over another trait's implementer: the algorithm-to-integrator link is a driver bounded by both traits at shared parameters (above).
 - **PB-B, PB-C.** No associated constants; asking a kept value for a capability is a trait cast (Optional). The stand-ins are 0.2's: operations with declared results, explicit type parameters, defaults where the fallback is correct.
 - **PB-D.** The dual signatures take one bounded `Callable` parameter each; a tuple of `Callable`s (W-29, Planned) would make it one. SciML's chunk per problem is entered at `init` (the W-34 plan).
 - **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs a checked downcast of a kept value ([open issues §2](../open-issues.md#2-design), item 16). Until then `P` stays in the key.
