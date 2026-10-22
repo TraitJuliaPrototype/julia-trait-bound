@@ -1,47 +1,31 @@
-# Pick up here: validating the SciML strategy (W-34)
+# Pick up here: the night's results, then W-40 and the port
 
-Status: **current; the pick-up note for the next session** (written 2026-10-21, end of session 32). The next thing to work on is W-34's validation of the SciML strategy. Read this note, then the documents it names.
+Status: **current; the pick-up note for the next session** (rewritten 2026-10-22, end of session 33). Read this note, then the documents it names. The session note: [`../../session-notes/2026-10-22-33-decisions-and-validation.md`](../../session-notes/2026-10-22-33-decisions-and-validation.md).
+
+## First: the night of 2026-10-22/23
+
+- `experiments/overnight-2026-10-22/tonight.sh`, started by the user outside the sandbox: the W-41/W-43 build (julia-1.13 fa4e7f5798), the facts system image, every suite and check (`experiments/checks/run_all.sh w41-w43`, with acceptance G1.30, G1.31), then W-39's measurements E-162–E-164 on the new build (TraitWorld 4410407).
+- **Read** `experiments/overnight-2026-10-22/logs/driver.log` first (a line per step; "STOPPED" names a failed step), then `logs/checks.log`, then W-39's summaries in `experiments/overnight-2026-10-21/logs/` (`e162-summary.txt`, `e162-orderB-summary.txt`, `e162-digests.txt`, `compare-*.log`, `demos/`, `hetero-idiomatic/logs/night1-*`).
+- **Write:** the README's runs table; the registry rows E-162–E-164; the evidence; `ndport/README.md`; if the checks pass, retire facts F-15 and F-18 and set W-41, W-43 done (julia-changes, todo). Every environment's package images are rebuilt at first use on the new build.
+- If the night did not run: start it again the same way (the README says how); nothing else depends on it.
 
 ## Where things stand
 
-- **W-32, the NetworkDynamics port** ([the meta plan](2026-10-21-networkdynamics-port.md); its state table and its "Choices for the user to review", 1–47, accepted 2026-10-22):
-  - **P0** done: the porting guideline ([`../intro/porting.md`](../intro/porting.md)) holds the principles (Part 0), the measured lessons of the port (B5) and the SciML case study (B6).
-  - **P1** done (E-151): the workload, its harness (`ndport/scripts/run_workload.sh`), and the baselines.
-  - **P3** done (E-153): NetworkDynamics wrapped whole; Static.jl's promotion fixed.
-  - **P4** steps 1 (E-152: `ComponentDynamics`; new equations compile 0.45 s instead of 15 s) and 2 (E-154: `GraphInterface` in Graphs) done. Step 2's G3 (the feed-forward check in a bounded function) waits: its blocker, traits T-59, is fixed (TraitWorld f06b82d), so G3 can be redone.
-  - **P6** done (E-155): the SciML core wrapped bottom-up under strict mode, bit-equal at every step.
-  - **Not done:** the merge of P4 and P6 into one environment (the P6 plan §4; meta plan choice 35); P4's next steps (`VertexDynamics`/`EdgeDynamics`, then `ODERHS`).
-- **W-33,** constant propagation from plain code into code compiled by facts (facts §6.3, F-17): see "W-33" below.
-- **W-34,** the SciML strategy: the exploration [`../explorations/sciml-as-traits.md`](../explorations/sciml-as-traits.md) (with the user's correction: DiffEq.jl's solvers are an open set; the corrected route is in the guideline's B6) and the inventory plan [`2026-10-21-w34-sciml-prerequisites.md`](2026-10-21-w34-sciml-prerequisites.md), reviewed ([`../reviews/2026-10-21-w34-sciml-prerequisites.md`](../reviews/2026-10-21-w34-sciml-prerequisites.md), 21 findings, three blockers), **not yet revised**.
-- **W-35,** porting strategies for Makie and DataFrames (Fable agents, as for SciML): queued.
-
-## W-33
-
-- **Done** (julia-1.13 2943086604, `facts_const_prop_call`): a plain caller propagates constants into a facts method; the callee is inferred again by facts rules in a call stack of its own; the result is local and the caller's edges stay on the constant's path. Facts §6.3 Implemented, F-17 retired.
-- Acceptance G1.27–G1.29 (29 of 29, product and `all`); every suite passes (`experiments/checks/logs/w33/`; under `all` the known F-8 hole).
-- SciMLBase's `getproperty` reads from plain code: 0 of 17 wider than `getfield` (17 of 17 before; `ndport/logs/p6-diag/constprop-w33.log`). The S2 steady state was not timed again.
-- **The build changed:** every package image is rebuilt at its first use. `env_p6` is precompiled again (433 s); the other environments are not yet.
-- Open issue 52 decided (2026-10-22): concrete and semi-concrete evaluation cross the modes too (facts §6.3, F-18), W-41.
-
-## Overnight (W-39)
-
-- **Not run.** The launch of 2026-10-21 21:52 died at its first step: it was started from the sandboxed Bash tool, which ends every process it started when the command returns (`experiments/overnight-2026-10-21/README.md`). No measurements; E-162–E-164 are back to proposed.
-- **Tonight (2026-10-22/23):** `experiments/overnight-2026-10-22/tonight.sh`, started by the user outside the sandbox: the W-41/W-43 build (julia-1.13 fa4e7f5798), the facts image, every suite and check (`experiments/checks/logs/w41-w43/`), then W-39's measurements on the new build. Read `experiments/overnight-2026-10-22/logs/driver.log` first; then the W-39 summaries (`experiments/overnight-2026-10-21/logs/`), and write the outcomes into the registry, the evidence and `ndport/README.md`; retire F-15 and F-18 if the checks pass.
-
-## Also reopened
-
-- **Open issue 54, hidden type parameters:** decided 2026-10-22 (closed item 54): the rejection stands; a bounded parameter may be declared at its field, `f::(F <: Bound)` (traits §7.4, W-42).
+- **Decisions of 2026-10-22** (the decision log; open issues' closed items): 46 (unions split by Julia's cost model, W-43), 47 (a library's `convert(X, x)`, W-44), 49 (a family member's builder folded by the compiler, W-40), 51 (option (a+)), 52 (concrete evaluation crosses the modes, W-41), 54 (hidden parameters stay rejected; the bound at the field, W-42), 55 (a supertrait with parameters by name, done in W-46). The meta plan's choices 1–47 accepted; the rule "make a choice, record the pushback". Open for the user when wanted: open issue 56 (the builders' choices in W-45/W-46).
+- **W-34, the SciML strategy** ([the plan](2026-10-21-w34-sciml-prerequisites.md)): E-156 (probes), E-157 (move 1 holds in form B), E-158 (move 2 works; its per-step cost, +1.35 µs and 1 kB with two callbacks, waits for W-40) done. TraitWorld fixed: T-5, T-63–T-67 (W-45, W-46).
+- **W-32, the port** ([the meta plan](2026-10-21-networkdynamics-port.md)): G3 and the merge of P4 and P6 done (E-165): bit-equal, new equations 0.56 s, the session 65.9 s against upstream's 70 s. P4 step 3 part 3a done (E-166; W-49 in TraitWorld): the steady state 29.5 ms (upstream 15.3). The port works in `ndport/env_merged`, its trees on branches `port`; TraitWorld for the port pinned at `TraitWorld-port` (branch `w49`).
+- **W-47,** making loads fast: registered, not urgent ([the exploration](../explorations/fast-loads.md)).
 
 ## The next session: what to do, in order
 
-1. **The W-34 plan is adopted** (revised after its review at the end of session 32): form B for move 1 (the right-hand side at bounded `Callable` parameters, TraitDifferentialEquations' form); open issue 51 with options (a)–(e); work items W-36 (L-3), W-37 (the block forms of a family), W-38 (waiting for E-156); experiments E-156–E-161 registered as proposed; its choices 38–47 in the meta plan.
-2. **Open issues decided 2026-10-22:** 46, unions split by Julia's cost model exactly (W-43); 47, a library's `convert(X, x)` (W-44); 54, hidden parameters stay rejected, the bound may be declared at its field (W-42); 51, option (a+), with (d) and (e) probed in E-156 for the porting guideline; 49, a probe first (E-156 P15), then option (b), W-40; 52, concrete evaluation crosses the modes, W-41) (54: hidden type parameters, reopened by the user) (49: a typed call of a family member builds its trait object at run time; 51: as revised).
-3. **E-156 done (2026-10-22;** the registry row): 7 of 15 probes pass; new deviations T-62–T-66, open issue 55, W-38 and W-40 confirmed, W-45 (T-63 first: a trait's write reaches a `const` field). T-63 fixed the same day (TraitWorld c655dde). E-157 done the same day (move 1 holds in form B; a non-bits `p` boxed per `Dynamic` call, open issues §4 item 35). E-158 done the same day (move 2 works, bit-equal, no driver code per callback; its per-step cost waits for W-40, now next for W-34; T-69, T-70, W-48). Next: W-40, W-36 before E-159 (L-3 is on move 3's path), E-160.
-4. **On the port:** G3 and the P4/P6 merge done (E-165, 2026-10-22); the port's environment is `ndport/env_merged`, its trees on branches `port`. P4 step 3, part 3a done (E-166, 2026-10-22: the steady state 29.5 ms). Next: part 3b (a user's own types), then step 4 (`ODERHS` in form B).
+1. **The night's results** (above).
+2. **W-40** (lowering §4.6, L-37): a design note first (how the compiler checks a family member and folds its builder while inferring a caller that knows its type), then the build on a following night. Move 2 and the port's operations on kept family members wait on it.
+3. **TraitWorld deviations, small:** W-48 (T-69, T-70), W-50 (T-71, T-72); W-42 (the bound at the field), W-44 (a library's `convert(X, x)`).
+4. **The port:** P4 step 3 part 3b (a user's own component types; [the step-3 plan](2026-10-22-ndport-step3.md), revised), then step 4 (`ODERHS` in form B).
+5. **W-34:** W-36 (L-3, on move 3's path) before E-159; E-160; E-161 after W-40.
 
 ## Before starting
 
-- `CLAUDE.md` (the rules for the documents), [`../record/todo.md`](../record/todo.md) (W-32…W-35), [`../open-issues.md`](../open-issues.md) §1 (46, 47, 49, 51, 52, 54 decided 2026-10-22), the meta plan's choices list (1–47 accepted 2026-10-22), the latest session note [`../../session-notes/2026-10-21-32-values-carry-through-storage.md`](../../session-notes/2026-10-21-32-values-carry-through-storage.md).
-- The machine's rules: one Julia job at a time through the lock; quick checks; full builds alone (`julia-1.13/tw-build.sh`); [`../record/INDEX.md`](../record/INDEX.md), "Standing constraints".
-- The user's standing rules for this work: the design is not changed by the port; agents may add highly orthogonal features for port needs; changes to existing designs or features go to the user; a Planned reference part the work needs is implemented first.
-- The workspace: `ndport/README.md` (settings U, P0, A0, S, N, W, P4, I; environments and depots per track; never touch another track's worktree or environment).
+- `CLAUDE.md`; [`../record/todo.md`](../record/todo.md); [`../open-issues.md`](../open-issues.md) §1.
+- **The machine:** one Julia job at a time through the lock. **In the daytime the user works in parallel:** every Julia run with `JULIA_NUM_PRECOMPILE_TASKS=1 JULIA_NUM_THREADS=1` and `flock <lock> taskset -c 0-1 ionice -c3 nice -n 19`. Full builds and long rounds at night, started by the user outside the sandbox (a job started from the sandboxed Bash tool dies with the command). [`../record/INDEX.md`](../record/INDEX.md), "Standing constraints".
+- The user's standing rules for the port: the design is not changed by the port; agents may add highly orthogonal features; changes to existing designs go to the user; make a choice and record the pushback.
