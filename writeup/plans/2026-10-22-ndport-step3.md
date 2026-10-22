@@ -1,6 +1,6 @@
 # The NetworkDynamics port, P4 step 3: the component traits per kind, and the batches' crossings
 
-Status: **proposal; P4 step 3 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md)** (written 2026-10-22; to be reviewed before work starts). Not normative: the references hold ([`../reference/traits.md`](../reference/traits.md) above all).
+Status: **adopted (2026-10-22), part 3a running; 3b later.** P4 step 3 of the [W-32 meta plan](2026-10-21-networkdynamics-port.md). Written 2026-10-22, revised the same day by its review [`../reviews/2026-10-22-ndport-step3-plan.md`](../reviews/2026-10-22-ndport-step3-plan.md) (§12 lists what was done with each finding). Not normative: the references hold ([`../reference/traits.md`](../reference/traits.md) above all).
 
 Inputs:
 - the meta plan's ground rules ("make a choice, record the pushback"), its choices 1–47, and its state: E-165 merged the tracks; the port works in `ndport/env_merged`, depot `depot-merged`, the trees on branches `port`;
@@ -10,20 +10,21 @@ Inputs:
 - `ndport/README.md` (settings, the harness), `ndport/logs/merge/NOTES.md` (E-165), `ndport/logs/p4/NOTES.md` (E-152), `ndport/logs/p4-issue48/` (the crossing after open issue 48);
 - the porting guideline [`../intro/porting.md`](../intro/porting.md) (A12, B5);
 - the references: traits §3.2, §3.6, §4.7, §4.8, §5.3, §6.2–§6.8, §7.1–§7.4, §14; lowering §4.6, §7, §8.2, §9.3, L-37, L-38;
-- NetworkDynamics at `ndport/pkgs/NetworkDynamics-p4`, branch `port`, 324bcb7; TraitWorld c655dde (the worktree `TraitWorld-port`).
+- NetworkDynamics at `ndport/pkgs/NetworkDynamics-p4`, branch `port`, 324bcb7; TraitWorld c655dde (the worktree `TraitWorld-port`), and from S3-1 its branch `w49` (c655dde plus W-49);
+- the review of this plan [`../reviews/2026-10-22-ndport-step3-plan.md`](../reviews/2026-10-22-ndport-step3-plan.md); W-49 in [`../record/todo.md`](../record/todo.md); lowering L-39, L-40, L-41.
 
-File and line references are to those trees. **Julia was run for this plan only for planning probes** (§2.2), under the low-load rules (one job, two cores, idle I/O, niced, through the shared lock), in `env_merged` with `depot-merged`: the julia-1.13 build E-165 used, TraitWorld c655dde, product setting, strict mode off, one run each, 2·10⁵ calls per timing, load 0.7–1.1. Their scripts are in the planning session's scratchpad; S3-0 commits them under `ndport/scripts/` and runs them again, so that the numbers below have a committed log. Until then they are indicative.
+File and line references are to those trees. **Julia was run for this plan only for planning probes** (§2.2), under the low-load rules (one job, two cores, idle I/O, niced, through the shared lock), in `env_merged` with `depot-merged`: the julia-1.13 build E-165 used, TraitWorld c655dde, product setting, strict mode off, one run each, 2·10⁵ calls per timing, load 0.7–1.1. The planning scripts are in `ndport/scripts/p4s3-planning/` (70dec1d); S3-0 commits them as `ndport/scripts/p4s3_*.jl` and runs them again into `ndport/logs/p4s3/`, and §2.2 quotes those logs.
 
 ## Summary
 
-- **The crossing has a part the port can remove now.** A crossing from a kept value into a bounded function costs about 40 ns when the function's ordinary arguments are concrete or untyped, and 150–215 ns when they are declared with abstract types (`batches::Vector`, `args::Base.RefValue`), as NetworkDynamics' batch functions declare them (§2.2). In NetworkDynamics today a crossing costs 160–170 ns, three per right-hand side.
-- **First change (S3-1):** the batch functions' ordinary arguments untyped. Expected: about 90–140 ns less per crossing, 0.3–0.4 µs less per right-hand side, step d's steady state from 34.7 to about 29–32 ms. One method signature each, no change of results.
+- **The crossing has a part that TraitWorld removes.** A crossing from a kept value into a bounded function costs 50–75 ns when the function's ordinary arguments are concrete or untyped, and about 215 ns when they are declared with abstract types (`batches::Vector`, `args::Base.RefValue`), as NetworkDynamics' batch functions declare them (§2.2). The difference is a redundant type assertion per abstract argument in the table's pattern method, after the entry's own dispatch has checked the type (L-39). In NetworkDynamics today a crossing costs 160–180 ns, three per right-hand side.
+- **First change (S3-1, in TraitWorld): W-49.** The pattern method asserts only a concrete declared type (L-39); entries with a `where` variable on an ordinary argument are tabled (L-40); the pointer's wrapper takes up to sixteen arguments, and a larger entry is called by a dispatch on its builder (L-41). NetworkDynamics keeps upstream's annotations. Expected: about 100 ns less per crossing, 0.3–0.4 µs less per right-hand side, step d's steady state from 34.7 to about 29–32 ms. No change of results.
 - **Then the traits per kind (S3-2, S3-3):** `VertexDynamics` and `EdgeDynamics`, each a subtrait of `ComponentDynamics`, which keeps the static facts the core loop reads (`hasf`, `fftype`, `pdim`, `extdim`). The vertex batches keep `Kept{VertexDynamics}`, the edge batches `Kept{EdgeDynamics}`; `run_vertex_batch!` and `run_edge_batch!` are bounded by them. NetworkDynamics' `FunctionDynamics` implements all three, as families.
 - **Then a user's own type (S3-4):** `struct Swing end` with `@implement VertexDynamics Swing` enters a network through `VertexModel(dynamics = Swing(), …)`. The workload gains a `usertype` pass (off by default), whose digests must equal the `first` pass's exactly.
-- **What it does not buy:** the rest of the gap. After S3-1 the right-hand side still pays three crossings at the table's floor (about 40–75 ns each) and three `Ref`s. A cheaper per-batch call needs a witness carried in the kept value, which is Optional (§2.4). W-40 does not change the crossing: the table already serves a family member as a declared type (§2.5).
-- **Nothing Planned is needed.** TraitWorld stays at c655dde: 2e9ed68's fixes (T-64–T-67) are not used by this step.
-- **Measured by E-166** (§6): exact results against U, strict mode off and on; the steady state against the merge's 34.7 ms; new equations and a new model type compile without SciML; the census; ND's test subset.
-- **Time:** an afternoon, tight (§10). Split at S3-3 if it runs short: 3a (the crossing and the traits per kind) carries the measurable gain; 3b (user types) follows.
+- **What it does not buy:** the rest of the gap. After S3-1 the right-hand side still pays three crossings at the table's floor (about 50–75 ns each; the worker's call stays a run-time site for a non-concrete argument) and three `Ref`s. A cheaper per-batch call needs a witness carried in the kept value, which is Optional (§2.4). W-40 does not change the crossing: the table already serves a family member as a declared type (§2.5).
+- **Nothing Planned is needed.** TraitWorld moves to c655dde plus W-49 (branch `w49`, cherry-picked onto main); 2e9ed68's fixes (T-64–T-67) are not used by this step.
+- **Measured by E-166** (§6), part 3a: exact results against U, strict mode off and on; the crossing; the steady state against the merge's 34.7 ms; new equations compile without SciML; the census; ND's test subset. Part 3b (a user's own types) gets the next free ID.
+- **Time:** 6–8 hours (§10), split up front: 3a (S3-0 to S3-3 and its runs) carries the measurable gain; 3b (S3-4, a user's own types, with the adaptor of §3.3) follows in another session.
 
 ---
 
@@ -37,7 +38,7 @@ File and line references are to those trees. **Julia was run for this plan only 
   - `_process_kept!` opens the model per batch and calls `run_vertex_batch!(m::ComponentDynamics, batches::Vector, k::Int, args::Base.RefValue)` or `run_edge_batch!` (`src/coreloop.jl`);
   - a user cannot bring a type of their own: every model is built from a record's `f` and `g`.
 - **After:**
-  - the batch functions take their ordinary arguments untyped (S3-1);
+  - TraitWorld's table checks an ordinary argument's declared type once, by the entry's dispatch (S3-1, W-49); the batch functions keep upstream's annotations;
   - `ComponentDynamics` keeps the static facts; `VertexDynamics` and `EdgeDynamics` add the calls (§3.1);
   - vertex batches keep `Kept{VertexDynamics}`, edge batches `Kept{EdgeDynamics}`; each batch function is bounded by its kind's trait;
   - `VertexModel(dynamics = x, …)` and `EdgeModel(dynamics = x, …)` take any value whose type conforms; the batch keeps that value itself as its model.
@@ -47,7 +48,7 @@ File and line references are to those trees. **Julia was run for this plan only 
 
 - **NetworkDynamics:** the worktree `ndport/pkgs/NetworkDynamics-p4`, branch `port`, from 324bcb7; one commit per row of §4. `git diff upstream` stays the port.
 - **The environment:** `ndport/env_merged`, depot `depot-merged`, unchanged. NetworkDynamics' `[deps]` already hold TraitWorld (`conforms` is TraitWorld's).
-- **TraitWorld:** c655dde in `TraitWorld-port`, not moved. A move recompiles the merged stack (368 s in E-165) and changes the baseline. If it must move, the commit is recorded and the baseline runs again.
+- **TraitWorld:** from S3-1 the branch `w49` in `TraitWorld-port` (c655dde plus W-49); the same commits cherry-picked onto TraitWorld's main (c655dde..2e9ed68 touches `trait_module.jl` only in `_fkey`). The move recompiles the merged stack (368 s in E-165); S3-1's run with NetworkDynamics unchanged is the new baseline. `env_p4_pin`, `env_p6_pin` and `env_ndtest_p4pin` read the same worktree: P4P, IP and T rebuild when next used. The harness records the commit in each header.
 - **The workload:** additive and off by default (§4, S3-4): a file `scripts/workload_types.jl` with the user's types, included only where NetworkDynamics defines `VertexDynamics`; a pass `usertype` in `workload.jl` that runs only when `NDW_PASSES` names it. Without it the output is byte-identical.
 - **Each row rebuilds NetworkDynamics** in `depot-merged` (it has no dependents in `env_merged` except its extensions). The cache cap of ten files per package: four rebuilds here; a run that precompiled is marked INVALID by the harness.
 
@@ -62,24 +63,24 @@ E-165's setting M (`ndport/logs/merge/`): results exact against U; again c / d /
 ### 2.1 What a right-hand side pays now
 
 - Tier S has one vertex batch (20) and one edge batch (40). A right-hand side runs three passes with batches: vertices `:g`, edges `:fg`, vertices `:f` (`src/coreloop.jl:39–122`). Each is one `Ref` of the pass's arguments and one crossing.
-- The dispatch profile of E-165 (check H): per right-hand side, three dynamic calls, all `TraitWorld.checked_call` from the batch functions' untyped entries; no other dynamic call. So the crossing's worker call is a dynamic call.
-- Planning probe C (tier S, NetworkDynamics at 324bcb7): the right-hand side 1,794 ns and 5 allocations; the same network with typed batches (`PolyesterExecution`, one thread) 611 ns and 0. Per pass, the crossing into an empty batch costs 162–172 ns; an erased pass costs 143–181 ns more than the same pass on typed batches. So the three crossings are about 500 ns of the 1,180 ns excess. The rest is not attributed here: the three `Ref`s, two allocations in the vertex crossings, the passes without batches. S3-0 attributes it once (§4).
+- The dispatch profile of E-165 (check H): per right-hand side, three dynamic calls, all `TraitWorld.checked_call` from the batch functions' untyped entries; no other dynamic call. So the crossing's worker call is a dynamic call. It stays one after S3-1: the worker's call is a run-time site whenever an ordinary argument is not of a concrete type, declared or untyped (compiler §1.3); check H keeps showing three per right-hand side.
+- S3-0's split (`ndport/logs/p4s3/s0-split/M-1.log`, tier S, NetworkDynamics at 324bcb7, TraitWorld c655dde): the right-hand side 1,834 ns and 5 allocations; the same network with typed batches (`PolyesterExecution`, one thread) 623 ns and 0. Per pass the crossing into an empty batch costs 165–182 ns. `process_batches!` costs 15–43 ns more than its crossing into the full batch (the `Ref`, the filter). So of the 1,211 ns excess, the three crossings are about 530 ns, the `Ref`s and filters about 100 ns, and the passes without batches and the rest about 350 ns (the right-hand side less the three `process_batches!`). The vertex passes allocate (the `Ref`), the edge pass does not.
 
 ### 2.2 The planning probes
 
-Probe A: a scratch trait module with one trait, a family member (`Fam{F}` holding a plain function) and the caller in the module, as `_process_kept!` is: `for k …; f(compiled_for(ks[k]), …)` over a `Vector{Kept{VD}}`. Each line is the cost of one crossing into an empty batch, the caller's loop included.
+Probe A (`ndport/scripts/p4s3_cross_shapes.jl`, log `ndport/logs/p4s3/s0-cross/M-1.log`, TraitWorld c655dde; the minimum of three timings): a scratch trait module with one trait, a family member (`Fam{F}` holding a plain function) and the caller in the module, as `_process_kept!` is: `for k …; f(compiled_for(ks[k]), …)` over a `Vector{Kept{VD}}`. Each line is the cost of one crossing into an empty batch, the caller's loop included.
 
 | The bounded function's ordinary arguments | ns per crossing | allocations per call |
 |---|---|---|
-| `bs::Vector, k::Int, args::Base.RefValue` (NetworkDynamics' shape) | 213–217 | 1 (the `Ref`) |
-| `bs::Vector{Batch}, k::Int, args::Base.RefValue` | 148–159 | 1 |
-| `bs::Vector{Batch}, k::Int, args::Base.RefValue{AT}` (concrete) | 53–56 | 1 |
-| `bs::Vector{Batch}, k::Int, args::Base.RefValue{A} where {A}` | 292–311 | 3 |
-| `bs::Vector{Batch}, k::Int, du::Vector{Float64}, u::Vector{Float64}` (no `Ref`) | 49–51 | 0 |
-| `bs::Vector{Batch}, k::Int, du, u` | 65–67 | 0 |
-| `bs, k, du, u` (all untyped) | 66–69 | 0 |
-| `bs, k, args` (untyped, with the `Ref`) | 74 | 1 |
-| nine arguments (the pass's arguments one by one) | `MethodError`: the table's call wrapper `_UWrap` has methods up to eight arguments | — |
+| A1 `bs::Vector, k::Int, args::Base.RefValue` (NetworkDynamics' shape) | 217 | 1 (the `Ref`) |
+| A2 `bs::Vector{Batch}, k::Int, args::Base.RefValue` | 74 (planning: 148–159) | 1 |
+| A3 `bs::Vector{Batch}, k::Int, args::Base.RefValue{AT}` (concrete) | 53 | 1 |
+| A4 `bs::Vector{Batch}, k::Int, args::Base.RefValue{A} where {A}` | 294 | 3 |
+| A5 `bs::Vector{Batch}, k::Int, du::Vector{Float64}, u::Vector{Float64}` (no `Ref`) | 50 | 0 |
+| A6 `bs::Vector{Batch}, k::Int, du, u` | 68 | 0 |
+| A7 `bs, k, du, u` (all untyped) | 68 | 0 |
+| A8 `bs, k, args` (untyped, with the `Ref`) | 74 | 1 |
+| A9, A10 nine arguments (the pass's arguments one by one), untyped or annotated | `MethodError`: the table's call wrapper `_UWrap` has methods up to eight arguments | — |
 
 Probe B: the same trait, a minimal bounded function `run1!(m::VD, du::Vector{Float64}, u::Vector{Float64}, n::Int)`, and the same loop as an operation with a default called on the kept value:
 
@@ -88,26 +89,30 @@ Probe B: the same trait, a minimal bounded function `run1!(m::VD, du::Vector{Flo
 | `compiled_for` and the bounded function, empty batch | 40 ns, 0 allocations | 41 ns, 0 |
 | an operation with a default, on the kept value, empty batch | 411 ns, 0 | 36 ns, 0 |
 
-What they show:
+What they show (with the review's reading of `trait_module.jl:963`–`1004`):
 - The table serves a family member at a declared type's cost (lowering §9.3; open issue 48). The difference is the bounded function's shape.
-- An abstract annotation on an ordinary argument makes the worker call dynamic. A concrete or an untyped one does not. `where {A}` on an argument's parameter is the most expensive.
+- **The mechanism of the abstract annotation's cost (L-39).** The table's pattern method unwraps each ordinary argument with an assertion of its declared type (`getfield(xa, :x)::ann`, `trait_module.jl:999`), after the entry's dispatch has already selected the entry by the same annotation. For a concrete type the assertion makes the worker's call a fact (A3, A5: 50–53 ns). For an abstract type the worker's call stays a run-time site, as with an untyped argument, and the assertion adds a subtype test at run time: about 60 ns per abstract argument (A1 against A8; the review's probe: two such assertions 118 ns).
+- **`where {A}` (A4) measures the generic path, not an annotation (L-40).** An entry whose ordinary argument names a `where` variable is not tabled (`trait_module.jl:836`–`838`): the call assembles the trait object behind one dynamic call and selects the worker by a second.
+- **Nine arguments raise `MethodError` (L-41):** a correctness bug of the table's path; `checked_call` and the generic path have no limit.
 - An operation on a kept family member takes L-37's path (about 400 ns); on a declared type it costs what a crossing does.
 
-### 2.3 The change: the batch functions' ordinary arguments
+### 2.3 The change: the table checks an ordinary argument once (W-49, in TraitWorld)
 
 ```julia
-# src/coreloop.jl: the ordinary arguments untyped (the probe: an abstract annotation makes each crossing a dynamic call)
-function run_vertex_batch!(m::VertexDynamics, batches, k, args)   # batches: the kind's Vector; args: a Ref of the pass's arguments
-    (ex, fg, inbufs, du, u, o, p, t) = args[]
-    …                                                             # as at 324bcb7
-end
-function run_edge_batch!(m::EdgeDynamics, batches, k, args) … end
+# TraitWorld src/untyped.jl: the pattern method's unwrapping of an ordinary argument
+@inline _held_as(xa::XAny, ::Type{T}) where {T} = isconcretetype(T) ? getfield(xa, :x)::T : getfield(xa, :x)
+# src/trait_module.jl, the pattern method: `x = getfield(xa, :x)` (untyped, or naming a `where` variable)
+#                                         `x = TraitWorld._held_as(xa, ann)` (any other annotation)
 ```
 
-- S3-1 makes this change on the step-1 bound (`m::ComponentDynamics`); S3-3 changes the bound to the kind's trait.
-- **The `Ref` stays.** The pass has eight values; passed one by one, the call has eleven arguments, beyond the table's eight. Grouped into tuples they would be boxed, as the `Ref` is.
-- **Expected effect:** ND's crossing from 162–172 ns to about 60–75 ns; per right-hand side 0.3–0.4 µs less. Step d makes about 12,000–15,000 right-hand-side calls (E-152's reading, and today's excess per call), so about 3–6 ms less: d at about 29–32 ms, strict off.
-- `fully_typed(run_vertex_batch!, …)` at the worker's signature is read at S3-1: the run-time sites stay those of the machinery and `Threads.@threads` (E-152's list).
+- **L-39:** a concrete declared type is asserted, so the worker's call stays a fact; any other is not checked again, and the run-time site selects the worker for the value's own type, as it does for an untyped argument. No worker changes.
+- **L-40:** with nothing asserted for an argument that names a `where` variable, the exclusion from the table goes; the variable is bound in the worker by its own dispatch.
+- **L-41:** `_UWrap` and `checked_call` take up to sixteen arguments by fixed arities; a tabled entry with more is called by a dispatch on its builder, the path of entries with several trait positions. Any arity is served.
+- **Not taken:** calling the worker at the declared signature (an `invoke`): it would run the worker compiled for the abstract types, and every call in the batch loop would be a run-time site (the review's recommendation).
+- **NetworkDynamics keeps its annotations,** and `git diff upstream` stays without annotation removals.
+- **The `Ref` stays.** Through the pointer every argument is passed as `Any`, so passed one by one `t::Float64` and the `inbufs` tuple would be boxed each (two allocations against the `Ref`'s one; S3-0 (c)'s six-argument crossing: 4–5 allocations).
+- **Expected effect:** ND's crossing from 165–182 ns to about 70–80 ns (A8's form); per right-hand side 0.3 µs less. Step d makes about 12,000–15,000 right-hand-side calls, so about 3–5 ms less: d at about 29–32 ms, strict off.
+- `fully_typed(run_vertex_batch!, …)` at the worker's signature is read at S3-1: the run-time sites stay those of the machinery and `Threads.@threads` (E-152's list), and the pattern method's call of the worker is among them.
 
 **Not taken in this step:**
 - **One crossing fewer per right-hand side,** by running a `StateMask` output (`g = 1`) in `_process_kept!` without a crossing. Within the design; a special case for one library type; about a third of the remaining crossings' cost (about 1 ms in step d). Revisit if wanted.
@@ -169,8 +174,9 @@ end
 ### 3.2 NetworkDynamics' implementation
 
 ```julia
-# FunctionDynamics, its fields, hasf, fftype, pdim, extdim, compf! and compg!: as step 1. compf! and compg! are now
-# FunctionDynamics' own helpers (plain functions of the package), no longer operations.
+# FunctionDynamics, its fields, hasf, fftype, pdim, extdim, compf! and compg!: as step 1. After S3-3 compf! and compg!
+# are FunctionDynamics' own helpers (plain functions of the package), no longer operations; through S3-2 they stay
+# operations of ComponentDynamics, because _vertex!/_edge! call them on the trait object until S3-3 switches them.
 vertexf!(d::FunctionDynamics, du, u, ins, p, t) = compf!(d, du, u, ins, p, t)
 vertexg!(d::FunctionDynamics, out, u, ins, p, t) = compg!(d, (out,), u, ins, p, t)
 edgef!(d::FunctionDynamics, du, u, ins, p, t) = compf!(d, du, u, ins, p, t)
@@ -188,8 +194,8 @@ _kept_model(::Type{VertexModel}, x) = Kept{VertexDynamics}(x)
 _kept_model(::Type{EdgeModel}, x) = Kept{EdgeDynamics}(x)
 _kind_trait(::Type{VertexModel}) = VertexDynamics
 _kind_trait(::Type{EdgeModel}) = EdgeDynamics
-_dynamics(dT, f, g, ff, pdim, extdim) =
-    conforms(typeof(f), _kind_trait(dT)) ? f : FunctionDynamics(f, g, ff, pdim, extdim)
+_dynamics(dT, f, g, ff, pdim, extdim) =                 # g: every component has one (a static one has no f)
+    conforms(typeof(g), _kind_trait(dT)) ? g : FunctionDynamics(f, g, ff, pdim, extdim)   # 3b: unwraps the adaptor (§3.3)
 # model = kept ? _kept_model(dT, _dynamics(dT, f, g, ff, Int(ps.strides), Int(es.strides))) : nothing
 ```
 
@@ -240,9 +246,16 @@ usertype_models() = (; vertex = VertexModel(dynamics = Swing(), sym = [:δ, :ω]
 ```
 
 - `OUTSYM_OF_ANTISYMMETRIC` is read from the function model's record (`EdgeModel(g = AntiSymmetric(line!), outsym = :P).outsym`), so that every symbolic index of steps c–g names the same output.
-- **The record keyword `dynamics = x`** sets the record's `f = x`, `g = x` and `ff = fftype(x)`. The record gains no field. Its arity checks of `f` and `g` (`component_functions.jl:569–570`) are skipped for a value whose type conforms to the kind's trait. `pdim(x)` and `extdim` (through `Kept{…}(x)`, since a default serves kept values, not plain calls) are checked against the record's `psym` and `extin` at construction: `ArgumentError` naming both.
-- Batches are grouped by the record's `compf` as today (`construction.jl:259`): one batch per model value.
-- **Where user types are refused, with a message:** `KAExecution` and `PolyesterExecution` (typed batches call `f` and `g`); sparsity detection and the CUDA adaptation, which rewrite the raw functions (PB-5; opening a kept value at its own type is Open, open issue 16).
+- **The record keyword `dynamics = x`** sets the record's `f` and `g` to adaptors at upstream's calling convention, and `ff = fftype(x)`. The record gains no field.
+  - `f = hasf(x) ? VertexF(x) : nothing` (an `EdgeF` for an edge), with `(a::VertexF)(du, u, args...) = vertexf!(a.x, du, u, args[1:end-2], args[end-1], args[end])` (upstream calls `f(du, u, ins..., p, t)`); a static component has no `f`, so `_construct_comp` sets `sym = Symbol[]` as for a function model (`component_functions.jl:711`–`720`);
+  - `g` an adaptor per feed-forward kind and kind of component (one output for a vertex, two for an edge), in the order `_gargs` gives;
+  - `_dynamics` unwraps an adaptor and keeps `x` itself, so the batch's kept value is the user's value;
+  - initialization (`compfg`), the doctor (`chk_component`, `doctor.jl:89`), linearization (`linearize_component`), `ff_to_constraint`, the MTK extension, the typed batches (`PolyesterExecution`, `KAExecution` on the CPU) and sparsity detection (it tests the adaptor with tracers; `filter_conditionals` returns a non-RGF function unchanged) then work unchanged.
+- The feed-forward inference (`_infer_fftype`, `component_functions.jl:547`, through `_takes_n_vecs_and_t`, `:569`–`570`) is not reached: `ff` is given.
+- `pdim(x)` and `extdim` (through `Kept{…}(x)`, since a default serves kept values, not plain calls) are checked against the record's `psym` and `extin` at construction: `ArgumentError` naming both.
+- **A vertex's output symbol:** `Swing` with `sym = [:δ, :ω]` and `outsym = [:δ]` clashes as a `StateMask` output does; `_has_sym_to_outsym_mapping(g)` is false for the adaptor (`:1042`), so `usertype_models` passes `allow_output_sym_clash = true`, as a `StateMask` gets it implicitly (`:1005`).
+- Batches are grouped by the record's `compf` as today (`_find_identical_components`, `_component_hash`, `construction.jl:266`–`281`): one batch per model value.
+- **Where user types are refused, with a message:** only CUDA's adaptation of the raw functions (`_adapt_rgf`; PB-5; opening a kept value at its own type is Open, open issue 16).
 
 ### 3.4 Why this shape
 
@@ -254,20 +267,21 @@ usertype_models() = (; vertex = VertexModel(dynamics = Swing(), sym = [:δ, :ω]
 - **Defaults:** `extdim` only. A default `hasf = true` would let a static edge forget to say so, and its `f` operation would still have to exist; `hasf` stays required.
 - **What the declaration checks for a user's type:** that the methods exist. With untyped declared arguments the check does not infer the calls (traits plan §2.6; expl. §10.13). `pdim`, `fftype` and `hasf` have concrete arguments and are inferred: a `pdim` returning a `Float64` is refused at `@implement`.
 
-### 3.5 Each construct against TraitWorld c655dde
+### 3.5 Each construct against TraitWorld c655dde (and `w49`)
 
 | Construct | Where | Status | Deviations met |
 |---|---|---|---|
 | a supertrait without parameters, `VertexDynamics <: ComponentDynamics` | [§3.6](../reference/traits.md#36-supertraits-and-bundles) | Implemented | T-68 not met (no fields). The agreement is checked against a type's own implementations; families are not (the reference says so) |
+| the supertrait's operations through a subtrait's bound on a family member, from the table and from a typed caller | [§3.6](../reference/traits.md#36-supertraits-and-bundles), [§4.7](../reference/traits.md#47-families) | Implemented | S3-0 (c) (`ndport/logs/p4s3/s0-supertrait/M-1.log`): works. A family declared for the subtrait without the supertrait's family is accepted at `@implement`, and `conforms(T, VertexDynamics)` answers `true` for its member; the first `Kept{…}`, typed call or table call raises `TraitBoundError` ("forwards VertexDynamics to GD{…}, which does not implement ComponentDynamics"). A candidate T- row (§7) |
 | a default for an operation (`extdim`) | [§3.2](../reference/traits.md#32-defaults) | Implemented | T-2 not met (no parameters) |
 | `@default_with_dynamic_self` on each trait | [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations) | Implemented | per trait, not inherited |
 | three families over one type, variable form, by its own methods | [§4.7](../reference/traits.md#47-families) | Implemented | T-57 avoided (no block); L-37 (typed calls; the steady state's calls are untyped, §2.5); L-38 (one registry method per family: three in NetworkDynamics) |
 | one-line implementations of two traits by a plain module for its own types | [§4.2](../reference/traits.md#42-one-line), [§10.1](../reference/traits.md#101-who-may-implement) | Implemented | none |
-| `Kept{VertexDynamics}(x)` held through a struct's type parameter; `compiled_for(k)` at a bound, from code not bounded on it | [§7.1](../reference/traits.md#71-the-three-forms), [§6.4](../reference/traits.md#64-casts) | Implemented | the crossing's cost depends on the ordinary arguments' annotations; at most eight arguments (§7, candidate rows) |
+| `Kept{VertexDynamics}(x)` held through a struct's type parameter; `compiled_for(k)` at a bound, from code not bounded on it | [§7.1](../reference/traits.md#71-the-three-forms), [§6.4](../reference/traits.md#64-casts) | Implemented | L-39, L-40, L-41 at c655dde; retired by W-49 on `w49` (S3-1) |
 | `conforms(T, X)` at construction | [§14](../reference/traits.md#14-membership) | Implemented | none |
 | a closure over a trait object passed to Base (`Threads.@threads`) | [§5.3](../reference/traits.md#53-what-trait-code-may-do-with-a-trait-object) | Implemented | as in step 1 |
 
-**Nothing Planned is needed; no known deviation blocks.** S3-0 (c) checks the supertrait with three families in a scratch module before S3-2 depends on it.
+**Nothing Planned is needed; no known deviation blocks.** S3-0 (c) checked the supertrait with three families in a scratch module before S3-2 depends on it.
 
 ---
 
@@ -275,22 +289,23 @@ usertype_models() = (; vertex = VertexModel(dynamics = Swing(), sym = [:δ, :ω]
 
 The checks:
 - **(P)** NetworkDynamics and its extensions precompile in `env_merged` (strict mode on, as E-165's check P), which runs the trait module's definition checks;
-- **(R)** `scripts/rhs_check.jl` in setting M: every hash equal to U's (`logs/p4/rhs-U.log`), `sametype`, `allocs`, `ns`; the threaded style with two threads. `rhs_p4.sh` gains the environment and the depot as variables if it has none;
+- **(R)** `scripts/rhs_check.jl` in setting M: every hash equal to U's (`logs/p4/rhs-U.log`), `sametype`, `allocs`, `ns`; the threaded style with two threads. `rhs_p4.sh` takes `P4ENV`, `P4DEPOT`, `TWDIR` already; it is aligned with the two-core rule (`taskset -c 0-1`, `ionice`, one precompile task);
 - **(X)** `scripts/p4s3_rhs_split.jl`: the right-hand side's ns and allocations, and per pass the crossing into an empty batch and into the full batch;
+- **(Y)** `scripts/p4_polyester_check.jl`: the typed batches on function models (`PolyesterExecution`), which R does not cover;
 - **(W)** the workload in setting M, one run, strict off, `compare_digests.py --exact` against E-151's U log;
 - **(T)** ND's test subset, `nd_tests.sh` in `env_ndtest_p4pin` (depot `depot-p4pin`).
 
 | # | File (at 324bcb7) | Function | Change | Check |
 |---|---|---|---|---|
-| S3-0 | `ndport/scripts/p4s3_cross_shapes.jl`, `p4s3_rhs_split.jl` (new, from the planning probes); E-166 registered, status running | — | **(a)** both scripts run, logs in `logs/p4s3/s0-*.log`: the before. **(b)** the split attributes the right-hand side's excess over typed batches once: the crossings, the `Ref`s, the passes without batches, by difference; a profile of 10⁵ right-hand sides if the difference is large. **(c)** in a scratch trait module on c655dde: §3.1's three traits, a family of all three over a stand-in for `FunctionDynamics`, a one-line `Swing` of two traits from a plain module, `Kept{VertexDynamics}` through a bounded function. A few minutes | logs |
-| S3-1 | `src/coreloop.jl` | `run_vertex_batch!`, `run_edge_batch!` | the ordinary arguments untyped (§2.3); nothing else | P, R, X (the crossing ≤ 90 ns), W (step d) |
-| S3-2 | `src/component_dynamics.jl` | `ComponentDynamics`, `VertexDynamics`, `EdgeDynamics`; `FunctionDynamics`' methods and families | §3.1, §3.2; `compf!`/`compg!` become plain helpers; nothing calls the new operations yet | P, R; every component of the check networks: `vertexf!`/`vertexg!` (or the edge operations) on a `Kept{…}` give `apply_compf`/`apply_compg`'s bits (as step 1's S1 lines) |
-| S3-3 | `src/network_structure.jl` (`ComponentBatch`, `constructorof`), `src/coreloop.jl` (`KeptBatch`, `_process_kept!`, the batch functions, `_vertex!`, `_edge!`) | the batches per kind | `_kept_model`, `_dynamics` (§3.2); the bounds `m::VertexDynamics`, `m::EdgeDynamics`; `_process_kept!` by the vector's kind; `_vertex!`/`_edge!` call the kind's operations | P, R (`sametype=true`), X, W, T |
-| S3-4 | `src/component_functions.jl` (`_fill_defaults`, `_construct_comp`, `chk_component`), `src/construction.jl` (the execution-style and sparsity refusals); `ndport/scripts/workload_types.jl` (new), `workload_steps.jl`, `workload.jl`, `rhs_check_nets.jl` | `VertexModel(dynamics = x)`, `EdgeModel(dynamics = x)`; the `usertype` pass | §3.3. The pass runs a–g with the model `:swing_type` when `NDW_PASSES` names it; a step that throws prints `D usertype <step> error=<type>` and ends the pass (as `graphtype`). `rhs_check.jl` gains tier S on `Swing`/`Line` for the sequential and threaded styles: hashes equal to tier S on `swing!`/`line!`, and `sametype` across the two | P, R, one U run with `usertype` (a fails: the keyword does not exist upstream) and byte-identity of the common passes; W with `usertype` (`--as=usertype:first`) |
-| S3-5 | `ndport/` | — | E-166's runs (§5.1) | §5 |
+| S3-0 | `ndport/scripts/p4s3_cross_shapes.jl` (probe A), `p4s3_rhs_split.jl` (X), `p4s3_supertrait.jl` (new, from the planning probes); E-166 registered, status running | — | **(a)** the scripts run, logs in `logs/p4s3/s0-*/`: the before. **(b)** the split attributes the right-hand side's excess over typed batches once: the crossings, the `Ref`s, the passes without batches, by difference. **(c)** in a scratch trait module on c655dde: §3.1's three traits, a family of all three over a stand-in for `FunctionDynamics`, a one-line `Swing` of two traits from a plain module; in a bounded function `probe(m::VertexDynamics, …)`, `hasf(m)`, `pdim(m)` and `extdim(m)` (the default), entered by `compiled_for(Kept{VertexDynamics}(member))` from an untyped caller (the table) and once from a typed caller; a member whose `ComponentDynamics` family is missing: what is refused, and where. A few minutes | logs |
+| S3-1 (TraitWorld) | TraitWorld `src/trait_module.jl`, `src/untyped.jl`, `src/checks.jl`, `test/untyped.jl`; branch `w49` from c655dde in `TraitWorld-port`, cherry-picked onto main | the table's pattern method, `_UWrap`, `checked_call` | W-49 (§2.3): L-39, L-40, L-41; tests in `test/untyped.jl`; TraitWorld's suite on `w49` and on main. NetworkDynamics unchanged (324bcb7) | probe A again: A1 and A2 within 10 ns of A8; A4 tabled (one allocation, the `Ref`); A9 and A10 run. Then setting M rebuilt on `w49`: P, R, X (the crossing ≤ 90 ns), W (step d). This run is the baseline for S3-2 on |
+| S3-2 | `src/component_dynamics.jl` | `ComponentDynamics`, `VertexDynamics`, `EdgeDynamics`; `FunctionDynamics`' methods and families | §3.1, §3.2; `compf!`/`compg!` **stay operations of `ComponentDynamics`** (`_vertex!`/`_edge!` still call them on the trait object); nothing calls the new operations yet | P, R; every component of the check networks: `vertexf!`/`vertexg!` (or the edge operations) on a `Kept{…}` give `apply_compf`/`apply_compg`'s bits (as step 1's S1 lines) |
+| S3-3 | `src/component_dynamics.jl`, `src/network_structure.jl` (`ComponentBatch`, `constructorof`), `src/coreloop.jl` (`KeptBatch`, `_process_kept!`, the batch functions, `_vertex!`, `_edge!`) | the batches per kind | `_kept_model`, `_dynamics` (§3.2); the bounds `m::VertexDynamics`, `m::EdgeDynamics`; `_process_kept!` by the vector's kind; `_vertex!`/`_edge!` call the kind's operations; `compf!`/`compg!` leave the trait (plain helpers of `FunctionDynamics`) | P, R (`sametype=true`), X (**the crossing at most S3-1's + 15 ns**, else attributed with X and `fully_typed` before 3b), Y, W, T |
+| S3-4 (part 3b) | `src/component_functions.jl` (`_fill_defaults`, `_construct_comp`, the adaptors `VertexF`, `EdgeF` and the `g` adaptors), `src/component_dynamics.jl` (`_dynamics` unwraps an adaptor), `src/doctor.jl` (`chk_component`: unchanged with the adaptors, checked), the CUDA refusal; `ndport/scripts/workload_types.jl` (new), `workload_steps.jl`, `workload.jl`, `rhs_check_nets.jl` | `VertexModel(dynamics = x)`, `EdgeModel(dynamics = x)`; the `usertype` pass | §3.3. `initialize_component!`, `linearize_component` and `chk_component` on a `Swing` vertex run (one line each in `rhs_check.jl`). The pass runs a–g with the model `:swing_type` when `NDW_PASSES` names it; a step that throws prints `D usertype <step> error=<type>` and ends the pass (as `graphtype`). `rhs_check.jl` gains tier S on `Swing`/`Line` for the sequential and threaded styles: hashes equal to tier S on `swing!`/`line!`, and `sametype` across the two | P, R, Y, T, one U run with `usertype` (a fails: the keyword does not exist upstream) and byte-identity of the common passes; W with `usertype` (`--as=usertype:first`); the CUDA refusal's message (one line: the `ArgumentError` and its text) |
+| S3-5 | `ndport/` | — | E-166's runs (§5.1): part 3a's after S3-3; 3b's after S3-4 under the next free ID | §5 |
 | S3-6 | `ndport/README.md`, `logs/p4s3/NOTES.md`; for the coordinator: the pushback entries (§7), the guideline's B5 lessons (§8), the choices (§9), the evidence row | — | commits in `ndport/` and in the worktree | — |
 
-- **Exact equality is expected at every row.** S3-1 changes only annotations. S3-2 and S3-3 call the same user functions on the same views in the same order. S3-4's types do the same arithmetic as `swing!` and `line!` under `AntiSymmetric`.
+- **Exact equality is expected at every row.** S3-1 changes only how the table unwraps arguments. S3-2 and S3-3 call the same user functions on the same views in the same order. S3-4's types do the same arithmetic as `swing!` and `line!` under `AntiSymmetric`.
 - **ND's precompile workload** (`TraitWorld.@workload`) builds function models only; it then holds the batch functions for the workload's keys, as now.
 
 ### 4.1 What does not change
@@ -308,34 +323,35 @@ The checks:
 
 - **U:** `env_upstream`, the reference for results (E-151's U log); one run with `NDW_PASSES=first,again,params,changed,usertype` at S3-4 (the before of the `usertype` pass; byte-identity of the common passes).
 - **M-0:** E-165's logs (`logs/merge/R-strict0`, `R-strict1*`, `CH`): the before of this step.
-- **M-3:** setting M after S3-6, at NetworkDynamics' last commit:
-  - two runs strict off with `usertype` added;
-  - one run strict on (`NDW_STRICT=1`) with `usertype`;
-  - one attribution run (`NDW_DIAG=1`) with `usertype`;
+- **M-1:** setting M rebuilt on `w49`, NetworkDynamics at 324bcb7 (S3-1): P, R, X, one W. The baseline for S3-2 on.
+- **M-3a (part 3a, E-166):** setting M after S3-3, at NetworkDynamics' last commit:
+  - two runs strict off;
+  - one run strict on (`NDW_STRICT=1`);
   - one census and profile run (`NDW_SCRIPT=scripts/p6_census.jl`, as E-165's CH);
-  - X and T once.
-- Every run records the julia-1.13 build, TraitWorld c655dde, strict mode, the load order (P1's), two cores, idle I/O, and the load before and after (a run above 4 is repeated). With n = 2 the numbers are indicative.
+  - X, Y and T once.
+- **M-3b (part 3b, the next free ID):** the same with `usertype` added, and one attribution run (`NDW_DIAG=1`) with `usertype`.
+- Every run records the julia-1.13 build, the TraitWorld commit, strict mode, the load order (P1's), two cores, idle I/O, and the load before and after (a run above 4 is repeated). With n = 2 the numbers are indicative.
 - **What the numbers measure:** NetworkDynamics' trait code calling the user's plain functions (`FunctionDynamics`): interop. The `usertype` pass's models are idiomatic trait code (a user's types implementing the traits), reported apart.
 
 ### 5.2 Criteria
 
 | # | Criterion | Before | Pass when |
 |---|---|---|---|
-| 0 | Results | M-0: 0 exact differences, strict off and on | the common passes `--exact` against U in every M-3 log; every R hash equal to U's; the `usertype` pass's digests a–g equal to the same session's `first` (`--as=usertype:first`). A gate |
-| 1 | One network type | `sametype=true` | `sametype=true` for `swing!`/`swing2!`, and for the function models against `Swing`/`Line`. A gate |
-| 2 | The crossing | 162–172 ns per crossing (planning probe C; S3-0's log replaces it) | ≤ 90 ns after S3-1 (X); reported at S3-3 and M-3 |
+| 0 | Results | M-0: 0 exact differences, strict off and on | the common passes `--exact` against U in every M-3a log; every R hash equal to U's; 3b: the `usertype` pass's digests a–g equal to the same session's `first` (`--as=usertype:first`). A gate |
+| 1 | One network type | `sametype=true` | `sametype=true` for `swing!`/`swing2!`; 3b: also for the function models against `Swing`/`Line`. A gate |
+| 2 | The crossing | 165–182 ns per crossing (S3-0's split, `logs/p4s3/s0-split/`) | ≤ 90 ns after S3-1 (X); at S3-3 at most S3-1's + 15 ns (else attributed before 3b); reported at M-3a |
 | 3 | Steady state, strict off | M-0: c / d / e 5.2 / 34.7 / 1.0 ms (P4P's d 34.4–35.0) | d ≤ **32.0 ms**, the minimum of two runs; c and e at most 1.10 × M-0's + 0.5 ms. A miss on d is confirmed by one more run. Reported against P6's 16.8 and U's 15.3 ms |
 | 4 | Steady state, strict on | M-0: d 35.9–37.8 ms | reported; d at most 1.10 × strict off's + 5 ms |
-| 5 | New equations compile | changed b–e 0.56 s | changed b–e ≤ 1.0 s in both runs. The `usertype` pass: b–e compile time reported; its new CodeInstances of SciML's packages and SymbolicIndexingInterface in b–e ≤ 50 (attribution run; E-152's list of modules) |
-| 6 | Strict mode | one refusal: OffsetArrays' `reshape` at the plotting load | strict on: no refusal or warning naming NetworkDynamics, `NDW`'s implementations or TraitWorld's generated code; the extension warnings as M-0's |
+| 5 | New equations compile | changed b–e 0.56 s | changed b–e ≤ 1.0 s in both runs. 3b, the `usertype` pass: b–e compile time reported; its new CodeInstances of SciML's packages and SymbolicIndexingInterface in b–e ≤ 50 (attribution run; E-152's list of modules) |
+| 6 | Strict mode | one refusal: OffsetArrays' `reshape` at the plotting load | strict on: no refusal or warning naming NetworkDynamics, (3b) `NDW`'s implementations or TraitWorld's generated code; the extension warnings as M-0's |
 | 7 | The census | NetworkDynamics 1 (L-38), every other wrapped package 0; joint as at S7 | NetworkDynamics: L-38's registry methods only (expected three, one per family); every other package as M-0 |
 | 8 | ND's tests | `logs/p4g/ndtest-g3-pin.log`: massmatrix 6, doctor 26, diffusion 111 + 1 fail, inhomogeneous 43 + 2 fail (P4-1's three allocation assertions) | the same passes; the allocation counts of the three failing assertions reported |
-| 9 | The right-hand side | 1,794 ns, 5 allocations (planning probe C); U 0.50 µs, 0 | reported (R, X): function models and `Swing`/`Line`, expected equal (§2.5) |
+| 9 | The right-hand side | 1,834 ns, 5 allocations (S3-0's split); U 0.50 µs, 0 | reported (R, X): function models; 3b also `Swing`/`Line`, expected equal (§2.5) |
 
 ### 5.3 What a failure changes
 
 - **Criteria 0, 1:** a port bug, fixed first. A `usertype` digest that differs is a difference in the type's arithmetic (the order in `edgeg!`), fixed in `workload_types.jl`.
-- **Criterion 2 missed at S3-1:** ND's crossing differs from the probe's. `fully_typed` at the worker and the dispatch profile name the site; the finding goes to the candidate row (§7). The step continues: the traits do not depend on it.
+- **Criterion 2 missed at S3-1:** ND's crossing differs from probe A's after W-49. `fully_typed` at the worker and the dispatch profile name the site; a TraitWorld finding for the owner of the lowering reference. The step continues: the traits do not depend on it.
 - **Criterion 3 missed, confirmed:** the gain is smaller than the reading of §2.3. X's split says where the time is. The numbers go to P4-1. The step's other parts stand; nothing pauses.
 - **Steady state worse at S3-3 than at S3-1** beyond 5 % + 0.5 ms: the per-kind traits cost something the reading does not show. Attributed with X and the profile; recorded.
 - **Criterion 5 missed:** the attribution run names the module and the type that varies.
@@ -347,13 +363,9 @@ The checks:
 
 ## 6. The registry row
 
-To be added to `writeup/record/experiments.md` §11 with status running before S3-0's first run.
+Part 3a is registered as **E-166** in [`../record/experiments.md`](../record/experiments.md) §11 (status running); that row is the source of its questions (0)–(6) and their pass marks, which are this plan's criteria 0–8 without the user's types. Part 3b (S3-4 and M-3b: the `usertype` pass's digests, `sametype` against `Swing`/`Line`, its compile time and SciML CodeInstances, strict mode on `NDW`'s implementations, the right-hand side on `Swing`/`Line`, the component-level callers through the adaptors) takes the next free ID, registered before its first run.
 
-| ID | Question | Status (date) | Where (scripts/logs) | Outcome | Written up in |
-|---|---|---|---|---|---|
-| E-166 | W-32 P4, step 3: the batches' crossings and the component traits per kind ([the step-3 plan](../plans/2026-10-22-ndport-step3.md)). NetworkDynamics' batch functions take their ordinary arguments untyped (planning probe: an abstract annotation makes each crossing from a kept value a dynamic call, 150–215 against 50–75 ns); `VertexDynamics` and `EdgeDynamics`, subtraits of `ComponentDynamics`, kept per kind in the batches; a user's own types (`Swing`, `Line`) through `VertexModel(dynamics = …)`, in a `usertype` pass of the workload. Setting M (`env_merged`, `depot-merged`), julia-1.13 as E-165, TraitWorld c655dde, product setting, P1's load order, two cores; two runs strict off, one strict on, one attribution run, one census run; against U (results) and E-165's M (the before). (0) Are the common passes and the right-hand-side checks exactly equal to U, strict off and on, and the `usertype` pass's digests equal to the `first` pass's? (1) Is the network's type the same for `swing!`, `swing2!` and the user's types? (2) What does a crossing cost after the change (before 160–170 ns)? (3) Is step d's steady state at most 32.0 ms strict off (before 34.7; P6 16.8; U 15.3)? (4) Do changed b–e still compile in at most 1.0 s, and does a new model type compile no SciML code? (5) Does strict mode refuse nothing in NetworkDynamics or in the user's implementations, and does the census count only L-38's registry methods? (6) Does ND's test subset pass as before? Measures library trait code calling plain user functions (interop), and a user's types implementing the traits (idiomatic), apart. **Would change the plan:** an exact difference (a port bug); the crossing not cheaper in NetworkDynamics (a TraitWorld finding, the candidate row); d above 32.0 ms, confirmed (the split names the time; P4-1 updated); a refusal under strict mode in the port's code; the supertrait with families refused (traits of their own, a pushback entry). | proposed (2026-10-22) | `ndport/` (its own repository): `scripts/p4s3_cross_shapes.jl`, `p4s3_rhs_split.jl`, `rhs_check.jl`, `rhs_check_nets.jl`, `workload.jl`, `workload_steps.jl`, `workload_types.jl`, `run_workload.sh` (setting M, `NDW_PASSES` with `usertype`), `nd_tests.sh`; `logs/p4s3/`; the worktree `pkgs/NetworkDynamics-p4`, branch `port` | — | `ndport/README.md`; `ndport/logs/p4s3/NOTES.md`; [the step-3 plan](../plans/2026-10-22-ndport-step3.md) |
-
-When E-166 is done, its outcome and an evidence row in `writeup/design/evidence.md` are written in one commit (CLAUDE.md, rule 1). If the step is split (§10), E-166 closes on 3a's parts and 3b gets the next free ID in a dated addendum to this plan.
+When E-166 is done, its outcome and an evidence row in `writeup/design/evidence.md` are written in one commit (CLAUDE.md, rule 1).
 
 ---
 
@@ -361,7 +373,7 @@ When E-166 is done, its outcome and an evidence row in `writeup/design/evidence.
 
 **Pushback**, in the log's shape, numbered on from P4-4. Each is written there once E-166 confirms it.
 
-**P4-1, updated.** "What the port did" gains step 3: the batch functions' ordinary arguments untyped, the crossing's cost before and after, and the floor that remains (§2.4: a lookup and a pointer call per batch, three per right-hand side; the witness carried in a value is Optional).
+**P4-1, updated.** "What the port did" gains step 3: the crossing's abstract-annotation cost fixed in TraitWorld (W-49), NetworkDynamics' annotations kept, the crossing's cost before and after, and the floor that remains (§2.4: a lookup and a pointer call per batch, three per right-hand side; the witness carried in a value is Optional). Its bullet "The reference: a family member takes the entry's generic path" is corrected: lowering §9.3 serves a family member by the table like a declared type.
 
 **P4-5. A value constant per implementation, for a user's type** (the traits plan's PB-1, met by a user's type for the first time).
 - **The code:** `ND.pdim(::Swing) = 3`, `ND.fftype(::Swing) = PureStateMap()`. The core loop passes `nothing` for `p` when `pdim` is zero, and builds the views from `fftype`; both must be constants per key for the user's function to receive concrete arguments.
@@ -370,18 +382,17 @@ When E-166 is done, its outcome and an evidence row in `writeup/design/evidence.
 - **What it costs:** a type that returns `pdim` from a field gets `Union` views at its own functions; nothing warns. Measured if S3-4 has time: a `SwingP` reading `pdim` from a field, its right-hand side and `fully_typed`.
 - **Blocks:** no.
 
-**P4-6, only if S3-0 (c) refuses it. A supertrait whose subtraits are implemented by families.** The code, the refusal's text, the reference ([§3.6](../reference/traits.md#36-supertraits-and-bundles)), the form taken (traits of their own, the static operations declared twice), the cost (none at run time).
+S3-0 (c) did not refuse the supertrait with families, so no pushback entry for it.
 
-**Candidate deviation rows, for the owner of [`../reference/lowering.md`](../reference/lowering.md)** (found by this plan's probes; to be confirmed by S3-0's committed log before a row is written):
-- **The table's call of the worker is dynamic when an ordinary argument of the bounded function is declared with an abstract type** (`::Vector`, `::Base.RefValue`, `::Base.RefValue{A} where {A}`): 150–310 ns per crossing against 50–75 ns for concrete or untyped arguments. Lowering §9.3 says one call through the pointer builds the views and calls the worker for the key. The dispatch profile of E-165 shows the dynamic `checked_call`.
-- **The table's call wrapper takes at most eight arguments:** a crossing from a kept value into a bounded function of nine arguments raises `MethodError` (`no method matching (::TraitWorld._UWrap)(::_UCall{…}, …)`). Lowering §9.3 names no limit.
+**Deviation rows.** L-39, L-40 and L-41 (lowering §9.3) are written by the owner of the reference from the review's probe and S3-0's log; W-49 retires them (S3-1).
+
+**A candidate T- row, for the owner of [`../reference/traits.md`](../reference/traits.md)** (S3-0 (c), `ndport/logs/p4s3/s0-supertrait/M-1.log`): a family implementing a subtrait whose members have no implementation of the supertrait is accepted at `@implement` (`_check_now` returns for a non-concrete type before the supertraits' loop, `TraitWorld/src/implement.jl:536`–`542`), and `conforms(T, VertexDynamics)` answers `true` for a member; the first use raises `TraitBoundError` with a message that names the member as forwarding to itself. Traits §3.6 asks the supertrait's implementation of every implementing type.
 
 ---
 
 ## 8. Lessons for the porting guideline (B5), expected from this step
 
 To be written there, in the present tense, once S3-6 confirms them:
-- **A bounded function entered from a kept value takes its ordinary arguments concrete or untyped.** An abstract annotation (`::Vector`, `::Base.RefValue`) makes each crossing a dynamic call (while the candidate deviation stands); the table takes at most eight arguments.
 - **Measure the crossing on an empty batch.** Its cost against the batch's work says whether the barrier sits where the work behind it is large enough.
 - **Keep a library's values per kind, as kept values of the kind's trait** (`Kept{VertexDynamics}`), with the shared static facts in a supertrait. The bound then names the kind, and no generic implementation is needed.
 - **A user's own type joins with two one-line implementations,** its static facts as methods that return constants (`pdim(::Swing) = 3`), so that the library's views stay typed.
@@ -393,14 +404,14 @@ To be written there, in the present tense, once S3-6 confirms them:
 
 Numbered on from the meta plan's 47:
 
-48. **The crossing's shape first** (S3-1): the batch functions' ordinary arguments untyped, before the traits change. It is measurable alone and changes no result.
+48. **The crossing fixed in TraitWorld first** (S3-1, W-49): the table checks an ordinary argument's declared type once, by the entry's dispatch; NetworkDynamics keeps upstream's annotations. Measurable alone, before the traits change, and no result changes.
 49. **The traits per kind:** `VertexDynamics` and `EdgeDynamics`, subtraits of `ComponentDynamics`, which keeps `hasf`, `fftype`, `pdim`, `extdim`. Step 1's `compf!`/`compg!` leave the trait. The batches keep `Kept{VertexDynamics}` and `Kept{EdgeDynamics}`. No generic implementation (§3.4).
 50. **The operations' names and convention:** `vertexf!`, `vertexg!`, `edgef!`, `edgeg!`, at the core loop's convention (`ins` a tuple; `nothing` for what the feed-forward kind does not read). The traits exported, the operations `public`.
 51. **Defaults:** `extdim = 0` only; `hasf` required.
-52. **A user's value enters through the record:** the keyword `dynamics = x` fills the record's `f`, `g` and `ff`; no new field. The batch keeps the value itself when `conforms(typeof(f), …)` holds.
-53. **User types refused, with a message,** under `KAExecution`, `PolyesterExecution`, sparsity detection and the CUDA adaptation (PB-5, PB-6, P4-2).
+52. **A user's value enters through the record** (3b): the keyword `dynamics = x` fills the record's `f` and `g` with adaptors to upstream's calling convention, and `ff`; no new field. The batch keeps the value itself when `conforms(typeof(g), …)` holds for the unwrapped adaptor.
+53. **User types refused, with a message,** only under CUDA's adaptation of the raw functions (PB-5); every other caller of `f` and `g` goes through the adaptors.
 54. **The `usertype` pass:** additive, off by default; `Swing` and `Line` with the arithmetic of `swing!` and `line!` under `AntiSymmetric`; compared with the `first` pass exactly.
-55. **TraitWorld stays at c655dde** for this step.
+55. **TraitWorld at c655dde plus W-49** (branch `w49` in `TraitWorld-port`; the same commit on main).
 56. **Not taken:** one crossing fewer for `StateMask` outputs; one `Ref` per right-hand side; the per-batch loop as an operation on the kept value (until W-40, §2.5).
 
 ---
@@ -409,16 +420,17 @@ Numbered on from the meta plan's 47:
 
 | Part | Rows | Work | Machine |
 |---|---|---|---|
-| 3a | S3-0 | register; commit and run the probes; the scratch declaration check | about 5 min |
-| 3a | S3-1 | one signature each; P, R, X, one W | about 8 min (ND rebuild 1–2 min, W 70 s) |
-| 3a | S3-2, S3-3 | the traits, the batches per kind; P, R twice; X, W, T | about 15 min (two rebuilds; T about 5 min) |
-| 3b | S3-4 | the keyword, the refusals, `workload_types.jl`, the pass, the check networks; P, R, one U run, one W | about 10 min |
-| — | S3-5 | E-166's runs (§5.1) | about 12 min (six sessions) |
-| — | S3-6 | notes, README table, pushback, guideline, choices, evidence row | — |
+| 3a | S3-0 | commit and run the probes; the scratch declaration check | about 5 min |
+| 3a | S3-1 (TraitWorld) | W-49, its tests, the suite on `w49` and on main; probe A again; the merged stack rebuilt; P, R, X, one W | about 25 min (two suites, the rebuild 6 min) |
+| 3a | S3-2, S3-3 | the traits, the batches per kind; P, R twice; X, Y, W, T | about 20 min (two rebuilds; T about 5 min, after its depot rebuilds on `w49`) |
+| 3a | S3-5 (3a) | M-3a's runs (§5.1) | about 10 min |
+| 3b | S3-4 | the keyword, the adaptors, the CUDA refusal, `workload_types.jl`, the pass, the check networks; P, R, Y, T, one U run, one W | about 15 min |
+| 3b | S3-5 (3b) | M-3b's runs | about 10 min |
+| — | S3-6 | notes, README table; for the coordinator the pushback, the guideline, the choices, the evidence row | — |
 
-- **The whole step: about 4.5–5.5 hours of work,** most of it editing and reading; under an hour of machine time, every job through the lock, between the user's own jobs. An afternoon, tight.
-- **The order puts the measurable gain first.** If the afternoon runs short, stop after S3-3: run S3-5 without the `usertype` parts, close E-166 on 3a's criteria (0–4 and 6–9 without the user's types), and do 3b in the next session under the next free ID.
-- **Why now, before `ODERHS` (step 4):** P4-1 is the port's largest open cost, and step 4 does not touch it. The user's types complete step 1's trait in the idiomatic form, the port's first idiomatic trait code, judged apart from interop (the traits plan §4).
+- **The whole step: about 6–8 hours of work** (the review): 3a 3.5–4.5 hours, 3b 2.5–3.5 hours. The split is planned up front: 3a in the session of 2026-10-22, 3b in a later session under the next free ID.
+- **The order puts the measurable gain first:** W-49 and the traits per kind close E-166 on 3a's criteria.
+- **Why now, before `ODERHS` (step 4):** P4-1 is the port's largest open cost, and step 4 does not touch it. The user's types (3b) complete step 1's trait in the idiomatic form, the port's first idiomatic trait code, judged apart from interop (the traits plan §4).
 
 ---
 
@@ -426,7 +438,29 @@ Numbered on from the meta plan's 47:
 
 The traits plan's §6 applies. In addition:
 - **W-40 built:** compare the per-batch loop as an operation with a default on the kept value (probe B's form) against the bounded function, on `FunctionDynamics` and on `Swing`/`Line`. If the operation form is cheaper, it becomes the barrier.
-- **The candidate rows confirmed and fixed in TraitWorld:** the batch functions' annotations may come back as documentation; the guideline's first lesson changes.
+- **The remaining per-crossing cost matters:** a pointer keyed also on the ordinary arguments' concrete types would make the worker's call static (about 50 against 70 ns per crossing; the review, "optional later").
 - **The witness carried in a value** leaving Optional: the per-batch floor (§2.4).
 - **Step d still far from P6's 16.8 ms after E-166:** S3-0 (b)'s attribution decides whether the `StateMask` special case or the `Ref`s are next, or whether the rest belongs to the facts mode's threads and buffers (the traits plan §2.6).
 - **A user's type in a tier M workload,** five or more model types (the split beyond four, expl. §11 item 3), or a model with external inputs.
+
+---
+
+## 12. What was done with the review's findings
+
+| Finding | What was done |
+|---|---|
+| Recommendation (fix the crossing in TraitWorld) | Taken: S3-1 is W-49 in TraitWorld (§2.3); NetworkDynamics keeps its annotations; choices 48, 55; §7, §8, §11 |
+| 1 (blocker: `compf!`/`compg!` leave the trait while the loop calls them) | They stay operations through S3-2 and leave in S3-3 with the switch of `_vertex!`/`_edge!` (§3.2, §4) |
+| 2 (blocker: a user's types fail at construction) | 3b: `f = hasf(x) ? adaptor : nothing`, `_dynamics` tests `g`, `allow_output_sym_clash = true` for `Swing`, `chk_component` through the adaptor (§3.2, §3.3) |
+| 3 (the crossing's mechanism) | Restated (§2.1, §2.2, §2.3); the rows are L-39–L-41, retired by W-49 |
+| 4 (`where {A}` measures the generic path) | Said in §2.2; L-40, lifted by W-49 |
+| 5 (eight arguments: a correctness bug) | Said in §2.2; L-41, fixed by W-49 (sixteen by fixed arities, any arity by the builder's dispatch); the `Ref`'s reason restated (§2.3) |
+| 6 (component-level callers of the raw functions) | (b) taken: adaptors at the record (§3.3, choices 52, 53); S3-4 runs `initialize_component!`, `linearize_component`, `chk_component` on `Swing` |
+| 7 (a crossing pass mark at S3-3) | Added: at most S3-1's + 15 ns (§4, criterion 2) |
+| 8 (time) | 6–8 hours, the split up front (§10) |
+| 9 (S3-0 (c) through the table, a missing supertrait family) | Added to S3-0 (c) and run: works; the missing family is accepted and refused only at first use (§3.5, §7: a candidate T- row) |
+| 10 (missing checks) | Y (`p4_polyester_check.jl`) at S3-3 and S3-4; T at S3-4; the CUDA refusal's message at S3-4 (§4) |
+| 11 (citations, the harness) | Citations corrected (§3.3); `rhs_p4.sh` aligned with the two-core rule (§4, R) |
+| 12 (P4-1's stale bullet) | Corrected with P4-1's update (§7) |
+| 13 (moving TraitWorld moves three settings) | Said in §1.2; the branch `w49` is named, the harness records the commit |
+
