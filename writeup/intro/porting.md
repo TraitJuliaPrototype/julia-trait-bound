@@ -45,7 +45,8 @@ Write to TraitWorld's language, never to its internals (names that start with `_
 **Where the code differs today**, the rows a port meets ([traits §17](../reference/traits.md#17-deviations), [lowering §18](../reference/lowering.md#18-deviations), [compiler](../reference/compiler.md#deviations)):
 - **L-3:** an untyped method of a bounded method's shape must come after the bounded methods, and only the function's owner may add a bounded method of a shape the function has none of yet. Define the bounded method first, in the owner's package.
 - **T-2:** a trait's parameter is not in scope in a default's body. Call a helper that reads it from an argument's type, as TDE's default `jacobian!` calls `fd_jacobian!(prob, J::Matrix{T}, …) where {T}`.
-- **T-5, T-38:** a family with a block over a parametric type expression (`S{P} where {P} begin … end`) is not lowered as a family; for a trait whose parameters are defined by equations, the one-line `S{P} where {P}` is refused too. The variable form works: `A where {A <: S}`.
+- **T-38:** for a trait whose parameters are defined by equations, the one-line family `S{P} where {P}` is refused. The variable form works: `A where {A <: S}`.
+- **T-57:** a family with a block in the variable form, `A where {A <: S} begin … end`, is refused outside the trait's module. Use the form `S{P} where {P} begin … end`, or the no-block family.
 - **T-12:** TraitWorld's own tests and workload use an earlier spelling (`@trait ColTable{R}`). Copy trait code from the references and the demonstrators, not from TraitWorld's tests.
 - **T-19:** keyword, vararg and `Callable` functions are checked at their first call, not at the module's end. A workload or a test must call each one.
 - **T-32:** with a block, an existing method for an operation the block leaves out is not used. Put every override in the block.
