@@ -24,6 +24,8 @@ A declared type does not pay it: its `conformance` method calls a builder fixed 
 
 The decision's wording adds a mechanism: "with edges on the methods the check read". §5 proposes another mechanism for the same outcome, and asks the user to confirm it (question 1).
 
+The decided paragraph names no compiler interface that could run the check while a caller is inferred. The lowering review of 2026-10-26 found this independently (M5). §4.1 proposes the interface.
+
 ## 3. The proposal in brief
 
 1. **A compiler primitive, `Compiler.fold_call(g, args...)`.** Where every argument is a constant to inference, inference calls `g(args...)` in the inference world and makes the call the constant `g` returns. Elsewhere the call is `nothing`. It is `known_type`'s pattern for values: the library writes the run-time path beside it, and both compute the same result.
@@ -114,6 +116,7 @@ The decision says "with edges on the methods the check read". This section argue
 
 1. **Evaluation at load instead of edges** (§5). The outcome is the decided one. The mechanism differs from the decision's wording. **Recommendation:** evaluation at load. The decision log row and lowering §4.6's planned paragraph change with it.
 2. **The member check at abstract declared arguments.** Where an operation's declared argument type is abstract, the check asks only whether some method exists at `(U, declared types…)`. A method added there by the owner of any other type (`op(::U, ::MyVec)`) changes the member's witness, from served by the default to served by its own method. With the slow path today, the member's implementation then depends on whether that package loaded before the member's first use. Under the fold, an image's code is then discarded at load. This predates W-40 and applies to a single type's declaration too, at its declaration. **Recommendation:** a separate open issue, not a part of W-40. Option: at an abstract declared argument, count only the methods of the member's stakeholders (the owners of the operation, of `S` and of the parameters' types).
+3. **An override by the parameter type's owner, and load order** (the traits review of 2026-10-26, M11). The owner of `MyT` may override member `S{MyT}` until its first use ([traits §4.7](../reference/traits.md#47-families)). Compiling a caller is a use, and so, under this note, is loading code that folds the member. Whether another package's precompilation used the member first is not under the owner's control. **Recommendation:** accept such an override only in the parameter type's owner's own package. Any code that names `S{MyT}` when it is compiled depends on that package, so the override is always loaded first, in every load order. This changes a rule of an existing feature (T-28), so it is the user's.
 
 ## 7. Validation
 
