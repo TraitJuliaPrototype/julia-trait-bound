@@ -1,6 +1,6 @@
 # A cache keyed on facts and their origins
 
-Status: **exploration, the adopted direction** (2026-10-27, mine; the user: "Let's retire the experimental cache and add this cache to the Todo list"; W-66; open issues 72, 73). Not normative. Nothing built.
+Status: **exploration, the adopted direction** (2026-10-27, mine; the user: "Let's retire the experimental cache and add this cache to the Todo list"; W-66; open issues 72, 73). Not normative. Nothing built. **Superseded in its details** by [the note's revision 2](../plans/2026-10-27-facts-keyed-cache.md), after [its review](../reviews/2026-10-27-facts-keyed-cache.md): identity by the build ids of an entry's dependency closure, not versions (§2 here); validation by a session index of candidate methods, not by strict mode alone (§3 here); the plain share in D after W-63 is large (§5 here, "nearly all").
 
 ## 1. The question
 

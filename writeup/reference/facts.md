@@ -468,6 +468,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | a pirate loaded before a package image whose facts it breaks | at the image's validation, naming the pirate and the code |
 | a pirate that wins inside plain code that trait code depends on (a folded `return_type`, the compiler) | at the definition: the check follows callers transitively |
 | a package extension's winning method at a fact whose signature contains none of its triggers' types | no error: followed, as its parent's change (a stakeholder's), with a warning when the extension's methods become visible, naming the method and the trait code it affects |
+| a binding redefined from another module (`Core.eval(Other, …)`) that trait code reads | at its source, the redefinition (§2.2) |
 | a deletion of a method that trait code depends on, by anyone (a deletion carries no caller to name), except TraitWorld's own deletion of a refused declaration's methods and of a refused pirate | at the deletion |
 
 - Edits stay the one exception, with a stakeholder's package extension, which is followed with a warning. An edit is meant to change what the code computes; an extension is its parent's code.
