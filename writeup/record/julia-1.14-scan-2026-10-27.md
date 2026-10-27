@@ -78,6 +78,7 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
 | Effects (W-52 `nortsite`) | `reset_safe` at bits 15–16 | small: move to bit 17 |
 | Owners, dispatch from facts code, call-site caches (`gf.c`) | no global inference lock | moderate: review shared state for concurrent inference |
 | Image validation (`reinfer.jl`; W-40's records) | `Core.PossiblyAmbiguous` marker | small |
+| Edges as the facts mode reads them (`rests_on_facts`, G2, W-40's records) | optimizer-synthesized dispatch edges encode their lookup ([#62709](https://github.com/JuliaLang/julia/pull/62709)); identity edges covered by a dispatch edge dropped ([#63689](https://github.com/JuliaLang/julia/pull/63689)) | to check: the edge list's shape changes |
 | Definition and image-activation hooks (`gf.c`, `staticdata.c`) | not seen changed in the parts read | to check |
 | `--trim` | a static, JIT-free `libjulia-internal.a` for JuliaC (#63618); `Libdl.LazyLibrary` incompatible with `--trim` | small, and helpful for trimmed binaries |
 | TraitWorld's macros (struct and body rewrites) | `typegroup` blocks (#60569), `@label` blocks (#60481) | small: pass them through, rewrite structs inside a `typegroup` |
@@ -95,3 +96,10 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
 - `StringView` in Base (#60526); `tap`, `unsplat` (#61340, #62714).
 - A SAT resolver in Pkg; `[compat-overrides]`; comments kept in `Project.toml`.
 - Optimized (`+opt`, PGO/LTO/BOLT, about 10% faster precompile and load) and assertion builds, experimental.
+
+## Package images and native code (asked 2026-10-27)
+
+No new kind of native-code caching in 1.14: an image keeps what it keeps in 1.13. The changes are around it:
+- precompilation: one thread budget shared with LLVM's threads (#61958); several packages precompiled in one session (#63185), in the background (#60943); fewer repeated cache checks (#63317); cache file names with Pkg's `environment_id` (#63268); instrumented images reusable (#62724);
+- smaller images and cheaper loads: no spare array capacity serialized (#63711), compressed debug sections (#63642), line tables only in release builds (#63937), fewer allocations while validating restored code (#63303); `+opt` builds about 10% faster at precompile and load;
+- for us: the edge-shape changes in the rebase table (#62709, #63689).
