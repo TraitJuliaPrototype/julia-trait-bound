@@ -1,6 +1,6 @@
 # A cache that builds up across sessions
 
-Status: **proposal, revision 2** (2026-10-27, mine; W-58 phase 4, [open issue 72](../open-issues.md#2-design)): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§6) and E-175 (§5b). Not normative.
+Status: **proposal, revision 2, built** (2026-10-27, mine; W-58 phase 4, W-62, [open issue 72](../open-issues.md#2-design)): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§6) and E-175 (§5b); built in TraitWorld (branch `session-cache`) and measured (E-180, §7). Not normative: the references change when the user adopts it.
 
 Serves: W-58 ([the plan](2026-10-27-ttfx-sciml-makie.md) §5, phase 4); open issue 72; E-172 to E-175.
 
@@ -77,3 +77,13 @@ With all three, D's off-workload session with its cache equals its on-workload s
 - **M8** (the background builder's races and churn): accepted: one builder per environment under a lock file, an atomic rename of the finished image, a rebuild only when enough new signatures have accumulated.
 - **Minor:** m1 (the whole CodeInstance, not its signature, decides), m2 (preferences, stacked environments, dev'd edits in the key), m3 ("only its stakeholders' methods" too strong: facts §11's own wording), m6 (the references the note changes): done in revision 2 (§2, §3).
 
+
+## 7. As built (W-62, E-180)
+
+TraitWorld's `src/cache.jl` (branch `session-cache`), on with `JULIA_TW_CACHE=1`:
+- **Recording:** TraitWorld's init switches on the runtime's newly-inferred list (`jl_set_newly_inferred`), which precompilation uses; every CodeInstance cached after it is listed, of every owner. At exit, those still valid, of the default and the facts owner, whose method and signature name no module of the session, are kept with the packages their signature and edges name; with the session's first-call checks.
+- **The builder:** started at exit, detached (or synchronously, or not at all); one per environment under a lock file. It merges the records into a store, groups the entries by their packages reduced to those no other depends on (from the images' headers), writes one generated package per group, named by its content, and precompiles each with native code. The index is replaced by a rename; parts no longer listed are removed.
+- **Loading:** TraitWorld's package callback loads a part once all its packages are loaded, only if its image is fresh (`Base.isprecompiled`); never in a process that generates output.
+- **The key:** the load path's projects, manifests and preferences, the Julia commit and the system image.
+
+What E-180 measured: §2's emulation reproduced (D 2.4 → 1.07 s, C 19.4 → 6.1 s off-workload); order B with a cache recorded in order A; strict mode's refusals unchanged on one example. Open: the parts' load (45 parts, 0.45 s for C), so coarser grouping; §4's checks 2 (the load against the cache's size) and 5 (an owner-aware record for C: done by recording every owner); the general form of M1 (strict mode's refusals with a cache of more facts code than the session compiled).
