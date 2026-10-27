@@ -1,6 +1,6 @@
 # W-40: a family member's builder fixed in its callers' code
 
-Status: **proposal, revision 2** (2026-10-27): §4, §7 and §9 revised along §10's direction 0 after [the review](../reviews/2026-10-27-w40-member-builder-fold.md) (four blockers); a second review before building. Not normative.
+Status: **proposal, revision 3** (2026-10-27): §4, §7 and §9 revised along §10's direction 0 after [the first review](../reviews/2026-10-27-w40-member-builder-fold.md) (four blockers); [the second review](../reviews/2026-10-27-w40-member-builder-fold-r2.md) (build after fixes; one new blocker) answered in §11, which overrides §4 where they differ. Not normative.
 
 Serves: [W-40](../record/todo.md); open issue 49 (closed, option (b), [decisions](../record/decisions.md) "A family member's builder is fixed in the code of a caller that knows its type"); [lowering §4.6](../reference/lowering.md#46-families), [L-37](../reference/lowering.md#18-deviations); [traits §4.7](../reference/traits.md#47-families). E-161 and move 2's callbacks (E-158) wait for it.
 
@@ -195,3 +195,32 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
 - §7 gains older-world, load-order (an extension, `--pkgimages=no`), reflection and constant-propagation cases; the thread test proves little while 1.13 serialises inference.
 
 **Next:** rewrite §4 along direction 0, then a second review before building.
+
+## 11. After the second review (2026-10-27): revision 3
+
+[The second review](../reviews/2026-10-27-w40-member-builder-fold-r2.md): direction 0 is workable in 1.13; B1–B4 resolved in principle; one new blocker. §11 overrides §4 where they differ.
+
+**N1, the constant's size.** The optimizer replaces a call by its constant only up to 256 bytes (`MAX_INLINE_CONST_SIZE`, `Compiler/src/utilities.jl`); a builder of a trait with many fields is larger, and the call would stay, returning `nothing` where a builder is expected. **The inliner replaces a folded `fold_call` by its value whatever its size,** keyed on the call's info (`FoldCallInfo`), the value kept as a root of the code. A test with a builder over 256 bytes.
+
+**Three outcomes, not two.** `g` returns:
+- **a value:** folded, with its record;
+- **`nothing`, final:** the member does not fold (refused, a session's pointers, a generic predicate); remembered for the session, so it is not checked again;
+- **`Compiler.Undecided()`:** not now (TraitWorld's lock busy or already held by this task, the world not the latest or moved before publishing, a re-entrant call). Nothing is remembered. The caller compiles the run-time path; this costs speed only, and is recorded as a deviation row once built.
+
+**The discipline, restated with its boundary.** While called from inference, `g` runs TraitWorld's check and the declarations' own record methods (`op_args`, `param`, `supertrait_args`, the equations' type computations), which TraitWorld generates and which compute on types. It must not block, yield, write, or run code a user wrote for other purposes:
+- the lock by `trylock`, and `Undecided` if the current task already holds it (`trylock` succeeds for its holder);
+- `witness` gets an abort mode: a generic implementation's predicate is not evaluated there; the member is `nothing`, final;
+- warnings and problem messages are queued as data and shown on the run-time path; no `show` runs in `g`;
+- every read takes the world explicitly (the fifteen latest-world reads the review lists);
+- the registry is first-writer-wins (an atomic replace that keeps an existing entry); the override index becomes copy-on-write, since the definition hook reads it on another thread;
+- the publish checks that the world counter is unchanged since the check began; otherwise `Undecided`.
+
+**Where folds happen.** Only in ordinary inference frames of the native interpreter's compilation: an interpreter field set for JIT and precompilation requests, clear for reflection, analysis tools and `return_type`'s nested inference. Not during semi-concrete evaluation (it keeps no records): there the call is `Undecided`. The split's branches are ordinary inference: they fold (E-156 P13 depends on it; §4.1's list is corrected).
+
+**At load.** The pre-pass runs outside inference, so it takes TraitWorld's lock blocking, and retries a moved world; it never turns "undecided" into "invalid". It also scans the records inside the CodeInstances constant propagation leaves.
+
+**Prerequisite: T-28 and L-23.** A member's own declaration is accepted only in its parameter type's owner's package (decision 63) and refused after the member's first use. Built first, as W-40's first step.
+
+**Also:** the invalidation log names a record that fails at load; §4.2's "what does not change" list follows the one-builder rule (the untyped table's miss calls the same function); §8 gains the F- row for question 2 and an L- row for `Undecided`'s cost.
+
+**Next:** build in this order: T-28/L-23; TraitWorld's check under the discipline (testable on today's build: the slow path uses it too); the compiler's `fold_call`, `FoldCallInfo`, the inliner's replacement, the edge walkers and the load pre-pass; then §7's checks.
