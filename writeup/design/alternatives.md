@@ -33,6 +33,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Split packages: restructuring, or implementations, instead of joint owners
 - Concrete evaluation kept within a mode
 - Caches across sessions: combination caches and view caches, removed
+- Choices of the clean-up of 2026-10-27: options not taken
 
 ---
 
@@ -309,7 +310,7 @@ The verb stays: a type still *conforms to* a trait, and the query is still `conf
 
 ## Caches across sessions: combination caches and view caches, removed
 
-Two caches kept code compiled in a session for later sessions. Both were built for plain code and the package policy, and both are gone. The question they answered is open again as [open issue 72](../open-issues.md#2-design).
+Two caches kept code compiled in a session for later sessions. Both were built for plain code and the package policy, and both are gone. The question they answered is W-66's: a cache keyed on facts and their origins ([decisions](../record/decisions.md) §5; closed open issue §2.72).
 
 - **Combination caches** (session 20, `poc/interfaces/ComboCache`, commits 71c9b68, ff3ca4f; `session-notes/2026-10-15-20-crash-recovery-and-m8.md`). A session started with `--trace-compile` wrote its compilations; a detached builder generated a package that loaded the session's packages in the session's order with the recorded statements as its workload, and built it; `ComboCache.auto()` loaded the largest matching combination after each `using`. The cache was keyed by the packages, their versions and **the load order**, because plain code's validity depends on it: built in another order, the replay stored nothing for Makie's code. End to end: read, summary, plot and PNG 0.21–0.24 s after loading, against about 15 s without. Not continued when the design moved from package policy to the facts mode, which removes the load-order dependence for code compiled by facts.
 - **View caches** (sessions 21–29, TraitWorld `viewcache.jl`): a package image per representation recorded in the session and flushed at exit, with an invalidation filter injected into the loader on stock Julia ([`../explorations/runtime.md`](../explorations/runtime.md), x12: `summarize` 3.5 ms against 31.8 ms with CSV and Makie loaded before). Deleted with TraitWorld's own policy and stock support (TraitWorld c533f3a, s29; [open issues](../open-issues.md), closed §4 item 1).
@@ -322,3 +323,15 @@ W-64 (julia-1.13 30a89bc2fe, f1866b9d4e; [the note](../plans/2026-10-27-remember
 ## The cache across sessions keyed on the environment, retired
 
 W-62 (TraitWorld branch `session-cache`; [the cache note](../plans/2026-10-27-session-cache.md); [its design review](../reviews/2026-10-27-cache-design.md)) kept the code a session compiled, of both owners, in generated packages keyed on the whole environment (manifests, preferences, the Julia build) and split by dependency set, validated by Julia at load like any image's code. Off-workload sessions: the trait demonstrators 2.4 → 1.07 s, the facts-compiled SciML core with CairoMakie 19.4 → 6.1 s (E-180). Retired (the user, 2026-10-27) for the cache keyed on facts and their origins (W-66): the environment key empties the cache at any manifest change, the store is per environment and unbounded, the parts cost about 8 ms each at load, and nothing in it rests on the facts rule.
+
+## Choices of the clean-up of 2026-10-27: options not taken
+
+The clean-up (W-65, [its proposal](../plans/2026-10-27-cleanup-issues-and-queue.md)) adopted a choice for each open issue by the user's rule ([decisions](../record/decisions.md) §8). The options it did not take:
+
+- **Only winning pirates refused in trait modules,** under strict mode, as for plain code (open issue 20). Not taken: a trait module is new code, and refusing every pirate there is checked at the definition, independent of load order (Rust's orphan rule). The port's core, wrapped bottom-up, stayed free of pirates (E-155).
+- **An error naming the `using` when code loaded on demand is reached below top level** (open issue 77, option (b)). Not taken: it changes the API; entries through `invokelatest` keep upstream's calls at no measurable cost (E-182).
+- **A field's constness that depends on the implementing family** (open issue §2.5). Not taken: it adds a rule; two traits, the writing one a subtrait, say the same (Rust's `Index` and `IndexMut`).
+- **A user's vector copied element by element into a new vector of trait objects** at a `Vector{<:X}` argument (open issue §2.11). Not taken: a pass over the data, and writes no longer reach the user's vector; a collection bound takes the vector as it is (traits §8.3).
+- **Computed conditions in a generic implementation's constraints** (`eltype(R) == Vector{Float64}`; open issue §2, cleanup item 2). Not taken: overlap is then undecidable at the declaration.
+- **Facts code calling compiler functions in the compiler's world** (open issue §2.27). Not taken: as a general rule it would break packages that extend the compiler for their own interpreter types; the edges to plain compiler code cost cacheability only, measured at 0.
+- **A library's validation hook for conforming values at a store** (open issue 68). Not taken: the contract belongs to conformance, so a type whose values do not all meet it does not conform; translation at the store exists (`convert(X, x)`, decision 47).

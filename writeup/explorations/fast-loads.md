@@ -57,4 +57,4 @@ The merged port wins where a session repeats work: new equations recompile in 0.
 ## 5. Open questions
 
 - Does the product setting ship facts code for Base? It changes what "the product setting" means (facts §6; the setting is part of the image's key, open issues §2, F-7).
-- A cache across sessions: W-58's phase 4 (open issue 72); nothing goes upstream for now (the user, 2026-10-27).
+- A cache across sessions: the cache keyed on facts and their origins, W-66 (closed open issue 72); nothing goes upstream for now (the user, 2026-10-27).

@@ -61,7 +61,7 @@ This page defines the facts mode: the contract between compiled code and the met
 Each term is defined here once. The [glossary](../glossary.md) gives their origins.
 
 - <a id="term-owner"></a>**Owner.** A package owns the functions, types and bindings it defines.
-  - A method belongs to the module it is evaluated in: `@eval Owner f(…) = …` defines it as `Owner`'s, whichever package's code evaluates it. **Open:** whether it should belong to the package whose code defines it ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 65).
+  - A method belongs to the module it is evaluated in: `@eval Owner f(…) = …` defines it as `Owner`'s, whichever package's code evaluates it. **Open:** whether it should belong to the package whose code defines it, to settle by a census (E-189; [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 65).
   - Julia (Core, Base, the standard libraries) is one owner.
   - A package extension belongs to its parent package.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own ([traits §10.1](traits.md#101-who-may-implement)).
@@ -123,7 +123,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 **The exception: values decided by inference.**
 - `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference.
 - Plain Julia itself answers some of them differently in different contexts. `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded.
-- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee. Today the product setting also gives a second answer for a facts method's own result ([F-10](#deviations)).
+- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee. Today the product setting also gives a second answer for a facts method's own result ([F-20](#deviations)).
 
 **Conditions.**
 - Code that branches on what inference knows (`known_type`, `fold_call`, [`compiler.md`](compiler.md)) computes the same result on both branches.
@@ -151,9 +151,9 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 **Exceptions**, named wherever G2 is claimed:
 - **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension. This is the stated exception.
 - **A stakeholder's extension activated by an unrelated package,** whose method applies at a fact without mentioning its triggers' types. It is admitted as the stakeholder's change: followed, never refused. In strict mode a warning names the method and the trait code it affects ([§10.3](#strict-intended)).
-- **A binding redefined from another module** (`Core.eval(Other, …)`). No hook sees it ([open issues §1.1](../open-issues.md#1-decisions-waiting-for-the-user)).
-- **The standard libraries count as Julia's own code.** A standard library's method that wins at a fact, such as SparseArrays' `vcat` for Base's types, is a stakeholder's change. **Open:** whether they are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
-- **Direct calls from code compiled by facts into the compiler** hold edges to plain code ([§6.4](#the-compilers-own-code)). **Open** ([open issues §2](../open-issues.md#2-design), item 27).
+- **A binding redefined from another module** (`Core.eval(Other, …)`). No hook sees it yet; strict mode's intended design is to refuse it at its source ([§10.3](#strict-intended)).
+- **The standard libraries count as Julia's own code.** A standard library's method that wins at a fact, such as SparseArrays' `vcat` for Base's types, is a stakeholder's change. **Open:** whether they are owners of their own, to settle by a census (E-189; [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+- **Direct calls from code compiled by facts into the compiler** hold edges to plain code, valid as long as plain Julia keeps that code valid ([§6.4](#the-compilers-own-code)).
 - **A method on a closure's type defined outside the closure's module.** The fact form "a closure's call at kinds" ([§3](#facts-and-fact-signatures)) rests on the assumption that no other module does this.
 
 **What invalidates nothing.**
@@ -323,7 +323,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 <a id="the-compilers-own-code"></a>
 ### 6.4 The compiler's own code
 
-**Status: Implemented**; the edges of direct calls are **Open** ([open issues §2](../open-issues.md#2-design), item 27).
+**Status: Implemented.**
 
 - The compiler is compiled plainly, whoever calls it, in both settings and in every compile queue.
 - Why: otherwise a caller compiled by facts would compile the abstract interpreter by facts, as type-unstable code with run-time sites.
@@ -337,7 +337,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 ### 7.1 `return_type`
 
-**Status: Implemented**, except rule 3 for facts methods in the product setting ([F-20](#deviations)) and the walk's limit ([F-13](#deviations)). **Planned:** cached answers revalidated after loads, instead of inferred again. That changes speed, not answers.
+**Status: Implemented**, except rule 3 for facts methods in the product setting ([F-20](#deviations)) and the walk's limit ([F-13](#deviations)). **Optional:** cached answers revalidated after loads, instead of inferred again ([PE-5](../record/performance-explorations.md)). That changes speed, not answers.
 
 **Meaning.** `return_type` (and what uses it: `collect`, `map` over an empty collection, broadcasting, `promote_op`) asks what *plain* inference gives. Under the facts mode the answer is plain inference's, in the same world.
 
@@ -459,7 +459,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 <a id="strict-intended"></a>
 ### 10.3 Strict mode's intended design
 
-**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented.
+**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented. Built as part of the cache keyed on facts and their origins, its Phase B ([W-66](../record/todo.md); the user, 2026-10-27: "Take up strict mode with W-66").
 
 In strict mode, trait code, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or, for a stakeholder's package extension, a warning:
 
@@ -478,7 +478,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 <a id="package-images"></a>
 ## 11. Package images
 
-**Status: Implemented.** **Planned:** the strict tier's error for a pirate loaded before an image ([§10.3](#strict-intended)). **Open:** whether the setting is part of an image's key ([open issues §2](../open-issues.md#2-design), "The setting as part of a package image's key"; [F-7](#deviations)).
+**Status: Implemented.** **Planned:** the strict tier's error for a pirate loaded before an image ([§10.3](#strict-intended)); the setting as part of an image's key ([F-7](#deviations)).
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
@@ -493,7 +493,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 **Images and the setting.** An image's CodeInstances keep the mode they were compiled in.
 - Loaded under the other setting, its code still computes the same results (G1).
 - But the test bed's G2 does not cover plain code that an image built in the product setting brings into it.
-- So the test bed uses a depot of its own. Whether the setting becomes part of an image's key is open.
+- **The setting is part of an image's key,** as Julia's code-generation flags are: an image built under one setting is not used under the other. Until that is built, the test bed uses a depot of its own ([F-7](#deviations)).
 
 ---
 
@@ -526,13 +526,14 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 <a id="trimmed-binaries"></a><a id="closed-builds"></a>
 ### 12.3 Trimmed binaries
 
-**Status: Implemented** for the code the build infers; whether code of the facts owner that package images keep reaches a trimmed binary is untested ([F-7](#deviations)). **Open:** what `verify_main` reports under `all` ([open issues §2](../open-issues.md#2-design), "`verify_main` under the test bed"; [F-8](#deviations)).
+**Status: Implemented** for the code the build infers; whether code of the facts owner that package images keep reaches a trimmed binary is untested ([F-7](#deviations)).
 
 - **A `--trim` build has no facts mode and no facts methods.** It compiles every method plainly.
 - **Why:** a binary is a closed world. Nothing loads later, so there is no cache to protect.
 - G1 holds by definition. Values decided by inference ([§2.1](#g1)) can differ between a session and the binary.
 - **`verify_main`** lists the targets a program can reach through trait code ([traits §13](traits.md)). Plain code reached from trait code keeps plain Julia's AOT properties. Its open dynamic sites are reported as holes.
 - `verify_main` scans each MethodInstance in the mode it runs in: a facts method, and code reached from code compiled by facts, by facts ([F-9](#deviations)).
+- **Under `all`** it reports the run-time sites that the facts mode makes in Base, as the code runs in the session: `convert(Type{AbstractString}, ::Any)` inside `DomainError`, for one. It is conservative: a trimmed build compiles plainly and can only have fewer holes.
 
 ---
 
@@ -557,7 +558,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | Item | Status | Where |
 |---|---|---|
 | G1, identical or error | Implemented | [§2.1](#g1) |
-| G2, stable caches; exceptions named | Implemented; cross-module bindings Open | [§2.2](#g2); [open issues §1.1](../open-issues.md#1-decisions-waiting-for-the-user) |
+| G2, stable caches; exceptions named | Implemented; cross-module bindings a named exception until strict mode's intended design | [§2.2](#g2); [§10.3](#strict-intended) |
 | fact signatures (the six forms, split at Julia's `max_union_splitting`) | Implemented | [§3](#facts-and-fact-signatures) |
 | run-time sites, typed `Any`, no edge | Implemented | [§4.2](#inferred-across-a-call) |
 | run-time sites run facts code: calls the code generator emits | Implemented | [§5](#run-time-sites) |
@@ -568,23 +569,23 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | under `all`, code compiled by facts under the facts owner | Planned | [§6.2](#the-mode-rule); F-2 |
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
-| direct calls into the compiler from code compiled by facts | Open | [§6.4](#the-compilers-own-code); [open issues §2](../open-issues.md#2-design) |
+| direct calls into the compiler from code compiled by facts: edges to plain code | Implemented | [§6.4](#the-compilers-own-code) |
 | `return_type`: plain inference's answer | Implemented, with an exception in the product setting for facts methods (to be revisited) | [§7.1](#return-type); [open issues §2](../open-issues.md#2-design), item 30 |
-| `return_type`: revalidation after loads | Planned | [§7.1](#return-type) |
+| `return_type`: revalidation after loads | Optional | [§7.1](#return-type); [PE-5](../record/performance-explorations.md) |
 | reflection shows the code that runs | Implemented | [§7.2](#reflection) |
 | no asserted effect over a run-time site | Implemented | [§8](#asserted-effects) |
 | the `Dynamic` split | Implemented | [§9](#dynamic-split) |
 | beyond four implementations, a table keyed by the value's type | Implemented | [§9](#dynamic-split); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
 | winning pirates followed by default | Implemented | [§10.1](#pirates) |
 | strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode) |
-| strict mode's intended design; the warning for package extensions; the symmetric lint | Planned | [§10.3](#strict-intended); F-6, F-14 |
+| strict mode's intended design; the warning for package extensions; the symmetric lint | Planned (W-66's Phase B); the warning Implemented | [§10.3](#strict-intended); F-6 |
 | package images of both owners | Implemented | [§11](#package-images) |
-| the setting as part of an image's key | Open | [§11](#package-images); F-7 |
+| the setting as part of an image's key | Planned | [§11](#package-images); F-7 |
 | product setting; `all` by environment variable | Implemented | [§12](#settings) |
 | `--compile-by-facts=no\|all\|traits` | Planned | [§12.2](#the-test-bed) |
 | `--trim` compiles plainly | Implemented | [§12.3](#trimmed-binaries) |
-| `verify_main` under `all` | Open | F-8 |
-| standard libraries as owners | Open | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
+| `verify_main` under `all`: Base's run-time sites reported | Implemented | [§12.3](#trimmed-binaries) |
+| standard libraries as owners | Open (E-189) | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
 
 ---
 
@@ -601,8 +602,8 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
 | F-5 | — | *Retired*: see [§10.2](#strict-mode). | — | — |
 | F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion of a method that trait code depends on are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
-| F-7 | [§11](#package-images) | Open: whether the setting is part of an image's key. Until decided, code from an image built under the other setting is outside the test bed's G2. | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
-| F-8 | [§12.3](#trimmed-binaries) | Open: whether `verify_main` counts as holes the run-time sites that facts compilation makes in Base under `all`. | Under `all` it reports one: `convert(Type{AbstractString}, ::Any)` inside `DomainError(::Any, ::Any)`, not on an error path. In plain mode it reports none. One of the test's checks fails under `all`. | `TraitWorld/test/verify_dynamic.jl:41` |
+| F-7 | [§11](#package-images) | The setting is part of an image's key: an image built under one setting is not used under the other (W-69). | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
+| F-8 | — | *Retired*: see [§12.3](#trimmed-binaries). | — | — |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |
 | F-10 | — | *Retired*: see [§7.1](#return-type), the exception. | — | — |
 | F-11 | [§2.2](#g2) | G2 holds across package loads, in any order, and is checked there. | G2 across package loads is checked in the product setting only: `g2all.jl` counts the valid CodeInstances of the facts owner after each of ten loads interleaved with the demonstrators' work ([evidence §1](../design/evidence.md#1-the-guarantee)). It is not run under `all` (E-29), nor in the order with the loads first | `experiments/facts/g2all.jl`; log `experiments/checks/logs/w9/g2all-interleaved.log` |

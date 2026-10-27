@@ -48,9 +48,9 @@ With the switch on, fully typed code has the guarantee the design is built on:
 > **Fully typed code is never invalidated unless code it depends on changes.**
 
 "Code it depends on" is precise: the stakeholders of its facts. "Never" has exceptions, named with the guarantee wherever it is claimed ([facts §2.2](reference/facts.md#g2)):
-- **A stakeholder's definition:** edits, Revise, upgrades; the stated exception. A standard library's method on Base's types counts as one, since Julia is one owner (open: [§1.19](open-issues.md#1-decisions-waiting-for-the-user)).
+- **A stakeholder's definition:** edits, Revise, upgrades; the stated exception. A standard library's method on Base's types counts as one, since Julia is one owner (open, to settle by a census: [§1.19](open-issues.md#1-decisions-waiting-for-the-user)).
 - **A stakeholder's package extension** whose method applies at a fact without mentioning its trigger's types, activated by the unrelated trigger. It is followed as the stakeholder's own change, never refused; in strict mode a warning names the method and the code it affects ([facts §10.3](reference/facts.md#strict-intended)).
-- **A binding redefined from another module** (`Core.eval(Other, …)`): the theory does not cover bindings yet, and no hook sees them ([open issues §1.1](open-issues.md#1-decisions-waiting-for-the-user)).
+- **A binding redefined from another module** (`Core.eval(Other, …)`): the theory does not cover bindings yet, and no hook sees them; strict mode's intended design refuses such a redefinition at its source ([facts §10.3](reference/facts.md#strict-intended)).
 - **A method on a closure's type from outside its module:** the closure form of fact signature assumes there is none.
 - **A pirate already in a package image** when the code was compiled: image validation discards the facts it breaks. The intended design makes that an error ([facts §10.3](reference/facts.md#strict-intended)).
 
@@ -59,7 +59,7 @@ The refusal is narrow, so extending and hooking into existing code keep working:
 - **Implementations are the extension point.** An implementation, the declaration that a type joins a trait (§2.4), applies at no existing fact, so it invalidates nothing. Package extensions become implementations: TraitCSV's extension declares one for InlineStrings' `String15`, and the reader compiled for `Float64` columns keeps its code.
 - **What is refused** is exactly a method of a function you do not own, for types you do not own, that would win at a fact of protected code. Of 65,318 methods in CSV, DataFrames and CairoMakie, 837 are pirates by the letter, and none would be refused (`experiments/facts/g2strict.jl`, on the package prototype; [evidence §1](design/evidence.md#1-the-guarantee)).
 
-The step holds for any fully typed code. The design applies the switch to trait code, defined in step 3.
+The step holds for any fully typed code. The design applies the switch to trait code, defined in step 3. Trait code itself defines no pirate: a trait module refuses one at its definition, whether it would win or not ([traits §10.2](reference/traits.md#102-pirates)), as Rust's orphan rule does for new code.
 
 ### 2.3 Step 3: the facts rule extends the guarantee to code that is not fully typed
 
@@ -69,7 +69,7 @@ Most code is not fully typed. Where inference ran at an abstract signature, any 
 - Verified: four definitions by owners that invalidate on 1.13.2 (an owned method at an abstract call, a new subtype under union splitting, a `return_type`-dependent `map`, a new type at a kind) invalidate nothing under the rule ([evidence §1](design/evidence.md#1-the-guarantee)).
 - **Which code.** A **trait module** is a module declared `@trait_module`, whose code is written against traits ([traits §2](reference/traits.md#2-trait-modules)); its code is **trait code**, all other code **plain code**. By default (the product setting) trait modules are compiled by facts, whoever calls them, and plain code keeps all of Julia's behaviour. The test bed **`all`** compiles every method by facts, to test the rule on code as it is written today ([facts §6](reference/facts.md#which-code-is-compiled-how), [§12](reference/facts.md#settings)).
 - **Strict mode's scope is trait code:** it refuses a pirate that would win at a fact of trait code, or of code compiled by facts that trait code depends on ([facts §10.2](reference/facts.md#strict-mode)). So in strict mode trait code is never invalidated except by a stakeholder's change: step 2's guarantee, carried by the facts rule to the trait code that is not fully typed.
-- One caveat: code compiled by facts that calls Julia's compiler directly holds edges to plain code, under plain Julia's invalidation ([facts §6.4](reference/facts.md#the-compilers-own-code); [open issues §2](open-issues.md#2-design), item 27).
+- One caveat: code compiled by facts that calls Julia's compiler directly holds edges to plain code, under plain Julia's invalidation ([facts §6.4](reference/facts.md#the-compilers-own-code)). The loss is cacheability, not correctness.
 
 **The cost sits exactly where code is not fully typed.**
 - For fully typed code, inference by facts *is* plain inference: the same calls, edges and code.

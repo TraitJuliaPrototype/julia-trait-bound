@@ -26,7 +26,7 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 
 | Mechanism | Implemented | Planned | Optional or Open |
 |---|---|---|---|
-| [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | Revalidating cached `return_type` answers after loads | Guarded devirtualization (Optional); standard libraries as owners of their own (Open) |
+| [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | — | Guarded devirtualization (Optional); revalidating cached `return_type` answers after loads (Optional; [PE-5](../record/performance-explorations.md)); standard libraries as owners of their own (Open) |
 | [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code, and through `jl_apply` to the default owner's code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too; a module's other compiler options in both modes | A memo for the facts owner's normalization (Optional) |
 | [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | beyond a split's table (a carried witness, a runtime table of entry points, recompiling); a codegen-emitted cache (all Optional) |
 | [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets; `Compiler.fold_call` | the targets compiled ahead (C-14) | — |
@@ -165,7 +165,7 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 - `PlainRTInterp` is not a `NativeInterpreter`, so it infers every method plainly, facts methods included (§2.6).
 - An answer is the same as plain Julia's in the same world. Across worlds it moves exactly when plain Julia's does.
 
-**Planned: revalidation after loads.** When a load invalidates a cached answer, the answer's edges are checked bottom-up, and an answer whose inputs did not change is kept instead of inferred again (red-green revalidation). A differential test against stock Julia comes first: every logged query, answered by both, must give identical answers before and after the loads.
+**Optional: revalidation after loads** (not pursued now: [PE-5](../record/performance-explorations.md)). When a load invalidates a cached answer, the answer's edges are checked bottom-up, and an answer whose inputs did not change is kept instead of inferred again (red-green revalidation). A differential test against stock Julia comes first: every logged query, answered by both, must give identical answers before and after the loads.
 
 ### 1.5 Effects
 
@@ -186,7 +186,7 @@ Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`)
   - The objection goes away if the slowdown is temporary: a site that keeps taking the fallback has its caller compiled again in the background, with the observed types in the split, and the new code is swapped in once it is ready (tiered recompilation, as in HotSpot, .NET and V8).
   - In the facts mode the swap is not an invalidation. The old and the new code are valid in the same worlds and compute the same results.
   - For a split it is the last option of §3.3. Only if untyped code under the test bed still matters after the other work.
-- **Open: standard libraries as owners of their own.** Today Julia's standard libraries count as Julia's own code, so a standard library's method that wins at a fact is a stakeholder's change ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+- **Open: standard libraries as owners of their own.** Today Julia's standard libraries count as Julia's own code, so a standard library's method that wins at a fact is a stakeholder's change; to settle by a census (E-189; [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ---
 
@@ -571,7 +571,7 @@ Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssai
 **Rules.**
 - At most `MAX_FACT_SPLITS` candidates are split: the first four registered, in the order of registration. Later ones reach the fallback.
 - TraitWorld registers a trait's implementations in declaration order (the declaration's file, then its line), at each declaration and each package load, so the split covers **the first four declared**, in a session that loads a package image as in the image's own code ([`lowering.md`](lowering.md#13-dynamicx)).
-- Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split. So code compiled into a package image, such as a worker at a `Dynamic` position, splits over the implementations registered while the image was built, and a user's type declared later takes the fallback (a performance issue to revisit, [open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
+- Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split. So code compiled into a package image, such as a worker at a `Dynamic` position, splits over the implementations registered while the image was built, and a user's type declared later takes the fallback (measured with the gaps of [W-17](../record/todo.md)).
 - Registration is lock-free for readers: the table is replaced on each registration, never mutated.
 - How TraitWorld uses it for `Dynamic{X}` values and for operations and field reads at a `Dynamic` position is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).
 
@@ -712,7 +712,7 @@ Lives in `base/experimental.jl` and `base/show.jl` (`_show_type`).
 
 ### 5.4 Planned: hooks for strict mode's intended design
 
-**Status: Planned.** Strict mode's intended design ([`../explorations/strict-mode.md`](../explorations/strict-mode.md) §2b; [open issues §1.1](../open-issues.md#1-decisions-waiting-for-the-user)) needs three more pieces:
+**Status: Planned.** Strict mode's intended design ([`../explorations/strict-mode.md`](../explorations/strict-mode.md) §2b; built as part of the cache keyed on facts and their origins, its Phase B, [W-66](../record/todo.md)) needs three more pieces:
 - **A deletion hook (1′):** called at method deletion (`jl_method_table_disable`). It may refuse.
 - **A "what would this definition invalidate" query (14):** read-only and transitive. It is `jl_method_table_insert`'s invalidation walk without the stores, asked from the definition hook before the method becomes visible.
 - **Image validation that reports the winning method (15):** when validation rejects a `CodeInstance` of a package image, it reports the edge and the method that now wins.

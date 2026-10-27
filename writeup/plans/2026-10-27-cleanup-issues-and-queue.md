@@ -1,6 +1,13 @@
 # Cleaning up the open issues and the work queue
 
-Status: **proposal (an agent's, for the user's review)**. Nothing in it is applied. Serves [W-65](../record/todo.md).
+Status: **adopted (2026-10-27), applied**. Serves [W-65](../record/todo.md). Written as a proposal (an agent's, for the user's review); the user: "Take up strict mode with W-66, confirm W-70 and flag the 8 worth a look for a quick review session later (add that as a Todo), then implement the clean up."
+
+**As applied** (2026-10-27):
+- 1.D1: strict mode's intended design is taken up as W-66's Phase B (not kept for the user); W-21 merges into W-66.
+- W-70 (the Makie port) is confirmed. The review session of the eight choices worth a look is W-71.
+- The new experiments are E-189 (E-new-a, the ownership census), E-190 (E-new-b, `return_type`'s route), E-191 (E-new-c, the bisect of open issue 71), E-192 (E-new-d, the call-level gaps). New deviation rows: traits T-77 (1.64), T-78 (2.11), T-79 (2.c2), T-80 (3.do2b).
+- 1.17 is closed as resolved, not changed: the message already names a restart, and [traits §4.9](../reference/traits.md#49-checks-at-the-declaration) states "define the method before `@implement`, or in its block, and restart Julia", both fixes valid after a restart. W-67 does not include it.
+- The (R) items stay in their sections, marked, and open issues §6 lists them. The (E) items 1.19 and 1.65 stay in §1, under "Waiting for evidence, not for the user".
 
 The user (2026-10-27), the rule for the open issues: "Is there a principled choice? A choice that simplifies the architecture at little cost? If so adopt that. Is it unclear what the repercussions of either choice are, but working with trait code could provide insight either way? Flag it as "revisit once experience with large scale ports is at hand". Is there other evidence/experiments that could settle the choice? Record it as such. If not just accept it as is. Only keep the choices with a well articulated trade-off for me to review."
 

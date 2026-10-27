@@ -58,7 +58,7 @@ What every construct becomes:
 
 ## 2. Modes, owners and images
 
-**Status: Implemented** (deviation [L-17](#18-deviations)).
+**Status: Implemented.**
 
 The facts mode and its owners are Julia's ([compiler §2.2, the method flag](compiler.md#22-the-method-flag-boundaries-and-always-facts-methods); what code may assume: [facts §5, run-time sites](facts.md#run-time-sites)). TraitWorld places each piece of code in one of these modes:
 
@@ -76,6 +76,7 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 - code compiled while a package's image is built is kept in that image, `:facts` code included;
 - TraitWorld switches on keep-compiled ([compiler §2.9](compiler.md#29-what-package-images-keep)) for its own image and for every package built after it loads (`TraitWorld.jl:75`, `hooks.jl:22`), so an image keeps the code its precompilation compiled for other packages' methods;
 - TraitWorld's own workload compiles its machinery under the facts owner, so a session does not compile it again (`TraitWorld.jl:134`).
+- Machinery that calls compiler functions directly (`argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler code, as any code compiled by facts does: valid as long as plain Julia keeps that code valid ([facts §6.4](facts.md#the-compilers-own-code)).
 
 **Decisions in the caller's world.** The machinery decides implementations in the world of the call that reached it (`tls_world_age()`), as dispatch does (`_DECISION_WORLD`, `compiler.jl:104`). The witness caches and the slow path's cache are keyed by that world and emptied when it changes (`_flush_if_stale!`, `implement.jl:309`; `_conformance_slow`). A family member's builder (§4.6), the trait-world test of a type (§8.2), a function's wrapper (§12), the crossing's flags (§13.1) and the untyped tables (§9.3, by world range) are fixed for the session once found.
 
@@ -214,7 +215,7 @@ A later declaration for one member is a more specific `conformance` method. It i
 
 ### 4.7 Generic implementations
 
-**Status: Implemented** (the form); the overlap check **Planned**; what a predicate may say **Open** ([open issues §2](../open-issues.md#2-design), "the design and the code disagree", item 2; [`traits.md#48-generic-implementations`](traits.md#48-generic-implementations)).
+**Status: Implemented** (the form); the overlap check and the refusal of a computed condition **Planned** ([`traits.md#48-generic-implementations`](traits.md#48-generic-implementations), T-9, T-79).
 
 `@implement X R where {R: Y, pred} begin … end` defines (`implement.jl:1393`):
 - `generic_rec(X, Val(k)) = GenericRec(constraints, predicate, defaults)`, with `k` a fresh name;
@@ -271,7 +272,7 @@ The key ([`traits.md#67-what-compiled-code-is-compiled-for`](traits.md#67-what-c
 
 ## 6. Trait objects: layout, fields, writes
 
-**Status: Implemented**; a copying layout for isbits-only targets **Open** ([open issues §2](../open-issues.md#2-design), "Keys and fields", item 3).
+**Status: Implemented**; a copying layout for isbits-only targets **Optional**, until a port targets isbits-only devices.
 
 **Four layouts,** chosen by the builder per view (`_buildview`, `entry.jl:56`):
 
@@ -501,7 +502,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 **Several signatures** `f::(Callable{…}, Callable{…})`: a `CMulti` holding one `CObj` per signature; a call picks the first signature its argument types match, at compile time (`core.jl:1216`).
 
 **Kept functions** (`entry.jl`, "`Callable`'s kept values"):
-- **`Dynamic{Callable{A, S}}`** holds a `CObj{A, S, Erased{A, S}}`; its call reads the kept value at that asserted type and calls it, so the call stays typed. It adds a heap object and a load with a type assertion per call against a `CObj` held inline (a performance issue to revisit, [open issues §4](../open-issues.md#4-runtime-and-measurements), item 35).
+- **`Dynamic{Callable{A, S}}`** holds a `CObj{A, S, Erased{A, S}}`; its call reads the kept value at that asserted type and calls it, so the call stays typed. It adds a heap object and a load with a type assertion per call against a `CObj` held inline (measured with the gaps of [W-17](../record/todo.md)).
 - **`Compiled{Callable{A, S}}`** holds the function itself; its call is `CObj{A, S}(f)(args…)::S`, a dispatch on the function's type.
 - **`Kept{Callable{A, S}}`** holds either, with its attribute, and branches on it at each call.
 - Their constructors take a plain function, a cast, a function argument (`CObj`) or a kept function, and keep its attribute; asked to change it they refuse (`_cast_refuse`). `compiled_for` and `with_dynamic` move the function between the forms (`_callable_fn`, `_erased_at`).
@@ -607,7 +608,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 
 ## 14. Checks, and where their results live
 
-**Status: Implemented** (deviations [L-9](#18-deviations), [L-10](#18-deviations), [L-17](#18-deviations)). What each check means and raises is [`traits.md#9-checks-and-when-they-run`](traits.md#9-checks-and-when-they-run); here is where it runs and what is kept.
+**Status: Implemented** (deviations [L-9](#18-deviations), [L-10](#18-deviations)). What each check means and raises is [`traits.md#9-checks-and-when-they-run`](traits.md#9-checks-and-when-they-run); here is where it runs and what is kept.
 
 | When | What runs | Code | Kept |
 |---|---|---|---|
@@ -742,7 +743,7 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 |---|---|---|---|---|
 | L-1 | [§3](#3-trait-declarations), [§5](#5-keys-and-views) | a trait is `X{P…}`; the key is a parameter of the view | the trait type has the key as its last parameter, `X{P…, Self}`; trait instances name the key | `TraitWorld/src/trait.jl:198`, `core.jl:379` |
 | L-2 | [§5](#5-keys-and-views) | a bound is a type in the worker's signature | trait sets are unions of families and `PTag`s; workers take `TObj{T} where T >: Union{…}` | `core.jl:211`, `trait_module.jl:766` |
-| L-3 | [§8.1](#81-the-rewrite), [§17](#17-encodings-until-traits-are-in-the-type-system) | a trait bound is a dispatch tier; entries are generated by the compiler | entries are methods at `Any` per shape; the fallback is tagged `Untyped`; joint methods and ambiguities are checked by hand; so an untyped fallback of a bounded method's shape must be defined after the bounded methods, and only a function's owner may add a bounded method of a shape the function has none of yet (traits §5.5 states the rule as ownership alone). The shape includes the ordinary arguments' declared types, so a package that owns a type cannot add a bounded method naming it to another package's function that has a bounded method of the same trait positions: `__init(prob::ODEProblemTrait, alg::MyAlg)` from a solver package is refused beside the core's `__init(prob::ODEProblemTrait, alg)` (E-156 P14; W-36) | `trait_module.jl:696`, `:824`–`791`, `:1193`, `:1242` |
+| L-3 | [§8.1](#81-the-rewrite), [§17](#17-encodings-until-traits-are-in-the-type-system) | a trait bound is a dispatch tier; entries are generated by the compiler | entries are methods at `Any` per shape; the fallback is tagged `Untyped`; joint methods and ambiguities are checked by hand; so an untyped fallback of a bounded method's shape must be defined after the bounded methods, and only a function's owner may add a bounded method of a shape the function has none of yet (traits §5.5 states the rule as ownership alone). The shape includes the ordinary arguments' declared types, so a package that owns a type cannot add a bounded method naming it to another package's function that has a bounded method of the same trait positions: `__init(prob::ODEProblemTrait, alg::MyAlg)` from a solver package is refused beside the core's `__init(prob::ODEProblemTrait, alg)` (E-156 P14; W-36, part of W-34) | `trait_module.jl:696`, `:824`–`791`, `:1193`, `:1242` |
 | L-4 | [§3](#3-trait-declarations), [§17](#17-encodings-until-traits-are-in-the-type-system) | declarations read without edges | registries are methods of `@max_methods 1` functions, some with sentinel fallbacks ([§3](#3-trait-declarations) lists them). No edge is recorded only where at least two methods apply. Where exactly one does (by reading Julia's `max_methods` rule; not run), inference infers it with an edge for the abstract signature, and the first declaration whose method intersects that signature invalidates the code: a tabled entry's `conformance(As{X}(), ::Any)` compiled while `X` has no declared implementation; a specialized entry inlined into a plain caller at an abstract type that no declared implementation's type intersects; a record function without a sentinel, at its one method; `keeps` and `needed` before the module's end (intended: the module redefines them) | `core.jl:366`–`1038`, `entry.jl:114`, `:193`, `:408`, `implement.jl:28`, `:57`, `:657`, `untyped.jl:108` |
 | L-5 | [§17](#17-encodings-until-traits-are-in-the-type-system) | membership is `T <: X` | `conforms(T, X)` | `entry.jl:1183` |
 | L-6 | [§13](#13-dynamicx) | a trait's name as a type means `Kept{X}`, a value with its attribute | only inside trait modules, by rewriting struct fields, containers and argument types | `trait_module.jl` (`_dynamic_fields`, `_dyn_body`, `_dyn_sig`) |
@@ -756,7 +757,7 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-14 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-15 | [§15.1](#151-compiling-ahead-from-declarations) | the workers of every bounded function with one trait position whose bound includes `X` are compiled ahead, where the other arguments are concrete | vararg positions are skipped; so are entries with several trait positions: no worker, no pattern method and no entry method is compiled ahead for them | `ahead.jl:99`, `:130`, `:135`, `:136`–`135` |
 | L-16 | [§11](#11-results-like-the-input) | the inverse is compiled for the caller's type, and its result has that type | for a member of a family implementation, the inverse runs behind an inference barrier (its builder is found at its first use, not a constant of a declaration), and a typed caller's result is `Any` | `entry.jl` (`_like_return`, `_like_typed`) |
-| L-17 | [§2](#2-modes-owners-and-images), [§14](#14-checks-and-where-their-results-live) | the machinery's code is facts code, protected as trait code | machinery that calls compiler functions directly holds edges to plain compiler code, valid only as long as plain Julia keeps it valid | `checks.jl:127`–`145`; `defcheck.jl:245`–`265`; `core.jl:414`, `:759`; `compiler.jl:57`, `:68` |
+| L-17 | — | *Retired*: see [§2](#2-modes-owners-and-images) and [facts §6.4](facts.md#the-compilers-own-code). | — | — |
 | L-18 | [§16](#16-sessions-loads-and-hooks) | strict mode asks Julia what a definition would invalidate ([compiler §5.4](compiler.md#54-planned-hooks-for-strict-modes-intended-design)) | it reads backedges before the definition and the invalidation log after it, deleting the method again on a miss | `strict.jl:1`–`14`, `:123`, `:265` |
 | L-19 | [§3](#3-trait-declarations) | a trait's body holds operations, defaults, fields, equations and concreteness lines ([`traits.md#1-syntax-summary`](traits.md#1-syntax-summary)) | `@mutating` is accepted in a trait's body and recorded as `is_mutating`, which no code reads | `trait.jl:395`; `implement.jl:157` |
 | L-20 | — | *Retired*: see [§13](#13-dynamicx). | — | — |
@@ -776,7 +777,7 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-33 | — | *Retired*: see [§13.1](#131-a-users-container-crossing-by-its-bound). | — | — |
 | L-34 | — | *Retired*: see [§8.3](#83-needs-and-the-modules-end). | — | — |
 | L-35 | [§15.3](#153-verify_main-fully_typed-closed-builds) | `verify_main` lists, at the erased key, every declared implementation as a target of the split's fallback and of the entry's conformance check | not done: for a program with untyped calls `verify_main` reports the program's run-time sites as holes; a closed build of code at a `Dynamic` position is not tried | `TraitWorld/src/verify.jl` |
-| L-36 | [§12](#12-callable-and-dynamiccallable), [§8.2](#82-the-entry) | an entry inlined into a typed caller runs at plain speed, a `Callable` argument included: the function's form decided where the call is compiled | `enter_callable` is `@noinline` with the function and the attribute unspecialized, so its result is `Any` even where the caller knows the function's type, and the worker's call after it is a dynamic dispatch with an `Any` result (seen in `code_typed`; not measured: [open issues](../open-issues.md#4-runtime-and-measurements) item 43) | `entry.jl` (`enter_callable`) |
+| L-36 | [§12](#12-callable-and-dynamiccallable), [§8.2](#82-the-entry) | an entry inlined into a typed caller runs at plain speed, a `Callable` argument included: the function's form decided where the call is compiled | `enter_callable` is `@noinline` with the function and the attribute unspecialized, so its result is `Any` even where the caller knows the function's type, and the worker's call after it is a dynamic dispatch with an `Any` result (seen in `code_typed`; measured by E-192 in [W-17](../record/todo.md)) | `entry.jl` (`enter_callable`) |
 | L-37 | — | *Retired*: see [§4.6](#46-families). | — | — |
 | L-38 | [§4.6](#46-families) | a family's registry is found again after an image loads, by a lookup that is the declaring module's own | `_family_registry(::Val{name}, ::Val{module})` is a method of TraitWorld's function on Julia's types, defined in the declaring module: a pirate by the letter, counted by the census (`owned_method` false) in NetworkDynamics and Graphs; strict mode refuses nothing, the signature being unique | `TraitWorld/src/implement.jl:796`; `ndport/scripts/merge_family_registry.jl`, `ndport/logs/merge/family-registry.log` (E-165) |
 | L-39 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |

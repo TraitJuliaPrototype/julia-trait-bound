@@ -1,6 +1,6 @@
 # Implementations loaded on demand: a lean tree without a changed API
 
-Status: **exploration** (2026-10-27, for [open issue 75](../open-issues.md#1-decisions-waiting-for-the-user), option (ii)). Not normative. No Julia ran for it.
+Status: **exploration** (2026-10-27, for [open issue 75](../open-issues.md#closed-items), option (ii); the issue closed 2026-10-27 by the clean-up, W-65: package extensions for keys and loading stubs for functions adopted, this option stays an exploration). Not normative. No Julia ran for it.
 
 ## 1. The question
 

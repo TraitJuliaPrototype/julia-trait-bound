@@ -33,7 +33,7 @@ Facts code depends on the method table only through facts at concrete signatures
 
 ## 3. Open choices
 
-1. **Phase B's dependency on strict mode's intended design.** The clean-up proposal (W-65) keeps for the user whether to take strict mode's intended design up now. Phase B needs it, or the pirate-candidates variant.
+1. **Phase B's dependency on strict mode's intended design.** Decided (2026-10-27, the user: "Take up strict mode with W-66"): strict mode's intended design is taken up with Phase B ([decisions](../record/decisions.md) §4). The pirate-candidates variant stays an option to evaluate.
 2. **The vehicle beyond generated packages.** A store the compiler consults per method instance before inferring would need no load step at all, only a cost per hit. It is a larger Julia change (serializing single CodeInstances with native code). Optional.
 3. **Identity of a dev'd package:** a hash of its source files is exact. An image's build id is simpler but invalidates on every rebuild of a dependency.
 

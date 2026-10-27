@@ -270,7 +270,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstrea
     - `parentmodule(@__MODULE__)._file(…)`: `const _CSV = parentmodule(@__MODULE__)`;
     - a loop over mixed data: a BaseTraits bound first ([§8.3](../reference/traits.md#83-a-users-container-taken-as-it-is)); for Base's own internals over `Vector{Any}`, `invoke` at the declared signature is a fact ([facts §3](../reference/facts.md#facts-and-fact-signatures)).
 11. **Where compiled code lives.**
-    - Code for a key from one package and a function from another lives in no image unless a glue extension with a workload compiles it (`CSV/ext/CSVDataFramesExt.jl`): a plain-Julia remedy ([open issues §2](../open-issues.md#2-design), item 28).
+    - Code for a key from one package and a function from another lives in no image unless a glue extension with a workload compiles it (`CSV/ext/CSVDataFramesExt.jl`): a plain-Julia remedy ([lowering L-15](../reference/lowering.md#18-deviations); the forks' extensions, W-14).
     - A workload covers keyword sets and IO types: a keyword body compiles per set, a printer per IO type. Render into an `IOContext{IOBuffer}` with the terminal's properties, then write once.
     - A standard library counts as Julia's code, so its methods on Base's types are followed ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 19). SparseArrays' `vcat` wins at `vcat(::Int64, ::Vector{Int64})`, which CSV's reader reaches through `[0; v]`, so loading it recompiles the reader. In a hot path, avoid concatenation syntax on Base's types.
 12. **A storage change behind an adapter:** `DataFrame.columns::Vector{Dynamic{Column}}`, with `_columns(df)` a view that reads and writes through the kept values; the storage sites and the suite run unchanged.
@@ -360,7 +360,7 @@ col = fillcolumn(compiled_for(emptylike(c)), s, spans[k])::Union{Nothing,Dynamic
 
 **Controls compare outputs.** PlainPlots draws the same figures; the test compares PNGs pixel by pixel. PlainTables prints the same summaries (`TraitReport/scripts/check.sh`).
 
-**Names are validated in the ordinary layer,** with messages that list the choices: a bound cannot refuse `:magenta`, since every symbol is one conforming type.
+**A type conforms only where each of its values meets the trait's contract.** Not every `Symbol` names a colour, so `Symbol` does not implement `ColorSpec` or `MarkerShape`: validated name types do, and `convert(ColorSpec, ::Symbol)` translates a symbol at the store and refuses an unknown name there, with a message that lists the choices ([traits §7.3](../reference/traits.md#73-assigning-from-plain-code)). TraitMakie still implements the traits for `Symbol` and refuses an unknown name at the render; W-67 changes it.
 
 **A scripted REPL session checks interactivity.** Feed a session to a real REPL on a pseudo-terminal (`script -qec "julia -i" /dev/null < session.jl`), print `CHECK <what> ok` lines, strip terminal escapes, allow only deliberate `ERROR` lines. The REPL displays every result, which tests do not: `string` of a `String15` stays a `String15`, so convert where the type matters, `String(string(cell(c, i)))`.
 
@@ -510,7 +510,7 @@ Other ways to build the link, for a port that wants it declared: `init` as an op
 - **PB-A.** A trait generic over another trait's implementer: the algorithm-to-integrator link is a driver bounded by both traits at shared parameters (above).
 - **PB-B, PB-C.** No associated constants; asking a kept value for a capability is a trait cast (Optional). The stand-ins are 0.2's: operations with declared results, explicit type parameters, defaults where the fallback is correct.
 - **PB-D.** The dual signatures take one bounded `Callable` parameter each; a tuple of `Callable`s (W-29, Planned) would make it one. SciML's chunk per problem is entered at `init` (the W-34 plan).
-- **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs a checked downcast of a kept value ([open issues §2](../open-issues.md#2-design), item 16). Until then `P` stays in the key.
+- **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs the kept value opened at its concrete type: a plain assertion does it ([traits §7.1](../reference/traits.md#71-the-three-forms)). The parameters partially evaluated at the surface keep `P` out of the solver's key (0.4; B2).
 - **PB-F.** The convenience `solve` without an algorithm is a bounded method on a foreign function, which L-3 limits today.
 - **PB-G.** The `getproperty` sugar called from plain code: answered by constant propagation into facts code ([facts §6.3](../reference/facts.md#calls-between-the-modes); open issue 50, closed).
 - **PB-H, PB-I, PB-J.** Keyword-heavy front ends stay plain (0.5); a `Dynamic` function takes at most six arguments (T-51; 0.4); a default algorithm over six solvers puts two beyond the split's four (0.4, "Which four").
@@ -527,6 +527,10 @@ Rules one port shows; each links to its evidence.
 - **Configure trait code by arguments or fields, not by a redefined `const`** (B4).
 - **Splat only collections of a concrete element type** (B4).
 - **Cover keyword sets and IO types in workloads** (the forks; B1 item 11).
+- **Keep a large library's API with a lean core:** heavy features behind package extensions for keys and behind loading stubs for functions, so `hist(x)` stays as upstream calls it; each lean measurement names the features it drops ([W-60's memo](../plans/2026-10-27-lean-core-old-apis.md) §1.4; E-182).
+- **User-facing entries that can reach code loaded on demand call the core through `invokelatest`** (render, `save`, `display`): world age is Julia's rule, for plain code alike, and the entry costs nothing measurable (E-182).
+- **State that some types write and others only read is two traits:** a read-only one, and a subtrait that adds the operations that write ([traits §3.3](../reference/traits.md#33-fields)).
+- **A type conforms only where each of its values meets the trait's contract** (B3, "A type conforms").
 
 ---
 

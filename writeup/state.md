@@ -10,7 +10,7 @@ For core developers. The design itself is the four [references](reference/README
 
 The library, TraitWorld, works end to end:
 - **The design:** three rules, keys instead of representations, and every value in trait code `Compiled` or `Dynamic` ([traits §6](reference/traits.md#6-values-in-trait-code-compiled-and-dynamic)).
-- **`Compiled` and `Dynamic`** (TraitWorld 7fc229c, 2026-10-20; W-4): a value is `Compiled` where the code that passes it knows its type, `Dynamic` where it does not, overridden by attributes on bounds and item parameters and by the casts `compiled_for`, `with_dynamic`, the later cast winning; `Dynamic` is a trait object at an erased key, one worker per key; values carry their attribute through storage (TraitWorld 1d09112, 2026-10-21; W-18): a trait's name in a field or container means `Kept{X}`, one concrete type holding the user's object and its attribute, `Compiled{X}` is a value beside `Dynamic{X}`, constructors never cast, and a struct parameter bounded by a trait keeps the value itself or a `Dynamic{X}` ([traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§7.4](reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)); `Callable{A, S}` defaults to `Dynamic`; items of collections cross as `CompiledItems` or `DynamicItems`. The demonstrators run on it, `compiled_for` where they loop over a value compiled for its type. Deviations: [traits T-47 to T-50](reference/traits.md#17-deviations), [lowering L-31, L-35](reference/lowering.md#18-deviations); performance issues to revisit: [open issues §4](open-issues.md#4-runtime-and-measurements), item 35.
+- **`Compiled` and `Dynamic`** (TraitWorld 7fc229c, 2026-10-20; W-4): a value is `Compiled` where the code that passes it knows its type, `Dynamic` where it does not, overridden by attributes on bounds and item parameters and by the casts `compiled_for`, `with_dynamic`, the later cast winning; `Dynamic` is a trait object at an erased key, one worker per key; values carry their attribute through storage (TraitWorld 1d09112, 2026-10-21; W-18): a trait's name in a field or container means `Kept{X}`, one concrete type holding the user's object and its attribute, `Compiled{X}` is a value beside `Dynamic{X}`, constructors never cast, and a struct parameter bounded by a trait keeps the value itself or a `Dynamic{X}` ([traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§7.4](reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)); `Callable{A, S}` defaults to `Dynamic`; items of collections cross as `CompiledItems` or `DynamicItems`. The demonstrators run on it, `compiled_for` where they loop over a value compiled for its type. Deviations: [traits T-47 to T-50](reference/traits.md#17-deviations), [lowering L-31, L-35](reference/lowering.md#18-deviations); performance gaps where trait code should be as fast as plain code: [W-17](record/todo.md).
 - **Beyond the `Dynamic` split, a table** (julia-1.13 711484a23e, the C ABI rule 6d480d0753, 2026-10-21; E-145): a value of a type outside the split's four is called through a table of the call's targets keyed by its type, one probe and an indirect call, no allocation (18 ns per element at 64 implementations, 77 before) ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)); `compiled_for` from an untyped caller goes through the table of declared implementations (TraitWorld a747d4a).
 - **TraitDifferentialEquations around `ODEProblemTrait`** (e37829f, 2026-10-21; W-2): a problem is any type that implements the trait, TDE's `ODEProblem` the canonical one, its function kept at two struct parameters bounded by `Callable` (W-18); `solve(prob, alg)` the one entry point.
 - **BaseTraits** (TraitWorld 9fd18db, 2026-10-20): collection traits for Base's concepts, Base's containers conforming; `Dynamic` holds the user's object (5 ns to make one), the split's candidates in declaration order; a container with untyped items crosses implicitly, by the bound ([traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx)).
@@ -22,7 +22,7 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | Measure | Traits | Plain Julia |
 |---|---|---|
 | Typed trait call, per call | 0.8 ns | 0.8 ns |
-| Untyped trait call, an argument from a `Vector{Any}` (the erased worker's path; E-163, julia-1.13 26a407d988, TraitWorld bbfc130; open issue 71), per call | 59.9 ns (product setting); 106.2 ns (`all`); 80 bytes | 17.6 ns; 19.6 ns (`all`) |
+| Untyped trait call, an argument from a `Vector{Any}` (the erased worker's path; E-163, julia-1.13 26a407d988, TraitWorld bbfc130; W-17), per call | 59.9 ns (product setting); 106.2 ns (`all`); 80 bytes | 17.6 ns; 19.6 ns (`all`) |
 | `Callable`, `Dynamic` (its default), per call (E-163) | 3.68 ns | a direct call 0.87 ns; a dynamic call at `Any` 21.9 ns |
 | `@implement` of a new type, no other packages loaded (E-163) | TraitMakie 46–47 ms; TraitDifferentialEquations 123–125 ms | about the same with big loads before or after; slower than on earlier builds (open issue 71) |
 | a new problem type's first solve in TraitDifferentialEquations, timed whole (E-163) | 324–336 ms in every load order: the solver compiled for the new key | — |
@@ -97,16 +97,16 @@ Measured on the CSV+DataFrames work under `all`, after the fix:
 
 The deviations of the implementation from the design are listed per reference, with IDs: [traits](reference/traits.md#17-deviations) (T-), [facts](reference/facts.md#deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#18-deviations) (L-). Beyond them:
 
-- **Threads:** the new caches add lock-free readers; threads are untested.
-- **Base's test suite under the facts mode:** started once, not completed.
-- **Targeted checks** for the inliner changes and for the compiler-plain edges.
-- **G2 across package loads under `all`:** the check counts code compiled by facts and passes in the product setting (2026-10-20); it is not yet run under `all`, nor cited in the reference ([facts F-11](reference/facts.md#deviations)).
+- **Threads:** the new caches add lock-free readers; threads are untested (E-63, W-9).
+- **Base's test suite under the facts mode:** started once, not completed (E-42, W-9).
+- **Targeted checks** for the inliner changes and for the compiler-plain edges (E-62, W-9).
+- **G2 across package loads under `all`:** the check counts code compiled by facts and passes in the product setting (2026-10-20); it is not yet run under `all`, nor cited in the reference ([facts F-11](reference/facts.md#deviations); E-29, W-9).
 - **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
-  - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build;
-  - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads);
+  - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build; by design, not pursued now ([PE-5](record/performance-explorations.md));
+  - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads; W-7);
   - the forks' session on a quiet machine (the round's had a load average of 3.4–5.2); the forked CSV does not precompile on TraitWorld bbfc130 (W-14);
   - the raytrace rows on a current build (the solver per step and the `Dynamic` sums are measured again: E-163, E-164).
-- **The TraitMakie image flake:** a 3.3e-5 pixel difference, once in five runs, not reproduced.
+- **The TraitMakie image flake:** a 3.3e-5 pixel difference, once in five runs, not reproduced (E-95, W-9).
 
 ## 6. The software: today, the target, the order of work
 
@@ -142,27 +142,25 @@ Not in the target
   the three old worktrees at the repository root
 ```
 
-Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorld's precompile workload and many tests ([open issues](open-issues.md) §2, "the design and the code disagree", item 7), and the three old worktrees are still at the repository root. What each of these was, and why it went: [`alternatives.md`](design/alternatives.md).
+Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorld's precompile workload and many tests (W-68), and the three old worktrees are still at the repository root. What each of these was, and why it went: [`alternatives.md`](design/alternatives.md).
 
 ### 6.3 The order of work
 
 **Performance work** (the user, 2026-10-27; [decisions](record/decisions.md) §5) pursues principled architectural improvements that facts and traits enable (caching across sessions, for one), and bugs that facts and traits reveal with an impact of 20% or more, or slowdowns where trait or facts code should conceptually be as fast or faster, fixed without a significant increase in complexity. Tweaks with minor speedups at a considerable increase in complexity are not pursued.
 
-The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md) (since 2026-10-20). In brief: BaseTraits is merged (W-1, done 2026-10-20); the language of `Compiled` and `Dynamic` is built (W-4, done 2026-10-20; its performance issues, [open issues §4](open-issues.md#4-runtime-and-measurements) item 35, are measured in W-17); what follows the `Dynamic` split is built (W-6, E-145, done 2026-10-21); TraitDifferentialEquations is built around a problem trait (W-2, done 2026-10-21); the differences between abstract types and traits are written out (W-3, done 2026-10-21, [traits §14](reference/traits.md#14-membership)); values carry their attribute through storage (W-18, done 2026-10-21); the traits reference is restructured (W-20, done 2026-10-21); a bound may name a `where` variable (W-24, done 2026-10-21); the checks at the declaration (W-23, 2026-10-21: but for the family-wide check, open issue 42); the attribute rule's gaps (W-26, done 2026-10-21); concrete parameters and `Self`, per trait and per function (W-28, done 2026-10-21). The four references were reviewed with fresh eyes on 2026-10-26 and their text fixed (W-51); the decisions taken provisionally then are open issues 57–63. The patched Julia's build of 2026-10-27 (julia-1.13 0c589fd385) carries concrete evaluation across the modes (W-41), union splitting by Julia's cost (W-43) and the run-time-site mark carried through calls (W-52); TraitWorld main aac1694 carries W-48, W-50, W-53, W-54. A family member's builder is fixed in its callers' code (W-40, julia-1.13 26a407d988, `Compiler.fold_call`: a family member's typed call at a declared type's cost, E-156 P15), with the bound at the field (W-42) and a library's conversion to its trait (W-44) on TraitWorld main bbfc130. W-52 costs the folds of Base's type-introspection helpers under the facts mode (E-162: the port's Rodas5P steady state 267.7 ms; open issue 66), which W-57 is to recover (Base's type-introspection layer on builtins and `invoke`, committed in julia-1.13 04e213c4f8, not yet built). The measurement round ran again on that build (W-39, E-163, E-164, done 2026-10-27): plain code's cost under `all` and the heterogeneous rows as before, the view beyond the split a tenth of its earlier cost; first calls in the demonstrators slower (open issue 71). Now (the user, 2026-10-27): load and first use of a large trait world, SciML and Makie, against SciPy and matplotlib (W-58, [the plan](plans/2026-10-27-ttfx-sciml-makie.md)); W-57's sweep only where it is on that path. Measured so far (E-168 to E-176): Python's session 1.45 s, stock SciML and CairoMakie 9.2 s, the trait demonstrators 0.96 s; with a cache across sessions (emulated) the work after the load is about a second in every setting; built in TraitWorld and since retired for a cache keyed on facts and their origins (W-66), the environment-keyed cache took the demonstrators' off-workload session from 2.4 to 1.07 s and the facts-compiled SciML core with CairoMakie from 19.4 to 6.1 s; the parameters kept at the surface (E-181) and normalization at the entry with the function out of the problem's type (E-184) make it recur across call shapes; loading stubs keep the trait core's code where the plain twin loses it (E-182); the workload's plot runs 6% of Makie's code (E-183); the load (stock 3.5 s) follows the dependency tree (CairoMakie 2.7 s and 261 packages). The direction: lean trees for the workload's path, and the cache ([the cache note](plans/2026-10-27-session-cache.md), open issues 72, 73). Then the large-scale test, NetworkDynamics with SciML, GraphMakie and Observables ported to the trait world (W-32, [its meta plan](plans/2026-10-21-networkdynamics-port.md)). Then, on the language: tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations keeping its right-hand side as one (W-30), and refusing a value at a trait it did not enter with (W-31). The seven groups of deviations are W-21 to W-27. The order below is the one of 2026-10-19, carried into the queue as W-9 to W-14.
+The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
+1. **Wrap up before the large ports** (W-61): the evidence, this page, the references' statuses, the demonstrators' claims and READMEs.
+2. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted), W-55 (a key's field type is the declared type), W-38 (the ownership check of a family without a block); then W-68 (the second spelling removed).
+3. **Correctness checks** (W-9): G2 across loads under `all` (E-29), Base's tests under the facts mode (E-42), the inliner changes and the compiler-plain edges (E-62), threads (E-63), the TraitMakie image flake (E-95).
+4. **Performance worth investigating:**
+   - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
+   - first calls and sessions slower than they should be (W-7, E-191);
+   - calls slower than plain where trait code should be as fast (W-17, E-192).
+5. **The cache keyed on facts and their origins** (W-66): Phase A, then Phase B with strict mode's intended design.
+6. **One full Julia build:** W-66's Julia change, the setting in an image's key (W-69), one rule for a MethodInstance's mode and owner and one answer for `return_type` (W-22, E-190).
+7. **The large ports:** SciML (W-34) and Makie (W-70).
+8. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 
-Steps 0, 1, 3, 4 and 5 of the speed plan ([the principled speed plan](plans/2026-10-19-principled-speed-plan.md)) are built (2026-10-19); step 2 (guarded devirtualization) is postponed, since traits recover the costs it targets and a failed guard is a silent cliff. The order in force is [the remaining performance work](plans/2026-10-19-remaining-performance-work.md):
-1. **Correctness first:**
-   - the TraitMakie image flake;
-   - threads beyond the tables (checked 2026-10-21: the split's tables and the untyped callers' table under 4 threads, `experiments/examples/threads/`);
-   - a check of G2 across package loads that counts code compiled by facts.
-2. **Done (2026-10-20): the measurement round** ([evidence](design/evidence.md)).
-3. **The rest of the machinery's startup:** the compiler's reflection code compiled again after loads.
-4. **The ~990 ms after the loads:** a differential test, then red-green revalidation of the `return_type` answers.
-5. **The next call-site cache steps:**
-   - entries with an open `max_world`;
-   - the `call_cache` size;
-   - the split tables' pointers compiled ahead (compiler C-14), and their miss after each method definition (C-3).
-6. **Upstream proposals** (julia-changes §4).
-7. **The forks resumed,** with `CSVColumn{T}` and kernels that use the declared operations.
+Waiting for the user: the Julia changes as small patches, and upstream proposals (W-19); a review session of eight choices the clean-up adopted (W-71). Paused by the user: NetworkDynamics (W-32), the forks (W-14).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.
