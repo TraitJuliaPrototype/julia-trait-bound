@@ -703,7 +703,7 @@ It runs the rule check of every enumerated worker. With `entrypoints = true` it 
 - an error hint naming the bound for a `MethodError` at a bounded position;
 - a package callback.
 
-**After every package load** (`_on_package_load`, `TraitWorld.jl:46`): the candidates of newly loaded implementations are registered, the image's `__tw_checked__` is read, known delegates are noted, and refused methods are reported.
+**After every package load** (`_on_package_load`, `TraitWorld.jl:50`, compiled by facts): the candidates of newly loaded implementations are registered, the image's `__tw_checked__` is read, known delegates are noted, and refused methods are reported.
 
 **The definition hook** (`_on_method_definition`, `hooks.jl:180`), compiled by facts:
 - refuses an override of an operation a fixed implementation serves by a default;

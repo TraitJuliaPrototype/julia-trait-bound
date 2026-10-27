@@ -167,7 +167,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 | Python: SciPy 1.18.1, matplotlib 3.11.2 | 0.45 s | 0.07 s | 0.51 s | 0.24 s | **1.45–1.46 s** |
 | stock 1.13.2: OrdinaryDiffEq, CairoMakie (plain code) | 3.54–3.56 s | 3.75–3.76 s | 1.51 s | 0.19 s | **9.16–9.17 s** |
 | upstream SciML compiled by facts as trait modules (P6's trees; no trait code) | 4.52–4.53 s | 4.56–4.57 s | 1.47–1.48 s | 0.22 s | **10.92–10.93 s** (strict mode on: 17.6 s) |
-| TraitDifferentialEquations and TraitMakie (idiomatic trait code) | 0.81 s | 0.14 s | 0.15 s | 0.056–0.057 s | **1.29–1.30 s** |
+| TraitDifferentialEquations and TraitMakie (idiomatic trait code; TraitWorld 04095fe) | 0.44–0.46 s | 0.19 s | 0.13 s | 0.056–0.060 s | **0.94–0.99 s** (before TraitWorld 04095fe, whose image hook compiled at every session's first load: 1.29–1.30 s, load 0.81 s) |
 | their plain twins, PlainODE and PlainPlots | 0.19 s | 0.22 s | 0.25 s | 0.33 s | **1.13–1.14 s** |
 
 - A small trait core meets Python's session; so does its plain twin. The demonstrators are not ports: they have their own APIs and a fraction of SciML's and Makie's features, and a different, smaller workload (Rodas5, two linear-axis PNGs). The traits' contribution is the second model: 0.056 against 0.33 s. Off the workloads' keys the trait core loses (2.63 against 1.82 s): its solver is compiled for the new key in every session.
