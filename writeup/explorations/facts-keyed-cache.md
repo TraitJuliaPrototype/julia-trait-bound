@@ -54,3 +54,7 @@ The compiler knows each fact when it folds it, so it can record the origins with
 - **How much of a trait world's session is facts code?** In C, facts code is 11% of what loads (open issue 73). In a whole trait world it is nearly all. The gain grows with the ports.
 - **Strict mode's load cost:** its intended design checks at image validation ([facts §10.3](../reference/facts.md#strict-intended)), which this cache would share.
 - **A smallest experiment:** record origins for the trait demonstrators (D) by walking each facts CodeInstance's edges after the session. Then compare the origin sets with the dependency sets E-180 grouped by. Also count how many entries one environment change (a version bump of an unrelated package) would keep.
+
+## 6. The first experiment (E-188)
+
+The origins of a session's facts code, walked from its edges ([E-188](../../experiments/ttfx/README.md)): in C, 11,180 cacheable facts CodeInstances, half of them on Base and Core only, the rest over 39 of 398 loaded packages in 213 origin sets; no single package's new version would invalidate more than a quarter (LinearAlgebra 24.7%, SciMLBase 19.9%). Keying on origins holds. The other half of C's session is plain code (11,453 CodeInstances), which this cache does not keep; in D, after the parameters moved to the surface (E-181), the session compiles little of either.
