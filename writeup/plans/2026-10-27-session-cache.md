@@ -54,6 +54,8 @@ Minutes each, on the harness of E-168 (`experiments/ttfx/`):
 1. **Order independence:** the emulated caches of E-172, built from sessions in order A (plotting loaded first), used in order B (plotting loaded after the first solve). D's cache should keep its effect; Dp's and S's may lose the part of their code that order B invalidates.
 2. **Recurrence:** a cache built from the perturbed session used by the matched one, and the reverse. What carries over is what is keyed on library types only.
 
+**Results (2026-10-27, E-173):** order independence is not tested yet: the emulated caches each depend on the plotting library, so loading one loads it early; the split by dependency set (§3) is needed first. Recurrence: stock SciML's solver is keyed on the call's shape (a cache from `Tuple` parameters leaves a session with vectors compiling 6.3 s); the core's entry should normalize shapes, so that a cache's keys recur.
+
 ## 5. Questions for review
 
 - Is "names only types of packages with images" the right rule for what is kept, or should it be "no type defined in the session"? A package without an image (dev'd, not precompiled) breaks the first.
