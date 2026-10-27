@@ -126,7 +126,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee. Today the product setting also gives a second answer for a facts method's own result ([F-10](#deviations)).
 
 **Conditions.**
-- Code that branches on what inference knows (`known_type`, [`compiler.md`](compiler.md)) computes the same result on both branches.
+- Code that branches on what inference knows (`known_type`, `fold_call`, [`compiler.md`](compiler.md)) computes the same result on both branches.
 - Threads are untested, except the split's tables and the untyped callers' table under 4 threads (`experiments/examples/threads/`).
 
 **Tests.** The acceptance checks G1.1–G1.33 and G2.1 (there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
@@ -486,7 +486,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 - What trait code a declared implementation brings ahead of time is [traits §13](traits.md)'s; how, [`lowering.md`](lowering.md)'s.
 
 **When it stays valid.**
-- At load, a CodeInstance is used if all its facts hold in the loading session. Otherwise it is discarded, and compiled again when needed.
+- At load, a CodeInstance is used if all its facts hold in the loading session, and every value it fixed by `fold_call` is the one its library gives in this session ([compiler §4.4](compiler.md#44-compilerfold_call)). Otherwise it is discarded, and compiled again when needed.
 - A fact breaks only by a stakeholder's change or a winning pirate loaded earlier. Which code is kept therefore depends on the method table, not on the order of unrelated loads.
 - A trimmed build uses no code compiled by facts.
 

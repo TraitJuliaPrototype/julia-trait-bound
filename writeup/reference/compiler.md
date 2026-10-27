@@ -29,7 +29,7 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 | [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | Revalidating cached `return_type` answers after loads | Guarded devirtualization (Optional); standard libraries as owners of their own (Open) |
 | [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code, and through `jl_apply` to the default owner's code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too; a module's other compiler options in both modes | A memo for the facts owner's normalization (Optional) |
 | [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | beyond a split's table (a carried witness, a runtime table of entry points, recompiling); a codegen-emitted cache (all Optional) |
-| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets | the targets compiled ahead (C-14) | — |
+| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets; `Compiler.fold_call` | the targets compiled ahead (C-14) | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
 | [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
 | [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping, then syntax: last | — |
@@ -608,6 +608,33 @@ r  = foreigncall(fp, R, (Any, Any, A...), f, x, args...)
 - **Ahead of time** (Planned, [C-14](#deviations)): for each declared implementation the targets and their thunks are compiled into the declaring package's image, as the untyped table's pattern methods are ([`lowering.md`](lowering.md#151-compiling-ahead-from-declarations)). A session's first use of the type then only fills the table.
 - **Not in a trimmed program** (`--trim`), which makes no code at run time: there the fallback is the dynamic call. Whether code precompiled into a package image with a table, and reused by a `--trim` build, keeps a miss path that needs code made at run time is to verify when the trimmed rows are built.
 - The table answers what Rust's vtables and Swift's witness tables answer. Its key is the type in the object's header, as for C++'s and the JVM's vtables.
+
+### 4.4 `Compiler.fold_call`
+
+**Status: Implemented.**
+
+```julia
+Compiler.fold_call(g, args...)            # a value fixed where the code is compiled; nothing where it is not
+Compiler.Undecided()                      # g's answer for not now
+Compiler.AtLoad()                         # g's first argument when a fold is evaluated again at load
+Compiler.FoldRecord(g, args, value)       # the fold, kept in the caller's edges
+```
+
+Lives in `Compiler/src/facts.jl` (`abstract_fold_call`, `fold_holds`), `abstractinterpretation.jl` (`abstract_call_known`), `ssair/inlining.jl` (`process_simple!`), `typeinfer.jl` (`ForwardToBackedgeIterator`), `reinfer.jl` (`verify_method`).
+
+**Meaning.**
+- **At run time** `fold_call(g, args...)` is `nothing`; `g` is not called.
+- **Where it folds:** in a frame of the native interpreter compiled for the global cache, with every argument a constant to inference. Inference calls `g(args...)` with `Core._call_in_world` in the inference world. A value `v` is the call's result, `Const(v)` with total effects; the inliner replaces the call by `v` whatever its size; the frame's edges keep `FoldRecord(g, args, v)`. `nothing`, `Undecided()` or an error leave the call unfolded: it is `nothing`, as at run time.
+- **Not folded:** reflection's top frame, constant propagation and semi-concrete evaluation, other interpreters.
+- **The record has no backedge:** nothing invalidates it in a session. `rests_on_facts` counts it as resting on facts.
+- **At load,** image validation evaluates each record again: `g(AtLoad(), args...)` in the validation world. A different value (by egal), `nothing` or an error makes the code invalid, as a failed edge does.
+
+**Rules,** for the library:
+- Code uses it only between paths that compute the same result, as `known_type` (§4.1).
+- One answer per session: once `g` returns `v` for some arguments, it returns `v` for them.
+- Called from inference, `g` waits for no lock, does not yield or write, and runs no user code; it fixes nothing except in the latest world. A value holds no pointer of a session.
+
+**Why the design needs it:** a family member's builder fixed in its callers' code ([`lowering.md`](lowering.md#46-families)).
 
 ---
 

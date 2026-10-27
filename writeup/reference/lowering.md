@@ -187,7 +187,7 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 
 ### 4.6 Families
 
-**Status: Implemented** (deviations [L-23](#18-deviations), [L-37](#18-deviations), [L-38](#18-deviations)); forwarding for a family **Planned**; a member's builder fixed in its callers' code **Planned** (W-40).
+**Status: Implemented** (deviations [L-38](#18-deviations), [L-44](#18-deviations)); forwarding for a family **Planned**.
 
 `@implement X S{P} where {P} [begin … end]` ([`traits.md#47-families`](traits.md#47-families)) defines (`_family_conformance_methods`, `implement.jl:842`):
 - the operations' methods with the `where` clause, for a block;
@@ -201,9 +201,14 @@ After the declaration, `_bump!()` registers the candidates of implementations de
 - the member's default-served operations are added to the override index then ([§4.8](#48-overrides-and-redeclaration));
 - builders found by the declaring package's workload are saved with its image; a builder holding session pointers is not kept.
 
-A later declaration for one member is a more specific `conformance` method.
+A later declaration for one member is a more specific `conformance` method. It is refused after the member's first use, and in a package extension (`_member_override_problem`).
 
-**A member's builder is a constant in a caller that knows its type,** as a declaration's is. While the compiler infers such a caller, it checks the member and finds its builder as the slow path does, and puts the builder into the caller's code. The caller has edges on the methods the check read, so a redefinition invalidates it as usual. A member that does not conform compiles to a raise of `ImplementError`, so the error comes at the call. A typed call of a family member then costs what one of a declared type does. Planned (W-40; [L-37](#18-deviations)).
+**A member's builder is a constant in a caller that knows its type,** as a declaration's is ([the design note](../plans/2026-10-26-w40-member-builder-fold.md)):
+- the family's `conformance` method calls `Compiler.fold_call(_member_fold, reg, X, typeof(u))` ([compiler §4.4](compiler.md#44-compilerfold_call)). Where the member's type is known, inference calls `_member_fold`, and the caller holds the builder as a constant; elsewhere the call is `nothing` and the method takes the run-time path (`_conf_family`);
+- `_member_fold` returns a builder in the registry, or does the slow path's work (`_member_fix!`: the member check, the builder, the registry entry, first writer wins, and the override index), the one place a member is fixed;
+- while called from inference it takes TraitWorld's lock only by `trylock`, writes nothing, runs no generic implementation's predicate, and fixes a member only in the latest world. A member that does not conform, or whose builder holds a session's pointers, never folds (remembered). A busy lock, an older world, a re-entrant call or a check that would warn are "not now": the caller takes the run-time path, which checks the member at its first use and raises `ImplementError` or warns there, as without the fold;
+- the fold's record stays in the caller's edges. When an image keeps the caller, the record is evaluated again at load (`_member_fold(Compiler.AtLoad(), …)`, which may wait for the lock), which fixes the member in that session; another answer invalidates the caller.
+- A typed call of a family member then costs what one of a declared type does.
 
 **Planned: forwarding for a family**, `@implement X S{T} by f where {T}`: the family's `conformance` method with a builder per member that reads field `f`.
 
@@ -757,7 +762,7 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-20 | — | *Retired*: see [§13](#13-dynamicx). | — | — |
 | L-21 | — | *Retired*: see [traits §6.7](traits.md#67-what-compiled-code-is-compiled-for) and [§5](#5-keys-and-views). | — | — |
 | L-22 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
-| L-23 | [§4.6](#46-families) | A later declaration for one member of a family is a more specific `conformance` method, until the member's first use. | The member's declaration makes its own `conformance` method (`_declared_for`); a declaration after the member's first use is not refused. As [traits T-28](traits.md#17-deviations). | `implement.jl` (`_declared_for`) |
+| L-23 | — | *Retired*: see [§4.6](#46-families). | — | — |
 | L-24 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-25 | [§13](#13-dynamicx) | Candidates are registered for each declared implementation at a concrete type, after each declaration and each package load. | Types with an `implementation` or a `projection` record at a concrete type are registered then (types that forward, or conform by a field mapping, included). A family member's record has a `UnionAll` signature: it is registered only when a `Dynamic` of such a value is made, and code compiled before that takes the fallback for it. | `TraitWorld/src/core.jl` (`_note_conformances!`) |
 | L-26 | [§4.5](#45-field-mappings-several-traits-stated-parameters) | A stated value for a parameter an equation defines is checked against the equation and makes no method. | For one type: checked, and no method is made when it agrees (`_param_agrees`). For a family: it becomes a `param` method with the family's `where`, replacing the equation's value, unchecked. As [traits T-37](traits.md#17-deviations). | `implement.jl` (`_param_methods`) |
@@ -772,10 +777,11 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-34 | — | *Retired*: see [§8.3](#83-needs-and-the-modules-end). | — | — |
 | L-35 | [§15.3](#153-verify_main-fully_typed-closed-builds) | `verify_main` lists, at the erased key, every declared implementation as a target of the split's fallback and of the entry's conformance check | not done: for a program with untyped calls `verify_main` reports the program's run-time sites as holes; a closed build of code at a `Dynamic` position is not tried | `TraitWorld/src/verify.jl` |
 | L-36 | [§12](#12-callable-and-dynamiccallable), [§8.2](#82-the-entry) | an entry inlined into a typed caller runs at plain speed, a `Callable` argument included: the function's form decided where the call is compiled | `enter_callable` is `@noinline` with the function and the attribute unspecialized, so its result is `Any` even where the caller knows the function's type, and the worker's call after it is a dynamic dispatch with an `Any` result (seen in `code_typed`; not measured: [open issues](../open-issues.md#4-runtime-and-measurements) item 43) | `entry.jl` (`enter_callable`) |
-| L-37 | [§4.6](#46-families) | a member's builder is a constant in a caller that knows the member's type | `conformance` reaches `_conf_family` at every call: a lookup in the family's registry (`IdDict`) and a call on the builder at the abstract type `Builder`, several hundred times a declared member's cost, with an allocation ([evidence §2](../design/evidence.md#2-run-time), E-156 P13, P15). A port that needs the speed declares its hot members one by one (`@implement X S{Float64}`). To be removed by W-40 | `TraitWorld/src/implement.jl` (`_conf_family`) |
+| L-37 | — | *Retired*: see [§4.6](#46-families). | — | — |
 | L-38 | [§4.6](#46-families) | a family's registry is found again after an image loads, by a lookup that is the declaring module's own | `_family_registry(::Val{name}, ::Val{module})` is a method of TraitWorld's function on Julia's types, defined in the declaring module: a pirate by the letter, counted by the census (`owned_method` false) in NetworkDynamics and Graphs; strict mode refuses nothing, the signature being unique | `TraitWorld/src/implement.jl:796`; `ndport/scripts/merge_family_registry.jl`, `ndport/logs/merge/family-registry.log` (E-165) |
 | L-39 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
 | L-40 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
 | L-41 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
 | L-42 | [§5](#5-keys-and-views) | A key's field type is the declared field's type; a `@const` field stored at a subtype is read at its declared type. | `F` holds the stored field's type (`fieldtype(U, i)`), so types storing a `@const` field at different subtypes have different keys and separate compiled copies, and a read is typed at the stored type. Fixed by W-55. | `TraitWorld/src/entry.jl` (`_key_and_slots`), `implement.jl` (`_field_problems`) |
 | L-43 | [§2](#2-modes-owners-and-images), [§4.6](#46-families) | The machinery decides in the caller's world. | A family member's builder is found in the latest world (`_latest(_family_builder, X, U)`), not the caller's: a task in an older world can fix a builder from methods its world does not see. | `TraitWorld/src/implement.jl` (`_conf_family_slow`) |
+| L-44 | [§4.6](#46-families) | A typed call of a family member costs what a declared type's does. | A caller compiled when the fold is not decided (TraitWorld's lock busy, an older world, a re-entrant call, a member whose check warns), or inferred by constant propagation or semi-concrete evaluation, keeps the run-time path (a registry lookup per call) until it is compiled again. | `TraitWorld/src/implement.jl` (`_member_fold`); `julia-1.13/Compiler/src/facts.jl` (`abstract_fold_call`) |

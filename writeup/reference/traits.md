@@ -459,7 +459,7 @@ end
 - A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
 - **Each member is checked at its first use,** not at the family's declaration, which checks ownership. Its methods are checked as a single type's implementation is at its declaration: they exist, and their results infer to the declared types. Its parameters are checked against their bounds. A family over an abstract type cannot be checked as a whole: the abstract type's interface is implemented by each subtype (Base has no `length(::AbstractDict)`).
 - **A member that does not conform is refused** at its first use, with `ImplementError`.
-- **A member's implementation is fixed at its first use,** not at the family's declaration. Compiling a caller that knows the member's type is a use, and so is loading compiled code that holds the member's implementation: the member is checked and fixed then, and its typed calls cost what a declared type's do (planned, [lowering §4.6](lowering.md#46-families), L-37).
+- **A member's implementation is fixed at its first use,** not at the family's declaration. Compiling a caller that knows the member's type is a use, and so is loading compiled code that holds the member's implementation: the member is checked and fixed then, and its typed calls cost what a declared type's do ([lowering §4.6](lowering.md#46-families)).
 - **An override of one member** is declared by the package that owns the member's parameter type (`MyT` in `S{MyT}`), in that package itself, not in a package extension. Every caller that names `S{MyT}` depends on that package, so the override is in place before any use, in every load order; an extension loads later, after its triggers. An override declared elsewhere is refused ([open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 63).
 - Code is compiled per member.
 - **Joint families** tie the trait's parameters to the type's:
@@ -976,7 +976,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
   - A value that conforms is not converted. Where its type is known, this is settled when the code is compiled.
   - The library owns `X`, so the method is its own, and it names no type of TraitWorld's.
 
-**Status:** Implemented, except the conversion to the trait: Planned (W-44, [T-61](#17-deviations)).
+**Status:** Implemented.
 
 ### 7.4 A struct parameter bounded by a trait
 
@@ -1026,7 +1026,7 @@ end
 - The parameter is an ordinary one: it is printed, and it can be written (`ODEProblem{Float64, Nothing, typeof(lorenz!)}`).
 - Every rule above applies. A field written `f::Bound`, without a parameter, keeps a value of the trait (`Kept{X}`, §7.2).
 
-**Status:** Implemented, except the bound at the field: Planned (W-42, [T-60](#17-deviations)). Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
+**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
 
 ### 7.5 Functions kept
 
@@ -1511,7 +1511,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-25 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
 | T-26 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-27 | — | *Retired*: see [§4.7](#47-families). | — | — |
-| T-28 | [§4.7](#47-families) | An override of one family member is declared only by the package that owns the member's parameter type, in that package. | A member's own declaration is accepted and gets its own `conformance` method (`_declared_for` looks at the member itself, not the family's method), from any package allowed to implement the trait for the type, and also after the member's first use. Unchecked by a test. As [lowering L-23](lowering.md#18-deviations). | `TraitWorld/src/implement.jl` (`_declared_for`) |
+| T-28 | [§4.7](#47-families) | An override of one family member is declared only by the package that owns the member's parameter type, in that package. | A member's own declaration is refused after the member's first use in the session and in a package extension; it is also accepted from the trait's or the family type's owner, not only from the parameter type's owner. | `TraitWorld/src/implement.jl` (`_member_override_problem`) |
 | T-29 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |
 | T-30 | [§4.8](#48-generic-implementations) | Forwarding carries through a generic implementation: a type that forwards `Indexable` to a field forwards `GTable` to the same field. | A `by` declaration makes a `projection` record and no `implementation` record, so the generic implementation's constraint finds no witness for the forwarding type: it does not conform to `GTable`, and a call raises `MethodError`. Only an explicit `@implement GTable U by data` works. | `TraitWorld/src/implement.jl:337`–`367`, `:414`–`424`, `:1363`–`1366` |
 | T-31 | [§4.4](#44-field-mappings), [§4.5](#45-several-traits-at-once) | Any traits take any form of implementation, field mappings included. | Several traits at once are handled only as `(X, Y) T by f`. `(X, Y) T name => stored` is refused with "a projection needs exactly one `project(t) = …`", and `(X, Y) T by f, name => stored` with "expected `project(t) = …` or a begin … end block after the type": both name forms the design does not have. | `TraitWorld/src/implement.jl:863`–`866`, `:1280`, `:1286` |
@@ -1543,8 +1543,8 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-57 | [§4.7](#47-families) | A family with a block of methods is declared as `@implement X A where {A <: S} begin … end`, by the trait's or the type's owner. | Declared outside the trait's module, it is refused by the rule-3 precheck, which evaluates `A` without its `where`. The family without a block, by the type owner's own methods, avoids both. | `TraitWorld/src/implement.jl` (`_implement_where`, the precheck in `_op_method`); probes of 2026-10-21; [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md) |
 | T-58 | — | *Retired*: see [§5.2](#52-what-a-bounded-function-receives). | — | — |
 | T-59 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
-| T-60 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | A bounded parameter may be declared at its field, `f::(F <: Bound)`. | Not built: the struct lowering takes bounded parameters from the header only; `f::(F <: Bound)` in a trait module's struct is an error. W-42. | `TraitWorld` (the trait module's struct lowering) |
-| T-61 | [§7.3](#73-assigning-from-plain-code) | A library translates a plain value before it is stored by `convert(X, x)` to its trait; TraitWorld's `convert` to `Kept{X}` calls it for a value that does not conform. | Not built: a library defines `convert` to `Kept{X}` itself, with methods naming TraitWorld's cast types (`CompiledFor`, `WithDynamic`, `TObj`) against ambiguities (TraitMakie's loop). W-44. | `TraitWorld/src/core.jl` (`convert` to `Kept{X}`); `TraitMakie/src/TraitMakie.jl` |
+| T-60 | — | *Retired*: see [§7.4](#74-a-struct-parameter-bounded-by-a-trait). | — | — |
+| T-61 | — | *Retired*: see [§7.3](#73-assigning-from-plain-code). | — | — |
 | T-62 | [§4.7](#47-families), [§4.9](#49-checks-at-the-declaration) | A family's declaration checks ownership, as a single type's does. | The no-block family by fields, `@implement X S{T} where {T}` for a trait without parameters or with field-defined ones, is defined without `_check_implementation`: a third package that owns neither the trait nor `S` is accepted, and its members work; the extension-trigger check is skipped too. `A where {A <: S}`, the joint form and a single type are refused. W-38. | `TraitWorld/src/implement.jl:1473–1488` (`_implement_projection`, the family-by-fields branch); julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P1c |
 | T-63 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-64 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
