@@ -47,7 +47,7 @@ Done: recurrence and the three requirements (E-173, E-175). Still to run, minute
 3. **Strict mode with a cache:** the same refusals, and its load cost.
 4. **Order independence and a late load, plain against trait code** (E-177; [the direction review](../reviews/2026-10-27-w58-direction.md) 1): the trait-specific test.
 5. From the previous review's M9: an owner-aware record for C; the module list of an image built while a cache was loaded (M2).
-6. **Reuse across sessions with other shapes:** each cache so far was recorded from the session it is measured on.
+6. **Reuse across sessions with other shapes** (E-178, done): SciML's solver code is not reused across call shapes (a cache from `Tuple` parameters leaves a session with vectors compiling 3.7–4.5 s), Makie's plotting code is. The cache pays once per shape; the core's entry must normalize shapes (class (f)) for it to recur.
 
 ## 5. Questions for review
 
