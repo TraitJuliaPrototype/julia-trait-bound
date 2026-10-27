@@ -2,7 +2,7 @@
 
 Status: **adopted** (2026-10-27, mine, under the user's direction below); revision 2 after [its fresh-eye review](../reviews/2026-10-27-ttfx-plan.md) (§7). Not normative.
 
-**Where it stands (2026-10-27):** measured E-168 to E-179. Python's session 1.45 s; stock SciML and CairoMakie 9.2 s; the trait demonstrators 0.96 s. A cache across sessions (emulated) brings the work after the load to about a second, per call shape. The load is Makie's own code (a lean fork without its heavy dependencies saves 0.4 s). Compiled by facts, Makie keeps its code across a later load (6.1 → 0.02 s). Next: the architect's memo on a lean core that keeps the old APIs (W-60), and the wrap-up before the ports (W-61).
+**Where it stands (2026-10-27, evening):** measured E-168 to E-184. Python's session 1.45 s; stock SciML and CairoMakie 9.2 s; the trait demonstrators 0.96 s. The cache across sessions is built (TraitWorld, E-180): off-workload sessions D 2.4 → 1.07 s, C 19.4 → 6.1 s. The parameters at the surface (E-181) and normalization at the entry with the function out of the problem's type (E-184: a first solve of 0.12 s from a cache recorded with other shapes) make it recur. Compiled by facts, the core keeps its code across later loads (E-177, E-182). The load remains the term: 3.6–3.7 s for stock, of which Makie's own images 0.9 s of a lean 2.3 s (E-179). [The architect's memo](2026-10-27-lean-core-old-apis.md) (W-60, revision 2) gives the ports' architecture. Next: the loader lever of open issue 73 (validation remembered for an unchanged environment), and the wrap-up (W-61).
 
 Serves: [W-58](../record/todo.md); E-168 to E-177; open issues 72 to 75.
 
