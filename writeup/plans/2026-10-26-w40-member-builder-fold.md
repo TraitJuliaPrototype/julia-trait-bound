@@ -166,7 +166,14 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
 - **B4, load order.** Folds are evaluated during image validation, before the package callbacks that load extensions. An override in the parameter type owner's extension would be refused or accepted by load order. Decision 63 now excludes extensions ([traits §4.7](../reference/traits.md#47-families)).
 
 **The directions:**
-1. **The compiler infers, the library only reads** (recommended). `g` becomes pure: no lock, no inference, no I/O, no user code. It returns a registry hit, or a plan: the operation signatures to check with their declared results, from the records. The compiler infers those signatures with its own interpreter, as `return_type`'s fold does, and hands the results to a second pure step that decides and builds. The registry insert is an atomic replace. A refusal, a warning or a member that needs a generic predicate is not folded: the run-time path handles it, as today. A member is fixed only when the inference world is the latest; otherwise only registry hits fold (B3).
+0. **Keep the mechanism, with a discipline for `g`** (recommended; the review's own suggestion). The compiler calls `g` with `Core._call_in_world` in the inference world, not as a pure callback, so the records defined by packages are visible. `g` then:
+   - never blocks: it takes TraitWorld's lock with `trylock`, and returns "not folded" when it is taken, so no thread waits for the lock while holding the inference lock, and none waits for the inference lock inside `g`;
+   - never yields: no I/O (a warning is queued and printed by the run-time path), no contended lock, no task;
+   - runs no user code: a member whose check needs a generic implementation's predicate is not folded;
+   - may infer: nested inference under the recursive inference lock is what `facts_plain_return_type` already does;
+   - fixes a member only when the inference world is the latest world; otherwise only a registry hit folds (B3).
+   B2's walkers, B4's decision and the should-fix list below as for direction 1.
+1. **The compiler infers, the library only reads** (the fallback if direction 0's discipline cannot be kept in TraitWorld's check). `g` becomes pure: no lock, no inference, no I/O, no user code. It returns a registry hit, or a plan: the operation signatures to check with their declared results, from the records. The compiler infers those signatures with its own interpreter, as `return_type`'s fold does, and hands the results to a second pure step that decides and builds. The registry insert is an atomic replace. A refusal, a warning or a member that needs a generic predicate is not folded: the run-time path handles it, as today. A member is fixed only when the inference world is the latest; otherwise only registry hits fold (B3).
 2. **Fold registry hits only, and recompile callers when a member is fixed at run time.** Simpler in the compiler, but it needs a way to invalidate the callers that folded a miss, which images and closed modules make hard. Callers compiled before the first call (the solver's callbacks) would stay slow until then.
 
 **Also to change** (the review's should-fix list):
@@ -179,4 +186,4 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
 - question 2 becomes a G2 deviation row once W-40 is built (S9);
 - §7 gains older-world, load-order (an extension, `--pkgimages=no`), reflection and constant-propagation cases; the thread test proves little while 1.13 serialises inference.
 
-**Next:** rewrite §4 along direction 1, then a second review before building.
+**Next:** rewrite §4 along direction 0, then a second review before building.
