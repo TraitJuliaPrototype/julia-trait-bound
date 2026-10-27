@@ -170,7 +170,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 | TraitDifferentialEquations and TraitMakie (idiomatic trait code) | 0.81 s | 0.14 s | 0.15 s | 0.056–0.057 s | **1.29–1.30 s** |
 | their plain twins, PlainODE and PlainPlots | 0.19 s | 0.22 s | 0.25 s | 0.33 s | **1.13–1.14 s** |
 
-- A small trait core meets Python's session; so does its plain twin. The traits' contribution is the second model: 0.056 against 0.33 s.
+- A small trait core meets Python's session; so does its plain twin. The demonstrators are not ports: they have their own APIs and a fraction of SciML's and Makie's features, and a different, smaller workload (Rodas5, two linear-axis PNGs). The traits' contribution is the second model: 0.056 against 0.33 s. Off the workloads' keys the trait core loses (2.63 against 1.82 s): its solver is compiled for the new key in every session.
 - Upstream SciML and Makie take six times Python's session: load (3.5 s, 381 packages) and compilation in the session, which their own workloads do not cover (the first solve's keyword path; E-169).
 - With the plotting library loaded after the first solve, the facts-compiled core recompiles nothing (0.04 s); stock Julia recompiles 0.44 s.
 - Not yet met: TDE's solver is keyed on the parameters' type, so `Tuple` parameters compile it again in the session (+1.35 s); strict mode adds 6.6 s to the facts-compiled core's load.
