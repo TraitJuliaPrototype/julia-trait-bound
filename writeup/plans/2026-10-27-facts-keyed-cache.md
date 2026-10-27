@@ -104,6 +104,15 @@ A version update rebuilds every dependent, so the closure's build ids cascade: a
 - **Methods from outside the stakeholders:** the candidate index (E-193).
 - **Bindings and folds:** as today.
 
+**Precedent** ([the research](../record/incremental-precedents-research-2026-10-27.md)): GHC records per-entity usages with fingerprints and hashes a non-orphan instance with its class or its type, keeping orphans apart. These are this design's stakeholders and candidate index. rustc cuts off early on fingerprints. In "Build Systems à la Carte"'s terms, the build-id identity is a deep constructive trace, which cannot cut off early (E-194's cascade), and the fingerprints are a constructive trace with early cutoff.
+
+**Refinements from the precedents, to test (E-195 and after):**
+- **Narrow F2** to the stakeholders' methods that intersect the fact's signature, as GHC hashes an instance with its class or type. A method that does not intersect cannot change the fact.
+- **Hash a callee's code only where it was inlined,** and otherwise its identity and inferred result (GHC's unfoldings, Swift's type bodies). This needs the edges to tell an inlined callee from a called one.
+- **A missing fingerprint means invalid** (Swift).
+- **Recursive groups** need a fingerprint scheme that terminates (GHC's bug #18733).
+- **The store holds evidence only;** the session recomputes validity (Nix's trust split).
+
 So nothing cascades: a new version of FunctionWrappers invalidates only the entries whose facts touch its methods or layouts. The fingerprints are computed in the session, from the method table and the CodeInstances, with no Julia change. A vehicle that loads an entry against other builds of its dependencies is a separate step (package images link by build id).
 
 ## 5. What revision 1 said
