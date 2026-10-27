@@ -77,8 +77,8 @@ What this shows:
 - With two shape types, plain Julia is faster: 250 against 300–340 ms in the ray tracer.
 
 Caveats:
-- `Dynamic`'s fast path covers up to four conforming types; the cost with more is not measured.
-- Calling trait code from code that does not know its argument types costs about 1.5× a plain dynamic call: 29 ns against 19 ns.
+- `Dynamic`'s fast path covers up to four conforming types. With more, a sum costs 2.4 ns per element at five types and 8.8 ns at 64, against plain Julia's 70–100 ns.
+- Calling trait code from code that does not know its argument types costs 3.4–5.4× a plain dynamic call: 60–106 ns against 18–20 ns, and 80 bytes per call.
 
 **The facts mode's cost on code that is not type-stable.** Julia's benchmark suite (4,342 benchmarks), with all code in the facts mode, against Julia's usual mode on the same build:
 - geometric mean: 3.7% slower;
@@ -137,15 +137,15 @@ Caveats:
 - Makie itself is much larger, so its times are not a fair comparison. Its behaviour is: changing a colour's shape after the plot is made works here, and fails in Makie 0.24.16.
 
 **First calls, in a fresh session, in each of three load orders (no loads, big loads before, big loads after):**
-- `using TraitMakie`: 0.49–0.57 s.
-- The first PNG: 20–21 ms in every order.
-- A new data type at the prompt: `@implement` 22–47 ms, then its first PNG 72–84 ms.
-- A new colour type: `@implement` 48–89 ms, then its first PNG 55–59 ms.
-- Drawing again: 9 ms. Recolouring to a vector of colours: 81–85 ms.
+- `using TraitMakie`: 0.52–0.62 s.
+- The first PNG: 21–22 ms in every order.
+- A new data type at the prompt: `@implement` 47–67 ms, then its first PNG 76–110 ms.
+- A new colour type: `@implement` 46–48 ms, then its first PNG 76–90 ms.
+- Drawing again: 9 ms. Recolouring to a vector of colours: 79–82 ms (162–166 ms with the big loads after the first plot).
 
 What this shows:
 - After a cheap import, plots appear in tens of milliseconds, whatever was loaded before or after.
-- A new type of the user's own costs 0.1–0.15 s, declaration and first PNG together, in every load order.
+- A new type of the user's own costs 0.12–0.16 s, declaration and first PNG together, in every load order.
 
 Caveats:
 - PlainPlots' first PNG took about 100 ms after big loads, measured on the previous prototype.
@@ -163,12 +163,12 @@ Caveats:
 
 | Form | Imports | Work | Total |
 |---|---|---|---|
-| With traits | 0.54 s | 0.10 s | 0.80 s |
-| Without traits | 0.52 s | 0.07 s | 0.77 s |
+| With traits | 0.57 s | 0.10 s | 0.83–0.86 s |
+| Without traits | 0.52–0.53 s | 0.07 s | 0.74–0.76 s |
 | Python, pandas 3.0.6 and matplotlib 3.11.2 | 0.40 s | 0.10 s | 0.58 s |
 
 What this shows:
-- Small precompiled libraries get within about 0.2 s of Python's time, with or without traits. The difference is Julia's startup and imports.
+- Small precompiled libraries get within about 0.2–0.3 s of Python's time, with or without traits. The difference is Julia's startup and imports.
 
 **The work after imports, under the nine loads** (the trait module calling upstream CSV.jl, against its plain twin):
 - Trait form: 41 ms with no loads, 344 ms with all nine.
@@ -176,7 +176,7 @@ What this shows:
 - With StatsBase or Distributions loaded, the trait form takes 344–417 ms. StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a call inside CSV.jl. The compiler follows it, as plain Julia does, and compiles that CSV.jl function again. The design counts the standard libraries as part of Julia itself, so this is Julia's own method, not piracy. Whether standard libraries should count separately is an open question.
 
 Caveats:
-- The trait form's `using` is 0.2 s slower than the plain form's under loads (1.2 s against 1.0 s), and 0.02–0.03 s slower in the fresh-process report.
+- The trait form's `using` is 0.2 s slower than the plain form's under loads (1.2 s against 1.0 s), and 0.04 s slower in the fresh-process report.
 - The report with TraitCSV and TraitTables under loads is measured on the previous prototype only.
 
 ## The CSV.jl and DataFrames.jl ports

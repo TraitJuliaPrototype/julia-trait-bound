@@ -365,7 +365,7 @@ Not discarding code is not the same as no extra cost after loads: some first cal
 ### Imports and implementations take a little longer
 
 - A trait form's `using` takes 0.02–0.2 s longer than its plain twin's in the demonstrators.
-- `@implement` checks the implementation: 22–89 ms for a new type in the demonstrators.
+- `@implement` checks the implementation: 46–165 ms for a new type in the demonstrators.
 - A call into trait code from code that does not know its argument types takes 29 ns per call, against 19 ns for a plain dynamic call.
 
 ### Not "compiled once for any type"
