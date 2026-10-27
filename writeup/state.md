@@ -1,4 +1,4 @@
-# The state of the prototype (2026-10-20)
+# The state of the prototype (2026-10-27)
 
 The prototype works end to end. Traits run at plain Julia's speed for typed calls, and the facts compiler stops invalidation. On the compiler side, the work reduces to four mechanisms, plus hooks for the library and fixes.
 
@@ -14,6 +14,7 @@ The library, TraitWorld, works end to end:
 - **Beyond the `Dynamic` split, a table** (julia-1.13 711484a23e, the C ABI rule 6d480d0753, 2026-10-21; E-145): a value of a type outside the split's four is called through a table of the call's targets keyed by its type, one probe and an indirect call, no allocation (18 ns per element at 64 implementations, 77 before) ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)); `compiled_for` from an untyped caller goes through the table of declared implementations (TraitWorld a747d4a).
 - **TraitDifferentialEquations around `ODEProblemTrait`** (e37829f, 2026-10-21; W-2): a problem is any type that implements the trait, TDE's `ODEProblem` the canonical one, its function kept at two struct parameters bounded by `Callable` (W-18); `solve(prob, alg)` the one entry point.
 - **BaseTraits** (TraitWorld 9fd18db, 2026-10-20): collection traits for Base's concepts, Base's containers conforming; `Dynamic` holds the user's object (5 ns to make one), the split's candidates in declaration order; a container with untyped items crosses implicitly, by the bound ([traits §7](reference/traits.md#7-kept-values-dynamicx-compiledx-keptx)).
+- **Load and first use** (W-58, 2026-10-27; [the plan](plans/2026-10-27-ttfx-sciml-makie.md), [evidence §3](design/evidence.md#3-first-calls-and-sessions)): the trait demonstrators' whole session (load, a non-stiff and a stiff solve, a plot, a second model) takes 0.96 s against Python's 1.45 s; a generated trait world of 4,000 workers loads in 0.30 s and takes a new type in 0.08 s (E-171); compiled by facts, Makie's code survives a later `using DataFrames` (0.02 s recompiled against 6.1 s plain, E-177). Fixed on the way: TraitWorld's hooks compiled at every session's first load (04095fe), `@implement` growing with the library (003ce8f), the facts images' load (julia-1.13 6800be7839, W-59).
 - **The demonstrators** pass their suites: TraitDifferentialEquations, TraitMakie, and TraitReport with its packages TraitTables and TraitCSV. The ports of CSV.jl and DataFrames.jl pass their upstream suites (§6.1).
 
 Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) unless a row says otherwise:
@@ -109,11 +110,12 @@ The deviations of the implementation from the design are listed per reference, w
 
 ## 6. The software: today, the target, the order of work
 
-### 6.1 Today (2026-10-19)
+### 6.1 Today (2026-10-27)
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
 - **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the rule check by the default interpreter's reflection, facts inference for workers; the keep analysis and the result-type checks on a plain `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers ([lowering §9.2](reference/lowering.md#92-untyped-callers-the-erased-worker)), compiling ahead from declarations ([lowering §15.1](reference/lowering.md#151-compiling-ahead-from-declarations)), fully typed mode with the fully-typed certificate, `verify_main`, strict mode (scoped to trait code; it also protects all `:facts` code and some plain code, [facts §10.2](reference/facts.md#strict-mode), the note), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.split_call` sites.
-- **Tests:** TraitWorld's 48 sets; acceptance 25/25; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the forks' upstream suites (Tables, CSV, DataFrames) and their scripted session (digests equal to upstream); the examples (`experiments/examples/run_all.sh`).
+- **The builds:** julia-1.13 6800be7839 (W-41, W-43, W-52, W-40, part of W-57, W-59) with its facts system image; TraitWorld main e6d5976.
+- **Tests** (2026-10-27, on those builds; `experiments/checks/logs/w59-all/`): TraitWorld's suite in the product setting, and under `all` but for the known F-8; acceptance 33/33 in both settings; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the documentation's examples (79, 5 and 58 checks). The forks do not precompile on the current TraitWorld (W-14).
 - **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
