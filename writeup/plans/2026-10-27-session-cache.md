@@ -1,8 +1,8 @@
 # A cache that builds up across sessions
 
-Status: **proposal, revision needed** (2026-10-27, mine; W-58 phase 4, [open issue 72](../open-issues.md#2-design)): [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) found two blockers (§6). Not normative.
+Status: **proposal, revision 2** (2026-10-27, mine; W-58 phase 4, [open issue 72](../open-issues.md#2-design)): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§6) and E-175 (§5b). Not normative.
 
-Serves: W-58 ([the plan](2026-10-27-ttfx-sciml-makie.md) §5, phase 4); open issue 72; E-172, E-173.
+Serves: W-58 ([the plan](2026-10-27-ttfx-sciml-makie.md) §5, phase 4); open issue 72; E-172 to E-175.
 
 ## 1. The question
 
@@ -12,56 +12,45 @@ Code compiled in a session is lost at exit. Package images keep only what precom
 
 ## 2. What is known
 
-- **The key decides what can be kept** (E-172, an emulation by hand). A kept compilation is useful only if the next session asks for the same signature.
-  - Stock SciML's solver code carries the user's function type (`ODEFunction{true, AutoSpecialize, typeof(Main.robertson!), …}`). A new session defines a new `Main.robertson!`, so an emulation that kept compile roots kept none of the solver's 7.5 s; recorded at the level of CodeInstances (E-175), the code below `solve`'s entry, where `AutoSpecialize` already erases the function, is kept, and the perturbed session falls from 12.9 to 4.9 s.
-  - Code behind an erased boundary is keyed on library types and can be kept whole. The plain twins, with `FunctionWrapper`s, fell from 1.83 to 0.70 s; the trait demonstrators from 2.63 to 1.52 s.
-- **Plain code's validity depends on the load order** (the combination caches, session 20; [alternatives](../design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)). Built in one order, a replay kept nothing of Makie's code for a session in another; those caches were keyed by the load order.
-- **Code compiled by facts depends only on its stakeholders' methods** ([facts §11](../reference/facts.md#11-package-images), "When it stays valid"). A kept CodeInstance is valid in any load order of unrelated packages, and checked at load like any image's code.
-- **Images already keep foreign and facts code** that a package's precompilation compiled, with machine code under keep-compiled ([compiler §2.9](../reference/compiler.md#29-what-package-images-keep)).
+- **Code keyed on library types can be kept** (E-175, an emulation recorded at the level of CodeInstances). A cache from one off-workload session takes the next one: stock SciML and CairoMakie 12.9 → 4.9 s (SciML's `AutoSpecialize` erases the function below `solve`'s entry); the trait demonstrators 2.63 → 0.97 s; their plain twins 1.83 → 0.64 s. What names a type of the user's script cannot recur, and is not kept.
+- **A new call shape costs its compilation once** (E-173): a cache from `Tuple` parameters leaves a session with vectors compiling 6.3 s in stock SciML's first solve. Keys recur only where the entry normalizes shapes.
+- **Plain code's validity depends on the load order** (the combination caches, session 20; [alternatives](../design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)): kept, it is validated at load like any image's code, and discarded where another order invalidated it. Code compiled by facts stays valid in any load order of unrelated packages ([facts §11](../reference/facts.md#11-package-images), "When it stays valid").
+- **Trait code needs three things kept** (§5b): the facts owner's code compiled for that owner, the exact types, and the first-call checks' results.
+- **The load remains** (open issue 73): with a cache, every setting's work after the load is about a second or less; the load is 3.7 s for stock. A cache adds to it (D: 0.11–0.13 s).
 
-## 3. The design
+## 3. The design (revision 2)
 
-**What is kept.** The CodeInstances a session compiled for owner `:facts` whose signature names only types of packages with images in the environment (and Base). That is:
-- no type of `Main` or of a module defined in the session (class (e) of the plan: it cannot recur);
-- the code those CodeInstances call, compiled in the same session, under the same rule.
+**What is kept.** Every CodeInstance a session created after its load, of either owner, whose MethodInstance names no type defined in the session (`Main`, or a module not in an image), together with its owner and its exact types:
+- **facts code** is compiled again for the facts owner, so its copies of Base methods are the ones trait code uses;
+- **plain code** is kept too: Julia validates it at load, so G1 holds; only its order independence is lost, and a session in another order recompiles what its loads invalidated;
+- **the first-call checks** that passed in the session are kept as checks done ahead (`__tw_checked__` in the cache's image), as a package image keeps those its workload ran.
+A CodeInstance's validity is its own and its edges': one whose code reaches the user's own methods fails validation at load and is discarded.
 
-Trait keys put most of a trait library's code in this set: a `Dynamic` model, a `Callable` at a declared signature, a bound's key (the receiver type and declared field types; [traits §6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic)). Plain code compiled in the session is not kept: its validity depends on the load order.
+**The key.** The environment (the manifest's packages and versions, the preferences that reach them, a stacked environment's layers), the Julia build and the setting. Not the load order. Dev'd packages are keyed by their image's build id: an edit makes a new image and the cache's dependent part stale.
 
-**The key of the cache.** The environment (its manifest's packages and versions), the Julia build, and the setting. Not the load order: facts make it irrelevant. A session that loads a subset of the environment uses the part of the cache whose types it has loaded.
+**Where it lives.** Generated packages in the depot, one per environment and dependency set (`<depot>/tw-cache/<key>/<deps>/`):
+- the dependency set of a CodeInstance is the set of packages its signature and its edges name, so extensions' code is filed with the extension's triggers;
+- each part is loaded by TraitWorld's package callback as soon as all its dependencies are, in whatever order they came;
+- **never in a process that generates output:** a package image records every module loaded while it is built, so a cache loaded during another package's precompilation would make that package stale at every rebuild.
 
-**Where it lives.** One package per environment and dependency set, generated in the depot (`<depot>/tw-cache/<environment hash>/`). Its image holds the kept code, compiled by facts.
-- It depends on the packages whose types its code names.
-- It is loaded by TraitWorld's package callback as soon as all its dependencies are loaded, in whatever order they came.
-- A cache whose dependencies never all load in a session is not loaded; partitioning by dependency set keeps the useful parts usable.
+**When it is written.** At exit, the session's new CodeInstances and checks are recorded; a builder, one per environment under a lock file, merges them with the earlier records and precompiles the parts that changed, then publishes each image by an atomic rename. A session that starts during a build loads the previous images. The builder runs only when enough new signatures have accumulated, with a cap and least-recent eviction.
 
-**When it is written.** At the session's exit:
-- the qualifying signatures are recorded (the session's compile log, filtered);
-- a background builder, niced and alone, regenerates the cache package with the union of the earlier signatures and the new ones, and precompiles it;
-- the next session loads the new image. A session that starts during a build loads the previous one.
-- **First:** replay by precompile statements, as the combination caches did, needing no Julia change.
-- **Later:** a Julia change that serializes the session's own CodeInstances into an incremental image, without compiling them again (a session image).
+**Validation at load.** As any image's: edges against the session's method table, folds against their libraries ([compiler §4.4](../reference/compiler.md#44-compilerfold_call)), TraitWorld's image hook. **Strict mode** must give the same refusals with and without a cache; its prototype reads backedges at each load (traits §10.3), and its intended design at image validation ([facts §10.3](../reference/facts.md#strict-intended)) applies to a cache's images as to any.
 
-**Validation at load.** The cache's image goes through the same checks as any image: its facts edges against the session's method table, its folds against their libraries ([compiler §4.4](../reference/compiler.md#44-compilerfold_call)), TraitWorld's image hook (overrides; strict mode's refusals). Code whose facts broke is discarded and compiled again in the session, then kept at the next exit.
+**What it would change in the references.** [lowering §15](../reference/lowering.md#15-compiling-ahead-workloads-closed-builds) (a third source of code compiled ahead, beside declarations and workloads), §16 (the session's work: recording, the cache's load), [facts §11](../reference/facts.md#11-package-images) (cache images), [compiler §2.9](../reference/compiler.md#29-what-package-images-keep) (an image of code compiled for another owner from a list, not a workload). Status: Planned when adopted.
 
-**Limits.**
-- Strict mode's check at load costs seconds today (E-168: 6.6 s for the facts-compiled SciML core). It applies to the cache's image as to any; its intended design at image validation ([facts §10.3](../reference/facts.md#strict-intended)) is a prerequisite for strict mode with a large cache.
-- The cache grows. A cap with least-recent eviction, by signature, at rebuild.
-- A trimmed build uses no code compiled by facts ([facts §11](../reference/facts.md#11-package-images)); the cache is for interactive sessions.
+## 4. The checks
 
-## 4. The checks before building it (E-173)
-
-Minutes each, on the harness of E-168 (`experiments/ttfx/`):
-1. **Order independence:** the emulated caches of E-172, built from sessions in order A (plotting loaded first), used in order B (plotting loaded after the first solve). D's cache should keep its effect; Dp's and S's may lose the part of their code that order B invalidates.
-2. **Recurrence:** a cache built from the perturbed session used by the matched one, and the reverse. What carries over is what is keyed on library types only.
-
-**Results (2026-10-27, E-173):** order independence is not tested yet: the emulated caches each depend on the plotting library, so loading one loads it early; the split by dependency set (§3) is needed first. Recurrence: stock SciML's solver is keyed on the call's shape (a cache from `Tuple` parameters leaves a session with vectors compiling 6.3 s); the core's entry should normalize shapes, so that a cache's keys recur.
+Done: recurrence and the three requirements (E-173, E-175). Still to run, minutes each:
+1. **Order independence**, with the cache split by dependency set: a solver part and a plotting part, the plotting library loaded after the first solve (order B).
+2. **The cache's load against its size:** D's cache adds 0.11–0.13 s for about 1,200 signatures; a cache of 10 and 100 times that (E-171's packages, several sessions).
+3. **Strict mode with a cache:** the same refusals, and its load cost.
 
 ## 5. Questions for review
 
-- Is "names only types of packages with images" the right rule for what is kept, or should it be "no type defined in the session"? A package without an image (dev'd, not precompiled) breaks the first.
-- Does a cache package depending on many packages force loads the session did not ask for? (The design says it is loaded only when all its dependencies are.)
-- What does validating a large cache image cost at load, against compiling its code again?
-- Is the facts owner's code enough? Code a trait module calls at run-time sites runs plain code, compiled plainly; is the share large on the workload's path?
+- Is "names no type defined in the session" enough to make kept code recur, with call shapes normalized only where the core's entries do it?
+- What does a large cache cost at load, against compiling its code again?
+- Is a generated package the right first form, before a Julia change that writes a session's own CodeInstances into an image without compiling them again?
 
 ## 5b. What the emulation taught (E-175)
 
@@ -76,12 +65,12 @@ With all three, D's off-workload session with its cache equals its on-workload s
 
 [The review](../reviews/2026-10-27-cache-and-port-notes.md) (fresh eyes, Opus, 2026-10-27):
 - **B1** (the emulation kept compile roots only): accepted. §2's first bullet is provisional; E-175 repeats the emulation at the level of CodeInstances, with every owner.
-- **B2** (the cache keeps only facts code, while the gains measured are plain code's): accepted. The cache keeps plain code too: Julia validates an image's plain code at load, so G1 holds; only order independence is lost for it, as the combination caches found. Facts code is kept the same way and also stays valid in any load order. §3's rule changes at the next revision.
+- **B2** (the cache keeps only facts code, while the gains measured are plain code's): accepted, §3 (revision 2).
 - **M1** (strict mode's refusals depend on what earlier sessions compiled): open; strict mode's check of a cache image must give the same refusals as without the cache (its intended design at image validation, facts §10.3).
 - **M2** (an image records every module loaded while it was built, so a cache loaded during another package's precompilation makes it stale at every rebuild): accepted: the cache is never loaded in a process that generates output.
 - **M3** (partitions by signature types miss extensions): accepted: a partition's dependencies are the modules its code's edges name, not only its signature's.
 - **M4** (the cache's own load cost, measured and ignored: D's cache adds 0.15 s): accepted; the next quick experiment measures load against cache size.
-- **M5** (each cached worker runs TraitWorld's first-call check in every session): to count in E-175.
+- **M5** (each cached worker runs TraitWorld's first-call check in every session): confirmed and solved (E-175; §5b): the cache keeps the checks.
 - **M8** (the background builder's races and churn): accepted: one builder per environment under a lock file, an atomic rename of the finished image, a rebuild only when enough new signatures have accumulated.
-- **Minor:** m1 (the whole CodeInstance, not its signature, decides), m2 (preferences, stacked environments, dev'd edits in the key), m3 ("only its stakeholders' methods" too strong: facts §11's own wording), m6 (the references the note changes): accepted for the next revision.
+- **Minor:** m1 (the whole CodeInstance, not its signature, decides), m2 (preferences, stacked environments, dev'd edits in the key), m3 ("only its stakeholders' methods" too strong: facts §11's own wording), m6 (the references the note changes): done in revision 2 (§2, §3).
 
