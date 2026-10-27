@@ -1,6 +1,6 @@
 # The parameters in the outermost layer only
 
-Status: **proposal** (2026-10-27, mine, after the user's direction; W-63). Not normative. Built first in TraitDifferentialEquations (branch `partial-p`), measured as E-181.
+Status: **done** (2026-10-27, mine, after the user's direction; W-63): built in TraitDifferentialEquations (w34 6234487), measured as E-181 (§5). Not normative.
 
 Serves: [W-63](../record/todo.md); W-60's memo (its pushback 2, its experiment X6); [open issue 72](../open-issues.md#2-design) (the cache recurs only where keys recur).
 
@@ -46,3 +46,11 @@ TDE on branch `partial-p` against `w34`, setting D:
 4. TDE's suite.
 
 **Would change the direction:** a steady state measurably slower than `w34`, or an outer layer whose compilation per new `P` is a large share of the solver's.
+
+## 5. As built, and what E-181 showed
+
+**As built** (TDE w34 6234487), two changes from §2:
+- **TDE's `ODEProblem` itself keeps the functions partially evaluated** (`PartialFn` at `CoreRHSSig{T}`, `CoreDualSig{8}`, `CoreJacSig{T}`), so its bounded parameters (traits §7.4) have no parameter for `P`, and `core_problem` passes its kept values on. A first build that entered the user's function at both the old signatures (with `P`) and the core's spent 0.19 s per new parameter type in the record's constructor.
+- **The callbacks' view is copied, not forwarded:** a declared field is a stored field (traits §3.3), so `ParamIntegrator{U, T, P}` holds copies of the core's time, step and flags, copied in before each of the user's functions and the flags back after. The state is the same array. This is pushback: a trait whose declared fields a wrapper could forward to a live view would need no copies.
+
+**E-181:** a new parameter type's first solve 1.3–1.5 s → 0.20–0.26 s; the steady state within about 5%; callbacks keep their API. The remaining cost of a new parameter type is the user's own function at it, and the small records. It is the porting guide's example for keeping the specialization on user types at the surface ([porting](../intro/porting.md) §0.4, B2).

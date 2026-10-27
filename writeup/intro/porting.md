@@ -176,7 +176,8 @@ A trait names what generic code needs from a value, not how a type stores it.
 The attribute chooses speed, never results ([§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.8](../reference/traits.md#68-costs-and-choosing)).
 
 - **Per position, not per problem.** A library's specialization levels (SciML's six, B6) become one attribute per position: the stored function, the callbacks, the model. The callee's signature gives the default; the caller overrides per value with a cast ([§6.4](../reference/traits.md#64-casts)).
-- **The key holds what the hot code must know, and no more.** For a solver: the algorithm with its cache, the state, the element type, the parameters, and for implicit methods the dual chunk and the linear solver. Cut everything else by a position: functions by `Callable`, callbacks by `Vector{Callback}`, the options' functions by `Callable` fields, a solution's problem by a kept value. A value that decides types in hot code goes in the key as an explicit type parameter (B5); a knob that need not vary is a constant (B2).
+- **The key holds what the hot code must know, and no more.** For a solver: the algorithm with its cache, the state, the element type, and for implicit methods the dual chunk and the linear solver. Not the parameters: the next rule. Cut everything else by a position: functions by `Callable`, callbacks by `Vector{Callback}`, the options' functions by `Callable` fields, a solution's problem by a kept value. A value that decides types in hot code goes in the key as an explicit type parameter (B5); a knob that need not vary is a constant (B2).
+- **Keep the specialization on user types as close to the surface as possible.** A user's type that only the user's own functions read never needs to reach the library's core. The outermost layer, a few constructors, takes it and partially evaluates the user's functions on it; the core sees the functions at a signature without that type. TDE's parameters: the problem keeps `(du, u, t) -> f(du, u, p, t)`, and the solver is compiled per state type, whatever the parameters (B2, "The parameters at the surface"). A new parameter type then compiles the user's function and a few small records, not the solver ([evidence §3](../design/evidence.md#3-first-calls-and-sessions), E-181).
 - **A new user type should not compile the library again.** Where user types enter and a large library stands behind, take them `Dynamic`: `@default_with_dynamic_self` on the trait, or `Dynamic{X}` on a public function's bound (exported or `public`; elsewhere the annotation warns, [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)). `Callable` is `Dynamic` by default. Loops over the data run `compiled_for` the data (A12).
 - **A kernel whose work per call is large:** `@default_compiled_for_self` on its trait.
 - **Leave the choice to the caller** where both are useful: one port's experience (B2, "A stored function").
@@ -284,16 +285,29 @@ Forks of Tables 1.14.0, DataFrames 1.8.2, CSV 1.1.0 (`forks/`, `git diff upstrea
 @implement ODEProblemTrait{T, LorenzParams{T}} LorenzProblem{T} where {T}   # examples/LorenzModels
 ```
 
-**A stored function, with the attribute left to the caller** ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)). The constructor is the bound: by default the field is `Dynamic{Callable{A, S}}`, and the solver compiles once per state and parameter type; under `compiled_for(f)` it is the function itself.
+**A stored function, with the attribute left to the caller** ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait)). The constructor is the bound: by default the field is `Dynamic{Callable{A, S}}`, and the solver compiles once per state type; under `compiled_for(f)` it is the function itself (partially evaluated on the parameters, the next paragraph).
 
 ```julia
-struct ODEProblem{T,P,F<:Callable{RHSSig{P,T},Nothing},D<:Callable{DualSig{P,DUAL_CHUNK},Nothing}}
-    f::F; u0::Vector{T}; tspan::Tuple{Float64,Float64}; p::P; fd::D
+struct ODEProblem{T,P,F<:Callable{CoreRHSSig{T},Nothing},D<:Callable{CoreDualSig{DUAL_CHUNK},Nothing},J<:Callable{CoreJacSig{T},Nothing}}
+    f::F; u0::Vector{T}; tspan::Tuple{Float64,Float64}; p::P; fd::D; jac::J; fplain::UserFunction
 end
 solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())   # compiled for lorenz!
 ```
-- The bound may name the struct's other parameters (`RHSSig{P, T}`).
+- The bound may name the struct's other parameters (`CoreRHSSig{T}`).
 - For a second signature (the Jacobian's duals), a second bounded parameter, given the function itself: a kept value is seen at the signatures it entered with ([§6.5](../reference/traits.md#65-values-carry)). One parameter bounded by a tuple of `Callable`s is Planned ([§3.7](../reference/traits.md#37-tuples-of-traits), W-29; TDE adopts it in W-30).
+
+**The parameters at the surface.** The parameters' type is the user's; only the user's function reads them. So the problem keeps the function partially evaluated on them, `PartialFn(f, p)`, a record called as `(du, u, t) -> f(du, u, p, t)`, at a signature without `P`. The solver's core (`CoreProblem{T, …}`, the integrators, the core's callbacks) is keyed on the state's type only. What depends on `P` is the outer layer: the constructor, `PartialFn`, and the callbacks' adapter.
+
+```julia
+struct PartialFn{F,P}; f::F; p::P; end
+(r::PartialFn)(a, u, t) = r.f(a, u, r.p, t)
+r = PartialFn(lorenz!, p)                     # the front end: the user's function and parameters
+ODEProblem(r, u0, tspan, p, r, compiled_for(core_no_jacobian), UserFunction(r))   # kept at CoreRHSSig{T}, CoreDualSig{8}
+```
+- **The same `p`:** the record and the problem hold the same object, so a callback that writes into `integ.p` changes what the function reads.
+- **Callbacks keep their API.** They see `IntegratorView{U, T, P}`, with `integ.p` at the parameters' type. The core sees a view without `p` (`StepView{U, T}`) and callbacks over it. An adapter per solve, `ParamIntegrator{U, T, P}`, holds `p` and copies of the core's time, step and flags. It copies them in before each of the user's functions, and the flags back after: a declared field is a stored field ([§3.3](../reference/traits.md#33-fields)), so the adapter cannot forward the live fields. The state is the same array.
+- **A problem type of the user's own** keeps `ODEProblemTrait{T, P}`. The outer layer partially evaluates its `rhs!` and `jacobian!` on the problem, `Dynamic`.
+- **The cost:** a new parameter type compiles the user's function, `PartialFn` and the adapters, not the solver; the steady state is unchanged ([evidence §3](../design/evidence.md#3-first-calls-and-sessions), E-181).
 
 **A front end.** `solve` is neither specialized nor inferred on the problem (`Base.@nospecializeinfer`, `@nospecialize`), with a function barrier behind it; otherwise each caller's first call infers the solver's front end again. The front end is plain code, and a load can discard it: IntervalArithmetic's ForwardDiff extension did, and a new callback took over ten times as long (the README's dated table). Keep it thin.
 
@@ -303,7 +317,7 @@ solve(ODEProblem(compiled_for(lorenz!), u0, tspan, p), Tsit5())   # compiled for
 
 **The state's element type is the problem's:** a loss promotes it (`LorenzProblem(eltype(p).(u0), …)`); the solver reads `T` from `u0::Vector{T}`.
 
-**Callbacks** are types with implementations (`@implement Callback Bounce`), kept as `Vector{Callback}`, and see the integrator as an explicit `Dynamic{IntegratorView}(i)`: callback code compiles once. A callback that writes a parameter asserts its type, `integ.p::LorenzParams{Float64}` (opening a kept value at its own type is Open, [§7.1](../reference/traits.md#71-the-three-forms)).
+**Callbacks** are types with implementations (`@implement Callback Bounce`), or SciML's `DiscreteCallback(condition, affect!)`, entered at the problem's types at `init` and kept as `Vector{Callback}`. They see the integrator as a `Dynamic{IntegratorView{U, T, P}}`: callback code compiles once per problem type, and `integ.p` has the parameters' type.
 
 **Gradients:** ForwardDiff is called directly. A loss as `Dynamic{Callable{Tuple{Vector{D}}, D}}(loss)` makes ForwardDiff's driver compile once per signature; TDE tags the duals by the loss's primal signature.
 
@@ -509,6 +523,7 @@ Rules one port shows; each links to its evidence.
 
 - **A field users assign to converts at `X` when the value must be translated** (TraitMakie; B3 "Attributes").
 - **Leave a function's attribute to the caller, one struct serving both** (TDE; B2 "A stored function").
+- **Keep the specialization on user types as close to the surface as possible:** partially evaluate the user's functions on the user's types in the outermost layer, so the core is keyed on the library's own types (TDE; B2 "The parameters at the surface", E-181).
 - **Configure trait code by arguments or fields, not by a redefined `const`** (B4).
 - **Splat only collections of a concrete element type** (B4).
 - **Cover keyword sets and IO types in workloads** (the forks; B1 item 11).
