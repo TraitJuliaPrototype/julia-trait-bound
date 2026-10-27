@@ -199,6 +199,8 @@ State (2026-10-19): TraitWorld 227781a, 48 test sets, on the patched julia-1.13.
 
 ## 4. Runtime and measurements
 
+66. **W-52 costs the folds of Base's type-introspection helpers in code compiled by facts** (E-162, 2026-10-27). `array_subpadding` (`@assume_effects :total`) calls `padding(T::DataType)` (`:foldable`), whose calls on `DataType` are run-time sites under the facts mode. Before W-52 the caller's assertion still applied (the G1 hole of the facts review's H2) and `array_subpadding(Dual{…}, Float64)` folded; now it runs at every `reinterpret` of dual numbers: in the port (setting P4, julia-1.13 0c589fd385) a Rodas5P solve takes 311–339 ms against Tsit5's 4.5 ms, and step d's steady state 267.7 ms against 33–47 ms before and upstream's 18.6 ms (`ndport/logs/p4-regress-*.log`). Results stay bit-equal. **Recommendation (mine, principled, W-56):** keep W-52, and let concrete evaluation fold a call over run-time sites while recording the dispatches it performs as edges: inside a call on constant types every dispatch is at a concrete signature (`fieldoffset(::Type{Dual{…}}, ::Int)`), a fact, so the fold rests on facts again. Needs a dispatch recorder in the runtime (`gf.c`), so a full build. The alternative, reverting W-52's reach through calls until then, reopens G1.
+
 3. Not yet measured on 1.13: plain-Julia time to first PNG, ComboCache end to end, an x12 control on 1.12.2 with the pinned TraitWorld.
 4. *(Done in session 25 for TraitMakie: 4.07 MB, 0.05 s, the PNG identical to the session's; `aot-under-facts.md` §7.)* The `experiments/world` program (2.09 MB) has not been rebuilt since keys.
 
