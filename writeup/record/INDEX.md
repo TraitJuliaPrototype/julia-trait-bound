@@ -161,6 +161,7 @@ Earlier reviews, elsewhere:
 | [`2026-10-21-ndport-inside-out.md`](../plans/2026-10-21-ndport-inside-out.md) | 2026-10-21 | done (E-155) | W-32 P6: the SciML core made trait modules bottom-up under strict mode (S0–S7), the 63 pirates classified, joint owners (SciMLBase, OrdinaryDiffEqCore), the checks per step, the merge with P4; E-155 |
 | [`2026-10-21-w34-sciml-prerequisites.md`](../plans/2026-10-21-w34-sciml-prerequisites.md) | 2026-10-21 | adopted (revised after its review) | W-34: what TraitWorld and the facts mode need to validate the SciML strategy, move by move; the prototypes E-156…E-161; draft work items and open issues 51–52 |
 | [`2026-10-26-w40-member-builder-fold.md`](../plans/2026-10-26-w40-member-builder-fold.md) | 2026-10-26 | proposal, revision 3 (two reviews, 2026-10-27) | W-40: a family member's builder fixed in its callers' code; `Compiler.fold_call`, folds kept with the code and evaluated again at load instead of edges; three questions for the user |
+| [`2026-10-27-w56-recorded-concrete-evaluation.md`](../plans/2026-10-27-w56-recorded-concrete-evaluation.md) | 2026-10-27 | proposal, a draft | W-56: concrete evaluation over run-time sites with the dispatches it performs recorded as edges (facts at the values' concrete signatures), to recover the Base folds W-52 stopped (open issue 66, E-162) |
 
 ## `design-findings.md`, by section
 
