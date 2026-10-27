@@ -1,6 +1,6 @@
 # W-40: a family member's builder fixed in its callers' code
 
-Status: **proposal, revision needed** (2026-10-26; reviewed 2026-10-27, [the review](../reviews/2026-10-27-w40-member-builder-fold.md): four blockers). Not normative. Do not build §4 as written; §10 says what changes.
+Status: **proposal, revision 2** (2026-10-27): §4, §7 and §9 revised along §10's direction 0 after [the review](../reviews/2026-10-27-w40-member-builder-fold.md) (four blockers); a second review before building. Not normative.
 
 Serves: [W-40](../record/todo.md); open issue 49 (closed, option (b), [decisions](../record/decisions.md) "A family member's builder is fixed in the code of a caller that knows its type"); [lowering §4.6](../reference/lowering.md#46-families), [L-37](../reference/lowering.md#18-deviations); [traits §4.7](../reference/traits.md#47-families). E-161 and move 2's callbacks (E-158) wait for it.
 
@@ -46,18 +46,20 @@ Compiler.fold_call(g, args...)    # g(args...) where inference folds it; else no
 Lives in `Compiler/src/facts.jl`, with a case in `abstract_call_known` (`abstractinterpretation.jl`), as `known_type` and `split_call` have.
 
 **Meaning.**
-- **Where it is folded:** every argument is a constant to inference (`Const`, or a singleton type such as `Type{X}` of a concrete `X`), in either mode. Inference calls `g(args...)` in the inference world, outside a pure callback, as concrete evaluation calls a function. If `g` returns a value `v`, the call is `Const(v)` with total effects, and the optimizer removes it. If `g` returns `nothing` or throws, the call is the constant `nothing`.
+- **Where it is folded:** every argument is a constant to inference (`Const`, or a singleton type such as `Type{X}` of a concrete `X`), in either mode. Inference calls `g(args...)` with `Core._call_in_world` in the inference world (revision 2). Not as a pure callback, as concrete evaluation does: `g` reads records that packages define and may infer, so it needs that world and reflection. Only the native interpreter's compilation folds (JIT and precompilation); reflection, analysis tools, `return_type`'s nested inference and the split's candidate inference see the call as not folded. If `g` returns a value `v`, the call is `Const(v)` with total effects, and the optimizer removes it. If `g` returns `nothing` or throws, the call is the constant `nothing`.
 - **Where it is not folded:** the interpreter, code compiled at abstract types, an argument inference does not know. The call returns `nothing` when it runs. `g` is never called at run time.
-- **The fold record.** A folded call adds a record `(g, args, v)` to the frame's edges. It has no backedge: nothing invalidates it in a session.
-- **At load.** For each CodeInstance an image keeps, after its edges are verified, every fold record is evaluated again: `g(args...)` in the validation world, after the image's methods are active. If the result is `v` (egal), the code stays valid. Otherwise the code is invalid, as with a failed edge.
+- **The fold record.** A folded call adds a record `Compiler.FoldRecord(g, args, v)` to the frame's edges, also when the fold happens during constant propagation (the record travels with the constant result). It has no backedge: nothing invalidates it in a session. The edge walkers have a case for it: `ForwardToBackedgeIterator` (`typeinfer.jl`, used by `store_backedges`) skips it, `verify_method` (`reinfer.jl`) evaluates it, `rests_on_facts` (`facts.jl`) counts it as resting on facts.
+- **At load.** The records of an image's CodeInstances are evaluated once each, in a pre-pass before the edges are verified: `g(args...)` with `Core._call_in_world` in the validation world, after the image's methods are active, under `require_lock`, before `__init__`. A CodeInstance whose record gives another value (by egal), `nothing` or an error is invalid, as with a failed edge; the graph walk carries that to its dependents.
 
 **Rules,** for the library that calls it:
 - **Same result on both paths.** Code uses `fold_call` only where the folded path and the run-time path compute the same result. This is `known_type`'s rule, and it keeps G1.
 - **One answer per session.** Once `g` has returned `v` for some arguments, it returns `v` for them for the rest of the session. The library keeps the answer, as the family's registry does.
 - **Side effects of a use only.** `g` may record that its answer is now fixed. It must tolerate being called more than once, speculatively (for code that never runs), from several threads, and re-entrantly; a re-entrant call returns `nothing`.
+- **Never block, never yield, no user code** (revision 2). Inference holds Julia's recursive inference lock while it calls `g`. So `g` takes no lock it might wait for (a library lock only by `trylock`, returning `nothing` when it is taken), does no I/O (warnings are queued for the run-time path), starts no task, and calls no code a user wrote (a predicate, a hook). It may infer: nested inference under the same lock is what `return_type`'s fold already does.
+- **The latest world only fixes.** Where the inference world is not the latest, `g` may return an answer already fixed, and fixes nothing new.
 - **Data an image can keep.** `v` holds no pointer of a session. A value that would is not folded: `g` returns `nothing`.
 
-**Why a primitive, not a generated function.** A generator runs as a pure callback: Julia refuses code reflection there, and the member check is reflection (it looks methods up and infers their results). Concrete evaluation runs ordinary code, but it records no fold, and an asserted effect is ignored over a run-time site in the facts mode ([compiler §1.5](../reference/compiler.md#15-effects)).
+**Why a primitive, not a generated function or concrete evaluation.** Both run as pure callbacks (`src/builtins.c`, `_call_in_world_total`; `jl_code_for_staged`): Julia refuses code reflection there, and the member check is reflection (it looks methods up and infers their results). Concrete evaluation also records no fold, and an asserted effect is ignored over a run-time site in the facts mode ([compiler §1.5](../reference/compiler.md#15-effects)).
 
 ### 4.2 TraitWorld: the family's `conformance` method
 
@@ -74,10 +76,12 @@ end
 - **The fold sits in the generated method,** so `reg` is a constant global of the declaring module, and `typeof(u)` is a constant wherever the method is specialized at a concrete member.
 - **`_member_fold(reg, X, U)`** returns the member's builder, or `nothing`:
   - a builder in the registry: that builder;
-  - else the slow path's work: the member check (`_check_member`), the builder (`_family_builder`), the registry entry and the override index (`_index_builder!`);
-  - a member that does not conform, a builder that holds pointers of a session (`_conformance_builder` returns `nothing`), a re-entrant call: `nothing`.
+  - else, if TraitWorld's lock is free (`trylock`) and the inference world is the latest: the slow path's work, through one function that computes a member's builder for the slow path, the untyped table and the fold alike: the member check, the builder, the registry entry (an atomic replace) and the override index;
+  - a member that does not conform, a builder that holds pointers of a session (`_conformance_builder` returns `nothing`), a member whose check needs a generic implementation's predicate, a taken lock, a re-entrant call: `nothing`;
+  - a refusal or a member that cannot be folded is remembered for the session, so it is not checked again at every inference.
 - **A member that does not conform** is not folded. The call takes the run-time path, whose slow path raises `ImplementError` with the message it has today. So the error comes at the call, as decided.
-- **The world.** The member check reads the latest world today (`_latest`, which is `invokelatest`). Under the fold it must read the world it is called in: the inference world, or the validation world at load. The check takes the world from the task (`Base.tls_world_age()`), as `_conformance_slow` already does.
+- **The world.** The member check reads the latest world today (`_latest`, `methods`, `_which`, `_check_kw_at`'s default). Under the fold it reads the world `g` is called in, which is the latest wherever `g` fixes a member (§4.1's rule). `_DECISION_WORLD` set by an enclosing check must not leak into `g`.
+- **L-23 is fixed with it:** a member's own declaration after the member's first use is refused, as §5's in-session argument needs.
 
 **What does not change:**
 - the run-time path (`_conf_family`, `_conf_family_slow`), for untyped callers and code compiled at abstract types;
@@ -130,7 +134,11 @@ An experiment row before the run (the next free ID, E-167): *does a folded typed
 - **Overrides:** after a fold in a session, an override of a default-served operation is refused. After loading an image whose code folds a member, the same.
 - **Images:** a package whose workload folds a member of another package's family. In a fresh session its code is kept and the member is fixed at load. With a package loaded first that gives the member another implementation, the code is compiled again, and results equal the slow path's.
 - **Re-entrancy:** an operation's default that calls a bounded function on the same member.
-- **Threads:** two tasks compiling callers of the same member at once.
+- **Threads:** two tasks compiling callers of the same member at once (weak while 1.13 serialises inference); a task holding TraitWorld's lock on the slow path while another compiles a caller (no deadlock: the fold is skipped).
+- **Worlds:** a task in an older world compiles a caller: only a registry hit folds.
+- **Load order:** an override in the parameter type owner's extension is refused (decision 63); `--pkgimages=no` gives the same outcome.
+- **Not uses:** reflection (`code_typed`), `return_type` and the split's candidate inference fix no member.
+- **Constant propagation:** a fold inside a constant-propagated callee keeps its record in the image.
 - **Load time:** an image folding several members, loaded fresh, against the same image without folds.
 
 The facts acceptance suite gains checks for the fold (G1: the same result folded and not; G2: a fold kept across an unrelated load). Every suite runs, as after any compiler change.
@@ -149,10 +157,10 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
 
 ## 9. The build
 
-1. **The patched Julia:** `fold_call` and its fold record (`facts.jl`, `abstractinterpretation.jl`, `stmtinfo.jl`), the record's evaluation at load (`reinfer.jl`), `rests_on_facts`. Compiler tests beside `split_call`'s.
+1. **The patched Julia:** `fold_call` and `FoldRecord` (`facts.jl`, `abstractinterpretation.jl`, `stmtinfo.jl`), gated to the native interpreter's compilation; the record through constant propagation; the edge walkers (`typeinfer.jl` `ForwardToBackedgeIterator`, `reinfer.jl` `verify_method` with the pre-pass, `facts.jl` `rests_on_facts`). Compiler tests beside `split_call`'s. No C change: C code that walks edges skips items that are not CodeInstances or compares identity (`gf.c`, `codegen.cpp`).
    - To verify before building: whether C code walks a CodeInstance's edges by kind when an image is written or read (`src/staticdata.c`, `src/staticdata_utils.c`). If it does, the record needs a case there too.
    - The changes are Julia code in the compiler, so a system image rebuild (`TW_TARGET=julia-sysimg-release`) may do; a C change needs a full build. Either runs at night, started by the user outside the sandbox.
-2. **TraitWorld,** on a branch: `_member_fold`, the member check in the caller's world, the re-entrancy guard, the generated `conformance` method. Tests in `test/` for the checks of §7 that need no image; the image checks in `experiments/`.
+2. **TraitWorld,** on a branch: `_member_fold` with §4.1's discipline (trylock, queued warnings, no generic predicate), one builder function for the three paths, the member check in `g`'s world, the re-entrancy guard and the memo of refusals, L-23, the generated `conformance` method. Tests in `test/` for the checks of §7 that need no image; the image checks in `experiments/`.
 3. **The checks of §7,** then every suite, then the reference changes of §8 in one commit with the row of L-37 retired.
 
 ## 10. After the review (2026-10-27): what must change
