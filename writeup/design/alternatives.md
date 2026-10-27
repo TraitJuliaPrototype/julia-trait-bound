@@ -32,6 +32,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Terms retired
 - Split packages: restructuring, or implementations, instead of joint owners
 - Concrete evaluation kept within a mode
+- Caches across sessions: combination caches and view caches, removed
 
 ---
 
@@ -305,3 +306,11 @@ The verb stays: a type still *conforms to* a trait, and the query is still `conf
 
 - **The option:** a plain caller of code compiled by facts gets constant propagation only; concrete and semi-concrete evaluation do not cross, so the caller's edges stay on the constant's path (the agent building W-33, 2026-10-21; open issue 52).
 - **Why not:** the wider edge, to the callee's whole facts CodeInstance, costs little. Such a CodeInstance is invalidated only by a change to a fact it rests on, and inlining already crosses with the same edge. Crossing folds more (loops, lookups that constant propagation cannot evaluate) and infers less (the user, 2026-10-22: "trait code is never (rarely) invalidated, right? So the trade-off is actually mild?").
+
+## Caches across sessions: combination caches and view caches, removed
+
+Two caches kept code compiled in a session for later sessions. Both were built for plain code and the package policy, and both are gone. The question they answered is open again as [open issue 72](../open-issues.md#2-design).
+
+- **Combination caches** (session 20, `poc/interfaces/ComboCache`, commits 71c9b68, ff3ca4f; `session-notes/2026-10-15-20-crash-recovery-and-m8.md`). A session started with `--trace-compile` wrote its compilations; a detached builder generated a package that loaded the session's packages in the session's order with the recorded statements as its workload, and built it; `ComboCache.auto()` loaded the largest matching combination after each `using`. The cache was keyed by the packages, their versions and **the load order**, because plain code's validity depends on it: built in another order, the replay stored nothing for Makie's code. End to end: read, summary, plot and PNG 0.21–0.24 s after loading, against about 15 s without. Not continued when the design moved from package policy to the facts mode, which removes the load-order dependence for code compiled by facts.
+- **View caches** (sessions 21–29, TraitWorld `viewcache.jl`): a package image per representation recorded in the session and flushed at exit, with an invalidation filter injected into the loader on stock Julia ([`../explorations/runtime.md`](../explorations/runtime.md), x12: `summarize` 3.5 ms against 31.8 ms with CSV and Makie loaded before). Deleted with TraitWorld's own policy and stock support (TraitWorld c533f3a, s29; [open issues](../open-issues.md), closed §4 item 1).
+

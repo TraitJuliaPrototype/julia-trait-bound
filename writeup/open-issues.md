@@ -51,6 +51,12 @@ Open, with a recommendation (nothing is built either way):
 
 ## 2. Design
 
+72. **A cache that builds up across sessions** (the user, 2026-10-27: "traits gradually built up cache that lasts from session to session is exactly what should help here. The fact that all slowness can be fixed by the right precompilation doesn't really matter."). Code compiled in a session is lost at exit; package images keep only what precompile workloads ran. The design states only images built at precompile time ([design §4](design.md), "compiled once, not once per session").
+    - **Evidence:** E-172, an emulation: a perturbed session's compiled statements kept for the next session. What can be kept is decided by the code's key. Stock SciML's solver code carries the user's function type and none of it can be kept; code behind an erased boundary (`Dynamic`, or a `FunctionWrapper` by hand) can be kept whole (plain twins 1.83 → 0.70 s; trait demonstrators 2.63 → 1.52 s).
+    - **Built before, for plain code, and removed:** combination caches (session 20) and view caches (sessions 21–29). Both kept code whose validity depended on the load order, so they were keyed by it ([alternatives](design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)).
+    - **What facts change:** code compiled by facts depends only on its stakeholders' methods, so a kept CodeInstance stays valid in any load order and can be checked at load against its facts (facts §11). With trait keys it does not carry the user's own types. Both together make the cache's key the environment's packages and versions, not the session's load order.
+    - **To design (W-58 phase 4):** where the cache lives (per environment, or per package as an image extension); when it is written (at exit, built in the background); what it keeps (code compiled by facts at trait keys; not code keyed on `Main`); how it is validated at load (the facts edges; strict mode's check); whether it needs a Julia change (writing session-compiled code into an incremental image) or a generated package suffices first, as the combination caches did. Earlier thinking: [`explorations/fast-loads.md`](explorations/fast-loads.md) §3 item 5.
+
 **From the acceptance suite and the design of `Dynamic`:**
 
 **From the references (2026-10-19): Open items without an entry before**

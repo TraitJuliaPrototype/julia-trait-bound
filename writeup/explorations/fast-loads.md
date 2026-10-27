@@ -1,6 +1,6 @@
 # Making loads fast
 
-Status: **current thinking, W-47** (started 2026-10-22). An exploration, not normative: it collects what is known about the time from starting Julia to the first result in trait code, where that time goes, and the ways to make it shorter. Numbers are copied from [the evidence](../design/evidence.md) with their experiments; the evidence is their home.
+Status: **current thinking, W-47, merged into W-58 on 2026-10-27** ([its plan](../plans/2026-10-27-ttfx-sciml-makie.md)) (started 2026-10-22). An exploration, not normative: it collects what is known about the time from starting Julia to the first result in trait code, where that time goes, and the ways to make it shorter. Numbers are copied from [the evidence](../design/evidence.md) with their experiments; the evidence is their home.
 
 The user (2026-10-22): "Register a larger work item: Make loads fast. This should cover profiling loads and finding ways to make them as fast as possible. Refer to an exploration document that keeps our current thinking on making loads fast. … This work is not urgent for now."
 
@@ -45,7 +45,7 @@ The merged port wins where a session repeats work: new equations recompile in 0.
 2. **Precompile workloads that run under facts, in the right package.** NetworkDynamics' workload would cache its SciML-by-facts specializations in NetworkDynamics' image. Ordinary Julia practice, applied to the wrapped stack.
 3. **Fewer run-time `return_type` answers** (P6-5): more of them folded by facts §7.1's rules 1 and 2, or kept in images.
 4. **Strict mode's image check** (about 5 s): what it checks at load, and whether it can be done when the image is built.
-5. **A cache that outlives the session, as a Julia change.** Facts code is a much better candidate for this than plain code: its validity rests only on facts a stakeholder or a pirate can change, so a saved CodeInstance could be checked against those facts at load and reused. A research-size piece of work; it fits the design's guarantee unusually well.
+5. **A cache that outlives the session** (now [open issue 72](../open-issues.md#2-design), W-58's phase 4; emulated in E-172, which shows that what can be kept is decided by the code's key; built before for plain code as combination caches, [alternatives](../design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)). As a Julia change: Facts code is a much better candidate for this than plain code: its validity rests only on facts a stakeholder or a pirate can change, so a saved CodeInstance could be checked against those facts at load and reused. A research-size piece of work; it fits the design's guarantee unusually well.
 6. **The cost of `using` itself** for trait packages (TraitReport +0.2 s, the forks' imports +0.7–1.2 s): what TraitWorld does at load.
 
 ## 4. Profiling: the first measurements to make
@@ -57,4 +57,4 @@ The merged port wins where a session repeats work: new equations recompile in 0.
 ## 5. Open questions
 
 - Does the product setting ship facts code for Base? It changes what "the product setting" means (facts §6; the setting is part of the image's key, open issues §2, F-7).
-- A cache across sessions: is it in scope for the upstream proposals (W-13), or a later project?
+- A cache across sessions: W-58's phase 4 (open issue 72); nothing goes upstream for now (the user, 2026-10-27).
