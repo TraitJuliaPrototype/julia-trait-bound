@@ -31,6 +31,8 @@ E-175 and E-176 change the order:
 
 **A first estimate** (E-176, `probe_floor.jl`): the dependencies the workload's plot plausibly needs (colours, geometry, observables, the compute pipeline, the layout solver, fonts, tick placement, number formatting, Cairo, the PNG writer) load in 0.51 s (66 packages), 0.72 s with Makie's default text engine (83), against CairoMakie's 2.7 s (261). A core with its own code on that tree might load in about 1 s.
 
+The solver's floor (E-176): Tsit5, ForwardDiff and DiffEqBase 0.47 s (98 packages); Rosenbrock's tree adds 0.73 s (55: the linear-solver tree). A Rosenbrock method on small dense systems needs a dense LU, not LinearSolve's choice of solvers; that choice can be an extension.
+
 Next: which of Makie's 261 packages the workload's plot needs (`Figure`, `Axis` with a log scale, `lines!`, a PNG through Cairo), and which come with features it does not use (statistics recipes: Distributions, StatsBase; units: Unitful; interval arithmetic; sparse arrays; REPL; Pkg through FileIO). The same for the solver: what Rosenbrock's 73 extra packages bring that a dense LU on small systems does not need.
 
 ## 3. SciML: the moves in the order that pays for first use

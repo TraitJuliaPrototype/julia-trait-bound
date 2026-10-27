@@ -84,6 +84,9 @@ Every experiment runs in minutes: one fresh session per setting first, three onl
 
 **Phase 3c, the load (open issue 73).** After E-175 the load is the question. Measured: where it goes (E-169's profiles of S and C), the facts share of loaded code (11% in C), and that a system image of the stack cannot be built here (E-170). The options are open issue 73's. *Next:* the quick probes that decide among them: the time to restore and validate per image size in a generated trait world (E-171, the scale probe, now with facts images), and what a smaller plotting tree saves (TraitMakie's 0.03 s against Makie's 0.71 s, with CairoMakie's 0.17 s, measured in E-169).
 
+- *Outcome (2026-10-27, E-176):* the load follows the methods the stack adds, that is its tree: `using CairoMakie` 2.7 s and 261 packages, the solver 1.09 s and 156. The floors: a plotting core's dependencies 0.51–0.72 s (66–83 packages), the solver's 0.47 s (98). An estimate for a port on lean trees with a cache: a session of about 2.6–2.7 s (target: about 3 s).
+- *Decision:* the port's first aim is lean trees for the workload's path ([the port note](2026-10-27-port-architecture-ttfx.md) §2b), with the cache across sessions ([the cache note](2026-10-27-session-cache.md), revision 2) for the work after the load. The loader changes of open issue 73 are a second lever, not a prerequisite.
+
 **Phase 3, the ceilings of caching today (E-170).** Two points:
 - the compiled statements of phase 2 that do not name `Main` put into a precompile workload of a small package loaded with the stack;
 - one system image of the whole stack (built alone, under the memory guard).
