@@ -441,3 +441,7 @@ Each gets a registry row before it runs. Each runs alone, niced, under the share
 ## 9. X1's result (E-183)
 
 The workload's plot runs 6.1% of Makie's code lines (2,710 of about 44,400, in 52 of 150 files): `makielayout/` 841, `compute-plots.jl` 316, `basic_recipes/` 264. No line that calls MathTeXEngine runs. So a `PlotCore` slice for the workload is small, with the `Axis` as its largest piece (risk 1 of §2.6 bounded), and MathTeXEngine goes behind a loading stub (risk 8; §1.2's table).
+
+## 10. X5's result (E-184)
+
+At upstream scale (stock SciML, caches recorded with ranges, used with vectors): normalizing at the entry takes the first solve from 1.50 to 0.51 s; the residual is keyed on the user's function through the problem's type, and with the function out of it (`NoSpecialize`, standing in for move 1) the first solve takes 0.12 s. So rule 5 (normalization and partial evaluation at the entry) and move 1 (the function kept at a bound, never in a type) together make the cache recur; the canonical `ODEProblem` of §1.3 already keeps the function out of its type. With them, the session is the load (3.7 s here) plus about 0.8 s.
