@@ -305,7 +305,7 @@ end
 
 - The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
 
-**Status:** Implemented ([T-68](#17-deviations) for a mapped field), except `@implement` of a bundle ([T-73](#17-deviations)).
+**Status:** Implemented ([T-68](#17-deviations) for a mapped field).
 
 ### 3.7 Tuples of traits
 
@@ -329,7 +329,7 @@ Dynamic{(Shape, Placed)}(x)                                     # a kept value
 - **Parameters** stay each member's. A `Dynamic` form fixes the parameters each member's results use ([§5.1](#51-bounds)).
 - **A value seen through some members is not seen through the others** later: enter it through the tuple ([§6.5](#65-values-carry)).
 
-**Status:** Implemented for bounds and attributes on them, supertrait lists, bundles in bounds, and `@implement` of a tuple ([T-73](#17-deviations): of a bundle). Planned everywhere else a trait stands (struct parameters, kept forms, item parameters, fields and element types, parameters' trait bounds): [W-29](../record/todo.md).
+**Status:** Implemented for bounds and attributes on them, supertrait lists, bundles and `@implement`. Planned everywhere else a trait stands (struct parameters, kept forms, item parameters, fields and element types, parameters' trait bounds): [W-29](../record/todo.md).
 
 ---
 
@@ -1552,11 +1552,11 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-66 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
 | T-67 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
 | T-68 | [§3.4](#34-parameters-and-associated-types), [§3.6](#36-supertraits-and-bundles) | A parameter defined by a field takes its value from the stored field the implementation maps it to. | At a conforming type the parameter is read through the trait's field-matching method, which uses the field's declared name: a field mapped to another stored name (`t => _t`) fails there, for a plain field parameter and for one a subtrait takes from its supertrait (by reading, TraitWorld 2e9ed68; not reproduced by a test). | `TraitWorld/src/trait.jl` (the field-matching `param` methods) |
-| T-69 | [§7.2](#72-a-traits-name-as-a-storage-type) | Inside a trait module a trait's name as a container's element type means `Kept{X}`, in a function body too, with parameters (`Shape{Float64}[]`, `Vector{Shape{P}}()`). | A bare name is rewritten (`Plain[]`); with parameters the element type stays the trait type, so `push!` fails at `convert`. Struct fields are rewritten. W-48. | `TraitWorld/src/trait_module.jl:361` (`_dyn_body`), `:306` (`_istraitname` takes no `curly`); `experiments/w34-sciml/m2/repro_typed_array.jl` (E-158) |
-| T-70 | [§7.1](#71-the-three-forms) | A kept value's form fixes the trait's parameters; a value that does not conform at them is refused when the kept value is made. | `Kept{Shape{Int}}(x)`, `Dynamic{…}` and `Compiled{…}` accept a value whose type implements `Shape` only at other parameters (`conforms` is false); the failure comes at the first operation (`TraitArgumentError`). W-48. | `TraitWorld/src/core.jl:435–440` (checks `_family_list(X)`, not `X`'s parameters); `experiments/w34-sciml/m2/repro_kept_params.jl` (E-158) |
-| T-71 | [§3.6](#36-supertraits-and-bundles) | `@implement B T` requires that `T` conform to `A` too, by its own implementation; for a family, each member. | A family implementing a subtrait without a family of the supertrait is accepted, and `conforms(T, B)` answers `true`; the first use raises `TraitBoundError` naming the member as forwarding to itself. W-50. | `TraitWorld/src/implement.jl:536–542`; `ndport/scripts/p4s3_supertrait.jl`, "no supertrait family" (E-166) |
-| T-72 | [§3.6](#36-supertraits-and-bundles), [§7.1](#71-the-three-forms) | `B <: A` makes `A`'s operations available through `B`; an operation on a kept value of `B` runs the implementation it holds, `A`'s operations included. | From plain code, `hasf(Kept{VertexDynamics}(x))` (an operation of the supertrait `ComponentDynamics`) raises `MethodError`, also after `compiled_for`; the subtrait's own operations and bounded code work. W-50. | `ndport/scripts/p4s3_supertrait.jl`, "plain code" (E-166) |
-| T-73 | [§3.6](#36-supertraits-and-bundles), [§3.7](#37-tuples-of-traits) | `@implement` of a bundle is the tuple's: it implements each member. | `@implement B T` for `@trait B <: (X, Y)` raises an internal `MethodError` (`trait_ops(::Type{B})`) and defines nothing; the tuple form works. Fixed by W-54. | `TraitWorld/src/implement.jl` (`_implement_expand`); `experiments/review-2026-10-26-references/probe.jl` (P4) |
+| T-69 | — | *Retired*: see [§7.2](#72-a-traits-name-as-a-storage-type). | — | — |
+| T-70 | — | *Retired*: see [§7.1](#71-the-three-forms). | — | — |
+| T-71 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-72 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-73 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles), [§3.7](#37-tuples-of-traits). | — | — |
 | T-74 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | The constructor with explicit parameters checks that a trait-bounded parameter conforms. | It stores what it is given: the bound is not part of the struct's type, so `S{MyType}(x)` with a non-conforming `MyType` is accepted and fails at its first operation. | `TraitWorld/src/trait_module.jl` (the struct rewrite); [lowering §13.2](lowering.md#132-a-struct-parameter-bounded-by-a-trait) |
 | T-75 | [§11](#11-concreteness-and-fully-typed-mode) | A kept form counts as concrete. | `key_concrete` counts `Dynamic{X}` as concrete, but `Kept{X}` and `Compiled{X}` fall through to the parameter check, which finds the trait abstract. | `TraitWorld/src/implement.jl` (`key_concrete`) |
 | T-76 | [§3.1](#31-operations) | A trait's bare name on an operation's further argument is refused at `@trait`. | It is accepted by `@trait` and by definition checking; every call then raises `TraitArgumentError` (declared at the trait, got a `Dynamic` value). | `TraitWorld/src/trait.jl`; `experiments/review-2026-10-26-references/probe.jl` (P2) |
