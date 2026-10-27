@@ -75,6 +75,9 @@ Every experiment runs in minutes: one fresh session per setting first, three onl
 **Phase 3a, a cache across sessions, emulated (E-172).** Before any design work: a perturbed session (off the workloads' keys) traced; the statements it compiled that do not name `Main` put into a precompiled package loaded with the stack; the perturbed session again, in D, Dp and S.
 - *Decides:* how much of an off-workload session a cache across sessions can remove, per setting. The traits' contribution is the difference between D's recovery and Dp's and S's: what stays keyed on the user's own types (`Main`) cannot be kept.
 
+- *Outcome (2026-10-27, E-172):* perturbed sessions with the cache: D 2.63 → 1.52 s, Dp 1.83 → 0.70 s, S 12.9 → 11.7 s. What can be kept is decided by the key: S's solver code is keyed on the user's function type and none of it can be kept; Dp's solver sees the function behind a `FunctionWrapper` and all of it is kept.
+- *Decision:* a cache across sessions pays exactly where the core erases the user's own types at its boundary. That is the traits' structural claim (every bound erases or keys on library types, checked), against plain code where erasure is by hand and partial (SciML's `AutoSpecialize` erases inside, but its outer layers keep `typeof(f)` in the problem's type). At the small scale both get it; the difference must show at scale (phase 6), and phase 4 designs the cache with that key discipline. D's remaining 0.18 s in the first solve and its load (0.9 s) go to phase 2.
+
 **Phase 3, the ceilings of caching today (E-170).** Two points:
 - the compiled statements of phase 2 that do not name `Main` put into a precompile workload of a small package loaded with the stack;
 - one system image of the whole stack (built alone, under the memory guard).
