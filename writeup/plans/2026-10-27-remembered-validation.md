@@ -1,6 +1,6 @@
 # Validation remembered for an unchanged environment
 
-Status: **proposal, revision 2** (2026-10-27, mine; after [its soundness review](../reviews/2026-10-27-remembered-validation.md), §5; W-64; W-58, [open issue 73](../open-issues.md#2-design), its second option). Not normative. A Julia change, not trait-specific; opt-in while it is an experiment (`JULIA_REMEMBER_VALIDATION=1`).
+Status: **set aside** (2026-10-27, after E-186, by the user's rule for performance work: [decisions](../record/decisions.md) §5); revision 2 (2026-10-27, mine; after [its soundness review](../reviews/2026-10-27-remembered-validation.md), §5; W-64; W-58, [open issue 73](../open-issues.md#2-design), its second option). Not normative. A Julia change, not trait-specific; opt-in while it is an experiment (`JULIA_REMEMBER_VALIDATION=1`).
 
 ## 1. The question
 
