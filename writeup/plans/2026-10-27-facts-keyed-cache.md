@@ -93,7 +93,18 @@ A version update rebuilds every dependent, so the closure's build ids cascade: a
 - **The closure's build ids** (now). Simple, and E-193 shows it sound on the content cases. Sharing across environments holds within an unchanged stack, which is the common case of one user's sessions.
 - **Content hashes of what an entry uses:** each method in its transitive edges (its lowered code, as the image stores it, which includes macro expansions), each type's layout it reads, and the bindings and folds as now. An update that leaves those unchanged keeps the entry. It needs the hashes at record and at check, from the images, and E-193's cases 1–4 again, to show it catches them.
 
-Mine for now: the closure's build ids first, since within one environment they lose nothing. The content hashes are a later refinement, if sharing across environments turns out to matter. For the user to confirm through W-71.
+**Decided (the user, 2026-10-27): fingerprints, built now** ([decisions](../record/decisions.md) §5). The form, scoped by the facts rule:
+- **F1, its own method:** the method's signature and its lowered code as the session holds it, which includes macro expansions.
+- **F2, each fact** (an edge of the entry, where inlined callees' edges already are):
+  - the stakeholders' methods of the fact's function, with their signatures and lowered code, where the stakeholders are the owners of the function and of the types in the fact's signature (facts §2.2);
+  - for a callee CodeInstance, its inferred result (return and exception type, effects, constant result).
+  
+  A stakeholder's update that leaves that function's methods alone keeps the fact.
+- **F3, layouts:** the layout of every type in the entry's signature, result and inferred code (field names, types, sizes, mutability).
+- **Methods from outside the stakeholders:** the candidate index (E-193).
+- **Bindings and folds:** as today.
+
+So nothing cascades: a new version of FunctionWrappers invalidates only the entries whose facts touch its methods or layouts. The fingerprints are computed in the session, from the method table and the CodeInstances, with no Julia change. A vehicle that loads an entry against other builds of its dependencies is a separate step (package images link by build id).
 
 ## 5. What revision 1 said
 
