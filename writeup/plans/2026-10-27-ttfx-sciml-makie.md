@@ -2,6 +2,8 @@
 
 Status: **adopted** (2026-10-27, mine, under the user's direction below); revision 2 after [its fresh-eye review](../reviews/2026-10-27-ttfx-plan.md) (§7). Not normative.
 
+**Where it stands (2026-10-27):** measured E-168 to E-179. Python's session 1.45 s; stock SciML and CairoMakie 9.2 s; the trait demonstrators 0.96 s. A cache across sessions (emulated) brings the work after the load to about a second, per call shape. The load is Makie's own code (a lean fork without its heavy dependencies saves 0.4 s). Compiled by facts, Makie keeps its code across a later load (6.1 → 0.02 s). Next: the architect's memo on a lean core that keeps the old APIs (W-60), and the wrap-up before the ports (W-61).
+
 Serves: [W-58](../record/todo.md); E-168 to E-177; open issues 72 to 75.
 
 ## 1. The goal
