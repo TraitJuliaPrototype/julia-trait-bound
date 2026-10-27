@@ -1,6 +1,6 @@
 # W-56: concrete evaluation over run-time sites, with the dispatches it performs recorded as edges
 
-Status: **proposal** (2026-10-27), a draft. Not normative.
+Status: **deferred** (2026-10-27): [its review](../reviews/2026-10-27-w56-recorded-concrete-evaluation.md) found the recorder unsound as drafted; W-57 (Base's asserted helpers fully typed) instead. Not normative.
 
 Serves: [W-56](../record/todo.md); [open issue 66](../open-issues.md#4-runtime-and-measurements); [facts §8](../reference/facts.md#asserted-effects); [compiler §1.3](../reference/compiler.md#13-run-time-sites), §1.5; E-162.
 
