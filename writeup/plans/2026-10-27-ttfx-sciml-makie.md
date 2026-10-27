@@ -82,6 +82,8 @@ Every experiment runs in minutes: one fresh session per setting first, three onl
 - *Outcome (2026-10-27, E-174):* at upstream scale, with the user's function behind `NoSpecialize` (a stand-in for move 1 of the SciML route) and the emulated cache, stock SciML's perturbed session falls from 12.9 to 4.7 s: first solve 0.30 s, second model 0.08 s; after the load 1.03 s against Python's 1.00 s.
 - *Decision:* the premise holds for SciML's path: erase the user's types at the boundary, keep the rest across sessions. **The load becomes the main question** (3.7 s of 4.7 s): phase 2's load profile of S and C comes next, before more design.
 
+**Phase 3c, the load (open issue 73).** After E-175 the load is the question. Measured: where it goes (E-169's profiles of S and C), the facts share of loaded code (11% in C), and that a system image of the stack cannot be built here (E-170). The options are open issue 73's. *Next:* the quick probes that decide among them: the time to restore and validate per image size in a generated trait world (E-171, the scale probe, now with facts images), and what a smaller plotting tree saves (TraitMakie's 0.03 s against Makie's 0.71 s, with CairoMakie's 0.17 s, measured in E-169).
+
 **Phase 3, the ceilings of caching today (E-170).** Two points:
 - the compiled statements of phase 2 that do not name `Main` put into a precompile workload of a small package loaded with the stack;
 - one system image of the whole stack (built alone, under the memory guard).
