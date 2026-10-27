@@ -368,8 +368,8 @@ The entries are grouped by theme:
 ### Stakeholder
 
 - **Here:**
-  - The stakeholders of a **method** are the owner of its function and the owners of every type in its own signature, a `Union`'s members taken one by one.
-  - The stakeholders of a **concrete signature** are the owner of its function and the owners of every type in it, of their supertypes, and of the types bounding their parameters.
+  - The stakeholders of a **method** are the owner of its function and the owners of the types in its own signature, judged at every signature it applies to: a `Union`'s members one by one, a `Vararg{T}` tail's `T` only where the tail has an element.
+  - The stakeholders of a **concrete signature** are the owner of its function and the owners of every type in it at any depth (its parameters too), and of their supertypes.
   - Only a stakeholder or a pirate can change a fact (Lemma O).
   - A stakeholder may declare an implementation: the trait's owner or the type's owner.
 - **Origin:** the project's term. It is Rust's orphan rule ("either the trait must be local or the self-type must be local") generalized to multiple dispatch ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
@@ -378,7 +378,7 @@ The entries are grouped by theme:
 ### Pirate and piracy
 
 - **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own. A pirate changes compiled code only if it wins at a fact.
-- **Origin:** Julia's own "type piracy", which Julia's style guide advises against and Aqua.jl checks. Here it is made strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6 ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
+- **Origin:** Julia's own "type piracy", which Julia's style guide advises against and Aqua.jl checks. Here it is made strict for unions and for a `Vararg` tail's arities. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6 ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
 - **Defined in:** [facts §1](reference/facts.md#term-pirate), [§10](reference/facts.md#pirates); the errors: [traits §10.2](reference/traits.md#102-pirates); the argument: [rationale §2.2](design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 
 ### Strict mode
