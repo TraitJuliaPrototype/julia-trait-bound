@@ -112,7 +112,7 @@ Everything else looked at is facts-scoped already or right as it is (§3). The i
 **What it does now:**
 - `NativeInterpreter` has two independent fields, `facts` and `owner` ([compiler §1.1](../reference/compiler.md#11-the-interpreter)). Under `all`, the default owner `nothing` compiles neutral methods by facts (C-2, F-2).
 - Hence a second predicate for "compiler code", a module walk (`is_compiler_code`, `facts.jl:195`), beside the module flag (`jl_method_is_plain`). It is read by the single-request entry (`typeinfer.jl:1667`) and the compile queues (`interp_for_mi`, `facts.jl:88`).
-- `leaves_to` has a branch for the facts image (`facts.jl:77`). `facts_default()` is read in four places, the interpreter's `facts` field in three.
+- `leaves_to` has a branch for the facts image (`facts.jl:77`). `facts_default()` is read in four places (`facts.jl:56`, `:387`, `types.jl:404`, `typeinfer.jl:1667`), the interpreter's `facts` field in `facts_mode` and `leaves_to`.
 - An image's code under owner `nothing` is plain code in one setting and facts code in the other. Hence F-7 and W-69 (the setting in an image's key), and the test bed's own depot.
 - F-16 (a Base method asserted `:foldable` over run-time sites still folds under `all`) is "probably the shared cache".
 - **Scope:** under `all`, all code shares the default owner. C-2's fix is planned (W-22).
@@ -159,7 +159,7 @@ Everything else looked at is facts-scoped already or right as it is (§3). The i
 **The simpler form:**
 - Delete `add_foreign_codeinfos!` and the non-facts half of `collect_foreign_cis!`. Images get machine code for `nothing` and `:facts` only, the latter through the compile queue as now. The answers stay serialized, since facts code holds edges to them; they get no machine code.
 - Keep-compiled keeps only `:facts` CodeInstances: the `found == 0` branch tests `ci->owner == :facts`, as `keep_without_source` already does.
-- Optional, with §2.4: the checks' CodeInstances at archetypes are not needed after precompile; they need not be in the image at all.
+- Optional, with §2.4: the definition checks' CodeInstances at archetypes never run ([lowering §2](../reference/lowering.md#2-modes-owners-and-images): "An archetype never runs"). Those of `_CheckOwner` get machine code today (C-12); those the rule check infers by facts sit in the facts cache, so the compile queue gives them machine code too, and the image validates them at load. Julia cannot tell an archetype; TraitWorld would infer them in a cache it drops before the image is written. To size by check (a) first.
 
 **What it costs or loses:**
 - Plain upstream code that a workload compiles and reaches only dynamically (a workload's printing or IO at top level) is compiled again in a session, as in stock Julia.
@@ -168,7 +168,7 @@ Everything else looked at is facts-scoped already or right as it is (§3). The i
 **How sure, and the quickest check:**
 - High for the first half (code nothing calls). Medium for keep-compiled's plain half: how much of it a demonstrator's session uses is not known.
 - **Check:**
-  - (a) Minutes, no build: after loading D's and C's packages, count per image the CodeInstances of owners `_CheckOwner()` and `:facts_plain_return_type` that carry machine code, and the external CodeInstances of owner `nothing` with machine code that no method of the package reaches by a backedge.
+  - (a) Minutes, no build: after loading D's and C's packages, count per image the CodeInstances of owners `_CheckOwner()` and `:facts_plain_return_type` that carry machine code; the `:facts` CodeInstances at signatures that name an archetype; and the external CodeInstances of owner `nothing` with machine code that no method of the package reaches by a backedge.
   - (b) With the change (a system image rebuild for `precompile.jl`, a runtime rebuild for `staticdata_utils.c`): image sizes, precompile times, E-168's D and C sessions.
   - **Refuted** if a session's first calls slow by 20% or more without the plain half. Then plain upstream code reached dynamically matters: keep it, and say why in compiler §2.9.
 
@@ -276,12 +276,13 @@ Each is a small change with a small gain. Each check takes minutes.
 
 ### With W-66
 
+- **The identity's form does not matter here.** W-66 now identifies an entry by fingerprints scoped by the facts rule ([the note](2026-10-27-facts-keyed-cache.md) §5b; the user's decision; E-195). Every point below holds for that identity and for the closure's build ids alike.
 - **One check in two directions.** The candidate index of W-66 (an image's facts against the methods its closure did not define, at validation) and §2.1 (a new method against existing facts, at a definition or an image's activation) are the two directions of one check over facts code. §2.1 (b) is the second direction, in TraitWorld, with no Julia build. W-66's step 3 is the first, in Julia.
 - **The share to state before the build.** §2.1 (a) measures how much of strict mode's cost lies in facts code. W-66's step 3 must state its gain as the facts share of validation before its build; the two numbers come from the same profile.
-- **§2.2:** the store's key (m3) need not contain the setting, since a `:facts` CodeInstance means the same in both settings. An entry's first condition, "in the product setting", becomes "of owner `:facts`".
+- **§2.2:** the store is one per Julia build and setting (m3). The setting can drop from it, since a `:facts` CodeInstance means the same in both settings. An entry's first condition, "in the product setting", becomes "of owner `:facts`".
 - **§2.3:** the store keeps facts code only, and so do images beyond stock. The vehicle "sections of one image" builds on piece 5, which then has one rule for both.
 - **§2.4:** the kept first-call check (M4) is the record on the CodeInstance.
-- **§2.5:** M3 excludes entries that reach plain code. With the record, plain answers that rest on facts validate like facts code, so only entries that reach the compiler's code (TraitWorld's machinery) stay excluded.
+- **§2.5:** M3 excludes entries that reach plain code. E-194 found none of C's 1,835 cacheable entries reaching another owner (julia-1.13 41d199c557, TraitWorld 5589f4c, one session), so the exclusion costs nothing today. Should a port fold plain answers in cached code, the record would let those entries be kept, since answers that rest on facts validate like facts code; only entries that reach the compiler's code (TraitWorld's machinery) would stay excluded.
 
 ### With open issue 73
 
