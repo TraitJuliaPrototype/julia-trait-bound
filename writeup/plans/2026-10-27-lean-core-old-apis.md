@@ -430,3 +430,10 @@ Each gets a registry row before it runs. Each runs alone, niced, under the share
 - **M9** (experiments): X7 extended to B1–B3; X1 by coverage; X2's first half read; X5 framed; X3 and X4 narrowed, with plain controls, as builds of days.
 - **M10** (`plot(sol)` through the old API): SciMLBase's Makie extension in the migration (§1.3 item 7).
 - **Minor:** m1 "loading stub"; m2 "conventions over the references"; m3 `Dynamic{Positions{2, Float64}}`; m4 `log10` conforms; m5 `emit!` in the sketch; m6 E-177's setting stated; m7 builds in the evidence, E-145 cited; m8 E-180 cited; m9 digests against upstream's; m10 the status lines when adopted; m11 open issue 75's link fixed (f3f9ee2).
+
+## 8. X7's result (E-182)
+
+[E-182](../../experiments/x7/README.md), at TraitMakie's scale against PlainPlots:
+- **B1 (world age):** confirmed, and not specific to traits: both kinds fail when a `save` follows a load in the same function; both work with the entry through `invokelatest`, at no measurable cost. The rule of §1.4 stands; open issue 77 keeps the choice for the user.
+- **B3 (the waist):** the provider's load invalidates none of the trait core's 689 CodeInstances, with SparseArrays too; the plain twin loses 3–8 and recompiles 63–155 ms. §2.5 item 1 holds at this scale. The named exception did not occur: TraitMakie's core does not reach SparseArrays' `vcat`; the full `PlotCore` may.
+- **B2 (the hand-over):** without it, the old machinery's code reached from the core runs compiled by facts; with it, that code runs plain. Inference by facts still passes through the callable without making code, about 65 ms at the first render here (open issue 78). Whether the hand-over pays at scale depends on the facts mode's cost on the old machinery's untyped code, which X3 measures.
