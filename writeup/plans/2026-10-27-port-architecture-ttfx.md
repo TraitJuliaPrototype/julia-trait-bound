@@ -35,11 +35,11 @@ The solver's floor (E-176): Tsit5, ForwardDiff and DiffEqBase 0.47 s (98 package
 
 Next: which of Makie's 261 packages the workload's plot needs (`Figure`, `Axis` with a log scale, `lines!`, a PNG through Cairo), and which come with features it does not use (statistics recipes: Distributions, StatsBase; units: Unitful; interval arithmetic; sparse arrays; REPL; Pkg through FileIO). The same for the solver: what Rosenbrock's 73 extra packages bring that a dense LU on small systems does not need.
 
-## 3. SciML: the moves in the order that pays for first use
+## 3. SciML: the moves (revision 1's order; §2b sets the order now: lean trees and the cache first, move 1 not needed for first use)
 
 **Move 0, done:** SciML's core wrapped by facts, inside out (P6's trees; setting C). It gives the guarantees, not the shape.
 
-**Move 1, first:** the right-hand side as a trait, the function kept at a `Callable` bound ([the exploration](../explorations/sciml-as-traits.md) §4, move 1; TDE's `ODEProblem`).
+**Move 1:** the right-hand side as a trait, the function kept at a `Callable` bound ([the exploration](../explorations/sciml-as-traits.md) §4, move 1; TDE's `ODEProblem`).
 - `ODEFunction`'s `F` becomes a bounded struct parameter, `F <: Callable{RHSSig{U, P, T}, Nothing}` for the in-place form; the constructor applies the bound, so `F` is `Dynamic{Callable{…}}` by default and the same type for every function. `FullSpecialize` becomes `compiled_for(f)` at the constructor; `AutoSpecialize`'s wrapper and `promote_f` go.
 - Rosenbrock methods call the function at the duals of a Jacobian: a second bounded parameter per signature, as TDE keeps `fd` (W-34's form B), or the tuple of `Callable`s when W-29 is built.
 - The user's call is unchanged: `ODEProblem(f, u0, tspan, p)` and `ODEFunction(f; jac)` construct as before.
@@ -69,7 +69,7 @@ Next: which of Makie's 261 packages the workload's plot needs (`Figure`, `Axis` 
 3. **`PlotCore`** (the rewrite's §7, step 3): the plot object, the conversion pipeline and the typed compute graph as trait code, with `Axis` and the layout ported from Makie's algorithms; CairoMakie as the backend. This is where the dependency tree can shrink (a narrow waist: recipes and backends never meet in compiled code), and so where the load can.
 - Steps 1–2 serve first use now; step 3 serves the load and the design's other pay-offs, and is the large one.
 
-## 5. Phase 6, re-scoped
+## 5. Phase 6, re-scoped (revision 1; revision 2's first builds: E-177, then a lean Makie fork and a lean Rosenbrock fork, plain first, then compiled by facts, stating the features they drop: open issue 75)
 
 1. **SciML move 1 and 1b in P6's trees** (the C setting's packages, already wrapped): `ODEFunction` and `ODEProblem` with the bounded function, the options record, Rosenbrock's dual signature. Results bit-equal to upstream (the port's digests). Measured in the workload: C with the cache against C, U and Python.
 2. **Makie wrapped by facts** in the same environment, with the cache.

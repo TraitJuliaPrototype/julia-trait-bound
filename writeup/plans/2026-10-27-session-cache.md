@@ -14,7 +14,7 @@ Code compiled in a session is lost at exit. Package images keep only what precom
 
 - **Code keyed on library types can be kept** (E-175, an emulation recorded at the level of CodeInstances). A cache from one off-workload session takes the next one: stock SciML and CairoMakie 12.9 → 4.9 s (SciML's `AutoSpecialize` erases the function below `solve`'s entry); the trait demonstrators 2.63 → 0.97 s; their plain twins 1.83 → 0.64 s. What names a type of the user's script cannot recur, and is not kept.
 - **A new call shape costs its compilation once** (E-173): a cache from `Tuple` parameters leaves a session with vectors compiling 6.3 s in stock SciML's first solve. Keys recur only where the entry normalizes shapes.
-- **Plain code's validity depends on the load order** (the combination caches, session 20; [alternatives](../design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)): kept, it is validated at load like any image's code, and discarded where another order invalidated it. Code compiled by facts stays valid in any load order of unrelated packages ([facts §11](../reference/facts.md#11-package-images), "When it stays valid").
+- **Plain code's validity depends on the load order** (the combination caches, session 20; [alternatives](../design/alternatives.md#caches-across-sessions-combination-caches-and-view-caches-removed)): kept, it is validated at load like any image's code, and discarded where another order invalidated it. Code compiled by facts stays valid in any load order of unrelated packages ([facts §11](../reference/facts.md#11-package-images), "When it stays valid"): the design's claim, not yet tested on this path (E-177).
 - **Trait code needs three things kept** (§5b): the facts owner's code compiled for that owner, the exact types, and the first-call checks' results.
 - **The load remains** (open issue 73): with a cache, every setting's work after the load is about a second or less; the load is 3.7 s for stock. A cache adds to it (D: 0.11–0.13 s).
 
@@ -45,6 +45,9 @@ Done: recurrence and the three requirements (E-173, E-175). Still to run, minute
 1. **Order independence**, with the cache split by dependency set: a solver part and a plotting part, the plotting library loaded after the first solve (order B).
 2. **The cache's load against its size:** D's cache adds 0.11–0.13 s for about 1,200 signatures; a cache of 10 and 100 times that (E-171's packages, several sessions).
 3. **Strict mode with a cache:** the same refusals, and its load cost.
+4. **Order independence and a late load, plain against trait code** (E-177; [the direction review](../reviews/2026-10-27-w58-direction.md) 1): the trait-specific test.
+5. From the previous review's M9: an owner-aware record for C; the module list of an image built while a cache was loaded (M2).
+6. **Reuse across sessions with other shapes:** each cache so far was recorded from the session it is measured on.
 
 ## 5. Questions for review
 
