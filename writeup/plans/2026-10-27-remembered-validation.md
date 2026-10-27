@@ -1,6 +1,6 @@
 # Validation remembered for an unchanged environment
 
-Status: **proposal** (2026-10-27, mine; W-58, [open issue 73](../open-issues.md#2-design), its second option). Not normative. A Julia change, not trait-specific; opt-in while it is an experiment (`JULIA_REMEMBER_VALIDATION=1`).
+Status: **proposal, revision 2** (2026-10-27, mine; after [its soundness review](../reviews/2026-10-27-remembered-validation.md), §5; W-64; W-58, [open issue 73](../open-issues.md#2-design), its second option). Not normative. A Julia change, not trait-specific; opt-in while it is an experiment (`JULIA_REMEMBER_VALIDATION=1`).
 
 ## 1. The question
 
@@ -38,3 +38,18 @@ Two sessions that start from the same system image and restore the same images i
 Setting U (the patched Julia, upstream packages, plain) and C: the load with and without the remembered outcome (the first session records, the next ones use), two runs each; the same outputs; a session that defines a method before `using` (the chain differs: no reuse); the remembered files' size.
 
 **Would change the plan:** a saving well under E-185's 1.4 s (the backedges' storage dominates), or outputs that differ.
+
+## 5. The review, and what is done with it
+
+[The review](../reviews/2026-10-27-remembered-validation.md) (fresh eyes, Opus, of revision 1's diff) found the first fast path unsound. Revision 2 (the diff after it):
+- **B1** (a callee's invalidity not passed to its caller): the remembered outcome now lives inside the usual walk (`verify_method`): for a CodeInstance recorded valid, only the method lookups (method-instance, dispatch and invoke edges) are skipped; bindings, folds, global references, the recursion into CodeInstance edges, the cleanup with its backedges and the invalidation log are as always. So a callee found invalid in this session invalidates its callers.
+- **B2** (the system image not in the key): the file's name mixes the chain key with Base's and Core's build ids and the system image's and `libjulia-internal`'s paths, sizes and times (also **M2**, a runtime rebuilt alone).
+- **B3** (a definition between the key and the world): the key and the world counter are read together under the world counter's lock, for each CodeInstance; once the key differs from the one the file was found under, the rest is validated in full.
+- **B4** (`disable_new_worlds`): breaks the chain.
+- **B5** (an overlay table's method with a global method's signature): the table is mixed in with the signature.
+- **M1** (32 bits of the checksum vary): the image's worklist key is mixed in too.
+- **M3** (recorded while the table changed): recorded only if the key after validation is the key before.
+- **M4** (the "latest only" bits not set by the skipped lookups): kept as a known bias of E-186 in the remembered sessions' favour for later full validations; not a soundness issue.
+- **Minor:** m3 the fast path off while the invalidation logger is on; m4 the file has a header (magic, version, count); m5 temporary names with a random part, removed on failure; m1, m2, m6 (no eviction) and m7 (checked: a function defined in `Main` before `using` gives the same key in two sessions) recorded.
+
+The world range of remembered code starts at the validation world (m1: callers inherit it); that hides it from tasks in older worlds only.
