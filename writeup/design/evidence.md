@@ -160,18 +160,18 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - **Not measured on the run of 2026-10-27:** the forked CSV does not precompile on TraitWorld bbfc130 (its column family's member check refuses `Vector{Int64}`; [todo W-14](../record/todo.md)).
 - **Before** (the build of 2026-10-19): the session without imports 2.85 s against 10.40 s. The `String15` step then took 1.56–1.67 s, before the `String15` fixes (a workload extension and the first-call check by facts; their contributions were not separated). It now takes 0.06 s.
 
-**Load and first use, SciML and Makie against SciPy and matplotlib** (E-168; one fresh session: load, a non-stiff and a stiff solve, a PNG of both, a second model solved and plotted, both again, exit; julia-1.13 252edca933, TraitWorld main bbfc130, strict mode off unless stated; a warm-up and two sessions per setting, agreeing within 1%; two cores; [`experiments/ttfx/README.md`](../../experiments/ttfx/README.md)):
+**Load and first use, SciML and Makie against SciPy and matplotlib** (E-168; one fresh session, from before the process starts to the end of the last step: load, a non-stiff and a stiff solve, a PNG of both, a second model solved and plotted, both again; a bare exit adds about 0.05 s; julia-1.13 252edca933, TraitWorld main bbfc130, strict mode off unless stated; a warm-up and two sessions per setting, agreeing within 1%; two cores; [`experiments/ttfx/README.md`](../../experiments/ttfx/README.md)):
 
 | Setting | Load | First solve | First plot | Second model | **Session** |
 |---|---|---|---|---|---|
-| Python: SciPy 1.18.1, matplotlib 3.11.2 | 0.45 s | 0.07 s | 0.51 s | 0.24 s | **1.53 s** |
-| stock 1.13.2: OrdinaryDiffEq, CairoMakie (plain code) | 3.54–3.56 s | 3.75–3.76 s | 1.51 s | 0.19 s | **9.49–9.50 s** |
-| upstream SciML compiled by facts as trait modules (P6's trees; no trait code) | 4.52–4.53 s | 4.56–4.57 s | 1.47–1.48 s | 0.22 s | **11.30–11.45 s** (strict mode on: 18.0 s) |
-| TraitDifferentialEquations and TraitMakie (idiomatic trait code) | 0.81 s | 0.14 s | 0.15 s | 0.056–0.057 s | **1.58–1.59 s** |
-| their plain twins, PlainODE and PlainPlots | 0.19 s | 0.22 s | 0.25 s | 0.33 s | **1.46–1.47 s** |
+| Python: SciPy 1.18.1, matplotlib 3.11.2 | 0.45 s | 0.07 s | 0.51 s | 0.24 s | **1.45–1.46 s** |
+| stock 1.13.2: OrdinaryDiffEq, CairoMakie (plain code) | 3.54–3.56 s | 3.75–3.76 s | 1.51 s | 0.19 s | **9.16–9.17 s** |
+| upstream SciML compiled by facts as trait modules (P6's trees; no trait code) | 4.52–4.53 s | 4.56–4.57 s | 1.47–1.48 s | 0.22 s | **10.92–10.93 s** (strict mode on: 17.6 s) |
+| TraitDifferentialEquations and TraitMakie (idiomatic trait code) | 0.81 s | 0.14 s | 0.15 s | 0.056–0.057 s | **1.29–1.30 s** |
+| their plain twins, PlainODE and PlainPlots | 0.19 s | 0.22 s | 0.25 s | 0.33 s | **1.13–1.14 s** |
 
 - A small trait core meets Python's session; so does its plain twin. The traits' contribution is the second model: 0.056 against 0.33 s.
-- Upstream SciML and Makie take six times Python's session: load and compilation in the session, which their own workloads do not cover.
+- Upstream SciML and Makie take six times Python's session: load (3.5 s, 381 packages) and compilation in the session, which their own workloads do not cover (the first solve's keyword path; E-169).
 - With the plotting library loaded after the first solve, the facts-compiled core recompiles nothing (0.04 s); stock Julia recompiles 0.44 s.
 - Not yet met: TDE's solver is keyed on the parameters' type, so `Tuple` parameters compile it again in the session (+1.35 s); strict mode adds 6.6 s to the facts-compiled core's load.
 
