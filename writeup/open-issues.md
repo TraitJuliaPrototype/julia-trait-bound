@@ -215,8 +215,6 @@ State (2026-10-19): TraitWorld 227781a, 48 test sets, on the patched julia-1.13.
 
 ## 4. Runtime and measurements
 
-74. **A struct and its `@implement` in one top-level block** are refused with "Main may not implement `a1` … Main does not own TNew" (E-171, `experiments/ttfx/scale/`). The block's macros expand before the struct is defined, so `@implement` sees no type it can attribute. The refusal may be right; the message is wrong: it should say that the type is not defined yet. Found 2026-10-27; to fix in TraitWorld's message.
-
 71. **First calls slower in the demonstrators on the build of 2026-10-27** (E-163; julia-1.13 26a407d988, TraitWorld main bbfc130; against E-146 on TraitWorld 226db6a and the round's TraitMakie rerun on bed3782; 2 runs per load order; [`experiments/overnight-2026-10-21/README.md`](../experiments/overnight-2026-10-21/README.md#results-of-e-163-2026-10-27)). Not diagnosed. Beyond the runs' spread:
     - TraitDifferentialEquations: a new problem type's `@implement` 123–165 ms against 66–74; a second callback closure 30–32 ms against 9–11; a `Float32` state's first solve 593–610 ms against 439–461; ForwardDiff's own tag (plain code) 773–810 ms against 671–703; the first gradient 80–96 ms against 68–89.
     - TraitMakie: a forwarding `@implement` 47–67 ms against 22–47, its first PNG without loads 109–110 ms against 72–74; a colour type's first PNG 76–90 ms against 55–59; the recolour to a gradient with the loads before 186–188 ms against 16, to a vector with the loads after 162–166 ms against 81–82.
@@ -280,6 +278,8 @@ What Julia must provide, in order: `explorations/julia-support.md`, reviewed in 
 ---
 
 ## Closed items
+
+74. **Closed (2026-10-27):** a struct and its `@implement` in one top-level block were refused with the ownership message ("Main does not own TNew"); the macros of one block expand before its statements run. TraitWorld 5589f4c gives the case its own message: the type is not defined where `@implement` expands; define it in a statement before. Was: "A struct and its `@implement` in one top-level block are refused with a misleading message (E-171)."
 
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 
