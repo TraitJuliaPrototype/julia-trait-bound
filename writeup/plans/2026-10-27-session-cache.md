@@ -63,6 +63,15 @@ Minutes each, on the harness of E-168 (`experiments/ttfx/`):
 - What does validating a large cache image cost at load, against compiling its code again?
 - Is the facts owner's code enough? Code a trait module calls at run-time sites runs plain code, compiled plainly; is the share large on the workload's path?
 
+## 5b. What the emulation taught (E-175)
+
+A cache of trait code must keep three things, each found missing in turn (`experiments/ttfx/README.md`, E-175):
+1. **The facts owner's code, compiled for that owner:** replaying a signature by `precompile` compiles plain copies of the Base methods trait code calls; the session needs the facts copies.
+2. **The exact types:** trait objects' types print by bound and key, so a cache must keep types, not printed statements.
+3. **The first-call checks' results:** a worker kept without its check is checked again, by inference, in every session; the cache keeps the checks as checked ahead, as package images do.
+
+With all three, D's off-workload session with its cache equals its on-workload session (0.97 against 0.96 s).
+
 ## 6. The review, and what is done with it
 
 [The review](../reviews/2026-10-27-cache-and-port-notes.md) (fresh eyes, Opus, 2026-10-27):
