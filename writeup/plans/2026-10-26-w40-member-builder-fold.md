@@ -223,4 +223,6 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
 
 **Also:** the invalidation log names a record that fails at load; §4.2's "what does not change" list follows the one-builder rule (the untyped table's miss calls the same function); §8 gains the F- row for question 2 and an L- row for `Undecided`'s cost.
 
+**On Julia 1.14** ([the scan](../record/julia-1.14-scan-2026-10-27.md)): inference holds no global lock and runs under `sigatomic`, so folds run on several threads at once and no reset interrupts `g`; the discipline stands, and §7's thread checks become meaningful there.
+
 **Next:** build in this order: T-28/L-23; TraitWorld's check under the discipline (testable on today's build: the slow path uses it too); the compiler's `fold_call`, `FoldCallInfo`, the inliner's replacement, the edge walkers and the load pre-pass; then §7's checks.
