@@ -112,6 +112,7 @@ A version update rebuilds every dependent, so the closure's build ids cascade: a
 - **A missing fingerprint means invalid** (Swift).
 - **Recursive groups** need a fingerprint scheme that terminates (GHC's bug #18733).
 - **The store holds evidence only;** the session recomputes validity (Nix's trust split).
+- **A fact at a vararg signature** is keyed by its recorded family signature, every arity at once, with Julia's `max_args` outside the fingerprint ([the varargs research](../record/varargs-research-2026-10-27.md), W-74).
 
 So nothing cascades: a new version of FunctionWrappers invalidates only the entries whose facts touch its methods or layouts. The fingerprints are computed in the session, from the method table and the CodeInstances, with no Julia change. A vehicle that loads an entry against other builds of its dependencies is a separate step (package images link by build id).
 
