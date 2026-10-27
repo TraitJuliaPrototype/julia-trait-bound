@@ -78,6 +78,9 @@ Every experiment runs in minutes: one fresh session per setting first, three onl
 - *Outcome (2026-10-27, E-172):* perturbed sessions with the cache: D 2.63 → 1.52 s, Dp 1.83 → 0.70 s, S 12.9 → 11.7 s. What can be kept is decided by the key: S's solver code is keyed on the user's function type and none of it can be kept; Dp's solver sees the function behind a `FunctionWrapper` and all of it is kept.
 - *Decision:* a cache across sessions pays exactly where the core erases the user's own types at its boundary. That is the traits' structural claim (every bound erases or keys on library types, checked), against plain code where erasure is by hand and partial (SciML's `AutoSpecialize` erases inside, but its outer layers keep `typeof(f)` in the problem's type). At the small scale both get it; the difference must show at scale (phase 6), and phase 4 designs the cache with that key discipline. D's remaining 0.18 s in the first solve and its load (0.9 s) go to phase 2.
 
+- *Outcome (2026-10-27, E-174):* at upstream scale, with the user's function behind `NoSpecialize` (a stand-in for move 1 of the SciML route) and the emulated cache, stock SciML's perturbed session falls from 12.9 to 4.7 s: first solve 0.30 s, second model 0.08 s; after the load 1.03 s against Python's 1.00 s.
+- *Decision:* the premise holds for SciML's path: erase the user's types at the boundary, keep the rest across sessions. **The load becomes the main question** (3.7 s of 4.7 s): phase 2's load profile of S and C comes next, before more design.
+
 **Phase 3, the ceilings of caching today (E-170).** Two points:
 - the compiled statements of phase 2 that do not name `Main` put into a precompile workload of a small package loaded with the stack;
 - one system image of the whole stack (built alone, under the memory guard).
