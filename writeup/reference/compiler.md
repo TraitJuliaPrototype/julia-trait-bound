@@ -96,7 +96,7 @@ Lives in `Compiler/src/facts.jl`.
 
 **Meaning.** `is_fact_sig(T)` is true when `T` is one of:
 - a dispatch tuple (`isdispatchtuple(T)`);
-- a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, split by Julia's union-splitting cost (`unionsplitcost`) over the tuple's elements, at the interpreter's `max_union_splitting` (planned: today at most `MAX_FACT_SPLITS` concrete tuples in all, [facts F-15](facts.md#15-deviations), W-43);
+- a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, split by Julia's union-splitting cost (`unionsplitcost`) over the tuple's elements, at the interpreter's `max_union_splitting`;
 - a tuple of *concrete members* with a `Vararg{E}` tail of a concrete member `E`. A concrete member is a dispatch element that is not a kind (a concrete type, or `Type{T}` with `T` known), or a tuple type of concrete members;
 - a closure's call at kinds: the first argument is a closure type (its name is generated, `#…`), and every argument is concrete or one of `DataType`, `UnionAll`, `Union`.
 
@@ -108,7 +108,7 @@ Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-s
 
 ### 1.3 Run-time sites
 
-**Status: Implemented**, except the calls Julia's matching gives up on and the mark's reach ([C-15](#deviations), [C-13](#deviations)).
+**Status: Implemented.**
 
 ```julia
 Compiler.FACTS_ABSTRACT_SITE::FailedMethodMatch
@@ -169,7 +169,7 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 
 ### 1.5 Effects
 
-**Status: Implemented**, except over a callee's run-time site ([C-13](#deviations)) and one method-level case under the test bed ([C-15](#deviations)).
+**Status: Implemented** (acceptance G1.10, G1.32, G1.33). One case under the test bed is open: [facts F-16](facts.md#deviations), to be checked again on this build.
 
 Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`) and `abstractinterpretation.jl` (`merge_override_effects!`).
 
@@ -377,7 +377,7 @@ Lives in `Compiler/src/facts.jl`, `typeinfer.jl` (`typeinf_edge`), `abstractinte
 **Meaning.** When inference reaches a method whose code belongs to the other mode (§2.3):
 - the callee is inferred by the other interpreter, in an inference of its own, as a request from the runtime would be (`facts_edge`);
 - the call names that `CodeInstance`, with an edge to it;
-- a plain caller propagates constants into a facts callee: `facts_const_prop_call` infers the callee again for the constants with the facts interpreter, in a call stack of its own, the result local and the edges that inference's ([facts §6.3](facts.md#calls-between-the-modes)); concrete and semi-concrete evaluation cross on the callee's facts CodeInstance, with an edge to it (planned: [facts F-18](facts.md#15-deviations), W-41);
+- a plain caller propagates constants into a facts callee: `facts_const_prop_call` infers the callee again for the constants with the facts interpreter, in a call stack of its own, the result local and the edges that inference's ([facts §6.3](facts.md#calls-between-the-modes)); concrete and semi-concrete evaluation cross on the callee's facts CodeInstance, with an edge to it;
 - a facts caller of the compiler's plain code propagates no constants.
 
 Neither owner infers the other's methods by its own rules.
@@ -794,6 +794,6 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences, which for a facts method are not the same answer (the exception of [§1.4](#14-return_type)). | `Compiler/src/facts.jl` (`cache_owner(::PlainRTInterp)`, `return_type_interp`, `facts_plain_return_type`) |
 | C-11 | — | *Retired*: see [§1.4](#14-return_type), the exception. | — | — |
 | C-12 | [§1.4](#14-return_type), [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), [§2.9](#29-what-package-images-keep) | Only the owners whose code runs get machine code in a package image. | The image builder collects every `CodeInstance` of an owner other than `nothing` with an open `max_world` in the package's own methods, skips only `:facts` (which goes through the compile queue), and emits machine code for each whose source is cached: the `return_type` answers of `:facts_plain_return_type` and TraitWorld's `_CheckOwner` results included. Nothing calls that code: image size and build time, not correctness. | `Compiler/src/precompile.jl:396`, `:443`–`444`, `:455`–`469` (`collect_foreign_cis!`), `:470`–`489` (`add_foreign_codeinfos!`); `TraitWorld/src/compiler.jl:57` |
-| C-13 | [§1.5](#15-effects), [§1.3](#13-run-time-sites) | No asserted effect applies over a run-time site, at any depth; a call Julia's matching gives up on is a run-time site. | In the build of 2026-10-21 the mark is a flag on the frame that holds the run-time site: a method's or a statement's assertion one frame above it still applies (`experiments/review-2026-10-26-references/assert_one_up.jl`), and a statement's is dropped only once the frame has met the site. Fixed in julia-1.13 0c589fd385 (W-52, the `nortsite` bit), not yet in a build; retired when acceptance G1.32 passes on it. As [facts F-12](facts.md#deviations). | `Compiler/src/typeinfer.jl` (`adjust_effects`), `abstractinterpretation.jl` (`merge_override_effects!`) |
+| C-13 | — | *Retired*: see [§1.5](#15-effects). | — | — |
 | C-14 | [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | The targets and thunks of a split table for declared implementations are compiled ahead, into the declaring package's image. | Each pointer is made at the type's first use at the call's signature in the session: its maker, thunk and target compiled (E-145). | `base/splittable.jl` (`_split_table_miss!`) |
-| C-15 | [§1.3](#13-run-time-sites), [§1.5](#15-effects) | A call at a fact signature that Julia's matching gives up on is a run-time site; no assertion applies over it. | In the build of 2026-10-21 such a call (more matches than `max_methods`, after `:latestworld`, an `invoke` bail-out) records no edge and is not marked, so assertions over it apply. Under the test bed a Base method asserted `:foldable` is folded over run-time sites (facts F-16, undiagnosed); these calls and C-13 are candidate causes. Fixed in julia-1.13 0c589fd385 (W-52), not yet in a build; retired when G1.33 passes and F-16's case is rechecked. | `Compiler/src/abstractinterpretation.jl` (`abstract_call_gf_by_type`, `abstract_invoke`); `ndport/scripts/p3_promote3.jl` |
+| C-15 | — | *Retired*: see [§1.3](#13-run-time-sites). | — | — |
