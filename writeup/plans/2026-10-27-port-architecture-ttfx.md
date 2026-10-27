@@ -1,6 +1,6 @@
 # Porting the workload's path: SciML and Makie, for load and first use
 
-Status: **proposal, revision needed** (2026-10-27, mine; W-58 phase 5): [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md), §7. Not normative.
+Status: **proposal, revision 2** (2026-10-27, mine; W-58 phase 5): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§7) and E-175, E-176 (§2b). Not normative.
 
 Serves: W-58 ([the plan](2026-10-27-ttfx-sciml-makie.md) §5, phases 5–6); [the cache note](2026-10-27-session-cache.md); open issue 72.
 
@@ -20,6 +20,16 @@ From E-168 to E-174 (`experiments/ttfx/README.md`):
    - TraitWorld's own hooks compiled at each session's first load cost 0.36 s until fixed (TraitWorld 04095fe);
    - compiling SciML by facts added 1.0 s to the load (C against U, E-168), and strict mode's check 6.6 s more.
    How the load itself shrinks is the cache note's and phase 3's question (E-170), not the port's.
+
+## 2b. Revision 2: the load first
+
+E-175 and E-176 change the order:
+- **With a cache across sessions, the work after the load is about Python's** in every setting (stock SciML and CairoMakie: 1.1 s after the load, Python 1.0 s): SciML's `AutoSpecialize` already keeps the user's function out of the solver's code below the entry, so move 1 is not needed for first use on this path.
+- **The load is the tree** (E-176): stock's load follows the methods its 381 packages add (80,263; 27,681 extend other packages' functions). The plotting tree is most of it: `using CairoMakie` 2.7 s and 261 packages; the solver's 1.09 s and 156 packages, of which Tsit5 alone 0.34 s and 83. Python imports SciPy and matplotlib in 0.45 s.
+- **So the port's first aim is a smaller tree for the workload's path,** with a budget: a plotting core that loads in about 0.5 s and a solver in about 0.4 s, the rest of each library loaded only by the features that need it (extensions, separate packages). A trait core is what makes the split possible: a narrow, declared interface between the core and its recipes, backends and algorithms, instead of methods of the core's functions spread over the tree.
+- Strict mode's check at load (6.6 s in C) is the other load item; its intended design is facts §10.3's.
+
+Next: which of Makie's 261 packages the workload's plot needs (`Figure`, `Axis` with a log scale, `lines!`, a PNG through Cairo), and which come with features it does not use (statistics recipes: Distributions, StatsBase; units: Unitful; interval arithmetic; sparse arrays; REPL; Pkg through FileIO). The same for the solver: what Rosenbrock's 73 extra packages bring that a dense LU on small systems does not need.
 
 ## 3. SciML: the moves in the order that pays for first use
 
@@ -72,7 +82,7 @@ From E-168 to E-174 (`experiments/ttfx/README.md`):
 
 [The review](../reviews/2026-10-27-cache-and-port-notes.md) (fresh eyes, Opus, 2026-10-27):
 - **B1** (the evidence for move 1 coming first rests on an emulation that kept compile roots only): accepted and confirmed by E-175: stock's `AutoSpecialize` already makes the solver cacheable (the perturbed session with a cache 4.9 s). Move 1 is not needed for first use on this path; it stays in the route for its other pay-offs (the signature checked, no hand-written wrapper).
-- **M6** (the order does not follow the goal: the load is 3.7 of 4.7 s): accepted. The load comes first: phase 3's ceiling (a system image; E-170) and a design for the load, before wrapping Makie by facts, which is likely to add load (CairoMakie under `all`: 4.9 against 1.9 s).
+- **M6** (the order does not follow the goal: the load is 3.7 of 4.7 s): accepted, §2b: the load comes first, and for the port that means the tree.
 - **M7** (user types still reach the keys after the moves): the parameters' type stays a key by design (the right-hand side reads it); callbacks and `DEOptions`' function fields are move 2's, off the workload's path; the Rosenbrock chunk is chosen per state length (TDE), not per user type; Makie's compute graph is keyed on attribute values' types, the user's own where the user passes them. Listed for the next revision.
 - **m4** (move 5 against the SciML exploration's "not needed for the workload after move 1"): accepted: move 5 is needed only if the solution's type still names the function after move 1.
 - **m5** (E-174's baseline): the perturbed auto-specialized session's first solve is 5.3 s (S/p), not `NoSpecialize`'s 8.2 s; the 0.30 s compares with 5.3 s.
