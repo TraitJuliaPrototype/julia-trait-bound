@@ -708,7 +708,7 @@ It runs the rule check of every enumerated worker. With `entrypoints = true` it 
 **The definition hook** (`_on_method_definition`, `hooks.jl:180`), compiled by facts:
 - refuses an override of an operation a fixed implementation serves by a default;
 - in strict mode, refuses a pirate that would win at a fact of compiled trait code. Before the definition it reads Julia's backedges; after it, Julia's invalidation log as a safety net, deleting the method again if trait code was invalidated by a non-stakeholder (`strict.jl:1`);
-- recomputes the keep flags of a complete trait module that gains a method.
+- recomputes the keep flags of a complete trait module that gains a method of trait-module code; a method defined outside trait code (a user's implementation at the prompt) changes none, since the keep analysis follows only trait-module code (TraitWorld 003ce8f).
 
 **The image hook** (`_on_image_methods`, `hooks.jl:254`) leaves an image's overriding methods, and in strict mode its winning pirates, inactive, and reports them after the load.
 
