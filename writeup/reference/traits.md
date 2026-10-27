@@ -709,7 +709,7 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 - **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
 
-**Status:** Implemented. Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A `Dynamic` function takes at most six arguments ([T-51](#17-deviations)). A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
+**Status:** Implemented. Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
 
 ---
 
@@ -1440,7 +1440,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | types first, then traits; joint-method rule; fallback | Implemented | [§5.5](#55-dispatch-types-first-then-traits), L-3 |
 | result types, `Like{t}`, `withfields`, siblings | Implemented | [§5.6](#56-results-declared-types-like-withfields) |
 | keywords, defaults, varargs | Implemented | [§5.7](#57-keywords-defaults-and-varargs), T-48 |
-| `Callable{A, S}`, its `Dynamic` default, `Compiled{Callable{A, S}}`, casts | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature), T-51 |
+| `Callable{A, S}`, its `Dynamic` default, `Compiled{Callable{A, S}}`, casts | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | `Callable{A, S, K}` with keywords | Planned | [§5.7](#57-keywords-defaults-and-varargs) |
 | a constant `A`, refused otherwise | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | open `Callable` result types | Planned | [§5.8](#58-callable-functions-at-a-declared-signature), T-18 |
@@ -1541,7 +1541,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-48 | [§5](#5-bounded-functions), [§5.7](#57-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
 | T-49 | [§3.1](#31-operations), [§6](#6-values-in-trait-code-compiled-and-dynamic) | An operation with an argument declared `Self` works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
-| T-51 | [§5.8](#58-callable-functions-at-a-declared-signature) | A `Callable` takes any number of arguments, in either attribute. | A `Dynamic` function takes at most six: the erased call has fixed arities up to six. | `TraitWorld/src/core.jl` (`_CallWrap`, `Erased`'s call) |
+| T-51 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
 | T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
 | T-53 | [§6.5](#65-values-carry) | A kept value of `X` passed to a bound of another trait `Y` is refused (`TraitBoundError`). | It is accepted when its object conforms to `Y`: the entry assembles `Y`'s view from the held object, a trait cast. One whose object does not conform raises `MethodError`. | `TraitWorld/src/entry.jl` (`enter`, `_dyn_held`) |
 | T-54 | [§7.5](#75-functions-kept), [§6.5](#65-values-carry) | A function kept at one signature, passed to a bound of another signature, is refused (`TraitBoundError`). | It is accepted and seen there with its attribute: a `Dynamic` one through a new pointer (`_erased_at`), unchecked until its first call. TraitDifferentialEquations relies on it until its problem keeps the function as a tuple ([W-30](../record/todo.md)). | `TraitWorld/src/entry.jl` (`enter_callable`, `_erased_at`); `TraitDifferentialEquations/test/compiledcall.jl` |

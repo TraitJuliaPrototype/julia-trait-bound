@@ -52,7 +52,6 @@ Write to TraitWorld's language, never to its internals (names that start with `_
 - **T-32:** with a block, an existing method for an operation the block leaves out is not used. Put every override in the block.
 - **T-39:** a user's container is not taken at a bounded keyword. **T-48:** a function whose only bounded arguments are keywords does not work. Bound a positional argument.
 - **T-49:** an operation with an argument declared `Self` fails on a `Dynamic` value.
-- **T-51:** a `Dynamic` function takes at most six arguments.
 - **T-52:** a type that conforms through a generic implementation but whose operations do not conform is accepted with a warning. Read the warnings.
 - **T-53, T-54:** a kept value or function passed to a bound of another trait or signature is accepted, though the reference refuses it. Do not rely on it.
 - **C-6:** a module's other compiler options are meant to apply to its facts code too; `compile` is ignored there today.
@@ -184,7 +183,6 @@ The attribute chooses speed, never results ([§6](../reference/traits.md#6-value
 - **Stored user functions,** including RuntimeGeneratedFunctions: a struct parameter bounded by `Callable` at the declared signature ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), B2).
   - **Values cross by their bound; code never crosses.** The function enters once, at the constructor, and is seen at its declared signature from then on ([§6.2](../reference/traits.md#62-how-plain-values-enter-the-trait-world), [§6.5](../reference/traits.md#65-values-carry)). No wrapper is installed before the call, and no state type is an exception: the bound converts nothing. The signature is checked at every call, and the result asserted ([§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature)).
   - A generated function's type is not of the trait world, so at a bare `Callable` it is `Dynamic`: the library compiles once per signature, not per generated function. The package's own closures are of the trait world and run `Compiled` where the code knows their type ([§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)).
-  - T-51 limits a `Dynamic` function to six arguments. NetworkDynamics' edge function `g(ysrc, ydst, x, insrc, indst, p, t)` has seven, eight with external inputs: a blocking deviation, so a work item.
   - Reflection on the function (a type inferred from `g`'s methods) runs on the plain function, before it is kept.
 - **Dual numbers through caches:** the buffer's element type is the problem's `T`; tag duals by the primal signature; fix the chunk (B2).
 - **What the caller passes:** values typed at the prompt, or by a top-level statement without a loop in a test or script, are `Dynamic` ([§6.2](../reference/traits.md#62-how-plain-values-enter-the-trait-world)). Test a `Compiled` path from inside a function, or with `compiled_for`.
@@ -513,7 +511,7 @@ Other ways to build the link, for a port that wants it declared: `init` as an op
 - **PB-E.** Boxing `p` behind a stable type (`AutoDespecialize`) needs the kept value opened at its concrete type: a plain assertion does it ([traits §7.1](../reference/traits.md#71-the-three-forms)). The parameters partially evaluated at the surface keep `P` out of the solver's key (0.4; B2).
 - **PB-F.** The convenience `solve` without an algorithm is a bounded method on a foreign function, which L-3 limits today.
 - **PB-G.** The `getproperty` sugar called from plain code: answered by constant propagation into facts code ([facts §6.3](../reference/facts.md#calls-between-the-modes); open issue 50, closed).
-- **PB-H, PB-I, PB-J.** Keyword-heavy front ends stay plain (0.5); a `Dynamic` function takes at most six arguments (T-51; 0.4); a default algorithm over six solvers puts two beyond the split's four (0.4, "Which four").
+- **PB-H, PB-J.** Keyword-heavy front ends stay plain (0.5); a default algorithm over six solvers puts two beyond the split's four (0.4, "Which four").
 
 ---
 
