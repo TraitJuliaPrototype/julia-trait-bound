@@ -437,3 +437,7 @@ Each gets a registry row before it runs. Each runs alone, niced, under the share
 - **B1 (world age):** confirmed, and not specific to traits: both kinds fail when a `save` follows a load in the same function; both work with the entry through `invokelatest`, at no measurable cost. The rule of §1.4 stands; open issue 77 keeps the choice for the user.
 - **B3 (the waist):** the provider's load invalidates none of the trait core's 689 CodeInstances, with SparseArrays too; the plain twin loses 3–8 and recompiles 63–155 ms. §2.5 item 1 holds at this scale. The named exception did not occur: TraitMakie's core does not reach SparseArrays' `vcat`; the full `PlotCore` may.
 - **B2 (the hand-over):** without it, the old machinery's code reached from the core runs compiled by facts; with it, that code runs plain. Inference by facts still passes through the callable without making code, about 65 ms at the first render here (open issue 78). Whether the hand-over pays at scale depends on the facts mode's cost on the old machinery's untyped code, which X3 measures.
+
+## 9. X1's result (E-183)
+
+The workload's plot runs 6.1% of Makie's code lines (2,710 of about 44,400, in 52 of 150 files): `makielayout/` 841, `compute-plots.jl` 316, `basic_recipes/` 264. No line that calls MathTeXEngine runs. So a `PlotCore` slice for the workload is small, with the `Axis` as its largest piece (risk 1 of §2.6 bounded), and MathTeXEngine goes behind a loading stub (risk 8; §1.2's table).
