@@ -879,6 +879,7 @@ There is no syntax for this. It follows from the declarations.
   - the **receiver type**, if any: the type whose own methods serve at least one operation. That is the conforming type when it implements the operations, or the field's type when the implementation forwards to a field ([§4.3](#43-forwarding-with-by));
   - plus the declared fields' types.
 - An implementation whose operations are all served by defaults has no receiver type. Its key is the declared fields' types alone.
+- **A held view and a read-through view are compiled apart:** an immutable receiver type seen directly, and the same type seen through a forwarding field, have one key and two compiled copies ([lowering §6](lowering.md#6-trait-objects-layout-fields-writes)).
 - **Except where the trait needs the type itself:** when its declarations name `Self`, or a parameter is not defined by a field, the conforming type is the receiver type, and gets its own compiled copy. Code compiled for a key knows only what is in the key.
 - **Types with equal keys share compiled code.** Every type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for that field type, including code in the library's package image. Fields the trait does not declare never cause a recompile.
 - **A type that supplies its own behaviour gets its own copy.** It implements an operation, or overrides a default, so it is the receiver type. Its code is compiled once, not "once for any type".
