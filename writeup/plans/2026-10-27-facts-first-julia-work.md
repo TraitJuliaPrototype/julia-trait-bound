@@ -1,6 +1,6 @@
 # Facts first: the Julia work and TraitWorld's runtime against the facts rule's guarantees
 
-Status: **proposal** (an agent's, for the user's review), 2026-10-27. Not normative. Nothing here is decided. Each opportunity names the reference sections, deviation rows and work items it would change.
+Status: **adopted** (2026-10-27, the user: "Agreed on your suggestions on how to incorporate the facts first Julia reviewer"): §2.1, §2.3, §2.4 into W-66; §2.2 the form of W-22; §2.5, §2.6 W-72, W-73; was proposal (an agent's, for the user's review), 2026-10-27. Not normative. Nothing here is decided. Each opportunity names the reference sections, deviation rows and work items it would change.
 
 The user (2026-10-27): "Send out an agent to look at the Julia work done so far. Look for opportunities that match the cache design: are there things that could be simpler and cleaner if they leverage facts and traits guarantees rather than try to improve all code (including plain)."
 
