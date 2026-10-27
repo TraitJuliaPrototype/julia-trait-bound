@@ -71,7 +71,7 @@ From E-168 to E-174 (`experiments/ttfx/README.md`):
 ## 7. The review, and what is done with it
 
 [The review](../reviews/2026-10-27-cache-and-port-notes.md) (fresh eyes, Opus, 2026-10-27):
-- **B1** (the evidence for move 1 coming first rests on an emulation that kept compile roots only): accepted; E-175 decides whether stock's `AutoSpecialize` already makes the solver cacheable. Move 1's place in the order waits for it.
+- **B1** (the evidence for move 1 coming first rests on an emulation that kept compile roots only): accepted and confirmed by E-175: stock's `AutoSpecialize` already makes the solver cacheable (the perturbed session with a cache 4.9 s). Move 1 is not needed for first use on this path; it stays in the route for its other pay-offs (the signature checked, no hand-written wrapper).
 - **M6** (the order does not follow the goal: the load is 3.7 of 4.7 s): accepted. The load comes first: phase 3's ceiling (a system image; E-170) and a design for the load, before wrapping Makie by facts, which is likely to add load (CairoMakie under `all`: 4.9 against 1.9 s).
 - **M7** (user types still reach the keys after the moves): the parameters' type stays a key by design (the right-hand side reads it); callbacks and `DEOptions`' function fields are move 2's, off the workload's path; the Rosenbrock chunk is chosen per state length (TDE), not per user type; Makie's compute graph is keyed on attribute values' types, the user's own where the user passes them. Listed for the next revision.
 - **m4** (move 5 against the SciML exploration's "not needed for the workload after move 1"): accepted: move 5 is needed only if the solution's type still names the function after move 1.
