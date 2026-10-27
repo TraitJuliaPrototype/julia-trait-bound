@@ -29,6 +29,8 @@ E-175 and E-176 change the order:
 - **So the port's first aim is a smaller tree for the workload's path,** with a budget: a plotting core that loads in about 0.5 s and a solver in about 0.4 s, the rest of each library loaded only by the features that need it (extensions, separate packages). A trait core is what makes the split possible: a narrow, declared interface between the core and its recipes, backends and algorithms, instead of methods of the core's functions spread over the tree.
 - Strict mode's check at load (6.6 s in C) is the other load item; its intended design is facts §10.3's.
 
+**A first estimate** (E-176, `probe_floor.jl`): the dependencies the workload's plot plausibly needs (colours, geometry, observables, the compute pipeline, the layout solver, fonts, tick placement, number formatting, Cairo, the PNG writer) load in 0.51 s (66 packages), 0.72 s with Makie's default text engine (83), against CairoMakie's 2.7 s (261). A core with its own code on that tree might load in about 1 s.
+
 Next: which of Makie's 261 packages the workload's plot needs (`Figure`, `Axis` with a log scale, `lines!`, a PNG through Cairo), and which come with features it does not use (statistics recipes: Distributions, StatsBase; units: Unitful; interval arithmetic; sparse arrays; REPL; Pkg through FileIO). The same for the solver: what Rosenbrock's 73 extra packages bring that a dense LU on small systems does not need.
 
 ## 3. SciML: the moves in the order that pays for first use
