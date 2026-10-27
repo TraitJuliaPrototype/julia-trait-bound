@@ -57,7 +57,7 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
 
 1. **E-193:** the identity and the index, by construction (minutes, no Julia change).
 2. **E-194:** the closure and the index at scale (D and a valid C, minutes).
-3. **The index for package images:** open issue 73's lever and strict mode's intended design (F-6), with no store. Its gain is to be stated before the build: about the facts code's share of validation (E-185, E-186).
+3. **Strict mode's intended design (F-6), with no store:** [its own note](2026-10-28-strict-mode-on-facts-code.md). The index for package images, open issue 73's lever, is not built now: its gain is at most about 0.1–0.15 s of C's load ([PE-8](../record/performance-explorations.md)).
 4. **The store, with its vehicle.**
 
 ## 4. Experiments
@@ -74,6 +74,7 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
   
   **Predicted:** build ids of the closure catch 1–4; the index catches 5 and 6. **Would change the design:** a case that both miss.
 - **E-194 (done):** facts code is most of C's compilation; 11 of 1,835 entries hit a candidate; but a foundational package's change invalidates 86–90% of C's entries under the closure rule, since build ids cascade through dependents ([the README](../../experiments/ttfx/README.md), E-194). Hence §5b.
+- **E-195 (parts 1–3 done; the README):** the fingerprints catch every change of the small cases that alters the code and keep every unused one; at scale, C's 2,143 entries keep their fingerprints across a FunctionWrappers update that the closure rule loses 90% to; 35 entries (1.6%) hit the candidate index in every session, a sign it should compare against the candidates seen at record (part 4).
 - **E-194, as planned:** E-188's probe extended:
   - the transitive closure;
   - supertypes, direct edges' signatures, bindings and folds;
