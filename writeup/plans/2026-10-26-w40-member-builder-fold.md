@@ -1,6 +1,6 @@
 # W-40: a family member's builder fixed in its callers' code
 
-Status: **proposal** (2026-10-26), a draft for review. Not normative.
+Status: **proposal, revision needed** (2026-10-26; reviewed 2026-10-27, [the review](../reviews/2026-10-27-w40-member-builder-fold.md): four blockers). Not normative. Do not build §4 as written; §10 says what changes.
 
 Serves: [W-40](../record/todo.md); open issue 49 (closed, option (b), [decisions](../record/decisions.md) "A family member's builder is fixed in the code of a caller that knows its type"); [lowering §4.6](../reference/lowering.md#46-families), [L-37](../reference/lowering.md#18-deviations); [traits §4.7](../reference/traits.md#47-families). E-161 and move 2's callbacks (E-158) wait for it.
 
@@ -154,3 +154,29 @@ The facts acceptance suite gains checks for the fold (G1: the same result folded
    - The changes are Julia code in the compiler, so a system image rebuild (`TW_TARGET=julia-sysimg-release`) may do; a C change needs a full build. Either runs at night, started by the user outside the sandbox.
 2. **TraitWorld,** on a branch: `_member_fold`, the member check in the caller's world, the re-entrancy guard, the generated `conformance` method. Tests in `test/` for the checks of §7 that need no image; the image checks in `experiments/`.
 3. **The checks of §7,** then every suite, then the reference changes of §8 in one commit with the row of L-37 retired.
+
+## 10. After the review (2026-10-27): what must change
+
+[The review](../reviews/2026-10-27-w40-member-builder-fold.md) holds §5's core argument (something must fix the member at load; edges cannot), and finds four blockers in the mechanism.
+
+**The blockers:**
+- **B1, deadlock.** Inference holds `jl_typeinf_lock` and runs in the compiler's world (`src/gf.c:480`–`496`). §4.1's premise was wrong: concrete evaluation runs as a pure callback (`src/builtins.c:912`–`935`). The member check takes TraitWorld's `_LOCK`, runs inference and JIT compilation under it, may warn, and may run a generic implementation's predicate: user code. Called from inference, it can deadlock against a thread on the run-time path.
+- **B2, the edge walkers.** `ForwardToBackedgeIterator` (`Compiler/src/typeinfer.jl`, used by `store_backedges`) and `verify_method` (`reinfer.jl`) read an unknown edge item as an invoke signature and a callee. Both need a case for the record. C code tolerates it: no C change.
+- **B3, the world.** Inside inference the task's world is the compiler's; the check also reads the latest world in many places. A task in an older world could fix a builder that ignores an override already defined later.
+- **B4, load order.** Folds are evaluated during image validation, before the package callbacks that load extensions. An override in the parameter type owner's extension would be refused or accepted by load order. Decision 63 now excludes extensions ([traits §4.7](../reference/traits.md#47-families)).
+
+**The directions:**
+1. **The compiler infers, the library only reads** (recommended). `g` becomes pure: no lock, no inference, no I/O, no user code. It returns a registry hit, or a plan: the operation signatures to check with their declared results, from the records. The compiler infers those signatures with its own interpreter, as `return_type`'s fold does, and hands the results to a second pure step that decides and builds. The registry insert is an atomic replace. A refusal, a warning or a member that needs a generic predicate is not folded: the run-time path handles it, as today. A member is fixed only when the inference world is the latest; otherwise only registry hits fold (B3).
+2. **Fold registry hits only, and recompile callers when a member is fixed at run time.** Simpler in the compiler, but it needs a way to invalidate the callers that folded a miss, which images and closed modules make hard. Callers compiled before the first call (the solver's callbacks) would stay slow until then.
+
+**Also to change** (the review's should-fix list):
+- a fold made during constant propagation keeps its record (S1);
+- a member refused or not foldable is remembered, so it is not checked at every inference and load (S2, S8);
+- one function computes a member's builder, for the slow path, the table and the fold, in one world (S4);
+- §5's in-session argument needs L-23 fixed: a member's declaration after its first use refused (S5);
+- the records are evaluated once each, in a pre-pass at load, under `require_lock`, before `__init__` (S6);
+- folding only for the native interpreter's compilation, not reflection, analysis tools, `return_type` or the split's candidate inference (S7);
+- question 2 becomes a G2 deviation row once W-40 is built (S9);
+- §7 gains older-world, load-order (an extension, `--pkgimages=no`), reflection and constant-propagation cases; the thread test proves little while 1.13 serialises inference.
+
+**Next:** rewrite §4 along direction 1, then a second review before building.
