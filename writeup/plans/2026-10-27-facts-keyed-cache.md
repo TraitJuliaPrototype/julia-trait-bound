@@ -63,7 +63,8 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
 ## 4. Experiments
 
 - **E-188** (done; C's half invalid, a stale extension image): direct origins only.
-- **E-193:** tiny dev'd packages, one pair of sessions per case, where E-188's origins and a version-level identity agree while a fresh compile differs:
+- **E-193 (done):** all six cases caught as predicted, no false positives ([the README](../../experiments/w66/README.md)); the system image's standard libraries count as part of every closure.
+- **E-193, as planned:** tiny dev'd packages, one pair of sessions per case, where E-188's origins and a version-level identity agree while a fresh compile differs:
   1. a dependency's macro changes its expansion;
   2. a dependency's struct gains a field read through the package's own type;
   3. a supertype's owner adds a method;
