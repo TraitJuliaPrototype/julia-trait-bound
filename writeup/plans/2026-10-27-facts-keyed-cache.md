@@ -73,7 +73,8 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
   6. SparseArrays is loaded in the second session only.
   
   **Predicted:** build ids of the closure catch 1–4; the index catches 5 and 6. **Would change the design:** a case that both miss.
-- **E-194:** E-188's probe extended:
+- **E-194 (done):** facts code is most of C's compilation; 11 of 1,835 entries hit a candidate; but a foundational package's change invalidates 86–90% of C's entries under the closure rule, since build ids cascade through dependents ([the README](../../experiments/ttfx/README.md), E-194). Hence §5b.
+- **E-194, as planned:** E-188's probe extended:
   - the transitive closure;
   - supertypes, direct edges' signatures, bindings and folds;
   - entries reaching another owner, flagged;
@@ -85,6 +86,14 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
   - facts code a small share of compile time (M6: then a trade-off for the user);
   - the closure rule invalidating nearly everything on a common package's update;
   - most entries hitting a candidate.
+
+## 5b. An open choice after E-194: the identity's grain
+
+A version update rebuilds every dependent, so the closure's build ids cascade: at SciML's scale one foundational package's change invalidates 86–90% of the entries (E-194). Two identities:
+- **The closure's build ids** (now). Simple, and E-193 shows it sound on the content cases. Sharing across environments holds within an unchanged stack, which is the common case of one user's sessions.
+- **Content hashes of what an entry uses:** each method in its transitive edges (its lowered code, as the image stores it, which includes macro expansions), each type's layout it reads, and the bindings and folds as now. An update that leaves those unchanged keeps the entry. It needs the hashes at record and at check, from the images, and E-193's cases 1–4 again, to show it catches them.
+
+Mine for now: the closure's build ids first, since within one environment they lose nothing. The content hashes are a later refinement, if sharing across environments turns out to matter. For the user to confirm through W-71.
 
 ## 5. What revision 1 said
 
