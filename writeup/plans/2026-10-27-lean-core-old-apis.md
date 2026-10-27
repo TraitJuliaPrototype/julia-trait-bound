@@ -222,6 +222,8 @@ end
 
 ### 1.5 Where the cache across sessions fits
 
+*(2026-10-27: the environment-keyed cache this section assumed is retired; the direction is the cache keyed on facts and their origins, W-66, [the exploration](../explorations/facts-keyed-cache.md). Its parts follow the stakeholders' identities, not the environment; what follows about what is kept and what makes it recur holds for its facts code.)*
+
 - **Its parts follow the packages:** one per dependency set, loaded by TraitWorld's package callback as soon as its set is loaded (E-180). The architecture multiplies dependency sets (core, umbrella, compatibility layer, groups, algorithm packages), so coarser parts matter (open issue 76; the cache's review: about 8 ms a part whatever its size).
 - **What it keeps:** the core's and implementation packages' facts code at library keys; the front ends' and the compatibility layer's plain code, validated at load; the first-call checks; the table's targets at library keys.
 - **What it cannot keep:** code that names a type defined in the session: the user's own functions, parameter structs, recipes and plot data types. With the parameters at the surface (W-63) and `Dynamic` positions where user types enter, the core compiles nothing for them.

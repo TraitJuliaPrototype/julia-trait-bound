@@ -1,6 +1,6 @@
 # A cache that builds up across sessions
 
-Status: **proposal, revision 2, built** (2026-10-27, mine; W-58 phase 4, W-62, [open issue 72](../open-issues.md#2-design)): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§6) and E-175 (§5b); built in TraitWorld (branch `session-cache`) and measured (E-180, §7). Not normative: the references change when the user adopts it.
+Status: **retired** (2026-10-27, the user: for the cache keyed on facts and their origins, W-66; [alternatives](../design/alternatives.md)); was proposal, revision 2, built (2026-10-27, mine; W-58 phase 4, W-62, [open issue 72](../open-issues.md#2-design)): after [the fresh-eye review](../reviews/2026-10-27-cache-and-port-notes.md) (§6) and E-175 (§5b); built in TraitWorld (branch `session-cache`) and measured (E-180, §7). Not normative: the references change when the user adopts it.
 
 Serves: W-58 ([the plan](2026-10-27-ttfx-sciml-makie.md) §5, phase 4); open issue 72; E-172 to E-175.
 

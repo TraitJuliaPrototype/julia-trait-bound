@@ -1,6 +1,6 @@
 # A cache keyed on facts and their origins
 
-Status: **exploration** (2026-10-27, mine; open issues 72, 73, 76). Not normative. Nothing built. The cache stays experimental (the user, 2026-10-27).
+Status: **exploration, the adopted direction** (2026-10-27, mine; the user: "Let's retire the experimental cache and add this cache to the Todo list"; W-66; open issues 72, 73). Not normative. Nothing built.
 
 ## 1. The question
 
