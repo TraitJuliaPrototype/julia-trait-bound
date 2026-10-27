@@ -382,6 +382,16 @@ Neither Rust nor Swift has a number to set beside these: their untyped code is i
 
 ---
 
+## 12. Compiled code kept across builds: fingerprints of what it used
+
+How other compilers decide that code compiled earlier is still valid, against the facts-keyed cache (W-66, [the note](../plans/2026-10-27-facts-keyed-cache.md) §5b). The sources are in [the research record](../record/incremental-precedents-research-2026-10-27.md).
+
+- **GHC** records, in each interface file, the entities a module used and their fingerprints, and recompiles only when one changed. A function's body enters its fingerprint only when exposed for inlining. A non-orphan instance is hashed with its class or its type; orphan modules are listed apart. Across packages it tracks the module's ABI hash.
+- **rustc** fingerprints each query's result and cuts off early (the red-green algorithm). Across crates, queries depend on the crate's hash (SVH), and early cutoff on each upstream item read recovers the grain.
+- **Swift** tracks per-declaration dependencies with type-body fingerprints. **Salsa** backdates unchanged results and classes inputs by durability. **Unison** names definitions by their hash. **Nix** (content-addressed derivations) and **Bazel** cut off on identical outputs.
+- **Julia** keys a package image by the build ids of its dependencies, transitively, and checks dispatch per edge at load.
+- **Here:** an entry's identity is fingerprints of what its code used: its method's lowered code, per fact the stakeholders' methods of its function, its callees' inferred results, and the layouts it reads. Methods from outside the stakeholders go to a session's candidate index. What facts add: a fact is a dispatch at a concrete signature, so the usages are exact rather than approximated by names; and its stakeholders bound who can change it ([facts §2.2](../reference/facts.md#22-g2-stable-caches)). GHC's instance hashing with class or type, and its orphan list, are the nearest precedent for that bound.
+
 ## What the choices cost
 
 The design restricts what trait code may do, and only there.
