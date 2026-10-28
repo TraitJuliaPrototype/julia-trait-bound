@@ -645,7 +645,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 - `__tw_checked__`: the worker signatures whose first-call check passed while the image was built, in the conforming type's module, else the declaring module ([§15](#15-compiling-ahead-workloads-closed-builds));
 - family registries filled by the workload.
 
-**Not kept:** the definition checks' results ([L-9](#18-deviations)), the slow path's caches, the `Callable` wrapper cache, `Erased` pointers.
+**Not kept:** the slow path's caches, the `Callable` wrapper cache, `Erased` pointers.
 
 ---
 
