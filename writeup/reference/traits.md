@@ -194,6 +194,7 @@ Base.iterate(t::Iterable{T}, state)::Union{Nothing, Tuple{T, Any}}
 
 - An operation is a generic function with declared argument and result types.
 - **The first argument is the value seen through the trait.** Type it with the trait's name (`t::ColTable`), the trait with parameters (`v::KVec{T}`), or `Self`.
+- **Planned: the receiver at any position** (decided 2026-10-28, mine, flagged; W-86). The receiver is the one argument typed by the trait or `Self`, wherever it stands, so Base's functions are operations as Base writes them: `LinearAlgebra.ldiv!(x::Vector{T}, F::Solvable{T}, b::Vector{T})`, `Base.print(io::IO, x::Printable)`. Where two arguments are typed by the trait, the first is the receiver and the others are seen through their bounds.
 - **Every operation declares its result type.** A declaration without one is an error.
 - Further arguments are typed as in a method: `i::Int`, `::Int` (no name), or untyped (`state`, which means `Any`).
 - A plain name (`ncols`) creates a new function in the trait's module. A qualified name (`Base.length`) uses that existing function.
@@ -1105,7 +1106,13 @@ Stats.mean([1.0, 2.0, 6.0])             # a Vector{Float64} is Iterable{Float64}
 - **Who owns them:** BaseTraits is part of TraitWorld, and TraitWorld owns its traits. As their owner it declares Base's types' conformance ([§10.1](#101-who-may-implement)). A package's own type conforms by that package's declaration. Another package's type (a `DataFrame`) conforms by its owner's declaration, or through a wrapper type ([§15](#15-named-implementations)).
 - **Names:** a module that uses TraitWorld and another module exporting the same name (`Iterable`) gets Julia's usual ambiguity, and imports the one it means: `using Other: Iterable`.
 
-**Status:** Implemented (version 0). To revisit with the ports: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
+**Next in BaseTraits** (Planned, decided 2026-10-28; each from a case of the ports):
+- **`HasProperty{N, R}`: property access at a name.** Its operation is `property(x::HasProperty{N, R}, ::Val{N})::R`, `N` an input parameter (a type implements it at several names, [§3.4](#34-parameters-and-associated-types)). A trait object or a kept value whose bounds carry it reads `x.N` through it; a declared field is read as before. So a computed property, such as SciML's `integ.ps`, is an operation ([open issue 97](../open-issues.md)).
+- **`asvector(x::Indexable{T})`: a trait collection as an `AbstractVector{T}`,** a view for plain code (Statistics, an upstream kernel), without a copy: compiled per collection type where the value is `Compiled`, once per `T` where it is `Dynamic` (the DataFrames port's `CellVector`, E-214).
+- **`Solvable{T}`: a factorization that solves linear systems,** `solve!(F::Solvable{T}, x::Vector{T}, b::Vector{T})::Nothing`; LinearAlgebra's `Factorization{T}` conforms through `ldiv!`. A linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `LinearCache`, E-220).
+- **`BoundedText`: a value whose printed text has a known bound,** `textbound(x::BoundedText)::Int`, an upper bound on the bytes `print(io, x)` writes; Base's numbers, `Bool`, `Symbol`, strings and dates conform. A writer sizes its buffers from it instead of guessing (CSV's writer, E-217).
+
+**Status:** Implemented (version 0); the four above Planned. To revisit with the ports: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
 
 ### 8.2 Item positions
 
