@@ -102,7 +102,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 <a id="g1"></a>
 ### 2.1 G1: identical or error
 
-**Status: Implemented**, in both settings.
+**Status: Implemented**, in both settings, except [F-21](#deviations).
 
 > **G1.** A call in code compiled by facts computes what the same call computes in plainly compiled code, in the same world, with the same effects, or raises.
 
@@ -613,3 +613,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-18 | — | *Retired*: see [§6.3](#calls-between-the-modes). | — | — |
 | F-19 | — | *Retired*: see [§1](#1-terms). | — | — |
 | F-20 | — | *Retired*: see [§7.1](#return-type)]. | — | — |
+| F-21 | [§2.1](#g1) | A call in code compiled by facts computes what plain code computes, or raises only where a value lacks a declared result type. | In the facts system image, Julia's test for issue 47476 (`test/core.jl:8289`–`8298`) raises `UndefVarError` for a static parameter (`vect47476(Type{Type{Type{Int32}}})`, `f47476(…)`, `g47476(…)`), where plain code computes the value. Reproduced by the `core` group alone, not by the same calls in isolation: it depends on what `core.jl` defines before. Not diagnosed (W-76). | `experiments/factscompiler/e42/core-facts.log` (julia-1.13 dc31cba240); plain: `core-plain.log` |
