@@ -351,7 +351,7 @@ Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
   - `_apply_iterate` and `_apply` with known tuples;
   - `invokelatest` and `invoke_in_world`;
   - `modifyfield!` and its kin through `:invoke_modify`.
-- Dispatch on a narrow MethodInstance runs the code of the wider instance Julia compiles for it.
+- Dispatch on a narrow MethodInstance runs the code of the wider instance Julia compiles for it, copied onto the narrow instance as for the plain owner: it runs with the narrow instance's static parameters, and the next call finds it there (`jl_compile_method_internal_owner`).
 
 **Dispatch through the runtime's `jl_apply`** runs the callee's default owner's code (`jl_default_owner`, §2.4):
 - splats of unknown length;
@@ -820,7 +820,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-1 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code)]. | — | — |
 | C-2 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), the setting. | — | — |
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: an allocation and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4670`–`4673`; `src/runtime_ccall.cpp:424` |
-| C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3790`–`3795` |
+| C-4 | — | *Retired*: see [§2.5](#25-dispatch-from-facts-code)]. | — | — |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |
 | C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3837`–`3841` |
 | C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
