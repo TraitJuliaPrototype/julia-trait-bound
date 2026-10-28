@@ -575,7 +575,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - **A trait inside a Base container's type in an argument annotation** (`v::Vector{<:ColTable}`) is refused when the method is defined. The message names the collection bound (`v::Indexable{ColTable}`), through which a user's vector crosses as it is ([§8.3](#83-a-users-container-taken-as-it-is)).
 - **A `Dynamic` annotation fixes every parameter its operations' result types use:** `s::Dynamic{StateVector{Float64}}`. `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
 
-**Status:** Implemented, except the refusal of a trait inside a container's type in an argument (Planned; [T-78](#17-deviations)).
+**Status:** Implemented.
 
 ### 5.2 What a bounded function receives
 
@@ -632,7 +632,7 @@ describe(x) = "something else"                 # the fallback
 - **A bounded method's name resolves as in Julia:** a name the module has only through `using` (`peek`, from Base) defines a new function of the module, whether the module used the name before or not; a name imported by name (`import Base: peek`) or qualified (`Base.peek(…) = …`) extends that function.
 - **A kept value** passed from plain code reaches the bounded method for its trait, with its attribute ([§6.5](#65-values-carry)). Outside trait modules, `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are ordinary concrete types with Julia's dispatch: a plain method `g(d::Dynamic{Shape})` takes a `Dynamic{Shape}` as any type does.
 
-**Status:** Implemented, except that TraitWorld's encoding requires an untyped fallback of a bounded method's shape to be defined after it, and lets only the function's owner add a bounded method of a shape the function has no bounded method of yet ([lowering L-3](lowering.md#18-deviations)). The hint's text: [T-22](#17-deviations), [T-80](#17-deviations). Error types of refused definitions: [T-34](#17-deviations).
+**Status:** Implemented, except that TraitWorld's encoding requires an untyped fallback of a bounded method's shape to be defined after it, and lets only the function's owner add a bounded method of a shape the function has no bounded method of yet ([lowering L-3](lowering.md#18-deviations)). The hint's text: [T-22](#17-deviations). Error types of refused definitions: [T-34](#17-deviations).
 
 ### 5.6 Results: declared types, `Like`, `withfields`
 
@@ -1434,7 +1434,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | types that only convert | Implemented (a pattern) | [§4.10](#410-types-that-only-convert) |
 | bounds on arguments, several bounds, fixed parameters | Implemented | [§5.1](#51-bounds) |
 | `where` variables in bounds, shared or not | Implemented | [§5.1](#51-bounds) |
-| a trait inside a container's type in an argument refused | Planned | [§5.1](#51-bounds), T-78 |
+| a trait inside a container's type in an argument refused | Implemented | [§5.1](#51-bounds) |
 | internal functions without bounds | Implemented | [§5.4](#54-internal-functions) |
 | types first, then traits; joint-method rule; fallback | Implemented | [§5.5](#55-dispatch-types-first-then-traits), L-3 |
 | result types, `Like{t}`, `withfields`, siblings | Implemented | [§5.6](#56-results-declared-types-like-withfields) |
@@ -1511,7 +1511,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-19 | [§9](#9-checks-and-when-they-run) | Definition checking at the module's end covers keyword, vararg and `Callable` functions; a first call checks only open parameters and open `Callable` results. | Keyword, vararg and every `Callable` function are checked at their first call. | `TraitWorld/src/defcheck.jl:85`–`92` (`archetype_sig`) |
 | T-20 | [§5.6](#56-results-declared-types-like-withfields), [§13](#13-compiling-ahead) | `verify_main` lists the rebuilding step of `Like{t}` results. | It reports them as holes (`:inverse`). | `TraitWorld/src/verify.jl:746`, `:813` |
 | T-21 | [§10.3](#103-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
-| T-22 | [§5.5](#55-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | The hint says "a Int64". Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/frames.jl:75`; `src/entry.jl:499` |
+| T-22 | [§5.5](#55-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/entry.jl:499` |
 | T-23 | [§14](#14-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, and `B <: A` whether `A` is a supertrait of `B`, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. Between traits, `B <: A` is `false` too: every trait is a direct subtype of `Trait`, and supertraits are declarations the trait records (`supertype(B) === Trait` for `@trait B <: A`). | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
 | T-24 | — | *Retired*: see [§13](#13-compiling-ahead). | — | — |
 | T-25 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
@@ -1567,6 +1567,6 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-75 | [§11](#11-concreteness-and-fully-typed-mode) | A kept form counts as concrete. | `key_concrete` counts `Dynamic{X}` as concrete, but `Kept{X}` and `Compiled{X}` fall through to the parameter check, which finds the trait abstract. | `TraitWorld/src/implement.jl` (`key_concrete`) |
 | T-76 | [§3.1](#31-operations) | A trait's bare name on an operation's further argument is refused at `@trait`. | It is accepted by `@trait` and by definition checking; every call then raises `TraitArgumentError` (declared at the trait, got a `Dynamic` value). | `TraitWorld/src/trait.jl`; `experiments/review-2026-10-26-references/probe.jl` (P2) |
 | T-77 | [§4.7](#47-families) | Where an operation's declared argument type is abstract, the member check counts only the stakeholders' methods there. | It asks whether any method exists at `(U, declared types…)`: a method another package adds there turns the operation from served by the default to served by that method, so a member's implementation depends on whether that package loaded before the member's first use. | `TraitWorld/src/implement.jl` (`conformance_problems`, `_has_op_method`); W-67 |
-| T-78 | [§5.1](#51-bounds) | A trait inside a Base container's type in an argument annotation is refused, with a message naming the collection bound. | `Vector{<:ColTable}` keeps Julia's meaning: since no conforming type subtypes a trait ([T-23](#17-deviations)), no user's vector matches it, and a call raises `MethodError`. | `TraitWorld/src/trait_module.jl` (`_dynamic_containers`, its docstring); W-67 |
+| T-78 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
-| T-80 | [§5.5](#55-dispatch-types-first-then-traits) | The hint of a `MethodError` for a value that conforms to no bound lists the trait's declared implementations. | The hint names the bound only ([T-22](#17-deviations)). | `TraitWorld/src/frames.jl:75`; W-67 |
+| T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
