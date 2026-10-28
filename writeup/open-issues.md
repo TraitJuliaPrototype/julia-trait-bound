@@ -8,7 +8,14 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 ## 1. Decisions waiting for the user
 
-None at present (2026-10-27). Eight of the choices the clean-up adopted are for a review session with the user ([W-71](record/todo.md)).
+79. **A bounded function redefined after its trait module is complete** (found by E-202 (c), 2026-10-28). The references say what a redeclared implementation does ([traits §4](reference/traits.md), "Redeclaration") but not what a redefinition of a bounded function does once its trait module is complete, by `eval` at the prompt or by Revise. Today `Core.eval(M, :(sq(v::Values) = …))` is accepted: it defines a method at the trait type, and the entry keeps calling the worker the module's end generated, so the call still gives the old result, silently (`experiments/w66/e202/edit_case.jl`). Options:
+   - (a) refuse such a definition, with a message naming the way to redefine (re-evaluating the trait module);
+   - (b) lower it as the module's end lowers a bounded function: the worker is replaced, the definition check runs, and the first-call checks' records for that worker are reset (the facts-first review §2.4);
+   - (c) leave it, as a deviation.
+   
+   **My recommendation: (b),** since Revise-style editing is how Julia users work, and the checked-record of W-66 (§2.4) then has a clear rule for edits. Until decided, the edit case of §2.4's check is open.
+
+Eight of the choices the clean-up adopted, and the night's choices marked mine, are for a review session with the user ([W-71](record/todo.md)).
 
 Waiting for evidence, not for the user:
 
