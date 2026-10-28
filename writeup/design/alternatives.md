@@ -264,6 +264,11 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 - **A trait's name in a field as specialized by default** (`f::X` an implicit parameter, erasure written `Kept{X}`; open issue 54, option (d)). Not taken: a struct's type would depend on its fields' types by default, so a new model compiles the stack again (NetworkDynamics erased its batches for this, pushback P4-1); and it reverses the meaning of a trait's name in a field ([traits §7.2](../reference/traits.md#72-a-traits-name-as-a-storage-type)).
 - **A `Keep{X}` bound** for functions that keep a trait object: not needed, since keeping is detected (s23, the user: "If feasible, detection is the way").
 
+## `return_type` at run time by facts inference in the product setting, replaced
+
+- **The option:** in the product setting, run-time `return_type` asked a plain `NativeInterpreter`, which hands facts methods to facts inference: one cache for plain code, but a facts method's run-time answer could be wider than the folded one (26 of 907 queries in D, 414 of 6,554 in C, E-190).
+- **Why replaced:** plain inference in `PlainRTInterp` at run time too gives one answer, plain Julia's, at no measurable cost in the sessions (E-190).
+
 ## Plans, thresholds and settings superseded
 
 - **The plan of s23:** TraitWorld at the current design, then the demonstrators (TraitDifferentialEquations, then TraitMakie), then an upstream proposal; wrapping and sealing later. Superseded by the order of work in [state §6.3](../state.md#63-the-order-of-work).

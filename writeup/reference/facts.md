@@ -336,7 +336,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 ### 7.1 `return_type`
 
-**Status: Implemented**, except rule 3 for facts methods in the product setting ([F-20](#deviations)) and the walk's limit ([F-13](#deviations)). **Optional:** cached answers revalidated after loads, instead of inferred again ([PE-5](../record/performance-explorations.md)). That changes speed, not answers.
+**Status: Implemented**, except the walk's limit ([F-13](#deviations)). **Optional:** cached answers revalidated after loads, instead of inferred again ([PE-5](../record/performance-explorations.md)). That changes speed, not answers.
 
 **Meaning.** `return_type` (and what uses it: `collect`, `map` over an empty collection, broadcasting, `promote_op`) asks what *plain* inference gives. Under the facts mode the answer is plain inference's, in the same world.
 
@@ -352,7 +352,6 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 **Consequence.** A load changes a folded answer exactly when it changes plain Julia's. An answer computed at run time is computed again when plain Julia's would change.
 
-**Planned in the product setting for facts methods** ([F-20](#deviations); [open issues §2](../open-issues.md#2-design), item 30): there, today, rule 3 holds for plain methods only.
 
 <a id="reflection"></a>
 ### 7.2 Reflection
@@ -614,4 +613,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-17 | — | *Retired*: see [§6.3](#calls-between-the-modes). | — | — |
 | F-18 | — | *Retired*: see [§6.3](#calls-between-the-modes). | — | — |
 | F-19 | — | *Retired*: see [§1](#1-terms). | — | — |
-| F-20 | [§7.1](#return-type) | At run time, `return_type` gives plain inference's answer, in both settings (rule 3). | In the product setting, for a method compiled by facts (a worker, an always-facts method), the run-time answer is facts inference's, which can be wider than the folded answer where the method has a run-time site: `map(worker, [])` makes a `Vector{Any}` at run time. So a facts method's `return_type` can differ between a folded query and the same query at run time. Under `all` both are plain inference's. To be revisited (open issues §2, item 30). | `julia-1.13/Compiler/src/facts.jl` (`return_type_interp`) |
+| F-20 | — | *Retired*: see [§7.1](#return-type)]. | — | — |

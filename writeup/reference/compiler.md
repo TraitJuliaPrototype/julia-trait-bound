@@ -156,9 +156,8 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
    - The merged answer is folded, with an edge (`PlainRTInfo`) from the facts code to each plain answer. A load that changes plain Julia's answer invalidates the folded code.
 3. **Otherwise, a call at run time.**
 
-**At run time**, `return_type` calls `_return_type(return_type_interp(world), tt)` in the compiler's world. Under the test bed `return_type_interp` is `PlainRTInterp`, so the run-time answer is the fold's.
+**At run time**, `return_type` calls `_return_type(return_type_interp(world), tt)` in the compiler's world. `return_type_interp` is `PlainRTInterp` in both settings, so the run-time answer is the fold's: plain inference's, facts methods included.
 
-**Exception, to be revisited** ([facts §7.1](facts.md#return-type); [open issues §2](../open-issues.md#2-design), item 30): in the product setting `return_type_interp` is a plain `NativeInterpreter` of owner `nothing`, which leaves facts methods to facts inference (§2.6). For a facts method the run-time answer is facts inference's, which can be wider than the folded plain answer; it lives in a second cache ([C-10](#deviations)).
 
 **The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code that runs is taken from it: dispatch looks up code only under the owner it asks for, `nothing` or `:facts` (`jl_method_compiled_callptr_owner`, `src/gf.c:3559`). It holds only plain answers, so no plain code enters a cache that facts code is compiled from.
 
@@ -823,7 +822,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
 | C-8 | [§4.2](#42-compilersplit_call-the-call-site-split) | `split_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl` (`split_call`); `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
 | C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl` (`rests_on_facts`) |
-| C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences, which for a facts method are not the same answer (the exception of [§1.4](#14-return_type)). | `Compiler/src/facts.jl` (`cache_owner(::PlainRTInterp)`, `return_type_interp`, `facts_plain_return_type`) |
+| C-10 | — | *Retired*: see [§1.4](#14-return_type)]. | — | — |
 | C-11 | — | *Retired*: see [§1.4](#14-return_type), the exception. | — | — |
 | C-12 | — | *Retired*: see [§2.9](#29-what-package-images-keep). | — | — |
 | C-13 | — | *Retired*: see [§1.5](#15-effects). | — | — |
