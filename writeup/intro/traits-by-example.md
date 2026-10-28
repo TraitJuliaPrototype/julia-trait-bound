@@ -884,14 +884,13 @@ struct Labelled{T}; label::String; data::Vector{T}; end
 
 Today, declare each member: `@implement Samples Labelled{Float64} by data`.
 
-**A function argument with an open result type, or with keywords:**
+**A function argument with keywords:**
 
 ```julia
-apply(f::Callable{Tuple{Float64}, S}, x::Float64) where {S} = f(x)               # S inferred at the call
 fit(f::Callable{Tuple{Vector{Float64}}, Float64, @NamedTuple{tol::Float64}}, x::Vector{Float64}) = f(x; tol = 1e-6)
 ```
 
-Today the first is a plain argument, so the method never applies to a function. The second is refused when the method is defined: `Callable` takes two parameters.
+Today it is refused when the method is defined: `Callable` takes two parameters.
 
 **A value seen through several traits:** `Dynamic{(Shape, Placed)}`.
 

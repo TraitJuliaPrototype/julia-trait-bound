@@ -480,7 +480,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 ## 12. `Callable` and `Dynamic{Callable}`
 
-**Status: Implemented**; open result types **Planned** ([`traits.md#58-callable-functions-at-a-declared-signature`](traits.md#58-callable-functions-at-a-declared-signature)).
+**Status: Implemented** ([`traits.md#58-callable-functions-at-a-declared-signature`](traits.md#58-callable-functions-at-a-declared-signature)).
 
 `Callable` keeps a lowering of its own; it is not a `@trait` declaration. Its default attribute is `Dynamic`.
 
@@ -512,7 +512,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 **In a closed build** every function is known, so nothing is erased: `CObj{A, S}(f)` (`entry.jl:1147`).
 
-**Planned: an open result type** `Callable{A, S} where S`: `S` inferred at the entry in plain code, part of the worker's key, asserted at every call.
+**An open result type** `Callable{A, S} where S`: a `where` variable that only the result names is a deferred `Callable`'s too (`_callable_args_use`); the entry binds the argument types' variables first, then `S = _callable_result(f, A)` (`entry.jl`): `Core.Compiler.return_type` of the function at `A`, plain inference's answer at run time ([facts §7](facts.md#return-type)), `Any` where it is `Union{}`; a constant where the function's type is known. `S` is then part of the worker's key (`CObj{A, S}`), asserted at every call.
 
 ---
 
@@ -602,7 +602,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 - **defines the constructor without parameters** as a boundary (`Expr(:meta, :facts_boundary)`, inlined into its caller): each field typed by a bounded parameter is an argument `@nospecialize`d, as an entry's, and kept by `_kept_at(B, x, Val(Compiler.known_type(x)))` (`entry.jl`); every other field keeps its declared type, whose `where` variables determine the struct's free parameters; the result is `S{…, typeof(kept)…}(…)`;
 - **registers** `bounded_constructor(S)`, so that the check of rule 3 lets trait code pass a trait object to the constructor.
 
-`_kept_at` applies the bound: for `Callable{A, S}`, `enter_callable` at the position, then the function itself (`Compiled`) or a `Dynamic{Callable{A, S}}`; for a trait `X`, a trait object by its key, a kept value or a cast by its attribute, a plain value by the first-seen rule (the trait's default, `@default_with_dynamic_self` only for a type not of the trait world, then `known`), then the user's object (`Compiled`, a kept value's opened by its type at this call) or a `Dynamic{X}`. It refuses, at the definition, a bounded parameter that types two fields, or a field that uses it inside another type, or a free parameter no other field names.
+`_kept_at` applies the bound: for `Callable{A, S}`, `enter_callable` at the position, then the function itself (`Compiled`) or a `Dynamic{Callable{A, S}}`; for a trait `X`, a trait object by its key, a kept value or a cast by its attribute, a plain value by the first-seen rule (the trait's default, `@default_with_dynamic_self` only for a type not of the trait world, then `known`), then the user's object (`Compiled`, a kept value's opened by its type at this call) or a `Dynamic{X}`. A free parameter that no other field names but a bound names as a parameter (`C <: Column{T}`): the field is kept at the trait's family first (`_kept_at(Column, x, …)`), the parameter read from the kept value (`_kept_param`, by `_trait_param` of its trait object, `core.jl`), and the value kept at the bound (`_kept_narrowed`: a `Dynamic{Column}` narrowed to `Dynamic{Column{T}}`, holding the same object). It refuses, at the definition, a bounded parameter that types two fields, or a field that uses it inside another type, or a free parameter named by no other field and by no bound.
 
 **Planned:** `Dynamic{(X, Y)}`, a value seen through several traits.
 

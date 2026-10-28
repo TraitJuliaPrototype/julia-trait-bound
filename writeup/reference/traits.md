@@ -711,12 +711,12 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 
 **Rules.**
 - **The argument types `A` may follow the other arguments.** A bound whose `A` names the method's `where` variables, fixed by other arguments or bounds, is a bound at the signature those give: `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`, `rhs!(f::Callable{RHSSig{P, T}, Nothing}, u::Vector{T}, p::P) where {T, P}`. The entry enters the other arguments first, then the function at the signature they fix; it is compiled once per signature, at its first call. The variables must be fixed by the other arguments; a `where` variable only the `Callable` names is refused when the method is defined. A struct parameter's bound may name the struct's other parameters: it only keeps the function ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
-- **An open result type,** `f::Callable{Tuple{Float64}, S} where S`, is inferred at the call, in plain code. It becomes part of what the code is compiled for, and every call is checked against it.
+- **An open result type,** `f::Callable{Tuple{Float64}, S} where S`, is inferred at the call, in plain code, after the argument types are fixed: `byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S}` is compiled per cell type and result type. It becomes part of what the code is compiled for, and every call is checked against it. A function with no method at the argument types raises `MethodError` at its first call.
 - **Functions returned to plain code** are ordinary closures of the trait module. A closure that captured a trait object keeps the user's object.
 - **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
 
-**Status:** Implemented. Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
+**Status:** Implemented. Planned: bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
 
 ---
 
@@ -1018,12 +1018,13 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 - **The struct's constructor without parameters is the bound:** each field typed by a bounded parameter is a position where a cast, the value's carried attribute, or the first-seen rule decides ([§6.2](#62-how-plain-values-enter-the-trait-world)). Called from trait code with a trait object, its attribute decides.
 - **The constructor with explicit parameters** (`ODEProblem{T, P, F}(…)`) checks a trait-bounded parameter, as Julia checks a type parameter's bound when the type is applied: `F` must conform. Planned: today it stores what it is given, and a value that does not conform fails at its first operation ([T-74](#17-deviations)).
 - **The bound may name the struct's other parameters** (`RHSSig{P, T}`). They are determined by the other fields' types, as Julia's default constructor determines them.
+- **A parameter named only as a parameter of a bound is read from the kept value:** in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, `T` is the column's own parameter, read from the value as a `where` variable in a bound is ([§5.1](#51-bounds)). A `Compiled` column is kept as the user's object, a `Dynamic` one as `Dynamic{Column{T}}`. So a view of a trait object can be the Base type plain code expects, without a copy.
 - The struct's own methods (an implementation's) read the field as a plain value of its type. Bounded trait code reaches only the fields a trait declares.
 - This is Rust's `struct S<F: Fn(…)>` and Swift's `struct S<F: P>`, and Julia's advice to make a field's type a parameter, with the attribute choosing the parameter.
 
 **Rules.**
 - A bounded parameter types exactly one field, the field itself (`f::F`); a field that uses it inside another type (`fs::Vector{F}`) is refused when the struct is defined.
-- Every other parameter is named by a field outside a bound.
+- Every other parameter is named by a field outside a bound, or by a parameter of a bound.
 - A struct with a bounded parameter has no inner constructor of its own; write an outer constructor that calls the bounded one.
 
 **The bound at the field.** A bounded parameter may be declared where its field is:
@@ -1456,7 +1457,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | `Callable{A, S}`, its `Dynamic` default, `Compiled{Callable{A, S}}`, casts | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | `Callable{A, S, K}` with keywords | Planned | [§5.7](#57-keywords-defaults-and-varargs) |
 | a constant `A`, refused otherwise | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
-| open `Callable` result types | Planned | [§5.8](#58-callable-functions-at-a-declared-signature), T-18 |
+| open `Callable` result types | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | bounded closures; `Callable` results that are traits | Planned | [§5.8](#58-callable-functions-at-a-declared-signature) |
 | `Compiled` and `Dynamic`: where plain values enter, the first-seen rule | Implemented | [§6.2](#62-how-plain-values-enter-the-trait-world) |
 | a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`; annotations as defaults; the table by position | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
@@ -1521,7 +1522,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-15 | [§4.2](#42-one-line) | No form computes a value from the type. | The internal form `@implement X T project(t) = …` is accepted: a body that reads a field as is forwards to it; any other body is refused with "computes a value". The flags `copies` and `unproject(t, r) = …` are refused with messages naming forms the design does not have. | `TraitWorld/src/implement.jl:1280`–`1305`; reference.jl, "T-15" |
 | T-16 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-17 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
-| T-18 | [§5.8](#58-callable-functions-at-a-declared-signature) | An open result type, `Callable{Tuple{Float64}, S} where S`, is a bound. | It is a plain argument; the call is a `MethodError`. | `TraitWorld/src/trait_module.jl:249`, `:290`; reference.jl, "T-18" |
+| T-18 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
 | T-19 | [§9](#9-checks-and-when-they-run) | Definition checking at the module's end covers keyword, vararg and `Callable` functions; a first call checks only open parameters and open `Callable` results. | Keyword, vararg and every `Callable` function are checked at their first call. | `TraitWorld/src/defcheck.jl:85`–`92` (`archetype_sig`) |
 | T-20 | [§5.6](#56-results-declared-types-like-withfields), [§13](#13-compiling-ahead) | `verify_main` lists the rebuilding step of `Like{t}` results. | It reports them as holes (`:inverse`). | `TraitWorld/src/verify.jl:746`, `:813` |
 | T-21 | [§10.3](#103-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
