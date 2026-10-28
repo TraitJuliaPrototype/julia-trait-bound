@@ -137,7 +137,7 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
    - calls slower than plain where trait code should be as fast (W-17, E-192).
-5. **The cache keyed on facts and their origins** (W-66): entries identified by fingerprints (E-195); strict mode on facts code and its error at an image's load; then the store.
+5. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store waits for open issue 80 (its validity check).
 6. **The large ports:** SciML (W-34) and Makie (W-70).
 7. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 
