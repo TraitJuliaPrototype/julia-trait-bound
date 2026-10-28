@@ -80,7 +80,6 @@ The deviations of the implementation from the design are listed per reference, w
 
 - **Base's test suite under the facts mode:** started once, not completed (E-42, W-9).
 - **Targeted checks** for the inliner changes and for the compiler-plain edges (E-62, W-9).
-- **G2 across package loads under `all`:** the check counts code compiled by facts and passes in the product setting (2026-10-20); it is not yet run under `all`, nor cited in the reference ([facts F-11](reference/facts.md#deviations); E-29, W-9).
 - **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
   - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build; by design, not pursued now ([PE-5](record/performance-explorations.md));
   - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads; W-7);
@@ -131,7 +130,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Wrap up before the large ports** (W-61): the evidence, this page, the references' statuses, the demonstrators' claims and READMEs.
 2. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
-3. **Correctness checks** (W-9): G2 across loads under `all` (E-29), Base's tests under the facts mode (E-42), the inliner changes and the compiler-plain edges (E-62), the TraitMakie image flake (E-95).
+3. **Correctness checks** (W-9): Base's tests under the facts mode (E-42), the inliner changes and the compiler-plain edges (E-62), the TraitMakie image flake (E-95).
 4. **Performance worth investigating:**
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
