@@ -1421,7 +1421,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | tuples of traits: bounds, attributes on bounds, supertrait lists, `@implement` | Implemented | [§3.7](#37-tuples-of-traits) |
 | tuples of traits everywhere else a trait stands | Planned | [§3.7](#37-tuples-of-traits), W-29 |
-| a value seen through the traits it entered with | Planned (T-53, T-54; W-31) | [§6.5](#65-values-carry) |
+| a kept value seen through every trait its object conforms to; a kept function checked at another signature | Implemented | [§6.5](#65-values-carry) |
 | trait casts: at a bound | Implemented | [§6.5](#65-values-carry) |
 | trait casts: explicit (`Kept{B}(d)`) | Optional | [§6.9](#69-trait-casts) |
 | supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |

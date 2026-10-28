@@ -53,7 +53,6 @@ Write to TraitWorld's language, never to its internals (names that start with `_
 - **T-39:** a user's container is not taken at a bounded keyword. **T-48:** a function whose only bounded arguments are keywords does not work. Bound a positional argument.
 - **T-49:** an operation with an argument declared `Self` fails on a `Dynamic` value.
 - **T-52:** a type that conforms through a generic implementation but whose operations do not conform is accepted with a warning. Read the warnings.
-- **T-53, T-54:** a kept value or function passed to a bound of another trait or signature is accepted, though the reference refuses it. Do not rely on it.
 - **C-6:** a module's other compiler options are meant to apply to its facts code too; `compile` is ignored there today.
 
 Planned, so not to be written yet: tuples of traits anywhere but bounds, `@implement` and supertrait lists ([§3.7](../reference/traits.md#37-tuples-of-traits), W-29); forwarding for a whole family ([§4.7](../reference/traits.md#47-families)); `Callable` with keywords or an open result type ([§5.7](../reference/traits.md#57-keywords-defaults-and-varargs), [§5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature)); redeclaring an implementation in a session ([§4.9](../reference/traits.md#49-checks-at-the-declaration)). Trait casts are Optional ([§6.9](../reference/traits.md#69-trait-casts)). Every construct's status: [traits §16](../reference/traits.md#16-status-index).
