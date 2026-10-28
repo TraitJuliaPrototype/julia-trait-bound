@@ -476,7 +476,6 @@ end
 
 **Status:** Implemented, except:
 - Planned: forwarding for a whole family (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [T-7](#17-deviations));
-- Planned: the member check counting only the stakeholders' methods at abstract declared arguments ([T-77](#17-deviations));
 - Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
 - the check on parameter expressions ([T-6](#17-deviations)).
 
@@ -1421,7 +1420,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | stated parameters `X{P…} T` | Implemented | [§4.6](#46-stating-parameters) |
 | families, joint families | Implemented | [§4.7](#47-families), T-6 |
 | a family member refused at its first use | Implemented | [§4.7](#47-families) |
-| the member check at abstract declared arguments: the stakeholders' methods only | Planned | [§4.7](#47-families), T-77 |
+| the member check at abstract declared arguments: the stakeholders' methods only | Implemented | [§4.7](#47-families) |
 | a member's override by its parameter type's owner | Planned | [§4.7](#47-families), T-28 |
 | forwarding for a whole family | Planned | [§4.7](#47-families), T-7 |
 | generic implementations | Implemented | [§4.8](#48-generic-implementations), T-8 |
@@ -1566,7 +1565,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-74 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | The constructor with explicit parameters checks that a trait-bounded parameter conforms. | It stores what it is given: the bound is not part of the struct's type, so `S{MyType}(x)` with a non-conforming `MyType` is accepted and fails at its first operation. | `TraitWorld/src/trait_module.jl` (the struct rewrite); [lowering §13.2](lowering.md#132-a-struct-parameter-bounded-by-a-trait) |
 | T-75 | [§11](#11-concreteness-and-fully-typed-mode) | A kept form counts as concrete. | `key_concrete` counts `Dynamic{X}` as concrete, but `Kept{X}` and `Compiled{X}` fall through to the parameter check, which finds the trait abstract. | `TraitWorld/src/implement.jl` (`key_concrete`) |
 | T-76 | [§3.1](#31-operations) | A trait's bare name on an operation's further argument is refused at `@trait`. | It is accepted by `@trait` and by definition checking; every call then raises `TraitArgumentError` (declared at the trait, got a `Dynamic` value). | `TraitWorld/src/trait.jl`; `experiments/review-2026-10-26-references/probe.jl` (P2) |
-| T-77 | [§4.7](#47-families) | Where an operation's declared argument type is abstract, the member check counts only the stakeholders' methods there. | It asks whether any method exists at `(U, declared types…)`: a method another package adds there turns the operation from served by the default to served by that method, so a member's implementation depends on whether that package loaded before the member's first use. | `TraitWorld/src/implement.jl` (`conformance_problems`, `_has_op_method`); W-67 |
+| T-77 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-78 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
 | T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
