@@ -239,11 +239,11 @@ At a type's first use, `_generic_concrete_check` (`entry.jl`) checks the parts t
 
 ## 5. Keys and views
 
-**Status: Implemented** (deviations [L-1](#18-deviations), [L-2](#18-deviations), [L-42](#18-deviations)).
+**Status: Implemented** (deviations [L-1](#18-deviations), [L-2](#18-deviations)).
 
 The key ([`traits.md#67-what-compiled-code-is-compiled-for`](traits.md#67-what-compiled-code-is-compiled-for)) is lowered as follows (`_key_and_slots`, `entry.jl:667`):
 - **A trait without fields:** the key is the receiver type `R`.
-- **A trait with fields:** `Key{I, F}`, with `I` the receiver type and `F` a named-tuple type of the declared fields' declared types (`core.jl:52`). A `@const` field stored at a subtype is read at its declared type ([traits §3.3](traits.md#33-fields)). *As built,* `F` holds the stored types ([L-42](#18-deviations)).
+- **A trait with fields:** `Key{I, F}`, with `I` the receiver type and `F` a named-tuple type of the declared fields' declared types (`core.jl:52`). A `@const` field stored at a subtype is read at its declared type ([traits §3.3](traits.md#33-fields)): types storing it at different subtypes have one key and one compiled worker. A field whose declared type is abstract is read from the object by its index, since the key does not fix its storage; a concrete one at its slot's offset (`_loadpart`, `core.jl`).
 - **No receiver type** (`I = Nothing`): every operation is served by a default, the declarations do not name `Self`, and the fields define every parameter ([traits §6.7](traits.md#67-what-compiled-code-is-compiled-for); `_no_implementing_type`, `entry.jl:681`).
 
 **A view** is one trait's part of a trait object: `View{Xi, W, K, N, P}` or `Held{Xi, W, K, N, P}` (`core.jl:68`, `:83`), with
@@ -788,6 +788,6 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-39 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
 | L-40 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
 | L-41 | — | *Retired*: see [§9.3](#93-untyped-callers-of-compiled-values-the-table). | — | — |
-| L-42 | [§5](#5-keys-and-views) | A key's field type is the declared field's type; a `@const` field stored at a subtype is read at its declared type. | `F` holds the stored field's type (`fieldtype(U, i)`), so types storing a `@const` field at different subtypes have different keys and separate compiled copies, and a read is typed at the stored type. Fixed by W-55. | `TraitWorld/src/entry.jl` (`_key_and_slots`), `implement.jl` (`_field_problems`) |
+| L-42 | — | *Retired*: see [§5](#5-keys-and-views)]. | — | — |
 | L-43 | [§2](#2-modes-owners-and-images), [§4.6](#46-families) | The machinery decides in the caller's world. | A family member's builder is found in the latest world (`_latest(_family_builder, X, U)`), not the caller's: a task in an older world can fix a builder from methods its world does not see. | `TraitWorld/src/implement.jl` (`_conf_family_slow`) |
 | L-44 | [§4.6](#46-families) | A typed call of a family member costs what a declared type's does. | A caller compiled when the fold is not decided (TraitWorld's lock busy, an older world, a re-entrant call, a member whose check warns), or inferred by constant propagation or semi-concrete evaluation, keeps the run-time path (a registry lookup per call) until it is compiled again. | `TraitWorld/src/implement.jl` (`_member_fold`); `julia-1.13/Compiler/src/facts.jl` (`abstract_fold_call`) |

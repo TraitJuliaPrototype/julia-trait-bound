@@ -1552,7 +1552,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-59 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
 | T-60 | — | *Retired*: see [§7.4](#74-a-struct-parameter-bounded-by-a-trait). | — | — |
 | T-61 | — | *Retired*: see [§7.3](#73-assigning-from-plain-code). | — | — |
-| T-62 | [§4.7](#47-families), [§4.9](#49-checks-at-the-declaration) | A family's declaration checks ownership, as a single type's does. | The no-block family by fields, `@implement X S{T} where {T}` for a trait without parameters or with field-defined ones, is defined without `_check_implementation`: a third package that owns neither the trait nor `S` is accepted, and its members work; the extension-trigger check is skipped too. `A where {A <: S}`, the joint form and a single type are refused. W-38. | `TraitWorld/src/implement.jl:1473–1488` (`_implement_projection`, the family-by-fields branch); julia-1.13 2943086604, TraitWorld f06b82d, product setting, strict mode off; E-156 P1c |
+| T-62 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration)]. | — | — |
 | T-63 | — | *Retired*: see [§4.7](#47-families). | — | — |
 | T-64 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
 | T-65 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
