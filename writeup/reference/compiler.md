@@ -362,8 +362,6 @@ Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
 
 A trait module's method is a facts method, whose default owner is `:facts`: trait code reached this way is code compiled by facts. A neutral method runs its plain code in the product setting. That is not trait code, so trait code is never invalidated through this path. The rule needs nothing of the runtime's internals: `jl_apply` asks for the default owner's code, as any call from the runtime does ([facts §5](facts.md#run-time-sites)).
 
-**Optional: a memo for the facts owner's normalization.** A call that arrives with a narrow MethodInstance looks up the wider instance's code on every call ([C-4](#deviations)). No measured workload reaches it. If one does, the fix is a memo from the narrow instance to the wider one's code, which invalidation of the wider code clears.
-
 ### 2.6 Calls between the modes in inference
 
 **Status: Implemented.**
