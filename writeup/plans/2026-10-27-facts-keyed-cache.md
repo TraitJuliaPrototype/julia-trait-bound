@@ -74,7 +74,7 @@ Generated packages per origin set would cost about 8 ms a part (E-187), and C ha
   
   **Predicted:** build ids of the closure catch 1–4; the index catches 5 and 6. **Would change the design:** a case that both miss.
 - **E-194 (done):** facts code is most of C's compilation; 11 of 1,835 entries hit a candidate; but a foundational package's change invalidates 86–90% of C's entries under the closure rule, since build ids cascade through dependents ([the README](../../experiments/ttfx/README.md), E-194). Hence §5b.
-- **E-195 (parts 1–3 done; the README):** the fingerprints catch every change of the small cases that alters the code and keep every unused one; at scale, C's 2,143 entries keep their fingerprints across a FunctionWrappers update that the closure rule loses 90% to; 35 entries (1.6%) hit the candidate index in every session, a sign it should compare against the candidates seen at record (part 4).
+- **E-195 (parts 1–3 done; the README):** the fingerprints catch every change of the small cases that alters the code and keep every unused one; at scale, C's 2,143 entries keep their fingerprints across a FunctionWrappers update that the closure rule loses 90% to; 35 entries (1.6%) hit the candidate index of revision 2 in every session; compared against the candidates each entry saw at record, none does (part 4). **So the entry records its candidates, and the index flags a candidate that is new, gone or changed** (mine, from E-195).
 - **E-194, as planned:** E-188's probe extended:
   - the transitive closure;
   - supertypes, direct edges' signatures, bindings and folds;
