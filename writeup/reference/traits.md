@@ -1121,8 +1121,9 @@ And one function: `asvector(x::Indexable{T})`, the collection as a read-only `Ab
 **What the four after version 0 are for** (each from a case of the ports, decided 2026-10-28):
 - `HasProperty`: a computed property, such as SciML's `integ.ps`, is an operation ([open issue 97](../open-issues.md)). A trait object or a kept value whose bounds carry it reads `x.N` through it; a declared field is read as before. Users write `x.N`, never `property`.
 - `asvector`: the DataFrames port's `CellVector` (E-214).
-- `Solvable`: a linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `LinearCache`, E-220).
-- `BoundedText`: a writer sizes its buffers from it instead of guessing (CSV's writer, E-217). Fixed-width types have a bound per type; strings and big numbers per value.
+- `Solvable`: a linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `linfactor`, TraitDifferentialEquations 9563302).
+- `HasProperty`: the SciML port's `integ.ps[:σ]` in a callback (`IntegratorView <: HasProperty{:ps, ParameterView{P}}`, TraitDifferentialEquations 9563302).
+- `BoundedText`: a writer sizes its buffers from it instead of guessing (CSV's writer, E-217). Fixed-width types have a bound that does not depend on the value; strings and big numbers a bound per value. The bound is asked per value only, so a writer visits every cell ([open issue 109](../open-issues.md)): CSV's writer keeps its sample.
 
 LinearAlgebra and Dates are dependencies of TraitWorld: BaseTraits declares their types' conformance as the traits' owner, in its own package, so it holds in every load order. Both are in Julia's system image.
 
