@@ -46,7 +46,7 @@ Deferred by the user (s25), to take up when wanted:
 
 ## 3. TraitWorld (the prototype)
 
-State: [state §6.1](state.md#61-today-2026-10-27).
+State: [state §6.1](state.md#today).
 
 **From the demonstrators and the order of work:**
 

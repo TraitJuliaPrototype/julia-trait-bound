@@ -100,7 +100,7 @@ The design is stated in the references. The decision log, with origins and the u
 
 ### 9.1 Today (2026-10-19)
 
-[State §6.1](../state.md#61-today-2026-10-19).
+[State §6.1](../state.md#today).
 
 ### 9.2 The target
 

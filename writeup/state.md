@@ -88,6 +88,7 @@ The deviations of the implementation from the design are listed per reference, w
 
 ## 6. The software: today, the target, the order of work
 
+<a id="today"></a>
 ### 6.1 Today (2026-10-28)
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
