@@ -74,7 +74,7 @@ The facts mode and its owners are Julia's ([compiler §2.2, the method flag](com
 
 **Where code lives** is Julia's behaviour ([facts §11, package images](facts.md#package-images), [compiler §2.9, what package images keep](compiler.md#29-what-package-images-keep)):
 - code compiled while a package's image is built is kept in that image, `:facts` code included;
-- TraitWorld switches on keep-compiled ([compiler §2.9](compiler.md#29-what-package-images-keep)) for its own image and for every package built after it loads (`TraitWorld.jl:75`, `hooks.jl:22`), so an image keeps the code its precompilation compiled for other packages' methods;
+- TraitWorld switches on keep-compiled ([compiler §2.9](compiler.md#29-what-package-images-keep)) for its own image and for every package built after it loads (`TraitWorld.jl:75`, `hooks.jl:22`), so an image keeps the code of the facts owner its precompilation compiled for other packages' methods;
 - TraitWorld's own workload compiles its machinery under the facts owner, so a session does not compile it again (`TraitWorld.jl:134`).
 - Machinery that calls compiler functions directly (`argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler code, as any code compiled by facts does: valid as long as plain Julia keeps that code valid ([facts §6.4](facts.md#the-compilers-own-code)).
 

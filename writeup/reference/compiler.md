@@ -160,7 +160,7 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 
 **Exception, to be revisited** ([facts §7.1](facts.md#return-type); [open issues §2](../open-issues.md#2-design), item 30): in the product setting `return_type_interp` is a plain `NativeInterpreter` of owner `nothing`, which leaves facts methods to facts inference (§2.6). For a facts method the run-time answer is facts inference's, which can be wider than the folded plain answer; it lives in a second cache ([C-10](#deviations)).
 
-**The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code that runs is taken from it: dispatch looks up code only under the owner it asks for, `nothing` or `:facts` (`jl_method_compiled_callptr_owner`, `src/gf.c:3559`). It holds only plain answers, so no plain code enters a cache that facts code is compiled from. *Today* package images still compile machine code for its answers, which nothing calls ([C-12](#deviations)).
+**The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code that runs is taken from it: dispatch looks up code only under the owner it asks for, `nothing` or `:facts` (`jl_method_compiled_callptr_owner`, `src/gf.c:3559`). It holds only plain answers, so no plain code enters a cache that facts code is compiled from.
 
 **Rules.**
 - `PlainRTInterp` is not a `NativeInterpreter`, so it infers every method plainly, facts methods included (§2.6).
@@ -277,7 +277,7 @@ Three cache owners:
 |---|---|---|
 | `nothing` | plain code | yes |
 | `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts | yes |
-| `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never (package images still compile some: [C-12](#deviations)) |
+| `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never |
 
 **The rule.** The mode and owner of the code for a MethodInstance `mi`, reached from code of a given mode:
 
@@ -433,11 +433,11 @@ void jl_set_image_keep_compiled(int on);    // for the image being built in this
 Lives in `src/staticdata_utils.c` (`queue_external_cis`) and `Compiler/src/precompile.jl` (`compile_and_emit_native`).
 
 **Meaning.**
-- **Code of other owners in the package's own methods** is compiled into the image from its cached IR, for the owners whose code runs (§2.3). Calls between such `CodeInstance`s are `:invoke`s of them. *Today* every foreign owner's code with cached source is compiled, `:facts_plain_return_type` and TraitWorld's `_CheckOwner` included ([C-12](#deviations)).
+- **Machine code only for the owners whose code runs,** `nothing` and `:facts` (§2.3). Code of other owners (`return_type`'s answers, an `AbstractInterpreter`'s results) is serialized with its methods and gets no machine code: nothing calls it.
 - **Code of owner `:facts`** goes through the compile queue, as plain code does. The queue infers it again by facts where its inferred source was discarded.
 - **With keep-compiled on:**
-  - a `CodeInstance` of an upstream method, compiled during precompilation and reached by no call of the package that Julia can see (a dynamic call, `invokelatest`, a call from upstream code the workload ran), is kept with its machine code;
-  - code of owner `:facts` whose inferred source was discarded is kept too.
+  - a `CodeInstance` of the facts owner of an upstream method, compiled during precompilation and reached by no call of the package that Julia can see (a dynamic call, `invokelatest`, a call from upstream code the workload ran), is kept with its machine code, also where its inferred source was discarded. It stays valid across unrelated loads (G2).
+  - Plain code reached that way is not kept, as in stock Julia: it depends on the whole method table.
 - Without keep-compiled, Julia drops such code, as stock Julia does.
 
 **Rules.**
@@ -825,7 +825,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl` (`rests_on_facts`) |
 | C-10 | [§1.4](#14-return_type) | Plain answers for `return_type` live in one cache. | In the product setting, the compile-time route caches in `:facts_plain_return_type` and the run-time route in the default owner's cache: two inferences, which for a facts method are not the same answer (the exception of [§1.4](#14-return_type)). | `Compiler/src/facts.jl` (`cache_owner(::PlainRTInterp)`, `return_type_interp`, `facts_plain_return_type`) |
 | C-11 | — | *Retired*: see [§1.4](#14-return_type), the exception. | — | — |
-| C-12 | [§1.4](#14-return_type), [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), [§2.9](#29-what-package-images-keep) | Only the owners whose code runs get machine code in a package image. | The image builder collects every `CodeInstance` of an owner other than `nothing` with an open `max_world` in the package's own methods, skips only `:facts` (which goes through the compile queue), and emits machine code for each whose source is cached: the `return_type` answers of `:facts_plain_return_type` and TraitWorld's `_CheckOwner` results included. Nothing calls that code: image size and build time, not correctness. | `Compiler/src/precompile.jl:396`, `:443`–`444`, `:455`–`469` (`collect_foreign_cis!`), `:470`–`489` (`add_foreign_codeinfos!`); `TraitWorld/src/compiler.jl:57` |
+| C-12 | — | *Retired*: see [§2.9](#29-what-package-images-keep). | — | — |
 | C-13 | — | *Retired*: see [§1.5](#15-effects). | — | — |
 | C-14 | [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | The targets and thunks of a split table for declared implementations are compiled ahead, into the declaring package's image. | Each pointer is made at the type's first use at the call's signature in the session: its maker, thunk and target compiled (E-145). | `base/splittable.jl` (`_split_table_miss!`) |
 | C-15 | — | *Retired*: see [§1.3](#13-run-time-sites). | — | — |

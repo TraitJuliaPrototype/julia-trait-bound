@@ -347,7 +347,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
    - at each split exactly one method matches, and it covers the split fully;
    - plain inference's result at each split rests on facts only (or on an invoke edge at the method's own signature, [§3](#facts-and-fact-signatures)).
 
-   The fold records an edge per split, to plain inference's result. That result lives under a cache owner of its own, and dispatch never runs code from it ([compiler C-12](compiler.md#deviations)).
+   The fold records an edge per split, to plain inference's result. That result lives under a cache owner of its own, and dispatch never runs code from it ([compiler §1.4](compiler.md#14-return_type)).
 3. **Otherwise the answer is computed at run time,** by plain inference, in both settings. Plain inference infers every method plainly, facts methods included. So the fold and the run time give one answer: plain inference's, as stock Julia's would be. The answers have a cache owner of their own.
 
 **Consequence.** A load changes a folded answer exactly when it changes plain Julia's. An answer computed at run time is computed again when plain Julia's would change.
@@ -482,7 +482,8 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
-- Code for other packages' methods that its workload compiled, under either owner: copies of Base methods compiled by facts, for example. With machine code (with keep-compiled, [compiler §2.9](compiler.md#29-what-package-images-keep)).
+- Code for other packages' methods that its workload compiled: plain code where a call of the package that Julia sees reaches it; code of the facts owner also where only a dynamic call reached it (with keep-compiled, [compiler §2.9](compiler.md#29-what-package-images-keep)), copies of Base methods compiled by facts, for example. With machine code.
+- Code of other owners (`return_type`'s answers) is kept as inferred code, without machine code: it never runs.
 - What trait code a declared implementation brings ahead of time is [traits §13](traits.md)'s; how, [`lowering.md`](lowering.md)'s.
 
 **When it stays valid.**
