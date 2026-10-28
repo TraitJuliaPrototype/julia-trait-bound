@@ -603,7 +603,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-7 | [§12.3](#trimmed-binaries) | A trimmed build uses no code compiled by facts, also none that package images keep. | Untested: `--trim` is not part of an image's key, and whether code of the facts owner that images keep reaches a trimmed binary is not checked. | `julia-1.13/src/module.c:741` (`jl_method_is_facts` under trim) |
 | F-8 | — | *Retired*: see [§12.3](#trimmed-binaries). | — | — |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |
-| F-10 | — | *Retired*: see [§7.1](#return-type), the exception. | — | — |
+| F-10 | — | *Retired*: see [§7.1](#return-type). | — | — |
 | F-11 | [§2.2](#g2) | G2 holds across package loads, in any order, and is checked there. | G2 across package loads is checked in the product setting only: `g2all.jl` counts the valid CodeInstances of the facts owner after each of ten loads interleaved with the demonstrators' work ([evidence §1](../design/evidence.md#1-the-guarantee)). It is not run under `all` (E-29), nor in the order with the loads first | `experiments/facts/g2all.jl`; log `experiments/checks/logs/w9/g2all-interleaved.log` |
 | F-12 | — | *Retired*: see [§8](#asserted-effects). | — | — |
 | F-13 | [§7.1](#return-type) | Plain inference's answer is folded when it rests on facts. | The walk that decides it gives up after 2000 CodeInstances, and the query is answered at run time. As [compiler C-9](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:305` |
