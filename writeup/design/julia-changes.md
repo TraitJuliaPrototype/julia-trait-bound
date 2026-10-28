@@ -51,7 +51,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 | 9 | Owner-aware bare MethodInstance edges | invalidation of a second owner's code | 5b5b98758f |
 | 10 | The inliner inlines exactly the foreign CodeInstance named by `:invoke` | (B) | f72f7368f0 |
 | 17 | A registry of type printers, `Base.Experimental.register_type_printer` | printing by bound and key (`ColTable at Vector{Vector{Float64}}`) | db82407fa6 |
-| 18 | The `cfunction` calling convention `:caller_world`: the pointer's call runs in the caller's world, through a world-checked call-site cache in its thunk (one entry per target, with the worlds where the dispatch and the CodeInstance hold; `jl_get_specialization1_worlds`). A plain `@cfunction` keeps the latest world | `Callable`'s `DynamicCall` (`TraitWorld/src/core.jl`) | 80e8bf79c5 |
+| 18 | The `cfunction` calling convention `:caller_world`: the pointer's call runs in the caller's world, through a world-checked call-site cache in its thunk (one entry per target, with the worlds where the dispatch and the CodeInstance hold; `jl_get_specialization1_worlds`). A plain `@cfunction` keeps the latest world | a `Dynamic` `Callable` (`TraitWorld/src/core.jl`) | 80e8bf79c5 |
 
 | — | Package images keep no external code specialized at a signature type without a hash (value-specific instances, such as the documentation system's `push!` of a signature type into a `Type[]`, a run-time site under the facts image), whose insertion at load scans the method's list of specializations (W-59; mine, 2026-10-27) | the load under `all` (3 of 8.2 s for SciML and Makie, `experiments/ttfx/README.md`) | 6800be7839 |
 | — | Validation remembered for an unchanged environment, opt-in (`JULIA_REMEMBER_VALIDATION=1`): a chain key in the runtime names the method table (images restored, methods defined or deleted at run time); an image's validation outcome is recorded under it, and a later session with the same key skips the method lookups of the code recorded valid, inside the usual walk (W-64; mine, 2026-10-27; [the note](../plans/2026-10-27-remembered-validation.md), revision 2 after its soundness review) | the load (E-186: 0.6–0.8 s of U's and C's 3.7–4.3 s); **set aside** by the rule for performance work, reverted on the main line, kept on branch `w64-remembered-validation` | 30a89bc2fe, f1866b9d4e (reverted) |
@@ -92,7 +92,7 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
   - G1, identical or error;
   - G2, stable caches;
   - the cases found by the reviews, G1.15–G1.19;
-  - `DynamicCall` in older and alternating worlds, G1.20 and G1.21;
+  - a `Dynamic` `Callable` in older and alternating worlds, G1.20 and G1.21;
   - a call site cached for exact types through a redefinition, G1.22;
   - a site cached for every type at an `Any` position, then a more specific method, G1.23;
   - beyond a split's candidates, the table of the call's targets: results, a redefinition in the new and the older world, no allocation, a missing method, G1.24;

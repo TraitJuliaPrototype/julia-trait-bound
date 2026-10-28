@@ -469,7 +469,7 @@ The entries are grouped by theme:
 ### World and world age
 
 - **Here and in Julia:** Julia numbers the states of its method table. Each method definition starts a new world. Running code sees the methods of one world, its world age. A call in an older world sees the old methods; `invokelatest` calls in the latest world.
-- **Here:** every trait call dispatches in the caller's world, as every Julia call does; "identical or error" is stated for the current world. Pointer tables ran in the latest world, which gave a wrong result. `DynamicCall`'s pointer runs in the caller's world, through a world-checked cache.
+- **Here:** every trait call dispatches in the caller's world, as every Julia call does; "identical or error" is stated for the current world. A `Dynamic` `Callable`'s pointer runs in the caller's world, through a world-checked cache.
 - **Origin:** Julia's own, since Julia 0.6; the manual explains it under "Redefining Methods" *(not in the research)*.
 - **Defined in:** [facts §2.1](reference/facts.md#g1); the caches: [compiler §3](reference/compiler.md#3-world-checked-caches-at-dynamic-boundaries).
 
