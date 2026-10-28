@@ -1,6 +1,6 @@
 # The store of the facts-keyed cache, and its vehicle (W-66, step 4)
 
-Status: **proposal, revision 1, reviewed; not to be built as written** (2026-10-28, mine; W-66). Not normative. [Its fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) found three blocking faults (B1 `Serialization` cannot carry compiled code; B2 the fingerprints miss values that optimized IR embeds; B3 inferred code is discarded before exit) and proposes validating stored code with Julia's own edge validation (M1), which changes the user's decision on the fingerprints' form: [open issue 80](../open-issues.md#1-decisions-waiting-for-the-user). A revision waits for it (§7).
+Status: **proposal, revision 1, reviewed; not to be built as written** (2026-10-28, mine; W-66). Not normative. [Its fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) found three blocking faults (B1 `Serialization` cannot carry compiled code; B2 the fingerprints miss values that optimized IR embeds; B3 inferred code is discarded before exit) and proposes validating stored code with Julia's own edge validation (M1), which changes the user's decision on the fingerprints' form: [open issue 80](../open-issues.md#1-decisions-waiting-for-the-user). The user decided it on 2026-10-28 (option (b), M1's form): the revision is next (§7).
 
 ## 1. What is settled
 

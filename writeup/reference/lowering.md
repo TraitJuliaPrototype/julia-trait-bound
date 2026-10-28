@@ -381,6 +381,7 @@ The entry is declared `@inline` and is a boundary (`trait_module.jl:791`). Every
 - **At the module's end** (`_finish_module`, `trait_module.jl:1146`): the needs, attributes and keep flags are fixed; overrides are checked; unrelated bounds without a joint method and ambiguities with typed methods are reported (`check_bounds`, `check_entry_ambiguities`); an attribute on a function neither exported nor public in its owner module (`Base.ispublic`) warns (`_warn_hidden_attributes`); definition checking runs ([§14](#14-checks-and-where-their-results-live)).
 - **The module's registries** are constants its prologue defines: `__tw_entries__` (shapes per function), `__tw_plain__`, `__tw_extended__`, `__tw_positions__`, `__tw_untyped__`, `__tw_finished__` (`trait_module.jl:60`).
 - **Only the function's owner** may add an entry: an entry is a method at `Any` (`trait_module.jl:831`).
+- **A bounded function defined again after the module's end** ([traits §2](traits.md#2-trait-modules)) goes through these steps for that function: its worker replaced, `needed`, attributes and `keeps` fixed again, overrides, ambiguities and definition checking run. The first-call checks' records name the worker methods ([§14](#14-checks-and-where-their-results-live)), so the replaced worker's records no longer apply. Planned: today the definition is a method at the trait type and the entry keeps the old worker ([traits T-81](traits.md#17-deviations)).
 
 ### 8.4 Keeping
 

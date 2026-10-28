@@ -150,12 +150,13 @@ end
 - `@trait` and `@implement` work in any module. A user's types usually conform in plain code.
 - A trait module may use and call any Julia code: Base, CSV, Cairo, ForwardDiff.
 - At the end of a trait module, its bounded functions are checked ([§9](#9-checks-and-when-they-run)).
+- **A bounded function defined again after its trait module is complete** (by `eval` at the prompt, or by Revise) goes through the module's end for that function: its worker is replaced, it is checked as at the module's end, and what the end fixes from its workers (the needs, attributes and keep flags of its positions) is fixed again. Code that called it is invalidated, as after any redefinition by an owner ([facts §2.2](facts.md#g2)).
 - A trait module may not define a pirate ([§10.2](#102-pirates)).
 - A package is an ordinary module around its trait module. The package's own `module` line cannot carry `@trait_module`, since TraitWorld is not loaded yet there. Write `include("Core.jl")` with a `@trait_module module Core … end` inside, or a `@trait_module begin … end` block after `using TraitWorld`.
 
 A prefix sets fully typed mode for every function in the module ([§11](#11-concreteness-and-fully-typed-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
 
-**Status:** Implemented.
+**Status:** Implemented, except a bounded function defined again after the module's end (Planned, [T-81](#17-deviations)).
 
 ---
 
@@ -1165,6 +1166,7 @@ retain!(isnum, v)                         # keep the numbers of the user's vecto
 | a definition in a trait module | the module owns the method's function or a type in it | `OwnershipError` |
 | a bounded function's definition | a `Dynamic` annotation fixes the parameters its operations' result types use ([§5.1](#51-bounds)) | `TraitBoundError` |
 | the end of a trait module | every bounded function, once, for every type that will ever conform; ambiguous bounds; an annotation on a function neither exported nor public ([§6.3](#63-defaults-a-traits-default-and-annotations)) | `TraitUseError`, `TraitBoundError`; a warning |
+| a bounded function defined again after the end of its trait module | that function, as at the end of the module ([§2](#2-trait-modules)) | as at the end of a trait module |
 | a call of a bounded function | the value conforms; fixed parameters; bounded keywords; concreteness of a family member | `MethodError` (with a hint), `TraitBoundError` |
 | a call of an operation on a trait object or a kept value | the arguments against the declaration; the result | `TraitArgumentError`, `TypeError` |
 | a call to a `Callable` | the arguments and the result | `TypeError`, `MethodError` |
@@ -1569,3 +1571,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-78 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
 | T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
+| T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function. | The definition is accepted as a method at the trait type; the entry keeps calling the worker the module's end generated, so calls give the old result, silently. | `experiments/w66/e202/edit_case.jl` (E-202 (c)); W-78 |

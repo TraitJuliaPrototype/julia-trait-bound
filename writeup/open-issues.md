@@ -8,19 +8,6 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 ## 1. Decisions waiting for the user
 
-79. **A bounded function redefined after its trait module is complete** (found by E-202 (c), 2026-10-28). The references say what a redeclared implementation does ([traits §4](reference/traits.md), "Redeclaration") but not what a redefinition of a bounded function does once its trait module is complete, by `eval` at the prompt or by Revise. Today `Core.eval(M, :(sq(v::Values) = …))` is accepted: it defines a method at the trait type, and the entry keeps calling the worker the module's end generated, so the call still gives the old result, silently (`experiments/w66/e202/edit_case.jl`). Options:
-   - (a) refuse such a definition, with a message naming the way to redefine (re-evaluating the trait module);
-   - (b) lower it as the module's end lowers a bounded function: the worker is replaced, the definition check runs, and the first-call checks' records for that worker are reset (the facts-first review §2.4);
-   - (c) leave it, as a deviation.
-   
-   **My recommendation: (b),** since Revise-style editing is how Julia users work, and the checked-record of W-66 (§2.4) then has a clear rule for edits. Until decided, the edit case of §2.4's check is open.
-
-80. **How the facts-keyed cache validates a stored entry** (W-66; [the store's review](reviews/2026-10-28-facts-cache-store.md), M1). Decided on 2026-10-27: fingerprints scoped by the facts rule (F1, F2 per fact the stakeholders' methods of the fact's function, F3) plus a candidate index ([decisions](record/decisions.md) §5). The review shows that Julia's own validation of loaded code (`verify_method_graph`, `Compiler/src/reinfer.jl`) already checks every edge's dispatch exactly in the session's world, recursive groups as one unit, with folds, bindings, `invoke` signatures and deleted methods, and hands the code to ordinary invalidation. Options:
-   - (a) keep the decided form: F1–F3 and the candidate index decide validity (E-195);
-   - (b) validate a stored entry's edges with Julia's validation, and use fingerprints only for content that edges do not cover: F1 of the methods the edges name, F3, and the values the optimized code embeds (the review's B2). F2 and the candidate index are not needed for validity.
-   
-   **My recommendation: (b).** It reuses Julia's exact check (the fast path covers most facts edges), drops the costliest fingerprint, and answers cycles. E-195's results stay as evidence for the content fingerprints. Either way, an experiment by construction (the review's E-0) comes before the store is built.
-
 Eight of the choices the clean-up adopted, and the night's choices marked mine, are for a review session with the user ([W-71](record/todo.md)).
 
 Waiting for evidence, not for the user:
@@ -87,6 +74,20 @@ Choices whose repercussions are unclear either way, where experience with large-
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 
 ### §1
+
+Closed on 2026-10-28:
+
+79. **Closed (2026-10-28, the user: "Accept both suggestions."):** option (b). A bounded function defined again after its trait module is complete goes through the module's end for that function: its worker replaced, its checks run, the facts the end fixes per position recomputed; callers are invalidated as after any redefinition by an owner ([traits §2](reference/traits.md#2-trait-modules); T-81 until built, W-78). *As it stood:* **A bounded function redefined after its trait module is complete** (found by E-202 (c), 2026-10-28). The references say what a redeclared implementation does ([traits §4](reference/traits.md), "Redeclaration") but not what a redefinition of a bounded function does once its trait module is complete, by `eval` at the prompt or by Revise. Today `Core.eval(M, :(sq(v::Values) = …))` is accepted: it defines a method at the trait type, and the entry keeps calling the worker the module's end generated, so the call still gives the old result, silently (`experiments/w66/e202/edit_case.jl`). Options:
+   - (a) refuse such a definition, with a message naming the way to redefine (re-evaluating the trait module);
+   - (b) lower it as the module's end lowers a bounded function: the worker is replaced, the definition check runs, and the first-call checks' records for that worker are reset (the facts-first review §2.4);
+   - (c) leave it, as a deviation.
+   
+   **My recommendation: (b),** since Revise-style editing is how Julia users work, and the checked-record of W-66 (§2.4) then has a clear rule for edits. Until decided, the edit case of §2.4's check is open.
+80. **Closed (2026-10-28, the user: "Accept both suggestions."):** option (b). A stored entry is valid when Julia's validation of loaded code holds for its edges in the session; fingerprints cover only content: the lowered code of its method and of the methods its edges name, the layouts it reads, the values its optimized code embeds ([facts §11](reference/facts.md#11-package-images); [decisions](record/decisions.md) §5). *As it stood:* **How the facts-keyed cache validates a stored entry** (W-66; [the store's review](reviews/2026-10-28-facts-cache-store.md), M1). Decided on 2026-10-27: fingerprints scoped by the facts rule (F1, F2 per fact the stakeholders' methods of the fact's function, F3) plus a candidate index ([decisions](record/decisions.md) §5). The review shows that Julia's own validation of loaded code (`verify_method_graph`, `Compiler/src/reinfer.jl`) already checks every edge's dispatch exactly in the session's world, recursive groups as one unit, with folds, bindings, `invoke` signatures and deleted methods, and hands the code to ordinary invalidation. Options:
+   - (a) keep the decided form: F1–F3 and the candidate index decide validity (E-195);
+   - (b) validate a stored entry's edges with Julia's validation, and use fingerprints only for content that edges do not cover: F1 of the methods the edges name, F3, and the values the optimized code embeds (the review's B2). F2 and the candidate index are not needed for validity.
+   
+   **My recommendation: (b).** It reuses Julia's exact check (the fast path covers most facts edges), drops the costliest fingerprint, and answers cycles. E-195's results stay as evidence for the content fingerprints. Either way, an experiment by construction (the review's E-0) comes before the store is built.
 
 Closed by the clean-up of 2026-10-27 (W-65; [the proposal](plans/2026-10-27-cleanup-issues-and-queue.md); the user: "Take up strict mode with W-66, confirm W-70 and flag the 8 worth a look for a quick review session later (add that as a Todo), then implement the clean up."):
 

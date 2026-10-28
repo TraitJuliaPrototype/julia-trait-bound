@@ -477,7 +477,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 <a id="package-images"></a>
 ## 11. Package images
 
-**Status: Implemented**, with strict mode's report of a pirate loaded before an image ([§10.3](#strict-intended)).
+**Status: Implemented**, with strict mode's report of a pirate loaded before an image ([§10.3](#strict-intended)); **Planned:** entries stored across sessions (below; [W-66](../record/todo.md)).
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
@@ -489,6 +489,12 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 - At load, a CodeInstance is used if all its facts hold in the loading session, and every value it fixed by `fold_call` is the one its library gives in this session ([compiler §4.4](compiler.md#44-compilerfold_call)). Otherwise it is discarded, and compiled again when needed.
 - A fact breaks only by a stakeholder's change or a winning pirate loaded earlier. Which code is kept therefore depends on the method table, not on the order of unrelated loads.
 - A trimmed build uses no code compiled by facts.
+
+**Entries stored across sessions** (Planned). Code of the facts owner may also come from a store kept across sessions and environments. A stored entry is used when both hold:
+- **its edges verify in the session,** by Julia's own validation of loaded code (`verify_method_graph`): every dispatch it recorded selects the same methods in this session's world, with its folds, bindings, `invoke` signatures and deleted methods; code that calls itself recursively is validated as one group;
+- **its content is the same:** the lowered code of its own method and of each method its edges name, the layouts of the types it reads, and the values its optimized code embeds. A constant whose identity matters is not stored.
+
+Its world range comes from that validation, never from the record.
 
 **Images and the setting.** An image's CodeInstances mean the same in both settings: the mode is the owner ([§6.2](#the-mode-rule)).
 - An image built under one setting is correct under the other. The other setting finds no code of its own default owner for a neutral method, and compiles it.
