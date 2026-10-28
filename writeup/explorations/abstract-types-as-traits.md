@@ -18,19 +18,20 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 8. [Costs and risks](#8-costs-and-risks)
 9. [Prior art](#9-prior-art)
 10. [The smallest experiments](#10-the-smallest-experiments)
-11. [Sources](#11-sources)
+11. [One kind of membership: candidates](#11-one-kind-of-membership-candidates)
+12. [Sources](#12-sources)
 
 ---
 
 ## 1. Summary: the answer
 
-**Partly: yes for the language, no for one distinction, which moves rather than disappears.**
+**Partly: yes for the language; the one distinction that seemed to resist (§1, second bullet) has a principled way through (§11), at the price of one coherence rule.**
 
 - **Yes.** An abstract type and a trait are the same kind of thing: a named set of types with a declared membership. Every rule of the design can be stated once, for that one thing. An abstract type is a trait whose contract is empty and whose members are all declared where they are defined. `Any` is the trait that declares nothing and that every type belongs to. An untyped function `f(x)` is a function bounded by `Any`. Julia's specialization is `Compiled`; Julia's `@nospecialize` with dynamic dispatch is `Dynamic`; the facts rule is what `Dynamic` means when the contract is empty. Under this reading there is one dispatch, one compile rule, one attribute rule. Trait modules dissolve into two module options that already exist (compiled by facts; no pirates). The "trait world" and its boundary stop being a world and become a per-function property.
-- **No, for one distinction.** The design's two dispatch tiers (types first, then traits; [traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits)) are not an artefact of TraitWorld's encoding. They are what makes an implementation invalidate nothing ([the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), "Implementations are the extension point"). If `@implement X S` made `S <: X` in Julia's own dispatch, it would change what `f(::S)` selects wherever `f(::X)` exists: a definition that wins at a fact, and a load that invalidates. So one construct survives with two kinds of membership: **declared with the type** (`struct S <: X`: a fact, Julia's static dispatch, invalidates callers as any stakeholder's definition does) and **declared later** (`@implement X S`: resolved at the trait tier when the code runs, without an edge, invalidates nothing). "Abstract type" and "trait" become names for the two kinds of membership of one construct. That is less than the user asked for, and more than the design has today.
+- **The obstacle, and its answer.** The design's two dispatch tiers (types first, then traits; [traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits)) are not an artefact of TraitWorld's encoding. They are what makes an implementation invalidate nothing ([the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), "Implementations are the extension point"). If `@implement X S` made `S <: X` in Julia's own dispatch, it would change what `f(::S)` selects wherever `f(::X)` exists: a definition that wins at a fact, and a load that invalidates. The first reading of this (§5.5) keeps two kinds of membership: **declared with the type** (`struct S <: X`: a fact, Julia's static dispatch) and **declared later** (`@implement X S`: resolved at the trait tier when the code runs, without an edge). **§11 finds that the two collapse into one** under a coherence rule that is Lemma O applied to memberships, and that is Rust's orphan rule for blanket impls in Julia's terms: what must be refused is one combination only, *a set that takes foreign members by its own owner* together with *a method bounded by that set on a function its definer does not own*. Everything else (a membership declared by the member's owner, a membership declared by the set's owner for a foreign type, a bounded method by the function's owner, a bounded method on a foreign function for a set whose members all joined by their own owners) is loaded before any code that could see it compiles, in every load order, so it changes no compiled fact. The forbidden combination is piracy in disguise, and gets the treatment pirates get: refused in a trait module at the definition, refused by strict mode where it would win, followed by default with one recompile. With that, `@implement X S` is `S <: X` in Julia's own dispatch, and "abstract type" and "trait" are one construct with one kind of membership. "Static beats dynamic" survives only as a precedence rule for ties (a type's own supertypes before memberships added later: CLOS's and Dylan's local precedence order), not as a dispatch mechanism.
 - **What it simplifies.** The interaction rules disappear: what trait code may do with a trait object (§5.3), internal functions (§5.4), a trait's name refused outside trait modules (§2; decision 41), the three kept forms (§7), the entries per shape (lowering L-3), the boundary principle as a rule. They are replaced by one classification the compiler makes per function: *fully bounded* (the body uses only its bounds' contracts) or not. A fully bounded function is compiled per key and checked at its definition; any other function is today's plain Julia, compiled per concrete type, with the facts rule at its run-time sites. The `fully_typed` report already computes most of this.
-- **What it costs.** Multiple membership in Julia's subtyping (a real change to `jl_subtype`, type intersection and ambiguity detection); ambiguity between methods on two unrelated traits is reportable only when a common member appears (Julia issue #5's problem, Fortress's exclusion relation, the design's T-83); no gain for an abstract type that declares no contract (`Number` stays `Number`); and the decided rule that a trait's name is refused outside trait modules (open issue 41) is reversed.
-- **What to do with it.** It does not change the design's rules. It changes the *framing* of W-27 (traits in the type system): not "encode a trait beside abstract types" but "make an abstract type a trait with static members, and let a trait add dynamic members". §10 gives three experiments that decide whether Julia's subtyping can carry it. Until they run, W-27's direction should stay open, not decided.
+- **What it costs.** Multiple membership in Julia's subtyping (a real change to `jl_subtype`, type intersection and ambiguity detection); ambiguity between methods on two unrelated traits is reportable only when a common member appears (Julia issue #5's problem, Fortress's exclusion relation, the design's T-83); the coherence rule of §11 refuses one pattern the design allows today (a bounded method on a foreign function, such as `Base.show(io, ::X)`, for a set whose owner declares foreign members), with a newtype or the set's own wrapper type as the escape; no gain for an abstract type that declares no contract (`Number` stays `Number`); and the decided rule that a trait's name is refused outside trait modules (open issue 41) is reversed.
+- **What to do with it.** It does not change the design's rules. It changes the *framing* of W-27 (traits in the type system): not "encode a trait beside abstract types" but "an abstract type is a set whose members joined with their definitions; `@implement` adds a member; one dispatch". §10 and §11.5 give the experiments: a census of the demonstrators and ports for the forbidden combination (minutes), a probe of extension load order (minutes), and the subtyping probe (a build). Until they run, W-27's direction should stay open, not decided.
 
 ---
 
@@ -114,12 +115,13 @@ area(c::Circle) = π * c.r^2
 - **The order between the two kinds of membership is a rule of the order, not a second mechanism:** a method selected by a *static* membership of the argument's type beats one selected only by a *dynamic* membership. Among methods selected by dynamic memberships, a subset beats its superset, and unrelated sets at one position need a joint method ([traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits)). `Any` is below both: every method whose bound the value meets by a declaration beats the untyped method.
 - **Why this order:** dispatch among static memberships is a fact at a concrete signature, so Julia's static dispatch records it. Dispatch among dynamic memberships is decided when the code runs, with no edge. A new dynamic membership therefore changes no fact. That is the rule that makes an implementation invalidate nothing, kept as an ordering rule instead of as "types first, then traits".
 - What the order gives up: a dynamic member can never override a method on one of its static supertypes. That is today's cost 4 ([other languages](../design/other-languages.md#what-the-choices-cost)), unchanged, and it is what lets a library adopt contracts one function at a time.
+- **Revised by §11:** under the coherence rule there, the two kinds of membership need no separate mechanism; both are Julia's static dispatch. What remains of this rule is a precedence order for ties (§11.3, C7).
 
 ```julia
 describe(m::AbstractMatrix) = "a matrix"      # static membership of Matrix{Float64}
 describe(t::ColTable) = "a table"             # dynamic membership of Matrix{Float64}, by @implement
 describe(x) = "something"                     # x::Any
-describe([1.0 2.0])                           # "a matrix": static beats dynamic, as today
+describe([1.0 2.0])                           # "a matrix": the type's own supertype before a later membership (§11 C7), as today
 ```
 
 ### Rule 4. One compile rule: per key, where the key is what the body can see
@@ -170,7 +172,7 @@ colsum(t::ColTable) = sum(t)          # open: `sum(t)` is not in the contract; c
 | entries per shape, `Untyped` fallbacks, hand-written ambiguity checks (lowering L-3) | Julia's dispatch over sets with the order of rule 3; the entry is the compiler's |
 | three kept forms, `Kept{X}` as a trait's name in storage, the table by position of §6.3 | one: `X` as a type; `Dynamic{X} <: X` the wrapped form (§5.2) |
 | `conforms(T, X)` beside `T <: X` (L-5) | `T <: X` |
-| "types first, then traits" as a tier | "static before dynamic membership" as a rule of the order; same results |
+| "types first, then traits" as a tier | a precedence order for ties (a type's own supertypes before later memberships, §11 C7); dispatch itself is Julia's, under the coherence rule of §11 |
 | T-83, D4: unrelated bounds of sibling packages reported at the load that creates the overlap | the same report, now the ordinary ambiguity of multiple membership; §5.5 says why it cannot be earlier |
 | open issue 36 (a trait-typed assertion in a body), closed items waiting for W-27 (items of one concrete conforming type, §2.31) | `v::X` in a body is an `isa` check and a first-seen point, as decided for W-27 |
 
@@ -248,6 +250,8 @@ This is the subtlety that limits the answer to "partly". Three facts:
 **Why dynamic membership cannot enter Julia's static dispatch:** suppose `f(x::Any) = …` and `f(x::X) = …`, and a caller `g(s::S)` compiled with the fact "`f` at `(S,)` selects `f(::Any)`". Then `@implement X S` in a later-loaded package makes `f(::X)` applicable at `(S,)`. If dispatch is Julia's, the fact changes, `g` is invalidated, and "implementations invalidate nothing" ([the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated)) is false. By Lemma O the definer is a stakeholder (the owner of `X`, which is now a supertype of `S`), so it is not a pirate; it is the "stakeholder's extension activated by an unrelated trigger" case that G2 names as an exception ([facts §2.2](../reference/facts.md#g2)). TraitCSV's `String15` implementation, the rationale's showcase, would then invalidate CSV code compiled for `String15` columns. So the tier is not a convenience: dynamic memberships must be resolved at run time, without an edge, as today's entries do. The unified model keeps exactly this, as the order rule of rule 3.
 
 **What the model gains anyway:** one language for both tiers, and the tier's name changed from "trait vs abstract type" to "declared later vs declared with the type". A set may have members of both kinds. `Shape` with `struct Circle <: Shape` (static) and `@implement Shape Square` (dynamic) is one set; `f(::Shape)` reaches both; the circle by a fact, the square by the entry's run-time check.
+
+**This section's conclusion is the one §11 revisits.** The argument above shows that *some* late membership breaks a compiled fact. §11 asks exactly which, by who declares it and where it loads, and finds that only one combination can, which a coherence rule can refuse. Read §5.5 as the problem and §11 as the answer.
 
 ### 5.6 Inference, specialization and the key
 
@@ -348,7 +352,155 @@ Order: U4 and U2 first (an afternoon, no build), then U1 (a day of rewriting ann
 
 ---
 
-## 11. Sources
+## 11. One kind of membership: candidates
+
+Added on 2026-10-28 after the user's question: "Any creative principled original solutions to the 'two kinds of membership' issue?" §5.5 established that *some* late membership breaks a compiled fact. This section asks *which*, exactly, and whether a rule removes it for a reason rather than by a tier. No Julia ran.
+
+### 11.1 The constraint, made precise
+
+The breaking event needs four things:
+
+1. a caller `P` compiled at the concrete signature `(S,)`, with the fact "`f` at `(S,)` selects `m₀`" (`m₀` is `f(::Any)`, a tree method, or "no method");
+2. a method `f(::X)` that is more specific than `m₀` at `S`;
+3. a membership `S ∈ X`;
+4. items 2 and 3 both visible *after* item 1 was compiled. Whichever of 2 and 3 became visible last is the definition that won at `(S,)`.
+
+**Who can declare 2 and 3, and where it loads.** Julia loads a package's dependencies before the package's own code runs, and loads a package extension as soon as the last of its triggers is loaded, before the loading of the package that pulled the trigger continues. So a definition is visible to `P` when `P` compiles iff it lives in a package in `P`'s dependency tree, or in an extension whose triggers are all in that tree. `P` compiled at `(S,)` calling `f` has at least `S`'s package and `f`'s owner in its tree (it names both). The design already relies on this argument once, for family-member overrides (decision log §1, 2026-10-26: "every caller that names `S{MyT}` depends on that package, so the override is in place before any use, in every load order; an extension loads later").
+
+| Definition | By whom, where | In `P`'s tree when `P` compiles? |
+|---|---|---|
+| `f(::X)` | `f`'s owner, in its package | yes: `P` depends on `f`'s owner, and `f`'s owner depends on `X` (it names it), so `X` is in the tree too |
+| `f(::X)` | `f`'s owner, in an extension of its package triggered by `X` | **no**: `f`'s owner does not depend on `X`; `X` may load later |
+| `f(::X)` | `X`'s owner, in its package (`f` foreign to it) | **no**: nothing makes `P` depend on `X` |
+| `f(::X)` | anyone else | a pirate: refused in trait modules, strict mode's business in plain code |
+| `S ∈ X` | `S`'s owner, in `S`'s package | yes |
+| `S ∈ X` | `S`'s owner, in an extension of `S`'s package triggered by `X` | only if `X` is in the tree |
+| `S ∈ X` | `X`'s owner, in `X`'s package (`X` depends on `S`'s package) or in an extension triggered by `S`'s package | only if `X` is in the tree |
+
+Read the table together. **A membership not in the tree matters only if a method `f(::X)` not in the tree accompanies it, or vice versa.** If `f(::X)` is `f`'s owner's, in its package, then `X` is in the tree, and every membership of `X`, by whomever and in whatever extension of `X`'s or `S`'s package, is in the tree as well. If every membership of `X` is declared by the member's own owner in the member's own package, then `X` is in the tree of every member's package, hence in `P`'s tree, and every method `f(::X)` by `X`'s owner is in the tree too. The one combination that escapes: **a membership declared outside the member's package (by `X`'s owner, or in an extension) together with a method `f(::X)` declared outside `f`'s owner's package (by `X`'s owner, or in an extension).** That is the only way a definition can win at a compiled `(S,)` through membership.
+
+In plain Julia the same combination exists in one form only: `X`'s owner defining `f(::S)` for a foreign `f` and a foreign `S`. That is type piracy. The combination is piracy in disguise, assembled from two declarations each of which looks like the owner's right.
+
+### 11.2 Candidates
+
+Each with its rule, an example, what it guarantees, what it costs, what breaks.
+
+#### C1. Members belong to the member: a membership is declared only in the member's own package
+
+- **Rule.** `S ∈ X` may be declared only by `S`'s owner, in `S`'s package (not an extension), or at `S`'s definition (`struct S <: X`). A set's owner may not make a foreign type a member.
+- **Example.** `struct Measurements <: ColTable … end` or, later in the same package, `@implement ColTable Measurements by data`. TraitWorld could not declare `@implement Indexable A where {A <: AbstractVector}` for Base's vectors; Base would have to.
+- **Guarantees.** Every membership is in the tree of every caller that names the member. Bounded methods on `X` by anyone (`X`'s owner, `f`'s owner) are in the tree too (§11.1). Memberships are facts; one kind of membership; G1, G2 and Lemma O as written (the implementer is `S`'s owner, a stakeholder of every `(S,)`).
+- **Costs.** This is Rust's orphan rule with half its permissions: `impl ForeignTrait for LocalType` only. It loses `impl LocalTrait for ForeignType`: BaseTraits for Base's containers, TraitCSV's `String15` in CSV's extension, every "trait owner's extension for a foreign type" of [traits §10.1](../reference/traits.md#101-who-may-implement). The escape is the newtype (C8).
+- **Breaks.** The design's showcase for implementations as the extension point. Too much to give up; kept as the limit case that shows the shape of the rule.
+
+#### C2. Methods belong to the function: a method bounded by a set with foreign members is declared only in the function's owner's package
+
+- **Rule.** If `X` has any membership declared outside the member's package (by `X`'s owner, by a family or generic implementation, in an extension), then a method `f(::X)` may be defined only in the package that owns `f` (joint owners included), not in an extension of it. Memberships stay as today: by the set's owner or the type's owner, extensions allowed.
+- **Example.** TraitCSV declares `String15` columns members of `CSVColumn` in its extension, and bounds its own functions by `CSVColumn`: allowed. TraitCSV may not define `Base.show(io::IO, c::CSVColumn)`: `show` is Base's. It writes `Base.show(io, c::Dynamic{CSVColumn})` (its own wrapper type) or an operation `describe(c::CSVColumn)::String`.
+- **Guarantees.** `f(::X)` in `f`'s owner's package puts `X` in every caller's tree, so every membership of `X` is there too (§11.1). One kind of membership; G1, G2 as written; Lemma O with the refinement of C4.
+- **Costs.** No bounded method on a foreign function for an open set. This is what lowering L-3 does today by accident of the encoding ("only a function's owner may add a bounded method of a shape the function has none of yet"), which [traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits) means to lift ("or to another package's function where the package owns a trait the bound names"). It is also the rule [traits §10.1](../reference/traits.md#101-who-may-implement) already has for operations: "Operations that are existing functions (`Base.size`) may be implemented only for types the declaring package owns."
+- **Breaks.** Makie D4's pattern (a geography package adds `Makie.plot(x::GeoData)`) only if `GeoData` has foreign members by the geography package. With members by their own owners (the geography package's own types) C2 does not apply, and the method is allowed. `Base.show` for a trait with foreign members is the common casualty.
+
+#### C3. The coherence rule: refuse only the combination, per set
+
+- **Rule.** A set is declared in one of two modes. **Members by owner** (the default for `abstract type`; an option for `@trait`): every membership is in the member's own package; bounded methods on it may be defined by anyone who owns the function or the set. **Open members** (the default for `@trait`, as today): the set's owner may declare foreign members, in its package or its extensions, and a family or generic implementation may cover foreign types; then a bounded method on the set may be defined only in its function's owner's package. A sub-set of a members-by-owner set is members-by-owner (its members are the parent's members). The mode is checked at each `@implement` and at each bounded method's definition, so the check is order-independent and local.
+- **Example.**
+
+  ```julia
+  @trait Indexable{T} begin … end                     # open members (default): TraitWorld declares Base's vectors
+  retain!(f, xs::(MutableIndexable, Resizable)) = …   # TraitWorld owns retain!: allowed
+  Base.filter!(f, xs::MutableIndexable) = …           # refused: Base owns filter!, Indexable has foreign members
+                                                      # (BaseTraits already avoids this, traits §8.4, for another reason)
+  @trait GeoData @members_by_owner begin … end        # the geography package's own types join it
+  Makie.plot(x::GeoData) = …                          # allowed: no foreign member can ever join GeoData
+  @implement GeoData Shapefile.Table                  # refused in the geography package: not the member's owner;
+                                                      # Shapefile may declare it, or a newtype wraps it
+  ```
+- **Guarantees.** By §11.1, no definition can win at a compiled `(S,)` through membership. So memberships can be Julia's subtyping, consulted by static dispatch, recorded as facts. One kind of membership. G1 unchanged. G2 gains nothing new to except. Lemma O needs C4's refinement of "stakeholder", or the ordering lemma stated beside it.
+- **Costs.** One declaration per set (a mode), and one refusal: the combination. Rust's orphan rule refuses the same thing: an impl of a foreign trait for an uncovered type parameter (`impl<T: Local> Foreign for T`) is rejected because "no uncovered type parameters may appear" before the first local type ([the Rust reference, orphan rules](https://doc.rust-lang.org/reference/items/implementations.html#orphan-rules)). In Julia's terms: dispatching a foreign function on a local set over foreign types.
+- **Breaks.** Exactly what C2 breaks, for open sets only. The census U5 (§11.5) counts how often the demonstrators and the ports do it. From reading: BaseTraits does not; TraitCSV, TraitTables, TraitMakie and TraitDifferentialEquations bound their own functions; the one known wish is `Base.show` on a trait, which the design routes through printing by key today ([traits §12](../reference/traits.md#12-printing)).
+
+#### C4. Lemma O for memberships: the forbidden combination is a pirate, and is treated as one
+
+- **Rule.** Restate the terms of [facts §1](../reference/facts.md#1-terms):
+  - *Consented supertypes* of a type `S`: the sets `S` was declared a member of by `S`'s own owner (with its definition, or later in `S`'s package).
+  - *Stakeholders of a concrete signature `s`*: the owner of its function, and the owners of every type in `s` and of its consented supertypes. A membership declared by the set's owner does **not** make that owner a stakeholder of the member's signatures.
+  - *A membership is a definition.* It wins at `s` when dispatch at `s` selects something else after it.
+  - **Lemma O, extended:** a definition (a method or a membership) that wins at a concrete `s` is a stakeholder's, or a pirate's. A method or a membership by a non-stakeholder that wins at `s` is a pirate at `s`.
+  - **Lemma M (ordering):** a definition by the function's owner in its package, or a membership by the member's owner in its package, is loaded before any code at `s` can be compiled, in every load order, so it never wins at a *compiled* fact. Only the combination of §11.1 can.
+- **Enforcement, as for method pirates today** ([traits §10.2](../reference/traits.md#102-pirates), [facts §10](../reference/facts.md#pirates)): a trait module refuses the combination at the definition (C3's static check); strict mode refuses the later half of a combination where it would win at a fact of compiled facts-owner code (the membership, or the method, whichever comes second); the default session follows it and recompiles the broken code once. The machinery exists: strict mode's walk from the definition to the facts it would change needs to see a membership as a definition that applies at the member's signatures, and nothing else.
+- **Example.** A package `X` defines `Base.show(io::IO, x::X)` (its own set) and, in an extension triggered by `S`'s package, `@implement X S`. In a session where `P`'s code already printed an `S` through `show(::IO, ::Any)`: by default, `P`'s `show` call at `(S,)` is recompiled once and now prints through `X`'s method; in strict mode, the `@implement` is refused with a `PirateError` naming `P`'s code and the fact, as a winning pirate is today; in a trait module the `@implement` was refused when `X` declared `Base.show` on an open set, before any session.
+- **Guarantees.** G1: a refused definition does not exist for plain code either; a followed one computes plain Julia's result after one recompile. G2: unchanged in its letter, with "pirate" now covering memberships; a load that brings no stakeholder's change and no winning pirate invalidates nothing. Lemma O holds as extended; Lemma M says why the allowed cases are harmless. One kind of membership.
+- **Costs.** Strict mode's check must consider memberships; the facts' terms gain one definition (consented supertypes). The behaviour in the default session is what plain Julia does with a pirate: follow, recompile once.
+- **Breaks.** Nothing that plain Julia allows. The refused combination is one plain Julia cannot express (a type's supertypes are fixed by its author), and whose plain analogue (`Base.show(::IO, ::S)` by `X`'s owner) is piracy.
+- **Why this is the principled form.** The design already has one rule for who may change dispatch at a concrete signature (Lemma O) and one mechanism for those who may not (pirates: refused in new code, refused where they win under strict mode, followed by default). Memberships become definitions under the same rule and the same mechanism. Nothing is added but the word "membership" in two places. C3 is C4's static face, as "a trait module may not define a pirate" is strict mode's static face for methods.
+
+#### C5. A membership-sensitive fact criterion
+
+- **Rule.** A call `f(s::S)` is a fact only if `S`'s membership in every set that bounds a method of `f` is settled. Where `S` could still join such a set, the call is a run-time site: no edge, dispatched when it runs.
+- **Guarantees.** No late membership breaks a compiled fact, by construction.
+- **Costs.** Every call of a function that has a bounded method, at every type that is not yet a member, pays a dynamic dispatch and an `Any` result, forever. `f(x::Int)` where `f` has `f(::X)` and `Int` could join `X`: a run-time site. This is the trait tier spread over the whole program, at the price of the facts rule's tails everywhere.
+- **Breaks.** Performance of exactly the calls the design makes cheap. Rejected; recorded because it is the first thing one thinks of.
+
+#### C6. Membership epochs: compiled code keeps the membership of its compile world
+
+- **Rule.** Dispatch consults memberships as of the world the caller was compiled in; a new membership advances a membership world; old code is not invalidated and keeps the old answer.
+- **Guarantees.** No invalidation.
+- **Costs.** The same value dispatches differently in code compiled before and after the membership: C++0x's `late_check` inconsistency ("an object could be used in exactly the same way in two places in a program with different semantics", [the research record §3](../record/other-languages-research-2026-10-16.md#3-layering-bound-code-calls-only-bound-code)) and the cause of Rust specialization's unsoundness (type checking and code generation picking different impls, [Turon 2017](https://aturon.github.io/blog/2017/07/08/lifetime-dispatch/)). Julia's world age avoids this for methods by advancing every task at the top level and invalidating; a membership world without invalidation is stale code by design. Rejected.
+
+#### C7. What remains of "static beats dynamic": a precedence order for ties, not a mechanism
+
+- **Rule.** Dispatch is Julia's specificity over sets. Where two applicable methods are incomparable (`f(::AbstractMatrix)` and `f(::ColTable)` on a `Matrix{Float64}` that is a member of both), the tie is broken by the member's **local precedence order**: the supertypes named in the type's definition, in order, before memberships added later. Among memberships added later no order is assumed, and the ambiguity is reported where the overlap is created (the membership or the method that completes it, as issue #5 proposed and as the design's T-83 does); the joint method is written over the tuple of sets ([traits §3.7](../reference/traits.md#37-tuples-of-traits)).
+- **The analogue.** This is CLOS's and Dylan's class precedence list: "the definition of a class specifies a total ordering on that class and its direct superclasses", "each direct superclass precedes all other direct superclasses that follow it in the sequence", and the computed order must be "consistent with the local precedence order of C" ([Dylan Reference Manual, Classes](https://opendylan.org/books/drm/Classes)); the C3 linearization made it monotonic ([Barrett et al. 1996](https://dl.acm.org/doi/10.1145/236337.236343)). A type's definition lists its supertypes in order; a membership added later is appended. "Types first" is the two-rank form of that list.
+- **Why keep any order at all.** Julia's signatures cannot express an intersection of two sets (`where` takes one upper bound), so the joint method for a tree type and a set has no spelling without a new type form. The tuple of sets covers two traits; "tree type before set" covers the tree-and-set case without intersection types. With intersection types in the lattice, the order could go and Julia's ambiguity rule alone would remain; that is a larger change to subtyping than W-27 plans.
+- **What is an artefact, then.** The *mechanism*: an entry at `Any` deciding membership at run time with no edge. Under C4 it is not needed for G2. The *order* is a design choice with a known analogue, and it is what keeps "a library adopts traits one function at a time" true.
+
+#### C8. The escape: a newtype
+
+- Where C3 refuses a foreign member of a set that bounds foreign functions, the set's owner wraps: `struct AsGeo{T}; x::T; end; @implement GeoData AsGeo{T} where {T <: Shapefile.Table} by x`. This is Rust's answer to the orphan rule and the design's deferred named implementation ([traits §15](../reference/traits.md#15-named-implementations), `Via{Fast}(x)`). The wrapper is the set owner's own type, so every rule above is met. The cost is the caller's `AsGeo(t)`; [alternatives](../design/alternatives.md#other-options-considered-and-not-taken) rejected explicit wrapping as the general form, and it stays the escape only.
+
+### 11.3 Which candidates keep the guarantees
+
+| | One kind of membership | G1 | G2 | Lemma O | Untyped code | Existing packages | What it refuses |
+|---|---|---|---|---|---|---|---|
+| C1 members by owner | yes | yes | yes | as written | unchanged | unchanged | foreign members by a set's owner: BaseTraits, TraitCSV's extension |
+| C2 methods by owner | yes | yes | yes | with C4's terms | unchanged | unchanged | bounded methods on foreign functions for open sets: `Base.show(::IO, ::X)` |
+| **C3 the combination refused, per set** | yes | yes | yes | with C4's terms | unchanged | unchanged | only the combination; a mode per set |
+| **C4 Lemma O extended; pirates' treatment** | yes | yes | yes, letter and spirit | extended | unchanged | unchanged | the combination, where it wins; C3 statically in trait modules |
+| C5 membership-sensitive facts | yes | yes | yes | as written | slower everywhere | slower | nothing; costs instead |
+| C6 epochs | yes | **no** (inconsistent dispatch) | yes | — | — | — | — |
+| C7 precedence order | (a tie rule for any of the above) | yes | yes | — | unchanged | unchanged | nothing; orders |
+| the design today (two tiers) | no | yes | yes | as written | unchanged | unchanged | a dynamic member overriding a tree method |
+
+### 11.4 What the other languages suggest
+
+- **Rust's coherence** is the direct precedent for C3: an impl is valid if the trait is local, or a local type appears among the impl's types before any uncovered type parameter ([reference, orphan rules](https://doc.rust-lang.org/reference/items/implementations.html#orphan-rules)). The refused `impl<T: Local> Foreign for T` is "a foreign function dispatching on a local set over arbitrary types", which is §11.1's combination. Rust needs the rule for coherence (one impl per pair); Julia needs it for facts (no late winner). The same rule serves both, which is some evidence that it is the right cut.
+- **Haskell's orphan instances** ([GHC user's guide](https://downloads.haskell.org/ghc/latest/docs/users_guide/separate_compilation.html)) show the cost of the other choice: an instance declared in a module that owns neither the class nor the type is visible depending on what was imported, and GHC must read every orphan module's interface "even though this is usually wasted work". A membership in an extension is Julia's orphan instance; Lemma M says which ones are harmless (those whose counterpart method is the function owner's).
+- **Swift's retroactive conformances** ([SE-0364](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0364-retroactive-conformance-warning.md)): "protocol conformances are globally unique within a process", and when two modules declare one "it is indeterminate which definition of this conformance will 'win'". Swift's problem is two memberships of one pair; ownership rules it out here. Swift's remedy (a warning, `@retroactive`) is strict mode's shape: refuse or flag the declaration, not the use.
+- **Scala 3 givens** ([reference](https://docs.scala-lang.org/scala3/reference/contextual/givens.html)) state no ownership rule and resolve by scope; the design rejected scope-based selection ([alternatives](../design/alternatives.md#named-implementations-by-module-deferred)). Not a candidate.
+- **Dylan's sealing** ([DRM, Define Sealed Domain](https://opendylan.org/books/drm/Define_Sealed_Domain)) is a promise about *methods* on a domain, made by the function's library, so the compiler may bind early. C3's "members by owner" is a promise about *memberships*, made by the set, so the method table at a member is complete when the member loads. It is sealing turned around: the set promises, not the function; and it costs no closed world. The design's rejection of sealing ([alternatives](../design/alternatives.md#sealing-rejected)) was of sealed functions and abstract types; a per-set membership mode is not that.
+- **Fortress's exclusion relation** ([Allen et al. 2011](https://people.mpi-sws.org/~skilpat/papers/multipoly.pdf)) is needed to check overloads for ambiguity *at definition* in an open world. C7 gives that up and reports at the overlap, as issue #5 and T-83 do. If definition-time completeness is wanted later, nominal exclusions ("`Number` and `AbstractString` share no member") are the known form, and they compose with C3.
+- **CLOS and Dylan's class precedence list** ([DRM, Classes](https://opendylan.org/books/drm/Classes); [Barrett et al. 1996](https://dl.acm.org/doi/10.1145/236337.236343)) are the precedent for C7: the order in a type's own definition decides ties, and later additions never reorder earlier ones (monotonicity).
+
+### 11.5 Recommendation, and the experiment that decides
+
+**Recommendation: C4 with C3 as its static face, and C7 for ties.** In one paragraph: a membership is a definition; the stakeholders of a signature are the owners of its function, its types and their consented supertypes; a definition by a non-stakeholder that wins at a compiled fact is a pirate, membership or method alike, and gets the pirate's treatment (refused in trait modules, refused by strict mode where it wins, followed by default); a set declares whether its members join by their own owners or by the set's owner, and the trait module refuses, at the definition, the one combination that could ever win (a foreign member of a set together with a method on that set for a foreign function); ties between a type's own supertypes and later memberships go to the former. Then `@implement X S` is `S <: X`, there is one kind of membership and one dispatch, and the only new sentence in the facts reference is the definition of consented supertypes.
+
+What it reverses in the design: the plan to lift L-3 for open sets ([traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits), "or to another package's function where the package owns a trait the bound names"); that permission survives only for members-by-owner sets. What it keeps: everything in [traits §10](../reference/traits.md#10-who-may-implement-pirates-strict-mode), the showcase extensions (TraitCSV, BaseTraits), the ports' capability traits (their functions are their owners').
+
+**The smallest experiments** (registry rows first; minutes each; no Julia change):
+
+| ID | Question | How | Result that decides |
+|---|---|---|---|
+| **U5. Does anything we built do the forbidden combination?** | How often do the demonstrators and the port's core bound a foreign function by a set whose owner declares foreign members? | A script over TraitWorld's registries in each demonstrator's and the port's trait modules: for every bounded method (`__tw_entries__`, the workers' bounds), the function's owner module against the defining module; for every implementation and family, the type's owner against the declaring module. Join on the set. Count the pairs; list them. | Zero or a handful with an obvious own-function spelling: C3 costs nothing in practice, and the recommendation stands. Many, or `Base.show` everywhere: C3's mode default must be weighed, or the design keeps the entry at `Any` for `show`-like functions only. |
+| **U6. Does Lemma M's premise hold in Julia's loader?** | Are an extension's definitions visible before a dependent package compiles, in precompilation and in a session, when both triggers are in the dependent's tree? | Four tiny packages in a scratch depot: `X` (a set and a method), `T` (a type), `XTExt` (the membership), `P` depending on `X` and `T` with a precompile workload at `(T,)`. Build `P`; check with `--trace-compile` and `Base.loaded_modules` that `XTExt` loaded before `P`'s workload ran; then a session that loads `P` alone, and one that loads `T`, compiles a call at `(T,)` in `Main`, then loads `X`. | The first two show the extension first; the third shows one invalidation of `Main`'s code (a stakeholder's own session). Any other order breaks Lemma M and sends the recommendation back to C2. |
+| U3 (§10) | the subtyping side | as in §10 | as in §10; U3 now also measures the cost of a `jl_subtype` lookup for memberships as facts |
+
+Order: U6 (an hour), U5 (an afternoon), then U3 (a build). U5 and U6 decide the recommendation; U3 decides whether Julia's subtyping can carry it.
+
+---
+
+## 12. Sources
 
 The design's documents are linked in place. External sources, all opened:
 
@@ -361,7 +513,10 @@ The design's documents are linked in place. External sources, all opened:
 - Dylan: [Dylan Reference Manual, Define Sealed Domain](https://opendylan.org/books/drm/Define_Sealed_Domain); [Declaring Characteristics of Generic Functions](https://opendylan.org/books/drm/Declaring_Characteristics_of_Generic_Functions).
 - Haskell: Wadler and Blott, [How to make ad-hoc polymorphism less ad hoc](https://www.cs.tufts.edu/~nr/cs257/archive/phil-wadler/class.pdf), POPL 1989; Peyton Jones, Jones, Meijer, [Type classes: an exploration of the design space](https://courses.cs.washington.edu/courses/cse590p/06sp/multi.pdf), Haskell Workshop 1997.
 - Scala: Oliveira, Moors, Odersky, [Type Classes as Objects and Implicits](https://infoscience.epfl.ch/record/150280), OOPSLA 2010.
-- Rust: [The Rust Reference, Traits (dyn compatibility)](https://doc.rust-lang.org/reference/items/traits.html).
-- Swift: [SE-0335 existential `any`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0335-existential-any.md); [SE-0352 implicitly opened existentials](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0352-implicit-open-existentials.md); Rose, [Swift Regret: Retroactive Conformances](https://belkadan.com/blog/2021/11/Swift-Regret-Retroactive-Conformances/), 2021.
+- Rust: [The Rust Reference, Traits (dyn compatibility)](https://doc.rust-lang.org/reference/items/traits.html); [The Rust Reference, Implementations (orphan rules)](https://doc.rust-lang.org/reference/items/implementations.html#orphan-rules); Turon, [Lifetime dispatch](https://aturon.github.io/blog/2017/07/08/lifetime-dispatch/), 2017.
+- Swift: [SE-0335 existential `any`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0335-existential-any.md); [SE-0352 implicitly opened existentials](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0352-implicit-open-existentials.md); [SE-0364 warning for retroactive conformances](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0364-retroactive-conformance-warning.md); Rose, [Swift Regret: Retroactive Conformances](https://belkadan.com/blog/2021/11/Swift-Regret-Retroactive-Conformances/), 2021.
+- Haskell, GHC: [Orphan modules and instance declarations](https://downloads.haskell.org/ghc/latest/docs/users_guide/separate_compilation.html) (the GHC user's guide).
+- Scala 3: [Given instances](https://docs.scala-lang.org/scala3/reference/contextual/givens.html).
+- Dylan, CLOS: [Dylan Reference Manual, Classes (the class precedence list)](https://opendylan.org/books/drm/Classes); Barrett, Cassels, Haahr, Moon, Playford, Withington, [A Monotonic Superclass Linearization for Dylan](https://dl.acm.org/doi/10.1145/236337.236343), OOPSLA 1996 (the ACM page was not fetched; the citation is as the GOO manual gives it).
 - Clojure: [Protocols](https://clojure.org/reference/protocols).
 - Go: [The Go Programming Language Specification](https://go.dev/ref/spec), interface types (the spec's wording was not fetched; secondary sources agree that satisfaction is implicit and structural).
