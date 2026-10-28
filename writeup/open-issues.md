@@ -8,7 +8,14 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 ## 1. Decisions waiting for the user
 
-Eight of the choices the clean-up adopted, and the night's choices marked mine, are for a review session with the user ([W-71](record/todo.md)).
+81. **Revise and trait modules** (found by W-78, 2026-10-28; traits T-81). Revise tracks a file by its top-level statements. It cannot load a file whose top level is `@trait_module module … end` ("module expression not at top level"), and it sees a `@trait_module begin … end` block as one statement: an edit of a bounded function inside it does not take effect (`experiments/w78/`). Options:
+   - (a) **a trait module as a plain module that declares itself one:** `module M; @trait_module; … end`, with every later statement evaluated into it transformed by TraitWorld's front before Julia's lowering (built for W-78), and the module's end run where Julia finishes the module. Revise then sees, and re-evaluates, the statements one by one. `@trait_module module M … end` can stay as a spelling of the same. It needs a place where Julia tells the library that a module's body is evaluated (a small Julia change, or the package callback for a package's top module);
+   - (b) **a Revise extension in TraitWorld** that hands Revise the statements of a `@trait_module` block one by one;
+   - (c) leave it: edits by `eval` work; a file edit needs a restart.
+
+   **My recommendation: (a).** It makes a trait module an ordinary module to every tool that reads files (Revise, a language server, `include` with its own transform), and it uses the mechanism W-78 built. It changes the surface syntax, so it is yours to decide.
+
+Eight of the choices the clean-up adopted, and the choices marked mine in the decision log since 2026-10-27, are for a review session with the user ([W-71](record/todo.md)).
 
 Waiting for evidence, not for the user:
 

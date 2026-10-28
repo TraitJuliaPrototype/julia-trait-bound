@@ -158,7 +158,7 @@ end
 
 A prefix sets fully typed mode for every function in the module ([§11](#11-concreteness-and-fully-typed-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
 
-**Status:** Implemented, except a bounded function defined again after the module's end (Planned, [T-81](#17-deviations)).
+**Status:** Implemented, except an edit by Revise ([T-81](#17-deviations)).
 
 ---
 
@@ -1573,4 +1573,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-78 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
 | T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
-| T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function. | The definition is accepted as a method at the trait type; the entry keeps calling the worker the module's end generated, so calls give the old result, silently. | `experiments/w66/e202/edit_case.jl` (E-202 (c)); W-78 |
+| T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function, by `eval` or by Revise. | By `eval` it does. Revise does not apply an edit of a trait module's file: it cannot load a file whose top level is `@trait_module module … end` ("module expression not at top level"), and it re-evaluates a `@trait_module begin … end` block as one statement, so the edit does not take effect ([open issue 81](../open-issues.md#1-decisions-waiting-for-the-user)). | `experiments/w78/revise/`, `experiments/w78/README.md` |
