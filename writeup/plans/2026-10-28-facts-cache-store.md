@@ -1,78 +1,128 @@
 # The store of the facts-keyed cache, and its vehicle (W-66, step 4)
 
-Status: **proposal, revision 1, reviewed; not to be built as written** (2026-10-28, mine; W-66). Not normative. [Its fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) found three blocking faults (B1 `Serialization` cannot carry compiled code; B2 the fingerprints miss values that optimized IR embeds; B3 inferred code is discarded before exit) and proposes validating stored code with Julia's own edge validation (M1), which changes the user's decision on the fingerprints' form: [open issue 80](../open-issues.md#1-decisions-waiting-for-the-user). The user decided it on 2026-10-28 (option (b), M1's form): the revision is next (§7).
+Status: **proposal, revision 2** (2026-10-28, mine; W-66). Not normative. Revision 1 was reviewed by [a fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) (B1–B3 blocking, M1–M6, m1–m8). Revision 2 takes every finding (§8) and the user's answer to open issue 80 (2026-10-28, "Accept both suggestions."): a stored entry is valid by Julia's validation of its edges, with fingerprints for content only ([decisions](../record/decisions.md) §5; [facts §11](../reference/facts.md#11-package-images)). No Julia change before E-a and E-0 (§6).
 
 ## 1. What is settled
 
-[The note](2026-10-27-facts-keyed-cache.md) (revision 2, §5b) and its experiments fix what an entry is and when it is valid:
-- **An entry** is a CodeInstance of owner `:facts`, compiled by a session, naming no type or function of the session.
-- **Its identity** is a fingerprint scoped by the facts rule: F1 its method's lowered code; F2 per fact the stakeholders' methods of the fact's function and, for a callee, its inferred result; F3 the layouts it reads (E-195).
-- **Its candidates:** the entry records the methods from outside each fact's stakeholders that intersect the fact. A session flags a candidate that is new, gone or changed (E-195 part 4: all of C's 2,143 entries kept across an unrelated FunctionWrappers update; none unsound in 30 small checks).
-- **Folds and bindings** are checked as today; a fold is evaluated at load (compiler §4.4).
-- **Strict mode is policy:** in a cache entry, a winning candidate discards the entry for the session.
+- **An entry** is a CodeInstance of owner `:facts`: its optimized IR and its result. It names no type or function of the session (a closure of `Main`, a type defined at the prompt).
+- **Validity** (the user, 2026-10-28; review M1): the entry's edges go through Julia's own validation of loaded code, `verify_method_graph` (`Compiler/src/reinfer.jl`), in the session's latest world:
+  - dispatch at every edge exact, by the methods that match now against the recorded ones;
+  - `invoke` signatures, deleted methods, bindings' partitions, folds (`FoldRecord`s, evaluated at load, compiler §4.4);
+  - a recursive group passes or fails as one (Tarjan's components);
+  - world ranges from the validation, never from the record; insertion and backedges by Julia (`jl_mi_cache_insert`, `store_backedges`, `jl_promote_ci_to_current`).
+- **Content** (the fingerprints, E-195's F1 and F3, narrowed): what the edges do not cover.
+  - F1 of the entry's method, of each method its edges name, and of each method inlined into it (from its debug info);
+  - F3, the layouts of the types it reads;
+  - **the values it embeds** (review B2): every constant binding its code reads, with a hash of its value. A value with identity is relinked through its binding, or the entry is not stored;
+  - **the flags** that change optimized IR (Julia's `CacheFlags`: check-bounds, inline, optimization level, debug level) and the module options inference reads (review m1).
+- **Not stored** (review M4, m3, m4):
+  - an entry with an edge to code of another owner (`return_type`'s plain answers, plain compiler code, an `:invoke` of plain code). E-194 found none in C; excluding them costs nothing measured;
+  - an entry whose method, or a method inlined into it, is generated or makes an opaque closure;
+  - an entry of an anonymous module;
+  - an entry whose IR holds a generated name (`#f#12`) that occurs in the lowered code of no method whose F1 it records.
+- **What E-195 showed stays evidence for the content fingerprints:** F1 and F3 stable across an unrelated update for all of C's 2,143 entries. F2 (the stakeholders' methods per fact) and the candidate index no longer decide validity; Lemma O explains why `verify_method_graph` rarely fails on facts edges.
 
-What is open is the store: what is kept, where, and how a session finds and uses an entry.
+## 2. The vehicles, and the bound on the gain
 
-## 2. What the store must give, and the bound on its gain
-
-- **Inference first.** In C's session facts inference is 7.29 s of self-time against 6.32 s of code generation (E-194, overlapping). A store of inferred code removes the first; a store of machine code would remove both, but Julia cannot load machine code outside a package image, which links to its dependencies by build id.
-- **So the first vehicle keeps inferred code,** and code generation stays in the session. Its bound: about the facts inference of a session's first calls, in C several seconds, in D (idiomatic trait code, whose images already hold its code) little.
-- **The fingerprints' cost** is paid at a lookup. The prototype (`experiments/w66/Fingerprints.jl`) was not built for speed and its cost was not measured alone; E-195's checks spent minutes, most of it the witness (the code typed again).
+- **The machine-code vehicle** (the environment-keyed cache, E-180, retired): C off its workload from 19.4 to 6.1 s. Julia loads machine code only from a package image, which links to its dependencies by build id, so it cannot be shared across environments.
+- **This store keeps optimized IR,** and code generation stays in the session. Its ceiling is lower: about the inference and optimization of the entries it admits. C's facts inference was 7.29 s of self-time against 6.32 s of code generation (E-194), but those are overlapping per-CodeInstance sums over all 2,506 facts CodeInstances of C/p, 671 of which name the session (review M6). The bound is E-a's to establish.
+- **The trade** is the user's direction (decisions §5, 2026-10-27): a lower ceiling for reuse across environments.
+- **Where the gain is:** facts code over upstream packages (interop, C). Idiomatic trait code (D) gains little: its images hold its code already (0.08 s of facts inference in D, E-194).
 
 ## 3. The proposal
 
-### 3.1 What an entry stores
+### 3.1 Capture: when the code is made
 
-- The method, by module path, name and signature; the specialization (`specTypes`).
-- The inferred code, uncompressed (`CodeInfo`), with its edges as signatures and method references by path, as `Serialization` writes them. Compressed IR indexes its method's roots, which a session may number differently.
-- The result: return and exception type, effects, constant result.
-- The fingerprint (F1–F3) and the recorded candidates.
-- Its first-call checks' passes, as §2.4's records are (the checked-record, E-203).
+- Julia discards a facts CodeInstance's inferred code once it is compiled, unless it can be inlined (`maybe_compress_codeinfo`; review B3). Nothing is left to write at exit.
+- **A recording session keeps the optimized IR of owner `:facts`** as the precompile mode does (`precompile_keep_ir`): a Julia change, a flag read in `finish!`, beside `jl_push_newly_inferred`.
+- For E-0 and E-a no Julia change: a recording script infers the session's facts MethodInstances again with the facts interpreter (`Compiler.facts_interp`, `cache_mode = :no`) and takes that IR (review M5's witness).
 
-### 3.2 Where
+### 3.2 The writer and the reader (review B1)
 
-- **One store per Julia build and setting,** in the depot (`compiled/v1.13/facts-cache/`), keyed by the method's path and specialization. An entry is usable in any environment whose fingerprints match (the note §2, M1).
-- **Written at a session's exit,** as TraitWorld's retired environment-keyed cache wrote its own (E-180): the session's new facts CodeInstances that pass §1's conditions. An entry already present with the same fingerprint is not written again.
-- **Read lazily:** an index (path and specialization → file offset) is read at the first facts compile request of a session; an entry only when asked for.
+`Serialization` is not the vehicle: it writes Methods by content with process-local numbers, makes new Methods and may insert them into the method table when read, and returns MethodInstances and CodeInstances that no cache knows. The store has a writer and reader of its own, with a table of external references by stable name (rustc's model, `../record/incremental-precedents-research-2026-10-27.md`):
+- a method by module path, name and signature, checked against its F1;
+- a MethodInstance interned in the session (`specialize_method`);
+- a CodeInstance by its MethodInstance and owner, resolved to one of the session (a store entry, or one already valid); an `:invoke` statement is relinked so, or the entry is not read (else the JIT queue would cache a copy without validation);
+- a binding by module and name;
+- a type by path;
+- a constant only where it has no identity. A `SplitTable` is made again by `split_table` (compiler §4.3); any other object with identity makes the entry not storable.
 
-### 3.3 How a session uses an entry: a lookup before inference
+**Reading has no side effect before validation:** it defines nothing, inserts nothing, and a failed reference makes the entry miss.
 
-- **The hook (a Julia change):** when the facts interpreter misses its cache for a MethodInstance (`typeinf_ext`, `typeinf_edge` under owner `:facts`), it asks a lookup function, if one is installed: `facts_store_lookup(mi) -> Union{Nothing, CodeInstance}`.
-- **The lookup** (TraitWorld, or a small Compiler module): finds the entry, computes the fingerprint of what it names in this session (F1–F3, memoized per function and world), compares the candidates, evaluates its folds, and on a match builds a CodeInstance of owner `:facts` from the stored code, with its edges resolved in this world, and inserts it as inference would. On any mismatch it returns `nothing`, and the session infers as it does now.
-- **Edges and invalidation:** the inserted CodeInstance has ordinary edges, so the session's invalidation follows it as any other code. Nothing new is needed after insertion.
-- **Callees:** an entry's callee CodeInstances are entries too, looked up when the edges are resolved; a callee that misses makes the caller miss (no partial insertion).
+### 3.3 Where
 
-### 3.4 What it does not do
+- **One store per Julia build and `CacheFlags`,** in the depot (`compiled/v1.13/facts-store/`). Not per setting: an image's CodeInstances mean the same in both settings ([facts §11](../reference/facts.md#11-package-images)), and so does an entry.
+- **One file per entry,** written by atomic rename, so sessions that exit together do not clash (review m5; E-195 run 3 lost a file of the shared depot).
+- **Bounded:** variants of one key with different content fingerprints are kept up to a small number; the oldest goes first. The store's size is capped, least recently used first.
 
-- No machine code: code generation of an inserted CodeInstance runs as for inferred code.
-- No plain code: the plain half of a session (E-194: 1,557 of C's CodeInstances) is outside the facts rule.
-- No validation of package images (PE-8).
+### 3.4 Insertion: eager, after each load (review M2)
 
-## 4. Risks and the questions for the review
+- **After each package load, outside inference,** in the latest world: every entry whose methods are all loaded and whose content checks pass is relocated, with `max_world` set to the revalidation sentinel, and handed to `verify_method_graph`. This is what image loading does; most of it is Compiler code that exists.
+- **No hook inside inference.** Inside `typeinf_edge` a lookup would evaluate folds at load inside inference (against compiler §4.4), would have to respect the stack and `engine_reserve`, and could not take an entry checked only in the latest world for an inference in an older one. A hook is considered only if E-c finds the eager cost on unused entries too high; the lazy index then serves it.
+- **Not while a package image is built** (review m2): entries inserted there would enter the image, which holds only code compiled while it was built (facts §11).
+- **Inert in a trimmed build:** it has no facts code (compiler §2.10).
 
-1. **Soundness of insertion:** is a CodeInstance built from stored inferred code, with re-resolved edges, the same as inference would make in this world when the fingerprints match? The fingerprints were tested against the compiled code as a witness (E-195), not against insertion.
-2. **Cycles:** a recursive group must be inserted together, or not at all (GHC's #18733, the note §5b).
-3. **The hook's place:** `typeinf_edge` runs inside an inference; inserting there must not break the caller's cycle detection or world bounds.
-4. **Cost:** the fingerprint at lookup (F2 walks the stakeholders' methods of every fact's function) against the inference it saves. A lookup that costs more than inferring is no gain.
-5. **What `Serialization` can carry:** closures, generated functions' output, opaque closures, and `Core.Binding` edges.
+### 3.5 What the session keeps
 
-## 5. Experiments before the Julia change (to register)
+An inserted entry's code that can be inlined is compressed against the session's method roots (`jl_compress_ir`); the rest is dropped after code generation, as Julia does (review m6).
 
-- **E-a, the gain's bound:** in C and D (perturbed shapes), the facts inference self-time of the CodeInstances that §1's conditions admit, against the session (from E-194's probe).
-- **E-b, the lookup's cost:** the fingerprint of every entry of C, computed in a session from memoized per-function parts, timed.
-- **E-c, insertion without the hook:** in a fresh session, before the workload, the stored entries inserted for every MethodInstance in a recorded list (a Julia script, as a lookup would), then the workload: the results equal, the facts inference saved, the code the session compiles. **Would change the plan:** results that differ, or a saving under the lookup's cost.
+### 3.6 What it gives up, for now
 
-## 6. Where it would be recorded
+- **Early cutoff** (review M3): a callee whose content changed makes its caller miss, even when only the callee's body changed and its result is equal. Keeping the caller when the callee's inferred result is equal is a later refinement.
+- **Entries over other owners' code** (§1).
+- **Generated functions and opaque closures** (§1).
 
-[Compiler](../reference/compiler.md) (a planned section for the hook and the store), [facts §11](../reference/facts.md#package-images) (what a session may take from the store), the note's §2, W-66's row, `design/julia-changes.md`.
+## 4. Soundness: G1's criterion
 
-## 7. The review, and what is done with it
+"The same as inference would make" is not defined: inference depends on history (what was inlined, what was cached). The criterion is G1's: the code computes the same, with the same effects (review M3). An inserted entry meets it when:
+- every edge verifies in this world;
+- every CodeInstance its IR names is relinked to a valid one of this session with the recorded result (return and exception type, effects, constant result);
+- every method inlined into it is unchanged (F1);
+- every embedded value is the same;
+- the flags and the optimizer's parameters are the same.
 
-[The review](../reviews/2026-10-28-facts-cache-store.md) (fresh eyes, Opus, of revision 1):
-- **B1** (`Serialization` copies Methods and MethodInstances, may insert methods, copies Bindings): the store needs a writer and reader of its own that name everything outside an entry by stable name (rustc's model). For the revision.
-- **B2** (`const` values, preferences and objects with identity embedded in optimized IR): the content fingerprint must cover the values an entry embeds; an experiment by construction (E-0) comes first.
-- **B3** (inferred code discarded once compiled): entries are captured in `finish!`, not at exit.
-- **M1** (Julia's `verify_method_graph` validates loaded CodeInstances exactly, cycles included; fingerprints then only for content): open issue 80, the user's to decide, since it changes the form of F2 decided on 2026-10-27.
-- **M2** (no hook inside `typeinf_edge`; eager insertion after loads, as E-c does): for the revision.
-- **M3–M6** (optimized IR and G1 as the criterion; entries reaching plain code excluded, as the note says; E-195's witness weaker than read; the gain's bound not established): for the revision, with E-0 before E-c.
-- **m1–m8:** for the revision.
+## 5. What the references gain when it is built (review m7)
+
+- [Facts §2.1](../reference/facts.md#g1) (G1's sources of valid code): the store as a source.
+- [Facts §10.3](../reference/facts.md#strict-intended)'s table: a pirate that breaks a stored entry discards it silently, in strict mode too. A stored entry is evidence, not a contract; an image's broken fact stays the one strict mode reports (mine).
+- [Compiler §4.4](../reference/compiler.md#44-compilerfold_call): folds of stored entries are evaluated at insertion, outside inference.
+- [Facts §11](../reference/facts.md#11-package-images): its Planned paragraph, with insertion off while an image is built.
+- [Compiler](../reference/compiler.md): a section for the capture flag and the insertion.
+- `design/julia-changes.md`: the capture flag.
+
+## 6. Experiments, in order
+
+- **E-a, the gain's bound** (no Julia change): in C off its workload and in D (perturbed shapes), the exclusive wall-clock time of inference and optimization of the CodeInstances §1 admits; the memory their IR takes; the entries §1 excludes, by reason. **Would change the plan:** a bound under about 1 s in C, the bar at which the store's own costs would eat the gain.
+- **E-0, soundness by construction** (minutes, toy packages, as E-193): record in one environment, insert in another through a prototype of §3.2 and §3.4 in Julia code, and compare each entry with a fresh facts inference. Cases: a preference read into a `const`; a `const` computed from a dependency; a mutable constant used for identity; a closure renumbered in a callee's module; a generator changed with the same stub; a recursive pair; a pirate loaded before insertion; an inference in an older world. **Would change the plan:** a case kept whose code differs.
+- **E-b, the cost of validity:** relocation and `verify_method_graph` for C's entries, timed beside E-195's fingerprints (F2 and the index), facts on Base functions included.
+- **E-c, insertion after the loads:** C's session with the store, its parts timed (reading, relocation, content checks, validation, the code generation that remains); each entry compared as in E-0. **Would change the plan:** results that differ, or a saving under the store's costs.
+
+## 7. Alternatives looked at
+
+- **A hook in inference** (revision 1): see §3.4.
+- **`Serialization` as the vehicle** (revision 1): see §3.2.
+- **Validity by F2 and the candidate index** (decided 2026-10-27, replaced by the user's answer to open issue 80): recorded in `design/alternatives.md`.
+- **An image of the copies of Base methods compiled by facts, keyed by the Julia build:** keep-compiled exists (compiler §2.9) and such an image never goes stale within a build, but C has only 173 such entries (E-194). Not a step of its own.
+- **Only `return_type`'s results:** C made 7 answers (E-194). Not worth it.
+
+## 8. The review of revision 1, and what is done with each finding
+
+| Finding | Done |
+|---|---|
+| B1 `Serialization` | §3.2: a writer and reader of its own |
+| B2 embedded values | §1 (content), §3.2 (constants), E-0's first three cases |
+| B3 nothing at exit | §3.1: captured when made |
+| M1 `verify_method_graph` | §1, the user's answer to open issue 80 |
+| M2 the hook's place | §3.4: eager insertion after loads |
+| M3 optimized IR, G1 | §1, §4; early cutoff given up (§3.6) |
+| M4 other owners | §1: not stored |
+| M5 E-195's witness | §3.1, E-0 witnesses with the facts interpreter |
+| M6 the bound, the order | §2, §6 (E-0 added) |
+| m1 the key | §1 (flags, module options), §3.3 (not per setting) |
+| m2 precompilation, trim | §3.4 |
+| m3 generated, opaque | §1 |
+| m4 generated names | §1 |
+| m5 a shared depot | §3.3 |
+| m6 IR kept | §3.5 |
+| m7 references | §5 |
+| m8 the citation | §1 no longer cites the 30 checks (E-195 parts 1–2) |
