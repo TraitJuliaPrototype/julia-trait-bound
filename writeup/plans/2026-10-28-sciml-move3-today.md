@@ -27,3 +27,15 @@ Status: **adopted** (2026-10-28, mine; W-34, E-159). Not normative. It adapts [t
 5. The Tsit5 steady state per step and Rodas5's first solve unchanged by the split (E-210's numbers).
 
 **Would change the design:** a solver package that needs a rule the references refuse (a pirate, an implementation it may not declare), or a core whose API for solvers cannot be stated as traits and operations.
+
+## 4. Stage C: the linear solver an open set inside the solver
+
+The user (2026-10-28): "One note on Solvers. One of the especially important aspects in DE.jl is that it is possible to use various linear/nonlinear solvers within Rodas/etc..."
+
+In DifferentialEquations.jl an implicit method takes a linear solver (`Rodas5(linsolve = KrylovJL_GMRES())`, any LinearSolve.jl algorithm) and, for the fully implicit methods, a nonlinear solver: open sets inside an open set. TDE's Rodas5 hard-codes dense LU.
+
+- **`LinearSolver`, a trait of the core** (LinearSolve's interface in brief): `linfactor!(ls, W::Matrix{Float64})` keeps what the solve needs, `linsolve!(ls, x::Vector{Float64}, b::Vector{Float64})` solves with it. `DenseLU` implements it in the core.
+- **`Rodas5{L}` keeps its linear solver** in a field whose parameter is bounded by `LinearSolver` (traits §7.4): `Rodas5(linsolve = DenseLU())`, `Dynamic` by default, `compiled_for` per solver.
+- **A second linear solver in a package of its own** (`lib/TraitLinSolvers`: a Jacobi-preconditioned iteration, enough for the test problems), and a user's own at the prompt: neither known to TraitRodas.
+
+Checks (E-220): results with `DenseLU` identical to stage B's; the other solvers' results within their tolerance; TraitRodas unchanged when a linear solver is added; the solver code compiled once for every `Dynamic` linear solver, and per solver under `compiled_for`; the time per Rodas5 step against stage B's. **Would change the design:** a solver package that cannot take another package's linear solver without editing either, or a nested open set that compiles per combination where the attribute says it should not.
