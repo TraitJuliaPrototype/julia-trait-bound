@@ -1,6 +1,6 @@
 # Pick up here: the night's results, then W-40 and the port
 
-Status: **current; the pick-up note for the next session** (rewritten 2026-10-22, end of session 33). Read this note, then the documents it names. The session note: [`../../session-notes/2026-10-22-33-decisions-and-validation.md`](../../session-notes/2026-10-22-33-decisions-and-validation.md).
+Status: **superseded** (2026-10-28): the order of work is `../state.md` §6.3 and the work queue (`../record/todo.md`); the SciML port is W-34. Kept as the pick-up note of session 33 (rewritten 2026-10-22). The session note: [`../../session-notes/2026-10-22-33-decisions-and-validation.md`](../../session-notes/2026-10-22-33-decisions-and-validation.md).
 
 ## First: the night of 2026-10-22/23
 

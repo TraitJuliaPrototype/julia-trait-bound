@@ -1,6 +1,6 @@
 # The cache across sessions keyed on facts and their origins
 
-Status: **proposal, revision 2** (2026-10-27, mine; W-66): after [its fresh-eye review](../reviews/2026-10-27-facts-keyed-cache.md) (§6) and the user's suggestion on pirates outside strict mode. Not normative. Builds on [the exploration](../explorations/facts-keyed-cache.md). The environment-keyed cache (W-62) is retired ([alternatives](../design/alternatives.md)).
+Status: **adopted in part**: the identity by fingerprints (§5b; the user, 2026-10-27); validity replaced by Julia's validation of edges, with fingerprints for content (the user, 2026-10-28, open issue 80; [the store's note](2026-10-28-facts-cache-store.md)). Revision 2 (2026-10-27, mine; W-66): after [its fresh-eye review](../reviews/2026-10-27-facts-keyed-cache.md) (§6) and the user's suggestion on pirates outside strict mode. Not normative. Builds on [the exploration](../explorations/facts-keyed-cache.md). The environment-keyed cache (W-62) is retired ([alternatives](../design/alternatives.md)).
 
 ## 1. What it is for
 

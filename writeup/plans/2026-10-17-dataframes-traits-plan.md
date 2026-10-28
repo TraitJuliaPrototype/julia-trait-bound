@@ -1,5 +1,7 @@
 # Plan: Tables, DataFrames and CSV in the trait world (demonstrator 4)
 
+Status: **done in part** (M0, M1, M2–M5 as a trait port, M6 in part; session 29); paused in session 29, unpaused 2026-10-28: the next step is W-79's design memo, which the forks (W-14) follow. Not normative.
+
 Written 2026-10-17 (session 27, Fable 5.1), on the user's request: "We should do the DataFrames Traits version. Take the full Tables.jl, DataFrames.jl and CSV.jl packages. Design traits that express the behaviors DataFrames needs from its Series, Columns, Tables, etc. Incorporate traits where it is natural to do so. Show that bringing traits into the system enables interactive work at Python speeds for the full stack on the patched binary."
 
 Context: the fresh-eye review (`writeup/reviews/2026-10-17-demonstrators-fresh-eye.md`, B1, B2, S3) found that the demonstrators compare small trait libraries against small plain baselines, and that no row measures an interactive session. This plan answers both at once: the baseline becomes the real upstream packages, unmodified, and the measured object is a REPL session.
