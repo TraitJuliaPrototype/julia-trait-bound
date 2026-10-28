@@ -84,7 +84,6 @@ The deviations of the implementation from the design are listed per reference, w
   - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads; W-7);
   - the forks' session on a quiet machine (the round's had a load average of 3.4–5.2); the forked CSV does not precompile on TraitWorld bbfc130 (W-14);
   - the raytrace rows on a current build (the solver per step and the `Dynamic` sums are measured again: E-163, E-164).
-- **The TraitMakie image flake:** a 3.3e-5 pixel difference, once in five runs, not reproduced (E-95, W-9).
 
 ## 6. The software: today, the target, the order of work
 
