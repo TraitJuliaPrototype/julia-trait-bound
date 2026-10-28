@@ -72,15 +72,15 @@ Mechanisms 1 and 2 are the facts compiler. Mechanisms 3 and 4 are general improv
 
 ## 4. The caveat: mechanism 2 is not yet one rule in the code
 
-Which mode and owner a method's code gets is decided in six places ([compiler C-1](reference/compiler.md#deviations)):
+Which mode and owner a method's code gets is decided in five places ([compiler C-1](reference/compiler.md#deviations)):
 - the single-request entry, `typeinf_ext_toplevel`;
-- `interp_for_owner` and `interp_for_mi`, for compile queues;
+- `interp_for_owner`, for compile queues;
 - `leaves_to`, for calls between the modes;
 - the runtime's `jl_default_owner` and `facts_callee_owner`, for dispatch.
 
-They use two predicates for "compiler code": a module flag in the runtime and a module walk in the Compiler.
+They share one predicate for "compiler code", the module flag. The setting decides only the default owner, and the mode is the owner ([compiler §2.3](reference/compiler.md#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code)).
 
-Today's bug came from exactly this. The image builder's compile queue did not apply the rule, so under `all` part of the compiler was compiled by facts. Its `@nospecialize` helpers became run-time sites.
+A bug came from deciding it in several places: the image builder's compile queue did not apply the rule, so under `all` part of the compiler was compiled by facts. Its `@nospecialize` helpers became run-time sites.
 
 Measured on the CSV+DataFrames work under `all`, after the fix:
 
@@ -90,8 +90,6 @@ Measured on the CSV+DataFrames work under `all`, after the fix:
 | Dynamic calls (top 40 callees) | 2.05 M | 0.13 M | 0.81 M |
 
 **The next step:** one function, "the mode and owner of a MethodInstance's code", called from every place above. With it, "four mechanisms plus fixes" is literally true of the code.
-
-**A second gap in mechanism 2:** under `all`, plain results and results compiled by facts share the default owner's cache. A Base method called by the compiler can therefore reuse a result compiled by facts. Results stay correct; such calls are only slower. The planned fix puts code compiled by facts under the facts owner `:facts` under `all` too, as in the product setting, so the default owner holds plain code only ([compiler C-2](reference/compiler.md#deviations), [facts F-2](reference/facts.md#deviations)).
 
 ## 5. Not yet established
 
@@ -114,7 +112,7 @@ The deviations of the implementation from the design are listed per reference, w
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
 - **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the rule check by the default interpreter's reflection, facts inference for workers; the keep analysis and the result-type checks on a plain `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers ([lowering §9.2](reference/lowering.md#92-untyped-callers-the-erased-worker)), compiling ahead from declarations ([lowering §15.1](reference/lowering.md#151-compiling-ahead-from-declarations)), fully typed mode with the fully-typed certificate, `verify_main`, strict mode (scoped to trait code; it also protects all `:facts` code and some plain code, [facts §10.2](reference/facts.md#strict-mode), the note), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.split_call` sites.
-- **The builds:** julia-1.13 41d199c557 (W-41, W-43, W-52, W-40, part of W-57, W-59; the sources of 6800be7839, W-64 reverted) with its facts system image; TraitWorld main 5589f4c, and its branch `session-cache` (the environment-keyed cache across sessions, W-62, E-180: retired, not merged; the direction is the facts-keyed cache, W-66); TraitDifferentialEquations w34 6234487 (W-63: the parameters partially evaluated at the surface, E-181; every suite passes, `experiments/checks/logs/w63/`).
+- **The builds:** julia-1.13 8ceda6f9d6 (W-41, W-43, W-52, W-40, part of W-57, W-59, W-22's mode-is-owner) with its facts system image; TraitWorld main d924f38 (T-51 retired), and its branch `session-cache` (the environment-keyed cache across sessions, W-62, E-180: retired, not merged; the direction is the facts-keyed cache, W-66); TraitDifferentialEquations w34 6234487 (W-63: the parameters partially evaluated at the surface, E-181; every suite passes, `experiments/checks/logs/w63/`).
 - **Tests** (2026-10-27, on those builds; `experiments/checks/logs/w59-all/`): TraitWorld's suite in the product setting, and under `all` but for the known F-8; acceptance 33/33 in both settings; the demonstrators' suites (TraitTables, TraitCSV, TraitMakie, TraitDifferentialEquations); the documentation's examples (79, 5 and 58 checks). The forks do not precompile on the current TraitWorld (W-14).
 - **Measured:** [`evidence.md`](design/evidence.md).
 
@@ -156,8 +154,8 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
    - calls slower than plain where trait code should be as fast (W-17, E-192).
-5. **The cache keyed on facts and their origins** (W-66): Phase A, then Phase B with strict mode's intended design.
-6. **One full Julia build:** W-66's Julia change, the setting in an image's key (W-69), one rule for a MethodInstance's mode and owner and one answer for `return_type` (W-22, E-190).
+5. **The cache keyed on facts and their origins** (W-66): entries identified by fingerprints (E-195); strict mode on facts code and its error at an image's load; then the store.
+6. **One rule, one answer** (W-22): one function for a MethodInstance's mode and owner; one answer for `return_type` (E-190; its plain answers are 65% of C's inference, E-200).
 7. **The large ports:** SciML (W-34) and Makie (W-70).
 8. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 

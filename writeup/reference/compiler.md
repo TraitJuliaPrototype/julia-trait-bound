@@ -58,7 +58,8 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 ```julia
 Compiler.NativeInterpreter(world::UInt = get_world_counter();
                            inf_params = InferenceParams(), opt_params = OptimizationParams(),
-                           facts::Bool = facts_default(), owner = nothing)
+                           owner = facts_default() ? FACTS_OWNER : nothing,
+                           facts::Bool = owner === FACTS_OWNER)
 Compiler.cache_owner(interp::NativeInterpreter) = interp.owner
 Compiler.facts_mode(interp::AbstractInterpreter)::Bool   # interp isa NativeInterpreter && interp.facts
 ```
@@ -68,15 +69,15 @@ Lives in `Compiler/src/types.jl` and `Compiler/src/facts.jl`.
 **Meaning.**
 - `facts`: whether this interpreter infers calls only at facts (§1.2). `false` is plain Julia's inference.
 - `owner`: the cache owner of the code it infers and caches. `nothing` is plain Julia's cache; `:facts` is the cache of code compiled by facts beside plain code (§2.3).
-- The two fields are independent. Today, under the test bed, an interpreter with `facts = true` also caches under `nothing` (§2.3, [C-2](#deviations)).
+- **The mode is the owner.** By default `facts` is whether the owner is `:facts`: an interpreter of owner `nothing` is plain in both settings, one of owner `:facts` compiles by facts in both. An interpreter with an owner of its own (TraitWorld's check results) sets both.
 - Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules: `facts_mode` is `false` for it.
 
 **The process switch.**
-- `Compiler.facts_default()` is the default of `facts`. It reads `jl_compile_by_facts()` (`src/gf.c`) once per process:
+- `Compiler.facts_default()` decides the default owner of a fresh interpreter: `:facts` with the switch on. It reads `jl_compile_by_facts()` (`src/gf.c`) once per process:
   - `JULIA_COMPILE_BY_FACTS=1` (any non-empty value but `0`): on;
   - `JULIA_COMPILE_BY_FACTS=0`: off;
-  - unset or empty: the system image's default. An image built with the switch on keeps it on: the first call of `facts_default()` with the switch on sets `FACTS_IMAGE`, which the image saves.
-- With the switch on, every method not marked otherwise is compiled by facts: *the test bed* (`all`). Today that code is cached under the default owner ([C-2](#deviations)). With the switch off, only facts methods are compiled by facts: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
+  - unset or empty: the system image's default. An image built with the switch on keeps it on: the first call of `facts_default()` with the switch on sets `FACTS_IMAGE`, which the image saves. The runtime reads it when the image is restored, before any module's `__init__` runs (`jl_read_facts_image_default`), since it calls the initializers under the default owner.
+- With the switch on, every method not marked otherwise is compiled by facts, under the owner `:facts`: *the test bed* (`all`). With the switch off, only facts methods are compiled by facts: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
 - `--trim` turns the switch off (§2.10).
 - **Planned:** a command-line flag, `--compile-by-facts=no|all|traits`, in place of the environment variable; `--trim` implies `no`.
 
@@ -169,7 +170,7 @@ Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-
 
 ### 1.5 Effects
 
-**Status: Implemented** (acceptance G1.10, G1.32, G1.33). One case under the test bed is open: [facts F-16](facts.md#deviations), to be checked again on this build.
+**Status: Implemented** (acceptance G1.10, G1.32, G1.33).
 
 Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`) and `abstractinterpretation.jl` (`merge_override_effects!`).
 
@@ -268,13 +269,13 @@ int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
 
 ### 2.3 The owners, and the mode and owner of a MethodInstance's code
 
-**Status: Implemented**, except the single function (**Planned**) and the facts owner for code compiled by facts under the test bed (**Planned**).
+**Status: Implemented**, except the single function (**Planned**).
 
 Three cache owners:
 
 | Owner | Holds | Code run from it |
 |---|---|---|
-| `nothing` | plain code (today, under the test bed, code compiled by facts too: [C-2](#deviations)) | yes |
+| `nothing` | plain code | yes |
 | `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts | yes |
 | `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never (package images still compile some: [C-12](#deviations)) |
 
@@ -285,8 +286,8 @@ Three cache owners:
 | a facts method (§2.2) | facts, `:facts` | facts, `:facts` |
 | never by facts (flag 0 in a module of flag 2) | plain, `nothing` | plain, `nothing` |
 | a boundary (flag 1) | the mode and owner that reach it | the mode and owner that reach it |
-| any other method, reached from plain code or from the runtime | plain, `nothing` | facts, `:facts` (today `nothing`: [C-2](#deviations)) |
-| any other method, reached from facts code | facts, `:facts` | facts, `:facts` (today the owner that reaches it: [C-2](#deviations)) |
+| any other method, reached from plain code or from the runtime | plain, `nothing` | facts, `:facts` |
+| any other method, reached from facts code | facts, `:facts` | facts, `:facts` |
 
 So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code.
 
@@ -299,14 +300,14 @@ So an ordinary method has one copy per mode that reaches it. A facts method has 
 
 It uses one predicate for "the compiler's code": the module flag 2. Its name is not fixed. Today the rule is decided in several places ([C-1](#deviations)).
 
-**Planned: the facts owner for the test bed too.** Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting. The default owner `nothing` holds plain code only. So plain code (the compiler, and the Base methods the compiler calls) never shares a cache with code compiled by facts ([`facts.md`](facts.md#the-mode-rule)). Today they share `nothing` ([C-2](#deviations)).
+**The setting decides one thing:** the default owner of a method that is neither a facts method nor the compiler's code, and of a top-level thunk, reached from the runtime or the top level (`jl_default_owner`, and the owner of a fresh `NativeInterpreter`): `:facts` under the test bed, `nothing` in the product setting. So plain code (the compiler, and the Base methods the compiler calls) never shares a cache with code compiled by facts ([`facts.md`](facts.md#the-mode-rule)), and a CodeInstance means the same in both settings.
 
 ### 2.4 Compile requests
 
 **Status: Implemented.**
 
 ```c
-jl_value_t *jl_default_owner(jl_method_instance_t *mi);   // :facts for a facts method, else nothing
+jl_value_t *jl_default_owner(jl_method_instance_t *mi);   // :facts for a facts method; under the test bed also for every other method and top-level thunk outside the compiler's modules; else nothing
 jl_code_instance_t *jl_type_infer(jl_method_instance_t *mi, size_t world, uint8_t source_mode, uint8_t trim_mode);
 ```
 
@@ -314,17 +315,17 @@ jl_code_instance_t *jl_type_infer(jl_method_instance_t *mi, size_t world, uint8_
 Compiler.typeinf_ext_toplevel(mi, world, source_mode, trim_mode, owner)   # the runtime's entry (jl_typeinf_func)
 Compiler.typeinf_ext(interp, mi, source_mode)
 Compiler.interp_for_owner(interp, owner)       # the interpreter for a queue item of owner `owner`
-Compiler.interp_for_mi(interp, owner, mi)      # the same, with the compiler's code plain under the test bed
-Compiler.default_owner(mi)
+Compiler.interp_for_mi(interp, owner, mi)      # the same (for the compile queues)
+Compiler.default_owner(mi)                     # the runtime's jl_default_owner
 ```
 
 Lives in `src/gf.c`, `Compiler/src/typeinfer.jl` and `Compiler/src/facts.jl`.
 
 **Meaning.**
 - The runtime asks for code of an owner. `jl_type_infer` asks for `mi`'s default owner. The runtime's other entries take the owner explicitly (§2.5).
-- The single-request entry builds the interpreter of that owner: facts under `:facts`; under `nothing`, facts under the test bed except for the compiler's code (today; [C-2](#deviations)).
+- The single-request entry builds the interpreter of that owner: facts under `:facts`, plain under `nothing`.
 - `typeinf_ext` hands a facts method to a facts interpreter, whoever asks (reflection, compile queues).
-- A compile queue holds `CodeInstance`s of both owners. Each item is inferred by the interpreter of its own owner (`interp_for_owner`). Under the test bed, the compiler's code in a queue is inferred plainly (`interp_for_mi`).
+- A compile queue holds `CodeInstance`s of both owners. Each item is inferred by the interpreter of its own owner (`interp_for_owner`); a MethodInstance by that of its default owner.
 - Reflection shows the code that runs: `typeinf_frame` infers a facts method by facts.
 
 ### 2.5 Dispatch from facts code
@@ -810,8 +811,8 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Six places decide it: the single-request entry, `interp_for_owner`, `interp_for_mi`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. Two predicates: the module flag (`jl_method_is_plain`) and a module walk (`is_compiler_code`). They differ for a boundary or always-facts method inside the Compiler. | `Compiler/src/typeinfer.jl:1654`; `Compiler/src/facts.jl` (`interp_for_owner`, `leaves_to`, `interp_for_mi`, `is_compiler_code`); `src/gf.c:424`, `:4864`; `src/module.c:749` |
-| C-2 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | Under the test bed, code compiled by facts goes to the facts owner `:facts`, as in the product setting, and `nothing` holds plain code only. | Under the test bed, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method called by the compiler can reuse a result compiled by facts: correct, but slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [facts F-2](facts.md#deviations). | `Compiler/src/facts.jl:52`, `:60`, `:87`; `Compiler/src/typeinfer.jl:1657` |
+| C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Five places decide it: the single-request entry, `interp_for_owner`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. They share the one predicate (`jl_method_is_plain`). | `Compiler/src/typeinfer.jl:1664`; `Compiler/src/facts.jl` (`interp_for_owner`, `leaves_to`); `src/gf.c:437`, `:4878`; `src/module.c:749` |
+| C-2 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), the setting. | — | — |
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: an allocation and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4670`–`4673`; `src/runtime_ccall.cpp:424` |
 | C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3790`–`3795` |
 | C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |

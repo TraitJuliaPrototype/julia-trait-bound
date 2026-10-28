@@ -85,7 +85,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
   - the **default owner**, plain Julia's, for plain code;
   - the **facts owner**, for code compiled by facts.
 
-  Their names and interfaces are in [`compiler.md`](compiler.md). **Planned** for the test bed: today, under `all`, the default owner holds code compiled by facts too ([F-2](#deviations)).
+  Their names and interfaces are in [`compiler.md`](compiler.md).
 - **Code compiled by facts:** CodeInstances inferred in the facts mode.
 - <a id="term-boundary-method"></a>**Boundary method:** a method that carries the boundary flag and is compiled in its caller's mode, wherever it is defined ([§6.1](#kinds-of-methods)): TraitWorld's entries and `conformance` methods.
 - **Setting:** which methods are compiled by facts when plain code or the runtime reaches them ([§12](#settings)).
@@ -136,7 +136,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Status: Implemented**, with the exceptions below.
 
-> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, by a redefinition of a binding it reads, or by the invalidation of a CodeInstance of the other mode that it names ([§6.3](#calls-between-the-modes), [§6.4](#the-compilers-own-code); under `all`, [F-2](#deviations)). By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
+> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, by a redefinition of a binding it reads, or by the invalidation of a CodeInstance of the other mode that it names ([§6.3](#calls-between-the-modes), [§6.4](#the-compilers-own-code)). By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
 
 **Why it holds.**
 - Code compiled by facts holds only facts and bindings as edges to the method table ([§4](#inferred-across-a-call)).
@@ -283,7 +283,7 @@ The spellings are [`compiler.md`](compiler.md)'s. User code writes `@trait_modul
 <a id="the-mode-rule"></a>
 ### 6.2 The mode rule
 
-**Status: Implemented** in effect; **Planned:** one function that decides it ([F-1](#deviations)); **Planned:** under `all`, code compiled by facts under the facts owner, as in the product setting ([F-2](#deviations)).
+**Status: Implemented** in effect; **Planned:** one function that decides it ([F-1](#deviations)).
 
 The mode and cache owner of a MethodInstance's code depend on three things: the method's kind, the cache owner that reaches it, and the setting.
 
@@ -297,7 +297,6 @@ The mode and cache owner of a MethodInstance's code depend on three things: the 
 | boundary or neutral method | product setting: plain, default owner; `all`: facts, facts owner | facts, facts owner |
 
 - **The property:** plain results and results compiled by facts never share a cache. Plain code is the default owner's, and code compiled by facts the facts owner's, in both settings.
-- **Planned** for `all`: today a neutral method's code compiled by facts there is cached under the default owner, beside plain code ([F-2](#deviations)).
 - **Under `--trim`** there is no facts mode: every method is compiled plainly, under the default owner ([§12.3](#trimmed-binaries)).
 - The rule applies wherever code is compiled: a single request from the runtime, the compile queues (the JIT's, and the one that builds images), calls between the modes, and dispatch at run time.
 
@@ -479,7 +478,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 <a id="package-images"></a>
 ## 11. Package images
 
-**Status: Implemented.** **Planned:** the strict tier's error for a pirate loaded before an image ([§10.3](#strict-intended)); the setting as part of an image's key ([F-7](#deviations)).
+**Status: Implemented.** **Planned:** the strict tier's error for a pirate loaded before an image ([§10.3](#strict-intended)).
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
@@ -491,10 +490,9 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 - A fact breaks only by a stakeholder's change or a winning pirate loaded earlier. Which code is kept therefore depends on the method table, not on the order of unrelated loads.
 - A trimmed build uses no code compiled by facts.
 
-**Images and the setting.** An image's CodeInstances keep the mode they were compiled in.
-- Loaded under the other setting, its code still computes the same results (G1).
-- But the test bed's G2 does not cover plain code that an image built in the product setting brings into it.
-- **The setting is part of an image's key,** as Julia's code-generation flags are: an image built under one setting is not used under the other. Until that is built, the test bed uses a depot of its own ([F-7](#deviations)).
+**Images and the setting.** An image's CodeInstances mean the same in both settings: the mode is the owner ([§6.2](#the-mode-rule)).
+- An image built under one setting is correct under the other. The other setting finds no code of its own default owner for a neutral method, and compiles it.
+- So the setting is not part of an image's key. The test bed keeps a depot of its own, for speed: the images of one setting hold little of the other's code.
 
 ---
 
@@ -519,10 +517,10 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 - **Purpose:** to test the facts rule on code as it is written today. It is not a user setting.
 - **How:**
   - `JULIA_COMPILE_BY_FACTS=1`, read once per process; or
-  - a system image built with it, the facts system image. `JULIA_COMPILE_BY_FACTS=0` turns it off there.
-  - Use a depot of its own ([F-7](#deviations)).
+  - a system image built with it, the facts system image. It holds Base and the standard libraries compiled by facts only. `JULIA_COMPILE_BY_FACTS=0` turns the mode off there, and the process then compiles plain Base at its start (tens of seconds): it is the test bed's image only.
+  - Use a depot of its own, for speed ([§11](#package-images)).
 - **Planned spelling:** `--compile-by-facts=no|all|traits`.
-- G1 and G2 hold under `all` for all code, but for the shared cache of [F-2](#deviations). Strict mode under `all` protects trait code, as in the product setting; what else it protects there is §10.2's note; untested.
+- G1 and G2 hold under `all` for all code. Strict mode under `all` protects trait code, as in the product setting; what else it protects there is §10.2's note; untested.
 
 <a id="trimmed-binaries"></a><a id="closed-builds"></a>
 ### 12.3 Trimmed binaries
@@ -567,7 +565,6 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | caches at run-time sites checked against the caller's world | Implemented | [§5](#run-time-sites) |
 | four kinds of methods | Implemented | [§6.1](#kinds-of-methods) |
 | one function for the mode rule | Planned | [§6.2](#the-mode-rule); F-1 |
-| under `all`, code compiled by facts under the facts owner | Planned | [§6.2](#the-mode-rule); F-2 |
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
 | direct calls into the compiler from code compiled by facts: edges to plain code | Implemented | [§6.4](#the-compilers-own-code) |
@@ -581,7 +578,6 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode) |
 | strict mode's intended design; the warning for package extensions; the symmetric lint | Planned (W-66's Phase B); the warning Implemented | [§10.3](#strict-intended); F-6 |
 | package images of both owners | Implemented | [§11](#package-images) |
-| the setting as part of an image's key | Planned | [§11](#package-images); F-7 |
 | product setting; `all` by environment variable | Implemented | [§12](#settings) |
 | `--compile-by-facts=no\|all\|traits` | Planned | [§12.2](#the-test-bed) |
 | `--trim` compiles plainly | Implemented | [§12.3](#trimmed-binaries) |
@@ -597,13 +593,13 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| F-1 | [§6.2](#the-mode-rule) | One rule decides the mode and cache owner of a MethodInstance's code, in one place. | As [compiler C-1](compiler.md#deviations): six places decide it, with two predicates for "compiler code". | `julia-1.13/Compiler/src/typeinfer.jl:1654`; `julia-1.13/Compiler/src/facts.jl:47`, `:69`, `:85`, `:105`; `julia-1.13/src/gf.c:424`, `:4802`; `julia-1.13/src/module.c:749` |
-| F-2 | [§6.2](#the-mode-rule), [§12.2](#the-test-bed) | Under `all`, code compiled by facts goes to the facts owner, as in the product setting, and the default owner holds plain code only: plain results and results compiled by facts never share a cache. | Under `all`, a neutral method's code compiled by facts shares the default owner `nothing` with plain code (the compiler, and the Base methods the compiler calls). A Base method the compiler calls can reuse a result compiled by facts: correct, slower. The reverse follows from the shared cache too: code compiled by facts can reuse a plain result, whose edges are not all facts. Not checked. As [compiler C-2](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:52`, `:60`, `:87`; `julia-1.13/Compiler/src/typeinfer.jl:1657` |
+| F-1 | [§6.2](#the-mode-rule) | One rule decides the mode and cache owner of a MethodInstance's code, in one place. | As [compiler C-1](compiler.md#deviations): five places decide it, with one predicate for "compiler code". | `julia-1.13/Compiler/src/typeinfer.jl:1664`; `julia-1.13/Compiler/src/facts.jl` (`interp_for_owner`, `leaves_to`); `julia-1.13/src/gf.c:437`, `:4878`; `julia-1.13/src/module.c:749` |
+| F-2 | — | *Retired*: see [§6.2](#the-mode-rule). | — | — |
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
 | F-5 | — | *Retired*: see [§10.2](#strict-mode). | — | — |
 | F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion of a method that trait code depends on are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
-| F-7 | [§11](#package-images) | The setting is part of an image's key: an image built under one setting is not used under the other (W-69). | Images record the system image, not the switch; nothing warns. An image built with `JULIA_COMPILE_BY_FACTS=1` on the default system image is accepted without it, and the reverse. `--trim` is not part of the key either; whether facts code then reaches a trimmed build is untested. | `julia-1.13/Compiler/src/facts.jl:8` |
+| F-7 | [§12.3](#trimmed-binaries) | A trimmed build uses no code compiled by facts, also none that package images keep. | Untested: `--trim` is not part of an image's key, and whether code of the facts owner that images keep reaches a trimmed binary is not checked. | `julia-1.13/src/module.c:741` (`jl_method_is_facts` under trim) |
 | F-8 | — | *Retired*: see [§12.3](#trimmed-binaries). | — | — |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |
 | F-10 | — | *Retired*: see [§7.1](#return-type), the exception. | — | — |
@@ -612,7 +608,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-13 | [§7.1](#return-type) | Plain inference's answer is folded when it rests on facts. | The walk that decides it gives up after 2000 CodeInstances, and the query is answered at run time. As [compiler C-9](compiler.md#deviations). | `julia-1.13/Compiler/src/facts.jl:305` |
 | F-14 | — | *Retired*: see [§10.3](#strict-intended). | — | — |
 | F-15 | — | *Retired*: see [§3](#3-fact-signatures). | — | — |
-| F-16 | [§8](#8-asserted-effects) | In a frame compiled by facts that has a run-time site, no asserted effect applies, Base's methods included. | Facts inference with the default owner (as under `all`) still folds a Base method asserted `:foldable` over run-time sites: `promote_type(Int, Static.StaticInt{2})` falls back to `typejoin` and gives `Type{Number}` there, `Any` with the facts owner. So under `all` code that reaches it runs at plain speed, and in a trait module it dispatches at run time. Probably the shared cache of F-2 (plain results reused); not diagnosed. | `ndport/scripts/p3_promote3.jl`, `ndport/logs/p3-dev/`; the W-32 pushback log, entry P3-1 |
+| F-16 | — | *Retired*: see [§8](#8-asserted-effects) and [§6.2](#the-mode-rule). | — | — |
 | F-17 | — | *Retired*: see [§6.3](#calls-between-the-modes). | — | — |
 | F-18 | — | *Retired*: see [§6.3](#calls-between-the-modes). | — | — |
 | F-19 | — | *Retired*: see [§1](#1-terms). | — | — |

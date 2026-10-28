@@ -16,6 +16,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - The invalidation filter and other Julia pieces, reverted or moot
 - Dynamic values: pointer tables and witness tables, replaced by the call-site split
 - Named implementations by module, deferred
+- The setting in a package image's key, not needed
 - Strict mode: variants not chosen
 - Sealing, rejected
 - Stock Julia support, dropped
@@ -159,6 +160,12 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 **Deferred (s29, change 6 of the decisions review)** until traits are in the type system (Julia piece 7). The simplest `Dynamic`, and membership as subtyping, have no place for a witness inside the value. The preferred form, when it comes, is a value-level wrapper that conforms, a newtype: `Via{Fast}(x)` ([traits §15](../reference/traits.md#15-named-implementations)).
 
 **Rejected: selecting implementations by imported scope,** as Scala's implicits do. An entry is compiled once and does not know its caller's module.
+
+## The setting in a package image's key, not needed
+
+- **The option:** key images by the setting, as Julia keys them by its code-generation flags (W-69, adopted by the clean-up of 2026-10-27).
+- **Why not:** with the mode the owner (W-22), a CodeInstance of owner `nothing` is plain and one of owner `:facts` is compiled by facts, in either setting. An image built under one setting is correct under the other, which compiles the code of its own default owner that it misses ([facts §11](../reference/facts.md#package-images)). The test bed keeps a depot of its own for speed.
+- **Before W-22,** under `all` code compiled by facts shared the default owner with plain code, so an image's code under `nothing` meant different things in the two settings.
 
 ## Strict mode: variants not chosen
 
