@@ -608,7 +608,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 
 ## 14. Checks, and where their results live
 
-**Status: Implemented** (deviations [L-9](#18-deviations), [L-10](#18-deviations)). What each check means and raises is [`traits.md#9-checks-and-when-they-run`](traits.md#9-checks-and-when-they-run); here is where it runs and what is kept.
+**Status: Implemented** (deviation [L-10](#18-deviations)). What each check means and raises is [`traits.md#9-checks-and-when-they-run`](traits.md#9-checks-and-when-they-run); here is where it runs and what is kept.
 
 | When | What runs | Code | Kept |
 |---|---|---|---|
@@ -619,7 +619,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 | an image's activation | overrides and, in strict mode, winning pirates left inactive | the image hook | reported after the load |
 | a trait module's statement | ownership of each new method; no plain method in an entry's place | `_check_methods`, `_check_entries_intact` (`trait_module.jl:1048`, `:1063`) | — |
 | a trait module's end | needs and keep flags fixed; overrides; joint methods; ambiguities; definition checking | `_finish_module` (`trait_module.jl:1146`) | `needed` and `keeps` methods, in the module's image |
-| a worker signature's first call | no worker at these parameters; overrides; the rules at the real signature, unless checked at the definition; fully typed mode | `_check_once` (`checks.jl:381`) | a flag embedded in the signature's compiled code; `__tw_checked__` while an image is built |
+| a worker signature's first call | no worker at these parameters; overrides; the rules at the real signature, unless checked at the definition; fully typed mode | `_check_once` (`checks.jl:381`) | a flag embedded in the signature's compiled code; while an image is built, a record of the pass with the worker methods it checked (`__tw_checked__`) |
 | every call at the entry | conformance; bounded keywords; a family member's concreteness | [§8.2](#82-the-entry) | — |
 | every operation call | arguments and result | `opcall` | — |
 | every `Callable` call | arguments and result | `CObj` | — |
@@ -627,10 +627,15 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 **Definition checking** (`check_definitions`, `defcheck.jl:168`) infers each worker once at **archetypes**, which stand for every key, the erased key included, so the worker at the erased key needs no check of its own: a stand-in key per bound, `Archetype{X, P}` with `P` the parameters the bound fixes, whose views have the witness `ArchWit` (`defcheck.jl:18`, `:73`). At `ArchWit` an operation and a field return an opaque value asserted to the declared type, and nothing more (`defcheck.jl:44`). The rules are checked on the inferred code (`worker_problems`, `checks.jl:107`).
 - The rule check reflects the worker with the default interpreter: at archetypes, facts inference in the facts cache. An archetype never runs, so no code the program calls comes from it. The keep analysis ([§8.4](#84-keeping)) and the result-type checks infer plainly, at archetypes in the checks' own cache (`_CheckOwner`).
 - While a package is precompiled, a problem fails the build. Elsewhere it warns, and the first call raises.
-- Methods checked clean are recorded (`_DEF_CHECKED`). Their workers' first calls skip the rule check.
+- Methods checked clean are recorded: for the session (`_DEF_CHECKED`), and while the trait module's image is built in the module (`__tw_def_checked__`). Their workers' first calls skip the rule check, in the session and in every session that loads the image. A redefined method is another `Method`, so it is checked again.
 - **Intended:** only a bound with an open parameter and a `Callable` with an open result type wait for the first call. **As built,** keyword workers, vararg workers and every worker with a `Callable` argument wait too (`defcheck.jl:93`–`105`; [L-10](#18-deviations)).
 
 **The first-call check** (`checked_call`, `checks.jl:294`) is a generated function. Each worker signature gets its own flag, a `Ref` embedded in its compiled code. The check runs once per signature, through `invokelatest`, behind an inference barrier, so compiled code holds no edge to it. Its rule check reflects the worker with the default interpreter: for a facts method that is facts inference, the code that runs, kept with it.
+
+**The records of checks kept with the code they checked** (`ahead.jl`, the facts-first review §2.4):
+- A first-call check that passes while a package image is built is recorded in a module of that image that the signature names (its function's, or a type's), as the signature with the worker methods dispatch selects there (`__tw_checked__`). `@implement`'s compiling ahead records its checks the same way.
+- A first call looks the record up in the modules its signature names, lazily: no walk over the loaded modules at a load.
+- The record holds while dispatch selects the same worker methods: a redefined worker is checked again.
 
 **Fully typed mode** runs in the first-call check (`_check_fully_typed`, `concrete.jl`): abstract values traced to their root causes, and the fully-typed certificate ([§15](#15-compiling-ahead-workloads-closed-builds)). Its level is a constant `__tw_concrete__` of the module, or a `concrete_level(::typeof(f))` method for one function.
 
@@ -749,7 +754,7 @@ The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)
 | L-6 | [§13](#13-dynamicx) | a trait's name as a type means `Kept{X}`, a value with its attribute | only inside trait modules, by rewriting struct fields, containers and argument types | `trait_module.jl` (`_dynamic_fields`, `_dyn_body`, `_dyn_sig`) |
 | L-7 | [§4.1](#41-what-every-form-defines), [§4.4](#44-forwarding-with-by) | forwarding is written with `by` and recorded as forwarding | `by f` is lowered to a projection `project(t) = getfield(t, :f)`; a written `project(t) = t.f` is accepted as forwarding; TraitWorld's own precompile workload and tests use `project(t) = …` and the `{R}` spelling | `implement.jl:1106`, `:1584`–`1591`; `TraitWorld.jl:95`, `:110`–`106`; `test/runtests.jl:50` |
 | L-8 | — | *Retired*: see [§13](#13-dynamicx). | — | — |
-| L-9 | [§14](#14-checks-and-where-their-results-live) | a worker checked at its definition is not checked again at its first call | the record of definition-checked methods is a session's set, filled only where the trait module's end runs; in a session that loads the package from its image, a worker signature whose checked code no image holds runs the rule check at its real signature at its first call | `defcheck.jl:128`, `:182`; `checks.jl:389` |
+| L-9 | — | *Retired*: see [§14](#14-checks-and-where-their-results-live), the records. | — | — |
 | L-10 | [§14](#14-checks-and-where-their-results-live) | only open parameters and open `Callable` result types wait for the first call | keyword workers, vararg workers and every worker with a `Callable` argument wait too | `defcheck.jl:93`, `:98`, `:102` |
 | L-11 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
 | L-12 | — | *Retired*: see [§9.2](#92-untyped-callers-the-erased-worker). | — | — |
