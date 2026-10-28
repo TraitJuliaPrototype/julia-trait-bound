@@ -1,6 +1,6 @@
 # The store of the facts-keyed cache, and its vehicle (W-66, step 4)
 
-Status: **proposal** (2026-10-28, mine; W-66). Not normative. For a fresh-eye review before anything is built.
+Status: **proposal, revision 1, reviewed; not to be built as written** (2026-10-28, mine; W-66). Not normative. [Its fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) found three blocking faults (B1 `Serialization` cannot carry compiled code; B2 the fingerprints miss values that optimized IR embeds; B3 inferred code is discarded before exit) and proposes validating stored code with Julia's own edge validation (M1), which changes the user's decision on the fingerprints' form: [open issue 80](../open-issues.md#1-decisions-waiting-for-the-user). A revision waits for it (§7).
 
 ## 1. What is settled
 
@@ -65,3 +65,14 @@ What is open is the store: what is kept, where, and how a session finds and uses
 ## 6. Where it would be recorded
 
 [Compiler](../reference/compiler.md) (a planned section for the hook and the store), [facts §11](../reference/facts.md#package-images) (what a session may take from the store), the note's §2, W-66's row, `design/julia-changes.md`.
+
+## 7. The review, and what is done with it
+
+[The review](../reviews/2026-10-28-facts-cache-store.md) (fresh eyes, Opus, of revision 1):
+- **B1** (`Serialization` copies Methods and MethodInstances, may insert methods, copies Bindings): the store needs a writer and reader of its own that name everything outside an entry by stable name (rustc's model). For the revision.
+- **B2** (`const` values, preferences and objects with identity embedded in optimized IR): the content fingerprint must cover the values an entry embeds; an experiment by construction (E-0) comes first.
+- **B3** (inferred code discarded once compiled): entries are captured in `finish!`, not at exit.
+- **M1** (Julia's `verify_method_graph` validates loaded CodeInstances exactly, cycles included; fingerprints then only for content): open issue 80, the user's to decide, since it changes the form of F2 decided on 2026-10-27.
+- **M2** (no hook inside `typeinf_edge`; eager insertion after loads, as E-c does): for the revision.
+- **M3–M6** (optimized IR and G1 as the criterion; entries reaching plain code excluded, as the note says; E-195's witness weaker than read; the gain's bound not established): for the revision, with E-0 before E-c.
+- **m1–m8:** for the revision.

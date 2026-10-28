@@ -15,6 +15,12 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
    
    **My recommendation: (b),** since Revise-style editing is how Julia users work, and the checked-record of W-66 (§2.4) then has a clear rule for edits. Until decided, the edit case of §2.4's check is open.
 
+80. **How the facts-keyed cache validates a stored entry** (W-66; [the store's review](reviews/2026-10-28-facts-cache-store.md), M1). Decided on 2026-10-27: fingerprints scoped by the facts rule (F1, F2 per fact the stakeholders' methods of the fact's function, F3) plus a candidate index ([decisions](record/decisions.md) §5). The review shows that Julia's own validation of loaded code (`verify_method_graph`, `Compiler/src/reinfer.jl`) already checks every edge's dispatch exactly in the session's world, recursive groups as one unit, with folds, bindings, `invoke` signatures and deleted methods, and hands the code to ordinary invalidation. Options:
+   - (a) keep the decided form: F1–F3 and the candidate index decide validity (E-195);
+   - (b) validate a stored entry's edges with Julia's validation, and use fingerprints only for content that edges do not cover: F1 of the methods the edges name, F3, and the values the optimized code embeds (the review's B2). F2 and the candidate index are not needed for validity.
+   
+   **My recommendation: (b).** It reuses Julia's exact check (the fast path covers most facts edges), drops the costliest fingerprint, and answers cycles. E-195's results stay as evidence for the content fingerprints. Either way, an experiment by construction (the review's E-0) comes before the store is built.
+
 Eight of the choices the clean-up adopted, and the night's choices marked mine, are for a review session with the user ([W-71](record/todo.md)).
 
 Waiting for evidence, not for the user:
