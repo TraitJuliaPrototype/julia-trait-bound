@@ -12,9 +12,9 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 
 **How to read the numbers.**
 - One machine, mostly quiet during the round: one Julia process at a time.
-- The forks' runs had a load average of 3.4–5.2: treat their times as indicative.
+- The forks' session (D0, E-212) ran with a load average of 1.5–2.7, the machine otherwise idle.
 - Fresh processes, unless a row says "at the REPL".
-- Runs per cell: 2 per load order for the demonstrators' rows, 3 for TraitReport, 2–3 for the forks. Ranges are over the runs. Treat differences under 10% as noise.
+- Runs per cell: 2 per load order for the demonstrators' rows, 3 for TraitReport, 2 after a warm-up for the forks. Ranges are over the runs. Treat differences under 10% as noise.
 - "Plain" is the same code without traits, on the patched build in plain mode. The two inliner changes apply to all code, so patched-plain is not stock: stock numbers use the stock 1.13.2 binary and say so.
 
 ## 1. The guarantee
@@ -151,18 +151,20 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - The trait form's `using` is 0.18–0.20 s above the plain form's.
 - Again on the run of 2026-10-27 (E-163, `logs/demos/report-loads.log`): the same within 5% (trait 40.6, 41.2, 400, 343, 333 ms; plain 242, 237, 2,507, 2,528, 2,991 ms).
 
-**The forks** (CSV, DataFrames and Tables ported to traits; `scripts/session.jl` at a REPL on a pty; forks 2 runs, upstream 3; load average 3.4–5.2, so indicative):
+**The forks** against upstream in three settings (D0, E-212; julia-1.13 a4e9ad5da9, TraitWorld 3fcff02, forks 30f77b3, wrapped upstream 3687dc6; `forks/scripts/session.jl` at a REPL on a pty; a warm-up and 2 runs per setting, ranges over the 2; load average 1.5–2.7, the machine otherwise idle; `forks/logs/d0/session.log`). *Wrapped*: upstream Tables, CSV and DataFrames each a trait module and otherwise unchanged, in the product setting ([porting 0.1a](../intro/porting.md#01a-making-an-unchanged-package-a-trait-module)):
 
-| | Forks | Upstream |
-|---|---|---|
-| imports | 1.89–1.92 s | 0.69–1.19 s |
-| read / show / describe | 0.077–0.082 / 0.170–0.175 / 0.144–0.147 s | 3.46–3.95 / 0.98–1.02 / 1.05–1.07 s |
-| sort / groupby-combine / join | 0.007 / 0.022–0.023 / 0.224–0.233 s | 1.13–1.20 / 0.74–0.77 / 1.25–1.30 s |
-| `String15` read and show | 0.060–0.062 s | 0.21–1.03 s |
-| the session without imports | **1.35–1.37 s** | **10.7–11.2 s** |
-| wall, start to exit | **3.7–4.0 s** | **12.0–12.8 s** |
+| | Forks (product setting) | Upstream, plain | Upstream, wrapped | Upstream, `all` |
+|---|---|---|---|---|
+| imports | 2.25–2.30 s | 1.14–1.17 s | 1.42–1.44 s | 0.56 s |
+| read / show / describe | 0.10–0.26 / 0.20 / 0.14–0.20 s | 3.43–3.54 / 0.97–1.01 / 1.04–1.07 s | 2.34–2.37 / 1.20–1.21 / 1.10–1.12 s | 1.29–1.32 / 0.40 / 1.11–1.13 s |
+| sort / groupby-combine / join | 0.011 / 0.022 / 0.18 s | 1.12–1.14 / 0.77–0.78 / 1.29–1.30 s | 0.62–0.63 / 0.31 / 0.37–0.38 s | 0.66–0.67 / 0.33–0.34 / 0.55–0.56 s |
+| `String15` read and show | 0.055–0.058 s | 0.23 s | 0.18–0.20 s | 0.19–0.20 s |
+| the session without start and imports | **1.82–1.87 s** | **10.5–10.7 s** | **7.9–8.7 s** | **6.5 s** |
+| wall, start to exit | **4.4–4.5 s** | **11.9–12.5 s** | **9.6–10.5 s** | **7.5–7.6 s** |
 
-- **Not measured on the run of 2026-10-27:** the forks' session; D0 measures it on the current build (E-212, [todo W-14](../record/todo.md)).
+- The forks take 0.59× the wall time of the best upstream setting (`all`) and 0.28× its session without imports. Their imports are 1.7 s slower than upstream's under `all` (D1 takes this up).
+- Wrapping upstream as trait modules needed two edits beyond the wrap's lines: DataAPI names Tables a joint owner (Tables' `nrow` and `ncol` for `NamedTuple`s), and DataFrames' `vcat(dfs::AbstractDataFrame...)` names its first frame (at zero arguments it names nothing of DataFrames'). Its results equal upstream's at all 26 steps.
+- **Before** (the round of 2026-10-20, a loaded machine): the forks 3.7–4.0 s wall, 1.35–1.37 s without imports; upstream plain 12.0–12.8 and 10.7–11.2 s.
 - **Before** (the build of 2026-10-19): the session without imports 2.85 s against 10.40 s. The `String15` step then took 1.56–1.67 s, before the `String15` fixes (a workload extension and the first-call check by facts; their contributions were not separated). It now takes 0.06 s.
 
 **Load and first use, SciML and Makie against SciPy and matplotlib** (E-168; one fresh session, from before the process starts to the end of the last step: load, a non-stiff and a stiff solve, a PNG of both, a second model solved and plotted, both again; a bare exit adds about 0.05 s; julia-1.13 252edca933, TraitWorld main bbfc130 (the demonstrators' row: 04095fe), strict mode off unless stated; a warm-up and two sessions per setting, agreeing within 1%; two cores; [`experiments/ttfx/README.md`](../../experiments/ttfx/README.md)):
@@ -244,7 +246,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
   - what still differs by load order in TraitDifferentialEquations (§3);
   - the trait form's plot + PNG in TraitReport, 96–98 ms on the run of 2026-10-27 against 60 ms on the build of 2026-10-19;
   - the first calls slower in the demonstrators on the run of 2026-10-27 ([W-7](../record/todo.md)).
-- **Reruns:** TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the forks' session on a quiet machine (D0, E-212); the raytrace rows of §2 on a current build; upstream's full session under `all`; the rest of Base's test suite under the facts mode (43 groups run, E-42).
+- **Reruns:** TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the raytrace rows of §2 on a current build; the rest of Base's test suite under the facts mode (43 groups run, E-42).
 - **Untested:** strict mode under `all`; edits by Revise (traits T-81; an edit by `eval` is tested, `TraitWorld/test/redefine.jl`); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames (`--trim=safe`).
 - **The "explosion" of compiled code** per type is structural (32 specializations against 1 in a small experiment), unmeasured on a real library.
 
@@ -264,7 +266,7 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 
 **Shown:**
 - **The facts mode by itself, on the packages people use.** Upstream CSV.jl and DataFrames compiled in the facts mode (`all`) lose 2 of 3,337 CodeInstances to nine unrelated loads, against 561 of 4,684 in plain mode. Their first work takes 516 ms instead of 3,308 ms, and 435 ms after the loads instead of 4,021 ms. No trait is involved: the guarantee of step 3, and a first-call gain, for code as it is written today.
-- **Traits on top, against upstream:** the trait-based ports of CSV.jl and DataFrames run a scripted session in 3.7–4.0 s wall against upstream's 12.0–12.8 s; without imports, 1.35–1.37 s against 10.7–11.2 s (indicative: the machine was loaded). Upstream's full session under `all` is not measured, so the share of each contribution is open.
+- **Traits on top, against upstream:** the trait-based ports of CSV.jl and DataFrames run a scripted session in 4.4–4.5 s wall against upstream's 11.9–12.5 s plain, 9.6–10.5 s wrapped as trait modules and 7.5–7.6 s under `all`; without start and imports, 1.82–1.87 s against 10.5–10.7, 7.9–8.7 and 6.5 s (D0, E-212). The facts mode alone takes upstream from 10.6 to 6.5 s; the traits take it to 1.8 s. The forks' imports are 1.7 s slower than upstream's under `all`.
 - **Calls cost what plain calls cost, where types are known.** A typed trait call: 0.8 ns, as plain Julia, in both settings. A `Callable` held `Dynamic`: 3.95 ns, against 0.87 ns for a direct call and 20.3 ns for a dynamic call at `Any`.
 - **Untyped trait calls cost 3.4–5.4× a plain untyped call on the erased worker's path:** 59.9 ns against 17.6 ns (product setting), 106.2 against 19.6 ns (`all`), 80 bytes per call (the run of 2026-10-27; W-17). Before, through the table of declared implementations (the round): 28.8 and 30.8 ns, 16 bytes.
 - **`Dynamic` values at near plain speed** (the build of 2026-10-19). A sum over `Dynamic{Shape}`: 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33 with four. The raytrace over an open set of primitives: 300–336 ms against plain's 246–259 with two types and 827–882 with four (a `max_methods` effect at four).
@@ -279,5 +281,5 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 - Upstream CSV + DataFrames still pay 435 ms after the loads under `all` (0.9 ms repeated; plain 4,021 ms). On the build of 2026-10-19, at ~990 ms, it was diagnosed as the plain inference behind run-time `return_type`: its cached answers rest on plain edges at abstract signatures, the loads invalidate them, and plain inference, optimizer included, runs again. This is by design: the answers are plain Julia's, so a load that changes plain inference changes them ([`performance.md`](performance.md)). The 435 ms has not been profiled again.
 - A second residue is diagnosed: TraitReport's work after StatsBase or Distributions (344–417 ms against 41 ms). StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code (§1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open (`open-issues.md` §1.19).
 - TraitDifferentialEquations' first gradient with loads (92–96 against 81 ms), and the first calls slower on the run of 2026-10-27 (W-7); TraitReport's trait plot + PNG (96–98 ms, 60 ms on the build of 2026-10-19). TraitMakie's rows are timed inside `@elapsed`, which leaves out each call's own compilation (E-146): to measure again whole.
-- Reruns: TraitReport form (t) under loads; the forks' session on a quiet machine; the raytrace rows on a current build; upstream's full session under `all`; the rest of Base's tests under the facts mode.
+- Reruns: TraitReport form (t) under loads; the raytrace rows on a current build; the rest of Base's tests under the facts mode.
 - Strict mode under `all`; edits by Revise (T-81); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames; the volume of the "explosion" of compiled code on a real library.

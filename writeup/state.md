@@ -83,7 +83,6 @@ The deviations of the implementation from the design are listed per reference, w
 - **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
   - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build; by design, not pursued now ([PE-5](record/performance-explorations.md));
   - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads; W-7);
-  - the forks' session on a quiet machine (the round's had a load average of 3.4–5.2); D0 runs it (E-212);
   - the raytrace rows on a current build (the solver per step and the `Dynamic` sums are measured again: E-163, E-164).
 
 ## 6. The software: today, the target, the order of work
