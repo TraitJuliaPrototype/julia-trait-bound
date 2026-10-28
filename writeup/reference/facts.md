@@ -129,7 +129,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - Code that branches on what inference knows (`known_type`, `fold_call`, [`compiler.md`](compiler.md)) computes the same result on both branches.
 - Threads are untested, except the split's tables and the untyped callers' table under 4 threads (`experiments/examples/threads/`).
 
-**Tests.** The acceptance checks G1.1–G1.33 and G2.1 (there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
+**Tests.** The acceptance checks G1.1–G1.34 and G2.1 (there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
 
 <a id="g2"></a>
 ### 2.2 G2: stable caches

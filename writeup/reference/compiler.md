@@ -760,7 +760,7 @@ Lives in `Compiler/src/typeinfer.jl` (`finish_cycle`) and `optimize.jl` (`Inlini
 
 Lives in `Compiler/src/bootstrap.jl`.
 
-**Meaning.** `_return_type(::NativeInterpreter, ::DataType)` is a compiler bootstrap entry, so the system image holds its code, in the product setting. Under the test bed the entry called is `PlainRTInterp`'s (§1.4), compiled by the facts system image's build. Otherwise the first `collect` of a generator or `map` over an empty collection in every session compiles it.
+**Meaning.** The run-time entry, `_return_type(::PlainRTInterp, ::DataType)` (§1.4), and `_return_type(::NativeInterpreter, ::DataType)` are compiler bootstrap entries, so the system image holds their code, with the inference and optimizer methods inference reaches by dynamic dispatch for `PlainRTInterp`, as for `NativeInterpreter`. Otherwise the first `collect` of a generator or `map` over an empty collection in every session compiles the compiler for that interpreter (E-209).
 
 ### 6.4 Reflection in the compiler's world
 
