@@ -162,7 +162,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 | the session without start and imports | **1.82–1.87 s** | **10.5–10.7 s** | **7.9–8.7 s** | **6.5 s** |
 | wall, start to exit | **4.4–4.5 s** | **11.9–12.5 s** | **9.6–10.5 s** | **7.5–7.6 s** |
 
-- The forks take 0.59× the wall time of the best upstream setting (`all`) and 0.28× its session without imports. Their imports are 1.7 s slower than upstream's under `all` (D1 takes this up).
+- The forks take 0.59× the wall time of the best upstream setting (`all`) and 0.28× its session without imports. Their imports are 1.7 s slower than upstream's under `all`. Of the forks' import (1.59 s against upstream's 0.46 s, `@time_imports`, E-213), about 0.45 s is 28 members of `Column` checked again at load, members that CSV's and DataFrames' images folded (W-84).
 - Wrapping upstream as trait modules needed two edits beyond the wrap's lines: DataAPI names Tables a joint owner (Tables' `nrow` and `ncol` for `NamedTuple`s), and DataFrames' `vcat(dfs::AbstractDataFrame...)` names its first frame (at zero arguments it names nothing of DataFrames'). Its results equal upstream's at all 26 steps.
 - **Before** (the round of 2026-10-20, a loaded machine): the forks 3.7–4.0 s wall, 1.35–1.37 s without imports; upstream plain 12.0–12.8 and 10.7–11.2 s.
 - **Before** (the build of 2026-10-19): the session without imports 2.85 s against 10.40 s. The `String15` step then took 1.56–1.67 s, before the `String15` fixes (a workload extension and the first-call check by facts; their contributions were not separated). It now takes 0.06 s.
