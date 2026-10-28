@@ -283,7 +283,7 @@ The spellings are [`compiler.md`](compiler.md)'s. User code writes `@trait_modul
 <a id="the-mode-rule"></a>
 ### 6.2 The mode rule
 
-**Status: Implemented** in effect; **Planned:** one function that decides it ([F-1](#deviations)).
+**Status: Implemented**, in one function (`jl_code_owner`, [compiler §2.3](compiler.md#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code)).
 
 The mode and cache owner of a MethodInstance's code depend on three things: the method's kind, the cache owner that reaches it, and the setting.
 
@@ -294,7 +294,7 @@ The mode and cache owner of a MethodInstance's code depend on three things: the 
 |---|---|---|
 | facts method | facts, facts owner | facts, facts owner |
 | plain method | plain, default owner | plain, default owner |
-| boundary or neutral method | product setting: plain, default owner; `all`: facts, facts owner | facts, facts owner |
+| boundary or neutral method | from plain code: plain, default owner; from the runtime or the top level: product setting plain, default owner, `all` facts, facts owner | facts, facts owner |
 
 - **The property:** plain results and results compiled by facts never share a cache. Plain code is the default owner's, and code compiled by facts the facts owner's, in both settings.
 - **Under `--trim`** there is no facts mode: every method is compiled plainly, under the default owner ([§12.3](#trimmed-binaries)).
@@ -564,7 +564,6 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | dispatch through `jl_apply` runs the default owner's code | Implemented | [§5](#run-time-sites) |
 | caches at run-time sites checked against the caller's world | Implemented | [§5](#run-time-sites) |
 | four kinds of methods | Implemented | [§6.1](#kinds-of-methods) |
-| one function for the mode rule | Planned | [§6.2](#the-mode-rule); F-1 |
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
 | direct calls into the compiler from code compiled by facts: edges to plain code | Implemented | [§6.4](#the-compilers-own-code) |
@@ -594,7 +593,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| F-1 | [§6.2](#the-mode-rule) | One rule decides the mode and cache owner of a MethodInstance's code, in one place. | As [compiler C-1](compiler.md#deviations): five places decide it, with one predicate for "compiler code". | `julia-1.13/Compiler/src/typeinfer.jl:1664`; `julia-1.13/Compiler/src/facts.jl` (`interp_for_owner`, `leaves_to`); `julia-1.13/src/gf.c:437`, `:4878`; `julia-1.13/src/module.c:749` |
+| F-1 | — | *Retired*: see [§6.2](#the-mode-rule)]. | — | — |
 | F-2 | — | *Retired*: see [§6.2](#the-mode-rule). | — | — |
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |

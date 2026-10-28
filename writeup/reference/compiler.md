@@ -268,7 +268,7 @@ int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
 
 ### 2.3 The owners, and the mode and owner of a MethodInstance's code
 
-**Status: Implemented**, except the single function (**Planned**).
+**Status: Implemented.**
 
 Three cache owners:
 
@@ -285,19 +285,23 @@ Three cache owners:
 | a facts method (§2.2) | facts, `:facts` | facts, `:facts` |
 | never by facts (flag 0 in a module of flag 2) | plain, `nothing` | plain, `nothing` |
 | a boundary (flag 1) | the mode and owner that reach it | the mode and owner that reach it |
-| any other method, reached from plain code or from the runtime | plain, `nothing` | facts, `:facts` |
+| any other method, reached from the runtime or the top level | plain, `nothing` | facts, `:facts` |
+| any other method, reached from plain code | plain, `nothing` | plain, `nothing` (under the test bed only the compiler's code and what it calls are plain code) |
 | any other method, reached from facts code | facts, `:facts` | facts, `:facts` |
 
 So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code.
 
-**Planned: one function.** One function returns the mode and owner of a MethodInstance's code, given the mode and owner that reach it. Every place that infers, compiles, dispatches, inlines or caches code asks it:
-- the single-request entry from the runtime (§2.4);
-- the compile queues, including the one that builds images (§2.4);
-- calls between the modes in inference (§2.6);
-- the runtime's dispatch from facts code (§2.5);
-- the inliner's lookup of the other owner's code (§2.7).
+**One function** decides it, given what reaches the code: the runtime or the top level, plain code, or code of the facts owner.
 
-It uses one predicate for "the compiler's code": the module flag 2. Its name is not fixed. Today the rule is decided in several places ([C-1](#deviations)).
+```c
+jl_value_t *jl_code_owner(jl_value_t *def, int reach);    // def: a method, or a module's top-level thunk; :facts or nothing
+```
+
+```julia
+Compiler.code_owner(def, reach)        # reach: REACH_RUNTIME, REACH_PLAIN, REACH_FACTS
+```
+
+Every place that decides asks it: the runtime's default owner (`jl_default_owner`, for dispatch from the runtime and the single-request entry, §2.4), its dispatch from facts code (§2.5), calls between the modes in inference (`leaves_to`, §2.6), and the compile queues, through each item's owner (§2.4). It uses one predicate for "the compiler's code": the module flag 2 (`jl_method_is_plain`).
 
 **The setting decides one thing:** the default owner of a method that is neither a facts method nor the compiler's code, and of a top-level thunk, reached from the runtime or the top level (`jl_default_owner`, and the owner of a fresh `NativeInterpreter`): `:facts` under the test bed, `nothing` in the product setting. So plain code (the compiler, and the Base methods the compiler calls) never shares a cache with code compiled by facts ([`facts.md`](facts.md#the-mode-rule)), and a CodeInstance means the same in both settings.
 
@@ -306,7 +310,7 @@ It uses one predicate for "the compiler's code": the module flag 2. Its name is 
 **Status: Implemented.**
 
 ```c
-jl_value_t *jl_default_owner(jl_method_instance_t *mi);   // :facts for a facts method; under the test bed also for every other method and top-level thunk outside the compiler's modules; else nothing
+jl_value_t *jl_default_owner(jl_method_instance_t *mi);   // jl_code_owner(mi->def, reached from the runtime)
 jl_code_instance_t *jl_type_infer(jl_method_instance_t *mi, size_t world, uint8_t source_mode, uint8_t trim_mode);
 ```
 
@@ -315,7 +319,7 @@ Compiler.typeinf_ext_toplevel(mi, world, source_mode, trim_mode, owner)   # the 
 Compiler.typeinf_ext(interp, mi, source_mode)
 Compiler.interp_for_owner(interp, owner)       # the interpreter for a queue item of owner `owner`
 Compiler.interp_for_mi(interp, owner, mi)      # the same (for the compile queues)
-Compiler.default_owner(mi)                     # the runtime's jl_default_owner
+Compiler.default_owner(mi)                     # code_owner(mi.def, REACH_RUNTIME)
 ```
 
 Lives in `src/gf.c`, `Compiler/src/typeinfer.jl` and `Compiler/src/facts.jl`.
@@ -813,7 +817,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| C-1 | [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code) | One function decides the mode and owner of a MethodInstance's code, with one predicate for the compiler's code (module flag 2). | Five places decide it: the single-request entry, `interp_for_owner`, `leaves_to`, and the runtime's `jl_default_owner` and `facts_callee_owner`. They share the one predicate (`jl_method_is_plain`). | `Compiler/src/typeinfer.jl:1664`; `Compiler/src/facts.jl` (`interp_for_owner`, `leaves_to`); `src/gf.c:437`, `:4878`; `src/module.c:749` |
+| C-1 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code)]. | — | — |
 | C-2 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), the setting. | — | — |
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: an allocation and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4670`–`4673`; `src/runtime_ccall.cpp:424` |
 | C-4 | [§2.5](#25-dispatch-from-facts-code) | Dispatch for the facts owner caches its answer as for the plain owner. | A call that arrives with a narrow MethodInstance normalizes to the wider one on every call. The plain owner copies the wider code onto the narrow instance; the facts owner keeps nothing. | `src/gf.c:3790`–`3795` |
