@@ -1,4 +1,4 @@
-# The state of the prototype (2026-10-27)
+# The state of the prototype (2026-10-28)
 
 The prototype works end to end. Traits run at plain Julia's speed for typed calls, and the facts compiler stops invalidation. On the compiler side, the work reduces to four mechanisms, plus hooks for the library and fixes.
 
@@ -34,9 +34,10 @@ The facts compiler is built, with two settings:
 - **The product setting:** only trait modules are compiled by facts.
 - **`all`:** everything is compiled by facts. It is the test bed.
 
+- **Correctness:** the acceptance checks pass, 34 of 34, in both settings (2026-10-28, the builds of §6.1).
+- **G2 across package loads** (E-29, 2026-10-28): in the product setting no CodeInstance of the facts owner is lost after any of ten loads, in either load order; under `all` the only losses come from a standard library's method, which is Julia's own owner ([evidence §1](design/evidence.md#1-the-guarantee)).
+
 Measured in the round of 2026-10-20:
-- **Correctness:** the acceptance checks pass, 23 of 23, in both settings.
-- **G2 across package loads** (product setting): 0 of 12,368 CodeInstances of the facts owner lost after each of ten loads (`experiments/facts/g2all.jl`).
 - **The payoff under `all`:** upstream CSV+DataFrames lose 2 of 3,337 CodeInstances to nine unrelated loads (plain: 561 of 4,684). Their first work takes 516 ms (plain 3,308 ms), and 435 ms after the loads (plain 4,021 ms).
 - **The cost under `all`:** the full BaseBenchmarks (4,342) run at a geometric mean of 1.037 against plain, with tails up to 27.8× on containers of `Any`. The quick subset (148, chosen to include the tails) gives 1.710; it is not the average cost.
 
@@ -44,12 +45,12 @@ The details, with every row: [`design/evidence.md`](design/evidence.md).
 
 ## 2. The compiler changes as four mechanisms
 
-The patched Julia adds about 1,750 lines in 36 files, in 40 commits on v1.13.2 (with build scripts and the dispatch profiler). Underneath them are four mechanisms.
+The patched Julia's size is in [`design/julia-changes.md`](design/julia-changes.md). Underneath its changes are four mechanisms.
 
 | # | Mechanism | What it does | What it covers | General for Julia? |
 |---|---|---|---|---|
 | 1 | **Infer across a call only where a fact holds** | A call is inferred, with an edge, only at a signature that only its stakeholders or a pirate can change. Every other call is a run-time site. | Part (A), `is_fact_sig` | As "a facts mode for the native compiler" |
-| 2 | **Each method's code is compiled in a mode decided by the method and the mode that reaches it** | Code compiled by facts and plain code live side by side, with separate caches, edges and images. A trait module's methods are compiled by facts and the compiler's own code plainly, whoever calls them; other methods get one copy per mode that reaches them. | Parts (B) and (C); `leaves_to`; the compiler's never-by-facts flag; inlining from the other owner's cache (piece 10, c7f1eae); edges and image copies for the second owner (pieces 9 and 5, 9892bfc) | As per-method inference modes |
+| 2 | **Each method's code is compiled in a mode decided by the method and the mode that reaches it** | Code compiled by facts and plain code live side by side, with separate caches, edges and images. A trait module's methods are compiled by facts and the compiler's own code plainly, whoever calls them; other methods get one copy per mode that reaches them. | Parts (B) and (C); one function for the mode and owner, `jl_code_owner` (§4); the compiler's never-by-facts flag; inlining from the other owner's cache (piece 10, c7f1eae); edges and image copies for the second owner (pieces 9 and 5, 9892bfc) | As per-method inference modes |
 | 3 | **Caches at dynamic boundaries are checked against the caller's world** | A cached dynamic call or `cfunction` pointer runs in the caller's world, as Julia's own caches already do. | The `:caller_world` cfunction convention (piece 18); exact-type and wildcard entries in the per-call-site dispatch cache | Yes |
 | 4 | **Two primitives for a specialized path beside a general one** | `known_type` folds to whether inference knows a value's concrete type (GCC's `__builtin_constant_p`, for types). `split_call` splits a call site over registered candidates. | `known_type` (b5bb9ab); part (D) | `known_type`: yes |
 
@@ -87,7 +88,7 @@ The deviations of the implementation from the design are listed per reference, w
 
 ## 6. The software: today, the target, the order of work
 
-### 6.1 Today (2026-10-27)
+### 6.1 Today (2026-10-28)
 
 - **Julia** (`julia-1.13/`): parts (A)–(D), the compiler staying plain, the inliner changes (and inlining from another owner's cache), `known_type`, exact-type entries in the per-call-site dispatch cache, with the patch pieces 1, 3, 5 (keeping facts copies without source), 9, 10, 17, 18 (`:caller_world` cfunctions). Inventory: [`julia-changes.md`](design/julia-changes.md).
 - **TraitWorld** (requires the patched build): the trait language, ownership, implementations as methods, entries (boundaries) and workers, keys and layout (held views for immutable values), `Callable`, `Like`, definition checking (the rule check by the default interpreter's reflection, facts inference for workers; the keep analysis and the result-type checks on a plain `NativeInterpreter`: at archetypes with their own cache owner, at real signatures in the plain cache), entries for untyped callers ([lowering §9.2](reference/lowering.md#92-untyped-callers-the-erased-worker)), compiling ahead from declarations ([lowering §15.1](reference/lowering.md#151-compiling-ahead-from-declarations)), fully typed mode with the fully-typed certificate, `verify_main`, strict mode (scoped to trait code; it protects code of the facts owner and the plain code it rests on, [facts §10.2](reference/facts.md#strict-mode), the note), printing. Its slow paths are compiled by facts (`@machinery`). `Dynamic` operations are `Compiler.split_call` sites.
@@ -108,7 +109,7 @@ Julia (patched, then upstream proposals)
 
 TraitWorld (package)
   @trait, @implement, @trait_module (sets the (B) flag), ownership, implementations as methods,
-  entries and workers, keys and layout, Callable (two modes), Like, definition checking,
+  entries and workers, keys and layout, Callable, Like, definition checking,
   fully typed mode, verify_main, strict mode, printing
   Dynamic{X}: holds the user's object; the candidate list for (D)
 
@@ -133,10 +134,10 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
    - calls slower than plain where trait code should be as fast (W-17, E-192).
-5. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next, valid by Julia's validation of its edges with fingerprints for content (open issue 80 closed).
+5. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; its gain's bound (E-205) and its soundness by construction (E-206) come before any Julia change.
 6. **The large ports:** SciML (W-34) and Makie (W-70).
 7. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 
-Waiting for the user: the Julia changes as small patches, and upstream proposals (W-19); a review session of eight choices the clean-up adopted (W-71). Paused by the user: NetworkDynamics (W-32), the forks (W-14).
+Waiting for the user: Revise and trait modules (open issue 81); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32), the forks (W-14).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.
