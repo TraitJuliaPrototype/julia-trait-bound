@@ -48,6 +48,14 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 94. **Keys of positions that default to `Dynamic`, for compiling ahead** (SciML weak point 5). [Traits §13](reference/traits.md#13-compiling-ahead) treats another trait position as unknown, so compiling ahead never reaches the solver's driver; W-60's memo needs workloads for it. Proposal: a position whose bound defaults to `Dynamic` has a known key, the erased one, so compiling ahead covers it. **My recommendation: state it so,** after a probe.
 
+95. **The facts-keyed cache's vehicle: inferred code or machine code** (W-66; E-205, 2026-10-28). The store's revised note keeps optimized IR, so that an entry can be reused across environments; code generation stays in the session. E-205 measured the ceiling on the current build: in C off its workload, the entries the store would admit cost 1.5 s of inference and optimization, in a 14.5 s session with 10.7 s of compilation, of which code generation is 7.56 s (facts code 6.25 s); in D, 0.02 s. The store's own costs (reading, relinking, validation) come out of the 1.5 s. The environment-keyed cache (E-180, retired 2026-10-27 for this direction) kept machine code and took C off its workload from 19.4 to 6.1 s. Options:
+   - (a) build the IR store as revised: reuse across environments, a ceiling of about 1.5 s in C and nothing in idiomatic trait code;
+   - (b) a store of machine code keyed on facts: Julia loads machine code only from package images, which link to their dependencies by build id, the cascade E-194 measured; storing machine code per facts key needs a Julia change, native code relinked by stable names at load, as the IR store's reader relinks IR;
+   - (c) two layers: the environment-keyed machine-code cache (E-180) for an unchanged environment, and the facts-keyed store across environments;
+   - (d) pause the store: keep what W-66 built (fingerprints, strict mode on facts code, images that keep only running owners, the checks' records), record the bound, and take first calls up through W-7.
+
+   **My recommendation: (d) now, with a short feasibility study of (b)** (how package images link native code, and what relinking by stable names would take in Julia's loader) before anything is built. The measured ceiling of (a) is small against its complexity (the rule for performance work), and machine code is where the time goes; (b) is the principled form of the user's direction, if Julia's loader can carry it. Yours to decide: it revisits the direction of 2026-10-27.
+
 Eight of the choices the clean-up adopted, and the choices marked mine in the decision log since 2026-10-27, are for a review session with the user ([W-71](record/todo.md)).
 
 Waiting for evidence, not for the user:
