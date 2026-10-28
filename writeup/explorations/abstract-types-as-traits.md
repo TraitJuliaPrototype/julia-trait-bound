@@ -20,6 +20,8 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 10. [The smallest experiments](#10-the-smallest-experiments)
 11. [One kind of membership: candidates](#11-one-kind-of-membership-candidates)
 12. [Sources](#12-sources)
+13. [Invalidation for subtyping: making `S <: X` sound for late memberships](#13-invalidation-for-subtyping-making-s--x-sound-for-late-memberships)
+14. [CommonSolve's `solve`: a ground-up design](#14-commonsolves-solve-a-ground-up-design)
 
 ---
 
@@ -31,6 +33,8 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 - **The obstacle, and its answer.** The design's two dispatch tiers (types first, then traits; [traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits)) are not an artefact of TraitWorld's encoding. They are what makes an implementation invalidate nothing ([the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated), "Implementations are the extension point"). If `@implement X S` made `S <: X` in Julia's own dispatch, it would change what `f(::S)` selects wherever `f(::X)` exists: a definition that wins at a fact, and a load that invalidates. The first reading of this (§5.5) keeps two kinds of membership: **declared with the type** (`struct S <: X`: a fact, Julia's static dispatch) and **declared later** (`@implement X S`: resolved at the trait tier when the code runs, without an edge). **§11 finds that the two collapse into one** under a coherence rule that is Lemma O applied to memberships, and that is Rust's orphan rule for blanket impls in Julia's terms: what must be refused is one combination only, *a set that takes foreign members by its own owner* together with *a method bounded by that set on a function its definer does not own*. Everything else (a membership declared by the member's owner, a membership declared by the set's owner for a foreign type, a bounded method by the function's owner, a bounded method on a foreign function for a set whose members all joined by their own owners) is loaded before any code that could see it compiles, in every load order, so it changes no compiled fact. The forbidden combination is piracy in disguise, and gets the treatment pirates get: refused in a trait module at the definition, refused by strict mode where it would win, followed by default with one recompile. With that, `@implement X S` is `S <: X` in Julia's own dispatch, and "abstract type" and "trait" are one construct with one kind of membership. "Static beats dynamic" survives only as a precedence rule for ties (a type's own supertypes before memberships added later: CLOS's and Dylan's local precedence order), not as a dispatch mechanism.
 - **What it simplifies.** The interaction rules disappear: what trait code may do with a trait object (§5.3), internal functions (§5.4), a trait's name refused outside trait modules (§2; decision 41), the three kept forms (§7), the entries per shape (lowering L-3), the boundary principle as a rule. They are replaced by one classification the compiler makes per function: *fully bounded* (the body uses only its bounds' contracts) or not. A fully bounded function is compiled per key and checked at its definition; any other function is today's plain Julia, compiled per concrete type, with the facts rule at its run-time sites. The `fully_typed` report already computes most of this.
 - **What it costs.** Multiple membership in Julia's subtyping (a real change to `jl_subtype`, type intersection and ambiguity detection); ambiguity between methods on two unrelated traits is reportable only when a common member appears (Julia issue #5's problem, Fortress's exclusion relation, the design's T-83); the coherence rule of §11 refuses one pattern the design allows today (a bounded method on a foreign function, such as `Base.show(io, ::X)`, for a set whose owner declares foreign members), with a newtype or the set's own wrapper type as the escape; no gain for an abstract type that declares no contract (`Number` stays `Number`); and the decided rule that a trait's name is refused outside trait modules (open issue 41) is reversed.
+- **The smallest step that pays** (§13): the storage simplification needs only `S <: X` in Julia's subtyping, not the rest. It is sound with one rule the design already states: a positive membership answer may be folded at compile time (memberships are monotone), a negative one never is; `typeintersect` with an open set over-approximates, as its contract allows; a registry read at run time, with a world of its own as methods have. No new edges, no invalidation, the REPL covered. §11's timing argument explains why package code could fold negatives too, but nothing needs it.
+- **SciML's `solve`** (§14): the front end `CommonSolve.solve(prob::ODEProblemTrait, alg)` by SciMLBase is refused today by lowering L-3 only; the coherence rule of §11 allows it as long as `ODEProblemTrait`'s members join in their own packages, which is how SciML's problem types are declared. The cost the rule has in SciML is nil for the front end; it falls on operator-style traits over Base's types bounding Base's functions, where Base's typed methods make it harmless, so the static check should be a warning, not an error.
 - **What to do with it.** It does not change the design's rules. It changes the *framing* of W-27 (traits in the type system): not "encode a trait beside abstract types" but "an abstract type is a set whose members joined with their definitions; `@implement` adds a member; one dispatch". §10 and §11.5 give the experiments: a census of the demonstrators and ports for the forbidden combination (minutes), a probe of extension load order (minutes), and the subtyping probe (a build). Until they run, W-27's direction should stay open, not decided.
 
 ---
@@ -486,7 +490,7 @@ Each with its rule, an example, what it guarantees, what it costs, what breaks.
 
 **Recommendation: C4 with C3 as its static face, and C7 for ties.** In one paragraph: a membership is a definition; the stakeholders of a signature are the owners of its function, its types and their consented supertypes; a definition by a non-stakeholder that wins at a compiled fact is a pirate, membership or method alike, and gets the pirate's treatment (refused in trait modules, refused by strict mode where it wins, followed by default); a set declares whether its members join by their own owners or by the set's owner, and the trait module refuses, at the definition, the one combination that could ever win (a foreign member of a set together with a method on that set for a foreign function); ties between a type's own supertypes and later memberships go to the former. Then `@implement X S` is `S <: X`, there is one kind of membership and one dispatch, and the only new sentence in the facts reference is the definition of consented supertypes.
 
-What it reverses in the design: the plan to lift L-3 for open sets ([traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits), "or to another package's function where the package owns a trait the bound names"); that permission survives only for members-by-owner sets. What it keeps: everything in [traits §10](../reference/traits.md#10-who-may-implement-pirates-strict-mode), the showcase extensions (TraitCSV, BaseTraits), the ports' capability traits (their functions are their owners').
+What it reverses in the design: the plan to lift L-3 for open sets ([traits §5.5](../reference/traits.md#55-dispatch-types-first-then-traits), "or to another package's function where the package owns a trait the bound names"); that permission survives only for members-by-owner sets. What it keeps: everything in [traits §10](../reference/traits.md#10-who-may-implement-pirates-strict-mode), the showcase extensions (TraitCSV, BaseTraits), the ports' capability traits (their functions are their owners'), and SciML's front end on CommonSolve's `solve` (§14: `ODEProblemTrait` is a members-by-owner set, so the bounded method is allowed; E-159's note that §11 "would refuse it for good" read the rule too broadly). §14.4 refines the enforcement: the static refusal in trait modules should be a warning, and strict mode's refusal where a definition wins the rule.
 
 **The smallest experiments** (registry rows first; minutes each; no Julia change):
 
@@ -517,6 +521,178 @@ The design's documents are linked in place. External sources, all opened:
 - Swift: [SE-0335 existential `any`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0335-existential-any.md); [SE-0352 implicitly opened existentials](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0352-implicit-open-existentials.md); [SE-0364 warning for retroactive conformances](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0364-retroactive-conformance-warning.md); Rose, [Swift Regret: Retroactive Conformances](https://belkadan.com/blog/2021/11/Swift-Regret-Retroactive-Conformances/), 2021.
 - Haskell, GHC: [Orphan modules and instance declarations](https://downloads.haskell.org/ghc/latest/docs/users_guide/separate_compilation.html) (the GHC user's guide).
 - Scala 3: [Given instances](https://docs.scala-lang.org/scala3/reference/contextual/givens.html).
-- Dylan, CLOS: [Dylan Reference Manual, Classes (the class precedence list)](https://opendylan.org/books/drm/Classes); Barrett, Cassels, Haahr, Moon, Playford, Withington, [A Monotonic Superclass Linearization for Dylan](https://dl.acm.org/doi/10.1145/236337.236343), OOPSLA 1996 (the ACM page was not fetched; the citation is as the GOO manual gives it).
+- Dylan, CLOS: [Dylan Reference Manual, Classes (the class precedence list)](https://opendylan.org/books/drm/Classes); Barrett, Cassels, Haahr, Moon, Playford, Withington, [A Monotonic Superclass Linearization for Dylan](https://dl.acm.org/doi/10.1145/236337.236343), OOPSLA 1996 (the ACM page was not fetched; the citation is as the GOO manual gives it); [CLHS, `make-instances-obsolete`](https://www.lispworks.com/documentation/lw70/CLHS/Body/f_mk_i_1.htm).
+- HotSpot: [`src/hotspot/share/code/dependencies.hpp`](https://github.com/openjdk/jdk/blob/master/src/hotspot/share/code/dependencies.hpp) (the OpenJDK repository; not fetched directly, the search found [a mirror](https://builds.shipilev.net/patch-openjdk-leyden-premain/src/hotspot/share/code/dependencies.hpp.html) and the glossary's wording "an optimistic assumption associated with an nmethod … a given class has no subclasses").
+- Swift runtime: [Eagerly load protocol conformances](https://forums.swift.org/t/eagerly-load-protocol-conformances/53687) (Swift forums; the conformance cache cleared on a dynamic library's load, the lookup paths); Emerge Tools, [Swift protocol conformance](https://www.emergetools.com/blog/posts/SwiftProtocolConformance).
+- SciML: [CommonSolve.jl](https://github.com/SciML/CommonSolve.jl) (its docstrings as read from `~/.julia/packages/CommonSolve/zocpq/src/CommonSolve.jl`); upstream sources in `ndport/pkgs/`.
+- Julia internals read, not run: `julia-1.13/Compiler/src/tfuncs.jl` (`isa_tfunc`, `subtype_tfunc`), `src/jltypes.c` (`jl_type_union`), `src/subtype.c` (`jl_subtype`), `base/runtime_internals.jl` (`typeintersect`'s docstring).
 - Clojure: [Protocols](https://clojure.org/reference/protocols).
 - Go: [The Go Programming Language Specification](https://go.dev/ref/spec), interface types (the spec's wording was not fetched; secondary sources agree that satisfaction is implicit and structural).
+
+---
+
+## 13. Invalidation for subtyping: making `S <: X` sound for late memberships
+
+Added on 2026-10-28 after the user's follow-up. What the discussion established: the storage simplification of §5.2 (`Kept{X}` and `Compiled{X}` collapse to `X`, `Dynamic{X} <: X`, a raw member is the `Compiled` form, the casts stay) needs only `S <: X` in Julia's subtyping; dispatch stays the design's two tiers, since no plain method is typed with a trait (decision 41) and bounded methods are entries at `Any` (L-3). What `S <: X` touches is `isa`, storage, `Union` simplification and type intersection. And abstract types work in subtyping because supertypes are fixed at a type's definition: `@implement X S` adds one later, and Julia has invalidation for method facts, not for subtyping facts.
+
+### 13.1 What Julia relies on today, and where a late membership would break it
+
+Read from the patched build (`julia-1.13`), not run.
+
+| Where a subtyping answer is fixed into something | What it fixes | A late `S ∈ X` would |
+|---|---|---|
+| inference's `isa_tfunc` (`Compiler/src/tfuncs.jl:886`): `Const(false)` when `v` is a dispatch element not `⊑ t`, or when `!hasintersect(v, t)` | an `x isa X` branch folded away in a CodeInstance, no edge | make a dead branch live: **unsound** for the compiled code |
+| `subtype_tfunc` (`tfuncs.jl:926`): `Const(false)` when `isexact_a`, or no intersection | a `T <: X` folded to `false` | the same |
+| `typeintersect` in inference (`tmerge`, type assertions, `abstract_call` filtering): `Union{}` for `S` and `X` with no common subtype | a type assertion `x::X` on an `x::S` typed as always throwing; code after it dead | **unsound** |
+| `Union` normalization (`jl_type_union`, `src/jltypes.c:650`): a member absorbed by a supertype | `Union{S, X}` stays two members today; after the membership the same set is `X` | sound: `Union{S, X}` is a superset of every value either way; type equality is mutual subtyping, so `Union{S, X} == X` holds after, by `<:` |
+| method tables: `jl_typemap` insertion sorts methods by subtyping; `ml_matches` and the ambiguity check intersect signatures; the leaf cache maps a concrete signature to its method with a world range | which methods apply at `(S,)`, in which order | nothing, while no method in the table is typed with a set (the two tiers); if one were, this is §5.5's problem |
+| the type cache (`jl_cache_type_`): canonical type objects | identity of `Union{S, X}` and of `Dynamic{X}` instances | nothing: no cached object records a negative answer |
+| package images | CodeInstances with the folds above; no validation of them | the folds survive a load that brings the membership: **unsound** |
+| run time: `jl_isa`, `jl_subtype` on `DataType.super` | the answer for a value | a registry read instead of the chain: fine |
+
+The sound column has one entry; everything unsound is a **negative** answer (`false`, `Union{}`) fixed at compile time. A positive answer never changes: memberships are added, never removed (a struct redefinition in Julia 1.13 makes a new type; a redeclared implementation is the owner's change, [traits §4.9](../reference/traits.md#49-checks-at-the-declaration)). That asymmetry is the whole answer.
+
+### 13.2 Candidate (a): memberships known before any code asks
+
+- **Rule.** Lemma M of §11.4, applied to subtyping facts: a compiled negative answer about `S` and `X` is sound if every declaration that could make `S ∈ X` is loaded before the code that asks is compiled.
+- **What must hold.** Code that folds `S <: X` knows `S` (it is specialized at `S`, or names it) and names `X` (its module depends on `X`'s package, or `X` reached it as a constant from a caller whose module does). So both `S`'s package and `X`'s package are loaded when the fold happens. Every membership between them lives in one of the two packages or in an extension of one triggered by the other (ownership, [traits §10.1](../reference/traits.md#101-who-may-implement)), and all of those are loaded once both are. The premise is weaker than §11's: no coherence rule on methods is needed, because dispatch is not involved.
+- **What breaks it.** `Main`: a type and a function compiled at the prompt, then `@implement` at the prompt. The fold is stale. Revise edits likewise. Julia answers the same situation for methods with invalidation; Lemma M has no answer for `Main`, where "loaded before" has no meaning.
+- **Guarantees.** For package code, folds of negatives are sound without any edge; G2 untouched. For `Main`, nothing.
+- **Cost.** None at run time. The timing argument must be checked against Julia's loader once (U6, §11.5).
+- **Julia change.** None beyond the registry read in `jl_subtype`.
+- **Verdict.** Enough for packages, not for sessions. It explains why (c) loses nothing in packages; it is not a rule to adopt on its own.
+
+### 13.3 Candidate (b): backedges on subtyping answers
+
+- **Rule.** A compile-time negative answer that depends on an open set records a *membership edge* `(S, X)` on the CodeInstance, as a method fact records an edge today. `@implement X S` walks the edges of `(S, X)` and invalidates them; an image's membership edges are checked at load, as method edges are (`verify_method_graph`), or the fold is evaluated again at load as W-40's `fold_call` is ([compiler §4.4](../reference/compiler.md#44-compilerfold_call)).
+- **What Julia records today.** Nothing for subtyping: `isa_tfunc`, `subtype_tfunc` and `typeintersect` return constants with no edge; CodeInstances carry method edges, binding edges and `fold_call` folds only. The change: a new edge kind in `Compiler` (recorded in the three tfuncs and in `typeintersect`'s callers where the answer is `Union{}` against an open set), a backedge list per `(type, set)` pair in the runtime, invalidation in `src/gf.c`'s walk, and image validation.
+- **Prior art.** HotSpot's class hierarchy analysis: a compiled method carries dependencies, "optimistic assumptions" such as "a given class has no subclasses"; loading a class that breaks one discards the dependent methods and deoptimizes their frames, with an index from classes to dependent nmethods so that the check is cheap ([`dependencies.hpp`](https://github.com/openjdk/jdk/blob/master/src/hotspot/share/code/dependencies.hpp); the search found a mirror and a glossary, §12). That is exactly a membership edge: "`S` is not an `X`" is a hierarchy assumption. Swift's runtime takes the blunt form: its protocol-conformance cache is cleared when a dynamic library loads, since negative entries may have become stale ([forum, eagerly load protocol conformances](https://forums.swift.org/t/eagerly-load-protocol-conformances/53687); the 2020 commit it discusses). CLOS redefines classes and updates instances lazily (`make-instances-obsolete`, [CLHS](https://www.lispworks.com/documentation/lw70/CLHS/Body/f_mk_i_1.htm)), which is about layouts, not compiled dispatch; its dispatch caches are implementation matters.
+- **Guarantees.** Sound everywhere, `Main` included; negatives fold as today; G2 gains a new named invalidation source, "a membership the code assumed absent", which is a stakeholder's change only where the implementer is one (§11.1's analysis: in packages it never fires by Lemma M; in `Main` it is the user's own change).
+- **Cost.** A new edge kind through inference, the runtime and images: the largest Julia change of the three. Each fold of a negative against an open set costs an edge. Deoptimization of running frames is not needed: Julia's world age lets a running task keep its world, as for methods.
+- **Verdict.** Correct and known, and more than is needed, because the folds it protects are rare in trait code (§13.5). Keep as the form to reach for if (c) measurably costs.
+
+### 13.4 Candidate (c): never fold a negative; let intersection over-approximate; a registry with worlds
+
+- **Rule.** For a set `X` that admits late members (flagged on the abstract type):
+  1. `jl_subtype(S, X)` consults a membership registry when `S`'s supertype chain fails; a membership has a `min_world`, so a task in an older world does not see it, as it does not see a newer method ([facts §2.1](../reference/facts.md#21-g1-identical-or-error), "the same world");
+  2. in inference, `isa_tfunc` and `subtype_tfunc` return `Const(true)` where the answer is positive and known, and `Bool` (unknown) instead of `Const(false)` where the negative answer rests on `S ∉ X` for an open `X`; the test is emitted and runs as a registry read;
+  3. `typeintersect(S, X)` returns `S` where `S` is not a known member, never `Union{}`. Julia's contract allows it: "Compute a type that contains the intersection of `T` and `S`. Usually this will be the smallest such type or one close to it" (`base/runtime_internals.jl:1139`). A positive membership keeps the exact case, `typeintersect(S, X) == S` when `S <: X`;
+  4. `Union` normalization uses only positive answers, which is what it does today when `jl_subtype` says `false`: `Union{S, X}` stays two members until the membership is declared, and is a superset of every value either way.
+- **Guarantees.** No compiled code holds a negative membership answer, so no membership can invalidate anything: G2 holds with no new edge, in packages and in `Main`. G1 holds: a value's `isa` is answered in the caller's world. This is the design's own rule, already stated: "Compiled code never folds a membership test to `false`: the answer is taken when the code runs, so a later implementation invalidates no trait code" ([traits §14](../reference/traits.md#14-membership)), and it is the facts rule's shape: do not record what can change, compute it when it runs. The registry read without an edge is what the `Dynamic` split does for its candidate list ([facts §9](../reference/facts.md#9-the-dynamic-split)).
+- **Cost.** A run-time registry read wherever `x isa X` is unknown for an open `X`, and a wider type where inference used `Union{}` to prune. Where does trait code ask a negative? Rarely: `x isa Dynamic{X}` on a raw member of a `Vector{X}` is a question about a *concrete closed* type and folds as today; `x isa X` on an item of a `Vector{X}` is positive from the element type and folds; the capability test of open issue 82 (b) (`c isa PushdownColumn` on a stored column) is the one place a negative is asked, and there a run-time read is what one wants, so that a capability declared later is seen without a recompile. Plain code asks `isa` of abstract types that are not open sets, which fold as today. U7 counts the rest.
+- **Julia change.** Small: the registry and its read in `jl_subtype` and `jl_isa` (the planned piece 7 in any form); a branch in two tfuncs; `typeintersect`'s handling of a flagged set; the `min_world` on registry entries. No new edge kind, no validation, no image change.
+- **The world-age split asked about.** It is the `min_world` of item 1: a membership becomes visible at the top level, like a method, and compiled code never fixed the negative, so there is nothing to split. The facts mode's split of two cache owners is not needed; the subtyping answer is the same in both modes.
+- **Verdict.** The rule to adopt. (a) explains why packages lose no performance to it in practice; (b) is the fallback if U7 finds hot negative folds.
+
+### 13.5 Anything else principled
+
+- **Memberships of sets never asked negatively.** A set could be declared `closed` (no late members) and then fold negatives as abstract types do: `Number`, Base's trees. That is the flag of (c) with the default the other way round, and it is what "admits late members" means. No separate candidate.
+- **Positive-only `Union` absorption as a type-identity rule.** Already Julia's behaviour; noted in 13.1.
+- **A set as a refinement, not a supertype** (`S ∧ X`): changes nothing above; intersection types would help only the joint method of §11 C7.
+
+### 13.6 The smallest deciding experiments
+
+| ID | Question | How | Result that decides |
+|---|---|---|---|
+| **U7. How often does inference fold a negative membership?** | Would (c)'s unfolded negatives cost anything measurable? | A counter in a forked `Compiler` package (as `experiments/factscompiler` did), in `isa_tfunc`, `subtype_tfunc` and the `Union{}` branch of `typeintersect`'s callers, counting negative folds whose right-hand side is an abstract type that BaseTraits or a demonstrator declares members of (`Indexable`, `Iterable`, `Shape`, `Column`, `ODEProblemTrait`, …), against all negative folds. Run the demonstrators' suites and TraitWorld's under it. | Under 1% of negative folds, none in a hot loop: (c) is free, and §13.4 goes into W-27's plan. Hot folds in a demonstrator's loop: (b)'s edges for those sets, or `closed` for them. |
+| **U8. The REPL case under (c).** | Does a function compiled before `@implement` see the membership after it, with no recompile and in the right world? | In TraitWorld as it is (the registry is `conforms`): a `Main` function that tests `conforms(typeof(x), X)` compiled at a `Main` type, then `@implement X S` at the prompt, then the call again; and the same call from a task started before the `@implement` (`invoke_in_world` with the earlier world). Count the CodeInstances compiled for the function before and after. | The second call answers `true` with no new CodeInstance; the old-world task answers `false`. Then the `min_world` rule is the one to build into the registry. |
+| U3 (§10) | the subtyping probe | as in §10, with (c)'s four items as its specification | as in §10 |
+
+Order: U8 (minutes, no change), U7 (an afternoon, no build), then U3.
+
+---
+
+## 14. CommonSolve's `solve`: a ground-up design
+
+Added on 2026-10-28 after the user's follow-up. The case: E-159 (stage B, [the move-3 plan](../plans/2026-10-28-sciml-move3-today.md)); the files read: `TraitDifferentialEquations/src/TraitDifferentialEquations.jl`, `lib/ODECore/src/core.jl` (`ODEAlgorithm`, `solve_core`, `solve_ode`), `lib/TraitRodas/src/TraitRodas.jl`, [`sciml-as-traits.md`](sciml-as-traits.md) (move 3, principle 1, PB-F), CommonSolve's source (`~/.julia/packages/CommonSolve/zocpq/src/CommonSolve.jl`, [SciML/CommonSolve.jl](https://github.com/SciML/CommonSolve.jl)), and upstream's front end (`ndport/pkgs/OrdinaryDiffEq.jl/lib/DiffEqBase/src/solve.jl`, `SciMLBase.jl/src/SciMLBase.jl:49–50`).
+
+### 14.1 What CommonSolve's `solve` is for
+
+CommonSolve's own words: it "defines the shared solver interface functions used by solver packages that need common names without exporting them into downstream user namespaces"; "downstream packages extend these functions on problem, algorithm, iterator, or cache types that they own. This keeps independent solver ecosystems compatible without introducing type piracy or method ambiguities"; and the rule: "Extensions must dispatch the first positional argument on a type that they own." The fallback `solve(args...; kwargs...) = solve!(init(args...; kwargs...))` composes the iterator interface.
+
+So `solve` is one verb in the user's namespace across problem kinds (ODE, nonlinear, linear, optimization), with **the problem kind's package as the stakeholder**, by CommonSolve's own rule. In SciML as built the rule is bent twice: DiffEqBase defines `solve(prob::AbstractDEProblem, args...)` for SciMLBase's types (a pirate by the letter, held by joint owners, [alternatives](../design/alternatives.md#split-packages-restructuring-or-implementations-instead-of-joint-owners)), and the algorithm packages dispatch on the *second* argument through SciMLBase's own `__solve(prob, alg::OrdinaryDiffEqAlgorithm)` (`DiffEqBase/src/solve.jl:1320`), which is a stakeholder's method because `__solve` is SciMLBase's. In the trait world the problem kind is a trait (`ODEProblemTrait`), and its members include users' types, which the kind's package does not own. "The first argument on a type you own" becomes "the first argument bounded by a set you own": the extension-trait form (PB-F), which L-3 refuses today.
+
+### 14.2 The designs
+
+Each: who owns what; whether it passes L-3 today and the coherence rule of §11; what users and solver authors write; what it costs; its distance from SciML.
+
+**A. The front end as SciMLBase's bounded method on CommonSolve's `solve`, over members-by-owner sets** (the extension-trait form, PB-F; move 3 as the exploration states it).
+
+```julia
+# SciMLBase (a trait module)
+@trait ODEProblemTrait{T, P} @members_by_owner begin … end       # every problem type joins in its own package
+@trait ODEAlgorithm @members_by_owner begin
+    solve_core(a::ODEAlgorithm, m::CoreProblem, cbs::Vector{Any}, opts::SolverOptions)::ODESolution
+end
+CommonSolve.solve(prob::ODEProblemTrait, alg::ODEAlgorithm; kw...) = solve_ode(prob, alg, _cbs(kw), _options(; kw...))
+CommonSolve.solve(prob::ODEProblemTrait; kw...) = solve(prob, default_algorithm(prob); kw...)
+# OrdinaryDiffEqTsit5 (a solver package)
+@implement ODEAlgorithm Tsit5 begin solve_core(a, m, cbs, opts) = tsit5_solve(m, …) end
+# a user's package
+@implement ODEProblemTrait MyProb
+solve(MyProb(…), Tsit5())                                        # CommonSolve's solve, re-exported by the umbrella
+```
+
+- **Owns:** CommonSolve the verb; SciMLBase the problem kind's set and the algorithm set; each solver package its algorithms; each user their problem type.
+- **L-3 today:** refused (the entry at `Any` for the shape `(prob, alg)` may be added only by `solve`'s owner). With piece 7 the method is an ordinary method on a set, and L-3 has no object. Before piece 7, the entry must be shared: two kinds' packages (SciMLBase, NonlinearSolveBase) each add a bound at the same position, so the entry's `needed` list is merged at the load that brings the second (Makie D4's rule, decided as open issue 89). That is W-36, merged into W-34.
+- **The coherence rule:** **allowed.** `ODEProblemTrait`'s members join in their own packages (SciMLBase's `ODEProblem` in SciMLBase, ModelingToolkit's in ModelingToolkit, a user's in the user's package), so the set is members-by-owner, and §11.1's table puts every membership in the tree of every caller at `(MyProb,)`. The method is in SciMLBase's package proper. E-159's note that §11 "would refuse it for good" was too broad: it is refused only if SciMLBase declares foreign members of `ODEProblemTrait` (a family over a package that does not depend on it), which SciML has no case for: every SciML package depends on SciMLBase.
+- **Users write** one line, `@implement ODEProblemTrait MyProb`, and call `solve` as today. **Solver authors write** `@implement ODEAlgorithm Alg begin solve_core … end`, as TraitRodas does.
+- **Cost:** the front end is compiled per key of the problem (its receiver type, since a problem implements `rhs!`), as SciML compiles per problem type today, behind the `@nospecializeinfer` barrier TDE has; the solver per numerical key by W-63; the algorithm `Compiled` where the caller names it (`Tsit5()` is concrete: the first-seen rule), `Dynamic` from a `Vector{ODEAlgorithm}` of a default chain.
+- **Distance from SciML:** the smallest. It is DiffEqBase's `solve(prob::AbstractDEProblem, args...)` moved to SciMLBase with the abstract type replaced by the trait, and `__solve(prob, alg)` replaced by the operation `solve_core`: move 3 exactly.
+
+**B. CommonSolve owns the sets: `Problem` and `Algorithm`, with `solve` its own bounded method.**
+
+```julia
+# CommonSolve (a trait module)
+@trait Algorithm begin
+    solve_with(a::Algorithm, prob, opts)::Any         # prob untyped: the kind is the algorithm's business
+end
+@trait Problem begin
+    default_algorithm(p::Problem)::Dynamic{Algorithm}
+end
+solve(prob, alg::Algorithm; kw...) = solve_with(alg, prob, kw)
+solve(prob::Problem; kw...) = solve(prob, default_algorithm(prob); kw...)
+# SciMLBase
+@trait ODEProblemTrait{T, P} <: Problem begin … end          # a user implements both: @implement (Problem, ODEProblemTrait) MyProb
+# a solver package
+@implement Algorithm Tsit5 begin solve_with(a, prob, kw) = solve_ode(prob, a, …) end   # bounds prob by ODEProblemTrait inside
+```
+
+- **Owns:** CommonSolve the verb and both sets; the kinds' packages their kind traits as sub-sets; solver packages their algorithms.
+- **L-3 today:** passes (the entry is the owner's). **Coherence:** passes (the method is `solve`'s owner's; memberships anywhere).
+- **Users write** `@implement (Problem, ODEProblemTrait) MyProb`; solver authors `@implement Algorithm Alg`.
+- **Cost:** CommonSolve becomes a trait module and fixes the operations' signatures for every ecosystem (`solve_with(a, prob, opts)` with `prob` and the result untyped, so a `Dynamic` algorithm's result is `Any` until the kind's package asserts it); the keyword front end moves into each algorithm's `solve_with` or into a `Problem` operation (`prepare(p, kw)`), which splits SciML's front-end body by algorithm instead of by kind.
+- **Distance from SciML:** larger: it makes a four-function namespace package into the owner of two traits, and moves the front end's body out of the kind's package. Socially possible (CommonSolve is SciML's), structurally a bigger move than A.
+
+**C. Dispatch on the algorithm as an operation, with the umbrella's own `solve`** (TDE today).
+- **Owns:** the umbrella its own `solve`; the core `solve_ode` and `ODEAlgorithm`; solver packages implement `solve_core`.
+- **L-3, coherence:** pass (own functions).
+- **Cost:** the one verb is lost: `using DifferentialEquations, NonlinearSolve` brings two `solve`s, which is the case CommonSolve exists for. Users of a problem type of their own reach CommonSolve's verb only by a typed method they write (`CommonSolve.solve(p::MyProb, alg) = solve_ode(p, alg)`): the "viral" cost of §9's C++ debate.
+- **Distance:** it is where TDE stands; a workaround, not a design.
+
+**D. The problem kind as an associated type of the algorithm**: `@trait Algorithm{K}` with `K = problem_kind(Self)`, `solve(prob::K, alg::Algorithm{K})`. A bound cannot name another argument's associated type as a trait of its own in the design (`solve(prob::K, …)` with `K` a trait variable is not offered, [traits §3.4](../reference/traits.md#34-parameters-and-associated-types), "a parameter bound that names its own trait" is not offered either). It reduces to B with the kind carried as a value, and buys nothing over B's untyped `prob`. Not a candidate on its own.
+
+**E. Joint ownership: CommonSolve names the kinds' packages.** `@joint_owners SciMLBase NonlinearSolveBase LinearSolve …` in CommonSolve. Then SciMLBase's bounded method is the function owner's, and passes L-3 and the coherence rule as they stand. But only the owner declares joint owners ([traits §10.1](../reference/traits.md#101-who-may-implement)), so CommonSolve would list its dependents, against the dependency's direction; and each joint owner widens strict mode's exception ("a joint owner's change is a stakeholder's change"). It is the migration aid the design already has for split packages, not the end state ([sciml-as-traits §4, move 3](sciml-as-traits.md): "joint owners are a migration aid").
+
+### 14.3 Recommendation
+
+**A, with the algorithm's driver as an operation (which is D's half that TDE already built).** Reasons:
+- it is move 3 as the exploration states it, and the smallest change to SciML's structure: SciMLBase takes the front end's body it already should own, and `__solve` becomes a declared operation;
+- it passes the coherence rule of §11 without a per-case exception, because SciML's problem kinds are members-by-owner sets by construction: a problem type's package depends on SciMLBase, so it declares its own membership. The `@members_by_owner` mode is a statement of what is already true;
+- it keeps CommonSolve a namespace package with no dependency on TraitWorld;
+- users and solver authors write one line each;
+- what it waits for is L-3's retirement (W-36, in W-34): with piece 7, nothing; before, the shared entry whose `needed` list merges at load (open issue 89's rule).
+
+B is the fallback if SciML would rather not make its kind traits members-by-owner (no SciML case asks for foreign members; a case would be a kind's package implementing its trait for a package that does not depend on it). E is the stopgap the port uses now.
+
+### 14.4 Does the coherence rule's cost in SciML disappear?
+
+For the front end, yes: the forbidden combination does not arise, since `ODEProblemTrait`'s members are declared by their owners. The port's census (U5, §11.5) should find the front end clean once W-36 lands.
+
+Where the rule does bite in a SciML-shaped ecosystem is elsewhere: **operator-style sets over Base's types bounding Base's functions.** SciMLOperators declares Base's matrices as operators (foreign members by the set's owner) and would want `LinearAlgebra.mul!(y, op::AbstractSciMLOperator, x)` (a bounded method on a foreign function). That is the combination. But it never wins at a compiled fact for a Base matrix, because Base's typed `mul!(::AbstractVector, ::AbstractMatrix, ::AbstractVector)` exists and a typed method beats a bound (C7). So:
+- **strict mode's refusal (C4) fires nothing there,** which is right;
+- **the static refusal in a trait module (C3) would refuse a harmless definition,** because it cannot see the typed method that shields it.
+
+Refinement to §11.5's recommendation, from this case: the static check in trait modules should be a **warning** naming the combination and the typed method, if any, that shields it, and strict mode's refusal where a definition would win at a compiled fact should be **the rule**. That is how the design treats method pirates in plain code already (followed by default, refused where they win under strict mode); the trait module's own definitions get the warning instead of the error, since the combination is not a pirate by its signature. With that, the coherence rule costs SciML nothing that the facts rule does not already cost.
+
+**The smallest experiment:** U5 (§11.5) over `ndport/pkgs` and TDE, joining bounded methods on foreign functions with sets that have foreign members, and for each hit checking whether a typed method of the function shields every member: the number of hits without a shield is the rule's true cost in SciML. Expected from reading: zero for the front end, a few operator-style hits, all shielded.
