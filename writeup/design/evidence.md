@@ -162,7 +162,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 | the session without imports | **1.35–1.37 s** | **10.7–11.2 s** |
 | wall, start to exit | **3.7–4.0 s** | **12.0–12.8 s** |
 
-- **Not measured on the run of 2026-10-27:** the forked CSV does not precompile on TraitWorld bbfc130 (its column family's member check refuses `Vector{Int64}`; [todo W-14](../record/todo.md)).
+- **Not measured on the run of 2026-10-27:** the forks' session; D0 measures it on the current build (E-212, [todo W-14](../record/todo.md)).
 - **Before** (the build of 2026-10-19): the session without imports 2.85 s against 10.40 s. The `String15` step then took 1.56–1.67 s, before the `String15` fixes (a workload extension and the first-call check by facts; their contributions were not separated). It now takes 0.06 s.
 
 **Load and first use, SciML and Makie against SciPy and matplotlib** (E-168; one fresh session, from before the process starts to the end of the last step: load, a non-stiff and a stiff solve, a PNG of both, a second model solved and plotted, both again; a bare exit adds about 0.05 s; julia-1.13 252edca933, TraitWorld main bbfc130 (the demonstrators' row: 04095fe), strict mode off unless stated; a warm-up and two sessions per setting, agreeing within 1%; two cores; [`experiments/ttfx/README.md`](../../experiments/ttfx/README.md)):
@@ -244,7 +244,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
   - what still differs by load order in TraitDifferentialEquations (§3);
   - the trait form's plot + PNG in TraitReport, 96–98 ms on the run of 2026-10-27 against 60 ms on the build of 2026-10-19;
   - the first calls slower in the demonstrators on the run of 2026-10-27 ([W-7](../record/todo.md)).
-- **Reruns:** TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the forks' session on a quiet machine (once the forks load on the current TraitWorld); the raytrace rows of §2 on a current build; upstream's full session under `all`; the rest of Base's test suite under the facts mode (43 groups run, E-42).
+- **Reruns:** TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the forks' session on a quiet machine (D0, E-212); the raytrace rows of §2 on a current build; upstream's full session under `all`; the rest of Base's test suite under the facts mode (43 groups run, E-42).
 - **Untested:** strict mode under `all`; edits by Revise (traits T-81; an edit by `eval` is tested, `TraitWorld/test/redefine.jl`); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames (`--trim=safe`).
 - **The "explosion" of compiled code** per type is structural (32 specializations against 1 in a small experiment), unmeasured on a real library.
 

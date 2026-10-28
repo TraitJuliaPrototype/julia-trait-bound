@@ -469,7 +469,7 @@ end
 
 - A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
 - **Each member is checked at its first use,** not at the family's declaration, which checks ownership. Its methods are checked as a single type's implementation is at its declaration: they exist, and their results infer to the declared types. Its parameters are checked against their bounds. A family over an abstract type cannot be checked as a whole: the abstract type's interface is implemented by each subtype (Base has no `length(::AbstractDict)`).
-- **A member that does not conform is refused** at its first use, with `ImplementError`. A method that always throws there (its result infers to `Union{}`) is a fallback, not an implementation: the member does not conform.
+- **A member that does not conform is refused** at its first use, with `ImplementError`. A method that always throws there (its result infers to `Union{}`) is a fallback, not an implementation: the member does not conform; unless the declared result is `Union{}` itself (a `Vector{Union{}}` has no cell to return), where it is the only implementation there is.
 - **Where an operation's declared argument type is abstract,** the member check counts only the methods of the member's stakeholders there: the owners of the operation, of the member's type and of its parameters' types. A method another package adds there (`op(::U, ::MyVec)`) does not change which method serves the member. So a member's implementation does not depend on which packages loaded before its first use.
 - **A member's implementation is fixed at its first use,** not at the family's declaration. Compiling a caller that knows the member's type is a use, and so is loading compiled code that holds the member's implementation: the member is checked and fixed then, and its typed calls cost what a declared type's do ([lowering §4.6](lowering.md#46-families)).
 - **An override of one member** is declared by the package that owns the member's parameter type (`MyT` in `S{MyT}`), in that package itself, not in a package extension. Every caller that names `S{MyT}` depends on that package, so the override is in place before any use, in every load order; an extension loads later, after its triggers. An override declared elsewhere is refused.
@@ -580,9 +580,9 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 - **An attribute on a bound,** `x::Compiled{Shape}`, `x::Dynamic{Shape}`, `t::Dynamic{(ColTable, RowTable)}`, is the default for a plain value entering there ([§6.3](#63-defaults-a-traits-default-and-annotations)). Such a bound accepts any value that conforms to `X`, not only kept values of that form.
 - **An attribute on a bound's item parameter,** `ms::Iterable{Compiled{Mark}}`, `d::Keyed{String, Dynamic{Shape}}`, is the default for plain items ([§6.6](#66-items-of-a-users-container), [§8.2](#82-item-positions)).
 - **A trait inside a Base container's type in an argument annotation** (`v::Vector{<:ColTable}`) is refused when the method is defined. The message names the collection bound (`v::Indexable{ColTable}`), through which a user's vector crosses as it is ([§8.3](#83-a-users-container-taken-as-it-is)).
-- **A `Dynamic` annotation fixes every parameter its operations' result types use,** by a value or by a `where` variable: `s::Dynamic{StateVector{Float64}}`, or `c::Dynamic{Column{T}} where {T}`, which is compiled once per value of `T`, read from the value (Planned for the `where` form). `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
+- **A `Dynamic` annotation fixes every parameter its operations' result types use,** by a value or by a `where` variable: `s::Dynamic{StateVector{Float64}}`, or `c::Dynamic{Column{T}} where {T}`, which is compiled once per value of `T`, read from the value. `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
 
-**Status:** Implemented. Planned (2026-10-28): a `Dynamic` annotation fixing a parameter by a `where` variable.
+**Status:** Implemented.
 
 ### 5.2 What a bounded function receives
 
@@ -602,7 +602,7 @@ Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
 | use several trait objects in one function, of one trait or several | yes |
 | capture it in a closure passed to Base (`sort!(p; lt = (i, j) -> …)`) | yes: the closure is checked like the function |
 | capture it in a closure that plain code keeps beyond the call (an observable's callback) | yes: the closure holds each trait object as a kept value, with its attribute (Planned) |
-| keep it beyond the call, where a trait's name or a kept form is declared ([§7](#7-kept-values-dynamicx-compiledx-keptx)); it keeps its attribute | yes |
+| keep it beyond the call, where a trait's name or a kept form is declared, or an optional one (`Union{Nothing, Dynamic{X}}`) ([§7](#7-kept-values-dynamicx-compiledx-keptx)); it keeps its attribute | yes |
 | cast it: `compiled_for(t)`, `with_dynamic(t)` ([§6.4](#64-casts)) | yes |
 | call any Julia code on ordinary values, such as the column `col` returns | yes |
 | take arguments of abstract types from plain callers (`Any`, `Vector{Any}`) | yes: their uses dispatch when they run; fully typed mode reports them ([§11](#11-concreteness-and-fully-typed-mode)) |
