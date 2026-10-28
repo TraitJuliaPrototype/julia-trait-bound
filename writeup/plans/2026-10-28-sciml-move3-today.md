@@ -39,3 +39,7 @@ In DifferentialEquations.jl an implicit method takes a linear solver (`Rodas5(li
 - **A second linear solver in a package of its own** (`lib/TraitLinSolvers`: dense QR with column pivoting; an iteration would converge only for diagonally dominant systems, testing the iteration rather than the composition), and a user's own at the prompt: neither known to TraitRodas.
 
 Checks (E-220): results with `DenseLU` identical to stage B's; the other solvers' results within their tolerance; TraitRodas unchanged when a linear solver is added; the solver code compiled once for every `Dynamic` linear solver, and per solver under `compiled_for`; the time per Rodas5 step against stage B's. **Would change the design:** a solver package that cannot take another package's linear solver without editing either, or a nested open set that compiles per combination where the attribute says it should not.
+
+## 5. Stage D: nonlinear solvers taking linear solvers
+
+The same note's second half. `NonlinearSolver` and `NLCache` in the core (the stage `x = z + γdt f(x, t)`, as OrdinaryDiffEq's NLsolve takes it) with `Newton{L <: LinearSolver}` as the default; `ImplicitEuler{N <: NonlinearSolver}`, a fully implicit method, in `lib/TraitImplicit`; a simplified Newton in `lib/TraitNLSolvers`. Checks (E-221): implicit Euler against its exact discrete solution for every combination; a stiff problem; what a new nonlinear solver and a new linear solver inside it compile under `Dynamic`.
