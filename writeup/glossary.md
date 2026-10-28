@@ -325,8 +325,8 @@ The entries are grouped by theme:
 ### World-checked call-site cache
 
 - **Here:** a cache that skips a dispatch at run time and is checked against the caller's world.
-  - Each cache entry holds a type, the entry point of the code compiled for it, and the world range in which that code is valid.
-  - A call compares the type and the current world against a cache entry, then calls directly. A miss dispatches as Julia does and adds a cache entry.
+  - Each cache entry holds the entry point of the code dispatch chose and the world range in which that choice holds; a per-call-site cache also keys by the argument types.
+  - A call compares the current world (and, at a call site, the types) against a cache entry, then calls directly. A miss dispatches as Julia does and adds a cache entry.
   - It is built for a `Dynamic` `Callable`'s pointers, which run in the caller's world through it, and for every dynamic call site (Julia's per-call-site cache).
   - Behind the `Dynamic` split a table keyed by the value's type serves instead ([compiler §4.3](reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)).
 - **Origin:** the polymorphic inline cache of Self and of JavaScript and Java virtual machines, made aware of Julia's worlds. The world range is a [CodeInstance](#codeinstance)'s `min_world` and `max_world`, which invalidation shortens.

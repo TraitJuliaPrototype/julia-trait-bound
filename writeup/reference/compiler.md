@@ -103,7 +103,7 @@ Lives in `Compiler/src/facts.jl`.
 
 A union at the top level of a call's arguments is split as Julia splits unions (`max_union_splitting`, four by default). Each split must be a fact signature, so the two limits compose: up to sixteen concrete signatures per call. Each top-level split gets an edge; a union in a tuple argument is one edge at the tuple signature.
 
-**Not gated: `invoke` and `hasmethod` at a declared signature.** Only `find_method_matches` asks `is_fact_sig`. `abstract_invoke` and `hasmethod`'s tfunc resolve the declared signature with `findsup`, as plain Julia does, in facts code too, and record an invoke edge at the declared signature (`abstractinterpretation.jl:2369`, `tfuncs.jl:3269`). Julia invalidates such an edge only when the resolution of the declared signature changes: an edge at the method's own signature only when the method is replaced (`src/gf.c:2532`–`2537`). That is the sixth form of fact ([`facts.md`](facts.md#facts-and-fact-signatures)).
+**Not gated: `invoke` and `hasmethod` at a declared signature.** Only `find_method_matches` gates a call by `is_fact_sig`. `abstract_invoke` and `hasmethod`'s tfunc resolve the declared signature with `findsup`, as plain Julia does, in facts code too, and record an invoke edge at the declared signature (`abstractinterpretation.jl:2369`, `tfuncs.jl:3269`). Julia invalidates such an edge only when the resolution of the declared signature changes: an edge at the method's own signature only when the method is replaced (`src/gf.c:2532`–`2537`). That is the sixth form of fact ([`facts.md`](facts.md#facts-and-fact-signatures)).
 
 Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-signatures). Which unions split is Julia's cost model, exactly ([facts §3](facts.md#facts-and-fact-signatures); F-15).
 
@@ -491,7 +491,7 @@ jl_value_t *jl_get_specialization1_worlds(jl_tupletype_t *types, size_t world,
 The MethodInstance for `types` in `world`, with the range of worlds where that answer holds, or `nothing` when the dispatch is not unique.
 
 **Rules.**
-- Cache entries are never freed. There is one per target, and targets are rooted by their MethodInstances' caches.
+- Cache entries are never freed. There is one per target and contiguous range of worlds, and targets are rooted by their MethodInstances' caches.
 - The callee's code is the default owner's: a facts method's facts code, any other method's plain code in the product setting (§2.5).
 
 ### 3.2 The per-call-site dispatch cache

@@ -53,6 +53,8 @@ The grammar below is the language as designed. `X?` is optional, `X*` repeats ze
 (* where trait code lives *)
 TraitModule    ::= FullyTyped? "@trait_module" "module" Name Statement* "end"
                  | "@trait_module" "begin" Statement* "end"
+Statement      ::= Trait | Implementation | Method | Struct | Expr
+JointOwners    ::= "@joint_owners" Name+                          (* in a package's module: packages that own with it (§10.1) *)
 FullyTyped     ::= "@warn_not_fully_typed" | "@enforce_fully_typed"      (* fully typed mode *)
 Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*   (* names: parameters, Self, bounded arguments *)
 

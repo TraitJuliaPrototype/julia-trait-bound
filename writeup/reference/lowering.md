@@ -43,7 +43,7 @@ What every construct becomes:
 
 | Construct | Becomes | Made | Code compiled as | Kept in |
 |---|---|---|---|---|
-| `@trait X` | an abstract type; the operation functions; one method per operation on trait objects and on `Dynamic{X}`; records of operations, fields, parameters, defaults, the trait's default attribute | at the declaration | operation methods: inside the workers that call them | the declaring module's image |
+| `@trait X` | an abstract type; the operation functions; one method per operation on trait objects and on the kept forms (`HeldValue{X}`: `Compiled{X}`, `Dynamic{X}`, `Kept{X}`); records of operations, fields, parameters, defaults, the trait's default attribute | at the declaration | operation methods: inside the workers that call them | the declaring module's image |
 | `@implement X T …` | records; a `conformance` method with a builder fixed now; for a block, the operations' methods | at the declaration | `conformance`: a boundary, compiled in its caller's mode | the declaring package's image, with the code compiled ahead ([§15](#15-compiling-ahead-workloads-closed-builds)) |
 | a family member | a builder in the family's registry | at the member's first use | as above | the declaring package's image, for members its workload uses |
 | a bounded function | a worker; an entry per shape | at the definition; the entry's needs and attributes at the trait module's end | worker: facts, per key, the erased key included; entry: a boundary | the image whose precompilation compiled them |
@@ -643,7 +643,7 @@ The rewrite of a struct in a trait module (`_bounded_struct`, `trait_module.jl`)
 **Kept in images:**
 - the declarations' records, builders and `conformance` methods;
 - each trait module's `needed` and `keeps` methods;
-- `__tw_checked__`: the worker signatures whose first-call check passed while the image was built, in the conforming type's module, else the declaring module ([§15](#15-compiling-ahead-workloads-closed-builds));
+- `__tw_checked__`: the worker signatures whose first-call check passed while the image was built, in the conforming type's module when that module is the one being precompiled, else the declaring module ([§15](#15-compiling-ahead-workloads-closed-builds));
 - family registries filled by the workload.
 
 **Not kept:** the slow path's caches, the `Callable` wrapper cache, `Erased` pointers.
