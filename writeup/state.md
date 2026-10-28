@@ -129,7 +129,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Wrap up before the large ports** (W-61): the evidence, this page, the references' statuses, the demonstrators' claims and READMEs.
 2. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
-3. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42); the TraitMakie image flake (E-95).
+3. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42).
 4. **Performance worth investigating:**
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
