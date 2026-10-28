@@ -704,13 +704,13 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 - Functions kept beyond a call: [§7.5](#75-functions-kept). How a call is made: [`lowering.md`](lowering.md#12-callable-and-dynamiccallable).
 
 **Rules.**
-- **The argument types `A` are a constant type.** A bound whose `A` names a method's `where` variables (`f::Callable{RHSSig{P, T}, Nothing}`) is refused when the method is defined. Write one method per signature. A struct parameter's bound may name the struct's other parameters: it only keeps the function ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
+- **The argument types `A` may follow the other arguments.** A bound whose `A` names the method's `where` variables, fixed by other arguments or bounds, is a bound at the signature those give: `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`, `rhs!(f::Callable{RHSSig{P, T}, Nothing}, u::Vector{T}, p::P) where {T, P}`. The entry enters the other arguments first, then the function at the signature they fix; it is compiled once per signature, at its first call. The variables must be fixed by the other arguments; a `where` variable only the `Callable` names is refused when the method is defined. A struct parameter's bound may name the struct's other parameters: it only keeps the function ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
 - **An open result type,** `f::Callable{Tuple{Float64}, S} where S`, is inferred at the call, in plain code. It becomes part of what the code is compiled for, and every call is checked against it.
 - **Functions returned to plain code** are ordinary closures of the trait module. A closure that captured a trait object keeps the user's object.
 - **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
 
-**Status:** Implemented. Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
+**Status:** Implemented, except argument types that follow the other arguments (Planned, W-81). Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
 
 ---
 
@@ -853,9 +853,11 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **Storage keeps it.** A value read back from a field or a container has the attribute it was stored with ([§7](#7-kept-values-dynamicx-compiledx-keptx)). The items of a stored `Vector{Dynamic{Plot}}` are `Dynamic` at `Iterable{Compiled{Plot}}` too.
 - **Library to library:** a value one library passes to another's bounded function is already a trait-world value; the second library's defaults and annotations do not decide it again.
 - **Up and down:** a kept value that plain code holds and passes back keeps its attribute.
-- **A value is seen through the traits it entered with.** A kept value of `X` passed to a bound of another trait `Y`, or a function kept at one signature passed to a bound of another, is refused (`TraitBoundError`). Enter it through every trait it will be seen through, as a tuple ([§3.7](#37-tuples-of-traits)). Seeing a value through another trait later would be a *trait cast* ([§6.9](#69-trait-casts)).
+- **A kept value is seen through every trait its object conforms to.** A kept value of `X` passed to a bound of another trait `Y` is checked there: its held object's type must conform to `Y` (`TraitBoundError` otherwise), and the check is kept per held type. So dispatch among bounds selects by what the held object can do, as for a plain value ([§5.5](#55-dispatch-types-first-then-traits)): a `Vector{Dynamic{Column}}` whose items are pooled or not reaches `f(c::(Column, Pooled))` for the pooled ones and `f(c::Column)` for the rest. The attribute is kept.
+- **A function kept at one signature** is seen at a bound of another signature where it has a method there whose inferred result is not disjoint from the declared one, checked at the bound ([§5.8](#58-callable-functions-at-a-declared-signature)).
+- **A trait object inside bounded code** is seen only through the traits it entered with: it may hold only the parts its traits see, and the code compiled for it covers only those traits. Entering through a tuple of traits ([§3.7](#37-tuples-of-traits)) remains the way to see one value through several traits at once.
 
-**Status:** Implemented, except the refusal at a bound of another trait ([T-53](#17-deviations)).
+**Status:** Implemented, except the refusal of a held object that does not conform, and the check kept per held type ([T-53](#17-deviations)); a function at another signature is checked only at its first call ([T-54](#17-deviations)).
 
 ### 6.6 Items of a user's container
 
@@ -913,14 +915,14 @@ How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
 
 ### 6.9 Trait casts
 
-- **A trait cast** would see a value through another trait than it entered with, or a function at another signature, keeping its attribute. A cast ([§6.4](#64-casts)) changes the attribute; a trait cast would change the traits.
-- **It is not part of the language.** A value is seen through the traits it entered with ([§6.5](#65-values-carry)); a tuple of traits enters it through all it needs ([§3.7](#37-tuples-of-traits)).
-- **As a possible direction,** it would be:
+- **A trait cast** sees a value through another trait than it entered with, or a function at another signature, keeping its attribute. A cast ([§6.4](#64-casts)) changes the attribute; a trait cast changes the traits.
+- **At a bound it is implicit:** a kept value is seen through every trait its held object conforms to ([§6.5](#65-values-carry)).
+- **An explicit form, as a possible direction,** would be:
   - explicit, by a kept form's constructor from a kept value of another trait, `Kept{B}(d)`, with the attribute kept;
   - checked at the cast: the held object conforms to `B` (`TraitBoundError` otherwise); for a function, a method at the new signature whose inferred result is not disjoint from the declared one;
   - for kept values that hold the user's whole object only. A trait object inside bounded code may hold only the parts its traits see, and the code compiled for it covers only those traits.
 
-**Status:** Optional.
+**Status:** Implemented at a bound (§6.5); the explicit form Optional.
 
 ---
 
@@ -1151,7 +1153,7 @@ retain!(isnum, v)                         # keep the numbers of the user's vecto
 ```
 
 - `retain!(f, xs)` keeps the items for which `f(x)` is `true`, in order, for `xs::(MutableIndexable, Resizable)`. It returns `nothing`. It is Base's `filter!` for trait code (Rust's `Vec::retain`).
-- **A generic algorithm takes the function as an ordinary argument,** compiled per function, as Base does. A `Callable`'s argument types are constant ([§5.8](#58-callable-functions-at-a-declared-signature)), so `f::Callable{Tuple{T}, Bool}` for the item type `T` of any collection cannot be written. A function for one item type writes the `Callable` bound: `f::Callable{Tuple{Kept{Cell}}, Bool}`.
+- **A generic algorithm takes the function as a `Callable` at the items' type:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}` ([§5.8](#58-callable-functions-at-a-declared-signature)), compiled once per item type, not per function (Planned, W-81). Until it is built, `retain!` takes the function as an ordinary argument, compiled per function, as Base does.
 - BaseTraits' algorithms have names of their own: a bounded method of Base's `filter!` would rank below Base's typed methods (types first, [§5.5](#55-dispatch-types-first-then-traits)) and never run for Base's containers.
 
 **Status:** Implemented (`retain!`). To revisit with the ports: which algorithms BaseTraits provides, and their names ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
@@ -1413,7 +1415,8 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | tuples of traits: bounds, attributes on bounds, supertrait lists, `@implement` | Implemented | [§3.7](#37-tuples-of-traits) |
 | tuples of traits everywhere else a trait stands | Planned | [§3.7](#37-tuples-of-traits), W-29 |
 | a value seen through the traits it entered with | Planned (T-53, T-54; W-31) | [§6.5](#65-values-carry) |
-| trait casts | Optional | [§6.9](#69-trait-casts) |
+| trait casts: at a bound | Implemented, T-53 | [§6.5](#65-values-carry) |
+| trait casts: explicit (`Kept{B}(d)`) | Optional | [§6.9](#69-trait-casts) |
 | supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | an operation's argument declared `Dynamic{Y}`, `Compiled{Y}`, `Kept{Y}`: a type | Implemented | [§3.1](#31-operations), [§6.3](#63-defaults-a-traits-default-and-annotations) |
 | `@implement X T begin … end` | Implemented | [§4.1](#41-with-a-block-of-methods) |
@@ -1546,8 +1549,8 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-51 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
 | T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
-| T-53 | [§6.5](#65-values-carry) | A kept value of `X` passed to a bound of another trait `Y` is refused (`TraitBoundError`). | It is accepted when its object conforms to `Y`: the entry assembles `Y`'s view from the held object, a trait cast. One whose object does not conform raises `MethodError`. | `TraitWorld/src/entry.jl` (`enter`, `_dyn_held`) |
-| T-54 | [§7.5](#75-functions-kept), [§6.5](#65-values-carry) | A function kept at one signature, passed to a bound of another signature, is refused (`TraitBoundError`). | It is accepted and seen there with its attribute: a `Dynamic` one through a new pointer (`_erased_at`), unchecked until its first call. TraitDifferentialEquations relies on it until its problem keeps the function as a tuple ([W-30](../record/todo.md)). | `TraitWorld/src/entry.jl` (`enter_callable`, `_erased_at`); `TraitDifferentialEquations/test/compiledcall.jl` |
+| T-53 | [§6.5](#65-values-carry) | A kept value whose held object does not conform to a bound's trait is refused there (`TraitBoundError`); the check is kept per held type. | A conforming one is accepted, as the design says; one that does not conform raises `MethodError`; whether the check is kept per held type is not established. | `TraitWorld/src/entry.jl` (`enter`, `_dyn_held`); W-81 |
+| T-54 | [§6.5](#65-values-carry), [§7.5](#75-functions-kept) | A function kept at one signature is seen at a bound of another signature where it has a method there whose inferred result is not disjoint from the declared one, checked at the bound. | It is accepted and seen there with its attribute (a `Dynamic` one through a new pointer, `_erased_at`), unchecked until its first call. | `TraitWorld/src/entry.jl` (`enter_callable`, `_erased_at`); `TraitDifferentialEquations/test/compiledcall.jl`; W-81 |
 | T-55 | [§8.3](#83-a-users-container-taken-as-it-is) | The explicit wrappers are `DynamicItems{X}` and `DynamicValues{X}`. | TraitWorld also exports `CompiledItems` and `CompiledValues`, the views at `Compiled` that the lowering uses ([lowering §13](lowering.md)). | `TraitWorld/src/TraitWorld.jl:84`; `src/BaseTraits.jl` |
 | T-56 | [§10.2](#102-pirates) | A pirate in a trait module is refused at its definition. | Only plain function definitions, and those under the macros TraitWorld passes through, are checked when they are defined. A method made by another macro (`@generated`, `@eval`, `Base.@constprop`), a functor's call method, a definition inside a top-level block, or `Core.eval` into another module is not; a later checked definition of the same function catches it, so whether it is refused depends on the order. | `TraitWorld/src/trait_module.jl` (`_process`, `_is_fdef`); [the review of the P3 plan](../reviews/2026-10-21-ndport-facts-first-plan.md) |
 | T-57 | [§4.7](#47-families) | A family with a block of methods is declared as `@implement X A where {A <: S} begin … end`, by the trait's or the type's owner. | Declared outside the trait's module, it is refused by the rule-3 precheck, which evaluates `A` without its `where`. The family without a block, by the type owner's own methods, avoids both. | `TraitWorld/src/implement.jl` (`_implement_where`, the precheck in `_op_method`); probes of 2026-10-21; [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md) |
