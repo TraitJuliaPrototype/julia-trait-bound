@@ -478,8 +478,7 @@ end
 - Planned: forwarding for a whole family (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [T-7](#17-deviations));
 - Planned: the member check counting only the stakeholders' methods at abstract declared arguments ([T-77](#17-deviations));
 - Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
-- the check on parameter expressions ([T-6](#17-deviations));
-- the ownership check of the no-block family by fields ([T-62](#17-deviations)).
+- the check on parameter expressions ([T-6](#17-deviations)).
 
 ### 4.8 Generic implementations
 
