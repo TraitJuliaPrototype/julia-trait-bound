@@ -123,7 +123,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 **The exception: values decided by inference.**
 - `return_type`, `promote_op`, and the element types of empty `map`s, broadcasts, comprehensions and LinearAlgebra destinations are answered by inference.
 - Plain Julia itself answers some of them differently in different contexts. `return_type(pass, Tuple{Type{Int}})` is `Type{Int64}` at run time and `DataType` once folded.
-- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee. Today the product setting also gives a second answer for a facts method's own result ([F-20](#deviations)).
+- The facts mode gives plain inference's answer wherever it can ([§7](#return-type)). It can still differ where inference decides: `Union{}` where every method at a run-time site throws, or a nested `return_type` in a callee.
 
 **Conditions.**
 - Code that branches on what inference knows (`known_type`, `fold_call`, [`compiler.md`](compiler.md)) computes the same result on both branches.
@@ -568,7 +568,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
 | direct calls into the compiler from code compiled by facts: edges to plain code | Implemented | [§6.4](#the-compilers-own-code) |
-| `return_type`: plain inference's answer | Implemented, with an exception in the product setting for facts methods (to be revisited) | [§7.1](#return-type); [open issues §2](../open-issues.md#2-design), item 30 |
+| `return_type`: plain inference's answer, at compile time and at run time, in both settings | Implemented | [§7.1](#return-type) |
 | `return_type`: revalidation after loads | Optional | [§7.1](#return-type); [PE-5](../record/performance-explorations.md) |
 | reflection shows the code that runs | Implemented | [§7.2](#reflection) |
 | no asserted effect over a run-time site | Implemented | [§8](#asserted-effects) |
