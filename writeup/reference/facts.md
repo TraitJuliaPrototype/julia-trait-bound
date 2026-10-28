@@ -102,7 +102,7 @@ Each term is defined here once. The [glossary](../glossary.md) gives their origi
 <a id="g1"></a>
 ### 2.1 G1: identical or error
 
-**Status: Implemented**, in both settings.
+**Status: Implemented**, in both settings, except [F-22](#deviations).
 
 > **G1.** A call in code compiled by facts computes what the same call computes in plainly compiled code, in the same world, with the same effects, or raises.
 
@@ -614,3 +614,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-19 | — | *Retired*: see [§1](#1-terms). | — | — |
 | F-20 | — | *Retired*: see [§7.1](#return-type)]. | — | — |
 | F-21 | — | *Retired*: see [§2.1](#g1)]. | — | — |
+| F-22 | [§2.1](#g1) | A call in code compiled by facts computes what plain code computes, with the same effects. | In the facts system image, Base's `misc` tests find the finalizer-inhibition counter one too high (`get_finalizers_inhibited() == 2` where 1 is expected; 26 failures) when they run on a worker after the batch's other groups; `misc` alone, and every group's lock sequence in isolation, give the right counts, and plain Julia passes. One of the 15 groups before it (worlds, atomics, reflection, keywordargs, staged, complex, rational, int, floatfuncs, offsetarray, cartesian, regex, copy, enums, vecelement) leaves an inhibition behind under the facts mode. Not localized (W-77). | `experiments/factscompiler/e42/run3.log`, `w77/misc-facts.log`, `w77/misc-plain.log` (julia-1.13 1c2e98b58e) |

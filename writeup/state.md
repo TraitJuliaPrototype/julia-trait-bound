@@ -78,7 +78,7 @@ Which mode and owner a method's code gets is decided by one function, `jl_code_o
 
 The deviations of the implementation from the design are listed per reference, with IDs: [traits](reference/traits.md#17-deviations) (T-), [facts](reference/facts.md#deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#18-deviations) (L-). Beyond them:
 
-- **Base's test suite under the facts mode:** 25 groups run (E-42): the differences are inference assertions at abstract signatures, by design, and issue 47476's cases, which raised under the facts mode until W-76 fixed it; the other groups are not run.
+- **Base's test suite under the facts mode:** 43 groups run (E-42): a finalizer inhibition left behind by one group (facts F-22, W-77); otherwise the differences are inference assertions at abstract signatures, by design, and issue 47476's cases, which raised under the facts mode until W-76 fixed it; the other groups are not run.
 - **What the measurement round left open** (done 2026-10-20; [evidence §5](design/evidence.md)):
   - the 435 ms upstream CSV+DataFrames pay after the loads under `all`, not profiled on this build; by design, not pursued now ([PE-5](record/performance-explorations.md));
   - rows that differed by load order in TraitDifferentialEquations: diagnosed (E-141) and fixed (E-146), except the first gradient (+15 ms with loads; W-7);
