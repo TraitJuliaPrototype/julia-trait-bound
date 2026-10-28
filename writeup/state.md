@@ -136,10 +136,10 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
    - calls slower than plain where trait code should be as fast (W-17, E-192).
-6. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; its gain's bound (E-205) and its soundness by construction (E-206) come before any Julia change.
+6. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; its gain's bound is measured (E-205: 1.5 s in C, code generation dominating), and its vehicle waits for open issue 95.
 7. **The large ports:** SciML (W-34), Makie (W-70) and DataFrames (W-14, after W-79).
 8. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 
-Waiting for the user: Revise and trait modules (open issue 81); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32).
+Waiting for the user: open issues 81, 82–94 (the ports' weak points) and 95 (the cache's vehicle); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.

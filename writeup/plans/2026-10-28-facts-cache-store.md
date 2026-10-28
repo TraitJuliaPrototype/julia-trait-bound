@@ -1,6 +1,6 @@
 # The store of the facts-keyed cache, and its vehicle (W-66, step 4)
 
-Status: **proposal, revision 2** (2026-10-28, mine; W-66). Not normative. Revision 1 was reviewed by [a fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) (B1–B3 blocking, M1–M6, m1–m8). Revision 2 takes every finding (§8) and the user's answer to open issue 80 (2026-10-28, "Accept both suggestions."): a stored entry is valid by Julia's validation of its edges, with fingerprints for content only ([decisions](../record/decisions.md) §5; [facts §11](../reference/facts.md#11-package-images)). No Julia change before E-a and E-0 (§6).
+Status: **proposal, revision 2** (2026-10-28, mine; W-66). Not normative. Revision 1 was reviewed by [a fresh-eye review](../reviews/2026-10-28-facts-cache-store.md) (B1–B3 blocking, M1–M6, m1–m8). Revision 2 takes every finding (§8) and the user's answer to open issue 80 (2026-10-28, "Accept both suggestions."): a stored entry is valid by Julia's validation of its edges, with fingerprints for content only ([decisions](../record/decisions.md) §5; [facts §11](../reference/facts.md#11-package-images)). No Julia change before E-a and E-0 (§6). E-a is done (E-205): a ceiling of 1.5 s in C and 0.02 s in D, with code generation, which this store leaves in the session, twice inference; the vehicle is [open issue 95](../open-issues.md#1-decisions-waiting-for-the-user).
 
 ## 1. What is settled
 
