@@ -160,7 +160,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - A new implementation of a trait: lowering makes it a definition that wins at no existing fact ([`lowering.md`](lowering.md)).
 - A new `Dynamic` candidate: candidates are read without an edge ([§9](#dynamic-split)).
 
-**Tests.** G2.1 (a module extending a function called on type values) and G1.17 (a later implementation at a split site) check it in a session (`experiments/facts/acceptance_compiler.jl`). `experiments/facts/g2all.jl` counts the facts owner's valid CodeInstances across ten loads interleaved with the demonstrators' work, in the product setting; not under `all`, nor with the loads first ([F-11](#deviations)). `experiments/factscompiler/control/lost.jl` is a control for the default owner under `all`: it counts the valid CodeInstances of owner `nothing` of the listed packages before and after unrelated loads, so it counts no trait-module code, which is owner `:facts`.
+**Tests.** G2.1 (a module extending a function called on type values) and G1.17 (a later implementation at a split site) check it in a session (`experiments/facts/acceptance_compiler.jl`). `experiments/facts/g2all.jl` counts the facts owner's valid CodeInstances across ten loads interleaved with the demonstrators' work, in both settings and in both orders (E-29); with `G2_DIAG=1` it names the method behind each lost one. `experiments/factscompiler/control/lost.jl` is a control for the default owner under `all`: it counts the valid CodeInstances of owner `nothing` of the listed packages before and after unrelated loads, so it counts no trait-module code, which is owner `:facts`.
 
 <a id="two-tiers"></a>
 ### 2.3 Two tiers
