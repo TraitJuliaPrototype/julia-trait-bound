@@ -208,8 +208,30 @@ The attribute chooses speed, never results ([§6](../reference/traits.md#6-value
   - `JULIA_FACTS_DISPATCH_PROFILE=1`: dynamic calls per callee and call site ([compiler §6.5](../reference/compiler.md#65-the-dispatch-profiler));
   - `--trace-compile=stderr --trace-compile-timing` with a mark per step: what each step compiles, and `# recompile` where a load discarded code;
   - `verify_main`: what a program reaches through trait code ([§13](../reference/traits.md#13-compiling-ahead)).
+  - `TraitWorld.callpath(f, args...)`: the path a call into trait code takes (entry, table, split, worker), its run-time sites and its cost per call; `TraitWorld.factscode(f, types)`: the code compiled by facts with each run-time site marked; `TraitWorld.loadreport()` (`JULIA_TW_LOADREPORT=1`): what TraitWorld's checks and folds cost during `using` ([the tools](../../experiments/tools/README.md));
+  - `experiments/tools/ab/ab.sh`: a change's before and after, built side by side, the same probe in both.
 - **Time a step twice in one session:** the second time separates run time from compilation. Time a first call whole. One harness per claim; say how many runs; keep a column without loads.
 - **Under `all`, a depot of its own** ([facts §12.2](../reference/facts.md#the-test-bed)): `JULIA_DEPOT_PATH=$TMPDIR/depot-facts:$HOME/.julia:`. The trailing `:` adds Julia's bundled depots, not the user's.
+
+### 0.6a Annotations and escape hatches
+
+A type assertion, `@nospecialize`, `invokelatest` or a function barrier added to fix a slow path usually hides why inference failed. Fix the inference instead; treat `@nospecialize` as an escape hatch at a real dynamic boundary. A cause in the design or in TraitWorld becomes an open issue (§0.7). The ports' cases are listed in [the annotation audit](../reviews/2026-10-28-ports-annotation-workarounds.md).
+
+**Before writing an annotation:**
+- Run `fully_typed(f, argtypes)` at the types the port calls the function with. The report names the root cause; an assertion only hides it.
+- Before writing `::T` after a call, declare the callee's result: a bounded function's declared plain result reaches every caller ([lowering §8.1](../reference/lowering.md#81-the-rewrite)).
+- Before reading from a `Vector{Any}` or `Vector{AbstractVector}` in a loop, make the container typed: a `Vector{Dynamic{Column}}` of columns infers fully.
+- Before writing `@nospecialize`, ask whether the value is a function or a type that crosses into trait code. Then a bound's attribute or `Callable` decides, and the escape hatch is not needed.
+
+**Where to put the checks:**
+- `@warn_not_fully_typed` before each trait module of a port while porting (DataFrames' `ColumnKernels`, CSV's `ColumnParsers`, Makie's `PlotCore`, SciML's `ODECore`); `@enforce_fully_typed` for kernel modules once they are clean.
+- `fully_typed(f, argtypes)` in the port's tests for each plain hot loop beside the kernels, such as DataFrames' `joinkeys` and `_group_rows!`. The trait-module macros check only bounded functions in trait modules; a port's plain code is outside them.
+
+**What the checks catch:** a value read from an untyped container or field in a hot loop; a captured variable that a closure boxes; plain code reached from a worker that loses inference at a run-time site; an undeclared bounded result used after the call.
+
+**What they cannot catch:** logic bugs; compile-time costs (code per closure, per `IO` type, per member at load); the cost of `Dynamic`, since an operation on a `Dynamic` value counts as declared, so a kernel that is not opened reports clean; what a member check demands.
+
+**A limit today:** on code that passes kept values, `fully_typed` reports sites of TraitWorld's own machinery and can fail on some functions ([open issue 108](../open-issues.md)). Read such reports by hand.
 
 ### 0.7 Pushback
 
