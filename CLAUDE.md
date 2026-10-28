@@ -8,6 +8,8 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 
 **The demonstrators follow the design.** A demonstrator already built never constrains the design. When the design changes, the demonstrators are changed to follow it. Experience from writing idiomatic trait code in Julia feeds back into the design only through review: an open issue or a proposal, decided like any other change.
 
+**Principled solutions; the ports find the design's weak points.** The guiding principle is principled solutions. One purpose of the ports (SciML, Makie, DataFrames) is to find where the trait design is weak. Do not design a port around such a point. Record it as an open issue, with the case, the rule that blocks it and a proposal. A tweak in the trait design that enables a principled solution in a port's architecture is the most valuable finding there is.
+
 ## Where each kind of content goes
 
 | Content | Its home | Rule |
