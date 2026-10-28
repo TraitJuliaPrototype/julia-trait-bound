@@ -336,7 +336,7 @@ Dynamic{(Shape, Placed)}(x)                                     # a kept value
 - **A bundle names a tuple:** after `@trait Table <: (ColTable, RowTable)`, `Table` and `(ColTable, RowTable)` are the same trait ([§3.6](#36-supertraits-and-bundles)).
 - **One trait, whatever the order:** members are flattened (a tuple or a bundle inside a tuple), duplicates dropped, and the order does not matter.
 - **A value enters a tuple once,** and is seen through every member from then on. It has one attribute, decided as for one trait. Members' defaults that disagree cancel ([§6.3](#63-defaults-a-traits-default-and-annotations)).
-- **Parameters** stay each member's. A `Dynamic` form fixes the parameters each member's results use ([§5.1](#51-bounds)).
+- **Parameters** stay each member's. A `Dynamic` form fixes the parameters each member's results use ([§5.1](#51-bounds)). A member may name the method's `where` variables, as a single bound does: `v::(ValueProvider{U, P}, IndexProvider)`; the first member that names a variable fixes it.
 - **A value seen through some members is not seen through the others** later: enter it through the tuple ([§6.5](#65-values-carry)).
 
 **Status:** Implemented for bounds and attributes on them, supertrait lists, bundles and `@implement`. Planned everywhere else a trait stands (struct parameters, kept forms, item parameters, fields and element types, parameters' trait bounds): [W-29](../record/todo.md).

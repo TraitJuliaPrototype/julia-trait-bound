@@ -11,6 +11,7 @@ The chronology of the evening, after `2026-10-28-day.md`. Not the home of any fa
 - "I have a side question, is there any tooling that would make debugging the various slow downs everywhere easier?"
 - "Great, continue. I will be gone for the next couple of hours"
 - "One note on Solvers. One of the especially important aspects in DE.jl is that it is possible to use various linear/nonlinear solvers within Rodas/etc..."
+- "Go"
 
 ## What was done
 
@@ -29,3 +30,4 @@ The chronology of the evening, after `2026-10-28-day.md`. Not the home of any fa
 13. **E-159 (SciML move 3), stages A and B:** the solvers an open set (`ODEAlgorithm`, its operation the solver's driver); the core and Rodas5 packages of their own, the front end in its owner, no pirate; a bounded front end on CommonSolve's `solve` meets L-3 (evidence for W-83's §11). Two TraitWorld lowering gaps fixed: a bounded function inside `Base.@nospecializeinfer`, and `@nospecialize` on ordinary arguments.
 14. **E-220 (stage C),** after the user's note on solvers inside solvers: linear solvers an open set inside Rodas5, from a package Rodas5 does not know and from the prompt; compiled once when `Dynamic`, no measurable cost per step.
 15. **E-221 (stage D):** nonlinear solvers (`NonlinearSolver`, Newton by default) taking linear solvers, inside an implicit method in a package of its own: three open sets nested across four packages; a user's pair at the prompt, in a trait module.
+16. **E-160 (SciML move 4):** symbolic access as traits (a stand-in for SymbolicIndexingInterface): names from the problem's `sys`, the solution given its problem's parameters and names by the outer layer; getters per index shape; the sugar inferred by plain callers. Two TraitWorld gaps fixed: `where` variables in a tuple bound's members, and a bounded function's declared result on its entry.
