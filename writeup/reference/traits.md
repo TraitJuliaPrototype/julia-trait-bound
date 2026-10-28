@@ -200,6 +200,7 @@ Base.iterate(t::Iterable{T}, state)::Union{Nothing, Tuple{T, Any}}
 - A plain name (`ncols`) creates a new function in the trait's module. A qualified name (`Base.length`) uses that existing function.
 - One operation may be declared at several arities (`iterate` above), and at one arity several times where the further arguments' declared types are disjoint (`show_as(b::Backend, ::MIME"image/png", s)` and `show_as(b::Backend, ::MIME"image/svg+xml", s)`); each declaration is checked at the implementation (Planned).
 - The declared types may name the trait's parameters and `Self` ([§3.4](#34-parameters-and-associated-types), [§3.5](#35-self)).
+- **Planned: `where` variables on an operation's declaration** (decided 2026-10-28, mine, flagged; open issue 106), fixed by its arguments and checked at each implementation as the trait's parameters are: `solve_core(a::ODEAlgorithm, m::CoreProblem{T}, cbs::Vector{Kept{StepCallback{Vector{T}, Float64}}}) where {T}`.
 - An operation may mutate its arguments. A trait object refers to the user's object, so the change is visible to the user, as in plain Julia. No annotation marks such an operation.
 - **An argument declared `Dynamic{Y}`, `Compiled{Y}` or `Kept{Y}` is a type, as in a method:** the operation receives such a kept value ([§7](#7-kept-values-dynamicx-compiledx-keptx)), for example `condition(cb::Callback, …, integ::Dynamic{IntegratorView})::Bool`. What a value passed there becomes is the table of [§6.3](#63-defaults-a-traits-default-and-annotations). Only a bounded function's own arguments are bounds ([§5.1](#51-bounds)).
 - **A trait's bare name on a further argument** (`overlap(a::Sh, b::Sh)`) is refused at `@trait`: write `Dynamic{Sh}`, `Compiled{Sh}` or `Kept{Sh}` ([T-76](#17-deviations)).
@@ -209,7 +210,7 @@ Base.iterate(t::Iterable{T}, state)::Union{Nothing, Tuple{T, Any}}
 - At each implementation: every operation has a method, or a default, for the type it is called on, and the method's result infers to the declared type ([§4.9](#49-checks-at-the-declaration)).
 - At every call on a trait object or a kept value: the arguments against the declaration; the result is asserted to the declared type.
 
-**Status:** Implemented. Planned (2026-10-28): several declarations of one operation at one arity.
+**Status:** Implemented. Planned (2026-10-28): several declarations of one operation at one arity; `where` variables on an operation's declaration.
 
 ### 3.2 Defaults
 
@@ -858,8 +859,10 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **Constructors never cast.** `Dynamic{X}(v)`, `Compiled{X}(v)` and `Kept{X}(v)` make a kept value from a plain one, or keep the attribute of one that has it. Asked to change it, they refuse with `TraitBoundError` naming the cast: `Dynamic{X}(t)` for a `Compiled` trait object, `Dynamic{Callable{A, S}}(compiled_for(f))`.
 - **Types never cast** (§6.3, the table).
 - **A `Dynamic` value is never opened implicitly.** `compiled_for(d)` opens it where the code asks.
+- **Planned: a bound that opens its value** (decided 2026-10-28, mine, flagged; open issue 98): `f(c::Opened{Column})` opens a `Dynamic` or kept value at the entry, as `compiled_for` at the call would: one dispatch per call, then the code compiled per key. The function whose cost model needs code per key (a kernel's loop over cells) says so, and its callers need not. Everywhere else a value keeps its attribute (§6.5).
+- **Planned: `rewrap(g, f)`** (decided 2026-10-28, mine, flagged; open issue 105): `g` with `f`'s form and attribute, for a function changed while it stays kept as it was (a partial application of a kept function).
 
-**Status:** Implemented.
+**Status:** Implemented. Planned (2026-10-28): a bound that opens its value; `rewrap`.
 
 ### 6.5 Values carry
 
@@ -1028,6 +1031,7 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 - **The bound may name the struct's other parameters** (`RHSSig{P, T}`). They are determined by the other fields' types, as Julia's default constructor determines them.
 - **A parameter named only as a parameter of a bound is read from the kept value:** in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, `T` is the column's own parameter, read from the value as a `where` variable in a bound is ([§5.1](#51-bounds)). A `Compiled` column is kept as the user's object, a `Dynamic` one as `Dynamic{Column{T}}`. So a view of a trait object can be the Base type plain code expects, without a copy.
 - The struct's own methods (an implementation's) read the field as a plain value of its type. Bounded trait code reaches only the fields a trait declares.
+- **Planned: the value read back keeps the attribute the parameter records** (decided 2026-10-28, mine, flagged; open issue 104): passed on to a bound, a field's value under `Compiled` (the parameter is the object's type) is `Compiled`, and one under `Dynamic` is `Dynamic`, as storage keeps it (§6.5).
 - This is Rust's `struct S<F: Fn(…)>` and Swift's `struct S<F: P>`, and Julia's advice to make a field's type a parameter, with the attribute choosing the parameter.
 
 **Rules.**
@@ -1050,7 +1054,7 @@ end
 - The parameter is an ordinary one: it is printed, and it can be written (`ODEProblem{Float64, Nothing, typeof(lorenz!)}`).
 - Every rule above applies. A field written `f::Bound`, without a parameter, keeps a value of the trait (`Kept{X}`, §7.2).
 
-**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
+**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type. Planned (2026-10-28): a value read back keeps the attribute the parameter records.
 
 ### 7.5 Functions kept
 
@@ -1067,14 +1071,15 @@ callback(f) = FunctionCallback(Kept{Callable{Tuple{Vector{Float64}, Float64}, Bo
   - `Kept{Callable{A, S}}`: either, with its attribute.
 - Each call is the checked call: the arguments against `A`, the result asserted to `S`.
 - **A function is kept at the signatures it entered with.** To keep it at several, keep it as a tuple: `Dynamic{(Callable{A1, S1}, Callable{A2, S2})}`, or a struct parameter bounded by the tuple (§7.4). Passed to a bound of another signature, it is refused (`TraitBoundError`, [§6.5](#65-values-carry)).
+- **Planned: a function kept before its signature is known** (decided 2026-10-28, mine, flagged; open issue 102): `Dynamic{Callable}` without a signature keeps a function whose argument types a later bound fixes (`ByRow(f)`, a callback before its problem's types are known). At its first bound with a signature it is entered there, and the code that calls it is compiled per signature.
 - **Kept at a struct parameter bounded by `Callable`, a function is the field itself** (§7.4): the function under `Compiled`, so the code that reads it is compiled per function; a `Dynamic{Callable{A, S}}` under `Dynamic`. TraitDifferentialEquations' `ODEProblem` keeps its right-hand side so.
 
-**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type.
+**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type; a function kept without a signature.
 
 ### 7.6 Equality and inference
 
 - **Equality:** two kept values of `X` are equal when they hold the same user's object (`===`), whatever their form and attribute: a mutable object by identity, an immutable one by value. `hash` agrees; `===` differs by form.
-- **A result through a call that opens a `Dynamic`** (`f(compiled_for(d))`) is not inferred. Assert it: `asdcol(compiled_for(g))::Dynamic{DCol}`.
+- **A result through a call that opens a `Dynamic`** (`f(compiled_for(d))`), or that a plain caller makes with values of unknown type, is inferred from the bounded function's declared result: declare it, `asdcol(c::DCol)::Dynamic{DCol}`. A declared result that is a plain type or a `Dynamic{X}` reaches every caller ([lowering §8.1](lowering.md#81-the-rewrite)); an undeclared one is `Any` there.
 - Printing: [§12](#12-printing).
 
 **Status:** Implemented.
