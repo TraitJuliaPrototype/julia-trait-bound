@@ -129,16 +129,17 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Wrap up before the large ports** (W-61): the evidence, this page, the references' statuses, the demonstrators' claims and READMEs.
-2. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
-3. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42).
-4. **Performance worth investigating:**
+2. **A design memo for DataFrames, CSV and Tables** (W-79), from the forks' and the demonstrators' learnings; the forks (W-14) follow it.
+3. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
+4. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42).
+5. **Performance worth investigating:**
    - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
    - first calls and sessions slower than they should be (W-7, E-191);
    - calls slower than plain where trait code should be as fast (W-17, E-192).
-5. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; its gain's bound (E-205) and its soundness by construction (E-206) come before any Julia change.
-6. **The large ports:** SciML (W-34) and Makie (W-70).
-7. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
+6. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; its gain's bound (E-205) and its soundness by construction (E-206) come before any Julia change.
+7. **The large ports:** SciML (W-34), Makie (W-70) and DataFrames (W-14, after W-79).
+8. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
 
-Waiting for the user: Revise and trait modules (open issue 81); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32), the forks (W-14).
+Waiting for the user: Revise and trait modules (open issue 81); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.

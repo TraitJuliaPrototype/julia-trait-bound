@@ -327,12 +327,11 @@ ODEProblem(r, u0, tspan, p, r, compiled_for(core_no_jacobian), UserFunction(r)) 
 
 TraitMakie, and TraitReport with TraitTables and TraitCSV ([`TraitMakie/README.md`](../../TraitMakie/README.md), [`TraitReport/README.md`](../../TraitReport/README.md)).
 
-**Attributes are kept values; assignment converts.** A plot's colour, marker and data are fields of a trait's name, `Kept{X}`; `p.color = :red` converts to the field's type ([§7.3](../reference/traits.md#73-assigning-from-plain-code)). To translate first, define `Base.convert` to `Kept{X}`; the ordinary layer's checks run there, so `p.color = :magenta` is refused with the named colours.
+**Attributes are kept values; assignment converts.** A plot's colour, marker and data are fields of a trait's name, `Kept{X}`; `p.color = :red` converts to the field's type ([§7.3](../reference/traits.md#73-assigning-from-plain-code)). A value that does not conform is handed to the library's `convert(X, x)`, which translates it; the ordinary layer's checks run there, so `p.color = :magenta` is refused with the named colours.
 
 ```julia
-Base.convert(::Type{Kept{ColorSpec}}, x) = Kept{ColorSpec}(_color(x))    # TraitMakie/src/TraitMakie.jl
+Base.convert(::Type{ColorSpec}, x) = _color(x)    # TraitMakie/src/TraitMakie.jl: a name becomes a checked ColorName
 ```
-- Three companion methods per trait let values that carry an attribute pass unchanged (`TraitMakie/src/TraitMakie.jl:73`–`76`). They name TraitWorld's internal types: the one exception to "write to the language".
 - Fields without a trait (`step::Symbol`) are checked where they are used.
 
 **Recipes kept `Dynamic`, loops compiled per key.** The axis keeps `Dynamic{Plot}`; the public `add_*` functions take `Dynamic{Positions}`; each recipe calls its loop with `compiled_for` and asserts the result:
@@ -358,7 +357,7 @@ col = fillcolumn(compiled_for(emptylike(c)), s, spans[k])::Union{Nothing,Dynamic
 
 **Controls compare outputs.** PlainPlots draws the same figures; the test compares PNGs pixel by pixel. PlainTables prints the same summaries (`TraitReport/scripts/check.sh`).
 
-**A type conforms only where each of its values meets the trait's contract.** Not every `Symbol` names a colour, so `Symbol` does not implement `ColorSpec` or `MarkerShape`: validated name types do, and `convert(ColorSpec, ::Symbol)` translates a symbol at the store and refuses an unknown name there, with a message that lists the choices ([traits §7.3](../reference/traits.md#73-assigning-from-plain-code)). TraitMakie still implements the traits for `Symbol` and refuses an unknown name at the render; W-67 changes it.
+**A type conforms only where each of its values meets the trait's contract.** Not every `Symbol` names a colour, so `Symbol` does not implement `ColorSpec` or `MarkerShape`: validated name types do, and `convert(ColorSpec, ::Symbol)` translates a symbol at the store and refuses an unknown name there, with a message that lists the choices ([traits §7.3](../reference/traits.md#73-assigning-from-plain-code)). TraitMakie's are `ColorName` and `MarkerName`.
 
 **A scripted REPL session checks interactivity.** Feed a session to a real REPL on a pseudo-terminal (`script -qec "julia -i" /dev/null < session.jl`), print `CHECK <what> ok` lines, strip terminal escapes, allow only deliberate `ERROR` lines. The REPL displays every result, which tests do not: `string` of a `String15` stays a `String15`, so convert where the type matters, `String(string(cell(c, i)))`.
 
