@@ -48,9 +48,7 @@ Deferred by the user (s25), to take up when wanted:
 
 State: [state §6.1](state.md#today).
 
-**From the demonstrators and the order of work:**
-
-2. **Found by the demonstrator agents, to test:** a parameter-bounded type constructor at an archetype (definition checking): an open parameter becomes `ParamArchetype{X,:p}`, which a constructor that bounds its parameter (`SimpleEdge{T<:Integer}`) would refuse, as `OpenParam` was refused at the erased key (traits T-58, fixed in TraitWorld f06b82d). Not met yet: bounds with open parameters are checked at their first call. **To settle** (W-65): a probe in W-67's tests; a T- row if it fails.
+None open.
 
 ## 4. Runtime and measurements
 
@@ -309,6 +307,7 @@ From "Keys and fields", "Parameters and types", "Bounds", "Dynamic values", "Che
 
 ### §3
 
+2. **Closed (2026-10-28, W-67's probe 2):** a parameter-bounded type constructor at an archetype raises no false problem: `edge1(g::Graph{T}) where {T} = SimpleEdge{T}(nv(g), nv(g))` with `SimpleEdge{T <: Integer}` passes definition checking and runs (`experiments/checks/w67_probes.jl`, `.log`). *As it stood:* a probe was to settle whether an open parameter at an archetype (`ParamArchetype{X,:p}`) is refused by such a constructor.
 Closed by the clean-up of 2026-10-27 (W-65; [the proposal](plans/2026-10-27-cleanup-issues-and-queue.md)):
 
 From "Open from session 25":
@@ -325,7 +324,7 @@ From "Behind the notes":
 3. **Closed (2026-10-27, W-65):** W-23 (T-3 retired). *As it stood:* Field mappings (`name => stored`) work. Agreement of a subtrait's implementation with its supertrait's is not checked.
 4. **Closed (2026-10-27, W-65):** T-7; named implementations deferred ([alternatives](design/alternatives.md)); T-19, L-10. *As it stood:* Forwarding for a whole family; named implementations; archetype checks for keyword, vararg and `Callable` workers with declared results.
 5. **Closed (2026-10-27, W-65):** T-20. *As it stood:* AOT for results like the input: the inverse per user type is not listed for `verify_main`.
-6. **Closed (2026-10-27, W-65):** a probe in W-67; a T- row if it fails. *As it stood:* Fully typed mode does not yet trace field types of keys as root causes.
+6. **Closed (2026-10-27, W-65):** a probe in W-67; a T- row if it fails. Probed 2026-10-28: the root cause is found but named in TraitWorld's terms, [traits T-82](reference/traits.md#17-deviations). *As it stood:* Fully typed mode does not yet trace field types of keys as root causes.
 7. **Closed (2026-10-27, W-65):** the split asserts the declared result ([lowering §13](reference/lowering.md#13-dynamicx), `RT`; compiler §4.2); C-8 lists where it does not. *As it stood:* Results through an opened `Dynamic` are not inferred; library code asserts them. (Bounds naming `where` variables: closed below.)
 8. **Closed (2026-10-27, W-65):** W-40 (L-23, L-37 retired; L-44). *As it stood:* Family implementations (`@implement X{T} S{T} where {T}`, and by fields) go through the slow path: a builder per type per session, cached.
 

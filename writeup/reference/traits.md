@@ -1317,8 +1317,9 @@ Two guarantees, asked for separately:
 - **Fully typed mode** checks a bounded function's code at each signature it runs at, the first time it runs there. `@warn_not_fully_typed` warns; `@enforce_fully_typed` raises `AbstractTypeError` where the code uses a value whose type is abstract there (a field read as `Real`), or `NotFullyTypedError` where it makes a call it cannot resolve when compiled (a call on a value of unknown type, a run-time site). Before `@trait_module`, it applies to every function of the module.
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
 - `check_fully_typed(sig)` gives the findings for a worker signature whatever the function's level, for tests and CI.
+- A root cause in a trait object's key is named in the trait's terms: "field `data` of `HasData` is declared `AbstractVector`".
 
-**Status:** Implemented.
+**Status:** Implemented, except the root cause in a key's declared field ([T-82](#17-deviations)).
 
 ---
 
@@ -1574,3 +1575,4 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
 | T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
 | T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function, by `eval` or by Revise. | By `eval` it does. Revise does not apply an edit of a trait module's file: it cannot load a file whose top level is `@trait_module module … end` ("module expression not at top level"), and it re-evaluates a `@trait_module begin … end` block as one statement, so the edit does not take effect ([open issue 81](../open-issues.md#1-decisions-waiting-for-the-user)). | `experiments/w78/revise/`, `experiments/w78/README.md` |
+| T-82 | [§11.3](#113-fully-typed-mode) | A root cause in a key's declared field is named in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). | It names TraitWorld's view type ("field `parts` of `TraitWorld.View{…}` is declared `Tuple{Nothing, AbstractVector}`"), and reports the view's `o::Any` field as a second root cause. | `experiments/checks/w67_probes.jl`, `.log` (probe 1) |
