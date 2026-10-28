@@ -6,6 +6,11 @@ The chronology of the evening, after `2026-10-28-day.md`. Not the home of any fa
 
 - "Go back to the Fable agent. Any creative principled original solutions to the 'two kinds of membership' issue?"
 - "Good to know. For now we continue with the large scale ports to learn more about the design as it stands today."
+- "Can you summarise the learnings from the DataFrames port so far briefly?"
+- "Go for it and continue with the other ports afterwards."
+- "I have a side question, is there any tooling that would make debugging the various slow downs everywhere easier?"
+- "Great, continue. I will be gone for the next couple of hours"
+- "One note on Solvers. One of the especially important aspects in DE.jl is that it is possible to use various linear/nonlinear solvers within Rodas/etc..."
 
 ## What was done
 
@@ -17,3 +22,9 @@ The chronology of the evening, after `2026-10-28-day.md`. Not the home of any fa
 6. **E-215 (D4):** no kernel worker for a schema whose column types were seen.
 7. **T-18 built** (open `Callable` result types; TraitWorld bdaf4b3), for the port's user functions. During the build TraitWorld's source was edited while a suite run used it (against the machine's practice); every suite was run again on the final state (`experiments/checks/logs/w82c/`).
 8. **E-216 (M6) done** (the three suites pass, digests equal): `ByRow` over one or two columns through `ColumnCore.byrow`, the function a `Callable` at the cells' types. Results equal to upstream's, element types included. A new closure's first call of the kernel 6 ms against `map`'s 18 ms; end to end a new closure's `transform` 24 ms against upstream's 25 ms, because the plain `ByRow` method and the mini-language are compiled per closure type before the kernel; the steady state 2–3× slower (the `Dynamic` call per row).
+9. **E-217 (M7):** the writer's fallback columns through a `Column` kernel; a plain bug made visible on the way (a column type of unknown width bounded its cells by the whole buffer: blocks of two rows). Steady write 7.75 ms against upstream's 21 ms; a schema of seen column types 0.8 ms against 368 ms.
+10. **W-85 queued:** tooling for slowdowns (a report of a trait call's path, Cthulhu over facts code, an A/B harness, a load-time report), the user's side question.
+11. **E-218 (SciML's X6):** a capability chosen by the stored object's traits serves an integrator; 361 ns a call against 74 ns for one bound (W-17).
+12. **E-219 (Makie's X3, slice 1):** upstream's `stairs.jl`, unchanged, over TraitMakie through `MakieCompat`; PNGs equal byte for byte; first PNG 66 ms with a workload (the core's 42 ms); nothing recompiled after a late load. A TraitWorld bug found and fixed: the ownership precheck of a family implemented with methods by the members' owner.
+13. **E-159 (SciML move 3), stages A and B:** the solvers an open set (`ODEAlgorithm`, its operation the solver's driver); the core and Rodas5 packages of their own, the front end in its owner, no pirate; a bounded front end on CommonSolve's `solve` meets L-3 (evidence for W-83's §11). Two TraitWorld lowering gaps fixed: a bounded function inside `Base.@nospecializeinfer`, and `@nospecialize` on ordinary arguments.
+14. **E-220 (stage C),** after the user's note on solvers inside solvers: linear solvers an open set inside Rodas5, from a package Rodas5 does not know and from the prompt; compiled once when `Dynamic`, no measurable cost per step.
