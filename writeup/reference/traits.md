@@ -242,7 +242,7 @@ end
 - **A writable field needs** a mutable conforming type, a stored field that is not `const`, and a stored type exactly equal to the declared type as the implementation matched it. So a write never changes a type compiled code relies on.
 - A declared field is read from the stored field, never through `getproperty`. So a type with its own `getproperty` conforms only if it maps every declared field explicitly: the mapping says that plain `x.name` may differ from `t.name`.
 - **A declared field typed by a trait's name** (`color::ColorSpec`) is a kept value, `Kept{ColorSpec}`, as a struct's field is ([§7](#7-kept-values-dynamicx-compiledx-keptx)); a write converts as an assignment from plain code does ([§7.3](#73-assigning-from-plain-code)) (Planned: TraitWorld's behaviour not yet checked, W-80).
-- Computed properties are not declared fields. A type whose data must be computed is converted by the library instead ([§4.10](#410-types-that-only-convert)).
+- Computed properties are not declared fields. A read `t.name` that no field of the traits declares is the operation of `HasProperty{:name}` ([§8.1](#81-basetraits-traits-for-bases-concepts)) when the traits carry it, and a `TraitUseError` otherwise. A type whose data must be computed for every field is converted by the library instead ([§4.10](#410-types-that-only-convert)).
 - The declared fields' types decide which types share compiled code ([§6.7](#67-what-compiled-code-is-compiled-for)).
 - **A field declared with an abstract type** gives an abstract key: code compiled for the trait reads it at that type, and each operation on it dispatches at run time. Declare it concrete, or by a parameter, where speed matters; `@enforce_concrete_only` makes an abstract part an error ([§11.1](#111-per-trait-concrete-parameters-and-self)).
 - **State that some types write and others only read is two traits:** a trait that declares the field `@const`, and a subtrait that adds the operations that change it, as `MutableIndexable` adds `setindex!` to `Indexable` ([§8.1](#81-basetraits-traits-for-bases-concepts)). A field's constness does not depend on the family that implements it.
@@ -279,11 +279,18 @@ end
 - Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
 - **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-fully-typed-mode)).
-- **Input parameters** (Planned): a parameter marked as an input, `@trait Callback{U, T, input P}`, may take several values per type. An implementation states the input parameter as a variable or a value (`@implement Callback{U, T, P} Bounce where {P}`); a bound always fixes it, from a `where` variable another argument fixes or a value, so it is never left open; two implementations for one type overlap as two implementations do ([§4.8](#48-overrides-and-redeclaration)); the owners of an input parameter's type count as stakeholders of the implementation. `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is such a trait already.
+- **Input parameters:** a parameter marked as an input may take several values per type. It is declared by a line `@input N` in the trait's body, and input parameters come first in the header: `@trait HasProperty{N, R} begin @input N; … end`.
+  - **The trait applied to its input values is a family** (`HasProperty{:ps}`): a trait of its own for implementations, keys, conformance and `Dynamic` splits. One type implements the trait at several input values as it implements several traits.
+  - An implementation states each input parameter as a value (`@implement HasProperty{:ps, PView} MyInteg`), or as a variable (`where {P}`): one implementation for every value.
+  - A bound always fixes it, by a value or by a `where` variable another argument fixes, so it is never left open.
+  - Two implementations for one type at the same input values overlap as two implementations do ([§4.8](#48-overrides-and-redeclaration)).
+  - A supertrait with input parameters is named by its family; a value is seen through it at the parameters the value fixes.
+  - The owners of an input parameter's type count as stakeholders of the implementation.
+  - `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is such a trait.
 - **Not offered:** equations between type functions, a parameter bound that names its own trait.
 - **Two traits' implementers linked by their parameters** (an algorithm and the integrator it builds for a problem): a function bounded by both at shared `where` variables ([§5.1](#51-bounds)) checks the link at each call, `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`. A trait does not declare which implementer of another trait goes with its own; Julia's generic functions carry the link.
 
-**Status:** Implemented, except the check of a stated value against an equation for a family ([T-37](#17-deviations)). Planned (2026-10-28): input parameters.
+**Status:** Implemented, except the check of a stated value against an equation for a family ([T-37](#17-deviations)). Input parameters: implemented for what `HasProperty` needs (TraitWorld 2215188); an input as a variable, fields, stakeholders and `Callable` not yet ([T-84](#17-deviations)–[T-87](#17-deviations)).
 
 ### 3.5 `Self`
 
@@ -1100,19 +1107,26 @@ Stats.mean([1.0, 2.0, 6.0])             # a Vector{Float64} is Iterable{Float64}
 | `MutableIndexable{T} <: Indexable` | `c[i::Int] = x::T` | `T = eltype(Self)` | `Vector` |
 | `Resizable <: HasLength` | `resize!(c, n::Int)` | — | `Vector` |
 | `Keyed{K, V} <: HasLength` | `d[k::K]::V`, `haskey(d, k::K)::Bool` | `K = keytype(Self)`, `V = valtype(Self)` | `AbstractDict` |
+| `HasProperty{N, R}` (`N` an input) | `property(x, ::Val{N})::R`, read as `x.N` | — | none; a type implements it at each name |
+| `Solvable{T}` | `solve!(F, x::Vector{T}, b::Vector{T})::Nothing` | `T = eltype(Self)` | LinearAlgebra's `Factorization`, through `ldiv!` |
+| `BoundedText` | `textbound(x)::Int`, an upper bound on the bytes `print(io, x)` writes | — | integers, floats, `Bool`, `Char`, strings, `Symbol`, `BigInt`, `BigFloat`, `Rational`, `Complex`, `Irrational`, Dates' types |
+
+And one function: `asvector(x::Indexable{T})`, the collection as a read-only `AbstractVector{T}` for plain code (Statistics, an upstream kernel), without a copy. It is `IndexableVector{T, C <: Indexable{T}}`: `C` is the collection's type where the value is `Compiled`, `Dynamic{Indexable{T}}` where it is `Dynamic`, so plain code over it is compiled per collection type or once per `T` ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
 
 **Rules.**
 - **Base's types conform by Base's own methods,** declared in BaseTraits for families through Base's abstract types ([§4.7](#47-families)). A type conforms only where it is declared: a `Number` can be iterated in Base, but it is not `Iterable`.
 - **Who owns them:** BaseTraits is part of TraitWorld, and TraitWorld owns its traits. As their owner it declares Base's types' conformance ([§10.1](#101-who-may-implement)). A package's own type conforms by that package's declaration. Another package's type (a `DataFrame`) conforms by its owner's declaration, or through a wrapper type ([§15](#15-named-implementations)).
 - **Names:** a module that uses TraitWorld and another module exporting the same name (`Iterable`) gets Julia's usual ambiguity, and imports the one it means: `using Other: Iterable`.
 
-**Next in BaseTraits** (Planned, decided 2026-10-28; each from a case of the ports):
-- **`HasProperty{N, R}`: property access at a name.** Its operation is `property(x::HasProperty{N, R}, ::Val{N})::R`, `N` an input parameter (a type implements it at several names, [§3.4](#34-parameters-and-associated-types)). A trait object or a kept value whose bounds carry it reads `x.N` through it; a declared field is read as before. So a computed property, such as SciML's `integ.ps`, is an operation ([open issue 97](../open-issues.md)).
-- **`asvector(x::Indexable{T})`: a trait collection as an `AbstractVector{T}`,** a view for plain code (Statistics, an upstream kernel), without a copy: compiled per collection type where the value is `Compiled`, once per `T` where it is `Dynamic` (the DataFrames port's `CellVector`, E-214).
-- **`Solvable{T}`: a factorization that solves linear systems,** `solve!(F::Solvable{T}, x::Vector{T}, b::Vector{T})::Nothing`; LinearAlgebra's `Factorization{T}` conforms through `ldiv!`. A linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `LinearCache`, E-220).
-- **`BoundedText`: a value whose printed text has a known bound,** `textbound(x::BoundedText)::Int`, an upper bound on the bytes `print(io, x)` writes; Base's numbers, `Bool`, `Symbol`, strings and dates conform. A writer sizes its buffers from it instead of guessing (CSV's writer, E-217).
+**What the four after version 0 are for** (each from a case of the ports, decided 2026-10-28):
+- `HasProperty`: a computed property, such as SciML's `integ.ps`, is an operation ([open issue 97](../open-issues.md)). A trait object or a kept value whose bounds carry it reads `x.N` through it; a declared field is read as before. Users write `x.N`, never `property`.
+- `asvector`: the DataFrames port's `CellVector` (E-214).
+- `Solvable`: a linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `LinearCache`, E-220).
+- `BoundedText`: a writer sizes its buffers from it instead of guessing (CSV's writer, E-217). Fixed-width types have a bound per type; strings and big numbers per value.
 
-**Status:** Implemented (version 0); the four above Planned. To revisit with the ports: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
+LinearAlgebra and Dates are dependencies of TraitWorld: BaseTraits declares their types' conformance as the traits' owner, in its own package, so it holds in every load order. Both are in Julia's system image.
+
+**Status:** Implemented (TraitWorld 2215188 for `HasProperty`, `Solvable`, `BoundedText` and `asvector`). To revisit with the ports: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
 
 ### 8.2 Item positions
 
@@ -1594,4 +1608,8 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
 | T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function, by `eval` or by Revise. | By `eval` it does. Revise does not apply an edit of a trait module's file: it cannot load a file whose top level is `@trait_module module … end` ("module expression not at top level"), and it re-evaluates a `@trait_module begin … end` block as one statement, so the edit does not take effect ([open issue 81](../open-issues.md#1-decisions-waiting-for-the-user)). | `experiments/w78/revise/`, `experiments/w78/README.md` |
 | T-82 | [§11.3](#113-fully-typed-mode) | A root cause in a key's declared field is named in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). | It names TraitWorld's view type ("field `parts` of `TraitWorld.View{…}` is declared `Tuple{Nothing, AbstractVector}`"), and reports the view's `o::Any` field as a second root cause. | `experiments/checks/w67_probes.jl`, `.log` (probe 1) |
+| T-84 | [§3.4](#34-parameters-and-associated-types) | An implementation may state an input parameter as a `where` variable (one implementation for every value, a `NamedTuple` at all its names); a bound may fix it by a `where` variable another argument fixes. | Both are refused (`ImplementError`, `TraitBoundError`). | TraitWorld 2215188, `test/basetraits_next.jl` |
+| T-85 | [§3.4](#34-parameters-and-associated-types) | A trait with input parameters may declare fields; a subtrait may pass its own input variable to a supertrait with inputs. | Fields in such a trait are refused; the subtrait form is not built. | TraitWorld 2215188 |
+| T-86 | [§3.4](#34-parameters-and-associated-types) | The owners of an input parameter's type count as stakeholders of an implementation. | Not counted: only the trait's and the type's owners. | TraitWorld 2215188 |
+| T-87 | [§3.4](#34-parameters-and-associated-types) | `Callable` is a trait with input parameters. | `Callable` keeps its own mechanism. | TraitWorld 2215188 |
 | T-83 | [§5.5](#55-dispatch-types-first-then-traits) | Unrelated bounds added by two packages that do not depend on each other are reported at the load that creates the overlap. | Not reported until a call (the Makie agent's reading of the code; its probe F2, W-80, confirms). | `TraitWorld/src/trait_module.jl` (`check_bounds` at a module's end); W-82 |
