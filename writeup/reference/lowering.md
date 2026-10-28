@@ -356,6 +356,7 @@ The entry is declared `@inline` and is a boundary (`trait_module.jl:791`). Every
 1. `enter(EntryPos{typeof(f), i, nargs}(), x)` (`entry.jl:213`) decides the attribute once, for the value as it arrives:
    - a trait object raises ([§8.1](#81-the-rewrite));
    - a `Dynamic` stays `Dynamic`: the trait object at the erased key of its held object (`erased`), never opened ([§13](#13-dynamicx));
+   - a kept value (`Dynamic`, `Compiled`, `Kept`) is assembled for every trait of the position its held object conforms to, with its attribute; one whose object conforms to none of them is refused with `TraitBoundError`, not handed to the fallback (`_enter_held`; [traits §6.5](traits.md#65-values-carry));
    - `compiled_for(y)`: the trait object of `y` at its own key, so the worker for that key is selected once. A typed caller assembles it in place. From an untyped caller, the table of declared implementations serves it ([§9.3](#93-untyped-callers-of-compiled-values-the-table));
    - `with_dynamic(y)`: the trait object at the erased key;
    - any other value, by the first that applies:
@@ -489,7 +490,8 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 
 **At the entry,** `enter_callable(A, S, attribute, f)` (`entry.jl:1137`; deviation [L-36](#18-deviations)):
 - a cast, `compiled_for(f)` or `with_dynamic(f)`, wins; it takes the position's signature;
-- a kept function, `Dynamic{Callable{…}}`, `Compiled{Callable{…}}` or `Kept{Callable{…}}` at any signature: its attribute, carried; a `Dynamic` one at another signature becomes `CObj{A, S}(Erased{A, S}(f))` of its function (`_erased_at`; [traits T-54](traits.md#17-deviations): the design refuses it);
+- a kept function, `Dynamic{Callable{…}}`, `Compiled{Callable{…}}` or `Kept{Callable{…}}` at any signature: its attribute, carried; at another signature it is checked first, once per (signature, function type), a method at `A` whose inferred result meets `S` (`_check_at_signature`, else `TraitBoundError`; [traits §6.5](traits.md#65-values-carry)), and a `Dynamic` one becomes `CObj{A, S}(Erased{A, S}(f))` of its function (`_erased_at`);
+- **argument types that follow the other arguments** ([traits §5.8](traits.md#58-callable-functions-at-a-declared-signature)): `_classify` keeps `A` and `S` as expressions over the `where` variables; the worker binds them by dispatch on `CObj{A, S}`, and checks a trait argument's parameter against them; the entry enters the function after the other arguments, a variable fixed by a plain argument from the entry's own `where` list, one fixed by a trait argument read from its key (`_trait_param`); a variable no other argument fixes is refused when the method is defined;
 - otherwise: the position's attribute (`Compiled{Callable{A, S}}`), else `Callable`'s default `Dynamic` for a function whose type is not of the trait world (`_tw_type`, `entry.jl:1019`), else `Compiler.known_type(f)`;
 - `Compiled`: `CObj{A, S}(f)`; `Dynamic`: `CObj{A, S}(Erased{A, S}(f))`;
 - caches the wrapper per (signature, attribute, type) for functions that capture nothing.

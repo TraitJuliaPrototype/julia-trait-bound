@@ -716,7 +716,7 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 - **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
 
-**Status:** Implemented, except argument types that follow the other arguments (Planned, W-81). Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
+**Status:** Implemented. Planned: open result types ([T-18](#17-deviations)); bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)).
 
 ---
 
@@ -863,7 +863,7 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **A function kept at one signature** is seen at a bound of another signature where it has a method there whose inferred result is not disjoint from the declared one, checked at the bound ([§5.8](#58-callable-functions-at-a-declared-signature)).
 - **A trait object inside bounded code** is seen only through the traits it entered with: it may hold only the parts its traits see, and the code compiled for it covers only those traits. Entering through a tuple of traits ([§3.7](#37-tuples-of-traits)) remains the way to see one value through several traits at once.
 
-**Status:** Implemented, except the refusal of a held object that does not conform, and the check kept per held type ([T-53](#17-deviations)); a function at another signature is checked only at its first call ([T-54](#17-deviations)).
+**Status:** Implemented.
 
 ### 6.6 Items of a user's container
 
@@ -1060,7 +1060,7 @@ callback(f) = FunctionCallback(Kept{Callable{Tuple{Vector{Float64}, Float64}, Bo
 - **A function is kept at the signatures it entered with.** To keep it at several, keep it as a tuple: `Dynamic{(Callable{A1, S1}, Callable{A2, S2})}`, or a struct parameter bounded by the tuple (§7.4). Passed to a bound of another signature, it is refused (`TraitBoundError`, [§6.5](#65-values-carry)).
 - **Kept at a struct parameter bounded by `Callable`, a function is the field itself** (§7.4): the function under `Compiled`, so the code that reads it is compiled per function; a `Dynamic{Callable{A, S}}` under `Dynamic`. TraitDifferentialEquations' `ODEProblem` keeps its right-hand side so.
 
-**Status:** Implemented, except: a function at a bound of another signature is checked only at its first call ([T-54](#17-deviations)); keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type.
+**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type.
 
 ### 7.6 Equality and inference
 
@@ -1422,7 +1422,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | tuples of traits: bounds, attributes on bounds, supertrait lists, `@implement` | Implemented | [§3.7](#37-tuples-of-traits) |
 | tuples of traits everywhere else a trait stands | Planned | [§3.7](#37-tuples-of-traits), W-29 |
 | a value seen through the traits it entered with | Planned (T-53, T-54; W-31) | [§6.5](#65-values-carry) |
-| trait casts: at a bound | Implemented, T-53 | [§6.5](#65-values-carry) |
+| trait casts: at a bound | Implemented | [§6.5](#65-values-carry) |
 | trait casts: explicit (`Kept{B}(d)`) | Optional | [§6.9](#69-trait-casts) |
 | supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |
 | an operation's argument declared `Dynamic{Y}`, `Compiled{Y}`, `Kept{Y}`: a type | Implemented | [§3.1](#31-operations), [§6.3](#63-defaults-a-traits-default-and-annotations) |
@@ -1556,8 +1556,8 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
 | T-51 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
 | T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
-| T-53 | [§6.5](#65-values-carry) | A kept value whose held object does not conform to a bound's trait is refused there (`TraitBoundError`); the check is kept per held type. | A conforming one is accepted, as the design says; one that does not conform raises `MethodError`; whether the check is kept per held type is not established. | `TraitWorld/src/entry.jl` (`enter`, `_dyn_held`); W-81 |
-| T-54 | [§6.5](#65-values-carry), [§7.5](#75-functions-kept) | A function kept at one signature is seen at a bound of another signature where it has a method there whose inferred result is not disjoint from the declared one, checked at the bound. | It is accepted and seen there with its attribute (a `Dynamic` one through a new pointer, `_erased_at`), unchecked until its first call. | `TraitWorld/src/entry.jl` (`enter_callable`, `_erased_at`); `TraitDifferentialEquations/test/compiledcall.jl`; W-81 |
+| T-53 | — | *Retired*: see [§6.5](#65-values-carry). | — | — |
+| T-54 | — | *Retired*: see [§6.5](#65-values-carry). | — | — |
 | T-55 | [§8.3](#83-a-users-container-taken-as-it-is) | The explicit wrappers are `DynamicItems{X}` and `DynamicValues{X}`. | TraitWorld also exports `CompiledItems` and `CompiledValues`, the views at `Compiled` that the lowering uses ([lowering §13](lowering.md)). | `TraitWorld/src/TraitWorld.jl:84`; `src/BaseTraits.jl` |
 | T-56 | [§10.2](#102-pirates) | A pirate in a trait module is refused at its definition. | Only plain function definitions, and those under the macros TraitWorld passes through, are checked when they are defined. A method made by another macro (`@generated`, `@eval`, `Base.@constprop`), a functor's call method, a definition inside a top-level block, or `Core.eval` into another module is not; a later checked definition of the same function catches it, so whether it is refused depends on the order. | `TraitWorld/src/trait_module.jl` (`_process`, `_is_fdef`); [the review of the P3 plan](../reviews/2026-10-21-ndport-facts-first-plan.md) |
 | T-57 | [§4.7](#47-families) | A family with a block of methods is declared as `@implement X A where {A <: S} begin … end`, by the trait's or the type's owner. | Declared outside the trait's module, it is refused by the rule-3 precheck, which evaluates `A` without its `where`. The family without a block, by the type owner's own methods, avoids both. | `TraitWorld/src/implement.jl` (`_implement_where`, the precheck in `_op_method`); probes of 2026-10-21; [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md) |
