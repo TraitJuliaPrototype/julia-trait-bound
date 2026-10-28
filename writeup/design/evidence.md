@@ -166,7 +166,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 |---|---|---|---|---|---|
 | Python: SciPy 1.18.1, matplotlib 3.11.2 | 0.45 s | 0.07 s | 0.51 s | 0.24 s | **1.45–1.46 s** |
 | stock 1.13.2: OrdinaryDiffEq, CairoMakie (plain code) | 3.54–3.56 s | 3.75–3.76 s | 1.51 s | 0.19 s | **9.16–9.17 s** |
-| upstream SciML compiled by facts as trait modules (P6's trees; no trait code) | 4.52–4.53 s | 4.56–4.57 s | 1.47–1.48 s | 0.22 s | **10.92–10.93 s** (strict mode on: 16.6–16.8 s, E-198, julia-1.13 8ceda6f9d6) |
+| upstream SciML compiled by facts as trait modules (P6's trees; no trait code) | 4.52–4.53 s | 4.56–4.57 s | 1.47–1.48 s | 0.22 s | **10.92–10.93 s** (strict mode on: 13.6–13.8 s, E-204, julia-1.13 5071b67894) |
 | TraitDifferentialEquations and TraitMakie (idiomatic trait code; TraitWorld 04095fe) | 0.44–0.46 s | 0.19 s | 0.13 s | 0.056–0.060 s | **0.94–0.99 s** (before TraitWorld 04095fe, whose image hook compiled at every session's first load: 1.29–1.30 s, load 0.81 s) |
 | their plain twins, PlainODE and PlainPlots | 0.19 s | 0.22 s | 0.25 s | 0.33 s | **1.13–1.14 s** |
 
