@@ -713,10 +713,13 @@ Lives in `base/experimental.jl` and `base/show.jl` (`_show_type`).
 
 ### 5.4 Planned: hooks for strict mode's intended design
 
-**Status: Planned.** Strict mode's intended design ([`../explorations/strict-mode.md`](../explorations/strict-mode.md) §2b; built as part of the cache keyed on facts and their origins, its Phase B, [W-66](../record/todo.md)) needs three more pieces:
+**Status: Planned** for two pieces; strict mode's report at an image's load uses an internal interface (below). Strict mode's intended design ([`facts.md` §10.3](facts.md#strict-intended); [W-66](../record/todo.md)) needs:
 - **A deletion hook (1′):** called at method deletion (`jl_method_table_disable`). It may refuse.
-- **A "what would this definition invalidate" query (14):** read-only and transitive. It is `jl_method_table_insert`'s invalidation walk without the stores, asked from the definition hook before the method becomes visible.
-- **Image validation that reports the winning method (15):** when validation rejects a `CodeInstance` of a package image, it reports the edge and the method that now wins.
+- **A hook for a binding redefined from another module** (facts §2.2's exception), at its source.
+
+**Used as it is, an internal interface:** validation's own log, `Compiler.ReinferUtils.debug_method_invalidation(true)` (`Compiler/src/reinfer.jl`), apart from the runtime's `jl_debug_method_invalidation`. Each rejected edge is an entry `(edge, "insert_backedges_callee", codeinst, matches)`, and each caller rejected with it `(child, "verify_methods", cause)`. TraitWorld keeps it on in strict mode and reads it after each load. It may change with Julia. Its Julia form would pass the entries per image to a callback from `_include_from_serialized`.
+
+A "what would this definition invalidate" query is not needed: code of the facts owner holds facts at concrete signatures, and the walk through the plain code it rests on decides (facts §10.2).
 
 ---
 

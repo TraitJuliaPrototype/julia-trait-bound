@@ -1244,11 +1244,11 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - A definition by a stakeholder is followed. A *stakeholder* of a method is the owner of its function or of a type in its signature, joint owners included (§10.1). Stakeholders are counted at each number of arguments: a type in a `Vararg` tail counts only where the tail has an element ([facts §1](facts.md#1-terms)).
 - A method belongs to the module it is evaluated in. So a method defined with `@eval Owner f(…) = …` counts as `Owner`'s definition, whichever package's code evaluates it. **Open:** whether it should belong to the package whose code defines it, to settle by a census (E-189; [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 65).
 - `TraitWorld.delegate!(CorePkg => ImplPkg)` lets an implementation package count as the owner of the core package it implements (for split packages such as StaticArraysCore and StaticArrays).
-- A pirate loaded before the code it changes is refused too.
+- A pirate loaded before the code it changes cannot be refused, since it came first: it is reported when that code's image loads ([facts §10.3](facts.md#strict-intended)).
 - **A package extension's method** that wins at a fact of trait code without mentioning its triggers' types is followed, as its parent package's change, a stakeholder's. It is not refused. A warning names the method and the trait code it affects.
 - `verify_main` lists the calls reached from trait code that select a pirate.
 
-**Status:** Implemented as a prototype: refusal when the pirate is defined, or when an image that brings it loads, after the trait code. The warning for a package extension's winning method is Implemented. Planned, as part of the cache keyed on facts and their origins (its Phase B, [W-66](../record/todo.md)): refusal of pirates loaded before the code they change, and the listing in `verify_main`. Strict mode also protects some code that is not trait code ([facts §10.2](facts.md#strict-mode), the note). The error's text: [T-21](#17-deviations).
+**Status:** Implemented as a prototype: refusal when the pirate is defined, or when an image that brings it loads, after the trait code; a report when the trait code's image loads after the pirate. The warning for a package extension's winning method is Implemented. Planned: the listing in `verify_main`. Strict mode protects code of the facts owner, which is more than trait code ([facts §10.2](facts.md#strict-mode)).
 
 ### 10.4 No sealing
 

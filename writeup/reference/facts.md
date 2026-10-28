@@ -433,39 +433,39 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 
 **Rule.** A definition is refused if all three hold:
 1. **It is a pirate.** An extension counts as its parent package. Methods of Julia's own code (Core, Base, the standard libraries) are not checked: Julia is one owner ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
-2. **It would win at a fact of valid trait code,** or of code compiled by facts that trait code depends on: at a concrete signature, or at any split of a fact signature.
+2. **It would win at a fact of code of the facts owner,** or at a fact of plain code that such code rests on: `return_type`'s plain answers, the compiler's own code, and Julia's own plain code, which the compiler's code calls. At a concrete signature, or at any split of a fact signature.
 3. **Its package is no stakeholder of that signature** (joint owners are owners, §1), and no declared delegate of one. A *delegate* is an implementation package that counts as the owner of the core package it implements (`TraitWorld.delegate!(Core => Impl)`). Delegates are data, and transitional.
 
 **When.** Before the method becomes visible:
 - at a definition: at the prompt, by `include`, by `eval`;
 - for a package image's methods, before they are activated. A refused method stays inactive, and the load reports the `PirateError`.
 
-**How it finds the facts** (`TraitWorld/src/strict.jl`, `_winning_fact`): the calls of existing code at which the method would win, from the backedges of the specializations it could take over and of the method table; from each, the callers' backedges, transitively, as Julia's invalidation follows them, to trait code. After the definition, Julia's invalidation log is checked again: a hit the walk missed deletes the method and raises `PirateError` (counted, `_STRICT_MISSES`).
+**How it finds the facts** (`TraitWorld/src/strict.jl`, `_winning_fact`): the calls of existing code at which the method would win, from the backedges of the specializations it could take over and of the method table; from each, the callers' backedges, transitively, as Julia's invalidation follows them, through the three classes of plain code in rule 2 only, to code of the facts owner. After the definition, Julia's invalidation log is checked again: a hit the walk missed deletes the method and raises `PirateError` (counted, `_STRICT_MISSES`).
 
-**What it protects: trait code,** in both settings. *Trait code* is the code of trait modules, compiled by facts. A pirate that would win in code compiled by facts that trait code calls is refused because the trait code's invalidation would follow.
+**What it protects: code of the facts owner,** in both settings. In the product setting that is trait code (the code of trait modules, compiled by facts), TraitWorld's machinery, the split's thunks, and the Base methods compiled by facts for them: most of it is code trait code depends on. Under `all` it is every package's compiled code but the compiler's and the plain code of Julia that the compiler calls.
 
 **The property it secures: trait code is never invalidated,** except by a stakeholder's change, with the exceptions of [§2.2](#g2). The property says nothing against protecting more.
 
-**Note: it also protects other code.** Strict mode refuses a pirate that would win in every CodeInstance of the facts owner, and in plain code whose method is in Base, Core, a standard library, TraitWorld or a trait module (`TraitWorld/src/strict.jl`, `_trait_world`). So in the product setting plain code of Base, the standard libraries and TraitWorld, and the plain code of a trait module's entries, is protected too, and a pirate that wins only there is refused. Under `all`, other packages' code compiled by facts (owner `nothing`) is not protected.
+**Not protected:** plain code of a package, of TraitWorld, or of a trait module's plain entries. A pirate that wins only there is followed, and that code is compiled again, as in plain Julia. Results of constant propagation from plain callers into facts code live in the plain caller, so a pirate that wins only on that path is followed too.
 
 **Effects.**
 - The refused method does not exist, for plain code either. G1 holds, against the world without it.
 - Nothing changes at run time. Code compiled with strict mode on or off is the same code.
 - If pirates never win, strict mode never errors.
 
-**Not refused:** a pirate that wins nowhere in trait code or the code it depends on; any stakeholder's method; an implementation of a trait.
+**Not refused:** a pirate that wins nowhere in code of the facts owner or the plain code it rests on; any stakeholder's method; an implementation of a trait. Folds and the definition checks' verdicts are values, not edges: a pirate can change them without invalidating anything (folds are evaluated again at load, [compiler §4.4](compiler.md#44-compilerfold_call)).
 
 <a id="strict-intended"></a>
 ### 10.3 Strict mode's intended design
 
-**Status: Planned** ([F-6](#deviations)), except the warning for a package extension's winning method, which is Implemented. Built as part of the cache keyed on facts and their origins, its Phase B ([W-66](../record/todo.md); the user, 2026-10-27: "Take up strict mode with W-66").
+**Status: Implemented** for a pirate loaded before an image (reported, row 1), the narrowed walk for plain code (row 2) and the warning for a package extension's winning method; **Planned** for rows 4 and 5 ([F-6](#deviations)). Built with the cache keyed on facts and their origins ([W-66](../record/todo.md); the user, 2026-10-27: "Take up strict mode with W-66").
 
 In strict mode, trait code, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or, for a stakeholder's package extension, a warning:
 
 | Source | The error |
 |---|---|
-| a pirate loaded before a package image whose facts it breaks | at the image's validation, naming the pirate and the code |
-| a pirate that wins inside plain code that trait code depends on (a folded `return_type`, the compiler) | at the definition: the check follows callers transitively |
+| a pirate loaded before a package image whose facts it breaks | reported at the image's load, naming the pirate, the code and the fact: it came first, and the image's methods are active before its code is validated, so it cannot be refused. The image's code is compiled again with the pirate |
+| a pirate that wins inside plain code that code of the facts owner rests on (a folded `return_type`, the compiler, Julia's plain code the compiler calls) | at the definition: the check follows those callers transitively |
 | a package extension's winning method at a fact whose signature contains none of its triggers' types | no error: followed, as its parent's change (a stakeholder's), with a warning when the extension's methods become visible, naming the method and the trait code it affects |
 | a binding redefined from another module (`Core.eval(Other, …)`) that trait code reads | at its source, the redefinition (§2.2) |
 | a deletion of a method that trait code depends on, by anyone (a deletion carries no caller to name), except TraitWorld's own deletion of a refused declaration's methods and of a refused pirate | at the deletion |
@@ -478,7 +478,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 <a id="package-images"></a>
 ## 11. Package images
 
-**Status: Implemented.** **Planned:** the strict tier's error for a pirate loaded before an image ([§10.3](#strict-intended)).
+**Status: Implemented**, with strict mode's report of a pirate loaded before an image ([§10.3](#strict-intended)).
 
 **What an image may hold.**
 - Code of both owners, compiled while the package's image was built.
@@ -520,7 +520,7 @@ In strict mode, trait code, in a session and in package images, is invalidated o
   - a system image built with it, the facts system image. It holds Base and the standard libraries compiled by facts only. `JULIA_COMPILE_BY_FACTS=0` turns the mode off there, and the process then compiles plain Base at its start (tens of seconds): it is the test bed's image only.
   - Use a depot of its own, for speed ([§11](#package-images)).
 - **Planned spelling:** `--compile-by-facts=no|all|traits`.
-- G1 and G2 hold under `all` for all code. Strict mode under `all` protects trait code, as in the product setting; what else it protects there is §10.2's note; untested.
+- G1 and G2 hold under `all` for all code. Strict mode under `all` protects code of the facts owner, which there is all code but the compiler's and Julia's plain code it calls (§10.2); TraitWorld's strict tests pass under `all` (E-198).
 
 <a id="trimmed-binaries"></a><a id="closed-builds"></a>
 ### 12.3 Trimmed binaries
@@ -575,8 +575,9 @@ In strict mode, trait code, in a session and in package images, is invalidated o
 | the `Dynamic` split | Implemented | [§9](#dynamic-split) |
 | beyond four implementations, a table keyed by the value's type | Implemented | [§9](#dynamic-split); [compiler §4.3](compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets) |
 | winning pirates followed by default | Implemented | [§10.1](#pirates) |
-| strict mode, prototype, scoped to trait code (other code protected too) | Implemented | [§10.2](#strict-mode) |
-| strict mode's intended design; the warning for package extensions; the symmetric lint | Planned (W-66's Phase B); the warning Implemented | [§10.3](#strict-intended); F-6 |
+| strict mode, prototype, on code of the facts owner | Implemented | [§10.2](#strict-mode) |
+| strict mode's intended design: a pirate before an image reported, the warning for package extensions | Implemented | [§10.3](#strict-intended) |
+| strict mode's errors for deletions and bindings redefined from outside; the symmetric lint | Planned | [§10.3](#strict-intended); F-6 |
 | package images of both owners | Implemented | [§11](#package-images) |
 | product setting; `all` by environment variable | Implemented | [§12](#settings) |
 | `--compile-by-facts=no\|all\|traits` | Planned | [§12.2](#the-test-bed) |
@@ -598,7 +599,7 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-3 | — | *Retired*: see [§5](#run-time-sites). | — | — |
 | F-4 | — | *Retired*: see [§10.2](#strict-mode), the note. | — | — |
 | F-5 | — | *Retired*: see [§10.2](#strict-mode). | — | — |
-| F-6 | [§10.3](#strict-intended) | In strict mode, a pirate loaded before an image and a deletion of a method that trait code depends on are errors at their source. | Both are accepted. The image's code is discarded at validation and compiled again; `Base.delete_method` reaches no hook. | `TraitWorld/src/hooks.jl:230`; `TraitWorld/src/strict.jl:123` |
+| F-6 | [§10.3](#strict-intended) | In strict mode, a deletion of a method that trait code depends on, and a binding redefined from another module that trait code reads, are errors at their source. | Both are accepted: `Base.delete_method` reaches no hook, and a binding's redefinition is followed (§2.2's exception). | `TraitWorld/src/strict.jl` (no deletion or binding hook); `julia-1.13/src/gf.c` (`jl_method_table_disable`) |
 | F-7 | [§12.3](#trimmed-binaries) | A trimmed build uses no code compiled by facts, also none that package images keep. | Untested: `--trim` is not part of an image's key, and whether code of the facts owner that images keep reaches a trimmed binary is not checked. | `julia-1.13/src/module.c:741` (`jl_method_is_facts` under trim) |
 | F-8 | — | *Retired*: see [§12.3](#trimmed-binaries). | — | — |
 | F-9 | [§12.3](#trimmed-binaries) | `verify_main` scans each MethodInstance in every mode it is reached in. | It scans an instance reached in both modes only in the mode it meets first. | `TraitWorld/src/verify.jl:353`, `:839` |

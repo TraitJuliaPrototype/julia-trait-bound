@@ -1,6 +1,6 @@
 # Strict mode on facts code, and its error at an image's load (W-66, step 3)
 
-Status: **adopted, revision 2** (2026-10-28, mine; W-66): after [its fresh-eye review](../reviews/2026-10-28-strict-mode-on-facts-code.md) (§7). Not normative. Its choices are for the user's confirmation in W-71's review session.
+Status: **done** (2026-10-28, mine; W-66; TraitWorld 0976025, E-198), revision 2: after [its fresh-eye review](../reviews/2026-10-28-strict-mode-on-facts-code.md) (§7). Not normative. Its choices are for the user's confirmation in W-71's review session.
 
 ## 1. What it is for
 
