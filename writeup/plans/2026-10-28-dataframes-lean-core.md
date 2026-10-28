@@ -1,6 +1,6 @@
 # DataFrames, CSV and Tables in the trait world: a design memo (W-79)
 
-Status: **proposal, revision 2** (2026-10-28, mine; W-79), after [its fresh-eye review](../reviews/2026-10-28-dataframes-lean-core.md) (§8). Not normative. The forks (W-14) follow it, starting with D2 (§5). The user (2026-10-28): "DataFrames was paused when foundational pieces of the software stack were missing. Unpause it please, and schedule work on a design memo using the previous learnings."
+Status: **proposal, revision 2** (2026-10-28, mine; W-79), after [its fresh-eye review](../reviews/2026-10-28-dataframes-lean-core.md) (§8); a stored value's capabilities are [open issue 82](../open-issues.md#1-decisions-waiting-for-the-user), after the user's note that the ports are to find the design's weak points. Not normative. The forks (W-14) follow it, starting with D2 (§5). The user (2026-10-28): "DataFrames was paused when foundational pieces of the software stack were missing. Unpause it please, and schedule work on a design memo using the previous learnings."
 
 It applies [W-60's memo](2026-10-27-lean-core-old-apis.md) (four layers, the waist, loading on demand, the cache's place) to the third ecosystem, with what [the forks](../../forks/README.md) (sessions 27–29), TraitReport with TraitTables and TraitCSV, and the experiments since have taught.
 
@@ -83,7 +83,8 @@ end
 end
 ```
 - **Every column the stack produces is a member:** `Vector{T}` with and without `Missing` (a small union counts as concrete, [traits §11](../reference/traits.md#11-concreteness-and-fully-typed-mode); closed open issue 18), CSV's `StringVector{DataString}` (its default string column, `forks/CSV/src/core.jl:2535`), `PooledVector`, `CategoricalVector`, views of each (`subdataframe.jl:175`), ranges. Each member is checked at its first use ([traits §4.7](../reference/traits.md#47-families)). A member that fails the check is refused with its reason; the compatibility layer then copies it into a `Vector{T}`, which changes aliasing, and says so.
-- **The pool is a capability by default, not a subtrait.** `groupcodes` reads `DataAPI.refarray` and `DataAPI.refpool`, which PooledArrays and CategoricalArrays implement already (CategoricalArrays' pool indexed from 0, with `missing` at 0, by DataAPI's contract); for any other column `refpool` is `nothing` and the default hashes cells. Inside a kernel compiled per column type the branch folds. No member overrides an operation, so no override rule is met.
+- **A weak point of the design, found here: a stored value's capabilities** ([open issue 82](../open-issues.md#1-decisions-waiting-for-the-user)). The principled form is a trait per capability, without a subtrait relationship: `@trait PooledColumn{T, R}` (`refs`, `pool`, concretely typed), implemented by PooledArrays and CategoricalArrays (or the Tables fork's extensions), and a kernel with two methods, `groupcodes(c::Column)` and `groupcodes(c::(Column, PooledColumn))`, chosen by dispatch. For plain values that works today. For the frame's stored `Dynamic{Column}` values it does not: a value is seen through the traits it entered with, and the columns of one frame conform to different sets. Until the issue is decided, the port takes the route below, which works today and closes the set of capabilities to `Column`'s owner.
+- **The pool as an operation with a default (the route today).** `groupcodes` reads `DataAPI.refarray` and `DataAPI.refpool`, which PooledArrays and CategoricalArrays implement already (CategoricalArrays' pool indexed from 0, with `missing` at 0, by DataAPI's contract); for any other column `refpool` is `nothing` and the default hashes cells. Inside a kernel compiled per column type the branch folds. No member overrides an operation, so no override rule is met.
 - **Mutation and growth stay plain:** `df[i, :a] = x`, `push!`, `insert!`, `append!`, the widening that replaces a column with a wider one (`dataframe/insertion.jl:774–791`), and the outer join's `similar(v, Union{T, Missing}, n)` (`join/composer.jl:8–9, 345–346`) run upstream's code on `vector(c)`. They are not hot per key.
 - **`GroupCodes`** is a concrete record (codes `Vector{Int}`, the number of groups), so the pooled and hashed paths return one type.
 
@@ -156,7 +157,8 @@ The kernels' code for a column type the images do not hold (a user's element typ
 
 - **Implemented:** traits with an equation for a parameter, families over an abstract type with a block, operations with defaults, `Dynamic` results, kept values in storage, `compiled_for`, implementations in the trait owner's extension, types that only convert, loading stubs (W-60's §1.4).
 - **The member check's rule for a method that always throws** (a fallback, not an implementation; `TraitWorld/src/implement.jl:270–271`) is stated in [traits §4.7](../reference/traits.md#47-families) (2026-10-28, mine, for W-71).
-- **Not used:** trait casts (§6.9, Optional), a `Callable` over a bound's parameters (refused, §5.8) and open results (T-18, Planned), member overrides (T-28), forwarding for a whole family (T-7, Planned).
+- **Wanted, and open:** selecting a capability of a stored value (open issue 82: a kept value seen through every trait its object conforms to, or a checked trait cast, §6.9).
+- **Not used:** a `Callable` over a bound's parameters (refused, §5.8) and open results (T-18, Planned), member overrides (T-28), forwarding for a whole family (T-7, Planned).
 
 ## 7. Questions left open
 
