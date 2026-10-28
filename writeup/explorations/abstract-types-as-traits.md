@@ -22,6 +22,7 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 12. [Sources](#12-sources)
 13. [Invalidation for subtyping: making `S <: X` sound for late memberships](#13-invalidation-for-subtyping-making-s--x-sound-for-late-memberships)
 14. [CommonSolve's `solve`: a ground-up design](#14-commonsolves-solve-a-ground-up-design)
+15. [The project as a set of co-designed features](#15-the-project-as-a-set-of-co-designed-features)
 
 ---
 
@@ -35,6 +36,7 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 - **What it costs.** Multiple membership in Julia's subtyping (a real change to `jl_subtype`, type intersection and ambiguity detection); ambiguity between methods on two unrelated traits is reportable only when a common member appears (Julia issue #5's problem, Fortress's exclusion relation, the design's T-83); the coherence rule of §11 refuses one pattern the design allows today (a bounded method on a foreign function, such as `Base.show(io, ::X)`, for a set whose owner declares foreign members), with a newtype or the set's own wrapper type as the escape; no gain for an abstract type that declares no contract (`Number` stays `Number`); and the decided rule that a trait's name is refused outside trait modules (open issue 41) is reversed.
 - **The smallest step that pays** (§13): the storage simplification needs only `S <: X` in Julia's subtyping, not the rest. It is sound with one rule the design already states: a positive membership answer may be folded at compile time (memberships are monotone), a negative one never is; `typeintersect` with an open set over-approximates, as its contract allows; a registry read at run time, with a world of its own as methods have. No new edges, no invalidation, the REPL covered. §11's timing argument explains why package code could fold negatives too, but nothing needs it.
 - **SciML's `solve`** (§14): the front end `CommonSolve.solve(prob::ODEProblemTrait, alg)` by SciMLBase is refused today by lowering L-3 only; the coherence rule of §11 allows it as long as `ODEProblemTrait`'s members join in their own packages, which is how SciML's problem types are declared. The cost the rule has in SciML is nil for the front end; it falls on operator-style traits over Base's types bounding Base's functions, where Base's typed methods make it harmless, so the static check should be a warning, not an error.
+- **The project's shape** (§15, the user's framing): five co-designed features (traits as abstract types, `Dynamic`, `Callable`, compiling by facts, declarations on a scope) on two foundations (the trait declaration, ownership); the goals are combinations of them. A trait module may stay as the combination of all declarations, or a few combinations may be blessed. To return to when the ports are finished.
 - **What to do with it.** It does not change the design's rules. It changes the *framing* of W-27 (traits in the type system): not "encode a trait beside abstract types" but "an abstract type is a set whose members joined with their definitions; `@implement` adds a member; one dispatch". §10 and §11.5 give the experiments: a census of the demonstrators and ports for the forbidden combination (minutes), a probe of extension load order (minutes), and the subtyping probe (a build). Until they run, W-27's direction should stay open, not decided.
 
 ---
@@ -696,3 +698,57 @@ Where the rule does bite in a SciML-shaped ecosystem is elsewhere: **operator-st
 Refinement to §11.5's recommendation, from this case: the static check in trait modules should be a **warning** naming the combination and the typed method, if any, that shields it, and strict mode's refusal where a definition would win at a compiled fact should be **the rule**. That is how the design treats method pirates in plain code already (followed by default, refused where they win under strict mode); the trait module's own definitions get the warning instead of the error, since the combination is not a pirate by its signature. With that, the coherence rule costs SciML nothing that the facts rule does not already cost.
 
 **The smallest experiment:** U5 (§11.5) over `ndport/pkgs` and TDE, joining bounded methods on foreign functions with sets that have foreign members, and for each hit checking whether a typed method of the function shields every member: the number of hits without a shield is the rule's true cost in SciML. Expected from reading: zero for the front end, a few operator-style hits, all shielded.
+
+---
+
+## 15. The project as a set of co-designed features
+
+Added on 2026-10-28 from a discussion with the user; not adopted. The user's question: "So lets assume unification is feasible. Could we then declare the whole project as a set of largely independent features? 1) Extend AbstractTypes to Traits with explicit and late membership that guarantees properties of the types. 2) Explicit Wrapping with Dynamic that means code uses only whats known from the AbstractTypes. 3) A Callable Trait. 4) Compiling by Facts which uses only concrete facts and things known explicitly from ABstractTypes. 5) annotations that declare that a piece of code (package, module, function, block) is "compile by facts"; "fully typed by its traits" = bounded; has concrete type; "allows no pirates". Then these orthogonal (but co-designed) features combine to allow dramatically reducing invalidations, fast collections of heterogeneous but bounded data, and pervasive caching of machine code."
+
+The user's assessment: "I think the added value of this framing is, above all, that it makes it much clearer what the shape of what we are building is. We will return to this once the ports are in a shape that we can consider finished."
+
+### 15.1 Two foundations
+
+The features are not independent all the way down. They share two foundations:
+
+- **The trait declaration:** operations with signatures, associated types, `Self`. Features 1, 2, 3 and "bounded" (5b) read it.
+- **Ownership:** who may declare a membership or a method. Feature 1 needs it for sound late membership (§11's coherence rule). "No pirates" (5d) is its strict, opt-in form. Feature 4 needs it so that its facts stay true.
+
+### 15.2 The features
+
+1. **Abstract types as traits.** Membership is declared, and may come late. Answers are monotone: a positive answer may be folded, a negative one never (§13 (c)). Associated types, families and `by` forwarding belong here.
+2. **`Dynamic{X}`.** An explicit wrapper, itself a member of `X`. Code that holds it sees only `X`. Opening it (`compiled_for`) is the inverse.
+3. **`Callable`.** A function value at a declared signature, called compiled or dynamically. It needs feature 1 only for its shape; it could be built in.
+4. **Compiling by facts.** It uses only facts that never change: methods sealed by ownership, positive memberships, concrete types. The result is identical to plain compilation, or an error.
+5. **Declarations on a scope** (a package, a module, a function, a block):
+   - (a) compiled by facts;
+   - (b) bounded: checked at its definition, and compiled per key (what the bound can see) rather than per concrete type;
+   - (c) concretely typed (the fully-typed certificate);
+   - (d) no pirates.
+
+### 15.3 Where they are coupled
+
+- **The key is the joint between 2 and 5b.** `Dynamic` pays off because bounded code compiles one worker per key, shared by every value with that key. Without keys, `Dynamic` is a box.
+- **1 and 4 share one rule.** "Never fold a negative" is the same rule in the type system and in compiling by facts.
+- **2 and 3 meet in a `Dynamic` holding a `Callable`.** W-17's costs are there today (boxing; the lookup of a trait the object lacks, E-225).
+- **Each declaration of 5 needs a rule for calls that cross its edge** (bounded code calling unbounded code, facts code calling plain code). Today's entries and workers live at those edges. Unification shrinks the edges; it does not remove them. What remains is mostly feature 4 applied to calls out of bounded code.
+
+### 15.4 The goals as combinations
+
+| Goal | Needs |
+|---|---|
+| Far fewer invalidations | 4, 5d, and 1's rule on negatives; 5b shrinks the code compiled per concrete type |
+| Fast collections of heterogeneous, bounded data | 1, 2, 5b (keys); 3 for function-valued fields |
+| Pervasive caching of machine code | 4 (code depends only on facts with origins), 5d (nobody changes them), 5b (fewer instances) |
+
+### 15.5 Separate declarations, a trait module, or blessed combinations
+
+Today the trait module is the one unit that switches on 5a–5d together. The framing makes them separate declarations at any granularity. The user's note: "it might be reasonable to still have a trait module that switches on everything at once. Or to have a number of 'blessed' combinations". The options:
+
+- **Separate declarations only.** Each is one sentence of meaning. A plain package could declare 5a and 5d first (invalidation safety, caching) and adopt bounded code later. The cost: the rules at the edges (§15.3) are stated per pair of declarations, not once.
+- **A trait module as the combination of all four,** beside the separate declarations: the common case stays one line.
+- **A few blessed combinations** (for example "facts and no pirates" for a plain package, "everything" for a trait module): the edge rules are stated and tested for those combinations only.
+
+The ports so far use two of these shapes already: the forks' upstream code runs plain beside the trait kernels, and the demonstrators' trait modules switch on everything.
+
+Return to it when the ports are in a shape that can be considered finished (the user, above).
