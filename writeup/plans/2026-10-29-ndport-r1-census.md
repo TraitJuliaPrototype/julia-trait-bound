@@ -26,7 +26,7 @@ Experiments: E-236 (the SciML side) and E-237 (the plotting side), in [the regis
 
 ## 3. The items, ordered by what they unblock
 
-Repo: where the item belongs. Size: a rough estimate of the work. W-83: whether unification (abstract types as traits) would make the item obsolete. None of the items is a workaround that W-83 would remove; the cases for W-83 are in §5.
+Repo: where the item belongs. Size: a rough estimate of the work. W-83: whether unification (abstract types as traits) would make the item obsolete. R2: the item's state after step R2's TDE side (E-239), with the commits (TDE `w34`, NetworkDynamics `ports`); `—` an item of another repository. None of the items is a workaround that W-83 would remove; the cases for W-83 are in §5.
 
 | # | Item | Found by | Repo | Size | Unblocks | W-83 | R2 |
 |---|---|---|---|---|---|---|---|
