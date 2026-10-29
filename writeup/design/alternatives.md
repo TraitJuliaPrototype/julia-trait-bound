@@ -245,6 +245,7 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 
 ## Other options considered and not taken
 
+- **The member check against the call's assertion, rejected (2026-10-29, the user; open issue 101):** accepting a member's result that infers wider than declared but not disjoint, since each call on a trait object asserts the declared type anyway. It moves an error from the declaration to the first wrong value. Its case, DataFrames' `RepeatedVector`, infers wide because of an abstract field; the fix is there.
 - **Guarded devirtualization at run-time sites, postponed (2026-10-19):** a failed guard leaves its site on the slow path, silently, until the caller compiles again: a permanent cliff decided by what loaded when ([the speed plan](../plans/2026-10-19-principled-speed-plan.md) §2). Refined (2026-10-20, the user): the objection is to the permanent slowdown, and it goes away if the caller is compiled again in the background with the observed types and the new code is swapped in. In that form it is Optional ([compiler §1.6, §3.3](../reference/compiler.md#33-further-work-on-mechanism-3); [open issues](../open-issues.md) item 37).
 - **A cache in place of the `Dynamic` split:** not an option. The split is the only path that inlines and types each branch's result; a cache can only make the fallback cheaper.
 - **What follows the split** (E-145, 2026-10-21; chosen: a table of the call's targets keyed by the value's type, [compiler §4.3](../reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)). Not chosen:

@@ -532,6 +532,7 @@ All of these run at `@implement`, never at a call; for a member of a family or a
   ```
   `col` at Tuple{Counts, Int64} returns `Vector{Int64}`, declared `Vector{Float64}`
   ```
+  A result that infers wider than declared is refused too, for a family's members as for one type. The fix is the member's inference (a concrete field type, a type parameter), not an assertion in the implementation.
 - **Writable fields** follow [§3.3](#33-fields).
 - **Parameters:** values that fields define match; values within their bounds ([§3.4](#34-parameters-and-associated-types)).
 - **Concreteness,** for a trait that asks for it ([§11](#11-concreteness-and-fully-typed-mode)).
