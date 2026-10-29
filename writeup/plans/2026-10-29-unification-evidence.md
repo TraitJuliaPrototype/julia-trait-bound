@@ -1,6 +1,6 @@
 # Unification (W-83): the evidence to gather and the prototypes
 
-Status: **proposal** (2026-10-29, mine; for the user). Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
+Status: **proposal; §2.2 running** (2026-10-29, mine; for the user). The quick runs are E-252 to E-258 (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements."). Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
 
 ## 1. The question, in three levels
 
