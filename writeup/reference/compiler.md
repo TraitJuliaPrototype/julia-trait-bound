@@ -446,6 +446,9 @@ Lives in `src/staticdata_utils.c` (`queue_external_cis`) and `Compiler/src/preco
 **Rules.**
 - TraitWorld switches keep-compiled on while a package that uses it is precompiled ([`lowering.md`](lowering.md#2-modes-owners-and-images)).
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance, such as a type value pushed into a `Type[]`): its insertion at load scans its method's list of specializations. Dropping compiled code from an image changes no result (julia-1.13 6800be7839, W-59).
+  - Julia gives a type value no hash when its parameters hold a `Union` directly (`Type{Tuple{Union{Missing, Float64}}}`, `Type{Union{Missing, Int}}`): such a type has several equal forms. A type with invariant parameters around it has one (`Type{Callable{Tuple{Union{Missing, Float64}}, Bool}}`).
+  - Code reached by a static call from the image's own code is kept through that caller's edges. The rule drops code that only a workload's dynamic call reached.
+  - TraitWorld keys its entries for function arguments by the bound for this reason ([lowering §12](lowering.md#12-callable-and-dynamiccallable)).
 
 ### 2.10 `--trim`
 

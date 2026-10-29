@@ -1,6 +1,6 @@
 # W-91: `Callable` entries a package image can keep
 
-Status: **adopted** (2026-10-29, mine; W-91). Not normative. Measured in E-241 (the registry has the numbers).
+Status: **adopted** (2026-10-29, mine; W-91). Not normative. Built on TraitWorld's branch `w91` (14ec5c8, the test fixed for the facts image in d22ec7b), not merged. Measured in E-241 (the registry has the numbers): with a workload that covers the forks' two `ByRow` steps, the session compiles no `enter_callable` (2 before) and its steps take 0.13 s less.
 
 ## 1. The cause
 
@@ -21,7 +21,7 @@ A. The type value without a hash is made by TraitWorld's own calling convention,
 ## 4. Same pattern, not covered
 
 From the census of the forks' session (E-241, `experiments/w91-callable-entries/`):
-- **The open result type,** `_callable_result(f, ::Type{A})` (`Callable{A, S} where S`, traits §5.8): the run-time inference of `S`, 6–7 ms per signature in the forks' session. Its key is the bound with `S` open, a `UnionAll`, which has no hash either; the bound cannot key it. Proposal for the user: take `A` as data, as `Core.Compiler.return_type` does (`@nospecialize`), since the body is a run-time call whatever it is compiled for. Not done: `@nospecialize` is an escape hatch by the user's rule.
+- **The open result type,** `_callable_result(f, ::Type{A})` (`Callable{A, S} where S`, traits §5.8): the run-time inference of `S`, 6–7 ms per signature in the forks' session (E-233's trace). Its key is the bound with `S` open, a `UnionAll`, which has no hash either; the bound cannot key it. Proposal for the user: take `A` as data, as `Core.Compiler.return_type` does (`@nospecialize`), since the body is a run-time call whatever it is compiled for. Not done: `@nospecialize` is an escape hatch by the user's rule.
 - **The pointer's thunk,** `_fptr(Callable{A, S}, F)`, is per function type `F`. For a function made in the session no image can keep it.
 - **Trait types with a `Union` in their key** (`Column{Union{Missing, Float64}}`, whose `Self` is open): `_family`, `_kept_at`, `_kept_narrowed`, `_dyn_tobj`, `_narrow`, `_erased_key_of` and the like, mostly of the facts owner, and `_op_result`, `_result_decl`, `_seam1` at `Type{Union{…}}`. In the forks' session they are compiled inside other roots, at the imports or at the first sight of a column type; none is a compile root of its own after the load. The trait type is the API; keying them otherwise is not a local change. Recorded here; a candidate for W-83's unification or a performance exploration.
 - **Plain code:** DataFrames' `batch_compacttype` closures over `Type{Union{Missing, Int64}}` (about 45 ms, E-234) and 66 of Base's specializations in the forks' session. Only option B would keep them.
