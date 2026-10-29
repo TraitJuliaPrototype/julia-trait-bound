@@ -988,7 +988,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in
 
 ### 7.2 A trait's name as a storage type
 
-- **Inside a trait module,** a trait's name in a struct field or as a container's element type means `Kept{X}`: `model::Model`, `Vector{Hook}`, `Column[]`. It is the one spelling for a value kept with its attribute. So does `Callable{A, S}` in a field.
+- **Inside a trait module,** a trait's name in a struct field or as a container's element type means `Kept{X}`: `model::Model`, `Vector{Hook}`, `Column[]`. It is the one spelling for a value kept with its attribute. So does `Callable{A, S}` in a field, and `Callable` without a signature (§7.5).
 - **`Dynamic{X}` and `Compiled{X}` written there are the plain types,** as outside: they hold values of that attribute, and refuse the other ([§6.3](#63-defaults-a-traits-default-and-annotations)).
 - **In an argument's type,** a trait's name as a parameter (`cs::Vector{Column}`) takes a container of any of the three forms, and only those: a user's `Vector{Circle}` is not one. To take a user's container by its items, bound it by a collection trait, `Iterable{Shape}` ([§8.3](#83-a-users-container-taken-as-it-is)).
 - **A trait's name directly in an argument stays a bound.** In a bound's parameters it names an item position ([§8.2](#82-item-positions)). In a struct parameter's bound, it bounds the parameter (§7.4).
@@ -1078,10 +1078,13 @@ callback(f) = FunctionCallback(Kept{Callable{Tuple{Vector{Float64}, Float64}, Bo
   - `Kept{Callable{A, S}}`: either, with its attribute.
 - Each call is the checked call: the arguments against `A`, the result asserted to `S`.
 - **A function is kept at the signatures it entered with.** To keep it at several, keep it as a tuple: `Dynamic{(Callable{A1, S1}, Callable{A2, S2})}`, or a struct parameter bounded by the tuple (§7.4). Passed to a bound of another signature, it is refused (`TraitBoundError`, [§6.5](#65-values-carry)).
-- **Planned: a function kept before its signature is known** (decided 2026-10-28, mine, flagged; open issue 102): `Dynamic{Callable}` without a signature keeps a function whose argument types a later bound fixes (`ByRow(f)`, a callback before its problem's types are known). At its first bound with a signature it is entered there, and the code that calls it is compiled per signature.
+- **A function kept before its signature is known** (decided 2026-10-28, mine, flagged; open issue 102): `Callable` without a signature keeps a function whose argument types a later bound fixes (a callback before its problem's types are known). It takes the three forms, `Dynamic{Callable}`, `Compiled{Callable}` and `Kept{Callable}`, made and cast as at a signature; in a field of a trait module, `Callable` means `Kept{Callable}` (§7.2).
+  - **At its first bound with a signature it is entered there,** with its attribute: a `Dynamic` one checked as a function kept at another signature is (§6.5), and the code that calls it is compiled once per signature; a `Compiled` one is the function itself there. Stored where a signature is declared (`Kept{Callable{A, S}}`), it keeps its attribute.
+  - **Called directly,** it is the function's own call: there is no signature to check (mine, 2026-10-29).
+  - `Kept{Callable}(f)` of a plain function is `Dynamic`, as `Kept{Callable{A, S}}(f)` is (`Callable`'s default).
 - **Kept at a struct parameter bounded by `Callable`, a function is the field itself** (§7.4): the function under `Compiled`, so the code that reads it is compiled per function; a `Dynamic{Callable{A, S}}` under `Dynamic`. TraitDifferentialEquations' `ODEProblem` keeps its right-hand side so.
 
-**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type; a function kept without a signature.
+**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type. Open: a struct parameter bounded by `Callable` without a signature, and plain code reading the function a kept one holds (`ByRow(f)`, [open issue 111](../open-issues.md)).
 
 ### 7.6 Equality and inference
 

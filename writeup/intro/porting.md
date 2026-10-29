@@ -337,7 +337,7 @@ ODEProblem(r, u0, tspan, p, r, compiled_for(core_no_jacobian), UserFunction(r)) 
 
 **The state's element type is the problem's:** a loss promotes it (`LorenzProblem(eltype(p).(u0), …)`); the solver reads `T` from `u0::Vector{T}`.
 
-**Callbacks** are types with implementations (`@implement Callback Bounce`), or SciML's `DiscreteCallback(condition, affect!)`, entered at the problem's types at `init` and kept as `Vector{Callback}`. They see the integrator as a `Dynamic{IntegratorView{U, T, P}}`: callback code compiles once per problem type, and `integ.p` has the parameters' type.
+**Callbacks** are types with implementations (`@implement Callback Bounce`), or SciML's `DiscreteCallback(condition, affect!)`, which keeps its functions before the problem's types are known (fields `condition::Callable`, a `Kept{Callable}`, [traits §7.5](../reference/traits.md#75-functions-kept)), entered at the problem's types at `init` and kept as `Vector{Callback}`. They see the integrator as a `Dynamic{IntegratorView{U, T, P}}`: callback code compiles once per problem type, and `integ.p` has the parameters' type.
 
 **Gradients:** ForwardDiff is called directly. A loss as `Dynamic{Callable{Tuple{Vector{D}}, D}}(loss)` makes ForwardDiff's driver compile once per signature; TDE tags the duals by the loss's primal signature.
 
