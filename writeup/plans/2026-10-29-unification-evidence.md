@@ -94,7 +94,7 @@ Each experiment's README holds its numbers and builds (`experiments/w83/`; julia
 | U4 (E-256) | `f(@nospecialize x)` lies between `Compiled{Any}` and `Dynamic{Any}`. A `Dynamic` value at a bound costs an entry per call (80–96 ns, 80 B; 32–45 CodeInstances per new held type; traits T-94). |
 | U2 (E-257) | A mixed `Vector{Any}` costs 15–57 % more than `Vector{Kept{X}}` at 2–4 types (0.2–0.7 ns per element), 7–13 % at 8. Raw members cost no more than `Kept`. |
 | U1 (E-258) | 4 of 74 generic functions fully bounded with today's traits, 13 with documented interfaces as contracts, 20 if returning the argument were allowed (open issues 137, 138; traits T-91 to T-93). |
-| U9 (E-259) | Option (e) of open issue 136 stands: 8 guard sites over five sessions, all at the plain-to-trait boundary, none in a loop, none in bounded code; 4 on a `MethodError` path, 4 on the capability predicate `is_nonlinear_algorithm` (a declared `::Bool` removes its widening). The sealed variant folds 5 of 8. A cell per (type, set) costs nothing measurable; a table lookup 27–28 ns. Open, Base's abstract types would put guards on 1,325–4,619 specializations per session. |
+| U9 (E-259) | Option (e) of open issue 136 stands: 7 guard sites over five sessions (3 distinct), all at the plain-to-trait boundary, none in a loop, none in bounded code; 3 on a `MethodError` path, 4 on the capability predicate `is_nonlinear_algorithm` (a declared `::Bool` removes its widening). The sealed variant folds 4 of 7. A cell per (type, set) costs nothing measurable; a table lookup 27–28 ns. Open, Base's abstract types would put guards on 1,326–4,619 specializations per session. |
 
 ### 6.1 What the runs say for each level
 
