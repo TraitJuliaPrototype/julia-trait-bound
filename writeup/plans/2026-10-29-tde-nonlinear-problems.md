@@ -1,6 +1,6 @@
 # Nonlinear problems with an open set of solvers in TDE (W-32 R2, census item 11)
 
-Status: **proposal** (2026-10-29). Not normative: the references hold. Written by the agent of W-32's step R2 (E-239), in the spirit of [the R1 census](2026-10-29-ndport-r1-census.md); nothing is built. The main session decides whether and in which form it is built. The choices marked "mine" are proposals.
+Status: **adopted** (2026-10-29, mine: built by the agent of W-32's steps R3–R5, E-242; the amendments from building are in §7). Not normative: the references hold. Written by the agent of W-32's step R2 (E-239), in the spirit of [the R1 census](2026-10-29-ndport-r1-census.md). The choices marked "mine" are for the main session to confirm.
 
 ## 1. The case
 
