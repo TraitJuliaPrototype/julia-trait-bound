@@ -646,7 +646,7 @@ describe(x) = "something else"                 # the fallback
 - **Unrelated bounds at one position need a joint method.** `f(t::ColTable)` and `f(t::RowTable)` need `f(t::(ColTable, RowTable))`. The trait module's end raises `TraitBoundError` otherwise. A package that adds a bounded method to the function (below) is checked at its own module's end against the bounds then defined. Two packages that add unrelated bounds without depending on each other meet only when both are loaded: the overlap is reported at the load that creates it (Planned, [T-83](#17-deviations)).
 - A bounded method and a typed method that are ambiguous in another position are reported at the trait module's end, as missing joint methods are.
 - **Bounds of one trait at different fixed parameters** (`f(v::SV{Float64})`, `f(v::SV{Float32})`) are selected by the value's parameters. A value that conforms to the trait at none of them is refused with `TraitBoundError` ([§5.1](#51-bounds)); it does not reach the fallback.
-- **The fallback:** a value that conforms to none of the bounds' traits reaches the most specific ordinary method that applies, as in plain Julia. Without any, the call raises `MethodError`, with a hint naming the bound and listing the trait's declared implementations.
+- **The fallback:** a value that conforms to none of the bounds' traits reaches the most specific ordinary method that applies, as in plain Julia. A call with keywords considers only the methods that take keywords ([§5.7](#57-keywords-defaults-and-varargs)). Without any, the call raises `MethodError`, with a hint naming the bound and listing the trait's declared implementations.
 - **A kept value whose held object conforms to none of the bounds' traits** reaches the fallback too, as its plain object would, passed as it is, with its attribute ([§6.5](#65-values-carry)). So `has_mass(f::HasMassMatrix) = true; has_mass(f) = false` answers `false` for a `Dynamic{Callable{…}}` whose function has no mass matrix.
 - **Who may add a bounded method:** a package may add one to a function it owns ([§10.1](#101-who-may-implement)), or to another package's function where the package owns a trait the bound names.
 - **A bounded method's name resolves as in Julia:** a name the module has only through `using` (`peek`, from Base) defines a new function of the module, whether the module used the name before or not; a name imported by name (`import Base: peek`) or qualified (`Base.peek(…) = …`) extends that function.
@@ -688,13 +688,14 @@ ncols_sum(ts::ColTable...) = sum(ncols(t) for t in ts; init = 0)
 - **A positional default** makes two methods, as Julia does; each is bounded.
 - **A keyword is typed like a positional argument:** by a trait bound, a `Callable` bound, a declared type, or the value supplied. A bounded keyword without a default is required.
 - **No dispatch on keywords,** as in Julia. A bound on a keyword sees the value through the trait and refuses one that does not conform (`TraitBoundError`); it selects no method.
+- **A call with keywords is sorted among the methods that take keywords,** as in Julia; a call without keywords among all methods. Where the bounded methods take no keywords, a call with keywords reaches the fallback that takes them, also with a value that conforms to the bound. With `nw(int::HasSystem)` and `nw(thing; k = 1)`, `nw(int; k = 2)` calls the untyped method. Without such a fallback the call raises Julia's `MethodError`.
 - A keyword's declared type is checked as in Julia: `tol = 1` for `tol::Float64` is a `TypeError`.
 - **A vararg of trait objects,** `ts::ColTable...`, must be last. Its elements may have different keys; the code is compiled per tuple of keys ([§6.7](#67-what-compiled-code-is-compiled-for)).
 - **Bounded keywords and vararg elements** get their attribute as positional arguments do ([§6.2](#62-how-plain-values-enter-the-trait-world)).
 - A vararg of `Callable` is refused. A vararg keyword (`kws...`) of a bounded function passes on unchanged.
 - **A function passed down with keywords** names them in a third parameter: `Callable{A, S, K}`, with `K` a named-tuple type.
 
-**Status:** Implemented, except `Callable` with keywords (Planned) and a function whose only bounded arguments are keywords ([T-48](#17-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#17-deviations)).
+**Status:** Implemented, except `Callable` with keywords (Planned) and a function whose only bounded arguments are keywords ([T-48](#17-deviations)). Bounded methods of one shape that differ in taking keywords are refused when defined ([lowering L-48](lowering.md#18-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#17-deviations)).
 
 ### 5.8 `Callable`: functions at a declared signature
 
