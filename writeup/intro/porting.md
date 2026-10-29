@@ -176,7 +176,7 @@ The attribute chooses speed, never results ([§6](../reference/traits.md#6-value
 - **Per position, not per problem.** A library's specialization levels (SciML's six, B6) become one attribute per position: the stored function, the callbacks, the model. The callee's signature gives the default; the caller overrides per value with a cast ([§6.4](../reference/traits.md#64-casts)).
 - **The key holds what the hot code must know, and no more.** For a solver: the algorithm with its cache, the state, the element type, and for implicit methods the dual chunk and the linear solver. Not the parameters: the next rule. Cut everything else by a position: functions by `Callable`, callbacks by `Vector{Callback}`, the options' functions by `Callable` fields, a solution's problem by a kept value. A value that decides types in hot code goes in the key as an explicit type parameter (B5); a knob that need not vary is a constant (B2).
 - **Keep the specialization on user types as close to the surface as possible.** A user's type that only the user's own functions read never needs to reach the library's core. The outermost layer, a few constructors, takes it and partially evaluates the user's functions on it; the core sees the functions at a signature without that type. TDE's parameters: the problem keeps `(du, u, t) -> f(du, u, p, t)`, and the solver is compiled per state type, whatever the parameters (B2, "The parameters at the surface"). A new parameter type then compiles the user's function and a few small records, not the solver ([evidence §3](../design/evidence.md#3-first-calls-and-sessions), E-181).
-- **A new user type should not compile the library again.** Where user types enter and a large library stands behind, take them `Dynamic`: `@default_with_dynamic_self` on the trait, or `Dynamic{X}` on a public function's bound (exported or `public`; elsewhere the annotation warns, [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)). `Callable` is `Dynamic` by default. Loops over the data run `compiled_for` the data (A12).
+- **A new user type should not compile the library again.** Where user types enter and a large library stands behind, take them `Dynamic`: `@default_with_dynamic_self` on the trait, or `Dynamic{X}` on a public function's bound (exported or `public`; elsewhere the annotation warns, [§6.3](../reference/traits.md#63-defaults-a-traits-default-and-annotations)). `Callable` is `Dynamic` by default. Loops over the data run compiled for the data's key: the loop's bound says so, `c::Opened{Column}`, and its callers pass the stored `Dynamic` values as they are ([§6.4](../reference/traits.md#64-casts); A12).
 - **A kernel whose work per call is large:** `@default_compiled_for_self` on its trait.
 - **Leave the choice to the caller** where both are useful: one port's experience (B2, "A stored function").
 - **Stored user functions,** including RuntimeGeneratedFunctions: a struct parameter bounded by `Callable` at the declared signature ([§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), B2).
@@ -257,7 +257,7 @@ One line per rule; the evidence is in part B, the rule's home in the references.
 - **A9. Declare result types that catch the common mistake; assert where the type is unknown** ([§4.9](../reference/traits.md#49-checks-at-the-declaration), [§7.6](../reference/traits.md#76-equality-and-inference); B1 item 8, B2 "What a declared result catches", B3 "Recipes").
 - **A10. A kernel reads a value through its trait's operations; heavy library code runs over gathered cells** (B1 items 1–2, B3 "Tables").
 - **A11. A type passed as a value becomes a value that stands for it** (B1 item 5, B3 "Tables").
-- **A12. Take user types `Dynamic` at public entries; run loops `compiled_for` the data** ([§6.8](../reference/traits.md#68-costs-and-choosing); B3 "Recipes", B3 "Tables").
+- **A12. Take user types `Dynamic` at public entries; a loop opens its data at its bound (`Opened`)** ([§6.4](../reference/traits.md#64-casts), [§6.8](../reference/traits.md#68-costs-and-choosing); B3 "Recipes", B3 "Tables").
 
 ---
 
@@ -355,10 +355,11 @@ Base.convert(::Type{ColorSpec}, x) = _color(x)    # TraitMakie/src/TraitMakie.jl
 ```
 - Fields without a trait (`step::Symbol`) are checked where they are used.
 
-**Recipes kept `Dynamic`, loops compiled per key.** The axis keeps `Dynamic{Plot}`; the public `add_*` functions take `Dynamic{Positions}`; each recipe calls its loop with `compiled_for` and asserts the result:
+**Recipes kept `Dynamic`, loops compiled per key.** The axis keeps `Dynamic{Plot}`; the public `add_*` functions take `Dynamic{Positions}`; each loop opens its data at its bound (`Opened`) and declares its result, so a recipe calls it plainly:
 
 ```julia
-datalimits(p::Lines) = limits(compiled_for(p.pos))::NTuple{4,Float64}    # TraitMakie/src/PlotCore.jl
+function limits(pos::Opened{Positions})::NTuple{4,Float64}    # TraitMakie/src/PlotCore.jl
+datalimits(p::Lines) = limits(p.pos)
 ```
 
 **A parent rebuilds its children from its own fields before each use** (`refresh!` of `Hist`, `Stairs`, `Band`): a child follows every change of the parent, and a live source, without a notification graph.

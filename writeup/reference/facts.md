@@ -621,3 +621,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-20 | — | *Retired*: see [§7.1](#return-type)]. | — | — |
 | F-21 | — | *Retired*: see [§2.1](#g1)]. | — | — |
 | F-22 | — | *Retired*: see [§2.1](#g1). | — | — |
+| F-23 | [§2.1](#g1) | A program runs under the facts system image as under the stock one, in every command-line mode. | Started with `--compile=min`, the facts system image hangs in `Base.__init__` (`reinit_stdio` → `start_profile_listener`): `jl_read_codeinst_invoke` spins on a CodeInstance it takes to be compiled by another thread; the stock image starts in 0.1 s. `Pkg.test`'s resolve meets it when it runs a package's artifact selector (`--compile=min -t1`). | `julia-1.13/src/gf.c:3800` (`jl_read_codeinst_invoke`); `experiments/checks/logs/w88/traitworld-all*.log`; W-89 |

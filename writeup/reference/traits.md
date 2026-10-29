@@ -90,7 +90,7 @@ FieldMap       ::= FieldName "=>" FieldName
 
 (* using a trait, inside a trait module *)
 Method         ::= FullyTyped? Concrete? Name "(" Arg* ( ";" KwArg* )? ")" ( "::" Result )? ( "where" TypeVars )? "=" Expr
-Arg            ::= Name "::" Bound | Name "::" Type | Name
+Arg            ::= Name "::" Bound | Name "::" "Opened" "{" TraitExpr "}" | Name "::" Type | Name   (* Opened: the bound opens its value, §6.4 *)
                  | Arg "=" Expr                                      (* a positional default *)
                  | Name "::" TraitExpr "..."                         (* a vararg of trait objects *)
 KwArg          ::= ( Name "::" Bound | Name "::" Type | Name ) ( "=" Expr )?
@@ -858,11 +858,11 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **A cast on a plain value** in plain code marks it until it is first seen through a trait. **On a trait object** in trait code, `compiled_for(t)` opens a `Dynamic` one: the next call selects the code compiled for its type once, a function barrier. **On a kept value:** of a `Dynamic{X}` a `Compiled{X}`, and the reverse; of a `Kept{X}` a `Kept{X}` with the other attribute.
 - **Constructors never cast.** `Dynamic{X}(v)`, `Compiled{X}(v)` and `Kept{X}(v)` make a kept value from a plain one, or keep the attribute of one that has it. Asked to change it, they refuse with `TraitBoundError` naming the cast: `Dynamic{X}(t)` for a `Compiled` trait object, `Dynamic{Callable{A, S}}(compiled_for(f))`.
 - **Types never cast** (§6.3, the table).
-- **A `Dynamic` value is never opened implicitly.** `compiled_for(d)` opens it where the code asks.
-- **Planned: a bound that opens its value** (decided 2026-10-28, mine, flagged; open issue 98): `f(c::Opened{Column})` opens a `Dynamic` or kept value at the entry, as `compiled_for` at the call would: one dispatch per call, then the code compiled per key. The function whose cost model needs code per key (a kernel's loop over cells) says so, and its callers need not. Everywhere else a value keeps its attribute (§6.5).
+- **A `Dynamic` value is never opened implicitly.** `compiled_for(d)` opens it where the code asks, or a bound that says so.
+- **A bound that opens its value** (decided 2026-10-28, mine, flagged; open issue 98): `f(c::Opened{Column})` opens a `Dynamic` or kept value at the entry, as `compiled_for` at the call would: one dispatch per call, then the code compiled per key. A plain value and a caller's cast are taken as `compiled_for` takes them. The function whose cost model needs code per key (a kernel's loop over cells) says so, and its callers need not. Everywhere else a value keeps its attribute (§6.5). `Opened` is only an annotation: no value has that type.
 - **Planned: `rewrap(g, f)`** (decided 2026-10-28, mine, flagged; open issue 105): `g` with `f`'s form and attribute, for a function changed while it stays kept as it was (a partial application of a kept function).
 
-**Status:** Implemented. Planned (2026-10-28): a bound that opens its value; `rewrap`.
+**Status:** Implemented, except `Opened` on a keyword argument ([T-88](#17-deviations)). Planned (2026-10-28): `rewrap`.
 
 ### 6.5 Values carry
 
@@ -1618,4 +1618,5 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-85 | [§3.4](#34-parameters-and-associated-types) | A trait with input parameters may declare fields; a subtrait may pass its own input variable to a supertrait with inputs. | Fields in such a trait are refused; the subtrait form is not built. | TraitWorld 2215188 |
 | T-86 | [§3.4](#34-parameters-and-associated-types) | The owners of an input parameter's type count as stakeholders of an implementation. | Not counted: only the trait's and the type's owners. | TraitWorld 2215188 |
 | T-87 | [§3.4](#34-parameters-and-associated-types) | `Callable` is a trait with input parameters. | `Callable` keeps its own mechanism. | TraitWorld 2215188 |
+| T-88 | [§6.4](#64-casts) | A keyword argument may be `Opened{X}`. | Only positional arguments are lowered so; on a keyword `Opened{X}` is taken as a plain type. | TraitWorld `_strip_opened!` (`trait_module.jl`) |
 | T-83 | [§5.5](#55-dispatch-types-first-then-traits) | Unrelated bounds added by two packages that do not depend on each other are reported at the load that creates the overlap. | Not reported until a call (the Makie agent's reading of the code; its probe F2, W-80, confirms). | `TraitWorld/src/trait_module.jl` (`check_bounds` at a module's end); W-82 |
