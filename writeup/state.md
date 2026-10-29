@@ -26,7 +26,7 @@ Measured in the round of 2026-10-20 (julia-1.13 3b8085c222, TraitWorld bed3782) 
 | `Callable`, `Dynamic` (its default), per call (E-163) | 3.68 ns | a direct call 0.87 ns; a dynamic call at `Any` 21.9 ns |
 | `@implement` of a new type, no other packages loaded (E-163) | TraitMakie 46–47 ms; TraitDifferentialEquations 123–125 ms | about the same with big loads before or after; slower than on earlier builds (open issue 71) |
 | a new problem type's first solve in TraitDifferentialEquations, timed whole (E-163) | 324–336 ms in every load order: the solver compiled for the new key | — |
-| TraitReport, CSV to PNG in a fresh process (E-163) | 0.83–0.86 s | without traits 0.74–0.76 s; Python 0.58–0.59 s |
+| TraitReport, CSV to PNG in a fresh process (E-233) | 0.63 s | without traits 0.59–0.60 s; Python 0.61–0.62 s |
 
 ### Facts
 
@@ -128,7 +128,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line (all three met. SciML: TDE bc68501, its session 1.19–1.20 s against Python's 1.43 s with members fixed from their images' records, W-84, E-231; DataFrames: forks 115c208, W-84 and the memo's questions; Makie: TraitMakie 983f6e1, its plotting session 0.68–0.69 s against matplotlib's 0.98–0.99 s, [evidence §3](design/evidence.md#3-first-calls-and-sessions)); design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
-2. **Principled performance work** where a session is still slower than Python's (the DataFrames/CSV session, TraitReport): W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
+2. **Principled performance work** where a session is still slower than Python's: the DataFrames/CSV session, 4.71–4.83 s against pandas' 0.54 s (E-233; TraitReport is at Python's, 0.63 against 0.61–0.62 s; a cache of the session's machine code would bring the forks to 2.99–3.22 s, E-234, W-90 done): W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
 3. **NetworkDynamics.jl** reactivated (W-32), beside phase 2.
 4. **Unification** (W-83): one way to write generic code, or two.
 

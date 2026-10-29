@@ -12,7 +12,7 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 
 **How to read the numbers.**
 - One machine, mostly quiet during the round: one Julia process at a time.
-- The forks' session (D0, E-212) ran with a load average of 1.5–2.7, the machine otherwise idle.
+- The forks' session (D0, E-212) ran with a load average of 1.5–2.7, the machine otherwise idle; E-233 with 0.1–0.6.
 - Fresh processes, unless a row says "at the REPL".
 - Runs per cell: 2 per load order for the demonstrators' rows, 3 for TraitReport, 2 after a warm-up for the forks. Ranges are over the runs. Treat differences under 10% as noise.
 - "Plain" is the same code without traits, on the patched build in plain mode. The two inliner changes apply to all code, so patched-plain is not stock: stock numbers use the stock 1.13.2 binary and say so.
@@ -137,15 +137,16 @@ Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the ro
 | TraitMakie | 0.12 s | 0.35–0.36 s | 0.156–0.158 s | 0.035 s | 0.020 s | **0.68–0.69 s** |
 | Python: matplotlib 3.11.2, same data | 0.01 s | 0.33 s | 0.530–0.532 s | 0.036 s | 0.076–0.080 s | **0.98–0.99 s** |
 
-**TraitReport** (fresh processes, CSV → PNG, 3 runs; `scripts/measure.sh`; the Julia forms on the run of 2026-10-27 (E-163, `logs/demos/report-measure.log`), Python in the round):
+**TraitReport** (fresh processes, CSV → PNG; `scripts/measure.sh 3 "t pt"`, a warm-up and 2 runs; E-233: julia-1.13 bfca89decc, TraitWorld ca92f22, TraitReport 09d7f9b, TraitCSV 9c6477b, TraitTables 438ac2b, TraitMakie 2c70583; product setting, strict mode off; load average 0.1–0.6; `experiments/phase2-round/`):
 
-| Form | Imports | Read | Plot + PNG | Wall |
-|---|---|---|---|---|
-| (t) TraitCSV, TraitTables, TraitMakie | 0.564–0.572 s | 7 ms | 96–98 ms | **0.834–0.861 s** |
-| (pt) the same without traits | 0.523–0.532 s | 4 ms | 70 ms | **0.740–0.757 s** |
-| Python: pandas 3.0.6, matplotlib 3.11.2 (a newly built environment) | 0.393–0.405 s | 1 ms | 95–99 ms | **0.578–0.589 s** |
+| Form | Wall |
+|---|---|
+| (t) TraitCSV, TraitTables, TraitMakie | **0.63 s** (start 0.10, imports 0.36, after the load 0.08, exit 0.09) |
+| (pt) the same without traits | 0.59–0.60 s |
+| Python: pandas 3.0.6, matplotlib 3.11.2 | 0.61–0.62 s (imports 0.42–0.44) |
 
-- **Before:** the round, (t) 0.794–0.805 s with plot + PNG 91–92 ms, (pt) 0.771–0.775 s; the build of 2026-10-19, (t) 0.76 s with plot + PNG 60 ms, (pt) 0.72 s, Python 0.58–0.69 s (an older environment). The trait form's plot + PNG is 26–38 ms above the plain form's: not diagnosed.
+- With a cache of the session's machine code (E-234, estimated by E-175's method, not built): about 0.59 s.
+- **Before:** 2026-10-27 (E-163), (t) 0.834–0.861 s, (pt) 0.740–0.757 s, Python 0.578–0.589 s; the round, (t) 0.794–0.805 s with plot + PNG 91–92 ms, (pt) 0.771–0.775 s; the build of 2026-10-19, (t) 0.76 s with plot + PNG 60 ms, (pt) 0.72 s, Python 0.58–0.69 s (an older environment). The trait form's plot + PNG is 26–38 ms above the plain form's: not diagnosed.
 
 Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, against its plain twin (a′); `scripts/loads.sh`):
 
@@ -161,6 +162,17 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - The trait form's work with StatsBase or Distributions loaded (344–417 ms) is SparseArrays' `vcat`, a standard library's method (§1).
 - The trait form's `using` is 0.18–0.20 s above the plain form's.
 - Again on the run of 2026-10-27 (E-163, `logs/demos/report-loads.log`): the same within 5% (trait 40.6, 41.2, 400, 343, 333 ms; plain 242, 237, 2,507, 2,528, 2,991 ms).
+
+**The forks' session against pandas and upstream** (E-233: julia-1.13 bfca89decc, TraitWorld ca92f22, forks 115c208; `forks/scripts/measure_session.sh 3 "py fk-patched up-patched"`, a REPL on a pty; a warm-up and 2 runs; load average 0.1–0.6; `experiments/phase2-round/`):
+
+| | start | imports | steps | exit | **wall** |
+|---|---|---|---|---|---|
+| pandas 3.0.6 | 0.010 s | 0.20 s | 0.30 s | 0.03 s | **0.54 s** |
+| forks | 0.58–0.59 s | 1.86–2.00 s | 2.11–2.15 s | 0.13 s | **4.71–4.83 s** |
+| upstream, patched build | 0.34–0.59 s | 1.22–1.23 s | 10.9 s | 0.09–0.12 s | **12.55–12.79 s** |
+
+- With the REPL's typing hints off (they compile in the background while the input is pasted, 0.45–0.55 s), the forks' session is 3.89–4.14 s: imports 1.38 s (validation about 0.6 s, TraitWorld's member records and image hook about 0.2 s), steps 2.03 s of which 1.55 s compiling (plain code invalidated by plain dependencies 0.48 s, plain DataFrames/CSV/Tables code 0.35 s, TraitWorld's `Callable` entries and checks 0.30 s, REPL display 0.24 s, the user's closures 0.09 s); the run time, about 0.3 s, is pandas'. The loads invalidate 2,158 MethodInstances, all by plain dependencies, none by a trait package.
+- **A cache of the session's machine code** (E-234, E-175's method, estimated, not built; hints off): 2.99–3.22 s, 5.5–6× pandas'. 1,083 of the 1,175 recorded types are plain code; a facts-keyed store (W-66) would keep about a tenth of the saving. What remains: the load 1.4 s, the REPL's start 0.36–0.61 s, 0.58 s compiling (signatures with a type value, which images do not keep, compiler §2.9; the compiler's own code invalidated again; the user's closures), run time, GC and exit.
 
 **The forks** against upstream in three settings (D0, E-212; julia-1.13 a4e9ad5da9, TraitWorld 3fcff02, forks 30f77b3, wrapped upstream 3687dc6; `forks/scripts/session.jl` at a REPL on a pty; a warm-up and 2 runs per setting, ranges over the 2; load average 1.5–2.7, the machine otherwise idle; `forks/logs/d0/session.log`). *Wrapped*: upstream Tables, CSV and DataFrames each a trait module and otherwise unchanged, in the product setting ([porting 0.1a](../intro/porting.md#01a-making-an-unchanged-package-a-trait-module)):
 
@@ -286,7 +298,7 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 
 **Shown:**
 - **The facts mode by itself, on the packages people use.** Upstream CSV.jl and DataFrames compiled in the facts mode (`all`) lose 2 of 3,337 CodeInstances to nine unrelated loads, against 561 of 4,684 in plain mode. Their first work takes 516 ms instead of 3,308 ms, and 435 ms after the loads instead of 4,021 ms. No trait is involved: the guarantee of step 3, and a first-call gain, for code as it is written today.
-- **Traits on top, against upstream:** the trait-based ports of CSV.jl and DataFrames run a scripted session in 4.4–4.5 s wall against upstream's 11.9–12.5 s plain, 9.6–10.5 s wrapped as trait modules and 7.5–7.6 s under `all`; without start and imports, 1.82–1.87 s against 10.5–10.7, 7.9–8.7 and 6.5 s (D0, E-212). The facts mode alone takes upstream from 10.6 to 6.5 s; the traits take it to 1.8 s. The forks' imports are 1.7 s slower than upstream's under `all`.
+- **Traits on top, against upstream and pandas:** the trait-based ports of CSV.jl and DataFrames run a scripted session in 4.71–4.83 s wall against upstream's 12.55–12.79 s and pandas' 0.54 s (E-233); in D0 (E-212), 4.4–4.5 s against upstream's 11.9–12.5 s plain, 9.6–10.5 s wrapped as trait modules and 7.5–7.6 s under `all`; without start and imports, 1.82–1.87 s against 10.5–10.7, 7.9–8.7 and 6.5 s (D0, E-212). The facts mode alone takes upstream from 10.6 to 6.5 s; the traits take it to 1.8 s. The forks' imports are 1.7 s slower than upstream's under `all`.
 - **Calls cost what plain calls cost, where types are known.** A typed trait call: 0.8 ns, as plain Julia, in both settings. A `Callable` held `Dynamic`: 3.95 ns, against 0.87 ns for a direct call and 20.3 ns for a dynamic call at `Any`.
 - **Untyped trait calls cost 3.4–5.4× a plain untyped call on the erased worker's path:** 59.9 ns against 17.6 ns (product setting), 106.2 against 19.6 ns (`all`), 80 bytes per call (the run of 2026-10-27; W-17). Before, through the table of declared implementations (the round): 28.8 and 30.8 ns, 16 bytes.
 - **`Dynamic` values at near plain speed** (the build of 2026-10-19). A sum over `Dynamic{Shape}`: 0.92–1.40 ns per element against plain's 0.87–0.91 with two types and 29.5–33 with four. The raytrace over an open set of primitives: 300–336 ms against plain's 246–259 with two types and 827–882 with four (a `max_methods` effect at four).

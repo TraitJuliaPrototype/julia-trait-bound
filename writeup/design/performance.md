@@ -18,9 +18,9 @@ The demonstrators' rows are two processes per load order (n = 2); TraitReport's 
 | TDE: a new problem type (then a model type), `@implement` / first solve (timed whole), with CSV + DataFrames + CairoMakie loaded before / after | 69–70 / 335–338 ms; 70–74 / 338–350 ms | without loads: 66 / 340–371 ms (E-146; the first solve is mostly the solver compiled for the new key). Before the fixes of E-146, `@implement` with the loads before: 254–259 ms. Previous prototype: `@implement` 0.16–0.23 s |
 | TraitMakie: a new data type (forwarding), `@implement` + first PNG, loads before / after | 45–47 + 81–84 ms; 39–40 + 73–76 ms | without loads: 22 + 72–74 ms (the PNG timed inside `@elapsed`, without the call's own compilation) |
 | TraitMakie: the same, **without loads** | 22 ms + 72–74 ms | before, on julia 61852d8fb1: 77 + 107 ms (the clean-case regression, now gone); an earlier build of the compiler: 36 + 40 ms |
-| TraitReport form (t), fresh process (E-163) | 0.834–0.861 s | the same without traits (pt) 0.740–0.757 s; Python (pandas 3.0.6, matplotlib 3.11.2, the round) 0.578–0.589 s |
+| TraitReport form (t), fresh process (E-233) | 0.63 s | the same without traits (pt) 0.59–0.60 s; Python (pandas 3.0.6, matplotlib 3.11.2) 0.61–0.62 s |
 | TraitReport form (b), work, nine packages loaded first | 344 ms (41 ms without loads) | form (a′), plain: 3,106 ms (248 ms without loads). `using`: trait 1.15–1.20 s against plain 0.95–1.01 s |
-| forks: interactive session without imports (indicative: load average 3.4–5.2) | 1.35–1.37 s; wall 3.7–4.0 s | upstream CSV + DataFrames 10.7–11.2 s; wall 12.0–12.8 s. Imports 1.89–1.92 s against upstream's 0.69–1.19 s |
+| forks: the scripted REPL session, wall (E-233) | 4.71–4.83 s; 3.89–4.14 s with the REPL's typing hints off | upstream CSV + DataFrames 12.55–12.79 s; pandas 0.54 s |
 | forks: `stringtype = String15` read and show, in the session | 0.060–0.062 s | upstream 0.21–1.03 s. Before the `String15` fixes (julia 61852d8fb1): 1.56–1.67 s. Not separated: the extension and the check by facts |
 | TDE run time per step, Lorenz (E-163) | problem type 169 ns | OrdinaryDiffEq 336 ns |
 
