@@ -128,8 +128,8 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line (all three met. SciML: TDE bc68501, its session 1.19–1.20 s against Python's 1.43 s with members fixed from their images' records, W-84, E-231; DataFrames: forks 115c208, W-84 and the memo's questions; Makie: TraitMakie 983f6e1, its plotting session 0.68–0.69 s against matplotlib's 0.98–0.99 s, [evidence §3](design/evidence.md#3-first-calls-and-sessions)); design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
-2. **Principled performance work** toward Python's session numbers: W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
-3. **NetworkDynamics.jl** reactivated (W-32).
+2. **Principled performance work** where a session is still slower than Python's (the DataFrames/CSV session, TraitReport): W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
+3. **NetworkDynamics.jl** reactivated (W-32), beside phase 2.
 4. **Unification** (W-83): one way to write generic code, or two.
 
 The plan with the user's words: [the work queue](record/todo.md#the-plan) (2026-10-29).
