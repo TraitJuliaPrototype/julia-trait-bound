@@ -1,6 +1,6 @@
 # The NetworkDynamics port reactivated, on the ports (W-32, phase 3)
 
-Status: **adopted** (2026-10-29, the base by the user; the rest mine). A part plan of the [W-32 meta plan](2026-10-21-networkdynamics-port.md). Not normative: the references hold. Written by an agent of the main session; the base question was decided by the user while it was written.
+Status: **done** (2026-10-29: the finish line of §5 holds, E-249; measured, E-250; §10). Adopted 2026-10-29 (the base by the user; the rest mine). A part plan of the [W-32 meta plan](2026-10-21-networkdynamics-port.md). Not normative: the references hold. Written by an agent of the main session; the base question was decided by the user while it was written.
 
 **The base, decided by the user** (2026-10-29, relayed by the coordinator): "Nd definitely sits on the ports." NetworkDynamics builds on the trait SciML port (TraitDifferentialEquations, branch `w34`, its split packages) and on TraitMakie (main, with MakieCompat), not on upstream SciML and GraphMakie compiled by facts.
 
@@ -100,12 +100,12 @@ Read from TDE `w34` 3a51d95 and TraitMakie 2c70583 against the workload and Netw
 |---|---|---|---|
 | R0 | the revival (E-235) | done | — |
 | R1 | **the census of the gaps, by running:** NetworkDynamics' SciML calls listed per file against TDE's API; GraphMakie's recipe loaded over MakieCompat in a scratch environment, the workload's two plots attempted. Confirms or corrects §4; the list of TDE and TraitMakie items | this port | done (E-236, E-237): [the census](2026-10-29-ndport-r1-census.md) |
-| R2 | the TDE items (S6, S8; S5, S7 if R1 needs them) and the TraitMakie items (M1–M3) | the main session | by R1's list |
-| R3 | **NetworkDynamics on TDE, a function at a time,** in a worktree `pkgs/NetworkDynamics-ports` (branch `ports` from `port` 4e5f5a2), `env_ports`, `depot-ports`: (a) dependencies and the problem; (b) callbacks; (c) the solution's access by `at` and `state`; (d) the fixed point; (e) linear analysis. Each sub-step keeps tier S running | this port | 1–2 days |
-| R4 | GraphMakie on TraitMakie: a branch `ports` with Makie replaced by TraitMakie and MakieCompat; the recipe unchanged; `AbstractGraph` dispatch kept (C6) | this port | after R2's TraitMakie items |
-| R5 | the workload's variant for the ports (`NDW_API=ports`: Rodas5, `saveat`, `NWState` from the solution, the integrator's `init`/`step!`); U′ by the same flag upstream; `compare_digests.py` by tolerance | this port | half a day |
+| R2 | the TDE items (S6, S8; S5, S7 if R1 needs them) and the TraitMakie items (M1–M3) | the main session | done (E-239, E-240, E-242, E-245) |
+| R3 | **NetworkDynamics on TDE, a function at a time,** in a worktree `pkgs/NetworkDynamics-ports` (branch `ports` from `port` 4e5f5a2), `env_ports`, `depot-ports`: (a) dependencies and the problem; (b) callbacks; (c) the solution's access by `at` and `state`; (d) the fixed point; (e) linear analysis. Each sub-step keeps tier S running | this port | done (E-239, E-242, E-245; NetworkDynamics `ports` 756c09e, e0f5664, ddf7259) |
+| R4 | GraphMakie on TraitMakie: a branch `ports` with Makie replaced by TraitMakie and MakieCompat; the recipe unchanged; `AbstractGraph` dispatch kept (C6) | this port | done (E-240; GraphMakie `ports` 498be7c) |
+| R5 | the workload's variant for the ports (`NDW_API=ports`: Rodas5, `saveat`, `NWState` from the solution, the integrator's `init`/`step!`); U′ by the same flag upstream; `compare_digests.py` by tolerance | this port | done (E-246; step e's flows within tolerance after W-96, E-248) |
 | R6 | part 3b: a user's own component types ([the step-3 plan](2026-10-22-ndport-step3.md) §3.3) on the new base | this port | done (E-247, NetworkDynamics `ports` dfc6663): `usertype` exactly `first`, one network type, strict mode refusing nothing |
-| R7 | the finish round (a registry row before it), `ndport/README.md`, the evidence row, the meta plan's state; pushback entries; the guideline's lessons | this port, the coordinator | half a day |
+| R7 | the finish round (a registry row before it), `ndport/README.md`, the evidence row, the meta plan's state; pushback entries; the guideline's lessons | this port, the coordinator | done (E-249, E-250; §10); the evidence row, pushback entries and the guideline's lessons to the coordinator |
 
 R1 comes first: it fixes R2's list for the main session. R3 and R5 can run while R2's items are built, against stand-ins only where an item is missing; each stand-in is removed when the item lands.
 
@@ -140,3 +140,47 @@ R1 comes first: it fixes R2's list for the main session. R3 and R5 can run while
 - **C6.** GraphMakie keeps its `AbstractGraph` dispatch (W-83).
 - **C7.** NetworkDynamics' symbolic indexing stays its own over `NWState`; the solution's `idxs` forms leave the ported workload, until open issue B is decided.
 - **C8.** P6's trees and `env_merged` are kept, not developed further.
+
+## 10. The R-steps' results and the finish (2026-10-29)
+
+**R1–R6 in brief** (details: `ndport/README.md`, the dated sections; the registry rows):
+- **R1** (E-236, E-237): the gaps found by running; 17 items for TDE, TraitMakie and MakieCompat ([the census](2026-10-29-ndport-r1-census.md)).
+- **R2** (E-239, E-240): TDE's items (Rodas5 with events, `init`/`step!`/`solve!`, `getsystem`, saved parameters, problem callbacks, `tstops`; open issue 119's optional properties); GraphMakie's recipe unchanged over MakieCompat, the graph plots equal setting M's.
+- **R3** (E-242, E-245): NetworkDynamics on TDE a function at a time; `find_fixpoint` by TraitNonlinearSolve, `remake`, dense output, the `idxs` forms; symbolic access through TraitIndexing's `IndexProvider{NWIndex}` (open issue 118). The stand-ins gone but a DAE's and a component's initialization.
+- **R4** (E-240): GraphMakie's branch `ports`, its imports changed only.
+- **R5** (E-246, then E-248): the ported workload (`NDW_API=ports`) against U′; step e's flows out of tolerance until TDE's Tsit5 read between steps by its own interpolant and saved the states at events (W-96).
+- **R6** (E-247): a user's own component types by `dynamics = x`; `usertype` exactly `first`.
+
+**R7, the finish line** (E-249; julia-1.13 bfca89decc, TraitWorld main 4961de8, TDE `w34` e9e07ed, TraitMakie c0d5c36, NetworkDynamics `ports` dfc6663, GraphMakie `ports` 498be7c; product setting; `ndport/logs/r7/`). **It holds:**
+
+| Criterion (§5) | Result |
+|---|---|
+| tier S in PT, the six passes, fresh sessions, strict mode off and on | runs: 2 sessions each, every step |
+| against U′ within the meta plan's tolerances | 0 failures (25 digests, 40 plot lines) |
+| PT's runs exactly equal; `usertype` and `graphtype` exactly `first` | yes, in all 4 sessions |
+| the network's type the same for both equations and for a user's components | one type per session |
+| strict mode refuses nothing | none, no warnings |
+| no pirate in NetworkDynamics beyond L-38's registry methods | 9 registry methods (L-38) and 1 member record (L-45), both TraitWorld's generated methods (C9) |
+| no reads of TraitWorld's internals | none in NetworkDynamics `ports`, TDE `w34`, GraphMakie `ports` |
+| NetworkDynamics' test subset, each failure listed | diffusion `:111` (allocations: pushback P4-1); a DAE network refused in diffusion and inhomogeneous (S10); `Rodas4` read as Rodas5 (census item 17) |
+
+**R7, measured** (E-250; under `jl --exclusive`, a warm-up and 2 runs each; numbers: `ndport/README.md`, 2026-10-29, E-250):
+- PT's session is 31 s against U′'s 80 s, U's 73 s, S's 71 s and M's 59 s.
+- New equations: 1.1 s in PT against 15.7–16.0 s in U′ (M: 0.47 s).
+- The first plot: 3.0 s against 15.4 s (TraitMakie's drawing against CairoMakie's).
+- **The steady state is 35 times U′'s** (step d, 0.78 s against 22 ms). Without callbacks PT's solves are U′'s. With the workload's 40 continuous component callbacks, a Tsit5 solve allocates 200 MB in 159 steps (U′: 0.17 MB). The cost is in the events, one TDE `EventCallback` per component callback (§4 S5). Reported, not optimised; not attributed further.
+- NetworkDynamics' workload has no Python reference (the user, 2026-10-27).
+
+**Not ported, and where each is recorded:**
+- DAE networks (mass matrices, algebraic components): TDE refuses them with a message, having no solver that takes a mass matrix. §4 S10; pushback W34-9; open issue 119 (the refusal).
+- `Rodas4`: TDE has Rodas5 only; NetworkDynamics' tests read it as Rodas5. [The census](2026-10-29-ndport-r1-census.md) item 17.
+- A component's and a DAE's initialization (`initialize_component`): R1's stand-ins (`LinearSolve.QRFactorization`, NonlinearSolve's names). E-242, E-247.
+- GraphMakie's arrows (directed graphs), dashed edges and inner labels: MakieCompat lacks rotated glyph markers, dashed lines and text bounding boxes. E-240; MakieCompat's README ("Not yet").
+- CUDA: NetworkDynamics' CUDA extension depends on SciMLBase (§4 S11); a user's own component type is refused under CUDA's adaptation with a message (the step-3 plan, choice 53; the traits plan's PB-5).
+- ModelingToolkit (§4 S11; the meta plan, choice 1).
+- The solution's `idxs` forms run by NetworkDynamics' own indexing over TDE's solution (C7).
+
+**Choices (mine, 2026-10-29):**
+- **C9.** The census criterion counts the member records TraitWorld generates for a family member fixed while an image is built (lowering L-45) with L-38's registry methods: the same kind of deviation, recorded after this plan was written (E-231).
+- **C10.** The measured round adds U′ as PT's like-for-like reference, runs the four passes every setting has, and runs on all cores under `jl --exclusive` (earlier ndport rounds: two pinned cores), so its numbers compare within the round.
+
