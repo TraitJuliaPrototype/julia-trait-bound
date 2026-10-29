@@ -1,6 +1,6 @@
 # The NetworkDynamics port reactivated, on the ports (W-32, phase 3)
 
-Status: **proposal** (2026-10-29). A part plan of the [W-32 meta plan](2026-10-21-networkdynamics-port.md). Not normative: the references hold. Written by an agent of the main session; the base question was decided by the user while it was written.
+Status: **adopted** (2026-10-29, the base by the user; the rest mine). A part plan of the [W-32 meta plan](2026-10-21-networkdynamics-port.md). Not normative: the references hold. Written by an agent of the main session; the base question was decided by the user while it was written.
 
 **The base, decided by the user** (2026-10-29, relayed by the coordinator): "Nd definitely sits on the ports." NetworkDynamics builds on the trait SciML port (TraitDifferentialEquations, branch `w34`, its split packages) and on TraitMakie (main, with MakieCompat), not on upstream SciML and GraphMakie compiled by facts.
 
