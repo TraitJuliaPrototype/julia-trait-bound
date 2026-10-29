@@ -32,7 +32,7 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 | [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets; `Compiler.fold_call` | the targets compiled ahead (C-14) | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
 | [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
-| [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping, then syntax: last | — |
+| [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping; one dispatch, never folding a negative membership; then syntax: last | Sealed sets, whose negatives fold (Optional; [PE-19](../record/performance-explorations.md)) |
 
 ## Contents
 
@@ -813,6 +813,29 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 - **Syntax:** `trait`, `implement`, `Self`, a trait's name in a field meaning a value that keeps its attribute (`Kept{X}`), bounds in `where` clauses and on struct parameters.
 
 **Why last.** It removes the encodings TraitWorld needs today: entry methods at `Any`, tags for trait sets, sentinel methods, `conforms`. It changes the type system, so it comes once the demonstrators' numbers support the proposal.
+
+### 7.1 Memberships and dispatch
+
+**Status: Planned** (W-83's level 2, one dispatch; [the plan](../plans/2026-10-29-unification-evidence.md) P2; [open issue 136](../open-issues.md#closed-items), closed).
+
+A bounded method `f(x::X)` is a method at the set `X`. Memberships and dispatch follow these rules:
+
+- **Memberships only grow.** A membership `S ∈ X` holds from the world in which it is declared.
+- **Positive answers fold, negative ones never.** Inference (`isa`, `<:`) and dispatch may rely on `S ∈ X`. They never rely on `S ∉ X` for an open set.
+- **Except where the answer is final:**
+  - a set whose members join only with their own definition (`struct S <: A`), as every abstract type of plain Julia, so plain Julia carries no guards;
+  - Base's abstract types, which are closed: their members come only from `struct S <: A`;
+  - Core's kinds (`DataType`, `UnionAll`, `Union`, `Module`, `TypeVar`, the builtins, opaque closures, the memory types), which are never members of a set.
+- **A guard** stands at a compiled call `f(s::S)` where a method of `f` on an open set that `S` is not a member of would beat the method selected now (a fallback `f(::Any)`, a method on a less specific set, or none):
+  - it reads a cell per (type, set), holding the membership's `min_world`, against the caller's world;
+  - the cell is fixed when the guard compiles: a load and a compare, never a lookup in a table;
+  - then it calls the bounded method, else the method selected now;
+  - the guarded call's result is the bounded method's declared result joined with the selected method's.
+- **Specificity per argument:** a plain type other than `Any` first, then a set, then `Any`. Between sets, a subtrait first. So a later membership never beats a method on the type's own supertypes.
+- **Memberships invalidate nothing.** Methods invalidate as in Julia, under ownership ([facts §2.2](facts.md#g2)). Ownership decides who may declare a membership ([traits §10.1](traits.md#101-who-may-implement)).
+- **Sealed sets** (Optional; [PE-19](../record/performance-explorations.md)): a set whose memberships are all declared with the member type's definition or in the member's own package (not in an extension) may fold its negatives too. How a set is declared sealed is not settled.
+
+The evidence: E-252 (memberships declared in extensions arrive after code that depends on them is compiled), E-255 (Core's kinds), E-259 (the guards in the ports' sessions, and a guard's cost, [evidence §2](../design/evidence.md#2-run-time)).
 
 ---
 

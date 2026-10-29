@@ -1,6 +1,6 @@
 # Unification (W-83): the evidence to gather and the prototypes
 
-Status: **proposal; §2.2 and U9 done (E-252 to E-259); gate A: [open issue 136](../open-issues.md)**, whose option (e) is the version to investigate (the user, 2026-10-29: "Yes. This is the version we want to investigate.") (2026-10-29, mine; for the user). The quick runs (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements.") are E-252 to E-258, and U9, option (e)'s guards, is E-259; their results are in §6. Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
+Status: **gate A passed: (e) (the user, 2026-10-29: "Okay, given the evidence, we pursue (e). The exploratory note had an everything from 4 components framing. I think the evidence backs this up now. Sealed AbstractTypes make sense but are an optimisation for later (the spelling of this will be tricky)"); next P1, then P2's memo under (e)**. §2.2 and U9 done (E-252 to E-259). Level 2's rule is in [compiler §7.1](../reference/compiler.md#71-memberships-and-dispatch) (Planned); [open issue 136](../open-issues.md#closed-items) is closed; sealed membership is deferred ([PE-19](../record/performance-explorations.md)). The proposal is mine (2026-10-29). The quick runs (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements.") are E-252 to E-258, and U9, option (e)'s guards, is E-259; their results are in §6. Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
 
 ## 1. The question, in three levels
 
@@ -69,9 +69,9 @@ On paper only, until levels 1 and 2 are decided. A prototype at most of the clas
 ## 4. Order and gates
 
 1. E1, E2 and the quick runs (U6, U8, U4, U2, then U5, U7, U1) in parallel. Several agents; no build.
-2. **Gate A:** the user decides whether to build P1, and whether P2's memo is written.
+2. **Gate A:** the user decides whether to build P1, and whether P2's memo is written. **Passed (2026-10-29): (e)** ([open issue 136](../open-issues.md#closed-items)). Next: P1, then P2's memo under (e); sealed membership waits ([PE-19](../record/performance-explorations.md)).
 3. P1, a build alone (`jl --exclusive`). **Gate B:** level 1 adopted or not.
-4. P2's memo, then P2. **Gate C:** level 2.
+4. P2's memo under (e) ([compiler §7.1](../reference/compiler.md#71-memberships-and-dispatch)), then P2. **Gate C:** level 2.
 5. Level 3 decided on paper.
 
 Until gate B, W-27 stays queued.
@@ -117,4 +117,4 @@ This reading is the main session's (mine).
   - U4: `@nospecialize` is between `Compiled{Any}` and `Dynamic{Any}`: native code once, but inference per type at callers that know it.
   - U4: today's entry rebuilds the trait object on every call, also for a `Dynamic` value (80–96 ns, 80 B per call; 32–45 entry CodeInstances per new held type). That is a cost of today's encoding (traits T-94), not of the model.
 
-**Gate A** waits for the user's decision on open issue 136. Level 1 (P1) does not depend on it.
+**Gate A** passed on 2026-10-29: level 2 takes (e) ([compiler §7.1](../reference/compiler.md#71-memberships-and-dispatch)). Level 1 (P1) is next.

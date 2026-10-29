@@ -35,6 +35,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Concrete evaluation kept within a mode
 - Caches across sessions: combination caches and view caches, removed
 - Choices of the clean-up of 2026-10-27: options not taken
+- Level 2 of unification: options not taken
 
 ---
 
@@ -355,3 +356,12 @@ The clean-up (W-65, [its proposal](../plans/2026-10-27-cleanup-issues-and-queue.
 - **Computed conditions in a generic implementation's constraints** (`eltype(R) == Vector{Float64}`; open issue §2, cleanup item 2). Not taken: overlap is then undecidable at the declaration.
 - **Facts code calling compiler functions in the compiler's world** (open issue §2.27). Not taken: as a general rule it would break packages that extend the compiler for their own interpreter types; the edges to plain compiler code cost cacheability only, measured at 0.
 - **A library's validation hook for conforming values at a store** (open issue 68). Not taken: the contract belongs to conformance, so a type whose values do not all meet it does not conform; translation at the store exists (`convert(X, x)`, decision 47).
+
+## Level 2 of unification: options not taken
+
+W-83's level 2 makes a bounded method a Julia method at its set: one dispatch. U6 (E-252) showed that a membership declared in a package extension can arrive after code that depends on it was compiled, in every precompile mode. So a call compiled at a non-member `S` may later have to reach a bounded method. [Open issue 136](../open-issues.md#closed-items) listed five answers. The user chose (e) on 2026-10-29 ([compiler §7.1](../reference/compiler.md#71-memberships-and-dispatch); [decisions](../record/decisions.md) §5): a negative membership is never folded, and such a call carries a guard. The options not taken:
+
+- **(a) Memberships are definitions in full,** dispatch facts that invalidate what a method at the member's signatures would, with image edges verified against memberships at load. Not taken: "an implementation invalidates nothing" would weaken to "an implementation invalidates only what a stakeholder's method would", memberships would need edges in Julia, and soundness would rest on the coherence rule. Under (e) the guards cost nothing measurable: 7 sites over five sessions, none in a loop and none in bounded code; a cell per (type, set) is hoisted out of loops (E-259).
+- **(b) No membership in a package extension.** Not taken: it excludes the arrangements that work too, the 20 memberships in extensions that E-253 counts (`InlineStrings` columns, `PooledVector`, `CategoricalVector`), and the pattern of an implementation in the trait owner's package extension ([traits §10.1](../reference/traits.md#101-who-may-implement)), which would need a dependency or a newtype.
+- **(c) Memberships in packages as dispatch facts, memberships in extensions decided at run time.** Not taken: two kinds of membership again, for extensions only.
+- **(d) Today's two tiers for dispatch** (an entry at `Any`, membership decided at run time), with level 1 only. Not taken: the simplifications of level 2 (the entries and untyped fallbacks of lowering L-3, L-47, L-50) would stay out of reach.
