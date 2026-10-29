@@ -127,16 +127,12 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 **Performance work** (the user, 2026-10-27; [decisions](record/decisions.md) §5) pursues principled architectural improvements that facts and traits enable (caching across sessions, for one), and bugs that facts and traits reveal with an impact of 20% or more, or slowdowns where trait or facts code should conceptually be as fast or faster, fixed without a significant increase in complexity. Tweaks with minor speedups at a considerable increase in complexity are not pursued.
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
-2. **A design memo for DataFrames, CSV and Tables** (W-79), from the forks' and the demonstrators' learnings; the forks (W-14) follow it.
-3. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
-4. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42).
-5. **Performance worth investigating:**
-   - the folds of Base's type-introspection helpers (W-57, E-167 (2); open issue 66);
-   - first calls and sessions slower than they should be (W-7, E-191);
-   - calls slower than plain where trait code should be as fast (W-17, E-192).
-6. **The cache keyed on facts and their origins** (W-66): done are the fingerprints (E-195), strict mode on facts code with its report at an image's load (E-198, E-204), images keeping machine code only for running owners (E-201) and the checks' records (E-203); the store is next ([its note](plans/2026-10-28-facts-cache-store.md), revision 2): valid by Julia's validation of its edges with fingerprints for content; the store is paused (E-205: an IR store would save at most 1.5 s in C, code generation dominating); when taken up, its vehicle is machine code keyed on facts.
-7. **The large ports:** SciML (W-34), Makie (W-70) and DataFrames (W-14, after W-79).
-8. **The language:** tuples of traits everywhere a trait stands (W-29), TraitDifferentialEquations' right-hand side as one (W-30), a value seen through the traits it entered with (W-31); then traits in Julia's type system (W-27).
+1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line; design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
+2. **Principled performance work** toward Python's session numbers: W-84, W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
+3. **NetworkDynamics.jl** reactivated (W-32).
+4. **Unification** (W-83): one way to write generic code, or two.
+
+The plan with the user's words: [the work queue](record/todo.md#the-plan) (2026-10-29).
 
 Waiting for the user: open issues 81, 82–94 (the ports' weak points) and 95 (the cache's vehicle); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32).
 
