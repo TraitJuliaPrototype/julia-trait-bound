@@ -55,7 +55,7 @@ What is redone: NetworkDynamics' SciML seam (about 280 lines touch SciML, in `sy
 
 ## 4. What NetworkDynamics needs that the ports lack
 
-Read from TDE `w34` 3a51d95 and TraitMakie 2c70583 against the workload and NetworkDynamics' sources; R1 confirms each by running. Not built by this plan's agent: TDE and TraitMakie items go to the main session.
+Read from TDE `w34` 3a51d95 and TraitMakie 2c70583 against the workload and NetworkDynamics' sources; R1 confirms each by running. R1 is done: [the census](2026-10-29-ndport-r1-census.md) (E-236, E-237) confirms S1–S4 and S6–S10 by running, finds the per-component form of S5 gives upstream's cascade, and orders the items for R2 there (§3). Its additions: Rodas5 with continuous callbacks, the system object back from a solution, saved parameters, a problem's callbacks, times to stop at per solve; on the plotting side MakieCompat's namespace and compute graph, the do-block recipe, GeometryBasics' points, the old-API leaves, per-point colours and Observables in the core. Not built by this plan's agent: TDE and TraitMakie items go to the main session.
 
 **SciML side (TDE `w34`):**
 
@@ -99,7 +99,7 @@ Read from TDE `w34` 3a51d95 and TraitMakie 2c70583 against the workload and Netw
 | Step | What | Who | Size |
 |---|---|---|---|
 | R0 | the revival (E-235) | done | — |
-| R1 | **the census of the gaps, by running:** NetworkDynamics' SciML calls listed per file against TDE's API; GraphMakie's recipe loaded over MakieCompat in a scratch environment, the workload's two plots attempted. Confirms or corrects §4; the list of TDE and TraitMakie items | this port | half a day |
+| R1 | **the census of the gaps, by running:** NetworkDynamics' SciML calls listed per file against TDE's API; GraphMakie's recipe loaded over MakieCompat in a scratch environment, the workload's two plots attempted. Confirms or corrects §4; the list of TDE and TraitMakie items | this port | done (E-236, E-237): [the census](2026-10-29-ndport-r1-census.md) |
 | R2 | the TDE items (S6, S8; S5, S7 if R1 needs them) and the TraitMakie items (M1–M3) | the main session | by R1's list |
 | R3 | **NetworkDynamics on TDE, a function at a time,** in a worktree `pkgs/NetworkDynamics-ports` (branch `ports` from `port` 4e5f5a2), `env_ports`, `depot-ports`: (a) dependencies and the problem; (b) callbacks; (c) the solution's access by `at` and `state`; (d) the fixed point; (e) linear analysis. Each sub-step keeps tier S running | this port | 1–2 days |
 | R4 | GraphMakie on TraitMakie: a branch `ports` with Makie replaced by TraitMakie and MakieCompat; the recipe unchanged; `AbstractGraph` dispatch kept (C6) | this port | after R2's TraitMakie items |
@@ -121,10 +121,13 @@ R1 comes first: it fixes R2's list for the main session. R3 and R5 can run while
 - The rule: `TraitIndexing.IndexProvider` maps `sym::Symbol` to `Union{Nothing, Int}` (move 4, E-160); there is no observed value.
 - Proposal: `IndexProvider{I}` with the provider's index type as a parameter, and an operation `observed(ip, idx)` returning a `Callable` at `(U, P, T)`. Or: symbolic access stays the library's, and the solution offers `state` and `at` only. The second is C7, the simplest form for now.
 
+**C and D** (optional properties of a problem's function; in-place functions whose result is discarded): found by R1, [the census](2026-10-29-ndport-r1-census.md) §5.
+
 ## 8. Cases for W-83
 
 - **`GraphInterface{V}`:** a trait in Graphs declared as a family over the abstract type `AbstractGraph`, beside it, for Graphs' informal interface (E-154). With abstract types as traits, `AbstractGraph` would be the trait and the family would go. Kept as it is: no further graph operations are ported, and GraphMakie keeps its `AbstractGraph` dispatch (C6).
 - **`VertexModel`/`EdgeModel` beside `VertexDynamics`/`EdgeDynamics`:** NetworkDynamics' records, subtypes of the abstract `ComponentModel`, and the traits per kind (3a), with a record keyword `dynamics = x` for a user's type (3b): two ways for a user to bring a component.
+- R1 adds three: SciML's abstract dispatch types in NetworkDynamics, nonlinear problems, GeometryBasics' points ([the census](2026-10-29-ndport-r1-census.md) §5).
 - **NetworkDynamics' problem beside SciML's abstract problem types:** the network as a TDE problem's function (S1), where upstream dispatches on `AbstractODEFunction` and `AbstractODEProblem`; the same case as `ODEProblemTrait` beside `AbstractODEProblem` (E-229).
 
 ## 9. Choices (mine, 2026-10-29)

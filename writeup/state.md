@@ -129,11 +129,11 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
 1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line (all three met. SciML: TDE bc68501, its session 1.19–1.20 s against Python's 1.43 s with members fixed from their images' records, W-84, E-231; DataFrames: forks 115c208, W-84 and the memo's questions; Makie: TraitMakie 983f6e1, its plotting session 0.68–0.69 s against matplotlib's 0.98–0.99 s, [evidence §3](design/evidence.md#3-first-calls-and-sessions)); design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
 2. **Principled performance work** where a session is still slower than Python's: the DataFrames/CSV session, 4.71–4.83 s against pandas' 0.54 s (E-233; TraitReport is at Python's, 0.63 against 0.61–0.62 s; a cache of the session's machine code would bring the forks to 2.99–3.22 s, E-234, W-90 done): W-91 (`Callable` entries an image can keep) and W-92 (the forks' plain paths by facts against invalidation), then phase 2 stops (the user, 2026-10-29); W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
-3. **NetworkDynamics.jl** reactivated (W-32), beside phase 2.
+3. **NetworkDynamics.jl** reactivated (W-32), beside phase 2, on the ports: [the census of their gaps](plans/2026-10-29-ndport-r1-census.md) (R1) done; the TDE, TraitMakie and MakieCompat items (R2) next.
 4. **Unification** (W-83): one way to write generic code, or two.
 
 The plan with the user's words: [the work queue](record/todo.md#the-plan) (2026-10-29).
 
-Waiting for the user: open issues 81, 82–94 (the ports' weak points) and 95 (the cache's vehicle); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71). Paused by the user: NetworkDynamics (W-32).
+Waiting for the user: open issues 81, 82–94 (the ports' weak points) and 95 (the cache's vehicle); the Julia changes as small patches, and upstream proposals (W-19); a review session of the choices marked mine (W-71).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.
