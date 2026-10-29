@@ -1034,8 +1034,11 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code ov
 - **The constructor with explicit parameters** (`ODEProblem{T, P, F}(…)`) checks a trait-bounded parameter, as Julia checks a type parameter's bound when the type is applied: `F` must conform. Planned: today it stores what it is given, and a value that does not conform fails at its first operation ([T-74](#17-deviations)).
 - **The bound may name the struct's other parameters** (`RHSSig{P, T}`). They are determined by the other fields' types, as Julia's default constructor determines them.
 - **A parameter named only as a parameter of a bound is read from the kept value:** in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, `T` is the column's own parameter, read from the value as a `where` variable in a bound is ([§5.1](#51-bounds)). A `Compiled` column is kept as the user's object, a `Dynamic` one as `Dynamic{Column{T}}`. So a view of a trait object can be the Base type plain code expects, without a copy.
-- The struct's own methods (an implementation's) read the field as a plain value of its type. Bounded trait code reaches only the fields a trait declares.
-- **Planned: the value read back keeps the attribute the parameter records** (decided 2026-10-28, mine, flagged; open issue 104): passed on to a bound, a field's value under `Compiled` (the parameter is the object's type) is `Compiled`, and one under `Dynamic` is `Dynamic`, as storage keeps it (§6.5).
+- **The value read back keeps the attribute the parameter records** (decided 2026-10-28, mine, flagged; open issue 104): passed on to a bound, a field's value under `Compiled` (the parameter is the object's type) is `Compiled`, and one under `Dynamic` is `Dynamic`, as storage keeps it (§6.5). So a library passes a kept function on as it reads it: `CoreProblem(prob.f, …)`.
+  - **A field bounded by `Callable{A, S}`** reads, under `Compiled`, as the function at the bound's signature, as a bounded function's argument is (§5.8): a call is the checked call, at plain Julia's speed; the next bound takes it as `Compiled`. Under `Dynamic` it reads as the `Dynamic{Callable{A, S}}` it is. This holds wherever the code reads it, also where the code does not know the struct's type (mine, 2026-10-29: the read carries the attribute, since a plain value cannot).
+  - **A field bounded by a trait** reads as the user's object, a plain value of its type, so the struct's own methods (an implementation's) call any of its methods. Under `Dynamic` it is the `Dynamic{X}` it is.
+  - `getfield` gives the stored value.
+- Bounded trait code reaches only the fields a trait declares.
 - This is Rust's `struct S<F: Fn(…)>` and Swift's `struct S<F: P>`, and Julia's advice to make a field's type a parameter, with the attribute choosing the parameter.
 
 **Rules.**
@@ -1058,7 +1061,7 @@ end
 - The parameter is an ordinary one: it is printed, and it can be written (`ODEProblem{Float64, Nothing, typeof(lorenz!)}`).
 - Every rule above applies. A field written `f::Bound`, without a parameter, keeps a value of the trait (`Kept{X}`, §7.2).
 
-**Status:** Implemented. Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type. Planned (2026-10-28): a value read back keeps the attribute the parameter records.
+**Status:** Implemented, except that a trait's field under `Compiled` read back is a plain value at the next bound ([T-89](#17-deviations)). Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
 
 ### 7.5 Functions kept
 
@@ -1622,5 +1625,6 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-85 | [§3.4](#34-parameters-and-associated-types) | A trait with input parameters may declare fields; a subtrait may pass its own input variable to a supertrait with inputs. | Fields in such a trait are refused; the subtrait form is not built. | TraitWorld 2215188 |
 | T-86 | [§3.4](#34-parameters-and-associated-types) | The owners of an input parameter's type count as stakeholders of an implementation. | Not counted: only the trait's and the type's owners. | TraitWorld 2215188 |
 | T-87 | [§3.4](#34-parameters-and-associated-types) | `Callable` is a trait with input parameters. | `Callable` keeps its own mechanism. | TraitWorld 2215188 |
+| T-89 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | A field bounded by a trait, read back under `Compiled`, is `Compiled` at the next bound. | It is the user's object, a plain value: `Compiled` by the first-seen rule where the code knows the struct's type; `Dynamic` where it does not, and under the trait's `@default_with_dynamic_self`. No port has such a field under a dynamic default (TDE keeps its `IndexProvider` as `Dynamic{…}`). A write of a read-back `Callable` to a mutable struct's bounded field is refused (`convert`). | TraitWorld `_bounded_struct` (`trait_module.jl`): a `getproperty` for `Callable` bounds only |
 | T-88 | [§6.4](#64-casts) | A keyword argument may be `Opened{X}`. | Only positional arguments are lowered so; on a keyword `Opened{X}` is taken as a plain type. | TraitWorld `_strip_opened!` (`trait_module.jl`) |
 | T-83 | [§5.5](#55-dispatch-types-first-then-traits) | Unrelated bounds added by two packages that do not depend on each other are reported at the load that creates the overlap. | Not reported until a call (the Makie agent's reading of the code; its probe F2, W-80, confirms). | `TraitWorld/src/trait_module.jl` (`check_bounds` at a module's end); W-82 |
