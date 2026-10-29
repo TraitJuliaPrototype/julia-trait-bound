@@ -127,7 +127,6 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 **Performance work** (the user, 2026-10-27; [decisions](record/decisions.md) §5) pursues principled architectural improvements that facts and traits enable (caching across sessions, for one), and bugs that facts and traits reveal with an impact of 20% or more, or slowdowns where trait or facts code should conceptually be as fast or faster, fixed without a significant increase in complexity. Tweaks with minor speedups at a considerable increase in complexity are not pursued.
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
-1. **Wrap up before the large ports** (W-61): the evidence, this page, the references' statuses, the demonstrators' claims and READMEs.
 2. **A design memo for DataFrames, CSV and Tables** (W-79), from the forks' and the demonstrators' learnings; the forks (W-14) follow it.
 3. **Small TraitWorld fixes,** one run of the suites: W-67 (the choices the clean-up adopted); then W-68 (the second spelling removed).
 4. **Correctness checks** (W-9): the rest of Base's tests under the facts mode (E-42).
