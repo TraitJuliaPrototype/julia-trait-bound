@@ -130,6 +130,13 @@ Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the ro
 
 **A recipe with a recipe child, `Attributes` and `Observable` as user types** (X3 slice 4, E-226; upstream's `hist.jl` unchanged in the group package `MakieCompatStats`: `stephist` → `stairs` → a core `Lines`; julia-1.13 a4e9ad5da9, TraitWorld c39fedc, TraitMakie 80a16fc; stock image; 2 fresh processes each; `experiments/x3/logs/*slice4*`): PNGs equal TraitMakie's own `stairs` byte for byte, also after attribute changes, an `Observable` replaced or notified, and `Attributes` passed three ways. `stephist`: load 0.62 s (StatsBase's tree +0.28 s, only with its group), first PNG 21–22 ms with the workloads (1.85–1.88 s without). After a late `using DataFrames`, 41 CodeInstances recompile (126 ms): the old API's untyped node graph makes the child's creation compile abstract instances ([open issue 112](../open-issues.md)). The old `stairs` still recompiles nothing (6.9–7.1 ms).
 
+**The Makie workload's plotting path over `PlotCore`** (E-227, E-228; E-168's `experiments/ttfx/plotting.jl` unchanged after `using TraitMakie`: `Figure`, `fig[r, c]`, `Axis` with log scales, `lines!`/`scatter!`, `save`; julia-1.13 bfca89decc, TraitWorld c39fedc, TraitMakie 983f6e1; stock image; 2 fresh processes; `experiments/x3/logs/*slice5*`): PNGs equal the core's own drawing byte for byte. Load 0.34 s; the first figure 158–163 ms with TraitMakie's workload (1,135–1,137 ms without), of which 148 CodeInstances are the session's own broadcasting and none the core's; after a late `using DataFrames`, 0 CodeInstances recompiled.
+
+| Plotting session (E-228; reading the solutions, 0.09 s, left out) | startup | load | first plot | second | again | **session** |
+|---|---|---|---|---|---|---|
+| TraitMakie | 0.12 s | 0.35–0.36 s | 0.156–0.158 s | 0.035 s | 0.020 s | **0.68–0.69 s** |
+| Python: matplotlib 3.11.2, same data | 0.01 s | 0.33 s | 0.530–0.532 s | 0.036 s | 0.076–0.080 s | **0.98–0.99 s** |
+
 **TraitReport** (fresh processes, CSV → PNG, 3 runs; `scripts/measure.sh`; the Julia forms on the run of 2026-10-27 (E-163, `logs/demos/report-measure.log`), Python in the round):
 
 | Form | Imports | Read | Plot + PNG | Wall |

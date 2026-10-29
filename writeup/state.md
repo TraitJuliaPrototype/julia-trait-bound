@@ -127,7 +127,7 @@ Of the last group, the `{R}` spelling and `project(t) = …` remain in TraitWorl
 **Performance work** (the user, 2026-10-27; [decisions](record/decisions.md) §5) pursues principled architectural improvements that facts and traits enable (caching across sessions, for one), and bugs that facts and traits reveal with an impact of 20% or more, or slowdowns where trait or facts code should conceptually be as fast or faster, fixed without a significant increase in complexity. Tweaks with minor speedups at a considerable increase in complexity are not pursued.
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). Performance work that the rule does not take up now is in [the performance explorations log](record/performance-explorations.md). The order (the clean-up, W-65, 2026-10-27):
-1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line; design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
+1. **Finish the three ports** (W-34, W-70, W-14), each at its finish line (Makie's met: TraitMakie 983f6e1, its plotting session 0.68–0.69 s against matplotlib's 0.98–0.99 s, [evidence §3](design/evidence.md#3-first-calls-and-sessions)); design pieces where a port needs them (W-88, W-82); no tweaks or workarounds that unification would make obsolete.
 2. **Principled performance work** toward Python's session numbers: W-84, W-7, W-17, W-57, W-75; a machine-code cache across sessions estimated, not built (W-90).
 3. **NetworkDynamics.jl** reactivated (W-32).
 4. **Unification** (W-83): one way to write generic code, or two.
