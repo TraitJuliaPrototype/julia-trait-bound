@@ -1,6 +1,6 @@
 # The Makie port's finish: the workload's path through `PlotCore`
 
-Status: **adopted** (2026-10-29, mine; W-70). Not normative. The second part of W-70's finish line: "the workload's whole path through `PlotCore`" (the user, 2026-10-29: "I agree with your finish lines"). It follows [slice 4](2026-10-29-x3-slice4.md) and serves [the lean-core memo](2026-10-27-lean-core-old-apis.md) §1.2 (the user API) and its X3 ("The `Axis`, log ticks and grid slice belongs to the port").
+Status: **done** (2026-10-29, mine; W-70; E-227, E-228). Not normative. The second part of W-70's finish line: "the workload's whole path through `PlotCore`" (the user, 2026-10-29: "I agree with your finish lines"). It follows [slice 4](2026-10-29-x3-slice4.md) and serves [the lean-core memo](2026-10-27-lean-core-old-apis.md) §1.2 (the user API) and its X3 ("The `Axis`, log ticks and grid slice belongs to the port").
 
 ## 1. The question
 
@@ -73,3 +73,10 @@ It is not on the workload's path. The path's derived values (limits, ticks, pixe
 
 - **Blocks:** upstream's `Block` is an abstract type, and `Axis` one of its subtypes; the memo's `Layoutable` would be a trait. The core holds `Vector{Axis}`, the simplest form, until phase 4 says whether the two are one.
 - **Scales:** upstream's scales are functions, and their protocol is generic functions on the function's type (`inverse_transform(::typeof(log10))`). Here `Scale` is a trait implemented for `typeof(log10)`. Under unification this is the same protocol either way.
+
+## 8. The result (E-227, E-228)
+
+- `plotting.jl` runs unchanged over TraitMakie; its PNGs equal the core's own drawing of the same figures, byte for byte. Against upstream's PNGs: the same figure, not the same pixels (§2).
+- Nothing on the path recompiles after a late `using DataFrames`.
+- The plotting part of a session: 0.68–0.69 s against matplotlib's 0.98–0.99 s on the same solutions; the first plot 0.16 s against 0.53 s. Numbers and builds: the registry rows, and [MakieCompat's README](../../TraitMakie/compat/MakieCompat/README.md).
+- Found on the way: the X3 pixel comparison tool read blank images; fixed. Slice 3's band is close to the core's, not equal (E-223).
