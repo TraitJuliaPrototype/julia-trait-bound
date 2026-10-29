@@ -1,6 +1,6 @@
 # Finishing the SciML port: move 5 and the workload on the split packages
 
-Status: **adopted** (2026-10-29, mine; W-34). Not normative. W-34's finish line (the user, 2026-10-29: "I agree with your finish lines"): move 5 (the solution as a trajectory) and the workload on the split packages, with no reads of TraitWorld's internals. The last part is done (TDE 98c7e2a, 44b4d14). Experiments E-229 and E-230.
+Status: **done** (2026-10-29; adopted the same day, mine; W-34; results: E-229, E-230 in the registry). Not normative. W-34's finish line (the user, 2026-10-29: "I agree with your finish lines"): move 5 (the solution as a trajectory) and the workload on the split packages, with no reads of TraitWorld's internals. The last part is done (TDE 98c7e2a, 44b4d14). Experiments E-229 and E-230.
 
 ## 1. Where TDE is
 
