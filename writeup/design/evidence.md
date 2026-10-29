@@ -137,6 +137,8 @@ Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the ro
 | TraitMakie | 0.12 s | 0.35–0.36 s | 0.156–0.158 s | 0.035 s | 0.020 s | **0.68–0.69 s** |
 | Python: matplotlib 3.11.2, same data | 0.01 s | 0.33 s | 0.530–0.532 s | 0.036 s | 0.076–0.080 s | **0.98–0.99 s** |
 
+**GraphMakie on the ports** (E-240, not a measurement; TraitMakie b68d97a, GraphMakie 0.6.6 with its imports changed only, branch `ports`): NetworkDynamics' step f and g graph plots on the ports equal setting M's (upstream GraphMakie and CairoMakie) in node positions, colours (RGBA × 255, through Makie's own `numbers_to_colors`) and line data, 13 of 13 digest lines; after a late `using DataFrames`, the old-API leaves' path recompiles nothing.
+
 **TraitReport** (fresh processes, CSV → PNG; `scripts/measure.sh 3 "t pt"`, a warm-up and 2 runs; E-233: julia-1.13 bfca89decc, TraitWorld ca92f22, TraitReport 09d7f9b, TraitCSV 9c6477b, TraitTables 438ac2b, TraitMakie 2c70583; product setting, strict mode off; load average 0.1–0.6; `experiments/phase2-round/`):
 
 | Form | Wall |
