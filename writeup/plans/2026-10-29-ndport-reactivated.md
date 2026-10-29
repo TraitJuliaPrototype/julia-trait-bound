@@ -104,7 +104,7 @@ Read from TDE `w34` 3a51d95 and TraitMakie 2c70583 against the workload and Netw
 | R3 | **NetworkDynamics on TDE, a function at a time,** in a worktree `pkgs/NetworkDynamics-ports` (branch `ports` from `port` 4e5f5a2), `env_ports`, `depot-ports`: (a) dependencies and the problem; (b) callbacks; (c) the solution's access by `at` and `state`; (d) the fixed point; (e) linear analysis. Each sub-step keeps tier S running | this port | 1–2 days |
 | R4 | GraphMakie on TraitMakie: a branch `ports` with Makie replaced by TraitMakie and MakieCompat; the recipe unchanged; `AbstractGraph` dispatch kept (C6) | this port | after R2's TraitMakie items |
 | R5 | the workload's variant for the ports (`NDW_API=ports`: Rodas5, `saveat`, `NWState` from the solution, the integrator's `init`/`step!`); U′ by the same flag upstream; `compare_digests.py` by tolerance | this port | half a day |
-| R6 | part 3b: a user's own component types ([the step-3 plan](2026-10-22-ndport-step3.md) §3.3) on the new base | this port | 1 day |
+| R6 | part 3b: a user's own component types ([the step-3 plan](2026-10-22-ndport-step3.md) §3.3) on the new base | this port | done (E-247, NetworkDynamics `ports` dfc6663): `usertype` exactly `first`, one network type, strict mode refusing nothing |
 | R7 | the finish round (a registry row before it), `ndport/README.md`, the evidence row, the meta plan's state; pushback entries; the guideline's lessons | this port, the coordinator | half a day |
 
 R1 comes first: it fixes R2's list for the main session. R3 and R5 can run while R2's items are built, against stand-ins only where an item is missing; each stand-in is removed when the item lands.
