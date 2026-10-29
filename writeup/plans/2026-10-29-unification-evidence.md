@@ -1,6 +1,6 @@
 # Unification (W-83): the evidence to gather and the prototypes
 
-Status: **proposal; §2.2 done (E-252 to E-258); gate A open: the user's decision on [open issue 136](../open-issues.md)** (2026-10-29, mine; for the user). The quick runs (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements.") are E-252 to E-258; their results are in §6. Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
+Status: **proposal; §2.2 done (E-252 to E-258); gate A open: [open issue 136](../open-issues.md), whose option (e) is the version to investigate (the user, 2026-10-29: "Yes. This is the version we want to investigate."); U9 (E-259) running** (2026-10-29, mine; for the user). The quick runs (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements.") are E-252 to E-258; their results are in §6. Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
 
 ## 1. The question, in three levels
 
