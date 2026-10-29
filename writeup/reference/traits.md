@@ -925,7 +925,7 @@ There is no syntax for this. It follows from the declarations.
 
 How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
 
-**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)).
+**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)), and that the entry compiles code per held type of a `Dynamic` value ([T-94](#17-deviations)).
 
 ### 6.8 Costs, and choosing
 
@@ -937,7 +937,7 @@ How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
   - `Dynamic` positions suit large code with many implementations behind them (a solver's model): a plain value from outside compiles nothing in the library. A caller's `compiled_for`, or a value of the trait world whose type the caller knows, still compiles the library for its key there.
 - The numbers: [`../design/evidence.md`](../design/evidence.md) §2. Where trait code is slower than plain code that it should match, the gap is measured and fixed in [W-17](../record/todo.md).
 
-**Status:** Implemented. Optional: a witness carried in the value, and recompiling with the observed types ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
+**Status:** Implemented, except that a `Dynamic` value at a bound costs an assembly of its trait object per call ([T-94](#17-deviations)). Optional: a witness carried in the value, and recompiling with the observed types ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
 
 ### 6.9 Trait casts
 
@@ -1238,7 +1238,7 @@ leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
 - `check_definitions(M)` runs the check on demand: it returns an empty list, or raises `TraitUseError` listing the problems.
 - Keyword, vararg and `Callable` functions with declared result types are checked at the module's end like any other.
 
-**Status:** Implemented, except that keyword, vararg and every `Callable` function are checked at their first call ([T-19](#17-deviations)), and that several definitions in a trait module are refused with `ErrorException` ([T-34](#17-deviations)).
+**Status:** Implemented, except that keyword, vararg and every `Callable` function are checked at their first call ([T-19](#17-deviations)), and that several definitions in a trait module are refused with `ErrorException` ([T-34](#17-deviations)). Definition checking misses a call at an undeclared arity ([T-91](#17-deviations)), reports only a function's first problem ([T-92](#17-deviations)), and defers functions bounded by BaseTraits' `MutableIndexable` ([T-93](#17-deviations)).
 
 ---
 
@@ -1507,7 +1507,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | casts `compiled_for(x)`, `with_dynamic(x)`; constructors and types never cast | Implemented | [§6.4](#64-casts) |
 | values carry through calls, bounds and storage; library to library | Implemented | [§6.5](#65-values-carry) |
 | items of a user's container with their attribute; writes that read back the same | Implemented | [§6.6](#66-items-of-a-users-container) |
-| keys: what `Compiled` code is compiled for | Implemented | [§6.7](#67-what-compiled-code-is-compiled-for), L-21 |
+| keys: what `Compiled` code is compiled for | Implemented | [§6.7](#67-what-compiled-code-is-compiled-for), L-21, T-94 |
 | beyond four implementations: a constant cost | Implemented | [§6.8](#68-costs-and-choosing) |
 | a witness carried in a kept value; recompiling with the observed types | Optional | [§6.8](#68-costs-and-choosing) |
 | kept values `Dynamic{X}`, `Compiled{X}`, `Kept{X}`; their operations and fields | Implemented | [§7.1](#71-the-three-forms) |
@@ -1522,7 +1522,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | a user's container taken as it is; `DynamicItems{X}(v)`, `DynamicValues{X}(d)` | Implemented | [§8.3](#83-a-users-container-taken-as-it-is), T-39 |
 | `retain!` | Implemented | [§8.4](#84-algorithms-over-collection-traits) |
 | BaseTraits' next traits and algorithms; two traits declaring one function at one arity | to revisit with the ports | [open issues §6](../open-issues.md#6-to-revisit-with-the-ports) |
-| definition checking | Implemented | [§9](#9-checks-and-when-they-run), T-19 |
+| definition checking | Implemented | [§9](#9-checks-and-when-they-run), T-19, T-91, T-92, T-93 |
 | who may implement | Implemented | [§10.1](#101-who-may-implement) |
 | the standard libraries as owners of their own | Open (E-189) | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
 | no pirates in trait modules | Implemented | [§10.2](#102-pirates), T-56 |
@@ -1637,3 +1637,7 @@ Where TraitWorld differs from this reference. File paths are in the repository; 
 | T-90 | [§5.8](#58-callable-functions-at-a-declared-signature) | A function refused for its result is named with the declared and the returned type, with a hint where the result is `Nothing`. | Where a family member's operation calls the function (TDE's `ODEProblem` holding `compiled_for(f)`), the member check refuses the member: the operation "always throws (inferred `Union{}`)", without the function's result type or the hint. | `TraitWorld/src/implement.jl:273` (`conformance_problems`) |
 | T-88 | [§6.4](#64-casts) | A keyword argument may be `Opened{X}`. | Only positional arguments are lowered so; on a keyword `Opened{X}` is taken as a plain type. | TraitWorld `_strip_opened!` (`trait_module.jl`) |
 | T-83 | [§5.5](#55-dispatch-types-first-then-traits) | Unrelated bounds added by two packages that do not depend on each other are reported at the load that creates the overlap. | Not reported until a call (the Makie agent's reading of the code; its probe F2, W-80, confirms). | `TraitWorld/src/trait_module.jl` (`check_bounds` at a module's end); W-82 |
+| T-91 | [§9](#9-checks-and-when-they-run) | Definition checking reports each use of a trait object that its traits do not declare ([§5.3](#53-what-trait-code-may-do-with-a-trait-object)), so a function that passes reaches its bounded arguments only through its traits. | A call to an operation's function at an arity the trait does not declare (`eachindex(a, b)` where the trait declares `eachindex(c)`) is neither reported nor resolved: `worker_problems` skips it as an operation (`_is_op` matches the function, not the signature), inference gives `Union{}`, and nothing after the call is checked. Such a function passes: Base's `zero` passed through `similar(x, Float64)` while the contract declared only `similar(a)` (E-258). | `TraitWorld/src/checks.jl:81` (`_is_op`), `:225`; `experiments/w83/u1/logs/dev/run2.log` |
+| T-92 | [§9](#9-checks-and-when-they-run) | `check_definitions` raises `TraitUseError` listing a function's problems. | It reports only the first use outside the traits in each function: a call the traits do not answer infers as `Union{}`, inference stops there, and the rest of the body is not checked (17 of the open Base functions of E-258's first variant). The list is a lower bound on what a body reaches. | `TraitWorld/src/checks.jl:107` (`worker_problems`); `experiments/w83/u1/run.jl` (`[inference stops …]`) |
+| T-93 | [§9](#9-checks-and-when-they-run), [§3.6](#36-supertraits-and-bundles) | Every bounded function is checked at the end of its trait module; only a parameter left open waits for the first call. | BaseTraits declares `@trait MutableIndexable{T} <: Indexable`, so the supertrait's item type is open in every `MutableIndexable` bound: `archetype_sig` sees an open parameter and defers every function bounded by `MutableIndexable{T}`, also with `T` fixed, to its first call (E-258). The declaration can tie it (`<: Indexable{T}`, §3.6), or definition checking can tie a supertrait's parameter defined by the same equation (`eltype(Self)`). | `TraitWorld/src/BaseTraits.jl:61`; `src/defcheck.jl:89` (`archetype_sig`) |
+| T-94 | [§6.7](#67-what-compiled-code-is-compiled-for), [§6.8](#68-costs-and-choosing) | A `Dynamic` argument adds nothing per type: at a bound a `Dynamic` value runs the code compiled once for the position. | The worker is compiled once, but the entry rebuilds the trait object from the held object at its run-time type on every call (`_enter_keyed` with the held object, [lowering §8.2](lowering.md#82-the-entry)): a dispatch per call, 80–96 ns and 80 B per call for a one-operation worker whose operation costs 1 ns, and 45 (product setting) / 32 (`all`) CodeInstances per new held type (E-256; [evidence §2](../design/evidence.md#2-run-time)). | `TraitWorld/src/entry.jl:242`, `:257`, `:271` (`_enter_held`, `_enter_erased`, `_enter_keyed`); `experiments/w83/u4/` |

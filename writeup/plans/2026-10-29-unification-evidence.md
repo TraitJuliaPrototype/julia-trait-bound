@@ -1,6 +1,6 @@
 # Unification (W-83): the evidence to gather and the prototypes
 
-Status: **proposal; §2.2 running** (2026-10-29, mine; for the user). The quick runs are E-252 to E-258 (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements."). Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
+Status: **proposal; §2.2 done (E-252 to E-258); gate A open: the user's decision on [open issue 136](../open-issues.md)** (2026-10-29, mine; for the user). The quick runs (the user, 2026-10-29: "Run U6 and U5 and the other cheap measurements.") are E-252 to E-258; their results are in §6. Not normative. Phase 4 of [the plan](../record/todo.md) ("Then the major open question remains: Do we go for unification?", the user 2026-10-29). It builds on [the exploration](../explorations/abstract-types-as-traits.md) (2026-10-28) and on the cases the three ports and NetworkDynamics recorded in W-83's row.
 
 ## 1. The question, in three levels
 
@@ -51,12 +51,12 @@ Each item is an Opus agent's task; registry rows come first. The no-build experi
 - **julia-1.13, a branch:** a membership registry whose entries have a `min_world`; `jl_subtype` and `jl_isa` read it when the supertype chain fails, for a set flagged as open; `isa_tfunc` and `subtype_tfunc` never fold a negative for such a set; `typeintersect` over-approximates for it.
 - **TraitWorld, a branch on it:** `@implement` registers the membership; `conforms` becomes `<:` (L-5); the kept forms collapse (L-6, T-75).
 - **Checks:** Base's `subtype` and `core` tests; `detect_ambiguities(Base)` unchanged; the `subtype` tests' time within 10%; every suite; acceptance in both settings; the four sessions.
-- **This is U3,** with §13.4's four items as its specification.
+- **This is U3,** with §13.4's four items as its specification, item 3 refined by U7: Core's kinds are never late members, and sets that Core and Base own may be `closed` (§6).
 
 ### P2. Level 2: one dispatch
 
 A design memo comes first, since two parts are new.
-- **Dispatch caches.** Julia caches dispatch per concrete type. A membership added after a call at `S` was cached must invalidate that entry, as a method added at `S` would. Lemma M says this happens only in a stakeholder's own session (`Main`); the mechanism must still exist.
+- **Dispatch caches.** Julia caches dispatch per concrete type. A membership added after a call at `S` was cached must invalidate that entry, as a method added at `S` would, or the call must never fold the negative membership (open issue 136, options (a) and (e)). U6 shows that this happens across packages too, for memberships declared in extensions (§6).
 - **Specificity.** The tie order C7 in `jl_type_morespecific`. Ambiguity between unrelated sets reported when a common member appears (T-83's report).
 
 Then the prototype: the entry moves from `Any` to `X`; the untyped fallbacks go (L-3, L-47, L-50). It is validated on the cases that need it: SciML's front end on CommonSolve's `solve`, Makie's `Block`. Invalidations are counted in the acceptance suite's late loads.
@@ -79,3 +79,39 @@ Until gate B, W-27 stays queued.
 
 - **L-50's Julia change** (precompilation removing a method its own package defined). Level 2 removes its need: a bounded constructor becomes a method at `X`, not at the default constructor's signature. By the rule against work that unification would obsolete, it waits.
 - The open issues that name W-83 (112, and the cases in W-83's row).
+
+## 6. Results of the quick runs
+
+Each experiment's README holds its numbers and builds (`experiments/w83/`; julia-1.13 00dcc9994c, TraitWorld 33dd55e); the registry rows E-252 to E-258 summarize them.
+
+| Run | Result |
+|---|---|
+| U6 (E-252) | Lemma M's premise fails for memberships in extensions: the member's own package compiles before an extension it triggers (R6) or its own (R7); an extension compiles before another whose trigger set is not a strict subset of its own (R8); an image older than the extension is reused (R12). It holds for a package strictly downstream of the extension (R1–R5, R9b, R10). |
+| U5 (E-253) | No hit among 127 bounded methods (lowering L-3 already restricts them). With consent through the declarer's own abstract type, 31 of 52 sets are members by owner, all the ports' domain sets among them; the 21 open sets adopt Base's types. A `Base.show` on an open set is shielded except for `Factorization` and `IO`. |
+| U8 (E-254) | TraitWorld's `conforms` decides in the newest world, and in the product setting `@implement` invalidates its `Main` caller (11 MethodInstances; lowering L-43, L-4). A registry with a `min_world` per entry, read in the caller's world with no edge, passes in plain Julia. |
+| U7 (E-255) | Negative folds on an open set: 0.003–0.9 % of all negative folds, none in a demonstrator's loop. About 90 % of negative folds are the compiler's bookkeeping against Core's kinds. |
+| U4 (E-256) | `f(@nospecialize x)` lies between `Compiled{Any}` and `Dynamic{Any}`. A `Dynamic` value at a bound costs an entry per call (80–96 ns, 80 B; 32–45 CodeInstances per new held type; traits T-94). |
+| U2 (E-257) | A mixed `Vector{Any}` costs 15–57 % more than `Vector{Kept{X}}` at 2–4 types (0.2–0.7 ns per element), 7–13 % at 8. Raw members cost no more than `Kept`. |
+| U1 (E-258) | 4 of 74 generic functions fully bounded with today's traits, 13 with documented interfaces as contracts, 20 if returning the argument were allowed (open issues 137, 138; traits T-91 to T-93). |
+
+### 6.1 What the runs say for each level
+
+This reading is the main session's (mine).
+
+- **Level 1, membership in subtyping: supported.**
+  - U7: never folding a negative costs nothing measurable, provided Core's kinds are never late members: `DataType`, `UnionAll`, `Union`, `Module`, `TypeVar`, the builtins, opaque closures and the memory types. Then the compiler's bookkeeping folds stay folded. Whether `Type{T}` may be a member is open.
+  - Sets that Core and Base own can be `closed` by ownership, at no measured cost.
+  - U8: the `min_world` registry works with no Julia change (part B). TraitWorld's `conforms` is not built that way.
+  - U2: `Kept{X}` stays as the storage form for mixed containers. A `Dynamic` wrapper inside `Vector{Any}` costs a second load: 15–57 % at 2–4 types, 0.2–0.7 ns per element. Raw members cost no more than `Kept`.
+  - U2: an operation on an item typed `X` must be the compiler's split at the call, not a method call at `X` (a run-time site, 127–234 ns).
+- **Level 2, one dispatch, as the exploration states it: not supported.**
+  - U6 refutes Lemma M. An extension is loaded before `P`'s code compiles only when `P` is a package (not an extension), neither the extension's parent nor one of its triggers, and has all triggers in its tree. For an extension `P`, only extensions with a strictly smaller trigger set are loaded. Images record the environment they were written in. R6, R7, R8 and R12 fail.
+  - So memberships that C3 and C4 allow can win at compiled facts. C2 repairs none of the failures.
+  - Either memberships are dispatch facts that invalidate as methods do (a membership is a definition, as C4 says, its invalidation included), and "an implementation invalidates nothing" weakens to "an implementation invalidates only what a stakeholder's method would"; or dispatch never folds a negative membership and guards the calls a later membership could change; or memberships in extensions are excluded or kept late. The options and the proposal ((e), subject to U9, E-259; (a) as the fallback) are [open issue 136](../open-issues.md).
+  - U5: zero hits of the forbidden combination among 127 bounded methods, partly because L-3 already restricts them. With consent passing through an owner's abstract type, 31 of 52 sets are members by owner (all the ports' domain sets); the 21 open sets are those that take Base's types. The hypothetical `Base.show` is shielded for all members but `Factorization` and `IO`.
+- **Level 3, one language surface: a simplification of the language, not of existing code.**
+  - U1: it buys little sharing for existing code: 4 of 74 fully bounded with today's traits, 13 with documented interfaces as contracts, 20 if returning the argument were allowed. Code opens through calls to other generic functions and through iterator adaptors.
+  - U4: `@nospecialize` is between `Compiled{Any}` and `Dynamic{Any}`: native code once, but inference per type at callers that know it.
+  - U4: today's entry rebuilds the trait object on every call, also for a `Dynamic` value (80–96 ns, 80 B per call; 32–45 entry CodeInstances per new held type). That is a cost of today's encoding (traits T-94), not of the model.
+
+**Gate A** waits for the user's decision on open issue 136. Level 1 (P1) does not depend on it.

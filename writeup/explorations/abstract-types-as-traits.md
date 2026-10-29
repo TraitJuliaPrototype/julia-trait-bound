@@ -1,6 +1,6 @@
 # One way to write generics: abstract types as traits
 
-Status: **exploration** (2026-10-28, an exploratory agent's analysis, Fable; not adopted). Not normative.
+Status: **exploration** (2026-10-28, an exploratory agent's analysis, Fable; not adopted; §16 added 2026-10-29 from the quick runs E-252 to E-258). Not normative.
 
 Serves W-83. The user's question: "Right now Julia has two more or less distinct ways to write generic code: Multiple Dispatch on functions written for abstract types (in the case of no type annotations at all Any), and traits with the compiled/dynamic switch. I wonder whether a unified perspective is possible, where we have one way to write generics. This would probably mean that abstract types are just traits. There are several subtleties with this: E.g. Trait modules, Dynamic, Facts mode. But it has the potential to simplify the design by eliminating a lot of the 'how trait and ordinary code interact' questions."
 
@@ -23,6 +23,7 @@ Read for it: the references in full ([traits](../reference/traits.md), [facts](.
 13. [Invalidation for subtyping: making `S <: X` sound for late memberships](#13-invalidation-for-subtyping-making-s--x-sound-for-late-memberships)
 14. [CommonSolve's `solve`: a ground-up design](#14-commonsolves-solve-a-ground-up-design)
 15. [The project as a set of co-designed features](#15-the-project-as-a-set-of-co-designed-features)
+16. [What the quick runs found (2026-10-29)](#16-what-the-quick-runs-found-2026-10-29)
 
 ---
 
@@ -504,6 +505,8 @@ What it reverses in the design: the plan to lift L-3 for open sets ([traits §5.
 
 Order: U6 (an hour), U5 (an afternoon), then U3 (a build). U5 and U6 decide the recommendation; U3 decides whether Julia's subtyping can carry it.
 
+**After the quick runs (2026-10-29):** Lemma M does not hold for memberships declared in extensions (U6); see §16 and [open issue 136](../open-issues.md).
+
 ---
 
 ## 12. Sources
@@ -752,3 +755,22 @@ Today the trait module is the one unit that switches on 5a–5d together. The fr
 The ports so far use two of these shapes already: the forks' upstream code runs plain beside the trait kernels, and the demonstrators' trait modules switch on everything.
 
 Return to it when the ports are in a shape that can be considered finished (the user, above).
+
+---
+
+## 16. What the quick runs found (2026-10-29)
+
+Added on 2026-10-29 from the quick runs E-252 to E-258 ([the registry](../record/experiments.md) §12; numbers and builds in each README under `experiments/w83/`; [the plan](../plans/2026-10-29-unification-evidence.md#6-results-of-the-quick-runs) §6). The sections above stay as written. Where they disagree with this section, this section holds.
+
+- **Lemma M is refuted (U6, E-252).** §11.1's premise holds only for a package strictly downstream of an extension. What Julia's loader guarantees:
+  - an extension `E` is loaded before code of `P` compiles when `P` is a package (not an extension), neither `E`'s parent nor one of its triggers, and every trigger of `E` is in `P`'s tree;
+  - when `P` is an extension, `E` is loaded only if `E`'s triggers are a strict subset of `P`'s;
+  - for an image, only as of the environment in which the image was written.
+
+  So a membership declared in an extension can arrive after code at `(S,)` was compiled: in the member's own package (R6, R7), in another extension (R8), or in an older image (R12). Memberships that C3 and C4 allow can win at compiled facts, and C2 repairs none of these cases (in each the bounded method is `f`'s owner's, in its package). The choice that follows is [open issue 136](../open-issues.md).
+- **§13.4 item 3, refined (U7, E-255).** Never folding a negative costs nothing measurable for open sets (0.003–0.9 % of negative folds, none in a demonstrator's loop). But about 90 % of negative folds feed the compiler's bookkeeping: could a value be a `Module`, a `Type`, a `Bool`, a builtin or an opaque closure. Item 3 as written would stop these folding, and a call through a value of an open set would infer `Any`. Refinement: Core's kinds (`DataType`, `UnionAll`, `Union`, `Module`, `TypeVar`, the builtins, opaque closures, the memory types) are never late members of a set. Whether `Type{T}` may be a member is open. Negatives between types Core and Base own stay folded by ownership, so a `closed` default for the sets Core and Base own (§13.5) loses nothing measured.
+- **§13.4 item 1 works as stated (U8, E-254).** A registry whose entries carry a `min_world`, read in the caller's world with no edge, gives the new answer with no new CodeInstance, and the old world keeps the old one, in plain Julia. TraitWorld's `conforms` is not built that way: it decides in the newest world and, in the product setting, a caller holds method edges into the registry.
+- **The kept forms stay (U2, E-257).** A `Vector{Any}` of raw members and `Dynamic{X}` wrappers allocates nothing per element, but costs 15–57 % more than `Vector{Kept{X}}` at 2–4 types (+0.2 to +0.7 ns per element). The cost is the wrapper inside the box, a second load; raw members cost no more than `Kept`. §5.2's collapse is not taken: level 1 keeps `Kept{X}` as the storage form. An operation on an item typed `X` must be the compiler's split at the call, not a method call at `X`.
+- **Rule 5 diverges in two places (U4, E-256).** `f(@nospecialize x)` is `Dynamic{Any}` only at callers that do not know `x`'s type: a caller that knows it makes inference specialize the function per type (native code once, inference per type). And today's entry rebuilds the trait object for a `Dynamic` value on every call (80–96 ns, 80 B), so at function granularity a `Dynamic` position costs what an untyped call costs. That is a cost of today's encoding ([traits T-94](../reference/traits.md#17-deviations)); a `Dynamic{Any}` position under the model needs no assembly.
+- **Rule 4 buys little sharing for existing code (U1, E-258).** Of 74 generic functions rewritten with bounds, 4 are fully bounded with today's traits, 13 with each abstract type's documented interface as the contract, 20 if returning the argument were allowed. The open points are not `similar` and `axes` but the call graph (other generic functions called with the value) and iterator adaptors. Level 3 stands as a simplification of the language (§8 item 3). Two refinements are open issues 137 (`eltype(x)` as a constant of the key) and 138 (returning the bounded argument).
+- **C3's cost, and "members by owner" read through consent (U5, E-253).** No code base does the forbidden combination: 0 of 127 bounded methods are on a foreign function or in an extension (partly because lowering L-3 already restricts them). "Members by owner" should count consent through the declarer's own abstract type: a type `T <: S` consents to `S`, and `S`'s owner, by a generic implementation in `S`'s package, puts `S` in the set. Likewise a member owned through a type parameter (ownership rule 3). Read so, 31 of 52 sets are members by owner, among them all the ports' domain sets (TDE 24 of 24, NetworkDynamics 4 of 4); the 21 open sets are exactly those that adopt Base's types. A hypothetical `Base.show` on each open set is shielded by Base's typed methods for every foreign member except `Factorization` and `IO`, which supports §14.4's warning.
