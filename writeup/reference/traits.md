@@ -861,9 +861,12 @@ Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d
 - **Types never cast** (§6.3, the table).
 - **A `Dynamic` value is never opened implicitly.** `compiled_for(d)` opens it where the code asks, or a bound that says so.
 - **A bound that opens its value** (decided 2026-10-28, mine, flagged; open issue 98): `f(c::Opened{Column})` opens a `Dynamic` or kept value at the entry, as `compiled_for` at the call would: one dispatch per call, then the code compiled per key. A plain value and a caller's cast are taken as `compiled_for` takes them. The function whose cost model needs code per key (a kernel's loop over cells) says so, and its callers need not. Everywhere else a value keeps its attribute (§6.5). `Opened` is only an annotation: no value has that type.
-- **Planned: `rewrap(g, f)`** (decided 2026-10-28, mine, flagged; open issue 105): `g` with `f`'s form and attribute, for a function changed while it stays kept as it was (a partial application of a kept function).
+- **`rewrap(g, f)` changes a value and keeps its attribute** (decided 2026-10-28, mine, flagged; open issue 105): `g` applied to what `f` holds, with `f`'s attribute. A library uses it where it changes a user's function, such as a partial application, `rewrap(Base.Fix2(PartialFn, p), f)`.
+  - A plain value gives `g(f)`.
+  - A cast gives the same cast of `g(x)`: `compiled_for(g(x))` for `compiled_for(x)`, `with_dynamic(g(x))` for `with_dynamic(x)`.
+  - A kept value gives `g` of the user's object (of a `Callable`, the user's function), cast by the kept value's attribute. The result is a new value, not kept at `f`'s trait: a changed function has a signature of its own. The next bound takes it with that attribute.
 
-**Status:** Implemented, except `Opened` on a keyword argument ([T-88](#17-deviations)). Planned (2026-10-28): `rewrap`.
+**Status:** Implemented, except `Opened` on a keyword argument ([T-88](#17-deviations)).
 
 ### 6.5 Values carry
 

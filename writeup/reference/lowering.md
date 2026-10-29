@@ -512,7 +512,7 @@ An untyped caller passes a `Compiled` value where it converts it (`compiled_for(
 - **`Dynamic{Callable{A, S}}`** holds a `CObj{A, S, Erased{A, S}}`; its call reads the kept value at that asserted type and calls it, so the call stays typed. It adds a heap object and a load with a type assertion per call against a `CObj` held inline (measured with the gaps of [W-17](../record/todo.md)).
 - **`Compiled{Callable{A, S}}`** holds the function itself; its call is `CObj{A, S}(f)(args…)::S`, a dispatch on the function's type.
 - **`Kept{Callable{A, S}}`** holds either, with its attribute, and branches on it at each call.
-- Their constructors take a plain function, a cast, a function argument (`CObj`) or a kept function, and keep its attribute; asked to change it they refuse (`_cast_refuse`). `compiled_for` and `with_dynamic` move the function between the forms (`_callable_fn`, `_erased_at`).
+- Their constructors take a plain function, a cast, a function argument (`CObj`) or a kept function, and keep its attribute; asked to change it they refuse (`_cast_refuse`). `compiled_for` and `with_dynamic` move the function between the forms (`_callable_fn`, `_erased_at`). `rewrap(g, f)` (`attributes.jl`) reads the user's function of a kept one by `_callable_fn` (the held object by `_dyn_object` for another trait) and casts `g` of it by the kept value's attribute ([traits §6.4](traits.md#64-casts)).
 
 **In a closed build** every function is known, so nothing is erased: `CObj{A, S}(f)` (`entry.jl:1147`).
 

@@ -324,6 +324,7 @@ r = PartialFn(lorenz!, p)                     # the front end: the user's functi
 ODEProblem(r, u0, tspan, p, r, compiled_for(core_no_jacobian), UserFunction(r))   # kept at CoreRHSSig{T}, CoreDualSig{8}
 ```
 - **The same `p`:** the record and the problem hold the same object, so a callback that writes into `integ.p` changes what the function reads.
+- **The user's attribute carried:** `rewrap(Base.Fix2(PartialFn, p), f)` makes the record with `f`'s attribute. `compiled_for(f)` gives a compiled record, `with_dynamic(f)` a dynamic one, a kept function a record of the user's function itself ([§6.4](../reference/traits.md#64-casts)).
 - **Callbacks keep their API.** They see `IntegratorView{U, T, P}`, with `integ.p` at the parameters' type. The core sees a view without `p` (`StepView{U, T}`) and callbacks over it. An adapter per solve, `ParamIntegrator{U, T, P}`, holds `p` and copies of the core's time, step and flags. It copies them in before each of the user's functions, and the flags back after: a declared field is a stored field ([§3.3](../reference/traits.md#33-fields)), so the adapter cannot forward the live fields. The state is the same array.
 - **A problem type of the user's own** keeps `ODEProblemTrait{T, P}`. The outer layer partially evaluates its `rhs!` and `jacobian!` on the problem, `Dynamic`.
 - **The cost:** a new parameter type compiles the user's function, `PartialFn` and the adapters, not the solver; the steady state is unchanged ([evidence §3](../design/evidence.md#3-first-calls-and-sessions), E-181).
