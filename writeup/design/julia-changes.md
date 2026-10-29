@@ -2,7 +2,7 @@
 
 The inventory of the [compiler reference](../reference/compiler.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2, with branch `split-table` on top) adds, as of 2026-10-28, with commits, files and upstream status. For core developers. Where this chapter and the reference disagree on what is intended, the reference wins; this chapter wins on what is built.
 
-Size (a4e9ad5da9): 63 commits on v1.13.2 (with build scripts and the dispatch profiler), 43 files, about 2,410 lines added. The largest file is `Compiler/src/facts.jl` (580 lines), which holds the facts mode's rules.
+Size (bfca89decc): 64 commits on v1.13.2 (with build scripts and the dispatch profiler), 43 files, about 2,460 lines added. The largest file is `Compiler/src/facts.jl` (580 lines), which holds the facts mode's rules.
 
 ## 1. The facts compiler: parts (A)–(D)
 
@@ -38,6 +38,7 @@ Size (a4e9ad5da9): 63 commits on v1.13.2 (with build scripts and the dispatch pr
 | `return_type` at run time asks `PlainRTInterp` in both settings (`return_type_interp`) | One answer: in the product setting a facts method's run-time answer was facts inference's, wider than the folded one in 414 of 6,554 of C's queries (E-190) | run-time `return_type` of facts methods in the product setting | 3e3da4e584 |
 | One function decides the mode and owner of a method's code, given what reaches it (`jl_code_owner`, `src/gf.c`; `Compiler.code_owner`): the runtime's default owner, its dispatch from facts code and `leaves_to` ask it | The rule was decided in five places (compiler C-1) | none: the same owners as before (suites, D and C sessions unchanged) | dc31cba240 |
 | Dispatch on a narrow MethodInstance copies the wider instance's code onto it for the facts owner too (`jl_compile_method_internal_owner`, `jl_get_method_inferred_owner`) | The facts owner ran the wider instance's code with the wider instance's static parameters: `vect(::Type{T}) where {T} = T` raised `UndefVarError` after a wider call (facts F-21, found by E-42); and normalized again at every call (compiler C-4) | code compiled by facts dispatched on a narrow instance | 1c2e98b58e |
+| A builtin's code is the plain owner's for every caller (`jl_code_owner`; a builtin recognised by its function type, a subtype of `Core.Builtin`). With compilation off (`--compile=min`) or no source, the copy of the unspecialized code and the interpreted CodeInstance are the asking owner's (`jl_compile_method_internal_owner`) | The facts owner found no CodeInstance of its own for a builtin and, with compilation off, copied the runtime's, whose flags never say that its invoke matches its pointer: `jl_read_codeinst_invoke` waited forever, and the facts image hung at startup under `--compile=min` (`Pkg.test`'s artifact selector runs so; facts F-23). The copy was the plain owner's, so the facts owner missed it and made it again at every call (compiler C-5). Acceptance G1.35 | code compiled by facts with compilation off, and every call to a builtin from it | bfca89decc |
 
 ## 3. The supporting pieces
 

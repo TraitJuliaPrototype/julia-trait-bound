@@ -282,6 +282,7 @@ Three cache owners:
 
 | `mi`'s method | Product setting | Test bed |
 |---|---|---|
+| a builtin (`Core.Builtin`, intrinsics among them) | its one CodeInstance, `nothing` | its one CodeInstance, `nothing` |
 | a facts method (§2.2) | facts, `:facts` | facts, `:facts` |
 | never by facts (flag 0 in a module of flag 2) | plain, `nothing` | plain, `nothing` |
 | a boundary (flag 1) | the mode and owner that reach it | the mode and owner that reach it |
@@ -289,7 +290,7 @@ Three cache owners:
 | any other method, reached from plain code | plain, `nothing` | plain, `nothing` (under the test bed only the compiler's code and what it calls are plain code) |
 | any other method, reached from facts code | facts, `:facts` | facts, `:facts` |
 
-So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code.
+So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code. A builtin has no code to compile: the runtime's one CodeInstance of it, of owner `nothing`, serves every caller. A builtin is recognised by its function's type, a subtype of `Core.Builtin`.
 
 **One function** decides it, given what reaches the code: the runtime or the top level, plain code, or code of the facts owner.
 
@@ -352,6 +353,7 @@ Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
   - `invokelatest` and `invoke_in_world`;
   - `modifyfield!` and its kin through `:invoke_modify`.
 - Dispatch on a narrow MethodInstance runs the code of the wider instance Julia compiles for it, copied onto the narrow instance as for the plain owner: it runs with the narrow instance's static parameters, and the next call finds it there (`jl_compile_method_internal_owner`).
+- Where compilation is off (`--compile=min`) or the method has no source, the code that runs is the method's unspecialized code, or the interpreter. The CodeInstance made for it is the asking owner's, so the next call finds it. The unspecialized code read is the asking owner's, else the plain owner's; the plain owner never runs code compiled by facts.
 
 **Dispatch through the runtime's `jl_apply`** runs the callee's default owner's code (`jl_default_owner`, §2.4):
 - splats of unknown length;
@@ -819,8 +821,8 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 | C-2 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), the setting. | — | — |
 | C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: an allocation and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4670`–`4673`; `src/runtime_ccall.cpp:424` |
 | C-4 | — | *Retired*: see [§2.5](#25-dispatch-from-facts-code)]. | — | — |
-| C-5 | [§2.5](#25-dispatch-from-facts-code) | Code of owner `:facts` is found under that owner. | Where compilation is off (`--compile=min`) or the method has no source, the facts owner's fallback makes an owner-`nothing` copy of the unspecialized code. The `:facts` lookup misses it on every call and makes it again. | `src/gf.c:3782` ff. |
-| C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3837`–`3841` |
+| C-5 | — | *Retired*: see [§2.5](#25-dispatch-from-facts-code). | — | — |
+| C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3928`–`3933` |
 | C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
 | C-8 | [§4.2](#42-compilersplit_call-the-call-site-split) | `split_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl` (`split_call`); `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
 | C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl` (`rests_on_facts`) |

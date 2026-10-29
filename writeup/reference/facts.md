@@ -129,7 +129,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - Code that branches on what inference knows (`known_type`, `fold_call`, [`compiler.md`](compiler.md)) computes the same result on both branches.
 - Threads are untested, except the split's tables and the untyped callers' table under 4 threads (`experiments/examples/threads/`).
 
-**Tests.** The acceptance checks G1.1–G1.34 and G2.1 (there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, and calls in older worlds.
+**Tests.** The acceptance checks G1.1–G1.35 and G2.1 (there is no G1.16) define G1 operationally: `experiments/facts/acceptance_compiler.jl`, run plain and under `all`. They cover redefinitions by owners, winning pirates, calls into code written without traits, `return_type` after redefinitions, folds over run-time sites, `Dynamic` values of later implementations, calls in older worlds, and the image started with compilation off (`--compile=min`).
 
 <a id="g2"></a>
 ### 2.2 G2: stable caches
@@ -621,4 +621,4 @@ Paths are in the workspace: `julia-1.13/` is the patched Julia, `TraitWorld/` th
 | F-20 | — | *Retired*: see [§7.1](#return-type)]. | — | — |
 | F-21 | — | *Retired*: see [§2.1](#g1)]. | — | — |
 | F-22 | — | *Retired*: see [§2.1](#g1). | — | — |
-| F-23 | [§2.1](#g1) | A program runs under the facts system image as under the stock one, in every command-line mode. | Started with `--compile=min`, the facts system image hangs in `Base.__init__` (`reinit_stdio` → `start_profile_listener`): `jl_read_codeinst_invoke` spins on a CodeInstance it takes to be compiled by another thread; the stock image starts in 0.1 s. `Pkg.test`'s resolve meets it when it runs a package's artifact selector (`--compile=min -t1`). | `julia-1.13/src/gf.c:3800` (`jl_read_codeinst_invoke`); `experiments/checks/logs/w88/traitworld-all*.log`; W-89 |
+| F-23 | — | *Retired*: see [§2.1](#g1). | — | — |
