@@ -43,3 +43,15 @@ By [the exploration's principles](../explorations/sciml-as-traits.md#3-the-princ
 
 - About 1–2 days: the problem trait, the record and the front end (½ day); Newton–Raphson with a line search and a trust region (½ day); the polyalgorithm (¼ day); tests and NetworkDynamics' step c (½ day).
 - **W-83:** `NonlinearProblemTrait` beside SciML's `AbstractNonlinearProblem` and `SteadyStateProblem` (the census §5); `NonlinearAlgorithm` beside `AbstractNonlinearAlgorithm`.
+
+## 7. Amendments from building (E-242, 2026-10-29, mine)
+
+Built in TDE `w34` e4eeed9 and 388cb33 (`lib/TraitNonlinearSolve`, `test/nonlinear.jl`); NetworkDynamics' `find_fixpoint` on it (branch `ports` e0f5664). Where building changed §3:
+- **The trait's default Jacobian is by finite differences,** not by the library's duals: a trait default sees the residual only at `Vector{T}`. TDE's record differentiates by the duals, as `ODEProblemTrait`'s default and TDE's `ODEProblem` do.
+- **`SteadyStateProblem` is a constructor of `NonlinearProblem`,** not a record of its own: the residual is the right-hand side at the time, partially evaluated. From any `ODEProblemTrait` it takes `rhs!` and `jacobian!` at the time.
+- **The front end** is TraitNonlinearSolve's own `solve`, not exported. The umbrella's `solve` forwards a `NonlinearAlgorithm`, and `solve(prob)` a `NonlinearProblemTrait`, chosen by trait dispatch (`is_nonlinear_algorithm`, `is_nonlinear_problem`: bounded methods with an untyped fallback). Not by `conforms`: a caller that infers `solve` then infers TraitWorld's membership lookup (E-242: 0.43 s in E-168's session). NetworkDynamics calls `TraitNonlinearSolve.solve`. One `solve` shared by packages that do not know each other is CommonSolve's role, which lowering L-3 blocks (W-36): a case for the main session.
+- **Newton–Raphson's line search** is a flag (the step halved under Armijo's condition on `‖r‖²`), not an open set of line searches.
+- **Return codes:** `:Success`, `:MaxIters`, `:Stalled` (no progress possible, the residual above `abstol`), `:ConvergenceFailure` (a singular Jacobian). Defaults `abstol = reltol = eps()^(4/5)`, NonlinearSolve's.
+- **The default polyalgorithm** is Newton, Newton with the line search, then the trust region. NetworkDynamics' `default_fixpoint_alg` returns it with or without a sparsity pattern: the solvers take dense Jacobians (§5, question 2, unchanged).
+- The polyalgorithm's constructor takes its members as a plain vararg: `@nospecialize` on a vararg is refused (lowering L-46).
+- Not built: least-squares problems (§5, question 3), sparse Jacobians (§5, question 2).
