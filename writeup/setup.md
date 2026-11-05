@@ -4,7 +4,10 @@ This page takes you from an empty machine to a working copy of every repository,
 
 **Checked on 2026-11-05:**
 - The clone steps from GitHub into an empty directory, the restore of `ndport/pkgs/`, and loading TraitWorld on an existing build.
-- A cold build from a fresh clone, on a shared RHEL 9 host (see [On a shared host](#on-a-shared-host)): `BUILD EXIT 0` in about 15 minutes, TraitWorld loads and its tests pass. `ndport` was not cloned there (it needs access to the private repository).
+- On a shared RHEL 9 host (see [On a shared host](#on-a-shared-host)), every step on this page from an empty directory:
+  - a cold build: `BUILD EXIT 0` in about 15 minutes;
+  - TraitWorld loads and its tests pass;
+  - the restore of `ndport/pkgs/`, and every `ndport` environment finds its path packages. None was loaded.
 
 ## What you need
 
@@ -30,20 +33,24 @@ Any location works (see [Paths](#paths)).
 
 ```sh
 mkdir -p ~/Repos && cd ~/Repos
-git clone https://github.com/TraitJuliaPrototype/julia-trait-bound
+git clone git@github.com:TraitJuliaPrototype/julia-trait-bound
 cd julia-trait-bound
 
 for r in TraitWorld TraitDifferentialEquations TraitMakie TraitTables TraitCSV TraitReport forks experiments ndport; do
-    git clone https://github.com/TraitJuliaPrototype/$r
+    git clone git@github.com:TraitJuliaPrototype/$r
 done
 git -C TraitDifferentialEquations switch w34
 ndport/pkgs-bundles/restore.sh
+git -C TraitWorld worktree add ../TraitWorld-port w49
+git -C TraitDifferentialEquations worktree add ../TraitDifferentialEquations-w96 w96
 
-git clone --filter=blob:none -b trait-world-1.13 https://github.com/TraitJuliaPrototype/julia julia-1.13
+git clone --filter=blob:none -b trait-world-1.13 git@github.com:TraitJuliaPrototype/julia julia-1.13
 ```
 
+- **SSH:** the commands clone over SSH, so that pushes work. To read only, replace `git@github.com:` with `https://github.com/`.
 - **`TraitDifferentialEquations`:** its current work is on branch `w34`.
 - **`ndport/pkgs-bundles/restore.sh`:** recreates `ndport/pkgs/`, the clones of the packages NetworkDynamics uses. Each comes from its upstream repository, with the port's branches, stage tags and worktrees added.
+- **The worktrees `TraitWorld-port` and `TraitDifferentialEquations-w96`:** some `ndport` environments load from them (`env_*_pin` and `env_w96`; [`ndport/README.md`](https://github.com/TraitJuliaPrototype/ndport/blob/main/README.md)).
 - **`--filter=blob:none`:** fetches file contents on demand, so the Julia clone stays small. Reading old files then needs the network.
 
 ## Build the patched Julia

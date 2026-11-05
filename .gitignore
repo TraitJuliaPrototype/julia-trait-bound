@@ -6,7 +6,9 @@ trace_*.txt
 /julia-1.13/
 /julia-upstream/
 /TraitWorld/
+/TraitWorld-port/
 /TraitDifferentialEquations/
+/TraitDifferentialEquations-w96/
 /TraitMakie/
 /TraitReport/
 /experiments/
