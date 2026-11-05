@@ -1,0 +1,12 @@
+name = "Traits"
+uuid = "e79619bb-2a11-4f6c-876f-3445af7b44a1"
+version = "0.1.0"
+
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

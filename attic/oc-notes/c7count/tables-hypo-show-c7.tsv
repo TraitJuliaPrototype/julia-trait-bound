@@ -1,0 +1,12 @@
+set	N	A	B	C	K	M	L
+MutableIndexable	402	370	13	11	32	0	88
+Keyed	449	417	13	3	32	0	89
+Solvable	449	417	13	0	32	0	88
+HasLength	449	417	13	21	32	0	91
+Iterable	449	417	13	21	32	0	91
+BoundedText	449	417	13	61	32	0	97
+Indexable	449	417	13	18	32	0	90
+TraitWorld._PC.PCT	449	417	13	0	32	0	88
+Column	449	417	13	11	32	0	88
+CSVColumn	449	417	13	4	32	0	88
+Resizable	449	417	13	11	32	0	88

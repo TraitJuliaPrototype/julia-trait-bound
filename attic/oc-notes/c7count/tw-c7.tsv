@@ -1,0 +1,9 @@
+function	position	sets	foreign	N	A	B	C	K	M	L
+TraitWorld.BaseTraits.asvector	1	Indexable	false	1	1	0	0	0	0	2
+TraitWorld._PC.pcboth	1	TraitWorld._PC.PCT	false	3	3	1	0	0	0	2
+TraitWorld._PC.pcboth	2	TraitWorld._PC.PCT	false	3	3	1	0	0	0	2
+TraitWorld._PC.pcmap	1	Callable	false	3	2	1	0	1	0	2
+TraitWorld._PC.pcmap	2	TraitWorld._PC.PCT	false	3	3	1	0	0	0	2
+TraitWorld._PC.pcsum	1	TraitWorld._PC.PCT	false	6	6	1	0	0	0	2
+TraitWorld._PCF.pfsum	1	TraitWorld._PCF.PFT	false	4	4	1	0	0	0	2
+TraitWorld.BaseTraits.retain!	2	MutableIndexable,Resizable	false	1	1	0	0	0	0	2

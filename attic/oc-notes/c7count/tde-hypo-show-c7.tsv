@@ -1,0 +1,10 @@
+set	N	A	B	C	K	M	L
+Iterable	446	414	13	21	32	0	95
+Resizable	495	463	13	11	32	0	92
+Solvable	495	463	13	0	32	0	92
+Indexable	495	463	13	18	32	0	94
+MutableIndexable	495	463	13	11	32	0	92
+Keyed	495	463	13	3	32	0	93
+BoundedText	495	463	13	61	32	0	101
+TraitWorld._PC.PCT	495	463	13	0	32	0	92
+HasLength	495	463	13	21	32	0	95

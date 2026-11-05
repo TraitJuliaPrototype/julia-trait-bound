@@ -1,0 +1,219 @@
+== tables
+jl: slot 1 (cores 0-3), depot /home/hellmann/.julia/agent-depots/w83u9
+ERROR: LoadError: ArgumentError: Package TraitWorld not found in current path.
+- Run `import Pkg; Pkg.add("TraitWorld")` to install the TraitWorld package.
+Stacktrace:
+  [1] macro expansion
+    @ ./loading.jl:2531 [inlined]
+  [2] macro expansion
+    @ ./lock.jl:376 [inlined]
+  [3] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2514
+  [4] require
+    @ ./loading.jl:2490 [inlined]
+  [5] eval_import_path
+    @ ./module.jl:36 [inlined]
+  [6] eval_import_path_all(at::Module, path::Expr, keyword::String)
+    @ Base ./module.jl:60
+  [7] _eval_using(to::Module, path::Expr)
+    @ Base ./module.jl:137
+  [8] top-level scope
+    @ ~/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+  [9] include(mod::Module, _path::String)
+    @ Base ./Base.jl:310
+ [10] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:344
+ [11] _start()
+    @ Base ./client.jl:577
+in expression starting at /home/hellmann/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+== forks
+jl: slot 2 (cores 4-7), depot /home/hellmann/.julia/agent-depots/w83u9
+NOT A FUNCTION: readfile
+NOT A FUNCTION: filltext!
+NOT A FUNCTION: stagecells!
+NOT A FUNCTION: parsecells!
+NOT A FUNCTION: pcmap
+NOT A FUNCTION: pcsum
+NOT A FUNCTION: pcboth
+NOT A FUNCTION: pfsum
+NOT A FUNCTION: byrow
+NOT A FUNCTION: byrow
+NOT A FUNCTION: tocolumn
+NOT A FUNCTION: _semijoin_dup_int
+NOT A FUNCTION: _semijoin_dup
+NOT A FUNCTION: refine!
+NOT A FUNCTION: fromsource
+NOT A FUNCTION: cells
+NOT A FUNCTION: _integercodes
+NOT A FUNCTION: semirows
+NOT A FUNCTION: colstats
+NOT A FUNCTION: _innerjoin_dup_int
+NOT A FUNCTION: jointcodes!
+NOT A FUNCTION: refcodes
+NOT A FUNCTION: refcodes
+NOT A FUNCTION: firstcodes!
+NOT A FUNCTION: _semijoin_sorted
+NOT A FUNCTION: _issorted
+NOT A FUNCTION: _innerjoin_unsorted
+NOT A FUNCTION: _extrema_missing
+NOT A FUNCTION: _innerjoin_sorted
+NOT A FUNCTION: innerrows
+NOT A FUNCTION: _numbercells!
+NOT A FUNCTION: aggregate
+NOT A FUNCTION: _next_range
+NOT A FUNCTION: _innerjoin_dup
+NOT A FUNCTION: _semijoin_unsorted
+NOT A FUNCTION: _semijoin_unsorted_int
+NOT A FUNCTION: _innerjoin_unsorted_int
+Main.asvector                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.retain!                                         p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+== forks: 2 (function, position) pairs; N=2; A(flag)=2; B(morespec, ::Any methods only)=0; C(members)=0; K(never-member)=0; M(workers)=0; L(fast-path)=4
+(B excludes the typemap "no method" backedges — per (function, tuple), not enumerable from Julia; the flag placement's A includes them.)
+== tde
+jl: slot 1 (cores 0-3), depot /home/hellmann/.julia/agent-depots/w83u9
+ERROR: LoadError: ArgumentError: Package TraitWorld not found in current path.
+- Run `import Pkg; Pkg.add("TraitWorld")` to install the TraitWorld package.
+Stacktrace:
+  [1] macro expansion
+    @ ./loading.jl:2531 [inlined]
+  [2] macro expansion
+    @ ./lock.jl:376 [inlined]
+  [3] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2514
+  [4] require
+    @ ./loading.jl:2490 [inlined]
+  [5] eval_import_path
+    @ ./module.jl:36 [inlined]
+  [6] eval_import_path_all(at::Module, path::Expr, keyword::String)
+    @ Base ./module.jl:60
+  [7] _eval_using(to::Module, path::Expr)
+    @ Base ./module.jl:137
+  [8] top-level scope
+    @ ~/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+  [9] include(mod::Module, _path::String)
+    @ Base ./Base.jl:310
+ [10] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:344
+ [11] _start()
+    @ Base ./client.jl:577
+in expression starting at /home/hellmann/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+== makie
+jl: slot 3 (cores 8-11), depot /home/hellmann/.julia/agent-depots/w83u9
+ERROR: LoadError: ArgumentError: Package TraitWorld not found in current path.
+- Run `import Pkg; Pkg.add("TraitWorld")` to install the TraitWorld package.
+Stacktrace:
+  [1] macro expansion
+    @ ./loading.jl:2531 [inlined]
+  [2] macro expansion
+    @ ./lock.jl:376 [inlined]
+  [3] __require(into::Module, mod::Symbol)
+    @ Base ./loading.jl:2514
+  [4] require
+    @ ./loading.jl:2490 [inlined]
+  [5] eval_import_path
+    @ ./module.jl:36 [inlined]
+  [6] eval_import_path_all(at::Module, path::Expr, keyword::String)
+    @ Base ./module.jl:60
+  [7] _eval_using(to::Module, path::Expr)
+    @ Base ./module.jl:137
+  [8] top-level scope
+    @ ~/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+  [9] include(mod::Module, _path::String)
+    @ Base ./Base.jl:310
+ [10] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:344
+ [11] _start()
+    @ Base ./client.jl:577
+in expression starting at /home/hellmann/Repos/julia-trait-bound-oc/oc-notes/c7count/c7count.jl:25
+== ndport
+jl: slot 1 (cores 0-3), depot /home/hellmann/.julia/agent-depots/w83u9
+NOT A FUNCTION: drawvlines
+NOT A FUNCTION: add_poly!
+NOT A FUNCTION: barlimits
+NOT A FUNCTION: mappedcolor
+NOT A FUNCTION: add_scatter!
+NOT A FUNCTION: add_stairs!
+NOT A FUNCTION: drawmarkers
+NOT A FUNCTION: add_band!
+NOT A FUNCTION: add_lines!
+NOT A FUNCTION: colors
+NOT A FUNCTION: limits
+NOT A FUNCTION: add_plot!
+NOT A FUNCTION: drawlabels
+NOT A FUNCTION: add_axis!
+NOT A FUNCTION: add_bars!
+NOT A FUNCTION: vlimits
+NOT A FUNCTION: add_vlines!
+NOT A FUNCTION: pixels
+NOT A FUNCTION: steppoints
+NOT A FUNCTION: binned
+NOT A FUNCTION: add_labels!
+NOT A FUNCTION: bandoutline
+NOT A FUNCTION: add_hist!
+NOT A FUNCTION: drawbars
+NOT A FUNCTION: nl_with_problem
+NOT A FUNCTION: nl_core
+NOT A FUNCTION: is_nonlinear_algorithm
+NOT A FUNCTION: solve_nonlinear
+NOT A FUNCTION: _factor
+NOT A FUNCTION: newton_raphson
+NOT A FUNCTION: is_nonlinear_problem
+NOT A FUNCTION: _steady
+NOT A FUNCTION: _member_checked
+NOT A FUNCTION: trust_region
+NOT A FUNCTION: _nl_ad_jacobian!
+NOT A FUNCTION: run_edge_batch!
+NOT A FUNCTION: check_feedforward_leaves
+NOT A FUNCTION: _user_edgef!
+NOT A FUNCTION: graph_index
+NOT A FUNCTION: run_vertex_batch!
+NOT A FUNCTION: _static_facts
+NOT A FUNCTION: _user_edgeg!
+NOT A FUNCTION: _user_vertexg!
+NOT A FUNCTION: _user_vertexf!
+NOT A FUNCTION: pcmap
+NOT A FUNCTION: pcsum
+NOT A FUNCTION: pcboth
+NOT A FUNCTION: pfsum
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _ad_jacobian!
+NOT A FUNCTION: _sync_in!
+NOT A FUNCTION: _member_checked
+NOT A FUNCTION: _names_of
+NOT A FUNCTION: _jac_prototype_of
+NOT A FUNCTION: check_properties
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _mass_matrix_of
+NOT A FUNCTION: _problem_callbacks_of
+NOT A FUNCTION: initialize_step_callbacks!
+NOT A FUNCTION: _sync_out!
+NOT A FUNCTION: with_problem
+NOT A FUNCTION: locate_events!
+NOT A FUNCTION: _getter_other
+NOT A FUNCTION: _read
+NOT A FUNCTION: _read
+NOT A FUNCTION: _read
+NOT A FUNCTION: _system_of
+Main.asvector                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.core_problem                                    p=1 N=7 A=6 B=1 C=3 K=1 M=0 L=3
+Main.extract_nw                                      p=1 N=2 A=2 B=0 C=0 K=0 M=0 L=6
+Main.getparam                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getseries                                       p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getstate                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getsystem                                       p=1 N=5 A=4 B=1 C=0 K=1 M=0 L=2
+Main.getter                                          p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.init_ode                                        p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.kept_interpolant                                p=1 N=9 A=9 B=4 C=3 K=0 M=0 L=2
+Main.newton_stage!                                   p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.plotpoints                                      p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.recolor!                                        p=3 N=1 A=1 B=1 C=0 K=0 M=0 L=1
+Main.retain!                                         p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.save_parameters!                                p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.solve_ode                                       p=2 N=10 A=9 B=6 C=5 K=1 M=0 L=2
+== ndport: 16 (function, position) pairs; N=44; A(flag)=41; B(morespec, ::Any methods only)=13; C(members)=11; K(never-member)=3; M(workers)=0; L(fast-path)=36
+(B excludes the typemap "no method" backedges — per (function, tuple), not enumerable from Julia; the flag placement's A includes them.)
+ALL-DONE

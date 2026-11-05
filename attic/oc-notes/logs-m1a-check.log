@@ -1,0 +1,84 @@
+make: Entering directory '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc'
+Whitespace check found no issues.
+fatal: bad revision '^origin/master'
+fatal: Not a valid object name origin/master
+find: '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc/JuliaSyntax/src': No such file or directory
+find: '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc/usr/share/julia/JuliaLowering/src': No such file or directory
+    [32;1mJULIA[0m [37;1mtest/subtype[0m
+Running parallel tests with:
+  getpid() = 1265587
+  nworkers() = 1
+  nthreads(:interactive) = 1
+  nthreads(:default) = 1
+  Sys.CPU_THREADS = 16
+  Sys.total_memory() = 30.568 GiB
+  Sys.free_memory() = 16.785 GiB
+  Sys.uptime() = 313274.17 (87.0 hours)
+
+Test  (Worker) | Time (s) | GC (s) | GC % | Alloc (MB) | RSS (MB)
+subtype    (1) |        started at 2026-10-30T13:20:32.316
+subtype    (1) |     9.27 |   0.31 |  3.3 |     994.92 |   762.22
+
+Test Summary: |   Pass  Broken   Total   Time
+  Overall     | 317568      43  317611  11.2s
+    SUCCESS
+    [32;1mJULIA[0m [37;1mtest/core[0m
+ERROR: LoadError: Test run finished with errors
+in expression starting at /home/hellmann/Repos/julia-trait-bound-oc/julia-oc/test/runtests.jl:103
+Running parallel tests with:
+  getpid() = 1265790
+  nworkers() = 1
+  nthreads(:interactive) = 1
+  nthreads(:default) = 1
+  Sys.CPU_THREADS = 16
+  Sys.total_memory() = 30.568 GiB
+  Sys.free_memory() = 16.980 GiB
+  Sys.uptime() = 313289.59 (87.0 hours)
+
+Test  (Worker) | Time (s) | GC (s) | GC % | Alloc (MB) | RSS (MB)
+core       (1) |        started at 2026-10-30T13:20:47.901
+core       (1) |         failed at 2026-10-30T13:21:48.898
+Test Failed at /home/hellmann/Repos/julia-trait-bound-oc/julia-oc/test/core.jl:54
+  Expression: Set((fieldname(T, i) for i = 1:fieldcount(T) if Base.isfieldatomic(T, i))) == Set(c)
+   Evaluated: Set([:memberships, :linearcache, :max_args, :cache, :Typeofwrapper, :cache_entry_count]) == Set([:linearcache, :max_args, :cache, :Typeofwrapper, :cache_entry_count])
+
+
+Test Summary: |    Pass  Fail  Broken    Total     Time
+  Overall     | 7354040     1       7  7354048  1m02.8s
+    core      | 7354040     1       7  7354048  1m02.2s
+    FAILURE
+
+The global RNG seed was 0x8ed94b2a3adce4e7be5ea3307f985f89.
+
+Error in testset core:
+Test Failed at /home/hellmann/Repos/julia-trait-bound-oc/julia-oc/test/core.jl:54
+  Expression: Set((fieldname(T, i) for i = 1:fieldcount(T) if Base.isfieldatomic(T, i))) == Set(c)
+   Evaluated: Set([:memberships, :linearcache, :max_args, :cache, :Typeofwrapper, :cache_entry_count]) == Set([:linearcache, :max_args, :cache, :Typeofwrapper, :cache_entry_count])
+make[1]: *** [Makefile:34: core] Error 1
+make: *** [Makefile:772: test-core] Error 2
+make: Leaving directory '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc'
+Command exited with non-zero status 2
+	Command being timed: "make -C julia-oc test-subtype test-core test-ambiguous"
+	User time (seconds): 111.04
+	System time (seconds): 4.25
+	Percent of CPU this job got: 104%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:50.04
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2331164
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 12
+	Minor (reclaiming a frame) page faults: 2032229
+	Voluntary context switches: 12135
+	Involuntary context switches: 2595
+	Swaps: 0
+	File system inputs: 125680
+	File system outputs: 27176
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2
+TESTS EXIT 2

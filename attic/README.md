@@ -23,4 +23,8 @@ before this date map to `attic/<same path>`.
 | `writeup/proposal-stored-values.md`, `writeup/proposal-definition-checking.md` | the session-22 proposals for dynamic values (D1 amended, D2 adopted, D3 rejected, D4 postponed) and for definition checking and named implementations; their decisions are in `writeup/decisions.md` and the notes. They predate keys |
 | `session-notes/design-observations.md` | the running log of design observations from the TraitRegions period |
 
+| `oc-notes/`, `oc-traits/` | an unfinished attempt (2026-10-30/31, by a QWEN38 class model) at building the unified design from upstream Julia: its plan, notes, numbers, gates and acceptance tests. Status in `oc-notes/README.md`. Its Julia commits are on branch `oc-build` of the `julia` repository |
+
+**Added 2026-11-05:** the last row. The user: "oc-build was an attempt to implement the plan using a QWEN38 class model. Might be useful but didn't get close to finishing."
+
 **Added 2026-10-16 (session 22):** the documents in the last three rows, moved here when `writeup/` was cleaned up to hold only what is current (see `writeup/README.md`).

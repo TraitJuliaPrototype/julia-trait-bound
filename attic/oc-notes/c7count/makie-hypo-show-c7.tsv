@@ -1,0 +1,16 @@
+set	N	A	B	C	K	M	L
+MutableIndexable	489	448	15	11	41	0	123
+Keyed	542	501	15	3	41	0	124
+TraitMakie.PlotCore.Plot	542	501	15	0	41	0	123
+Iterable	542	501	15	23	41	0	126
+BoundedText	542	501	15	66	41	0	132
+Positions	542	501	15	1	41	0	123
+TraitWorld._PC.PCT	542	501	15	0	41	0	123
+Resizable	542	501	15	11	41	0	123
+Solvable	542	501	15	0	41	0	123
+ColorSpec	542	501	15	0	41	0	123
+HasLength	542	501	15	23	41	0	126
+Indexable	542	501	15	20	41	0	125
+Sample	542	501	15	5	41	0	123
+Scale	542	501	15	1	41	0	123
+Colormap	542	501	15	0	41	0	123

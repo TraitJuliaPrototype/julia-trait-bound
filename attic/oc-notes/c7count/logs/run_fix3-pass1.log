@@ -1,0 +1,111 @@
+== tables
+jl: slot 1 (cores 0-3), depot /home/hellmann/.julia/agent-depots/w83u9
+NOT A FUNCTION: pcmap
+NOT A FUNCTION: pcsum
+NOT A FUNCTION: pcboth
+NOT A FUNCTION: pfsum
+NOT A FUNCTION: fillcolumn
+NOT A FUNCTION: addtype!
+NOT A FUNCTION: summarize
+NOT A FUNCTION: take
+NOT A FUNCTION: othersummary
+NOT A FUNCTION: numsummary
+NOT A FUNCTION: sortperm_col
+NOT A FUNCTION: cellstring
+Main.addcolumn!                                      p=3 N=12 A=11 B=3 C=2 K=1 M=0 L=2
+Main.asvector                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.floats                                          p=1 N=8 A=8 B=2 C=0 K=0 M=0 L=4
+Main.retain!                                         p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+== tables: 4 (function, position) pairs; N=22; A(flag)=21; B(morespec, ::Any methods only)=5; C(members)=2; K(never-member)=1; M(workers)=0; L(fast-path)=10
+(B excludes the typemap "no method" backedges — per (function, tuple), not enumerable from Julia; the flag placement's A includes them.)
+== tde
+jl: slot 3 (cores 8-11), depot /home/hellmann/.julia/agent-depots/w83u9
+NOT A FUNCTION: _getter_other
+NOT A FUNCTION: _read
+NOT A FUNCTION: _read
+NOT A FUNCTION: _read
+NOT A FUNCTION: _system_of
+NOT A FUNCTION: pcmap
+NOT A FUNCTION: pcsum
+NOT A FUNCTION: pcboth
+NOT A FUNCTION: pfsum
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _enter_step_callback!
+NOT A FUNCTION: _ad_jacobian!
+NOT A FUNCTION: _sync_in!
+NOT A FUNCTION: _member_checked
+NOT A FUNCTION: _names_of
+NOT A FUNCTION: _jac_prototype_of
+NOT A FUNCTION: check_properties
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _enter_callback!
+NOT A FUNCTION: _mass_matrix_of
+NOT A FUNCTION: _problem_callbacks_of
+NOT A FUNCTION: initialize_step_callbacks!
+NOT A FUNCTION: _sync_out!
+NOT A FUNCTION: with_problem
+NOT A FUNCTION: locate_events!
+NOT A FUNCTION: nl_with_problem
+NOT A FUNCTION: nl_core
+NOT A FUNCTION: is_nonlinear_algorithm
+NOT A FUNCTION: solve_nonlinear
+NOT A FUNCTION: _factor
+NOT A FUNCTION: newton_raphson
+NOT A FUNCTION: is_nonlinear_problem
+NOT A FUNCTION: _steady
+NOT A FUNCTION: _member_checked
+NOT A FUNCTION: trust_region
+NOT A FUNCTION: _nl_ad_jacobian!
+Main.asvector                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.core_problem                                    p=1 N=7 A=6 B=1 C=3 K=1 M=0 L=3
+Main.getparam                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getseries                                       p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getstate                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.getsystem                                       p=1 N=5 A=4 B=1 C=0 K=1 M=0 L=2
+Main.getter                                          p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.init_ode                                        p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.kept_interpolant                                p=1 N=9 A=9 B=4 C=3 K=0 M=0 L=2
+Main.newton_stage!                                   p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.plotpoints                                      p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.retain!                                         p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.solve_ode                                       p=2 N=10 A=9 B=6 C=5 K=1 M=0 L=2
+== tde: 13 (function, position) pairs; N=40; A(flag)=37; B(morespec, ::Any methods only)=12; C(members)=11; K(never-member)=3; M(workers)=0; L(fast-path)=27
+(B excludes the typemap "no method" backedges — per (function, tuple), not enumerable from Julia; the flag placement's A includes them.)
+== makie
+jl: slot 1 (cores 0-3), depot /home/hellmann/.julia/agent-depots/w83u9
+NOT A FUNCTION: pcmap
+NOT A FUNCTION: pcsum
+NOT A FUNCTION: pcboth
+NOT A FUNCTION: pfsum
+NOT A FUNCTION: drawvlines
+NOT A FUNCTION: add_poly!
+NOT A FUNCTION: barlimits
+NOT A FUNCTION: mappedcolor
+NOT A FUNCTION: add_scatter!
+NOT A FUNCTION: add_stairs!
+NOT A FUNCTION: drawmarkers
+NOT A FUNCTION: add_band!
+NOT A FUNCTION: add_lines!
+NOT A FUNCTION: colors
+NOT A FUNCTION: limits
+NOT A FUNCTION: add_plot!
+NOT A FUNCTION: drawlabels
+NOT A FUNCTION: add_axis!
+NOT A FUNCTION: add_bars!
+NOT A FUNCTION: vlimits
+NOT A FUNCTION: add_vlines!
+NOT A FUNCTION: pixels
+NOT A FUNCTION: steppoints
+NOT A FUNCTION: binned
+NOT A FUNCTION: add_labels!
+NOT A FUNCTION: bandoutline
+NOT A FUNCTION: add_hist!
+NOT A FUNCTION: drawbars
+Main.asvector                                        p=1 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+Main.recolor!                                        p=3 N=1 A=1 B=1 C=0 K=0 M=0 L=1
+Main.retain!                                         p=2 N=1 A=1 B=0 C=0 K=0 M=0 L=2
+== makie: 3 (function, position) pairs; N=3; A(flag)=3; B(morespec, ::Any methods only)=1; C(members)=0; K(never-member)=0; M(workers)=0; L(fast-path)=5
+(B excludes the typemap "no method" backedges — per (function, tuple), not enumerable from Julia; the flag placement's A includes them.)
+FIX3-DONE

@@ -1,0 +1,16 @@
+set	N	A	B	C	K	M	L
+HasLength	602	560	18	51	42	0	117
+Tables.ColumnCore.PooledColumn	674	632	18	0	42	0	113
+Tables.ColumnCore.Column	674	632	18	34	42	0	116
+Indexable	674	632	18	34	42	0	116
+CSV.ColumnParsers.CSVSource	674	632	18	18	42	0	121
+MutableIndexable	674	632	18	27	42	0	113
+CSV.ColumnParsers.CSVColumn	674	632	18	27	42	0	113
+CSV.ColumnParsers.TextColumn	674	632	18	0	42	0	113
+Solvable	674	632	18	0	42	0	113
+Iterable	674	632	18	51	42	0	117
+Keyed	674	632	18	3	42	0	114
+Tables.ColumnCore.TableSource	674	632	18	2	42	0	114
+BoundedText	674	632	18	76	42	0	123
+TraitWorld._PC.PCT	674	632	18	1	42	0	113
+Resizable	674	632	18	27	42	0	113

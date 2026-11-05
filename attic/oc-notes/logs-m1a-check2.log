@@ -1,0 +1,85 @@
+make: Entering directory '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc'
+Whitespace check found no issues.
+fatal: bad revision '^origin/master'
+fatal: Not a valid object name origin/master
+find: '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc/JuliaSyntax/src': No such file or directory
+find: '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc/usr/share/julia/JuliaLowering/src': No such file or directory
+    [32;1mJULIA[0m [37;1mtest/subtype[0m
+Running parallel tests with:
+  getpid() = 1269725
+  nworkers() = 1
+  nthreads(:interactive) = 1
+  nthreads(:default) = 1
+  Sys.CPU_THREADS = 16
+  Sys.total_memory() = 30.568 GiB
+  Sys.free_memory() = 17.041 GiB
+  Sys.uptime() = 313403.18 (87.1 hours)
+
+Test  (Worker) | Time (s) | GC (s) | GC % | Alloc (MB) | RSS (MB)
+subtype    (1) |        started at 2026-10-30T13:22:41.350
+subtype    (1) |     8.87 |   0.32 |  3.6 |     994.93 |   756.30
+
+Test Summary: |   Pass  Broken   Total   Time
+  Overall     | 317568      43  317611  10.8s
+    SUCCESS
+    [32;1mJULIA[0m [37;1mtest/core[0m
+Running parallel tests with:
+  getpid() = 1270082
+  nworkers() = 1
+  nthreads(:interactive) = 1
+  nthreads(:default) = 1
+  Sys.CPU_THREADS = 16
+  Sys.total_memory() = 30.568 GiB
+  Sys.free_memory() = 17.030 GiB
+  Sys.uptime() = 313418.07 (87.1 hours)
+
+Test  (Worker) | Time (s) | GC (s) | GC % | Alloc (MB) | RSS (MB)
+core       (1) |        started at 2026-10-30T13:22:56.271
+core       (1) |    59.80 |   5.64 |  9.4 |   12584.37 |  2276.42
+
+Test Summary: |    Pass  Broken    Total     Time
+  Overall     | 7354041       7  7354048  1m01.8s
+    SUCCESS
+    [32;1mJULIA[0m [37;1mtest/ambiguous[0m
+Running parallel tests with:
+  getpid() = 1270942
+  nworkers() = 1
+  nthreads(:interactive) = 1
+  nthreads(:default) = 1
+  Sys.CPU_THREADS = 16
+  Sys.total_memory() = 30.568 GiB
+  Sys.free_memory() = 16.963 GiB
+  Sys.uptime() = 313484.24 (87.1 hours)
+
+Test  (Worker) | Time (s) | GC (s) | GC % | Alloc (MB) | RSS (MB)
+ambiguous  (1) |        started at 2026-10-30T13:24:02.434
+ambiguous  (1) |     1.95 |   0.04 |  2.0 |     131.20 |   398.38
+
+Test Summary: | Pass  Broken  Total  Time
+  Overall     |  155       3    158  3.9s
+    SUCCESS
+make: Leaving directory '/home/hellmann/Repos/julia-trait-bound-oc/julia-oc'
+	Command being timed: "make -C julia-oc test-subtype test-core test-ambiguous"
+	User time (seconds): 117.15
+	System time (seconds): 4.58
+	Percent of CPU this job got: 105%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:55.72
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 2331052
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 4
+	Minor (reclaiming a frame) page faults: 2171360
+	Voluntary context switches: 11958
+	Involuntary context switches: 3158
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 27192
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+TESTS EXIT 0

@@ -38,7 +38,7 @@ Where any other document disagrees with them, they win ([conventions](writeup/re
 
 ## This workspace
 
-This directory is the design repository. Nine repositories sit inside it, each with its own history, ignored by this one:
+This directory is the design repository. Ten repositories sit inside it, each with its own history, ignored by this one:
 
 | Directory | Repository | What |
 |---|---|---|
@@ -51,15 +51,18 @@ This directory is the design repository. Nine repositories sit inside it, each w
 | `TraitReport/` | demonstrator | a data report in a fresh session, against pandas and against the same libraries without traits |
 | `forks/` | demonstrator | CSV, DataFrames and Tables ported to traits, against upstream, with the upstream test suites |
 | `experiments/` | experiments | the smaller prototypes and measurements: `facts/` (acceptance, the framing cases), `factscompiler/` (the compiler's measurements, the control), `examples/` (worked examples for each rule), and earlier phases ([`writeup/record/INDEX.md`](writeup/record/INDEX.md) lists them) |
+| `ndport/` | large-scale test | NetworkDynamics and the packages under it in the trait world: the workload, its environments and logs; `ndport/pkgs/`, the port's clones, is restored from `ndport/pkgs-bundles/` |
 
 All of them are in the GitHub organization [TraitJuliaPrototype](https://github.com/TraitJuliaPrototype), each under its directory's name (the design repository as `julia-trait-bound`, the patched Julia as a fork, `julia`, on branch `trait-world-1.13`). The packages' environments refer to their siblings by relative path, so clone them side by side:
 
 ```sh
 git clone https://github.com/TraitJuliaPrototype/julia-trait-bound
 cd julia-trait-bound
-for r in TraitWorld TraitDifferentialEquations TraitMakie TraitTables TraitCSV TraitReport forks experiments; do
+for r in TraitWorld TraitDifferentialEquations TraitMakie TraitTables TraitCSV TraitReport forks experiments ndport; do
     git clone https://github.com/TraitJuliaPrototype/$r
 done
+git -C TraitDifferentialEquations switch w34
+ndport/pkgs-bundles/restore.sh
 git clone -b trait-world-1.13 https://github.com/TraitJuliaPrototype/julia julia-1.13
 ```
 
