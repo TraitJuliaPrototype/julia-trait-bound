@@ -2,7 +2,9 @@
 
 This page takes you from an empty machine to a working copy of every repository, a built patched Julia, and the point in the record where work continues.
 
-**Checked on 2026-11-05:** the clone steps from GitHub into an empty directory, the restore of `ndport/pkgs/`, and loading TraitWorld on an existing build. A cold build from a fresh clone was not part of that check.
+**Checked on 2026-11-05:**
+- The clone steps from GitHub into an empty directory, the restore of `ndport/pkgs/`, and loading TraitWorld on an existing build.
+- A cold build from a fresh clone, on a shared RHEL 9 host (see [On a shared host](#on-a-shared-host)): `BUILD EXIT 0` in about 15 minutes, TraitWorld loads and its tests pass. `ndport` was not cloned there (it needs access to the private repository).
 
 ## What you need
 
@@ -14,6 +16,8 @@ This page takes you from an empty machine to a working copy of every repository,
   sudo apt install build-essential gfortran python3 perl curl m4 gawk patch cmake pkg-config
   ```
 
+- **The static C++ library:** the build links `libstdc++` statically. On RHEL it is in `libstdc++-static`, or in a gcc from environment modules.
+
 - **Optional:**
   - [juliaup](https://github.com/JuliaLang/juliaup) and stock Julia 1.13.2 (`juliaup add 1.13.2`), for comparisons with unpatched Julia.
   - [uv](https://github.com/astral-sh/uv), for the Python baselines ([`experiments/ttfx/README.md`](https://github.com/TraitJuliaPrototype/experiments/blob/main/ttfx/README.md) names the versions).
@@ -22,7 +26,7 @@ This page takes you from an empty machine to a working copy of every repository,
 
 The design repository holds the others, each with its own history. Packages refer to their siblings by relative path, so they must sit side by side.
 
-Use `~/Repos` if you can. Some environments name absolute paths under `/home/hellmann/Repos/julia-trait-bound` (see [Paths](#paths)).
+Any location works (see [Paths](#paths)).
 
 ```sh
 mkdir -p ~/Repos && cd ~/Repos
@@ -90,24 +94,35 @@ An unfinished earlier attempt is available as material to draw on, unverified: i
 
 ## Paths
 
-These assume the original location, `/home/hellmann/Repos/julia-trait-bound`:
-
-- **Absolute paths in environments:** `TraitReport/env`, `TraitReport/env_loads`, `experiments/phase2-round/env_cache_*` and `experiments/w83/u6/arr/*/env`. Elsewhere, edit their `Project.toml` files.
-- **`TraitMakie/scripts/session.sh`:** sets `ROOT` to that path.
+- **Environments:** they name their sibling packages by paths relative to the environment.
+- **Scripts:** the session and check scripts of TraitReport, TraitMakie and forks, `experiments/checks/run_all.sh` and `experiments/factscompiler/scripts/build_facts_sysimage.sh` find the workspace from their own location. `TW_ROOT` overrides it.
+- **Older experiment scripts and logs** still name the original location, `/home/hellmann/Repos/julia-trait-bound`. They record past runs.
 
 Some environments have no committed manifest. They resolve when instantiated, so their package versions can differ from the recorded runs.
 
 ## Running Julia jobs
 
-- **Slots:** `experiments/tools/jl [--name NAME] command…` runs a job pinned to a slot, with its own depot and a memory guard. It writes to `/tmp/claude-1000` and assumes 16 cores, so check `JL_SLOTS` and its core count on another machine.
+- **Slots:** `experiments/tools/jl [--name NAME] command…` runs a job pinned to a slot, with its own depot and a memory guard. By default it takes 16 cores in 4 slots, keeps its locks in `/tmp/claude-1000` and its depots in `~/.julia/agent-depots`. `JL_CORES`, `JL_SLOTS`, `JL_NOPIN`, `JL_LOCKDIR` and `JL_DEPOTS` change that on another machine.
 - **Exclusive jobs:** use `jl --exclusive command…` for measurements and Julia builds.
 - **Measurements:** recorded numbers belong to the machine they were measured on. On a new machine, rerun the baselines before comparing with [the evidence](design/evidence.md).
+
+## On a shared host
+
+On a machine shared with other people, without root:
+
+- **`source env.sh`** in the design repository before working. It:
+  - loads `gcc/13.2.0` from environment modules, for the static C++ library;
+  - keeps the Julia depot in `.julia-depot/` inside the workspace;
+  - limits Julia, make and `jl` to 4 cores, with no core pinning;
+  - sets `$J` (the patched Julia) and `$JSTOCK` (stock 1.13.2 through juliaup).
+- **Builds:** `tw-build.sh` as above. `tools-local/loadguard.sh <pgid>` pauses a build's process group while the machine's load is above 110 and resumes it below 90 (`HI`, `LO`).
+- **Module names** are those of the host it was written for. Adjust them elsewhere.
 
 ## Working with Claude Code
 
 - **Rules:** [`CLAUDE.md`](../CLAUDE.md) in the design repository loads by itself.
-- **Project memory:** it is not in any repository. Copy `~/.claude/projects/<project key>/memory/` by hand. The key comes from the project's path, which is one more reason to keep the same path.
-- **Sandbox:** Julia needs to write to its depot, so add `~/.julia` to `sandbox.filesystem.allowWrite` in your settings. On Ubuntu, if the sandbox fails with a `setgroups` error, the `bwrap-userns-restrict` AppArmor profile is the cause.
+- **Project memory:** not relied on. Notes and guidance live in the repositories ([`CLAUDE.md`](../CLAUDE.md), "No reliance on project memory").
+- **Sandbox:** Julia needs to write to its depot, so add `~/.julia` (or the depot `env.sh` sets) to `sandbox.filesystem.allowWrite` in your settings. On Ubuntu, if the sandbox fails with a `setgroups` error, the `bwrap-userns-restrict` AppArmor profile is the cause.
 
 ## Where to continue
 

@@ -32,6 +32,7 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 | A review | `writeup/reviews/<date>-<topic>.md` | Not edited after it is written, except by a dated addendum. Record what was done with each finding where it was done (a deviation row, an open issue, a commit). List it in the record index. |
 | A plan or proposal | `writeup/plans/<date>-<topic>.md` | A status line at the top: proposal, adopted, done, superseded. Not normative. |
 | The chronology, and the user's words in full | `session-notes/` | Never the only home of a fact. |
+| Guidance for agents: how to work, the user's standing preferences | this file, or the document in this table that owns the subject | Never only in Claude Code's project memory (see below). |
 | Terms | `writeup/glossary.md` | The reference defines a term where it first matters; the glossary links there. |
 | History | `attic/`, `writeup/record/design-history.md` | Kept out of the references, `design.md` and `intro/`. |
 
@@ -55,7 +56,16 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 - Never promise inlining. Names from the API user's perspective. No hidden type parameters.
 - Do not write the user's account e-mail address anywhere. Commits use the configured identity.
 
+## No reliance on project memory
+
+Everything worth remembering is kept in the project's notes and guidance: this file, the record, the session notes and the documents in the table above. Claude Code's project memory (`~/.claude/projects/<key>/memory/`) is not in any repository and is not relied on.
+- Write a fact, preference or piece of guidance to its home in the repositories, not to project memory.
+- When something from project memory appears in context, treat it as unverified. If it still holds, move it to its home in the repositories.
+
 ## Working on this machine
+
+**On a shared host, `source env.sh` first.** It loads the compiler from modules, keeps the Julia depot inside the workspace and limits Julia and `experiments/tools/jl` to 4 cores. See [`writeup/setup.md`](writeup/setup.md).
+
 
 **No excessive benchmarking unless the work is specific performance work.** Otherwise run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
 

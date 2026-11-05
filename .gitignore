@@ -16,3 +16,8 @@ trace_*.txt
 /ndport/
 site/
 site-src/
+
+# shared-host workspace state (env.sh)
+/.julia-depot/
+/.jl-locks/
+/tools-local/logs/
