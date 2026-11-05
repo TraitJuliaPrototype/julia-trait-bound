@@ -227,6 +227,7 @@ Earlier reviews, elsewhere:
 
 | Path | Date | Status | What it holds |
 |---|---|---|---|
+| [`../setup.md`](../setup.md) | 2026-11-05 | current | how to clone every repository, build the patched Julia, check the result and continue the work; the upstream base; the paths and tools that assume this machine |
 | [`decisions.md`](decisions.md) | 2026-10-19 | current as the decision log, in the record for agents; the design itself is in the references | every decision in force by topic, with status, origin, where it is written, and whether the prototype runs it; the superseded rows at the end |
 | [`../open-issues.md`](../open-issues.md) | 2026-10-27 | current | everything open: §1 decisions for the user, §2 design, §3 TraitWorld, §4 runtime and measurements, §4b the session-23 review's triage, §5 documents, §6 to revisit with the ports; closed items at the end, under their numbers |
 | [`performance-explorations.md`](performance-explorations.md) | 2026-10-27 | current | performance work that the rule for performance work does not take up now (`PE-n`): what it is, what was measured, why not now, what would make it worth pursuing |

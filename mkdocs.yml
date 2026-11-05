@@ -48,6 +48,7 @@ validation:
 
 nav:
   - Home: README.md
+  - Development setup: writeup/setup.md
   - For programmers:
       - Traits for Julia: writeup/intro/traits-for-julia.md
       - Traits by example: writeup/intro/traits-by-example.md

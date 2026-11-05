@@ -58,7 +58,7 @@ SEARCHED = {"writeup/reference/README.md", "writeup/reference/traits.md", "write
             "writeup/intro/porting.md", "writeup/state.md", "writeup/design.md",
             "writeup/design/julia-changes.md", "writeup/design/evidence.md", "writeup/design/performance.md",
             "writeup/design/other-languages.md", "writeup/design/alternatives.md",
-            "writeup/open-issues.md", "writeup/glossary.md"}
+            "writeup/open-issues.md", "writeup/glossary.md", "writeup/setup.md"}
 NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"
 
 # The documents are written for GitHub (CommonMark), and Python-Markdown reads lists differently: it nests by
