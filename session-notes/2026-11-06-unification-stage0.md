@@ -249,3 +249,28 @@ The user (2026-11-06):
   - the glossary, `design.md` and `intro/` carry a status line until W-115–W-117 rewrite them; W-118 triages the open issues on the prototype's mechanisms.
 - W-71 dropped: the adoption settles it. W-19 waits, with W-100 as the first candidate. Open issue 2 stays deferred.
 - W-98 resumes.
+
+## W-98 built
+
+After the adoption, stage 1 on `julia-unified` (no subagents; builds by `tools-local/build.sh`, load 6–11 of 128).
+- **The rework, `unified` fd800b27b9:**
+  - the in-walk rule kept;
+  - Core's wrappers and `Keyed` deleted, with their arms in subtyping, intersection and specificity;
+  - type values by `Type{S}` entries on `S`'s TypeName;
+  - the declaration: a cycle check over every path, one instance per concrete member, a redeclaration ending the old entry, no task-world sync;
+  - sets open from their declaration, with the epoch gone;
+  - a contract slot, the entry's receiver;
+  - the typemap's and gf's composed-match arms replaced by the world range of the memberships a query reads.
+- **The first build** restored the old system images into the new runtime and crashed: the images were cleared and rebuilt. `base/boot.jl` still defined the wrappers' constructors.
+- **The gates:**
+  - the stub library follows the references (`@implement X S`, the set opened before publication, `Expr(:latestworld)`);
+  - gates that pinned the earlier rules were re-pinned: a type value a member through its type's entry (A1), membership not subtyping, a narrow entry not answering the bare set, opening a set late;
+  - the wrapper gates were replaced; the audit's probes became a gate;
+  - a bug in the new stub (a parameter named `T` shadowed by the type's local) was found by `m2_set_in_set`;
+  - 22 of 22 pass. Base's four test files are within 4 % of vanilla.
+- **E-270 (X4)** failed its 2× criterion on the first build (3.6–7.8×). A fast path for non-members and reachability memoized per world range brought it to 1.7–1.8×.
+- **The user, during the build:**
+
+  > Side question: The old version had a bunch of Julia improvements Bugfixes and tweaks. Are those still relevant? Should we fold them in as we go? If so, we had the idea to split the Julia work into independent comits. Might be the right moment to do so.
+
+  The 65 commits of `trait-world-1.13` were classified for the answer.

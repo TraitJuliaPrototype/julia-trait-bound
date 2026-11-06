@@ -114,7 +114,7 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
 
-**Status:** Planned (W-98). Built in part on branch `unified` ([compiler deviations](compiler.md#deviations)).
+**Status:** Implemented in Julia's type system on branch `unified` fd800b27b9 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); the library's `@trait` and `@implement`: W-106.
 
 ### 3.2 Parameters
 

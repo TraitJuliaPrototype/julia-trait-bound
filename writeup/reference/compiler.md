@@ -244,7 +244,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 
   The compiler reads it without an edge: it never changes after the declaration.
 
-**Status:** Planned (W-98, W-106). Built in part on branch `unified` (C-24). The contract on the `TypeName`: mine (2026-11-06).
+**Status:** Implemented on `unified` fd800b27b9: the `open` bit, `never_member` (the builtins' types included), a set's supertype, the contract's slot. The contract itself is written by the library (W-106). The contract on the `TypeName`: mine (2026-11-06).
 
 ### 4.2 Memberships
 
@@ -261,7 +261,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **A pattern's variable bounded by a `Union` of types** (`I where {I <: Base.BitInteger}`) is declared as one entry per type of the union.
 - **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s receiver on `S`'s `TypeName`, with its world, as an entry would ([lowering §3](lowering.md#3-implement)).
 
-**Status:** Planned (W-98). Built in part (C-21).
+**Status:** Implemented on `unified` fd800b27b9, but for a pattern variable bounded by a `Union`, which the library declares per type (W-106).
 
 ### 4.3 Worlds
 
@@ -271,7 +271,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
 - **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one. They are the one kind that can end.
 
-**Status:** Planned (W-98). C-25.
+**Status:** Implemented on `unified` fd800b27b9.
 
 ### 4.4 Transitivity
 
@@ -281,7 +281,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - A composed membership holds from the latest `min_world` of its links; with several chains, from the earliest of those.
 - A membership that would close a cycle among sets is refused, by a check over every path.
 
-**Status:** Planned (W-98). C-22, C-23.
+**Status:** Implemented on `unified` fd800b27b9.
 
 ### 4.5 Subtyping
 
@@ -291,13 +291,13 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **A method's `where` variables and `X{<:T}`'s existential variables** are the walk's own. So dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
 - **Only entries whose set reaches the queried set are choices.** Reachability between two `TypeName`s is memoized per world range. So a type with many entries on its chain (BaseTraits' families on `AbstractVector`) costs a walk only for the entries that can lead to the set asked about.
 
-**Status:** Planned (W-98). C-26.
+**Status:** Implemented on `unified` fd800b27b9.
 
 ### 4.6 One instance per member
 
 A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The runtime checks it: exactly for a concrete member; for a pattern, by intersecting it with each pattern that already reaches the set. The library reports the refusal as `ImplementError`.
 
-**Status:** Planned (W-98).
+**Status:** Implemented on `unified` fd800b27b9 for a concrete member; for a pattern, C-27.
 
 ### 4.7 Three layers
 
@@ -306,7 +306,7 @@ Questions about open sets are answered in three layers:
 - **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a non-member gives `Union{}`. Dispatch's match construction and the inliner's union split see only members.
 - **`jl_could_join(S, X)`** answers whether `S` could become a member of `X`. Inference's lattice and the guards' shadow query (§5.6) use it; dispatch's match construction does not.
 
-**Status:** Planned (W-98).
+**Status:** Implemented on `unified` fd800b27b9.
 
 ### 4.8 Negatives never fold; positives through entries
 
@@ -315,7 +315,7 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 
-**Status:** Planned (W-98; W-100 for the fold's world).
+**Status:** Implemented on `unified` fd800b27b9 for the negative folds; W-100 for the fold's world.
 
 ### 4.9 Intersections
 
@@ -339,13 +339,13 @@ Core.All{X, Y}
 
 A type value is a member of a set only by an entry whose pattern is `Type{S}`. Such an entry is kept on `S`'s `TypeName`, marked as being for the type value, not on `Type`'s. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
 
-**Status:** Planned (W-98). C-19.
+**Status:** Implemented on `unified` fd800b27b9.
 
 ### 4.11 Inference's world
 
 Membership queries during inference run at the world being inferred for, carried from `ml_matches` and the insertion walk into the membership lookup, not at the world the compiler runs in.
 
-**Status:** Planned (W-98, W-99).
+**Status:** Implemented on `unified` fd800b27b9 with a per-thread override for the length of a query (C-28); W-99 carries the world in the query.
 
 ---
 
@@ -742,11 +742,11 @@ Each applies to all code.
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies | Planned (W-100) | §2 |
 | the dependency record; G2 as a predicate | Planned (W-100) | §3.1, §3.2 |
 | the code slot | Planned (W-101) | §3.3 |
-| sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Planned (W-98); built in part | §4.1–§4.5 |
-| one instance per member | Planned (W-98) | §4.6 |
-| three layers; negatives never fold; positives through entries | Planned (W-98) | §4.7, §4.8 |
-| intersections `All{X, Y, Z, …}` | Planned (W-98) | §4.9 |
-| type values as members | Planned (W-98) | §4.10 |
+| sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` fd800b27b9) | §4.1–§4.5 |
+| one instance per member | Implemented (`unified` fd800b27b9) for a concrete member; C-27 | §4.6 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` fd800b27b9); W-100 for the fold's world | §4.7, §4.8 |
+| intersections `All{X, Y, Z, …}` | Planned (W-107) | §4.9 |
+| type values as members | Implemented (`unified` fd800b27b9) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Planned (W-99); built in part | §5.1–§5.3 |
 | the ambiguity report at a membership | Planned (W-99) | §5.4 |
 | guards and cells | Planned (W-112) | §5.6 |
@@ -768,17 +768,19 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at c3f0b4bc11 (the stage-1 rework, W-98, is begun and uncommitted). IDs are shared with the record's other references and never reused.
+Branch `unified` at fd800b27b9 (stage 1, W-98, done). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | C-1 to C-17 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/compiler.md` | — | — |
 | C-18 | [§5.5](#55-a-membership-lowers-dispatch-caches) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call a later membership could change. | Until the guards exist, `jl_declare_membership` replays the method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | `src/datatype.c:288`, `src/gf.c:2105` |
-| C-19 | [§4.10](#410-type-values) | A type value is a member only by an entry for `Type{S}`. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a method at `X` is called with the type object `S`. | `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
-| C-20 | [§6.1](#61-the-key-as-a-type), [§6.9](#69-casts-and-keep), [traits §7.7](traits.md#77-dynamicx) | `Dynamic{X}` is an ordinary struct of `Core`, a member of `X` by a membership the library declares; the key's type is `Core.TraitKey`. | The branch defines `Core.Keyed`, `Core.Dynamic`, `Core.Compiled` and `Core.Kept`, the last three members of `X` by an erasure rule in subtyping that intersection and the method table's match do not follow: a call with a `Dynamic{X}` reaches the fallback, not the method at `X`. | `src/subtype.c` (`intersect`), `base/boot.jl`; probe P2 |
-| C-21 | [§4.2](#42-memberships) | Any member pattern is a membership. | A pattern with more than eight type variables is accepted and never matches. | `src/subtype.c` (`jl_membership_env_match`); probe P3 |
-| C-22 | [§4.4](#44-transitivity) | Membership is transitive; `<:`, `isa`, intersection and dispatch read one relation; the entries of a member's supertype chain are consulted. | `isa`, intersection and dispatch compose memberships through set-in-set entries; `<:` reads direct entries only; entries along the supertype chain are not consulted. | `src/subtype.c` (`jl_membership_answer_direct`); probes P4, P7 |
-| C-23 | [§4.4](#44-transitivity) | A membership that would close a cycle among sets is refused. | A cycle closing through a set's second entry is accepted. | `src/datatype.c` (`jl_declare_membership`); probe P5 |
-| C-24 | [§4.1](#41-sets) | The builtins' types are never members. | A builtin function's type is accepted as a member. | `src/jltypes.c` (the `never_member` bits); probe P6 |
-| C-25 | [§4.3](#43-worlds) | The declaration is followed by `Expr(:latestworld)`; the runtime does not set a task's world. | `jl_declare_membership` sets the declaring task's world age to the entry's world. | `src/datatype.c` (`jl_declare_membership`) |
-| C-26 | [§4.5](#45-subtyping) | A membership is a supertype inside subtyping's walk, so `X{<:T}`, `X{>:T}` and `where` variables see members. | The fallback asks the entries in a fresh query outside the walk: with `S`'s entry for `X{Int}`, `S <: X{<:Real}` and dispatch at `f(::X{<:Integer})` are false. | `src/subtype.c` (`jl_membership_holds`); probe P8 |
+| C-19 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.10](#410-type-values)); gate `m1_typevalue_isa` | — | — |
+| C-20 | — | *Retired* (2026-11-06): the wrappers and `Core.Keyed` are deleted on `unified` fd800b27b9; `Dynamic{X}` is W-106's struct ([traits §7.7](traits.md#77-dynamicx)); gate `m1_no_wrappers` | — | — |
+| C-21 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.2](#42-memberships)); gate `m1_audit_probes` (P3) | — | — |
+| C-22 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.4](#44-transitivity)); gates `m2_set_in_set`, `m1_audit_probes` (P4, P7) | — | — |
+| C-23 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.4](#44-transitivity)); gate `m1_audit_probes` (P5) | — | — |
+| C-24 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.1](#41-sets)); gate `m1_audit_probes` (P6) | — | — |
+| C-25 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.3](#43-worlds)); gate `m1_audit_probes` | — | — |
+| C-26 | — | *Retired* (2026-11-06): fixed on `unified` fd800b27b9 ([§4.5](#45-subtyping)); gates `m1_audit_probes` (P8), `m1_parametric_set` | — | — |
+| C-27 | [§4.6](#46-one-instance-per-member) | A membership that would give a member a second instance of a set is refused, for a pattern too, by intersecting it with each pattern that already reaches the set. | Checked exactly for a concrete member only; a pattern's second instance is accepted. | `src/datatype.c` (`jl_declare_membership`) |
+| C-28 | [§4.11](#411-inferences-world) | Membership queries during inference run at the world being inferred for, carried from `ml_matches` and the insertion walk into the lookup. | The world is a per-thread override set for the length of a query (the audit's A4); a task switch inside such a region would hand it to another task. | `src/subtype.c` (`jl_set_membership_query_world`), `src/gf.c`; W-99 |

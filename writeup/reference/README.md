@@ -81,6 +81,6 @@ Every choice beyond the decision log's is listed here, with who made it. The ana
 
 ## State of the build
 
-- The type system's memberships are built in part on branch `unified` (stage W-98, begun). Dispatch at sets is built in part (W-99). Everything else is Planned or Optional: the stages are W-98 to W-114 ([the work queue](../record/todo.md); [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
+- The type system's sets and memberships are built on branch `unified` (stage W-98, done: fd800b27b9; compiler §4 with C-27 and C-28). Dispatch at sets is built in part (W-99). Everything else is Planned or Optional: the stages are W-98 to W-114 ([the work queue](../record/todo.md); [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
 - The trait library on the unified build is not begun.
 - The deviations of the branch are in [compiler.md](compiler.md#deviations).
