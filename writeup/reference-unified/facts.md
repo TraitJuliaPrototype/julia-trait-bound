@@ -332,7 +332,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **G1 holds in the caller's world:** a task in a world before the membership sees the type as a non-member; one after it, as a member.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
-- **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)). How a function's result type is found is Open ([open issue 143](../open-issues.md)); what compiled code may assume about these memberships follows from that choice.
+- **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
 **Status:** Planned (W-98, W-99, W-102). Until the guards exist: [compiler C-18](compiler.md#deviations).
 

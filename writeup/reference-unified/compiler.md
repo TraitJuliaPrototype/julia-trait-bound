@@ -268,7 +268,7 @@ Strict mode and the concreteness checks read it.
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
-- **`Callable`'s memberships** are not declared: §7.4 (how a function's result type is found: Open, [open issue 143](../open-issues.md)).
+- **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one. They are the one kind that can end.
 
 **Status:** Planned (W-98). C-25.
 
@@ -583,19 +583,20 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 ### 7.4 `Callable`'s call
 
 **Memberships.**
-- `Core.Callable{A, S}` is a set with an input parameter `A` and an associated type `S`. Its memberships are not declared: a function's methods decide them, so dispatch picks by signature.
-- **How `S` is found for a function** is Open ([open issue 143](../open-issues.md)). Whatever is chosen, subtyping never runs inference: `jl_subtype` runs under the runtime's locks and inside method insertion.
-- **Negatives are never folded:** a call whose method a later membership could change is guarded (§5.6).
+- `Core.Callable{A, S}` is a set with two input parameters. `F <: Callable{A, S}` holds where a call of an `F` at `A` selects a method (`hasmethod`), for every `S`. So dispatch picks by the arguments' signature, and `S` takes no part in membership.
+- **The answer is a query of `F`'s method table** in the world asked about, memoized per (`F`, `A`) with its world range; a method definition of `F` lowers the memo's range. A query that reaches itself again answers no. Subtyping runs no inference.
+- **`Dynamic{Z}` with `Z <: Callable{A, S}`** is a member by the entry the library declares, as for any set ([lowering §9](lowering.md#9-callable)), never by a query of its call method.
+- **Negatives are never folded:** a call whose method a later membership could change is guarded (§5.6). Compiled code that relies on a membership holds an edge to `F`'s dispatch at `A`, and is invalidated with it.
 - `Callable` alone is any type with a call method.
 
 **The call.**
-- **A call through a value whose inferred type is a `Callable{A, S}`** has the result type `S`. Each argument must be of `A`, or the call raises `MethodError`.
+- **A call of a value the code knows as a `Callable{A, S}`** (declared so as an argument, a field or an element, or a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted on return (`TypeError`). Where inference proves the result, the assertion costs nothing. Each argument must be of `A`, or the call raises `MethodError`.
 - **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`. The pointer is made at the first call per (signature, function type). The result is asserted to `S` (`TypeError`).
 - **In an instance compiled per key,** whose key is the function's type, the call is direct.
 
 This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
 
-**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06). How a function's result type is found: Open ([open issue 143](../open-issues.md)).
+**Status:** Planned (W-102). Dispatch by signature, `S` checked on return: the user (2026-11-06). The method-table query inside subtyping and its memo: mine (2026-11-06).
 
 ---
 
@@ -753,7 +754,7 @@ Each applies to all code.
 | a declared result on `Method`; the operation's flag | Planned (W-102) | §6.8 |
 | casts at the call; `keep` | Planned (W-102) | §6.9 |
 | operations on a value typed by its trait; the split; the table | Planned (W-102) | §7.1–§7.3 |
-| `Callable`: dispatch by signature, its call; how a function's result type is found: Open (issue 143) | Planned (W-102) | §7.4 |
+| `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-102) | §7.4 |
 | world-checked caches | Planned (W-102) | §8 |
 | memberships in images; the record toward a machine-code cache | Planned (W-103) | §9 |
 | hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-102, W-103) | §10 |

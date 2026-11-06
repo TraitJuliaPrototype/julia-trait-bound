@@ -798,7 +798,7 @@ colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t
 apply(f::Callable{Tuple{Int}, Int}, x) = "an integer map"
 apply(f::Callable{Tuple{String}, <:AbstractString}, x) = "a string map"     # dispatch picks by signature
 both(f::All{Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}}, x::Float64, n::Int) = (f(x), f(n))
-byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S} = …                 # S: the function's result at T
+byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T} = …     # result type, where needed: Base.promote_op(f, T)
 
 colmap(x -> 2x, m, 1)                     # Dynamic: Callable's default
 colmap(compiled_for(x -> 2x), m, 1)       # Compiled at this call
@@ -806,10 +806,11 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 ```
 
 **`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** It has rules of its own, as Rust's `Fn` traits are the compiler's own:
-- **Its memberships are not declared:** a function's own methods decide them. `A` is an input parameter; `S` is an associated type.
-- **Dispatch picks by signature,** as for any trait: `apply(uppercase)` takes the second method above, since `uppercase` has a method at `String` and none at `Int`.
-- **How the result type `S` of a function is found,** and so whether a function without a declared result is a member of `Callable{A, Float64}`, is **Open** ([open issue 143](../open-issues.md)).
-- **A call through a value the code knows as a `Callable{A, S}`** (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) has the result type `S`. Where it is compiled once, it goes through a pointer that follows the caller's world, and its result is asserted (`TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`).
+- **A function is a member of `Callable{A, S}` where it has a method for a call at `A`** (Julia's `hasmethod`), whatever `S` is. Its own methods decide it: nothing is declared, and inference plays no part. A method of the function defined later can begin or end a membership; that is the one kind of membership that can end ([facts §10](facts.md#10-memberships)).
+- **So dispatch picks by the arguments' signature:** `apply(uppercase)` takes the second method above, since `uppercase` has a method at `String` and none at `Int`.
+- **`S` is checked on return.** A call through a value the code knows as a `Callable{A, S}` (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted: `TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`. Where it is compiled once, the call goes through a pointer that follows the caller's world.
+- **`S` takes no part in which method is chosen.** Between two methods that differ only in `S`, the one with the more specific `S` is taken, and its check may fail. `Callable{A}`, with `S` left open, checks nothing on return.
+- **A `where` variable that appears only in `S` is not bound by a call,** as Julia's `detect_unbound_args` reports. Code that needs the result type computes it as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)).
 - **Where the code knows the function by its own type** (a struct parameter `F`), the call is the function's own call.
 - **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled` (§7.5).
 - **Several signatures** are an intersection: a call picks the signature its argument types match.
@@ -818,7 +819,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 
-**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"). How a function's result type is found: Open ([open issue 143](../open-issues.md)). Keywords Planned.
+**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
 ---
 
@@ -1103,7 +1104,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `Dynamic{X}`, `keep` | Planned (W-102) | §7.7, §7.8 |
 | operations on a value known only by its trait | Planned (W-102) | §7.9 |
 | storage typed by a trait; struct parameters | Planned | §8 |
-| `Callable`: dispatch by signature | Planned (W-102); how a function's result type is found: Open (issue 143) | §9 |
+| `Callable`: dispatch by signature, the result checked on return | Planned (W-102) | §9 |
 | BaseTraits; element types by variance; `retain!` | Planned | §10 |
 | checks, errors, hints | Planned (W-102, W-103) | §11 |
 | ownership, joint owners, pirates, strict mode | Planned (W-103) | §12 |

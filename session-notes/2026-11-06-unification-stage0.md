@@ -171,3 +171,12 @@ The user (2026-11-06):
   - `Dynamic{X}` a struct of `Core`, its pattern `Dynamic{Z} where {Z <: X{P…}}`, parameters required (P-5).
   - Attribute bits only through `Core.attributed_call` (P-24); cast names reserved as `ccall` (P-23); normal forms by declared supertypes (P-21); intersections' keys and candidates (P-22); `trait_receiver`/`trait_field` (P-25); a module-end hook (P-26); `HasProperty` by `getproperty` at a constant name (P-27); smaller rules (P-28).
 - For the user: open issue 143 (`Callable`'s result type: (a) declared results, (b) inferred outside subtyping, (c) arguments only, recommended (c)); open issue 144 (confirm P-20 to P-28); the work plan's revised stages.
+
+## Callable's result; bounded by default; experiments
+
+The user (2026-11-06):
+
+> For Callable S go with checked on return. Keep it simple. For trait modules bound Vs open, the idea at some point was that exported methods must be bound and others can stay internal. But I really don't have a strong preference right now if we default to boundedness for trait modules as long as there is a switch. Are there any further experiments to run to clarify or check decisions?
+
+- `Callable` (open issue 143 closed): a function is a member of `Callable{A, S}` where it has a method at `A` (`hasmethod`), for every `S`; `S` is checked on return; a `where` variable only in `S` is unbound (the result type as a value, `Base.promote_op`). The method-table query inside subtyping, memoized per (`F`, `A`) with its world range, is mine. `Dynamic{Callable{A, S}}`'s membership is the library's declared family.
+- `bounded`: on by default in trait modules with the switches `@open` and `bounded = false` (P-20, the user's default). The exported-only rule is in `alternatives.md` as not taken for now.

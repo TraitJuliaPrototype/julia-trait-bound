@@ -174,8 +174,9 @@ end
 
 ## 9. `Callable`
 
-- `Core.Callable{A, S}` is a set of Julia's whose memberships a function's methods decide ([compiler §7.4](compiler.md#74-callables-call); how its result type is found: Open, [open issue 143](../open-issues.md)). Its default attribute bit is `Dynamic`.
-- The library declares nothing for it. It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods at `A`.
+- `Core.Callable{A, S}` is a set of Julia's whose memberships a function's methods decide ([compiler §7.4](compiler.md#74-callables-call)). Its default attribute bit is `Dynamic`.
+- **The library declares one membership for it:** the family `Dynamic{Z} where {A, S, Z <: Callable{A, S}}` in `Callable{A, S}`, as `@trait` does for a trait (§2). `Dynamic{Callable{A, S}}`'s call method asserts the arguments to `A` and the result to `S`.
+- It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods near `A`; where a result fails its check, the hint names `S`.
 
 **Status:** Planned (W-102).
 
