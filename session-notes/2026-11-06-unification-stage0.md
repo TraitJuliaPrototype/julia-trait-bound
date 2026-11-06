@@ -180,3 +180,11 @@ The user (2026-11-06):
 
 - `Callable` (open issue 143 closed): a function is a member of `Callable{A, S}` where it has a method at `A` (`hasmethod`), for every `S`; `S` is checked on return; a `where` variable only in `S` is unbound (the result type as a value, `Base.promote_op`). The method-table query inside subtyping, memoized per (`F`, `A`) with its world range, is mine. `Dynamic{Callable{A, S}}`'s membership is the library's declared family.
 - `bounded`: on by default in trait modules with the switches `@open` and `bounded = false` (P-20, the user's default). The exported-only rule is in `alternatives.md` as not taken for now.
+
+## Two censuses (E-263, E-264); facts mode and caching
+
+The user (2026-11-06): "Go for it." (on running experiments 1 and 2 of the list: keys shared in the ports; `@open` marks under `bounded`). During the run: "What do we know about the unified designs impact on facts mode and machine code caching?" (answered from the draft, the synthesis plan and the evidence: one CodeInstance per method instance and policy, G2 under it unmeasured on the unified build, E-261's code slot recovering 67 of 120 and 91 of 100 facts callers, memberships invalidating nothing by option (e), methods at traits now in Base's method tables (M6, unmeasured); the store paused with the record complete; E-234 and E-205 placing the savings in plain code.)
+
+- Registered first (E-263, E-264), then run on julia-1.13 with TraitWorld in three sessions (`experiments/w105/census/`), no subagents, nothing timed, load 3–15 of 128.
+- **E-263:** 4 of 148 memberships share a key, each a TraitMakie `Live{…}` wrapper with what it wraps; every other member serves its operations by its own methods, so its key is its own type. Below the registered tenth: open issue 145 proposes keys as Optional (the user's call: the user had asked whether keys stay).
+- **E-264:** 3 of 52 public and 14 of 77 internal methods at traits are open by the draft's rule (13 functions); P-20 stands. 11 structs with a parameter bounded by a trait have default constructors the rule calls open: the draft now exempts constructors that set such a parameter (mine).

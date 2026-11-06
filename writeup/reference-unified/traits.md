@@ -621,7 +621,8 @@ Any other use makes the method **open** at that argument: `typeof(t)`, `isa` aga
 - A fully bounded method is compiled per key at that argument. An open one is compiled per type, or once where the attribute is `Dynamic` (§7.4), its uses beyond the contract then dispatched when they run.
 - The compiler classifies each method where it is defined, or at the end of its module or its first call where it calls functions not yet defined. The classification follows the unannotated functions it reaches: a later definition of one classifies the method again.
 - **A scope that declares `bounded`** (§13) refuses an open method at a trait argument with `TraitUseError`, naming the use and its line.
-- **`@open f(…) = …` marks a method open on purpose:** `bounded` does not refuse it. A library's constructors and adapters, which store their argument with its type, are written so; its kernels stay fully bounded.
+- **`@open f(…) = …` marks a method open on purpose:** `bounded` does not refuse it. A library's adapters, which store their argument with its type, are written so; its kernels stay fully bounded.
+- **A constructor of a struct whose parameter is bounded by a trait,** where it sets that parameter from its argument, is open by design (§8.2) and never refused: Julia's default constructor, and a library's own. The parameter records the value's type.
 
 ```julia
 colmean(t::ColTable, i::Int) = sum(col(t, i)) / length(col(t, i))   # fully bounded: per key
@@ -629,7 +630,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** Planned (W-102; the user, 2026-11-06, Q2 (a)). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2).
+**Status:** Planned (W-102; the user, 2026-11-06, Q2 (a)). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -709,10 +710,11 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 `keep(x)`, for an argument `x` of a method at a trait `X`, is `x` where the code is compiled per key or per type, and `Dynamic{X}(x)` where it is compiled once. A library stores an argument with it so that its attribute survives:
 
 ```julia
-@open Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, u0))
+struct Problem{F <: Callable{RHSSig, Nothing}}; f::F; u0::Vector{Float64}; end
+Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, u0))
 ```
 
-Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`: the struct's parameter takes the type of `k` (§7.3).
+Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
 **Status:** Planned (W-102); mine (2026-11-06).
 
@@ -779,7 +781,7 @@ ODEProblem(Dynamic{Callable{RHSSig{P, T}, Nothing}}(lorenz!), u0, tspan, p)   # 
 - **The parameter records the attribute:** the value's own type is `Compiled`, so code over the struct is compiled per type of the value; a `Dynamic{X}` is `Dynamic`, so code over the struct is compiled once. A value read from the field carries that attribute (§7.5).
 - A library that wants its trait's default at construction writes a constructor with a trait argument and `keep` (§7.8).
 - **A parameter named only in a bound** is matched through the membership, as a `where` clause matches: in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, the constructor `CellVector(c::C) where {T, C <: Column{T}} = CellVector{T, C}(c)` reads `T` from the column's membership.
-- **A constructor that sets the parameter from its trait argument is open there** (§7.3): the struct's type names the member's type. In a `bounded` scope it is marked `@open`.
+- **A constructor that sets the parameter from its trait argument is open there** (§7.3): the struct's type names the member's type. It is open by design, so `bounded` does not refuse it, Julia's default constructor included.
 
 **Status:** Planned (W-102).
 

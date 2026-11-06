@@ -21,6 +21,10 @@ Eight of the choices the clean-up adopted, and the choices marked mine in the de
 
 **From the reviews of the draft reference (2026-11-06):**
 
+145. **Keys as Optional?** ([E-263](record/experiments.md): 4 of 148 memberships in the ports share a key, each a forwarding wrapper with what it wraps.) The user asked whether code per key stays (2026-11-06: "Also do we keep the keys optimization where two trait bound methods for different types that have the same key can reuse code?"), and the draft keeps it ([traits §7.2](reference-unified/traits.md#72-the-key)). In the ports almost every member serves its operations by its own methods, so its key is its own type; code compiled once (`Dynamic`) gives the sharing the evidence shows (a new callback closure 24 ms). Keys are the largest piece of compiler work after the facts policy ([the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) N5: `TraitKey`, the calling convention, the boxed adapter, the field-offset intrinsics, the cells per (key, function)).
+
+   **Recommendation (mine):** keep keys in the design with the status Optional: built when a measurement asks for it (a library with many forwarding wrappers). The work plan's N5 then shrinks to the classification and `bounded`, compiled per type; the erased compilation (once) stays.
+
 144. **The choices of mine after the reviews of the draft** (2026-11-06), for the user to confirm: P-21 to P-28 of [the draft's README](reference-unified/README.md#the-choices-in-this-draft), and `@open` as P-20's switch, each in [the decision log](record/decisions.md) §9 as mine. P-20's default is the user's (2026-11-06: "For trait modules bound Vs open, the idea at some point was that exported methods must be bound and others can stay internal. But I really don't have a strong preference right now if we default to boundedness for trait modules as long as there is a switch.").
 
 Waiting for evidence, not for the user:

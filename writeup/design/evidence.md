@@ -296,6 +296,12 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 - The system image with the two inliner changes: 200.0 MB against 199.2 MB without them (the build of 2026-10-19).
 - **The unified build's membership machinery and plain Julia** (E-262; branch `unified` c3f0b4bc11 against vanilla v1.13.2 `45b6d15e34`, both built on the shared host 2026-11-06; plain code only, no open set declared; one run each, load 5–14): Base's `subtype`, `core`, `ambiguous` and `worlds` test files pass on both, in 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s (2–6 % slower); `detect_ambiguities(Base)` finds 0 on both. Building `Base.Compiler` took 295 against 289 s. Not yet a gate's control: one run each, and the branch is unaudited code under rework (W-98).
 
+## 4b. The ports' code under the draft reference
+
+Censuses of code, not timings (E-263, E-264; julia-1.13 00dcc9994c, TraitWorld 33dd55e, forks 77b9aab, TraitMakie ba46982, TDE e9e07ed, ndport 65ac255; three sessions; `experiments/w105/census/`):
+- **Members rarely share a key** (E-263): 4 of 148 memberships in the ports and BaseTraits, each a forwarding wrapper with what it wraps (TraitMakie's `Live{…}`). Every other member serves its operations by its own methods, so its key is its own type ([traits §7.2](../reference-unified/traits.md#72-the-key) of the draft).
+- **Few methods at traits are open** (E-264): 3 of 52 public and 14 of 77 internal methods at traits in the ports' trait modules use the argument beyond the contract as the draft's rule counts it ([traits §7.3](../reference-unified/traits.md#73-fully-bounded-methods)): 13 functions to mark `@open`. Besides, 11 structs have a parameter bounded by a trait.
+
 ## 5. Not shown
 
 - **Diagnosis:**
