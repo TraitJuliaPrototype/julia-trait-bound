@@ -1,6 +1,6 @@
 # The unification work plan under the draft reference
 
-Status: proposal (2026-11-06), for the user; not normative. Taken into the draft the same day (mine, its README P-20 to P-28): weak points 2 to 12 and 14, and S6. Weak point 1 decided by the user (open issue 143: `S` checked on return). Waiting for the user: the revised stages (§5) and weak point 13 (after W-99's measurement).
+Status: proposal (2026-11-06), for the user; not normative. Taken into the draft the same day (mine, its README P-20 to P-28): weak points 2 to 12 and 14, and S6. Weak point 1 decided by the user (open issue 143: `S` checked on return). Waiting for the user: the revised stages (§5) and weak point 13 (after W-99's measurement). Revised the same day with §8, the trade-offs against the original implementation and their gates ([the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md)), on the user's "The unification plan should focus on identifying these trade offs and exploring mitigations".
 
 **The request** (the user, 2026-11-06): "Send out a second Opus agent that compares the unification work plan that was started with the new design and figures out how the work plan would have to change and how it could be simplified."
 
@@ -500,3 +500,46 @@ None of this is done; this plan edits nothing. If the user agrees, these follow:
   - or, for a choice of mine the plan changes, a row in the decision log marked mine, for the user to confirm.
 - **`../state.md` §6.3:** the order in brief.
 - **Rows E- for each gate**, before its run.
+
+---
+
+## 8. Trade-offs first: what the unification costs against the original, and the gates that measure it
+
+The user (2026-11-06): "The question is what the trade off is and whether they can be recovered later through further work. The unification plan should focus on identifying these trade offs and exploring mitigations." The analysis is [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md); this section places its findings in the plan.
+
+**The trade-offs, by size** (the review §1–§2):
+1. **G2 without the second cache owner.** One CodeInstance per MethodInstance and policy makes facts code rest on plain Base code. E-261: 120 and 100 facts callers lost per session of loads (780 and 457 with their callers), the code slot keeps 67 and 91; the original lost 0 of 15,030 (E-29). Recoverable now at little cost: the slot (W-101), the G2 bit on every CodeInstance with keep-compiled keyed on it (M1), and the draft's boundary flag as the per-method second policy (M2).
+2. **"A membership invalidates nothing" holds only once guards exist (N7);** until then the stopgap C-18 invalidates. The stopgap may be the design if its volume is small (E-259: 7 guard sites in five sessions, none in a loop; HotSpot deoptimizes on class load the same way).
+3. **Keys Optional** (open issue 145; E-263): nothing lost in the ports; the door is the classification, the contract on the `TypeName` and the entry's receiver, all in W-98 and N1.
+4. **The type system costs plain code something:** methods at open sets on `getindex`, `iterate`, `length`; entries in `jl_subtype`'s walk; a method-table query inside subtyping for `Callable`. The 10 % gates are too loose to see it.
+5. Smaller: hints carry more of the error messages (F14); `first_seen`'s erasure is silent; the first `@implement` of a session re-infers Base code that the original's images kept (188 against 17 ms, julia-changes §2) unless M1 lands.
+
+The review finds no loss that is unrecoverable without giving up a simplification.
+
+**Gates, placed before the stage each decides** (the review §5; registry rows are written before each run):
+
+| Experiment | Before | Decides |
+|---|---|---|
+| X1: the time of the facts callers G2 loses per session of loads (E-261's sets, timed) | W-100 | whether M1 and the slot suffice, or boundary flags on named Base methods |
+| X5: the share of the images' facts copies of Base that are G2 as plain code | W-100 | the same |
+| X3: methods at open sets on Base's hottest functions against vanilla (microbenchmarks, the quick BaseBenchmarks subset) | W-99's gate | BaseTraits' operations off Base's functions, or the typename index extended |
+| X4: `<:` and `isa` with many entries on a chain against vanilla | W-98's gate | pruning and memoization in W-98 |
+| X2: the stopgap's volume on the forks' and ND's sessions | N7 | guards Planned, or Optional with the narrowed stopgap as the design (weak point 13, the user's) |
+| X6: `Callable` by a memoized method-table query: miss cost and reentrancy (emulated on today's build) | N8 | derived entries instead of a query inside subtyping (M4) |
+| X7: the first slice against the prototype's shapes (a `Column` kernel, an `ODEAlgorithm` solve) | the slice's end | how much of the session time rests on the deferred mechanisms |
+
+X1, X5 and X6 run on today's patched build and could run now.
+
+**Changes to the stages** (proposed, with §5):
+- W-98 and W-99: gates of a few percent on dispatch and subtyping microbenchmarks (X3, X4), beside the 10 % bound on the suites.
+- N1/N4: the classification per argument, as a report, taken from N5 (`bounded` needs it; keys need it later).
+- W-100: a patch series buildable on vanilla, independent of the type system (M7); M1 in its scope.
+- N7: built or made Optional by X2.
+- N9: the hints gated on the SciML error cases (M8); a report of arguments made `Dynamic` by `first_seen` (M9).
+
+**Draft changes proposed** (mine; the review §6), to apply when the user adopts this plan:
+- compiler §3.2: the G2 predicate computed for every CodeInstance; §9: keep-compiled keyed on the G2 bit; §2.2: the boundary flag named as the per-method second policy.
+- compiler §7.4: `Callable`'s memberships as derived entries, never a query inside subtyping, if X6 says so.
+- compiler §5.5, §5.6: guards "Planned; Optional if X2 says so", the narrowed stopgap as the alternative design.
+- traits §14: an operation made `Dynamic` by the fallback is reportable.
+- `design.md` §2.6 and `alternatives.md`: the second owner's replacement and its measured cost (E-261).
