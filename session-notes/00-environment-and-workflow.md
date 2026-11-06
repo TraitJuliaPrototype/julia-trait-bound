@@ -43,3 +43,12 @@ The root `README.md` has the table of repositories. In short:
    - the design changes go into `writeup/design.md` (and its companions) and `writeup/decisions.md`;
    - open items into `writeup/open-issues.md`;
    - the session's log, with every number and commit, into its session note.
+
+## The unified build's discipline (W-97 to W-104)
+
+From [the synthesis plan](../writeup/plans/2026-11-05-unification-synthesis.md) §6, as adopted on 2026-11-06, with no subagents on the shared host:
+- **One session does every role:** a per-site edit plan checked against the tree, the change, and a review of the diff. A review is backed by probes run on the built branch (`experiments/unification/audit/probes.jl` is the pattern), not by the author's reasoning.
+- **The tree is never the only copy:** each day's work is committed on the stage's branch of the julia repository (`unified`). Gates, probes and acceptance cases live in `experiments/unification/`, not beside a worktree.
+- **Every full build records its stages:** `tools-local/build.sh` time-stamps the log; Base, `Base.Compiler` and the system image's times go into the stage's registry row. A build that takes twice a stage's recorded time is stopped and bisected one build at a time (`WIDE=0`). Staged system images are deleted after a change to a struct's layout.
+- **The record is the home:** numbers in the registry with their build, decisions in the log, deviations in the references, the chronology in a session note.
+- **The gates of a stage** are its `experiments/unification/gates/` files, Base's four test files against the vanilla control (`experiments/unification/e262_suites.sh`), and `detect_ambiguities(Base)`.

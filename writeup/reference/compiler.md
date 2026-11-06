@@ -33,7 +33,7 @@ The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler
 | [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets; `Compiler.fold_call` | the targets compiled ahead (C-14) | — |
 | [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
 | [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
-| [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping; one dispatch, never folding a negative membership, with guards; keys as compilation signatures; compiling by facts per method, one owner; memberships in images; then syntax: last | The code slot (Optional, §7.7); sealed sets, whose negatives fold (Optional; [PE-19](../record/performance-explorations.md)); the entries of generic implementations (Open, [open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)) |
+| [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping; one dispatch, never folding a negative membership, with guards; keys as compilation signatures; compiling by facts per method, one owner, with the code slot; memberships in images; then syntax: last | sealed sets, whose negatives fold (Optional; [PE-19](../record/performance-explorations.md)); the entries of generic implementations (Open, [open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)) |
 
 ## Contents
 
@@ -812,7 +812,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 - **One dispatch:** a bounded method is a Julia method at its set. A set ranks above `Any` and below every other type at a position (§7.1, §7.3).
 - **Guards** where a later membership could change a compiled call (§7.1, §7.4).
 - **Keys as compilation signatures:** code compiled per key by Julia's own specialization, with no entries, workers or views (§7.5).
-- **Compiling by facts as a property of the method,** with one CodeInstance per MethodInstance and policy (§7.6); a slot that lets a caller survive a callee's recompilation to an equal result, if a measurement asks for it (§7.7).
+- **Compiling by facts as a property of the method,** with one CodeInstance per MethodInstance and policy (§7.6), and a slot that lets a caller survive a callee's recompilation to an equal result (§7.7).
 - **Memberships in package images,** and a record of each CodeInstance's dependencies complete enough for a machine-code cache across sessions (§7.8).
 - **Syntax:** `trait`, `implement`, `Self`, a trait's name in a field meaning a value that keeps its attribute (`Kept{X}`), bounds in `where` clauses and on struct parameters.
 
@@ -962,12 +962,12 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
   - the layouts of the types whose fields the code reads;
   - membership cells (§7.4) and the entries of folded positives (§7.2).
 - **G2 is a predicate on the record,** computed once when the CodeInstance is finished and kept as a bit in its flags: every dispatch edge is at a fact signature, every inlined method's own record satisfies G2, and result edges may go anywhere. Strict mode and the concreteness checks read it.
-- **A facts caller of a plain callee.** Without the slot of §7.7, a caller compiled by facts that calls a plain callee by an emitted call holds an ordinary edge to it, and is invalidated with it ([facts §6.5](facts.md#65-under-traits-in-the-type-system)).
+- **A facts caller of a plain callee** holds a result edge to it where it calls it by an emitted call. When the callee is recompiled to an equal result, the slot of §7.7 keeps the caller; otherwise the caller is invalidated with it ([facts §6.5](facts.md#65-under-traits-in-the-type-system)).
 - `fold_call`, `known_type`, `split_call` with the table of a call's targets, and `return_type`'s rule (§1.4, §4) carry over unchanged.
 
 ### 7.7 The code slot
 
-**Status: Optional:** built if the estimate of how many callers it would keep (E-261) shows a material share of the sessions' invalidated code.
+**Status: Planned** (W-101). The estimate E-261 shows a material share of the sessions' invalidated code that it keeps ([evidence §1](../design/evidence.md#1-the-guarantee)).
 
 - One slot per (MethodInstance, calling convention) holds the current valid specialization's pointer and its validity. It is written when a CodeInstance of that MethodInstance compiles and when one is invalidated.
 - A static call that holds a result edge to its callee loads its target through the slot. Every other call binds the callee's address, as today.

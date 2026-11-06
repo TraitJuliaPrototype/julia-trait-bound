@@ -148,7 +148,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - plain code that code compiled by facts runs: the compiler's ([§6.4](#the-compilers-own-code)). When such plain code is invalidated, the CodeInstance compiled by facts that names it is compiled again too;
 - plain inference's answers behind `return_type` ([§7](#return-type)). They change exactly when plain Julia's do.
 
-Under traits in the type system, the scope is stated per CodeInstance by its record ([§6.5](#65-under-traits-in-the-type-system)); a facts caller of a plain callee is out of it unless the code slot exists.
+Under traits in the type system, the scope is stated per CodeInstance by its record ([§6.5](#65-under-traits-in-the-type-system)); a facts caller of a plain callee is in it while the callee's result is unchanged (the code slot).
 
 **Exceptions**, named wherever G2 is claimed:
 - **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension. This is the stated exception.
@@ -339,7 +339,7 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 
 - **The mode is the method's policy:** a facts method, a boundary method and a plain method keep their kinds (§6.1); a neutral method is plain in the product setting and facts under `all`. A CodeInstance's mode follows from its method, not from the owner that reached it.
 - **One CodeInstance per MethodInstance, policy and flags.** Code compiled by facts calls a plain callee's plain CodeInstance; there are no facts copies of neutral methods in the product setting.
-- **G2's scope** (§2.2) is then a predicate on each CodeInstance's dependency record ([compiler §7.6](compiler.md#76-compiling-by-facts-per-method)). A facts caller that calls a plain callee by an emitted call holds an ordinary edge to it and is invalidated with it, unless the code slot exists ([compiler §7.7](compiler.md#77-the-code-slot), Optional): then it survives a recompilation of the callee to an equal result.
+- **G2's scope** (§2.2) is then a predicate on each CodeInstance's dependency record ([compiler §7.6](compiler.md#76-compiling-by-facts-per-method)). A facts caller that calls a plain callee by an emitted call holds a result edge to it. It survives a recompilation of the callee to an equal result through the code slot ([compiler §7.7](compiler.md#77-the-code-slot)); otherwise it is invalidated with the callee.
 - Calls between the modes (§6.3) keep their rules for constant propagation, concrete evaluation and inlining: each depends on the callee's code and records a code edge.
 
 ---
