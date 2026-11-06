@@ -274,3 +274,24 @@ After the adoption, stage 1 on `julia-unified` (no subagents; builds by `tools-l
   > Side question: The old version had a bunch of Julia improvements Bugfixes and tweaks. Are those still relevant? Should we fold them in as we go? If so, we had the idea to split the Julia work into independent comits. Might be the right moment to do so.
 
   The 65 commits of `trait-world-1.13` were classified for the answer.
+
+## The Julia work as a stack
+
+- **The user:**
+
+  > Force push is fine. No one else is using this remote.
+
+  and, after a compaction:
+
+  > Go. I am stepping away from the session for several hours so don't stop to ask or report.
+- **The stack** on v1.13.2, branch `series` in `julia-unified`, then force-pushed as `unified` ([julia-changes §7.1](../writeup/design/julia-changes.md#71-the-stack)):
+  - twelve changes useful without traits, one commit each: the three W-57 Base commits, the two per-call-site cache commits, the dispatch profiler (its two commits merged, without the split by owner, renamed `JULIA_DISPATCH_PROFILE`), `:caller_world`, the `return_type` image entry, the image rule for hashless signatures, the reflection fix (its facts half left), the two inliner changes (their facts gates left; each its own commit);
+  - W-98 as two commits: the type system (`5db05880d7`), dispatch at sets with the stopgap (`a7ab25d01a`). Its comments lost the old plan's and reviews' IDs and point at the references; a comparison after stripping comments shows the code equal to fd800b27b9's plus the general commits. The comments of the stopgap's walk in `gf.c` were left, since W-99 replaces it;
+  - not carried yet: `known_type`, the type printers' registry (no stage uses them yet); the facts mode and the other pieces wait for their stages;
+  - the W-57 commits' messages were rewritten without the facts mode's terms (same trees).
+- **The checks:** every commit changing C built on its own; full builds with tests at commit 12 and at the top (`experiments/unification/stack/README.md`).
+- **A regression found:** Base's `core` test took 74 s against vanilla's 59 s, with 4.4 against 2.2 GB peak memory, on every build with the general commits. Reverting the inliner commits changed nothing. Timing `core.jl` per top-level expression (`core_by_expr.jl`) found line 5406: a splat of about 1.2×10⁸ arguments into a varargs method. The exact-type entries (a9d3dcb345 on `trait-world-1.13` too) made a type with one parameter per argument and kept it in the call cache. Commit 4 now makes such entries for a varargs method only up to as many arguments as Julia's compilation signatures spell out (`get_max_varargs`); `core` is back at 59 s and 2.2 GB.
+- **Also checked:** the image rule of commit 9 drops a `UnionAll` specialization too. That is the same condition that sends an insertion at load to the linear scan (`jl_specializations_get_linfo_` reads the unwrapped body's hash), so it is as intended.
+- **Kept:** fd800b27b9, the build W-98's gates and E-270 measured, on branch `w98-fd800b27b9`. E-270's questions were run again on the top: the same.
+- **Records:** julia-changes §7, compiler §4 statuses and §8, §9, §11 (the stack's commits; the profiler's name; `_return_type`'s entry for `NativeInterpreter`), traits §3.1, the references' README, W-19, W-98, W-100, W-109, `state.md`, decisions §8, open issues §1 (the carried set as a choice marked mine; the stale line about W-71 replaced), E-270's README, evidence and registry row.
+- **A slip:** `git add -A base` took a core dump from the earlier crash (`base/core-login02-2010139`) into the type-system commit; it was taken out before anything was pushed. Both dumps are still on disk, untracked.

@@ -10,7 +10,8 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 
-Eight of the choices the clean-up adopted, and the choices marked mine in the decision log since 2026-10-27, are for a review session with the user ([W-71](record/todo.md)).
+Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
+- **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the twelve useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
 
 
 Waiting for evidence, not for the user:
