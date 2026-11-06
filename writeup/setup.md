@@ -85,7 +85,7 @@ The checks to run after a change to Julia are in [the workflow notes](../session
 
 ## The unified build
 
-The unified design ([compiler §7](reference/compiler.md#7-traits-in-the-type-system)) is built from upstream Julia v1.13.2 (`45b6d15e34`) on branch `unified` of the julia repository ([the synthesis plan](plans/2026-11-05-unification-synthesis.md), W-97 to W-104). Its worktree, and a vanilla control for comparisons:
+The unified design ([compiler §7](../attic/writeup/reference/compiler.md#7-traits-in-the-type-system)) is built from upstream Julia v1.13.2 (`45b6d15e34`) on branch `unified` of the julia repository ([the synthesis plan](plans/2026-11-05-unification-synthesis.md), W-97 to W-104). Its worktree, and a vanilla control for comparisons:
 
 ```sh
 git -C julia-1.13 fetch origin unified

@@ -12,7 +12,7 @@ The cache as built (E-180) keeps both owners' code, keys it on the whole environ
 
 Code compiled by facts depends on the method table only through facts at concrete signatures ([facts §2.2](../reference/facts.md#22-g2-stable-caches)). A fact can change only by:
 - a **stakeholder's change:** a new version of a package that owns the function or a type in the fact's signature, or an extension that such a package's types activate;
-- a **winning pirate:** a method of a package that owns neither. Strict mode refuses it ([facts §10.2](../reference/facts.md#102-strict-mode)).
+- a **winning pirate:** a method of a package that owns neither. Strict mode refuses it ([facts §10.2](../../attic/writeup/reference/facts.md#102-strict-mode)).
 
 So a facts CodeInstance's validity is a function of its facts' **origins**: the stakeholders' identities (package and version, or build id for a dev'd package), plus "no winning pirate". It does not depend on the rest of the environment, on the load order, or on the method table beyond those origins.
 
@@ -52,7 +52,7 @@ The compiler knows each fact when it folds it, so it can record the origins with
 
 - **Can each fact's origins be recorded cheaply?** The facts compiler names each fact's signature. The origin is the owner of the function and of each concrete type in it. Their packages are known from `parentmodule`.
 - **How much of a trait world's session is facts code?** In C, facts code is 11% of what loads (open issue 73). In a whole trait world it is nearly all. The gain grows with the ports.
-- **Strict mode's load cost:** its intended design checks at image validation ([facts §10.3](../reference/facts.md#strict-intended)), which this cache would share.
+- **Strict mode's load cost:** its intended design checks at image validation ([facts §10.3](../../attic/writeup/reference/facts.md#strict-intended)), which this cache would share.
 - **A smallest experiment:** record origins for the trait demonstrators (D) by walking each facts CodeInstance's edges after the session. Then compare the origin sets with the dependency sets E-180 grouped by. Also count how many entries one environment change (a version bump of an unrelated package) would keep.
 
 ## 6. The first experiment (E-188)

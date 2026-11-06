@@ -25,6 +25,10 @@ before this date map to `attic/<same path>`.
 
 | `oc-notes/`, `oc-traits/` | an unfinished attempt (2026-10-30/31, by a QWEN38 class model) at building the unified design from upstream Julia: its plan, notes, numbers, gates and acceptance tests. Status in `oc-notes/README.md`. Its Julia commits are on branch `oc-build` of the `julia` repository |
 
+| `writeup/reference/` | the four references and their README as they stood before the references for traits as abstract types replaced them (2026-11-06); the deviation rows T-1–T-95, F-1–F-23, L-1–L-50 and C-1–C-17 are retired with them. Paths and anchors cited before 2026-11-06 as `writeup/reference/…` map here |
+
+**Added 2026-11-06:** the row for `writeup/reference/` ({G}, adopting the references drafted in `writeup/reference-unified/`).
+
 **Added 2026-11-05:** the last row. The user: "oc-build was an attempt to implement the plan using a QWEN38 class model. Might be useful but didn't get close to finishing."
 
 **Added 2026-10-16 (session 22):** the documents in the last three rows, moved here when `writeup/` was cleaned up to hold only what is current (see `writeup/README.md`).

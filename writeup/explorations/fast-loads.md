@@ -28,7 +28,7 @@ The merged port wins where a session repeats work: new equations recompile in 0.
 
 ## 2. Why code is compiled in the session
 
-**A package image holds the code compiled while that package was precompiled:** its own methods, and what its precompile workload ran, each stored under its owner (plain or `:facts`; [compiler §2.9](../reference/compiler.md#29-what-package-images-keep)). Facts code cannot use plain code from an image: whatever facts code reaches is compiled by facts. So the question for each method the workload reaches is whether any image holds a facts version of it, at the workload's types.
+**A package image holds the code compiled while that package was precompiled:** its own methods, and what its precompile workload ran, each stored under its owner (plain or `:facts`; [compiler §2.9](../../attic/writeup/reference/compiler.md#29-what-package-images-keep)). Facts code cannot use plain code from an image: whatever facts code reaches is compiled by facts. So the question for each method the workload reaches is whether any image holds a facts version of it, at the workload's types.
 
 - **Under `all`, facts code costs almost nothing extra** (23.6 against 21.5 s): every image, the system image included, holds facts code. The cost is where facts code is cached, not compiling by facts.
 - **With only NetworkDynamics wrapped,** its facts code calls SciML, whose images hold plain code only: all of SciML on that path is compiled by facts in the session.

@@ -1,0 +1,1651 @@
+# Traits: the reference
+
+This page defines the trait language: its syntax, what each form means, what is checked and when, and the rules, as user code sees them. It describes the language as designed, including the parts not built yet. Where TraitWorld, the prototype, does something else today, the [Deviations](#17-deviations) table at the end says so.
+
+- For a tutorial that builds one example step by step, read [Traits by example](../intro/traits-by-example.md).
+- For why traits, and what they buy, read [Traits for Julia](../intro/traits-for-julia.md).
+- The terms (trait, implementation, trait object, kept value, `Compiled`, `Dynamic`, key, stakeholder, pirate) are explained in the [glossary](../glossary.md).
+- The other references: what compiled code may assume, in [`facts.md`](facts.md); how each construct is built on Julia, in [`lowering.md`](lowering.md); the Julia interfaces both rely on, in [`compiler.md`](compiler.md).
+
+**Status labels.** Every section ends with one:
+- **Implemented:** TraitWorld accepts it today, on the patched Julia 1.13.2 it needs.
+- **Planned:** decided, not built.
+- **Optional:** built only if a measurement or a demonstrator asks for it.
+- **Open:** not decided. The link names the question in [`../open-issues.md`](../open-issues.md).
+
+A rule in an Implemented section is enforced, unless the Deviations table lists it. A Planned form is written as it will be. Writing it today is refused, unless the Deviations table says otherwise.
+
+## Contents
+
+1. [Syntax summary](#1-syntax-summary)
+2. [Trait modules](#2-trait-modules)
+3. [Trait declarations](#3-trait-declarations)
+4. [Implementations](#4-implementations)
+5. [Bounded functions](#5-bounded-functions)
+6. [Values in trait code: `Compiled` and `Dynamic`](#6-values-in-trait-code-compiled-and-dynamic)
+    1. [The attribute](#61-the-attribute)
+    2. [How plain values enter the trait world](#62-how-plain-values-enter-the-trait-world)
+    3. [Defaults: a trait's default, and annotations](#63-defaults-a-traits-default-and-annotations)
+    4. [Casts](#64-casts)
+    5. [Values carry](#65-values-carry)
+    6. [Items of a user's container](#66-items-of-a-users-container)
+    7. [What `Compiled` code is compiled for](#67-what-compiled-code-is-compiled-for)
+    8. [Costs, and choosing](#68-costs-and-choosing)
+7. [Kept values: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`](#7-kept-values-dynamicx-compiledx-keptx)
+8. [Collections](#8-collections)
+9. [Checks, and when they run](#9-checks-and-when-they-run)
+10. [Who may implement; pirates; strict mode](#10-who-may-implement-pirates-strict-mode)
+11. [Concreteness and fully typed mode](#11-concreteness-and-fully-typed-mode)
+12. [Printing](#12-printing)
+13. [Compiling ahead](#13-compiling-ahead)
+14. [Membership](#14-membership)
+15. [Named implementations](#15-named-implementations)
+16. [Status index](#16-status-index)
+17. [Deviations](#17-deviations)
+
+---
+
+## 1. Syntax summary
+
+The grammar below is the language as designed. `X?` is optional, `X*` repeats zero or more times, `|` separates alternatives, quoted text is literal. `Name`, `Type` and `Expr` are Julia names, type expressions and expressions.
+
+```ebnf
+(* where trait code lives *)
+TraitModule    ::= FullyTyped? "@trait_module" "module" Name Statement* "end"
+                 | "@trait_module" "begin" Statement* "end"
+Statement      ::= Trait | Implementation | Method | Struct | Expr
+JointOwners    ::= "@joint_owners" Name+                          (* in a package's module: packages that own with it (§10.1) *)
+FullyTyped     ::= "@warn_not_fully_typed" | "@enforce_fully_typed"      (* fully typed mode *)
+Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*   (* names: parameters, Self, bounded arguments *)
+
+(* declaring a trait *)
+Trait          ::= "@trait" Name Params? ( "<:" Supertraits )? ( "begin" TraitItem* "end" )?
+Params         ::= "{" Param ( "," Param )* "}"
+Param          ::= Name ( "<:" ( Type | TraitExpr ) )?
+Supertraits    ::= TraitExpr
+TraitItem      ::= Operation | Operation "=" Expr          (* an operation; a default *)
+                 | "@const"? Name "::" Type                 (* a declared field *)
+                 | Name "=" Expr                            (* an equation: a parameter as a function of Self *)
+                 | Concrete                                 (* concreteness of parameters and Self *)
+                 | "@default_with_dynamic_self" | "@default_compiled_for_self"   (* the trait's default attribute *)
+Operation      ::= OpName "(" Name "::" Receiver ( "," OpArg )* ")" "::" Type
+OpName         ::= Name | Module "." Name
+Receiver       ::= TraitName | TraitName "{" Type ( "," Type )* "}" | "Self"
+OpArg          ::= Name "::" Type | "::" Type | Name
+TraitRef       ::= TraitName ( "{" Type ( "," Type )* "}" )?
+TraitExpr      ::= TraitRef | CallableRef | "(" TraitExpr ( "," TraitExpr )* ")"   (* a trait; a tuple of traits is one (§3.7) *)
+CallableRef    ::= "Callable" "{" TupleType "," Type "}"
+
+(* joining a trait *)
+Implementation ::= "@implement" Traits Target How?
+Traits         ::= TraitRef | "(" TraitRef ( "," TraitRef )* ")"
+Target         ::= Type                                              (* one type *)
+                 | Type "where" "{" TypeVar ( "," TypeVar )* "}"      (* a family *)
+                 | Name "where" "{" Constraint ( "," Constraint )* "}" (* a generic implementation *)
+Constraint     ::= Name ":" TraitRef | Name "<:" Type | Expr
+How            ::= "begin" MethodDef* "end"                          (* the operations' methods *)
+                 | "by" FieldName ( "," FieldMap )*                  (* forwarding *)
+                 | FieldMap ( "," FieldMap )*                        (* fields under other names *)
+FieldMap       ::= FieldName "=>" FieldName
+
+(* using a trait, inside a trait module *)
+Method         ::= FullyTyped? Concrete? Name "(" Arg* ( ";" KwArg* )? ")" ( "::" Result )? ( "where" TypeVars )? "=" Expr
+Arg            ::= Name "::" Bound | Name "::" "Opened" "{" TraitExpr "}" | Name "::" Type | Name   (* Opened: the bound opens its value, §6.4 *)
+                 | Arg "=" Expr                                      (* a positional default *)
+                 | Name "::" TraitExpr "..."                         (* a vararg of trait objects *)
+KwArg          ::= ( Name "::" Bound | Name "::" Type | Name ) ( "=" Expr )?
+Bound          ::= TraitExpr | Attribute "{" TraitExpr "}"
+Attribute      ::= "Compiled" | "Dynamic"
+ItemParam      ::= TraitExpr | Attribute "{" TraitExpr "}"     (* a bound's parameter naming a trait: an item position *)
+Result         ::= Type | "Like" "{" ArgName "}"
+Struct         ::= "mutable"? "struct" Name ( "{" StructParam ( "," StructParam )* "}" )? StructBody "end"   (* StructBody: Julia's fields *)
+StructParam    ::= Name | Name "<:" Type | Name "<:" TraitExpr     (* the last: bounded by a trait *)
+
+(* values *)
+KeptType       ::= KeptForm "{" TraitExpr "}"
+KeptForm       ::= "Dynamic" | "Compiled" | "Kept"
+Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"
+
+(* planned *)
+FamilyForward  ::= "@implement" Traits Type "by" FieldName "where" "{" TypeVar* "}"
+KwCallable     ::= "Callable" "{" TupleType "," Type "," NamedTupleType "}"
+OpenResult     ::= Name "::" "Callable" "{" TupleType "," Name "}" "where" Name
+BoundedClosure ::= "(" Name "::" TraitExpr ")" "->" Expr
+Membership     ::= Expr "isa" TraitExpr | Type "<:" TraitExpr
+NamedImpl      ::= "Via" "{" Name "}" "(" Expr ")"
+```
+
+A tuple of traits is in the grammar wherever a trait is (`TraitExpr`); where it is built yet: [§3.7](#37-tuples-of-traits).
+
+**Status:** Implemented, except the forms under `(* planned *)` (Planned), and tuples of traits outside bounds and `@implement` ([§3.7](#37-tuples-of-traits)). TraitWorld also accepts forms that are not in this grammar: [T-12](#17-deviations) to [T-15](#17-deviations), and an unnamed receiver ([T-36](#17-deviations)).
+
+---
+
+## 2. Trait modules
+
+```julia
+@trait_module module Geometry
+using TraitWorld
+# traits, implementations, bounded functions, ordinary code
+end
+```
+
+Inside an existing module, such as a package's own module file:
+
+```julia
+module MyPackage
+using TraitWorld
+@trait_module begin
+    # …
+end
+end
+```
+
+**Meaning.**
+- A trait module is a module whose code is written against traits. Its code is *trait code*. All other code is *plain code*.
+- **Loading another package does not discard a trait module's compiled code,** except a change by a stakeholder of code it depends on, or a pirate that wins there, with the exceptions [facts §2.2](facts.md#g2) lists; strict mode refuses the pirate ([§10.3](#103-strict-mode)). Julia compiles trait code in its *facts mode*: a call whose argument types are not all known is dispatched when it runs, never guessed at. What compiled code may assume, and why: [`facts.md`](facts.md#the-facts-mode).
+- Submodules of a trait module are trait modules.
+- `@trait_module` runs each top-level statement after the ones before it. So a trait is known when a later function definition mentions it. `include` passes the same treatment on to the included file.
+
+**Rules.**
+- Bounded functions ([§5](#5-bounded-functions)) exist only inside trait modules. Outside, a method with a trait's name as an argument's type is refused when it is defined (`TraitUseError`), now and with traits in the type system. Outside trait modules a value is taken as a kept value (`Kept{X}`) or by a type.
+- `@trait` and `@implement` work in any module. A user's types usually conform in plain code.
+- A trait module may use and call any Julia code: Base, CSV, Cairo, ForwardDiff.
+- At the end of a trait module, its bounded functions are checked ([§9](#9-checks-and-when-they-run)).
+- **A bounded function defined again after its trait module is complete** (by `eval` at the prompt, or by Revise) goes through the module's end for that function: its worker is replaced, it is checked as at the module's end, and what the end fixes from its workers (the needs, attributes and keep flags of its positions) is fixed again. Code that called it is invalidated, as after any redefinition by an owner ([facts §2.2](facts.md#g2)).
+- A trait module may not define a pirate ([§10.2](#102-pirates)).
+- A package is an ordinary module around its trait module. The package's own `module` line cannot carry `@trait_module`, since TraitWorld is not loaded yet there. Write `include("Core.jl")` with a `@trait_module module Core … end` inside, or a `@trait_module begin … end` block after `using TraitWorld`.
+
+**A trait module as a plain module** (Planned): `module M; @trait_module; … end` declares the enclosing module a trait module at its first statement. Every later statement evaluated into it, by `include`, at the prompt or by Revise, is a statement of the trait module ([lowering §8.3](lowering.md#83-needs-and-the-modules-end)), and the module's end runs where Julia finishes the module (a hook the patched Julia would add). `@trait_module module M … end` stays a spelling of the same. So Revise and other tools that read files by their top-level statements see a trait module as an ordinary module ([T-81](#17-deviations)).
+
+A prefix sets fully typed mode for every function in the module ([§11](#11-concreteness-and-fully-typed-mode)): `@warn_not_fully_typed @trait_module module M … end`, or `@enforce_fully_typed`.
+
+**Status:** Implemented, except an edit by Revise ([T-81](#17-deviations)).
+
+---
+
+## 3. Trait declarations
+
+```julia
+@trait Shape begin
+    area(s::Shape)::Float64
+    perimeter(s::Shape)::Float64
+    summary(s::Shape)::String = "a shape of area $(area(s))"     # a default
+end
+```
+
+**Meaning.**
+- `@trait X` declares the trait `X`, a kind of abstract type with its own rules: a type joins it by an implementation, after the fact, and may join several ([§14](#14-membership) compares it with an abstract type).
+- The body declares what a value must provide to conform: operations, fields, and the values of the trait's parameters. It may also declare the trait's default attribute (`@default_with_dynamic_self` or `@default_compiled_for_self`, [§6.3](#63-defaults-a-traits-default-and-annotations)) and its concreteness ([§11](#11-concreteness-and-fully-typed-mode)).
+- A trait without a body bundles other traits ([§3.6](#36-supertraits-and-bundles)).
+- Declaring a trait defines no method on any user type and changes no compiled code.
+
+**Status:** Implemented. Each subsection has its own status.
+
+### 3.1 Operations
+
+```julia
+ncols(t::ColTable)::Int
+col(t::ColTable, i::Int)::Vector{Float64}
+Base.length(t::HasLength)::Int                     # an existing function
+Base.iterate(t::Iterable{T})::Union{Nothing, Tuple{T, Any}}          # T = eltype(Self), an equation (§3.4)
+Base.iterate(t::Iterable{T}, state)::Union{Nothing, Tuple{T, Any}}
+```
+
+- An operation is a generic function with declared argument and result types.
+- **The first argument is the value seen through the trait.** Type it with the trait's name (`t::ColTable`), the trait with parameters (`v::KVec{T}`), or `Self`.
+- **Planned: the receiver at any position** (decided 2026-10-28, mine, flagged; W-86). The receiver is the one argument typed by the trait or `Self`, wherever it stands, so Base's functions are operations as Base writes them: `LinearAlgebra.ldiv!(x::Vector{T}, F::Solvable{T}, b::Vector{T})`, `Base.print(io::IO, x::Printable)`. Where two arguments are typed by the trait, the first is the receiver and the others are seen through their bounds.
+- **Every operation declares its result type.** A declaration without one is an error.
+- Further arguments are typed as in a method: `i::Int`, `::Int` (no name), or untyped (`state`, which means `Any`).
+- A plain name (`ncols`) creates a new function in the trait's module. A qualified name (`Base.length`) uses that existing function.
+- One operation may be declared at several arities (`iterate` above), and at one arity several times where the further arguments' declared types are disjoint (`show_as(b::Backend, ::MIME"image/png", s)` and `show_as(b::Backend, ::MIME"image/svg+xml", s)`); each declaration is checked at the implementation (Planned).
+- The declared types may name the trait's parameters and `Self` ([§3.4](#34-parameters-and-associated-types), [§3.5](#35-self)).
+- **Planned: `where` variables on an operation's declaration** (decided 2026-10-28, mine, flagged; open issue 106), fixed by its arguments and checked at each implementation as the trait's parameters are: `solve_core(a::ODEAlgorithm, m::CoreProblem{T}, cbs::Vector{Kept{StepCallback{Vector{T}, Float64}}}) where {T}`.
+- An operation may mutate its arguments. A trait object refers to the user's object, so the change is visible to the user, as in plain Julia. No annotation marks such an operation.
+- **An argument declared `Dynamic{Y}`, `Compiled{Y}` or `Kept{Y}` is a type, as in a method:** the operation receives such a kept value ([§7](#7-kept-values-dynamicx-compiledx-keptx)), for example `condition(cb::Callback, …, integ::Dynamic{IntegratorView})::Bool`. What a value passed there becomes is the table of [§6.3](#63-defaults-a-traits-default-and-annotations). Only a bounded function's own arguments are bounds ([§5.1](#51-bounds)).
+- **A trait's bare name on a further argument** (`overlap(a::Sh, b::Sh)`) is refused at `@trait`: write `Dynamic{Sh}`, `Compiled{Sh}` or `Kept{Sh}` ([T-76](#17-deviations)).
+- **A value fixed per implementation** (an associated constant, such as an algorithm's order) is an operation with a declared result: `alg_order(a::ODEAlgorithm)::Int`. Its call on a known type folds to the constant. A value fixed per instance and needed in types is an explicit parameter, as in Julia.
+
+**What is checked.**
+- At each implementation: every operation has a method, or a default, for the type it is called on, and the method's result infers to the declared type ([§4.9](#49-checks-at-the-declaration)).
+- At every call on a trait object or a kept value: the arguments against the declaration; the result is asserted to the declared type.
+
+**Status:** Implemented. Planned (2026-10-28): several declarations of one operation at one arity; `where` variables on an operation's declaration.
+
+### 3.2 Defaults
+
+```julia
+firstcol(t::ColTable)::Vector{Float64} = col(t, 1)
+```
+
+- A default is an operation with a body, written in terms of the trait's other operations and fields.
+- The trait's parameters are in scope in the body: `state(m::M{T}, u0)::Vector{T} = Vector{T}(u0)`.
+- An implementation keeps it, or overrides it with its own method. Which one is fixed when the implementation is declared ([§4.9](#49-checks-at-the-declaration)).
+- A default never throws "not implemented". An operation without a default must be implemented, and its absence is an error at `@implement`.
+- A default serves trait objects and kept values. It is not a method of the conforming type, so plain code calling the operation on the type directly finds no method ([§4](#4-implementations)).
+
+**Status:** Implemented, except the trait's parameters in a default's body (Planned; [T-2](#17-deviations)), and an existing method of the type for an operation that a block leaves out ([T-32](#17-deviations)).
+
+### 3.3 Fields
+
+```julia
+@trait Integrator{U, P} begin
+    u::U              # writable
+    @const p::P       # read-only
+    t::Float64        # writable, of a fixed type
+end
+```
+
+- A declared field is a stored field the conforming type must have: same name (unless mapped, [§4.4](#44-field-mappings)), and the declared type.
+- `t.name` reads it and `t.name = x` writes it, inside bounded code. Code may read and write only the fields its traits declare.
+- `@const` makes a field read-only. It is the macro form of a struct's `const`.
+- **A read-only field may be stored at a subtype** of its declared type: nothing writes it through the trait, so the declared type stays true. Code compiled for the trait sees the declared type ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- **A writable field needs** a mutable conforming type, a stored field that is not `const`, and a stored type exactly equal to the declared type as the implementation matched it. So a write never changes a type compiled code relies on.
+- A declared field is read from the stored field, never through `getproperty`. So a type with its own `getproperty` conforms only if it maps every declared field explicitly: the mapping says that plain `x.name` may differ from `t.name`.
+- **A declared field typed by a trait's name** (`color::ColorSpec`) is a kept value, `Kept{ColorSpec}`, as a struct's field is ([§7](#7-kept-values-dynamicx-compiledx-keptx)); a write converts as an assignment from plain code does ([§7.3](#73-assigning-from-plain-code)) (Planned: TraitWorld's behaviour not yet checked, W-80).
+- Computed properties are not declared fields. A read `t.name` that no field of the traits declares is the operation of `HasProperty{:name}` ([§8.1](#81-basetraits-traits-for-bases-concepts)) when the traits carry it, and a `TraitUseError` otherwise. A type whose data must be computed for every field is converted by the library instead ([§4.10](#410-types-that-only-convert)).
+- The declared fields' types decide which types share compiled code ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- **A field declared with an abstract type** gives an abstract key: code compiled for the trait reads it at that type, and each operation on it dispatches at run time. Declare it concrete, or by a parameter, where speed matters; `@enforce_concrete_only` makes an abstract part an error ([§11.1](#111-per-trait-concrete-parameters-and-self)).
+- **State that some types write and others only read is two traits:** a trait that declares the field `@const`, and a subtrait that adds the operations that change it, as `MutableIndexable` adds `setindex!` to `Indexable` ([§8.1](#81-basetraits-traits-for-bases-concepts)). A field's constness does not depend on the family that implements it.
+
+**Status:** Implemented. Planned (2026-10-28): a declared field typed by a trait's name as a kept value.
+
+### 3.4 Parameters and associated types
+
+```julia
+@trait KVec{T} begin
+    T = eltype(Self)                  # defined by an equation of Self
+    klen(v::KVec)::Int
+    kget(v::KVec{T}, i::Int)::T
+end
+
+@trait Integrator{U, P} begin         # defined by the fields' types
+    u::U
+    @const p::P
+end
+
+@trait ArrayLike{T, N} begin          # stated by each implementation
+    alen(a::ArrayLike)::Int
+    firstof(a::ArrayLike{T})::T
+end
+```
+
+- A trait's parameters are its **associated types.** Each implementation has exactly one value for each, as a Julia type has one `AbstractArray` supertype.
+- A parameter is defined in one of three ways:
+  - **by a field:** the field's declared type is matched against the stored field's type, as Julia matches a `where` clause. `data::Vector{T}` against a `Vector{Float64}` field gives `T = Float64`. A stored type that does not match is refused at the implementation.
+  - **by an equation** of `Self`: `T = eltype(Self)`.
+  - **by the implementation**, when neither defines it: `@implement ArrayLike{Float32, 1} MyVec` ([§4.6](#46-stating-parameters)).
+- A parameter defined by a field and by an equation is an error ("defined by the field").
+- **An equation always holds.** A parameter defined by an equation is never replaced. An implementation may state its value too; the stated value is checked against the equation's ([§4.6](#46-stating-parameters)).
+- Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
+- **Parameters are invariant,** as Julia's are. `KVec{Real}` means a parameter that is exactly `Real`. A bound that accepts every subtype is written as for a Julia type: `v::KVec{<:Real}` (a vector of `Int` conforms), and `KVec{>:Int}` for every supertype. In `f(v::KVec{T}) where {T}`, `T` is the member's own value.
+- **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
+- **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-fully-typed-mode)).
+- **Input parameters:** a parameter marked as an input may take several values per type. It is declared by a line `@input N` in the trait's body, and input parameters come first in the header: `@trait HasProperty{N, R} begin @input N; … end`.
+  - **The trait applied to its input values is a family** (`HasProperty{:ps}`): a trait of its own for implementations, keys, conformance and `Dynamic` splits. One type implements the trait at several input values as it implements several traits.
+  - An implementation states each input parameter as a value (`@implement HasProperty{:ps, PView} MyInteg`), or as a variable (`where {P}`): one implementation for every value.
+  - A bound always fixes it, by a value or by a `where` variable another argument fixes, so it is never left open.
+  - Two implementations for one type at the same input values overlap as two implementations do ([§4.8](#48-overrides-and-redeclaration)).
+  - A supertrait with input parameters is named by its family; a value is seen through it at the parameters the value fixes.
+  - The owners of an input parameter's type count as stakeholders of the implementation.
+  - `Callable` ([§5.8](#58-callable-functions-at-a-declared-signature)) is such a trait.
+- **Not offered:** equations between type functions, a parameter bound that names its own trait.
+- **Two traits' implementers linked by their parameters** (an algorithm and the integrator it builds for a problem): a function bounded by both at shared `where` variables ([§5.1](#51-bounds)) checks the link at each call, `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`. A trait does not declare which implementer of another trait goes with its own; Julia's generic functions carry the link.
+
+**Status:** Implemented, except the check of a stated value against an equation for a family ([T-37](#17-deviations)). Input parameters: implemented for what `HasProperty` needs (TraitWorld 2215188); an input as a variable, fields, stakeholders and `Callable` not yet ([T-84](#17-deviations)–[T-87](#17-deviations)).
+
+### 3.5 `Self`
+
+- **In a trait's body, `Self` is the type of the value seen through the trait.** For a type that implements the operations with its own methods, or whose operations are all served by defaults, that is the conforming type; for one that forwards with `by f`, the field's type ([§4.3](#43-forwarding-with-by)).
+- It appears as the first argument's type (`f(t::Self)`), in result types, and in equations (`T = eltype(Self)`).
+- **A constructor operation** declares `Self` as its result: `kwith(t::KTable, cs::Vector{Vector{Float64}})::Self`. It returns a new value like the one seen. With `::Like{t}` ([§5.6](#56-results-declared-types-like-withfields)), this is how a library returns "a value like the input".
+- The new value comes back in the caller's form: on a trait object, the new value seen through the trait; on a kept value, a kept value of the same form and attribute ([§7](#7-kept-values-dynamicx-compiledx-keptx)).
+
+**Status:** Implemented, except a constructor operation on a kept value of a trait with fields ([T-35](#17-deviations)).
+
+### 3.6 Supertraits and bundles
+
+```julia
+@trait DGrow{T} <: DCol begin          # DGrow's operations, plus DCol's
+    T = eltype(Self)
+    dpush!(c::DGrow, x::Float64)::Nothing
+end
+@trait Table <: (ColTable, RowTable)   # a bundle: no body
+```
+
+- `@trait B <: A` makes `A`'s operations and fields available through a `B` bound.
+- `@implement B T` implements `B`'s own operations. `T` must conform to `A` too, by its own implementation.
+- **`@implement` of a bundle** is the tuple's: `@implement Table T …` means `@implement (ColTable, RowTable) T …` and implements each member ([§3.7](#37-tuples-of-traits)).
+- **A type's implementation of `B` must agree with its implementation of `A`:** the same forwarding field, or both served by the type's own methods, with the fields mapped alike. A disagreement is refused.
+- A **bundle** names a combination of traits. A bound `t::Table` means `t::(ColTable, RowTable)`.
+- **A supertrait with parameters,** `@trait Integrator{U, T, P} <: IntegratorView{U, T, P}`, takes the subtrait's parameters by name:
+  - a type implements `Integrator` at `U, T, P` only if it implements `IntegratorView` at the same values;
+  - a subtrait's parameter written bare in the supertrait and defined by the supertrait's fields (or its supertraits') takes its value from there; another parameter is stated at the implementation and checked against the supertrait's;
+  - the supertrait's parameters are written with the subtrait's variables, constants and type constructors, as a joint family's are ([§4.7](#47-families)).
+
+- The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
+- **Membership is transitive** (with [§14](#14-membership), Planned): a type that conforms to `B` is a member of `A` when `B <: A`, so `T <: B <: A` gives `T <: A` ([compiler §7.2](compiler.md#72-memberships)). Its implementation of `A`'s operations is still its own, as above.
+
+**Status:** Implemented ([T-68](#17-deviations) for a mapped field). Membership as subtyping: Planned ([§14](#14-membership)).
+
+### 3.7 Tuples of traits
+
+```julia
+t::(ColTable, RowTable)                                         # a bound
+both(f::(Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}), …)   # a function at two signatures
+struct ODEProblem{T, P, F <: (Callable{RHSSig{P, T}, Nothing}, Callable{DualSig{P, T}, Nothing})}   # a struct parameter
+    f::F
+    …
+end
+marks::Vector{(Shape, Placed)}                                  # in a trait module: each item Kept{(Shape, Placed)}
+Dynamic{(Shape, Placed)}(x)                                     # a kept value
+```
+
+- **A tuple of traits is a trait.** `(X, Y, …)` is the trait of the values that conform to each member: their intersection, not a union. Its operations and fields are its members'.
+- **It stands wherever a trait stands:** a bound, and an attribute on one; an item parameter; a parameter's trait bound; a supertrait list; a struct parameter's bound; a field's or an element type in a trait module; the kept forms; `@implement`, which implements each member ([§4.5](#45-several-traits-at-once)).
+- **`Callable` is a trait.** A tuple of `Callable`s is a function at several signatures: a call picks the signature its arguments match ([§5.8](#58-callable-functions-at-a-declared-signature)). A tuple may mix `Callable`s and other traits.
+- **A bundle names a tuple:** after `@trait Table <: (ColTable, RowTable)`, `Table` and `(ColTable, RowTable)` are the same trait ([§3.6](#36-supertraits-and-bundles)).
+- **One trait, whatever the order:** members are flattened (a tuple or a bundle inside a tuple), duplicates dropped, and the order does not matter.
+- **A value enters a tuple once,** and is seen through every member from then on. It has one attribute, decided as for one trait. Members' defaults that disagree cancel ([§6.3](#63-defaults-a-traits-default-and-annotations)).
+- **Parameters** stay each member's. A `Dynamic` form fixes the parameters each member's results use ([§5.1](#51-bounds)). A member may name the method's `where` variables, as a single bound does: `v::(ValueProvider{U, P}, IndexProvider)`; the first member that names a variable fixes it.
+- **A value seen through some members is not seen through the others** later: enter it through the tuple ([§6.5](#65-values-carry)).
+
+**Status:** Implemented for bounds and attributes on them, supertrait lists, bundles and `@implement`. Planned everywhere else a trait stands (struct parameters, kept forms, item parameters, fields and element types, parameters' trait bounds): [W-29](../record/todo.md).
+
+---
+
+## 4. Implementations
+
+`@implement` declares that a type conforms to a trait: an *implementation of `X` for `T`*. It is never inferred from the methods that happen to exist.
+
+All forms share these properties:
+- **Any type may implement a trait, a type value's type too:** `@implement CellParser Type{Int64}` lets `Int64` itself stand where a cell type is passed (Planned: TraitWorld's behaviour not yet checked, W-80).
+- It may come after the type's definition, in another package.
+- Its operations are served by the type's own methods, by a field it forwards to, or by the trait's defaults.
+- It is checked when it is declared ([§4.9](#49-checks-at-the-declaration)).
+- It discards no trait code.
+- **Defaults and forwarding serve trait code only.** An implementation adds no methods to the type for the operations a default or a field serves. Called from plain code, `describe(c)` or `area(tile)` then has no method (`MethodError`). Plain code reaches them through a bounded function or a kept value.
+
+**The operations' methods and the implementation are separate.**
+- The *methods* serve the operations for a type.
+- The *implementation* says how a type joins the trait, fields included.
+- A type that implements the operations need not have the declared fields. It then does not conform, but it can be the field another type forwards to. `Vector{Vector{Float64}}` implements `ColTable`'s operations. If `ColTable` declared a field `name`, a bare vector would not conform, and a `Measurements` holding one and a name would.
+
+How an implementation is recorded, so that declaring one invalidates no trait code: [`lowering.md`](lowering.md#4-implementations).
+
+**Status:** Implemented. Planned (2026-10-28): a type value's type as an implementing type.
+
+### 4.1 With a block of methods
+
+```julia
+@implement ColTable Vector{Vector{Float64}} begin
+    ncols(t) = length(t)
+    col(t, i) = t[i]
+end
+```
+
+- The block defines the operations' methods for the type and declares the implementation, in one step.
+- Method names are the operations' names, unqualified. Each must be an operation of the trait, at a declared arity.
+- The first argument is the value seen through the trait, typed as the conforming type. Unannotated arguments get the operation's declared types.
+- `function name(args…) … end` works too.
+- Operations the block leaves out are served by their defaults. One without a default is an error.
+
+**Status:** Implemented.
+
+### 4.2 One line
+
+```julia
+@implement ColTable Ramp           # Ramp has methods of ncols and col
+@implement Placed Sprite           # a trait of fields only: Sprite has the fields
+```
+
+`@implement X T` without a block or `by` says that `T` implements the trait itself:
+1. **`T`'s own methods** serve every operation without a default. Define them before the declaration.
+2. **A trait with fields only** is served by the type's stored fields.
+
+**No field is special.** The one-line form never forwards to a field: not one named `data`, not the only field whose type conforms. Forwarding is always written with `by` ([§4.3](#43-forwarding-with-by)).
+
+Errors, each naming the operations:
+- methods for some operations and not for others;
+- no methods. The message lists the fields whose type conforms, each with its `by` line.
+
+The one-line form needs a concrete type. A parametric type conforms as a family ([§4.7](#47-families)).
+
+No form computes a value from the type. A type whose data needs a computation (a lazily derived table, a foreign layout) does not conform by a field: the library converts it explicitly ([§4.10](#410-types-that-only-convert)).
+
+**Status:** Implemented.
+
+### 4.3 Forwarding with `by`
+
+```julia
+@implement ColTable Halves by right
+```
+
+- The implementation forwards every operation to the field `right`. The operations are those of the field's type, and `Self` is that type ([§3.5](#35-self)). That type is the *receiver type*: `Halves` shares the code compiled for it ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- The field's type must implement the operations itself. **Forwarding does not chain:** a field whose type itself forwards is refused.
+- `by` is the only way to forward: `@implement X T` without it never picks a field ([§4.2](#42-one-line)).
+- The forwarding field may not also be a writable declared field: a write through the trait would replace the value the operations are called on.
+- A trait that requires a concrete `Self` ([§11](#11-concreteness-and-fully-typed-mode)) refuses a forwarding field of an abstract type, naming the field.
+
+**Status:** Implemented, except the check on a writable forwarding field (Planned; [T-4](#17-deviations)).
+
+### 4.4 Field mappings
+
+```julia
+@implement Named Book name => title            # Named declares `@const name::String`
+@implement Stepper Clock by data, t => time    # with forwarding
+```
+
+- A declared field may be stored under another name: `declared => stored`, or along a path of stored fields: `t => core.t`, `tspan => sol.prob.tspan` (Planned). A path names stored fields only, never a computed value; it is read and written through each step, and the field is writable only if every step allows a write ([§3.3](#33-fields)).
+- Several mappings are separated by commas.
+- A type with its own `getproperty` must map every declared field.
+
+**Status:** Implemented, except a mapping in a declaration of several traits at once ([T-31](#17-deviations)). Planned (2026-10-28): mappings along a path of stored fields.
+
+### 4.5 Several traits at once
+
+```julia
+@implement (ColTable, RowTable) Grid by data
+```
+
+- One declaration, one implementation per trait, all forwarding to the same field (or all served by `Grid`'s own methods).
+- Each trait may also be implemented in its own declaration, through its own field: `@implement ColTable Sep by cols` and `@implement RowTable Sep by rows`.
+
+**Status:** Implemented, except with a field mapping, `(X, Y) T name => stored` or `(X, Y) T by f, name => stored` ([T-31](#17-deviations)).
+
+### 4.6 Stating parameters
+
+```julia
+@implement ArrayLike{Float32, 1} MyVec
+```
+
+- An implementation states the values of parameters that no field and no equation defines.
+- **A stated value never replaces an equation.** An implementation may also state a parameter that an equation defines. The stated value is then checked against the equation's value for the type. If they disagree, the implementation is refused with `ImplementError`. For `KVec` (`T = eltype(Self)`, [§3.4](#34-parameters-and-associated-types)) and a type `Wrapped{T}` with no `eltype` method, `@implement KVec{T} Wrapped{T} where {T}` is refused: `eltype(Wrapped{Float64})` is `Any`, not `Float64`. With `Base.eltype(::Type{Wrapped{T}}) where {T} = T` defined first, it is accepted.
+
+**Status:** Implemented, except the check against an equation for a family, where a stated value replaces the equation's value ([T-37](#17-deviations)).
+
+### 4.7 Families
+
+```julia
+@implement Fam S{P} where {P}                            # every S{P}, by S's own methods
+@implement Indexable A where {A <: AbstractVector}       # every subtype, by its existing methods
+@implement KVec A where {A <: Vector{<:Real}} begin      # every member, with methods written here
+    klen(v) = length(v)
+    kget(v, i) = v[i]
+end
+@implement StateVector{T} Series{T} where {T}            # joint: the trait's T tied to the type's T
+@implement IntegratorView Tsit5Integrator{T, P} where {T, P}   # a trait of fields: parameters from the fields
+@implement SVec LSeries{T} by data where {T}             # planned: forwarding, for every member
+```
+
+- A family implementation covers every instance of a parametric type, or every subtype of a type, declared with `where`.
+- **Each member is checked at its first use,** not at the family's declaration, which checks ownership. Its methods are checked as a single type's implementation is at its declaration: they exist, and their results infer to the declared types. Its parameters are checked against their bounds. A family over an abstract type cannot be checked as a whole: the abstract type's interface is implemented by each subtype (Base has no `length(::AbstractDict)`).
+- **A member that does not conform is refused** at its first use, with `ImplementError`. A method that always throws there (its result infers to `Union{}`) is a fallback, not an implementation: the member does not conform; unless the declared result is `Union{}` itself (a `Vector{Union{}}` has no cell to return), where it is the only implementation there is.
+- **Where an operation's declared argument type is abstract,** the member check counts only the methods of the member's stakeholders there: the owners of the operation, of the member's type and of its parameters' types. A method another package adds there (`op(::U, ::MyVec)`) does not change which method serves the member. So a member's implementation does not depend on which packages loaded before its first use.
+- **A member's implementation is fixed at its first use,** not at the family's declaration. Compiling a caller that knows the member's type is a use, and so is loading compiled code that holds the member's implementation: the member is checked and fixed then, and its typed calls cost what a declared type's do ([lowering §4.6](lowering.md#46-families)).
+- **A member fixed while a package image is built is not checked again when the image loads,** as long as the methods that serve it are the same: its conformance and each operation at the declared argument types select the methods its check passed with. The image keeps that record with the member. A method loaded before the image that changes one of them (a pirate) makes the member checked again.
+- **An override of one member** is declared by the package that owns the member's parameter type (`MyT` in `S{MyT}`), in that package itself, not in a package extension. Every caller that names `S{MyT}` depends on that package, so the override is in place before any use, in every load order; an extension loads later, after its triggers. An override declared elsewhere is refused.
+- Code is compiled per member.
+- **Joint families** tie the trait's parameters to the type's:
+  - each member conforms at one value of each trait parameter, so the parameters stay associated types;
+  - every variable of the trait's parameters must occur in the type;
+  - the trait's parameters are written with variables, constants and type constructors, never function calls.
+- A joint family may come with a block of methods, as a family of one type does.
+- A member that a trait's concreteness declaration refuses (`S{Any}`, [§11](#11-concreteness-and-fully-typed-mode)) is refused at its first use, as a member that does not conform.
+- **Forwarding for a whole family,** `@implement X Series{T} by f where {T}`: as for one type, the field is named with `by`. Each member is checked at its first use: its field's type conforms to `X`, by any implementation (Planned, [T-7](#17-deviations)).
+
+**Status:** Implemented, except:
+- Planned: forwarding for a whole family, each member checked at its first use (today one declaration per member, `@implement SVec LSeries{Float64} by data`; [T-7](#17-deviations));
+- Planned: a member's override by its parameter type's owner ([T-28](#17-deviations));
+- the check on parameter expressions ([T-6](#17-deviations)).
+
+### 4.8 Generic implementations
+
+```julia
+@implement GTable R where {R: Indexable{Vector{Float64}}} begin
+    gn(r) = length(r)
+    gcol(r, i) = r[i]
+end
+```
+
+- One implementation covers every type that conforms to other traits. `R: Indexable` reads "`R` conforms to `Indexable`".
+- Constraints are `R: Trait`, with patterns on the trait's parameters (`R: Indexable{Vector{Float64}}`), and `R <: Type`.
+- It applies to a trait with parameters as to one without.
+- Code is still compiled per key ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- A generic implementation makes types members only for a trait without declared fields. A trait with fields needs each type's own declaration, which maps them.
+- **Forwarding carries through.** A type that forwards `Indexable` to a field forwards `GTable` to the same field, and shares the code compiled for the field's type.
+- **Overlap:**
+  - a more specific implementation beats a generic one (`@implement GTable Matrix{Float64} begin … end`);
+  - a more specific implementation must declare the same parameter values as the generic one, so the choice never changes a type;
+  - two overlapping generic implementations with neither more specific are refused;
+  - an overlap the later package cannot see, as when a trait's owner adds a generic implementation in a later version, is reported where a call meets both.
+- **Constraints are patterns, never computed conditions.** A condition such as `eltype(R) == Vector{Float64}` is refused at the declaration, so that overlap is decidable there.
+- **A type that conforms through a generic implementation is checked at its first use,** as a family member is ([§4.7](#47-families)): the operations' results, the parameters' bounds, the parts the concreteness declarations name ([§11.1](#111-per-trait-concrete-parameters-and-self)). One that does not conform is refused (`ImplementError`).
+
+**Status:** Implemented: the form, for a trait without parameters, and "more specific beats generic". Planned: the other overlap rules ([T-9](#17-deviations)); forwarding carrying through ([T-30](#17-deviations)); the refusal of a type whose operations do not conform ([T-52](#17-deviations)). For a trait with parameters, see [T-8](#17-deviations). Planned: the refusal of a computed condition ([T-79](#17-deviations)).
+
+### 4.9 Checks at the declaration
+
+All of these run at `@implement`, never at a call; for a member of a family or a generic implementation, at the member's first use ([§4.7](#47-families), [§4.8](#48-generic-implementations)). A failure raises `ImplementError`. A refused declaration defines nothing: no method and no record.
+
+- **Who:** the declaring package owns the trait or the type ([§10](#10-who-may-implement-pirates-strict-mode)).
+- **Completeness:** every operation has a method or a default for the type it is called on (`Self`). Every declared field exists, with the declared type.
+- **Results:** each method's result infers to the operation's declared type. The message names the operation, the signature, and both types:
+
+  ```
+  `col` at Tuple{Counts, Int64} returns `Vector{Int64}`, declared `Vector{Float64}`
+  ```
+  A result that infers wider than declared is refused too, for a family's members as for one type. The fix is the member's inference (a concrete field type, a type parameter), not an assertion in the implementation.
+- **Writable fields** follow [§3.3](#33-fields).
+- **Parameters:** values that fields define match; values within their bounds ([§3.4](#34-parameters-and-associated-types)).
+- **Concreteness,** for a trait that asks for it ([§11](#11-concreteness-and-fully-typed-mode)).
+- **Overrides belong to the implementation.** Which operations are served by defaults is fixed now. A later method of such an operation for the type is refused when it is defined, naming the fix: define the method before `@implement`, or in its block, and restart Julia. A package image that brings such an override is refused when it loads. So the order matters where plain Julia's does not: a supertype owner's method (`op(::AbstractSample)`) is part of an implementation declared after it, and refused for one declared before it.
+- **Redeclaration.** Declaring an implementation again changes it, as Julia 1.13 redefines a struct.
+
+Not everything is caught here: a conversion that fails at run time (a `Float64` buffer receiving dual numbers) is not proved by the check.
+
+**Status:** Implemented, except:
+- redeclaration (Planned). Today a second declaration is refused in a session, in every form, naming the reason: change the declaration and restart Julia;
+- with a block, the type's existing methods for operations the block leaves out ([T-32](#17-deviations)).
+
+Error types: [T-10](#17-deviations). Messages: [T-11](#17-deviations).
+
+### 4.10 Types that only convert
+
+```julia
+@trait TableLike begin
+    columnnames(t::TableLike)::Vector{Symbol}
+    column(t::TableLike, n::Symbol)::AbstractVector          # not concrete: this bound only converts
+end
+materialize(t::TableLike)::Vector{Vector{Float64}} = [Float64.(column(t, n)) for n in columnnames(t)]
+colmean_any(t::TableLike, i::Int) = colmean(materialize(t), i)   # convert, then the library's code
+```
+
+- A type whose data a library can use only after a conversion (a lazily derived table, a foreign layout, a table typed by its schema) does not conform by a field.
+- The library converts it explicitly, through a trait that reads any such type, and runs its code compiled for its own type on the result.
+- What this costs: a copy; the conversion, compiled per key of the reading trait; no `Like{t}` result, since the result is the library's own type; no write-through.
+- This is ordinary trait code, not a separate construct.
+
+**Status:** Implemented (a pattern; nothing to build).
+
+---
+
+## 5. Bounded functions
+
+```julia
+colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
+```
+
+Bounded functions exist only inside trait modules ([§2](#2-trait-modules)).
+
+**Status:** Implemented. Each subsection has its own status.
+
+### 5.1 Bounds
+
+- **A trait in an argument annotation is a bound.** `t::ColTable` accepts a value of any type that conforms to `ColTable`.
+- **Several bounds on one argument:** `t::(ColTable, RowTable)`, a tuple of traits ([§3.7](#37-tuples-of-traits)). The value must conform to each. A bundle trait is the same thing named. Where the traits declare different defaults, neither applies ([§6.3](#63-defaults-a-traits-default-and-annotations)).
+- **A bound may fix parameters:** `s::StateVector{Float64}`. A value conforming at another value is refused at the call with `TraitBoundError`.
+- **A bound may leave a parameter open** with a `where` variable: `f(prob::ODEProblemTrait{T}, u0::Vector{Float64}) where {T}`. The body reads `T`, the parameter's value for the value passed.
+  - A variable shared between bounds, `f(a::ArrayLike{T}, b::ArrayLike{T}) where {T}`, or with an ordinary argument, `f(v::KVec{T}, w::Vector{T}) where {T}`, requires equal values: `TraitBoundError` at the call otherwise.
+  - A bound on the variable, `where {T <: Integer}`, is checked at the call (`TraitBoundError`).
+  - The variable stands for a whole parameter (`KVec{T}`), not for a part of one (`KVec{Vector{T}}`), which is refused when the method is defined.
+- Other arguments are ordinary: `i::Int`, `v::AbstractVector`, untyped. Ordinary `where` variables on ordinary arguments work as in Julia.
+- **An attribute on a bound,** `x::Compiled{Shape}`, `x::Dynamic{Shape}`, `t::Dynamic{(ColTable, RowTable)}`, is the default for a plain value entering there ([§6.3](#63-defaults-a-traits-default-and-annotations)). Such a bound accepts any value that conforms to `X`, not only kept values of that form.
+- **An attribute on a bound's item parameter,** `ms::Iterable{Compiled{Mark}}`, `d::Keyed{String, Dynamic{Shape}}`, is the default for plain items ([§6.6](#66-items-of-a-users-container), [§8.2](#82-item-positions)).
+- **A trait inside a Base container's type in an argument annotation** (`v::Vector{<:ColTable}`) is refused when the method is defined. The message names the collection bound (`v::Indexable{ColTable}`), through which a user's vector crosses as it is ([§8.3](#83-a-users-container-taken-as-it-is)).
+- **A `Dynamic` annotation fixes every parameter its operations' result types use,** by a value or by a `where` variable: `s::Dynamic{StateVector{Float64}}`, or `c::Dynamic{Column{T}} where {T}`, which is compiled once per value of `T`, read from the value. `s::Dynamic{StateVector}` with `T` in a result type is refused when the method is defined (`TraitBoundError`), so that code after an operation stays typed.
+
+**Status:** Implemented.
+
+### 5.2 What a bounded function receives
+
+- It receives a **trait object**: the user's own object, seen through the bound. Nothing is copied. A write through a declared field reaches the user's object.
+- A trait object is `Compiled` or `Dynamic` ([§6](#6-values-in-trait-code-compiled-and-dynamic)). Both offer the same operations and fields, with the same results.
+- With several bounds, each trait sees the same user's object. A write through one is seen through the others.
+- How a bounded function is built: [`lowering.md`](lowering.md#8-bounded-functions-workers-and-entries).
+
+**Status:** Implemented.
+
+### 5.3 What trait code may do with a trait object
+
+| In a trait module | Allowed |
+|---|---|
+| call the trait's operations on it; read its declared fields; write them unless `@const` | yes |
+| pass it to another function with a bound it carries, or to an internal function without bounds | yes |
+| use several trait objects in one function, of one trait or several | yes |
+| capture it in a closure passed to Base (`sort!(p; lt = (i, j) -> …)`) | yes: the closure is checked like the function |
+| capture it in a closure that plain code keeps beyond the call (an observable's callback) | yes: the closure holds each trait object as a kept value, with its attribute (Planned) |
+| keep it beyond the call, where a trait's name or a kept form is declared, or an optional one (`Union{Nothing, Dynamic{X}}`) ([§7](#7-kept-values-dynamicx-compiledx-keptx)); it keeps its attribute | yes |
+| cast it: `compiled_for(t)`, `with_dynamic(t)` ([§6.4](#64-casts)) | yes |
+| call any Julia code on ordinary values, such as the column `col` returns | yes |
+| take arguments of abstract types from plain callers (`Any`, `Vector{Any}`) | yes: their uses dispatch when they run; fully typed mode reports them ([§11](#11-concreteness-and-fully-typed-mode)) |
+| pass it where a different trait is expected | no: declare both bounds |
+| pass it bare to an ordinary function (`sum(t)`), store it bare, return it bare, `typeof(t)`, a field no trait declares | no: code must not depend on the user's type |
+
+A forbidden use is a `TraitUseError` ([§9](#9-checks-and-when-they-run)). Where the check did not see it, a trait object that reaches a function bounded by another trait raises `TraitBoundError` at the call.
+
+**Status:** Implemented. Planned (2026-10-28): a closure that plain code keeps holds its trait objects as kept values.
+
+### 5.4 Internal functions
+
+- Functions without bounds may take trait objects from bounded functions in the same module. They are compiled together with the bounded function that calls them.
+- Definition checking follows the trait object into them.
+- Only bounded functions accept values from plain code as trait objects. A plain caller passing a value to an unbounded function passes the value itself, as in plain Julia.
+
+**Status:** Implemented.
+
+### 5.5 Dispatch: types first, then traits
+
+```julia
+describe(v::Vector{Float64}) = "a vector"
+describe(m::AbstractMatrix) = "a matrix"
+describe(t::ColTable) = "a table with $(ncols(t)) columns"
+describe(x) = "something else"                 # the fallback
+```
+
+- **A trait bound ranks above `Any` and below every type,** concrete or abstract ([§14](#14-membership) compares traits and abstract types). `describe([1.0 2.0])` takes the `AbstractMatrix` method, although `Matrix{Float64}` is a `ColTable`. A value caught by a typed method is not seen through a trait. So a library adopts traits one function at a time.
+- **Among bounds:** a subtrait beats its supertrait; a bound that carries every trait of another beats it.
+- **Unrelated bounds at one position need a joint method.** `f(t::ColTable)` and `f(t::RowTable)` need `f(t::(ColTable, RowTable))`. The trait module's end raises `TraitBoundError` otherwise. A package that adds a bounded method to the function (below) is checked at its own module's end against the bounds then defined. Two packages that add unrelated bounds without depending on each other meet only when both are loaded: the overlap is reported at the load that creates it (Planned, [T-83](#17-deviations)).
+- A bounded method and a typed method that are ambiguous in another position are reported at the trait module's end, as missing joint methods are.
+- **Bounds of one trait at different fixed parameters** (`f(v::SV{Float64})`, `f(v::SV{Float32})`) are selected by the value's parameters. A value that conforms to the trait at none of them is refused with `TraitBoundError` ([§5.1](#51-bounds)); it does not reach the fallback.
+- **The fallback:** a value that conforms to none of the bounds' traits reaches the most specific ordinary method that applies, as in plain Julia. A call with keywords considers only the methods that take keywords ([§5.7](#57-keywords-defaults-and-varargs)). Without any, the call raises `MethodError`, with a hint naming the bound and listing the trait's declared implementations.
+- **A kept value whose held object conforms to none of the bounds' traits** reaches the fallback too, as its plain object would, passed as it is, with its attribute ([§6.5](#65-values-carry)). So `has_mass(f::HasMassMatrix) = true; has_mass(f) = false` answers `false` for a `Dynamic{Callable{…}}` whose function has no mass matrix.
+- **A type's constructor takes bounded methods** as any function does: `NWState(int::(IntegratorView, HasSystem)) = NWState(sysnet(int), ustate(int))`. The type's ordinary constructors are the fallback, Julia's default constructors included.
+- **Who may add a bounded method:** a package may add one to a function it owns ([§10.1](#101-who-may-implement)), or to another package's function where the package owns a trait the bound names.
+- **A bounded method's name resolves as in Julia:** a name the module has only through `using` (`peek`, from Base) defines a new function of the module, whether the module used the name before or not; a name imported by name (`import Base: peek`) or qualified (`Base.peek(…) = …`) extends that function.
+- **A kept value** passed from plain code reaches the bounded method for its trait, with its attribute ([§6.5](#65-values-carry)). Outside trait modules, `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are ordinary concrete types with Julia's dispatch: a plain method `g(d::Dynamic{Shape})` takes a `Dynamic{Shape}` as any type does.
+
+**Status:** Implemented, except that TraitWorld's encoding requires an untyped fallback of a bounded method's shape to be defined after it (a type's constructor of the entry's shape, Julia's default ones included, is taken over as the fallback; in a package image such a bounded constructor is refused: [lowering L-50](lowering.md#18-deviations)), and lets only the function's owner add a bounded method of a shape the function has no bounded method of yet ([lowering L-3](lowering.md#18-deviations)). The hint's text: [T-22](#17-deviations). Error types of refused definitions: [T-34](#17-deviations). Planned (2026-10-28): unrelated bounds of sibling packages reported at the load ([T-83](#17-deviations)). A bounded method's declared result is asserted on the fallback's result too ([T-95](#17-deviations)).
+
+### 5.6 Results: declared types, `Like`, `withfields`
+
+```julia
+total(t::ColTable)::Float64 = sum(sum(col(t, i)) for i in 1:ncols(t))       # an ordinary result type
+kscaled(t::KTable, a::Float64)::Like{t} = kwith(t, [a .* kcol(t, i) for i in 1:kncols(t)])
+shifted(r::LRec{Vector{Float64}})::Like{r} = withfields(r; u = r.u .+ 1.0)
+```
+
+- An ordinary result annotation works as in Julia.
+- **`::Like{t}`** declares that the result is like argument `t`, which must be a bounded argument. The body returns a new value like the one seen (from a constructor operation, [§3.5](#35-self)) or a `withfields` result. The caller gets a value of its own type:
+  - a type that implements the operations: the new value, which must be of the same type family (the same type, or a sibling: below);
+  - otherwise: the user's object rebuilt by its constructor, with the forwarded or mapped fields replaced, for immutable and mutable types alike. Other fields, such as labels, are kept. The constructor is the type's positional one, taking every field in order; a type without one cannot be rebuilt (`TraitBoundError` at the call).
+- **A sibling:** the result may be the same family at another parameter, and the user's type is rebuilt there (`LSeries{Float64}` in, `LSeries{Float32}` out).
+- **`withfields(t; name = value, …)`** replaces declared fields, for a trait with fields.
+- `return x` inside a `Like` body works.
+- Called with a kept value, a `Like` function returns a kept value of the same form and attribute.
+- **Trait objects never go up bare.** A function that returns its trait object without `Like` raises `TraitUseError`.
+- `verify_main` lists the rebuilding step of each implementation a program reaches ([§13](#13-compiling-ahead)).
+
+**Status:** Implemented, except the listing for `verify_main` (Planned; [T-20](#17-deviations)), and a `Like` result from a kept value of an immutable value kept by its parts ([T-35](#17-deviations)); a declared result is asserted on the fallback's result too ([T-95](#17-deviations)).
+
+### 5.7 Keywords, defaults and varargs
+
+```julia
+colz(t::ColTable, i::Int; baseline::ColTable = t, tol::Float64 = eps()) =
+    (col(t, i) .- colmean(baseline, i)) ./ max(colrange(baseline, i), tol)
+colmean_or(t::ColTable, i::Int = 1) = colmean(t, i)
+ncols_sum(ts::ColTable...) = sum(ncols(t) for t in ts; init = 0)
+```
+
+- **Defaults are trait code.** They are evaluated inside, after each value is seen through its bound: `baseline = t` sees the trait object, `cols = 1:ncols(t)` may call an operation.
+- **A positional default** makes two methods, as Julia does; each is bounded.
+- **A keyword is typed like a positional argument:** by a trait bound, a `Callable` bound, a declared type, or the value supplied. A bounded keyword without a default is required.
+- **No dispatch on keywords,** as in Julia. A bound on a keyword sees the value through the trait and refuses one that does not conform (`TraitBoundError`); it selects no method.
+- **A call with keywords is sorted among the methods that take keywords,** as in Julia; a call without keywords among all methods. Where the bounded methods take no keywords, a call with keywords reaches the fallback that takes them, also with a value that conforms to the bound. With `nw(int::HasSystem)` and `nw(thing; k = 1)`, `nw(int; k = 2)` calls the untyped method. Without such a fallback the call raises Julia's `MethodError`.
+- A keyword's declared type is checked as in Julia: `tol = 1` for `tol::Float64` is a `TypeError`.
+- **A vararg of trait objects,** `ts::ColTable...`, must be last. Its elements may have different keys; the code is compiled per tuple of keys ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- **Bounded keywords and vararg elements** get their attribute as positional arguments do ([§6.2](#62-how-plain-values-enter-the-trait-world)).
+- A vararg of `Callable` is refused. A vararg keyword (`kws...`) of a bounded function passes on unchanged.
+- **A function passed down with keywords** names them in a third parameter: `Callable{A, S, K}`, with `K` a named-tuple type.
+
+**Status:** Implemented, except `Callable` with keywords (Planned) and a function whose only bounded arguments are keywords ([T-48](#17-deviations)). Bounded methods of one shape that differ in taking keywords are refused when defined ([lowering L-48](lowering.md#18-deviations)). A keyword with several `Callable` bounds is refused ([T-36](#17-deviations)).
+
+### 5.8 `Callable`: functions at a declared signature
+
+```julia
+colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t, i))                # Callable's default: Dynamic
+colsum(f::Compiled{Callable{Tuple{Float64}, Float64}}, t::ColTable, i::Int) = sum(f, col(t, i))     # compiled per function
+both(f::(Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}), x::Float64, n::Int) = (f(x), f(n))
+squares(t::ColTable, i::Int) = colmap(abs2, t, i)        # a function of the trait world: Compiled
+
+colmap(x -> 2x, m, 1)                    # the library's default: Dynamic
+colmap(compiled_for(x -> 2x), m, 1)      # the caller casts it: Compiled
+colsum(with_dynamic(x -> 2x), m, 1)      # the caller casts it: Dynamic
+colsum(abs2, m, 1)                       # Compiled at colsum's position
+```
+
+**Meaning.**
+- `Callable{A, S}` is a bound for a function argument: called with arguments of the tuple type `A`, it returns an `S`.
+- **Anything callable conforms:** closures, callable structs, generic functions. No implementation is declared.
+- **Every call is checked:** the arguments against `A`; a result of another type than `S` is a `TypeError`, where plain Julia would widen. A function without a method for `A` raises `MethodError` when called.
+- **A function refused for its result is named with the declared and the returned type:** by the call's `TypeError`, or by the `TraitBoundError` where a function kept at another signature is checked, with its inferred result ([§6.5](#65-values-carry)). Where `S` is `Nothing`, the error adds a hint: end the function with `nothing`. An in-place function whose last line is `du .= …` returns `du`, and is refused at `Callable{…, Nothing}`.
+- **`Callable`'s default is `Dynamic`,** as `@default_with_dynamic_self` declares it ([§6.3](#63-defaults-a-traits-default-and-annotations)), so a plain function is `Dynamic` at a bare `Callable` bound, whatever its caller knew. The attributes keep their meaning, a choice of speed only, never of results:
+  - `Dynamic`: the library's code is compiled once per signature, not per function. After a method of the function is redefined, a call computes what a plain call would compute at that point.
+  - `Compiled`: the library's code is compiled per function, with the function inferred into it, at plain Julia's speed. The signature is still checked.
+- A cast takes the signature of the position it reaches. `with_dynamic(abs2)` makes Base's function `Dynamic` too.
+- **Several signatures:** `f::(Callable{…}, Callable{…})`, a tuple of traits ([§3.7](#37-tuples-of-traits)). A call picks the signature its arguments match; a call at an undeclared signature raises `MethodError`.
+- Functions kept beyond a call: [§7.5](#75-functions-kept). How a call is made: [`lowering.md`](lowering.md#12-callable-and-dynamiccallable).
+
+**Rules.**
+- **The argument types `A` may follow the other arguments.** A bound whose `A` names the method's `where` variables, fixed by other arguments or bounds, is a bound at the signature those give: `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`, `rhs!(f::Callable{RHSSig{P, T}, Nothing}, u::Vector{T}, p::P) where {T, P}`. The entry enters the other arguments first, then the function at the signature they fix; it is compiled once per signature, at its first call. The variables must be fixed by the other arguments; a `where` variable only the `Callable` names is refused when the method is defined. A struct parameter's bound may name the struct's other parameters: it only keeps the function ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
+- **Any result:** `f::Callable{Tuple{Float64}, <:Any}` accepts a function whatever it returns; the result is not checked. Where the body names the result type, it is a `where` variable instead:
+- **An open result type,** `f::Callable{Tuple{Float64}, S} where S`, is inferred at the call, in plain code, after the argument types are fixed: `byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S}` is compiled per cell type and result type. It becomes part of what the code is compiled for, and every call is checked against it. A function with no method at the argument types raises `MethodError` at its first call.
+- **Functions returned to plain code** are ordinary closures of the trait module. A closure that captured a trait object keeps the user's object.
+- **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
+- **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
+
+**Status:** Implemented. Planned: bounded closures and results that are traits or `Callable`s; `Callable{A, <:Any}` (with traits in the type system, [compiler §7.2](compiler.md#72-memberships)). A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)). A family member refused for a function's result is not named with the result type ([T-90](#17-deviations)).
+
+---
+
+## 6. Values in trait code: `Compiled` and `Dynamic`
+
+**The rule, in three sentences. Values carry. Annotations give defaults where a plain value enters trait code. Explicit casts always win.** This chapter is the one home of that rule: the attribute (§6.1), where plain values enter (§6.2), the defaults (§6.3), the casts (§6.4), carrying (§6.5), items of a user's container (§6.6), what `Compiled` code is compiled for (§6.7), and what each costs (§6.8).
+
+### 6.1 The attribute
+
+- **Every value seen through a trait is `Compiled` or `Dynamic`:** a trait object a bounded function receives, an item read from a container, a kept value ([§7](#7-kept-values-dynamicx-compiledx-keptx)).
+- **`Compiled`:** code compiled for what the trait sees of the value's type runs for it ([§6.7](#67-what-compiled-code-is-compiled-for)).
+- **`Dynamic`:** code compiled once runs for it, and each operation on it is dispatched when it runs.
+- **It is a choice of speed, never of results.** Both run the operations' methods of the value's type, or raise the same error.
+
+**Status:** Implemented.
+
+### 6.2 How plain values enter the trait world
+
+```julia
+@trait_module module Plots
+using TraitWorld
+public render, render_each, render_all, paint, paint_once
+@trait Mark begin
+    draw(m::Mark, io::IO)::Nothing
+end
+render(io::IO, ms::Iterable{Mark}) = (for m in ms; paint(io, m); end)              # each item by its type in the code
+render_each(io::IO, ms::Iterable{Mark}) = (for m in ms; paint(io, compiled_for(m)); end)
+render_all(io::IO, ms::Iterable{Compiled{Mark}}) = (for m in ms; paint(io, m); end)
+paint(io::IO, m::Mark) = draw(m, io)
+paint_once(io::IO, m::Dynamic{Mark}) = draw(m, io)                                  # compiled once
+end
+
+dots(io, ds::Vector{Dot}) = Plots.render(io, ds)     # each item Compiled
+mixed(io, xs::Vector{Any}) = Plots.render(io, xs)    # items of abstract type: Dynamic
+single(io, d::Dot) = Plots.paint(io, d)              # the caller knows the type: Compiled
+Plots.paint(io, Dot())                               # typed at the prompt: Dynamic (the prompt knows no types)
+```
+
+**Where a plain value meets a trait.** A *plain value* is one that does not carry an attribute yet. It gets one where it is first seen through a trait:
+
+| Where | When |
+|---|---|
+| a bound of a bounded function: a positional argument, a keyword, a vararg element, a `Callable` ([§5.1](#51-bounds), [§5.8](#58-callable-functions-at-a-declared-signature)) | at the call |
+| an item position of a bound (`Iterable{Shape}`, [§8.2](#82-item-positions)) | when the item is read |
+| a struct parameter bounded by a trait ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)) | at the struct's constructor |
+| a field or a container of a trait's name, `Kept{X}` ([§7.3](#73-assigning-from-plain-code)) | when the value is stored |
+| a constructor of a kept value, `Dynamic{X}(x)`, `Compiled{X}(x)`, `Kept{X}(x)` ([§7.1](#71-the-three-forms)) | when it is called |
+| an operation's result declared with a trait | when the operation returns |
+
+**The first-seen rule.** At a bound, an item position and a struct parameter, a plain value is **`Compiled` if the code that sees it knows its concrete type, and `Dynamic` if not.** The type is the one the code knows when it is compiled, not the value's type when it runs: every value has a concrete type when it runs.
+- A caller compiled with the value's concrete type passes a `Compiled` value. A caller that holds the value at an abstract type (`Any`, `AbstractShape`) passes a `Dynamic` one.
+- A call that is dispatched at run time passes `Dynamic` values, whatever the types of its arguments: a call through a function value the code does not know (`m.f(x)` with `m` a variable, `invoke_in_world`, a harness such as Julia's `@allocated f(x)`, which calls through `Base.allocated(f, x)`).
+- Items of a `Vector{Dot}` are `Compiled`; items of a `Vector{Any}` or a `Vector{AbstractMark}`, values of a `Dict{String, Any}`, are `Dynamic`.
+- **At the prompt,** Julia does not compile a statement without a loop, so it knows no types: every call typed at the prompt passes `Dynamic` values. `compiled_for(x)`, or the call inside a function, gives `Compiled`. Inside a `for` loop typed at the prompt Julia compiles the loop, so the types it knows there give `Compiled`.
+- **`Kept{X}(x)`, and a store into a field or container of a trait's name,** do not follow the first-seen rule: they take the trait's default, whoever calls, `Compiled` unless the trait declares `@default_with_dynamic_self` ([§6.3](#63-defaults-a-traits-default-and-annotations)). A store has no caller to ask. `Dynamic{X}(x)` and `Compiled{X}(x)` say the attribute themselves.
+- **A struct parameter bounded by a trait is a bound:** its constructor applies the first-seen rule as a bounded function does ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
+- **An operation's result declared with a trait is `Dynamic`,** whatever the code knows, and no default applies to it: its declared type is the trait. A returned value that does not conform, at the parameters the declaration fixes, is refused with `TraitBoundError`. At the implementation's check, an inferred result conforms when it is a concrete type, or a union of concrete types, that conforms to the trait, or a kept value of it; another abstract result is refused there.
+
+Defaults and casts decide otherwise (§6.3, §6.4). A value that already carries an attribute keeps it (§6.5).
+
+**Status:** Implemented.
+
+### 6.3 Defaults: a trait's default, and annotations
+
+```julia
+@trait Model begin
+    @default_with_dynamic_self     # plain values of other types enter as Dynamic
+    rhs!(m::Model, du::Vector{Float64}, u::Vector{Float64}, t::Float64)::Nothing
+end
+@trait Kernel begin
+    @default_compiled_for_self     # plain values enter as Compiled, whatever the caller knew
+    apply!(k::Kernel, out::Vector{Float64}, x::Vector{Float64})::Nothing
+end
+```
+
+**A trait's default.** A trait may declare one of two defaults in its body. Without one, the first-seen rule decides at a bound, an item position and a struct parameter, and `Kept{X}(x)` and a store give `Compiled` (§6.2).
+- **`@default_with_dynamic_self`:** a plain value first seen through the trait is `Dynamic`, even where the code that sees it knows its concrete type.
+  - It applies to values whose type is not of the trait world. A type is *of the trait world* when it is defined in Julia itself (Core, Base, the standard libraries), in TraitWorld or in a trait module, and so are its fields' types, all the way down. Such a value is the trait world's own, and this default does not apply to it. So a library's own implementation of the trait, and Base's functions and the library's own closures under `Callable`, run compiled where the code knows their type.
+  - Use it for a trait with many implementations from outside and a large library behind it: a solver's model, a plot's mark.
+  - `Callable`'s default is this one ([§5.8](#58-callable-functions-at-a-declared-signature)).
+- **`@default_compiled_for_self`:** a plain value first seen through the trait is `Compiled`, also where the code that sees it does not know its type. Its code is then selected by its type once per call, a function barrier ([§6.8](#68-costs-and-choosing)).
+  - It applies to every plain value.
+  - Use it for a trait whose implementations do much work per call, where code compiled for each type pays for the selection: a numerical kernel.
+- **Several bounds at one position** (`t::(ColTable, RowTable)`, [§5.1](#51-bounds)): where the traits that declare a default agree, it applies; where they declare different defaults, neither applies, and the first-seen rule decides.
+- **A trait's default applies wherever a plain value is first seen through the trait** (§6.2): at a bound, at an item read, at a struct parameter bounded by the trait, and when the value is kept as a `Kept{X}`. It does not apply to an operation's result, which is `Dynamic`.
+
+**An annotation at a position** is a default for plain values entering there: `x::Compiled{X}` and `x::Dynamic{X}` on a bounded function's argument, `ms::Iterable{Compiled{Mark}}` on an item parameter. `Compiled` on a value whose type the code does not know selects the code for its type once, by its type when it runs; `Dynamic` on a value of known type gives it the code compiled once.
+
+**The order,** from weakest to strongest:
+1. the first-seen rule (§6.2);
+2. the trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`;
+3. an annotation at the position;
+4. a cast (§6.4), which always wins.
+
+Each decides only for a plain value. A value that carries an attribute keeps it at every position (§6.5).
+
+A tuple of traits stands wherever a trait's name stands in the table below, with the same meaning ([§3.7](#37-tuples-of-traits)).
+
+**What each spelling means, by position.**
+
+| Spelling | on a bounded function's argument | on a bound's item parameter | on an operation's argument | as a parameter of an argument's type (`cs::Vector{…}`) | as a field's or element type, inside a trait module | as a struct parameter's bound | outside trait modules |
+|---|---|---|---|---|---|---|---|
+| `X` (the trait's name) | a bound | an item position | the first argument: the value seen through the trait ([§3.1](#31-operations)) | any kept form | `Kept{X}` | a bounded parameter ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)) | in a field or container, `Kept{X}` (Planned, [§7.2](#72-a-traits-name-as-a-storage-type)); in an argument, refused ([§2](#2-trait-modules)) |
+| `Compiled{X}`, `Dynamic{X}` | a bound, with that default | an item position, with that default for plain items | the type, converting | the type | the type, converting | Julia's bound, as written | the type |
+| `Kept{X}` | the type | refused | the type, converting | the type | the type, converting | Julia's bound, as written | the type |
+
+- **A bound** accepts any value that conforms to `X`. Its default applies to plain values only; a value that carries an attribute keeps it.
+- **The type** is Julia's: a kept value of that form ([§7](#7-kept-values-dynamicx-compiledx-keptx)). On a bounded function's argument, a value of another type raises `MethodError`, as in Julia; the bound `k::X` is the way to take any form.
+- **Converting** means that a trait object, or a kept value of the same trait, is converted to the type, keeping its attribute. `Kept{X}` takes either attribute; `Dynamic{X}` and `Compiled{X}` refuse the other one with `TraitBoundError` naming the cast, since a type never casts. On an operation's argument, any other value goes by the argument check (`TraitArgumentError`).
+- **A plain value** stored as a `Kept{X}` is first seen there and takes the trait's default ([§7.3](#73-assigning-from-plain-code)). One stored where `Dynamic{X}` or `Compiled{X}` is declared is not converted: write `Dynamic{X}(x)` or `Compiled{X}(x)`.
+- **Refused** when the method is defined: an item parameter is a trait's name, `Compiled{X}` or `Dynamic{X}`.
+
+**Rules.**
+- **An annotation on a bound of a function that is neither exported nor declared `public` warns** at the trait module's end. Plain values are expected from plain callers, at public functions; elsewhere an annotation is easily mistaken for a cast, which it is not. The fix is a cast at the call (`compiled_for(x)`, `with_dynamic(x)`). An annotation on an item parameter does not warn.
+- A `Dynamic` annotation fixes the parameters the trait's operations' result types use ([§5.1](#51-bounds)).
+
+**Status:** Implemented.
+
+### 6.4 Casts
+
+```julia
+paint(io, compiled_for(m))                  # in trait code: the next bound runs the code compiled for m's type
+Plots.paint_once(io, compiled_for(Dot()))   # in plain code: Compiled, over the position's Dynamic default
+Plots.paint(io, with_dynamic(d))            # Dynamic, though the caller knows d's type
+```
+
+- **`compiled_for(x)` and `with_dynamic(x)` are the only casts.** They make a value `Compiled` or `Dynamic`, in plain code at the call into a library, and in trait code.
+- **A cast always wins,** over the first-seen rule, a trait's default and an annotation. **Of two casts, the later wins:** a library's cast overrides the caller's.
+- A cast of a value that has that attribute already returns it unchanged.
+- **A cast on a plain value** in plain code marks it until it is first seen through a trait. **On a trait object** in trait code, `compiled_for(t)` opens a `Dynamic` one: the next call selects the code compiled for its type once, a function barrier. **On a kept value:** of a `Dynamic{X}` a `Compiled{X}`, and the reverse; of a `Kept{X}` a `Kept{X}` with the other attribute.
+- **Constructors never cast.** `Dynamic{X}(v)`, `Compiled{X}(v)` and `Kept{X}(v)` make a kept value from a plain one, or keep the attribute of one that has it. Asked to change it, they refuse with `TraitBoundError` naming the cast: `Dynamic{X}(t)` for a `Compiled` trait object, `Dynamic{Callable{A, S}}(compiled_for(f))`.
+- **Types never cast** (§6.3, the table).
+- **A `Dynamic` value is never opened implicitly.** `compiled_for(d)` opens it where the code asks, or a bound that says so.
+- **A bound that opens its value** (decided 2026-10-28, mine, flagged; open issue 98): `f(c::Opened{Column})` opens a `Dynamic` or kept value at the entry, as `compiled_for` at the call would: one dispatch per call, then the code compiled per key. A plain value and a caller's cast are taken as `compiled_for` takes them. The function whose cost model needs code per key (a kernel's loop over cells) says so, and its callers need not. Everywhere else a value keeps its attribute (§6.5). `Opened` is only an annotation: no value has that type.
+- **`rewrap(g, f)` changes a value and keeps its attribute** (decided 2026-10-28, mine, flagged; open issue 105): `g` applied to what `f` holds, with `f`'s attribute. A library uses it where it changes a user's function, such as a partial application, `rewrap(Base.Fix2(PartialFn, p), f)`.
+  - A plain value gives `g(f)`.
+  - A cast gives the same cast of `g(x)`: `compiled_for(g(x))` for `compiled_for(x)`, `with_dynamic(g(x))` for `with_dynamic(x)`.
+  - A kept value gives `g` of the user's object (of a `Callable`, the user's function), cast by the kept value's attribute. The result is a new value, not kept at `f`'s trait: a changed function has a signature of its own. The next bound takes it with that attribute.
+
+**Status:** Implemented, except `Opened` on a keyword argument ([T-88](#17-deviations)).
+
+### 6.5 Values carry
+
+- **A value keeps its attribute** through every call, bound, annotation and storage, until a cast changes it.
+- **Storage keeps it.** A value read back from a field or a container has the attribute it was stored with ([§7](#7-kept-values-dynamicx-compiledx-keptx)). The items of a stored `Vector{Dynamic{Plot}}` are `Dynamic` at `Iterable{Compiled{Plot}}` too.
+- **Library to library:** a value one library passes to another's bounded function is already a trait-world value; the second library's defaults and annotations do not decide it again.
+- **Up and down:** a kept value that plain code holds and passes back keeps its attribute.
+- **A kept value is seen through every trait its object conforms to.** A kept value of `X` passed to a bound of another trait `Y` is checked there: its held object's type is checked against `Y`, and the check is kept per held type. One whose held object conforms to none of the position's traits reaches the fallback, as its plain object would ([§5.5](#55-dispatch-types-first-then-traits)). So dispatch among bounds selects by what the held object can do, as for a plain value ([§5.5](#55-dispatch-types-first-then-traits)): a `Vector{Dynamic{Column}}` whose items are pooled or not reaches `f(c::(Column, Pooled))` for the pooled ones and `f(c::Column)` for the rest. The attribute is kept.
+- **A function kept at one signature** is seen at a bound of another signature where it has a method there whose inferred result is not disjoint from the declared one, checked at the bound ([§5.8](#58-callable-functions-at-a-declared-signature)).
+- **A trait object inside bounded code** is seen only through the traits it entered with: it may hold only the parts its traits see, and the code compiled for it covers only those traits. Entering through a tuple of traits ([§3.7](#37-tuples-of-traits)) remains the way to see one value through several traits at once.
+
+**Status:** Implemented.
+
+### 6.6 Items of a user's container
+
+A bound's item parameter (`Iterable{Shape}`, [§8.2](#82-item-positions)) sees each item of a user's container through the trait when it is read. A plain item is first seen there; an item that carries an attribute keeps it. The table is for a trait without a default; a trait's default applies to a plain item as at a bound ([§6.3](#63-defaults-a-traits-default-and-annotations)):
+
+| Bound | items of a `Vector{Circle}` | plain items of a `Vector{Any}`, `Vector{AbstractShape}`, a `Dict{String, Any}`'s values | items that carry (`Dynamic{Shape}`, `Compiled{Shape}`, `Kept{Shape}`, `compiled_for(c)`, `with_dynamic(c)`), in any container |
+|---|---|---|---|
+| `Iterable{Shape}` | `Compiled` | `Dynamic` | their own |
+| `Iterable{Compiled{Shape}}` | `Compiled` | `Compiled`: each item's code selected when it is passed on | their own |
+| `Iterable{Dynamic{Shape}}` | `Dynamic` | `Dynamic` | their own |
+
+- **No copy:** the user's container is the one that is read and written. Seeing an item costs a check, not a copy, and allocates nothing.
+- **A write stores what reads back as the same value with the same attribute,** in plain code's own forms.
+  - Where a plain item of the container reads with that attribute, the write stores the user's object.
+  - Otherwise it stores `compiled_for(o)` or `with_dynamic(o)`.
+  - After `retain!(isnum, v)` on a `Vector{Any}`, `v` holds the user's numbers, the same objects as before, and a `compiled_for` item stays one.
+- A value whose attribute the container cannot hold (a `Compiled` value written to a `Vector{AbstractShape}`, whose plain items read `Dynamic`) raises `TraitBoundError` naming the cast ([§6.4](#64-casts)).
+- Which containers and item types are taken: [§8.3](#83-a-users-container-taken-as-it-is).
+
+**Status:** Implemented.
+
+### 6.7 What `Compiled` code is compiled for
+
+There is no syntax for this. It follows from the declarations.
+
+- A bounded function reaches its argument only through the trait's operations and fields. So `Compiled` code is compiled per **key**: what the trait sees of the value's type, not the type itself.
+- **The key of a `Compiled` value** is:
+  - the **receiver type**, if any: the type whose own methods serve at least one operation. That is the conforming type when it implements the operations, or the field's type when the implementation forwards to a field ([§4.3](#43-forwarding-with-by));
+  - plus the declared fields' types.
+- An implementation whose operations are all served by defaults has no receiver type. Its key is the declared fields' types alone.
+- **A held view and a read-through view are compiled apart:** an immutable receiver type seen directly, and the same type seen through a forwarding field, have one key and two compiled copies ([lowering §6](lowering.md#6-trait-objects-layout-fields-writes)).
+- **Except where the trait needs the type itself:** when its declarations name `Self`, or a parameter is not defined by a field, the conforming type is the receiver type, and gets its own compiled copy. Code compiled for a key knows only what is in the key.
+- **Types with equal keys share compiled code.** Every type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for that field type, including code in the library's package image. Fields the trait does not declare never cause a recompile.
+- **A type that supplies its own behaviour gets its own copy.** It implements an operation, or overrides a default, so it is the receiver type. Its code is compiled once, not "once for any type".
+- **An abstract declared field's type** (or an abstract field forwarded to) is part of the key as it is: one compiled copy for it, whatever the field holds, and operations on that part dispatch when they run. A value read from that part has an abstract type in the code, so it is `Dynamic` at the next bound; `compiled_for(x)` runs that bound compiled for its type.
+- **`Dynamic` values of one trait share one compiled copy** per position, with the parameter values the position fixes, whatever the values' types.
+- A function with several bounded arguments is compiled per tuple of keys. A `Dynamic` argument adds nothing per type, so with mixed attributes the function is compiled per the keys of its `Compiled` arguments only.
+- Printed types show the key ([§12](#12-printing)): `ColTable at Vector{Vector{Float64}}`.
+
+How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
+
+**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)), and that the entry compiles code per held type of a `Dynamic` value ([T-94](#17-deviations)). With traits in the type system (Planned), a key is a compilation signature of Julia's, and code is compiled per key by Julia's own specialization ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)).
+
+### 6.8 Costs, and choosing
+
+- **An operation on a value whose type the code knows** (a `Compiled` trait object) is a direct call of the implementation's method.
+- **An operation on a value whose type the code does not know** (a `Dynamic` one, or a kept `Compiled` one) costs the same for both attributes. The first four implementations declared take the fastest path. Any other costs one lookup by the value's type and an indirect call, whatever the number of implementations. Which four is fixed when the calling code is compiled: code compiled into a package image knows that package's and its dependencies' implementations. How: [`lowering.md`](lowering.md#13-dynamicx).
+- **At a bound:** a `Dynamic` value runs the code compiled once for the position; a `Compiled` value whose type the code does not know selects the code compiled for its key once per call, a function barrier.
+- **Choosing, for library authors:**
+  - With items of abstract type, a loop is compiled once, so a `Compiled` item's type is unknown inside it. `Compiled` items pay off when the work per item is a call to a bounded function (`paint(io, m)` selects the code for each item's key).
+  - `Dynamic` positions suit large code with many implementations behind them (a solver's model): a plain value from outside compiles nothing in the library. A caller's `compiled_for`, or a value of the trait world whose type the caller knows, still compiles the library for its key there.
+- The numbers: [`../design/evidence.md`](../design/evidence.md) §2. Where trait code is slower than plain code that it should match, the gap is measured and fixed in [W-17](../record/todo.md).
+
+**Status:** Implemented, except that a `Dynamic` value at a bound costs an assembly of its trait object per call ([T-94](#17-deviations)). Optional: a witness carried in the value, and recompiling with the observed types ([compiler §3.3](compiler.md#33-further-work-on-mechanism-3)).
+
+### 6.9 Trait casts
+
+- **A trait cast** sees a value through another trait than it entered with, or a function at another signature, keeping its attribute. A cast ([§6.4](#64-casts)) changes the attribute; a trait cast changes the traits.
+- **At a bound it is implicit:** a kept value is seen through every trait its held object conforms to ([§6.5](#65-values-carry)).
+- **An explicit form, as a possible direction,** would be:
+  - explicit, by a kept form's constructor from a kept value of another trait, `Kept{B}(d)`, with the attribute kept;
+  - checked at the cast: the held object conforms to `B` (`TraitBoundError` otherwise); for a function, a method at the new signature whose inferred result is not disjoint from the declared one;
+  - for kept values that hold the user's whole object only. A trait object inside bounded code may hold only the parts its traits see, and the code compiled for it covers only those traits.
+
+**Status:** Implemented at a bound (§6.5); the explicit form Optional.
+
+---
+
+## 7. Kept values: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`
+
+```julia
+mutable struct State                 # in a trait module
+    const u::Vector{Float64}
+    model::Model                     # means Kept{Model}: each value with its attribute
+    hooks::Vector{Hook}              # means Vector{Kept{Hook}}
+end
+start(m::Model, u0::Vector{Float64}) = State(copy(u0), m, Hook[])   # the model kept as it came: Compiled or Dynamic
+
+hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]   # in plain code
+```
+
+**Status:** Implemented. Each subsection has its own status.
+
+### 7.1 The three forms
+
+- **A *kept value* is a value of any type that conforms to `X`, kept where the code does not know its type.** It has one of three forms:
+  - `Dynamic{X}`, a value whose attribute is `Dynamic`;
+  - `Compiled{X}`, a value whose attribute is `Compiled`;
+  - `Kept{X}`, a value with either attribute, as data: what a trait's name means where values of both sit side by side (§7.2).
+- Use them for a value that outlives a call, a collection of mixed types, or a field whose type changes.
+- **They hold the user's object.** They see the user rebind a field, and writes through them reach the user's object. They keep the user's object alive.
+- **An operation on one** runs the method of the implementation it holds, whatever the form. The result is asserted to the declared type, so code after it stays typed. What it costs: [§6.8](#68-costs-and-choosing).
+- **A declared field** read on one has its declared type, or the parameter value the form fixes.
+- **A parametric trait's form fixes the parameters** its operations' result types use, `Dynamic{StateVector{Float64}}`. A result declared with a parameter (`::T`) is asserted at the fixed value (`Float64`), so code after a call infers.
+- **At a bound the attribute decides** ([§6.8](#68-costs-and-choosing)). Put loops over a kept value's data in a bounded function.
+- A new implementation, declared later, works at once, and discards no compiled code.
+- **Up and down.** Each form is a value of its own type. It goes to plain code as one, bare or inside other values, and comes back with its attribute.
+
+**Making one.**
+- From a plain value, in plain code or trait code: `Dynamic{X}(x)`, `Compiled{X}(x)`, or `Kept{X}(x)` (by the trait's default, `Compiled` without one, [§6.2](#62-how-plain-values-enter-the-trait-world)).
+- By storing a trait object or a kept value where a trait's name is declared (`push!(s.hooks, h)`, `State(u, m, …)`): it keeps its attribute.
+- From a value that has an attribute, a constructor keeps it ([§6.4](#64-casts)).
+- For each item of a user's container, as it is read ([§6.6](#66-items-of-a-users-container)).
+- A trait object carrying another trait cannot become a kept value of `X` (`ArgumentError`).
+
+**Status:** Implemented. Planned: the kept forms of a tuple of traits, `Dynamic{(ColTable, RowTable)}` ([§3.7](#37-tuples-of-traits); refused today: no such value can be made); a trait's own declared `==`; serialization of a kept value with its implementation. A kept value is opened at the conforming value's own concrete type by a plain assertion: `m = integ.p::Lorenz{Float64}`.
+
+### 7.2 A trait's name as a storage type
+
+- **Inside a trait module,** a trait's name in a struct field or as a container's element type means `Kept{X}`: `model::Model`, `Vector{Hook}`, `Column[]`. It is the one spelling for a value kept with its attribute. So does `Callable{A, S}` in a field, and `Callable` without a signature (§7.5).
+- **`Dynamic{X}` and `Compiled{X}` written there are the plain types,** as outside: they hold values of that attribute, and refuse the other ([§6.3](#63-defaults-a-traits-default-and-annotations)).
+- **In an argument's type,** a trait's name as a parameter (`cs::Vector{Column}`) takes a container of any of the three forms, and only those: a user's `Vector{Circle}` is not one. To take a user's container by its items, bound it by a collection trait, `Iterable{Shape}` ([§8.3](#83-a-users-container-taken-as-it-is)).
+- **A trait's name directly in an argument stays a bound.** In a bound's parameters it names an item position ([§8.2](#82-item-positions)). In a struct parameter's bound, it bounds the parameter (§7.4).
+- **Outside trait modules,** write the form out: `Kept{X}` for values of both attributes.
+- **With traits in the type system** ([§14](#14-membership)), a trait's name in any field or container means `Kept{X}`, outside trait modules too.
+
+**Status:** Implemented. Planned, with traits in the type system: a trait's name as `Kept{X}` outside trait modules ([lowering L-6](lowering.md#18-deviations)).
+
+### 7.3 Assigning from plain code
+
+- A field declared with a trait's name takes any kept value of `X`, a trait object, and a plain value that conforms to `X`.
+- A plain value is first seen there and takes the trait's default: `Compiled`, or `Dynamic` under `@default_with_dynamic_self` for a value not of the trait world ([§6.3](#63-defaults-a-traits-default-and-annotations)). A cast decides otherwise: `obj.field = with_dynamic(x)`.
+- **A library that translates a value before it is stored** (a symbol to a colour) defines `Base.convert` to its trait: `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
+  - A plain value that does not conform to `X` is converted by `convert(X, x)` first; the result is then kept as above.
+  - A value that conforms is not converted. Where its type is known, this is settled when the code is compiled.
+  - The library owns `X`, so the method is its own, and it names no type of TraitWorld's.
+
+**Status:** Implemented.
+
+### 7.4 A struct parameter bounded by a trait
+
+```julia
+@trait_module module ODECore
+…
+struct ODEProblem{T, P, F <: Callable{RHSSig{P, T}, Nothing}}
+    f::F
+    u0::Vector{T}
+    tspan::Tuple{Float64, Float64}
+    p::P
+end
+end
+
+ODEProblem(lorenz!, u0, tspan, p)                 # F = Dynamic{Callable{…}}: Callable's default
+ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = typeof(lorenz!): code over the problem compiled per function
+```
+
+**Meaning.**
+- **Inside a trait module, a struct parameter whose upper bound is a trait, a `Callable`, or a tuple of them** ([§3.7](#37-tuples-of-traits)), or an instance of one, is bounded by it. Its field keeps a value of that trait, as its bound gives it.
+- **The parameter becomes the stored form's type:**
+  - for a `Compiled` value, the user's object itself, whose type is the parameter; code over the struct is compiled per type, at plain Julia's speed. A `Compiled{X}` or a `Kept{X}` holding `Compiled` is opened by its type there;
+  - for a `Dynamic` value, `Dynamic{X}`; code over the struct is compiled once.
+- **The struct's constructor without parameters is the bound:** each field typed by a bounded parameter is a position where a cast, the value's carried attribute, or the first-seen rule decides ([§6.2](#62-how-plain-values-enter-the-trait-world)). Called from trait code with a trait object, its attribute decides.
+- **The constructor with explicit parameters** (`ODEProblem{T, P, F}(…)`) checks a trait-bounded parameter, as Julia checks a type parameter's bound when the type is applied: `F` must conform. Planned: today it stores what it is given, and a value that does not conform fails at its first operation ([T-74](#17-deviations)).
+- **The bound may name the struct's other parameters** (`RHSSig{P, T}`). They are determined by the other fields' types, as Julia's default constructor determines them.
+- **A parameter named only as a parameter of a bound is read from the kept value:** in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, `T` is the column's own parameter, read from the value as a `where` variable in a bound is ([§5.1](#51-bounds)). A `Compiled` column is kept as the user's object, a `Dynamic` one as `Dynamic{Column{T}}`. So a view of a trait object can be the Base type plain code expects, without a copy.
+- **The value read back keeps the attribute the parameter records** (decided 2026-10-28, mine, flagged; open issue 104): passed on to a bound, a field's value under `Compiled` (the parameter is the object's type) is `Compiled`, and one under `Dynamic` is `Dynamic`, as storage keeps it (§6.5). So a library passes a kept function on as it reads it: `CoreProblem(prob.f, …)`.
+  - **A field bounded by `Callable{A, S}`** reads, under `Compiled`, as the function at the bound's signature, as a bounded function's argument is (§5.8): a call is the checked call, at plain Julia's speed; the next bound takes it as `Compiled`. Under `Dynamic` it reads as the `Dynamic{Callable{A, S}}` it is. This holds wherever the code reads it, also where the code does not know the struct's type (mine, 2026-10-29: the read carries the attribute, since a plain value cannot).
+  - **A field bounded by a trait** reads as the user's object, a plain value of its type, so the struct's own methods (an implementation's) call any of its methods. Under `Dynamic` it is the `Dynamic{X}` it is.
+  - `getfield` gives the stored value.
+- Bounded trait code reaches only the fields a trait declares.
+- This is Rust's `struct S<F: Fn(…)>` and Swift's `struct S<F: P>`, and Julia's advice to make a field's type a parameter, with the attribute choosing the parameter.
+
+**Rules.**
+- A bounded parameter types exactly one field, the field itself (`f::F`); a field that uses it inside another type (`fs::Vector{F}`) is refused when the struct is defined.
+- Every other parameter is named by a field outside a bound, or by a parameter of a bound.
+- A struct with a bounded parameter has no inner constructor of its own; write an outer constructor that calls the bounded one.
+
+**The bound at the field.** A bounded parameter may be declared where its field is:
+
+```julia
+struct ODEProblem{T, P}
+    f::(F <: Callable{RHSSig{P, T}, Nothing})   # ODEProblem{T, P, F <: Callable{…}} with f::F
+    u0::Vector{T}
+    p::P
+end
+```
+
+- `name::(F <: Bound)` adds the parameter `F <: Bound` to the struct and types the field by it. The struct is the one written with the parameter in its header.
+- The parameters added this way follow the header's, in the order of their fields.
+- The parameter is an ordinary one: it is printed, and it can be written (`ODEProblem{Float64, Nothing, typeof(lorenz!)}`).
+- Every rule above applies. A field written `f::Bound`, without a parameter, keeps a value of the trait (`Kept{X}`, §7.2).
+
+**Status:** Implemented, except that a trait's field under `Compiled` read back is a plain value at the next bound ([T-89](#17-deviations)). Planned: a tuple of traits as the bound ([§3.7](#37-tuples-of-traits)). Refused for now, until needed: inner constructors and fields that use a bounded parameter inside another type.
+
+### 7.5 Functions kept
+
+```julia
+struct FunctionCallback                                       # in a trait module
+    cond::Callable{Tuple{Vector{Float64}, Float64}, Bool}     # means Kept{Callable{…}}: kept with its attribute
+end
+callback(f) = FunctionCallback(Kept{Callable{Tuple{Vector{Float64}, Float64}, Bool}}(f))   # in plain code
+```
+
+- A function kept where the code does not know its type takes the three forms, at a signature:
+  - `Dynamic{Callable{A, S}}`: code that calls it is compiled once per signature, whatever the function;
+  - `Compiled{Callable{A, S}}`: the function itself; a call goes through an entry compiled for its type, once per function type (Planned: today it is dispatched at run time, [W-17](../record/todo.md));
+  - `Kept{Callable{A, S}}`: either, with its attribute.
+- Each call is the checked call: the arguments against `A`, the result asserted to `S`.
+- **A function is kept at the signatures it entered with.** To keep it at several, keep it as a tuple: `Dynamic{(Callable{A1, S1}, Callable{A2, S2})}`, or a struct parameter bounded by the tuple (§7.4). Passed to a bound of another signature, it is refused (`TraitBoundError`, [§6.5](#65-values-carry)).
+- **A function kept before its signature is known** (decided 2026-10-28, mine, flagged; open issue 102): `Callable` without a signature keeps a function whose argument types a later bound fixes (a callback before its problem's types are known). It takes the three forms, `Dynamic{Callable}`, `Compiled{Callable}` and `Kept{Callable}`, made and cast as at a signature; in a field of a trait module, `Callable` means `Kept{Callable}` (§7.2).
+  - **At its first bound with a signature it is entered there,** with its attribute: a `Dynamic` one checked as a function kept at another signature is (§6.5), and the code that calls it is compiled once per signature; a `Compiled` one is the function itself there. Stored where a signature is declared (`Kept{Callable{A, S}}`), it keeps its attribute.
+  - **Called directly,** it is the function's own call: there is no signature to check (mine, 2026-10-29).
+  - `Kept{Callable}(f)` of a plain function is `Dynamic`, as `Kept{Callable{A, S}}(f)` is (`Callable`'s default).
+- **Kept at a struct parameter bounded by `Callable`, a function is the field itself** (§7.4): the function under `Compiled`, so the code that reads it is compiled per function; a `Dynamic{Callable{A, S}}` under `Dynamic`. TraitDifferentialEquations' `ODEProblem` keeps its right-hand side so.
+
+**Status:** Implemented, except: keeping a function as a tuple is Planned ([§3.7](#37-tuples-of-traits)). Planned (2026-10-28): a `Compiled` function called through an entry compiled for its type. Open: a struct parameter bounded by `Callable` without a signature, and plain code reading the function a kept one holds (`ByRow(f)`, [open issue 111](../open-issues.md)).
+
+### 7.6 Equality and inference
+
+- **Equality:** two kept values of `X` are equal when they hold the same user's object (`===`), whatever their form and attribute: a mutable object by identity, an immutable one by value. `hash` agrees; `===` differs by form.
+- **A result through a call that opens a `Dynamic`** (`f(compiled_for(d))`), or that a plain caller makes with values of unknown type, is inferred from the bounded function's declared result: declare it, `asdcol(c::DCol)::Dynamic{DCol}`. A declared result that is a plain type or a `Dynamic{X}` reaches every caller ([lowering §8.1](lowering.md#81-the-rewrite)); an undeclared one is `Any` there.
+- Printing: [§12](#12-printing).
+
+**Status:** Implemented.
+
+---
+
+## 8. Collections
+
+### 8.1 BaseTraits: traits for Base's concepts
+
+```julia
+@trait_module module Stats
+using TraitWorld                        # brings BaseTraits' names: Iterable, Indexable, Keyed, …
+mean(xs::(Iterable{Float64}, HasLength)) = (s = 0.0; for x in xs; s += x; end; s / length(xs))
+end
+Stats.mean([1.0, 2.0, 6.0])             # a Vector{Float64} is Iterable{Float64} and HasLength
+```
+
+**Meaning.**
+- BaseTraits is the trait world's standard library: traits for the concepts Base defines informally (iteration, indexing, keyed access), each with its item types as associated types ([§3.4](#34-parameters-and-associated-types)). Rust's `core::iter` and Swift's `Sequence` play this part in their languages.
+- It is loaded with TraitWorld. `using TraitWorld` brings its names into scope; a package declares no dependency for it.
+- Its traits are ordinary traits. The language depends on none of them.
+- It grows with what trait code needs. Version 0 has the collection traits:
+
+| Trait | Operations | Associated types | Base's types that conform |
+|---|---|---|---|
+| `HasLength` | `length(c)::Int` | — | `AbstractArray`, `AbstractDict` |
+| `Iterable{T}` | `iterate(c)`, `iterate(c, state)`, each `::Union{Nothing, Tuple{T, Any}}` | `T = eltype(Self)` | `AbstractArray`; `AbstractDict`, whose items are `Pair{K, V}` |
+| `Indexable{T} <: HasLength` | `c[i::Int]::T` | `T = eltype(Self)` | `AbstractVector` |
+| `MutableIndexable{T} <: Indexable` | `c[i::Int] = x::T` | `T = eltype(Self)` | `Vector` |
+| `Resizable <: HasLength` | `resize!(c, n::Int)` | — | `Vector` |
+| `Keyed{K, V} <: HasLength` | `d[k::K]::V`, `haskey(d, k::K)::Bool` | `K = keytype(Self)`, `V = valtype(Self)` | `AbstractDict` |
+| `HasProperty{N, R}` (`N` an input) | `property(x, ::Val{N})::R`, read as `x.N` | — | none; a type implements it at each name |
+| `Solvable{T}` | `solve!(F, x::Vector{T}, b::Vector{T})::Nothing` | `T = eltype(Self)` | LinearAlgebra's `Factorization`, through `ldiv!` |
+| `BoundedText` | `textbound(x)::Int`, an upper bound on the bytes `print(io, x)` writes | — | integers, floats, `Bool`, `Char`, strings, `Symbol`, `BigInt`, `BigFloat`, `Rational`, `Complex`, `Irrational`, Dates' types |
+
+And one function: `asvector(x::Indexable{T})`, the collection as a read-only `AbstractVector{T}` for plain code (Statistics, an upstream kernel), without a copy. It is `IndexableVector{T, C <: Indexable{T}}`: `C` is the collection's type where the value is `Compiled`, `Dynamic{Indexable{T}}` where it is `Dynamic`, so plain code over it is compiled per collection type or once per `T` ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
+
+**Rules.**
+- **Base's types conform by Base's own methods,** declared in BaseTraits for families through Base's abstract types ([§4.7](#47-families)). A type conforms only where it is declared: a `Number` can be iterated in Base, but it is not `Iterable`.
+- **Who owns them:** BaseTraits is part of TraitWorld, and TraitWorld owns its traits. As their owner it declares Base's types' conformance ([§10.1](#101-who-may-implement)). A package's own type conforms by that package's declaration. Another package's type (a `DataFrame`) conforms by its owner's declaration, or through a wrapper type ([§15](#15-named-implementations)).
+- **Names:** a module that uses TraitWorld and another module exporting the same name (`Iterable`) gets Julia's usual ambiguity, and imports the one it means: `using Other: Iterable`.
+
+**What the four after version 0 are for** (each from a case of the ports, decided 2026-10-28):
+- `HasProperty`: a computed property, such as SciML's `integ.ps`, is an operation ([open issue 97](../open-issues.md)). A trait object or a kept value whose bounds carry it reads `x.N` through it; a declared field is read as before. Users write `x.N`, never `property`.
+- `asvector`: the DataFrames port's `CellVector` (E-214).
+- `Solvable`: a linear solver returns its factorization as a `Solvable` instead of wrapping it (the SciML port's `linfactor`, TraitDifferentialEquations 9563302).
+- `HasProperty`: the SciML port's `integ.ps[:σ]` in a callback (`IntegratorView <: HasProperty{:ps, ParameterView{P}}`, TraitDifferentialEquations 9563302).
+- `BoundedText`: a writer sizes its buffers from it instead of guessing (CSV's writer, E-217). Fixed-width types have a bound that does not depend on the value; strings and big numbers a bound per value. The bound is asked per value only, so a writer visits every cell ([open issue 109](../open-issues.md)): CSV's writer keeps its sample.
+
+LinearAlgebra and Dates are dependencies of TraitWorld: BaseTraits declares their types' conformance as the traits' owner, in its own package, so it holds in every load order. Both are in Julia's system image.
+
+**Status:** Implemented (TraitWorld 2215188 for `HasProperty`, `Solvable`, `BoundedText` and `asvector`). To revisit with the ports: which traits come next, and their names; a value carrying two traits that declare the same function at the same arity (`Indexable` and `Keyed` both declare `getindex`) ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
+
+### 8.2 Item positions
+
+```julia
+@trait_module module Geometry
+using TraitWorld
+@trait Shape begin
+    area(s::Shape)::Float64
+end
+total(shapes::Iterable{Shape}) = (s = 0.0; for x in shapes; s += area(x); end; s)
+area_of(d::Keyed{String, Shape}, k::String) = area(d[k])
+weighted(s::Shape) = 2 * area(s)
+total_each(shapes::Iterable{Compiled{Shape}}) = (s = 0.0; for x in shapes; s += weighted(x); end; s)   # each call compiled for the item's key
+end
+```
+
+- **A trait's name as a bound's parameter names an item position:** `shapes::Iterable{Shape}` is "something to iterate whose items are seen through `Shape`". Rust writes `impl Iterator<Item = impl Shape>` or `impl Iterator<Item = &dyn Shape>`, Swift `some Sequence<some Shape>` or `some Sequence<any Shape>`; here the item type in the caller's code chooses.
+- `Iterable{Compiled{Shape}}` and `Iterable{Dynamic{Shape}}` set the default for plain items. Each item's attribute: [§6.6](#66-items-of-a-users-container).
+- A tuple of traits names an item position too: `Iterable{(Shape, Placed)}` ([§3.7](#37-tuples-of-traits), Planned).
+- `total` is compiled per key of the collection. Over a `Vector{Circle}` it is compiled for `Circle` items. Over a `Vector{Any}`, each item is a `Kept{Shape}`, so each operation on it has a declared result type, not an argument and a result of type `Any`.
+
+**Status:** Implemented.
+
+### 8.3 A user's container, taken as it is
+
+```julia
+v = Any[Circle(1.0), Square(2.0)]          # the user's vector, in plain code
+Geometry.total(v)                           # taken as it is: its items are seen through Shape
+d = Dict{String, Any}("a" => Circle(1.0))
+Geometry.area_of(d, "a")                    # area_of(d::Keyed{String, Shape}, k::String)
+w = collect(DynamicItems{Geometry.Shape}(v))   # a copy: a Vector{Kept{Shape}}
+```
+
+**Meaning.**
+- **A function bounded by its items' trait takes the user's container as it is.** Where a bound names an item position (`Iterable{Shape}`, `Indexable{Shape}`, `MutableIndexable{Shape}`, `Keyed{K, Shape}`, `Iterable{Pair{K, Shape}}`, each with or without an attribute), the container is seen through its bound, as every argument is ([§5.2](#52-what-a-bounded-function-receives)). Its items are seen through `Shape` when they are read ([§6.6](#66-items-of-a-users-container)).
+- **Explicit wrappers,** for a copy or for code that is not bounded: `DynamicItems{X}(v)` for a vector, `DynamicValues{X}(d)` for a dictionary's values, each item a `Kept{X}`, a plain item `Dynamic`. `collect` of one is a copy.
+
+**Rules.**
+- **Which containers are taken:** an `AbstractVector` and an `AbstractDict` (its values), where the position's bounds name item positions of one trait `X`, and the container does not meet any of the position's bounds as it is. A bound met as it is wins: with `f(xs::Iterable{Int})` and `f(xs::Iterable{Shape})`, a `Vector{Int}` takes the first, a `Vector{Any}` is taken by the second.
+- **Which item types are taken:** `Any`, an abstract type, a `Union` with a member that is abstract or conforms, and a concrete type that conforms to `X` (a `Vector{Circle}` for `Iterable{Shape}`). A container of `Dynamic{X}`, `Compiled{X}` or `Kept{X}` meets the bound as it is. A `Vector{Float64}` for `Iterable{Shape}` is refused at the call, as a value conforming at other parameters is ([§5.1](#51-bounds)). So is a container of kept values of another trait.
+- **An item that does not conform raises `TraitBoundError` when it is read,** after the items before it were processed, and, in a loop that writes, written. Code that must check every item before it starts copies first: `collect(DynamicItems{X}(v))` reads every item.
+- **A write must fit the user's container:** storing an object of another type into a `Vector{Circle}` fails as `setindex!` does in Julia ([§6.6](#66-items-of-a-users-container) for attributes).
+- **The copy is a new container:** writes to `collect(DynamicItems{X}(v))` do not reach `v`.
+- With several bounds at one position (`xs::(MutableIndexable{Cell}, Resizable)`), the container is taken once, for all of them. Bounds that fix item positions of different traits at one position do not take it.
+
+**Status:** Implemented, except a container passed as a bounded keyword ([T-39](#17-deviations)) and closed builds ([lowering L-27](lowering.md#18-deviations)).
+
+### 8.4 Algorithms over collection traits
+
+```julia
+retain!(isnum, v)                         # keep the numbers of the user's vector, in place
+```
+
+- `retain!(f, xs)` keeps the items for which `f(x)` is `true`, in order, for `xs::(MutableIndexable, Resizable)`. It returns `nothing`. It is Base's `filter!` for trait code (Rust's `Vec::retain`).
+- **A generic algorithm takes the function as a `Callable` at the items' type:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}` ([§5.8](#58-callable-functions-at-a-declared-signature)), compiled once per item type, not per function (Planned, W-81). Until it is built, `retain!` takes the function as an ordinary argument, compiled per function, as Base does.
+- BaseTraits' algorithms have names of their own: a bounded method of Base's `filter!` would rank below Base's typed methods (types first, [§5.5](#55-dispatch-types-first-then-traits)) and never run for Base's containers.
+
+**Status:** Implemented (`retain!`). To revisit with the ports: which algorithms BaseTraits provides, and their names ([open issues §6](../open-issues.md#6-to-revisit-with-the-ports)).
+
+---
+
+## 9. Checks, and when they run
+
+| When | What is checked | Error |
+|---|---|---|
+| `@trait` | the body's form: result types present, the first argument typed by the trait, no parameter defined twice | `ErrorException` |
+| `@implement` | ownership, completeness, result types, fields, parameters, concreteness ([§4.9](#49-checks-at-the-declaration)) | `ImplementError` |
+| a method definition after `@implement` | an override of an operation a default serves | `ImplementError` |
+| a definition in a trait module | the module owns the method's function or a type in it | `OwnershipError` |
+| a bounded function's definition | a `Dynamic` annotation fixes the parameters its operations' result types use ([§5.1](#51-bounds)) | `TraitBoundError` |
+| the end of a trait module | every bounded function, once, for every type that will ever conform; ambiguous bounds; an annotation on a function neither exported nor public ([§6.3](#63-defaults-a-traits-default-and-annotations)) | `TraitUseError`, `TraitBoundError`; a warning |
+| a bounded function defined again after the end of its trait module | that function, as at the end of the module ([§2](#2-trait-modules)) | as at the end of a trait module |
+| a call of a bounded function | the value conforms; fixed parameters; bounded keywords; concreteness of a family member | `MethodError` (with a hint), `TraitBoundError` |
+| a call of an operation on a trait object or a kept value | the arguments against the declaration; the result | `TraitArgumentError`, `TypeError` |
+| a call to a `Callable` | the arguments and the result | `TypeError`, `MethodError` |
+| a bounded function's first call at a signature | what the end of the module cannot check: a parameter left open whose bound is not a trait, a `Callable`'s open result type | `TraitUseError` |
+| a cast that a constructor or a type would make | refused ([§6.4](#64-casts)) | `TraitBoundError` |
+
+**Definition checking** at the end of a trait module infers each bounded function once at an *archetype*: a stand-in value whose operations and fields return values of their declared types and nothing more. A trait object has no methods but its traits' operations and fields, and every operation declares its result type. So one check covers every type that will ever conform. A mistake is reported at its line before any type conforms:
+
+```julia
+spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable
+leak(t::ColTable) = typeof(t)    # code must not depend on the user's type
+```
+
+- While a package is precompiled, the report is an error, and the build fails.
+- For a trait module defined at the prompt or in a script, it is a warning. The call then raises the `TraitUseError`.
+- `check_definitions(M)` runs the check on demand: it returns an empty list, or raises `TraitUseError` listing the problems.
+- Keyword, vararg and `Callable` functions with declared result types are checked at the module's end like any other.
+
+**Status:** Implemented, except that keyword, vararg and every `Callable` function are checked at their first call ([T-19](#17-deviations)), and that several definitions in a trait module are refused with `ErrorException` ([T-34](#17-deviations)). Definition checking misses a call at an undeclared arity ([T-91](#17-deviations)), reports only a function's first problem ([T-92](#17-deviations)), and defers functions bounded by BaseTraits' `MutableIndexable` ([T-93](#17-deviations)).
+
+---
+
+## 10. Who may implement; pirates; strict mode
+
+### 10.1 Who may implement
+
+- A package *owns* the functions and types it defines. Julia (Core, Base, the standard libraries) is one owner. A package extension counts as its parent package.
+- **At the prompt,** `Main` is one owner, and each module defined directly under `Main` (at the prompt or in a script) is an owner of its own, as a package is. So a trait module defined at the prompt does not own the prompt's types: an implementation of its trait for a struct defined at the prompt, written inside the trait module, is refused; written at the prompt, it is accepted.
+- An implementation is a method, so ordinary ownership decides who may write it: **the trait's owner or the type's owner.** A third package may not.
+- An implementation for a foreign trait and a foreign type belongs in the trait owner's package extension.
+- **An implementation in a package extension mentions each of the extension's triggers:** each trigger package owns the trait or a type the declaration names. Otherwise whether a call sees it would depend on whether that package happens to be loaded. It is refused with `ImplementError`. This is stricter than for an extension's ordinary methods ([§10.3](#103-strict-mode)): such a method is followed as its parent's change, but whether a type conforms must not depend on which packages are loaded.
+- Operations that are existing functions (`Base.size`) may be implemented only for types the declaring package owns. Otherwise declare the existing methods: `@implement Sized Vector{Float32}` without a block, by Base's own methods.
+
+**Joint owners.**
+
+```julia
+module SciMLBase                        # the owner names its joint owners
+using TraitWorld
+@joint_owners DiffEqBase OrdinaryDiffEqCore
+abstract type AbstractDEProblem end
+function __solve end
+# …
+end
+```
+
+- **A package may name joint owners:** packages that own its functions and types with it. DiffEqBase may then define `SciMLBase.__solve(::SciMLBase.AbstractDEProblem, …)` or `Base.isempty(::SciMLBase.CallbackSet)`, and neither is a pirate.
+- **Only the owner declares,** at the top level of its own module. A package cannot make itself a joint owner.
+- **Joint owners are owners wherever the declaring package is one:** who may implement (this section), pirates (§10.2), strict mode's stakeholders (§10.3), the stakeholders of [`facts.md`](facts.md#term-stakeholder) and Lemma O.
+- **Not symmetric, not transitive.** The owner does not own its joint owners' functions and types, and a joint owner's own joint owners are not the owner's. A joint owner's package extension is a joint owner too, since an extension belongs to its parent.
+- **Named by package name.**
+- **What it costs:** a joint owner's change is a stakeholder's change. It may discard the owner's compiled trait code (facts §2.2's exception), and strict mode does not refuse it.
+- **For split packages:** a core package that declares an interface, and packages that implement it on the core's own types, as SciMLBase and DiffEqBase do. `TraitWorld.delegate!` (§10.3) is data for strict mode only, where the owner has not declared anything.
+
+**Status:** Implemented, joint owners included (TraitWorld a373e30: `src/ownership.jl`, `@joint_owners`, `owns`; `test/joint.jl`). Open: whether the standard libraries are owners of their own, to settle by a census (E-189; [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+
+### 10.2 Pirates
+
+- A **pirate** is a method of a function you do not own, for types you do not own: Julia's "type piracy".
+- **A trait module may not define one:** `OwnershipError` at the definition. A `Union` with one of your own types is no way around it, nor a lower-bounded type variable.
+- In plain code, a pirate is followed by default, as in plain Julia. Trait code it changes is compiled again once ([`facts.md`](facts.md#pirates)).
+- Methods for your own types are never pirates: `Base.show(io::IO, x::MyType)` is fine everywhere.
+
+**Status:** Implemented ([T-56](#17-deviations)).
+
+### 10.3 Strict mode
+
+```julia
+TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
+```
+
+- **It applies to trait code:** the code of trait modules, compiled by facts.
+- **The property it secures: trait code is never invalidated,** except by a change of code it depends on, a stakeholder's ([facts §10.2](facts.md#strict-mode)).
+- Strict mode refuses a pirate when it would win at a call that compiled trait code makes. The error, `TraitWorld.PirateError`, names the method and the trait code it would change. The method then does not exist, for plain code either.
+- Nothing else is refused: a pirate that wins nowhere in trait code is accepted.
+- A definition by a stakeholder is followed. A *stakeholder* of a method is the owner of its function or of a type in its signature, joint owners included (§10.1). Stakeholders are counted at each number of arguments: a type in a `Vararg` tail counts only where the tail has an element ([facts §1](facts.md#1-terms)).
+- A method belongs to the module it is evaluated in. So a method defined with `@eval Owner f(…) = …` counts as `Owner`'s definition, whichever package's code evaluates it. **Open:** whether it should belong to the package whose code defines it, to settle by a census (E-189; [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), item 65).
+- `TraitWorld.delegate!(CorePkg => ImplPkg)` lets an implementation package count as the owner of the core package it implements (for split packages such as StaticArraysCore and StaticArrays).
+- A pirate loaded before the code it changes cannot be refused, since it came first: it is reported when that code's image loads ([facts §10.3](facts.md#strict-intended)).
+- **A package extension's method** that wins at a fact of trait code without mentioning its triggers' types is followed, as its parent package's change, a stakeholder's. It is not refused. A warning names the method and the trait code it affects.
+- `verify_main` lists the calls reached from trait code that select a pirate.
+
+**Status:** Implemented as a prototype: refusal when the pirate is defined, or when an image that brings it loads, after the trait code; a report when the trait code's image loads after the pirate. The warning for a package extension's winning method is Implemented. Planned: the listing in `verify_main`. Strict mode protects code of the facts owner, which is more than trait code ([facts §10.2](facts.md#strict-mode)).
+
+### 10.4 No sealing
+
+- Abstract types and functions are not sealed. Anyone may add a subtype or a method, as in Julia today.
+- A closed contract is a trait: its operations, their declared result types, and the check at every implementation.
+
+**Status:** Implemented.
+
+---
+
+## 11. Concreteness and fully typed mode
+
+```julia
+@trait KVec{T} begin
+    @enforce_concrete_only T Self      # T and the type seen through KVec: concrete
+    T = eltype(Self)
+    klen(v::KVec)::Int
+    kget(v::KVec{T}, i::Int)::T
+end
+@trait Integrator{U, P} begin
+    @warn_on_abstract P                # an abstract P warns
+    u::U
+    @const p::P
+end
+@enforce_concrete_only T v total(v::KVec{T}) where {T} = …     # one function's calls, inside a trait module
+@enforce_fully_typed @trait_module module Fast … end            # fully typed mode, every function of the module
+@warn_not_fully_typed cold(t::ColTable, k::Vector{Any}) = …    # fully typed mode, one function
+fully_typed(Columns.colmean, (Vector{Vector{Float64}}, Int))    # a report, anywhere
+```
+
+Two guarantees, asked for separately:
+- **Concrete parts** (§11.1, §11.2) are a property of an implementation, or of a call: the receiver type and the parameters named are concrete. What it buys: the code compiled for the trait is compiled for concrete types, so its reads of the receiver and its calls on values typed by those parameters are compiled direct calls, not dispatches when the code runs. It holds for every implementation, decided when a type joins the trait, whoever calls.
+- **Fully typed code** (§11.3) is a property of a function at the signature it runs at: every call in it, and in what it calls, has known argument types. What it buys: the trait modules' compiler mode costs it nothing, since every call is a fact ([facts §1](facts.md#term-fully-typed)); and in strict mode it is never invalidated by another package's load, except by a stakeholder's change ([facts §10.2](facts.md#strict-mode)).
+
+**They differ.** Concrete parts do not make code fully typed: the function's own code (an argument of type `Vector{Any}`, a variable whose type changes), an abstract declared result, an abstract field an implementation's method reads, or a plain helper can each leave a call with unknown types. Fully typed code, in turn, is checked at the signatures it ran at, while concrete parts are promised for every implementation.
+
+**Concrete** means a concrete type, or a `Union` of at most four concrete types, whose type parameters are concrete in the same sense, all the way down: `Vector{Float64}` and `Vector{Union{Missing, Int}}`, not `Vector{Real}`, `Real` or a union of five types. Four is this definition's own limit. Whether a call over such parts splits into one compiled call per member is Julia's union splitting ([facts §3](facts.md#facts-and-fact-signatures)): a call on one small union splits; a call where it does not is a run-time site, which fully typed mode reports. The type's fields are not looked at: trait code reads only the fields its traits declare. A parameter value that is not a type (the `1` in `ArrayLike{Float32, 1}`) is concrete. A kept form (`Dynamic{X}`, `Compiled{X}`, `Kept{X}`) and a `Callable` form count as concrete: their parameter names a trait by choice ([T-75](#17-deviations)).
+
+### 11.1 Per trait: concrete parameters and `Self`
+
+- `@enforce_concrete_only names…` in a trait's body: a type conforms only if each named part is concrete at its implementation. Otherwise the implementation is refused (`ImplementError`).
+- `@warn_on_abstract names…`: the implementation is accepted, with a warning naming the part.
+- **The names** are the trait's parameters, and `Self`: the type of the value seen through the trait, the conforming type itself or the field it forwards to ([§3.5](#35-self)).
+- **Without names,** a declaration names `Self` and every parameter.
+- Each declaration appears at most once in a body, and a name in at most one of them.
+- **A declared field** is constrained through a parameter: declare it `x::X`, with `X` a parameter (bounded, `X <: Real`, where needed), and name `X`. A declared field whose type names no parameter is not checked.
+- **Supertraits:** a trait's declaration applies to its own parameters, at every implementation of the trait and of its subtraits. `Self` is shared: the strictest level among a trait and its supertraits applies.
+- **When:** at the declaration. A member of a family at its first use ([§4.7](#47-families)), and a type conforming through a generic implementation at its first use ([§4.8](#48-generic-implementations)), refused as a member that does not conform.
+- Where an implementation has no receiver type (every operation served by a default, a trait of fields only), the code compiled for the trait does not depend on the conforming type, and `Self` is not checked.
+- Decide this when the trait is published. Adding it later breaks conforming types whose parts are abstract.
+- **A `Dynamic` value** of such a trait is fine: its object's type is unknown by choice, not abstract, and its implementation was checked when it was declared.
+
+### 11.2 Per function: concrete parameters of the bounds
+
+- In a trait module, `@enforce_concrete_only names…` before a bounded function's definition refuses a call where a named part is not concrete (`TraitBoundError`). `@warn_on_abstract names…` warns instead, once per function and type.
+- **The names** are the method's `where` variables that its bounds name (`T` in `v::KVec{T}`, [§5.1](#51-bounds)), and bounded arguments, each standing for its `Self`.
+- The names are required: a function has no default list.
+- A function may require more than its traits do.
+- **Cost:** for a `Compiled` value, the answer is decided where the call is compiled, and nothing runs. For a `Dynamic` value, `Self` is unknown by choice and not checked; a parameter its type leaves open is checked at the call.
+
+### 11.3 Fully typed mode
+
+- Code is **fully typed** when every call in it, and in what it calls, has known argument types. Such code pays nothing for the trait modules' compiler mode.
+- **Fully typed mode** checks a bounded function's code at each signature it runs at, the first time it runs there. `@warn_not_fully_typed` warns; `@enforce_fully_typed` raises `AbstractTypeError` where the code uses a value whose type is abstract there (a field read as `Real`), or `NotFullyTypedError` where it makes a call it cannot resolve when compiled (a call on a value of unknown type, a run-time site). Before `@trait_module`, it applies to every function of the module.
+- `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers ("field `scale` of `Config` is declared `Real`"). `isfullytyped(report)` answers yes or no. Operations on `Dynamic` values, trait objects and kept values count as declared, not as faults.
+- `check_fully_typed(sig)` gives the findings for a worker signature whatever the function's level, for tests and CI.
+- A root cause in a trait object's key is named in the trait's terms: "field `data` of `HasData` is declared `AbstractVector`".
+
+**Status:** Implemented, except the root cause in a key's declared field ([T-82](#17-deviations)).
+
+---
+
+## 12. Printing
+
+- A trait object's type prints by bound and key: `ColTable at Vector{Vector{Float64}}`, `PVec{Float64} at Vector{Float64}`. The user's other fields never appear. A `Dynamic` trait object's type prints as `ColTable at Dynamic`.
+- A kept value prints with its trait and its object's key: `Dynamic{Shape} at Circle`, `Compiled{Shape} at Circle`, `Kept{Shape}: Compiled at Circle`.
+- A function bound prints as `Callable{Tuple{Float64}, Float64} at Dynamic`, or at the function's type when `Compiled`.
+- Stack traces hide TraitWorld's own frames. `JULIA_TW_ALL_FRAMES=1` shows them.
+- **A key in a signature prints as the key,** wherever a signature appears: `colmean(::ColTable at Vector{Vector{Float64}}, ::Int64)` in a stack trace, a `MethodError` hint, `code_typed` and the list of a method's specializations. Under traits in the type system the key is a type the user never writes and may see, `Core.Keyed{X, R, F}` ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)); it always prints this way.
+
+**Status:** Implemented. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)). A key in a signature: Planned, with traits in the type system.
+
+---
+
+## 13. Compiling ahead
+
+No syntax: it follows from `@implement` in a package.
+
+- While a package that declares `@implement X T` is precompiled, the trait code that `T` needs is compiled into that package's image. This covers every bounded function with one trait position whose bound includes `X`, at `T`'s key, where the other arguments are concrete.
+- Another trait position is not a concrete argument: its key is not known. So a bounded function with several trait positions (`meandiff(a::ColTable, b::ColTable)`) is compiled at its first call, not ahead. A position whose attribute is `Dynamic` (by its annotation or the trait's default) has a known key, the erased one, so a function whose other trait positions are all `Dynamic` is compiled ahead at `T`'s key (Planned).
+- The checks a first call would run are run then, and the image keeps their results. A failing check fails the build.
+- A caller that does not know the argument's type passes a `Dynamic` value ([§6.2](#62-how-plain-values-enter-the-trait-world)), unless the trait's default or an annotation says `Compiled`: it runs the code compiled once for the position, and compiles nothing per type. That code is compiled ahead where a workload or a declaration of the library reaches it.
+- **Compiling ahead adds no method to the library's functions,** so it discards no trait code and invalidates no plain code.
+- What exactly is compiled: [`lowering.md`](lowering.md#151-compiling-ahead-from-declarations).
+- `TraitWorld.@workload begin … end` is a precompile workload for a trait module (PrecompileTools' `@compile_workload`, reached through TraitWorld).
+- `JULIA_TW_AHEAD=0` turns compiling ahead off.
+
+**Closed programs.** `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program can reach through trait code, for `juliac --trim`:
+- a function passed as a `Callable` adds one target at its declared signature;
+- a kept value adds the implementations whose types reach the place it is made; code at a `Dynamic` position lists every declared implementation;
+- each set of supplied keywords is a signature;
+- a closure returned from trait code has a type of the trait module, so calls to it from plain code are calls into trait code, listed too.
+
+Plain code reached from trait code keeps plain Julia's properties, and its open dynamic calls are reported. A `--trim` build compiles plain code: nothing loads in a binary, so nothing needs protecting ([`facts.md`](facts.md#closed-builds)).
+
+**Status:** Implemented, except:
+- Planned (2026-10-28): functions whose other trait positions are `Dynamic`;
+- what is compiled ahead is narrower ([lowering L-15](lowering.md#18-deviations)); code at a `Dynamic` position is not listed as `verify_main`'s targets ([lowering L-35](lowering.md#18-deviations));
+- the rebuilding step of `Like{t}` is not listed yet ([T-20](#17-deviations)).
+
+---
+
+## 14. Membership
+
+A trait is a kind of abstract type: it names a set of types, and it is written where an abstract type is written (an argument in trait code; a field or a type parameter anywhere, as `Kept{X}`, [§2](#2-trait-modules)). It follows other rules for membership, subtyping and dispatch:
+
+| | An abstract type | A trait |
+|---|---|---|
+| **How a type joins** | in its own definition, `struct S <: A` | by an implementation, `@implement X S`, written after the type and apart from it ([§4](#4-implementations)) |
+| **Who may make it join** | the type's author | a stakeholder: the package that owns the type or the one that owns the trait ([§10.1](#101-who-may-implement)) |
+| **How many** | one supertype, so one chain of ancestors | any number of traits |
+| **What joining promises** | nothing that is checked: the methods a library expects are a convention | the trait's operations and fields, with their types, checked at the implementation ([§4.9](#49-checks-at-the-declaration)) |
+| **Above it** | a tree: `abstract type A <: B` places `A` under `B` | requirements: `@trait B <: A` means a type implementing `B` implements `A` too, by an implementation of its own, and a `B` bound sees `A`'s operations; a bundle combines traits without a body ([§3.6](#36-supertraits-and-bundles)) |
+| **Parameters** | fixed by the subtype's definition, and invariant: `Vector{Int} <: AbstractVector{Int}`, but not `<: AbstractVector{Real}` | set per implementation, by the conforming type's field types, the trait's equations, or stated values (associated types, [§3.4](#34-parameters-and-associated-types)): `conforms(Vector{Int}, PVec{Float64})` is `false` |
+| **Values** | each value has a concrete type, which `isa` every supertype | each value has a concrete type, which conforms; library code sees the value through the trait, `Compiled` or `Dynamic`, and a field or a container of the trait keeps it as a `Kept{X}`, with its attribute ([§7](#7-kept-values-dynamicx-compiledx-keptx)) |
+| **Dispatch** | by subtyping: the most specific type wins | a bound ranks above `Any` and below every type, concrete or abstract; among bounds a subtrait beats its supertrait ([§5.5](#55-dispatch-types-first-then-traits)) |
+| **What code is compiled for** | the argument's concrete type, at each call | the key: what the trait sees of the value's type ([§6.7](#67-what-compiled-code-is-compiled-for)) |
+| **Joining later** | no: a type's supertype is fixed where it is defined | yes: a later package may declare an implementation, if it is a stakeholder |
+
+- **`T <: X` and `x isa X`** mean "`T` conforms to `X`" and "`x`'s type conforms to `X`". An implementation adds the trait to the type's supertypes after the type is defined. That is sound because only a stakeholder declares it, and a pirate's implementation is refused. Compiled code never folds a membership test to `false`: the answer is taken when the code runs, so a later implementation invalidates no trait code ([§4](#4-implementations)).
+- **Between traits, `B <: A`** means `A` is a supertrait of `B`: every type that conforms to `B` conforms to `A`, by its own implementation of `A`. With traits in the type system, `<:` is transitive through memberships as through supertypes ([compiler §7.2](compiler.md#72-memberships)).
+- **Parameters are invariant** for traits as for Julia's types: `X{U} <: X{<:T}` when `U <: T`, and `X{U} <: X{V}` only when `U` and `V` are equal ([§3.4](#34-parameters-and-associated-types)).
+- **`conforms(T, X)`** answers the same question as `T <: X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
+- **Abstract types stay.** Where a tree of types is right, a library declares one, and its methods take abstract types as Julia's do. Numbers need no trait: `Number`, `Real` and `Integer` stay as they are. A type may subtype an abstract type and implement traits, and dispatch takes a typed method first.
+
+**Status:** `conforms` is Implemented. `T <: X` and `x isa X` for traits are Planned ([compiler §7.2](compiler.md#72-memberships), W-98): today a trait is encoded as an abstract type that no conforming type subtypes, so both are accepted and `false` for every conforming value and type, and `B <: A` between traits is `false` too ([T-23](#17-deviations); [`lowering.md` §17](lowering.md#17-encodings-until-traits-are-in-the-type-system)).
+
+---
+
+## 15. Named implementations
+
+- A second implementation of a trait for a type, used only where a caller names it.
+- The preferred form is a wrapper value that conforms, a newtype: `Via{Fast}(x)`.
+- Until then, a foreign trait for a foreign type needs the trait's owner, the type's owner, or your own wrapper type: `struct FastM; m::M; end` with its own implementation.
+
+**Status:** Planned, deferred until traits are in the type system.
+
+---
+
+## 16. Status index
+
+| Construct | Status | Section |
+|---|---|---|
+| `@trait_module`, the module and block forms | Implemented | [§2](#2-trait-modules) |
+| `@trait`: operations, result types, `Self` | Implemented | [§3.1](#31-operations), [§3.5](#35-self), T-35, T-49 |
+| defaults | Implemented | [§3.2](#32-defaults) |
+| a trait's parameter in a default's body | Planned | [§3.2](#32-defaults), T-2 |
+| declared fields, `@const` | Implemented | [§3.3](#33-fields) |
+| parameters by field, by equation, stated | Implemented | [§3.4](#34-parameters-and-associated-types) |
+| a stated value checked against an equation | Planned | [§4.6](#46-stating-parameters), T-37 |
+| bounds on parameters, checked | Implemented | [§3.4](#34-parameters-and-associated-types) |
+| supertraits, bundles | Implemented | [§3.6](#36-supertraits-and-bundles) |
+| tuples of traits: bounds, attributes on bounds, supertrait lists, `@implement` | Implemented | [§3.7](#37-tuples-of-traits) |
+| tuples of traits everywhere else a trait stands | Planned | [§3.7](#37-tuples-of-traits), W-29 |
+| a kept value seen through every trait its object conforms to; a kept function checked at another signature | Implemented | [§6.5](#65-values-carry) |
+| trait casts: at a bound | Implemented | [§6.5](#65-values-carry) |
+| trait casts: explicit (`Kept{B}(d)`) | Optional | [§6.9](#69-trait-casts) |
+| supertrait agreement check | Implemented | [§3.6](#36-supertraits-and-bundles) |
+| an operation's argument declared `Dynamic{Y}`, `Compiled{Y}`, `Kept{Y}`: a type | Implemented | [§3.1](#31-operations), [§6.3](#63-defaults-a-traits-default-and-annotations) |
+| `@implement X T begin … end` | Implemented | [§4.1](#41-with-a-block-of-methods) |
+| `@implement X T` (one line) | Implemented | [§4.2](#42-one-line) |
+| `by f` | Implemented | [§4.3](#43-forwarding-with-by) |
+| the forwarding field not a writable declared field | Planned | [§4.3](#43-forwarding-with-by), T-4 |
+| field mappings `name => stored` | Implemented | [§4.4](#44-field-mappings) |
+| several traits at once | Implemented | [§4.5](#45-several-traits-at-once) |
+| stated parameters `X{P…} T` | Implemented | [§4.6](#46-stating-parameters) |
+| families, joint families | Implemented | [§4.7](#47-families), T-6 |
+| a family member refused at its first use | Implemented | [§4.7](#47-families) |
+| the member check at abstract declared arguments: the stakeholders' methods only | Implemented | [§4.7](#47-families) |
+| a member's override by its parameter type's owner | Planned | [§4.7](#47-families), T-28 |
+| forwarding for a whole family | Planned | [§4.7](#47-families), T-7 |
+| generic implementations | Implemented | [§4.8](#48-generic-implementations), T-8 |
+| forwarding through a generic implementation | Planned | [§4.8](#48-generic-implementations), T-30 |
+| overlap rules for generic implementations | Planned | [§4.8](#48-generic-implementations), T-9 |
+| constraints as patterns: a computed condition refused | Planned | [§4.8](#48-generic-implementations), T-79 |
+| overrides fixed at the declaration; family members at first use | Implemented | [§4.9](#49-checks-at-the-declaration) |
+| redeclaring an implementation | Planned (today: restart) | [§4.9](#49-checks-at-the-declaration) |
+| a refused declaration defines nothing | Implemented | [§4.9](#49-checks-at-the-declaration) |
+| types that only convert | Implemented (a pattern) | [§4.10](#410-types-that-only-convert) |
+| bounds on arguments, several bounds, fixed parameters | Implemented | [§5.1](#51-bounds) |
+| `where` variables in bounds, shared or not | Implemented | [§5.1](#51-bounds) |
+| a trait inside a container's type in an argument refused | Implemented | [§5.1](#51-bounds) |
+| internal functions without bounds | Implemented | [§5.4](#54-internal-functions) |
+| types first, then traits; joint-method rule; fallback | Implemented | [§5.5](#55-dispatch-types-first-then-traits), L-3 |
+| result types, `Like{t}`, `withfields`, siblings | Implemented | [§5.6](#56-results-declared-types-like-withfields) |
+| keywords, defaults, varargs | Implemented | [§5.7](#57-keywords-defaults-and-varargs), T-48 |
+| `Callable{A, S}`, its `Dynamic` default, `Compiled{Callable{A, S}}`, casts | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
+| `Callable{A, S, K}` with keywords | Planned | [§5.7](#57-keywords-defaults-and-varargs) |
+| a constant `A`, refused otherwise | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
+| open `Callable` result types | Implemented | [§5.8](#58-callable-functions-at-a-declared-signature) |
+| bounded closures; `Callable` results that are traits | Planned | [§5.8](#58-callable-functions-at-a-declared-signature) |
+| `Compiled` and `Dynamic`: where plain values enter, the first-seen rule | Implemented | [§6.2](#62-how-plain-values-enter-the-trait-world) |
+| a trait's default, `@default_with_dynamic_self` or `@default_compiled_for_self`; annotations as defaults; the table by position | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
+| the warning on an annotation of a function neither exported nor public | Implemented | [§6.3](#63-defaults-a-traits-default-and-annotations) |
+| casts `compiled_for(x)`, `with_dynamic(x)`; constructors and types never cast | Implemented | [§6.4](#64-casts) |
+| values carry through calls, bounds and storage; library to library | Implemented | [§6.5](#65-values-carry) |
+| items of a user's container with their attribute; writes that read back the same | Implemented | [§6.6](#66-items-of-a-users-container) |
+| keys: what `Compiled` code is compiled for | Implemented | [§6.7](#67-what-compiled-code-is-compiled-for), L-21, T-94 |
+| beyond four implementations: a constant cost | Implemented | [§6.8](#68-costs-and-choosing) |
+| a witness carried in a kept value; recompiling with the observed types | Optional | [§6.8](#68-costs-and-choosing) |
+| kept values `Dynamic{X}`, `Compiled{X}`, `Kept{X}`; their operations and fields | Implemented | [§7.1](#71-the-three-forms) |
+| `Dynamic{(X, Y)}`, a trait's `==`, serialization | Planned | [§7.1](#71-the-three-forms) |
+| opening a kept value at its concrete type: a plain assertion | Implemented | [§7.1](#71-the-three-forms) |
+| a trait's name in storage as `Kept{X}` inside trait modules | Implemented | [§7.2](#72-a-traits-name-as-a-storage-type), L-6 |
+| a plain value assigned to a field of a trait's name: the first-seen rule | Implemented | [§7.3](#73-assigning-from-plain-code) |
+| a struct parameter bounded by a trait | Implemented | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) |
+| functions kept; one function at several signatures | Implemented | [§7.5](#75-functions-kept) |
+| BaseTraits version 0: `HasLength`, `Iterable{T}`, `Indexable{T}`, `MutableIndexable{T}`, `Resizable`, `Keyed{K, V}`; Base's containers' conformance | Implemented | [§8.1](#81-basetraits-traits-for-bases-concepts) |
+| a trait's name in a bound's parameters as an item position | Implemented | [§8.2](#82-item-positions) |
+| a user's container taken as it is; `DynamicItems{X}(v)`, `DynamicValues{X}(d)` | Implemented | [§8.3](#83-a-users-container-taken-as-it-is), T-39 |
+| `retain!` | Implemented | [§8.4](#84-algorithms-over-collection-traits) |
+| BaseTraits' next traits and algorithms; two traits declaring one function at one arity | to revisit with the ports | [open issues §6](../open-issues.md#6-to-revisit-with-the-ports) |
+| definition checking | Implemented | [§9](#9-checks-and-when-they-run), T-19, T-91, T-92, T-93 |
+| who may implement | Implemented | [§10.1](#101-who-may-implement) |
+| the standard libraries as owners of their own | Open (E-189) | [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user) |
+| no pirates in trait modules | Implemented | [§10.2](#102-pirates), T-56 |
+| strict mode | Implemented as a prototype; the rest Planned, with the warning for package extensions | [§10.3](#103-strict-mode) |
+| no sealing | Implemented | [§10.4](#104-no-sealing) |
+| concrete parameters and `Self`, per trait: `@enforce_concrete_only`, `@warn_on_abstract` | Implemented | [§11.1](#111-per-trait-concrete-parameters-and-self) |
+| concrete parameters of the bounds, per function | Implemented | [§11.2](#112-per-function-concrete-parameters-of-the-bounds) |
+| fully typed mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-fully-typed-mode) |
+| a small union: concrete, and fully typed (fully typed mode is silent about it) | Implemented | [§11](#11-concreteness-and-fully-typed-mode) |
+| printing by bound and key | Implemented | [§12](#12-printing) |
+| a key in a signature printed as the key | Planned | [§12](#12-printing) |
+| compiling ahead from `@implement` | Implemented | [§13](#13-compiling-ahead) |
+| `verify_main`, `@workload` | Implemented | [§13](#13-compiling-ahead), T-20 |
+| `conforms(T, X)` | Implemented | [§14](#14-membership) |
+| `x isa X`, `T <: X` | Planned | [§14](#14-membership), T-23; [compiler §7.2](compiler.md#72-memberships) |
+| membership transitive: `T <: B <: A` gives `T <: A` | Planned | [§3.6](#36-supertraits-and-bundles), [§14](#14-membership) |
+| named implementations, `Via{Fast}(x)` | Planned (deferred) | [§15](#15-named-implementations) |
+
+---
+
+## 17. Deviations
+
+Where TraitWorld differs from this reference. File paths are in the repository; a row's line numbers are those of TraitWorld at 227781a, and rows without them name functions. Checks named "reference.jl" are in [`experiments/docs-examples/reference.jl`](../../experiments/docs-examples/reference.jl).
+
+| ID | Section | The reference says | The implementation does | Where |
+|---|---|---|---|---|
+| T-1 | — | *Retired*: see [§3.4](#34-parameters-and-associated-types). | — | — |
+| T-2 | [§3.2](#32-defaults) | The trait's parameters are in scope in a default's body. | `UndefVarError: T` when the default runs. | reference.jl, "T-2" |
+| T-3 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-4 | [§4.3](#43-forwarding-with-by) | The forwarding field may not also be a writable declared field. | Not checked. | `TraitWorld/src/implement.jl:526`, `:560` (`_field_problems`) |
+| T-5 | — | *Retired*: see [§4.7](#47-families). | — | — |
+| T-6 | [§4.7](#47-families) | A joint family's trait parameters are variables, constants and type constructors, never function calls. | Any expression is accepted and evaluated per member. | `TraitWorld/src/implement.jl:1008` (`_param_methods`) |
+| T-7 | [§4.7](#47-families) | Forwarding for a whole family is planned as `@implement X Series{T} by f where {T}`. | Refused with "expected `project(t) = …` or a begin … end block after the type", which names a form the design does not have. Found by reading the code. | `TraitWorld/src/implement.jl:909`, `:1280` |
+| T-8 | [§4.8](#48-generic-implementations) | A generic implementation applies to a trait with parameters as to one without. | For a trait with parameters, the form is taken as a family, and the constraints (`R: Indexable`) are read as `where` bounds. Found by reading the code. | `TraitWorld/src/implement.jl:1063` |
+| T-9 | [§4.8](#48-generic-implementations) | Overlapping generic implementations are refused; a more specific one declares the same parameter values. | Nothing is checked at the declaration. At a call, a type matching two generic implementations raises `ImplementError` ("none more specific: add a specific implementation"). Specificity among generic implementations is not computed: every match counts. The parameter-value rule is not checked. | `TraitWorld/src/implement.jl:332`–`335`, `:368`, `:1110`–`1132` |
+| T-10 | [§4.9](#49-checks-at-the-declaration) | Every failure at `@implement` raises `ImplementError`. | An operation without a method or a default in a block raises an `ErrorException`. Syntax errors in `@implement` are `ErrorException`s too. | `TraitWorld/src/implement.jl:841` |
+| T-11 | [§4](#4-implementations) | Messages use the reference's terms: receiver type, implementation, forwarding. | Several messages still say "representation" or "projection", or suggest the second spelling of T-12: "owns neither the trait nor the representation", "the projection of T returns …", "cannot infer a concrete representation … `@implement Trait{R} T …`", "takes … the representation, last", "a projection needs exactly one `project(t) = …`", `TraitArgumentError`'s "at representation"; the one-line form's refusal of a parametric type, "the prototype does not declare parametric families this way", which does not name the `where` form. | `TraitWorld/src/implement.jl:501`, `:611`, `:618`, `:968`, `:1034`, `:1250`, `:1280`, `:1286`, `:1334`, `:1152`; `src/trait.jl:49`, `:80`; `src/core.jl:652` |
+| T-12 | [§1](#1-syntax-summary) | The grammar has one spelling of traits and implementations. | A second spelling, with the receiver type as the trait's last parameter, is accepted: `@trait ColTable{R}`, `ncols(r::R)::Int`, `@implement ColTable{MyType} begin … end`, `@implement X{R} where {…}`. Tests and the precompile workload still use it. | `TraitWorld/src/trait.jl:111`; `src/implement.jl:873`, `:963`; [W-68](../record/todo.md) |
+| T-13 | [§3.1](#31-operations) | No annotation marks a mutating operation. | `@mutating` in a `@trait` body is accepted and recorded; nothing reads it. | `TraitWorld/src/trait.jl:35`, `:284`; `src/implement.jl:132` (`_mutating`, never called) |
+| T-14 | [§4.3](#43-forwarding-with-by) | `by f` takes no block. | `@implement X T by f begin … end` is accepted: the block's methods become the implementation for the field's type. | `TraitWorld/src/implement.jl:912`, `:1347` |
+| T-15 | [§4.2](#42-one-line) | No form computes a value from the type. | The internal form `@implement X T project(t) = …` is accepted: a body that reads a field as is forwards to it; any other body is refused with "computes a value". The flags `copies` and `unproject(t, r) = …` are refused with messages naming forms the design does not have. | `TraitWorld/src/implement.jl:1280`–`1305`; reference.jl, "T-15" |
+| T-16 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
+| T-17 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
+| T-18 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
+| T-19 | [§9](#9-checks-and-when-they-run) | Definition checking at the module's end covers keyword, vararg and `Callable` functions; a first call checks only open parameters and open `Callable` results. | Keyword, vararg and every `Callable` function are checked at their first call. | `TraitWorld/src/defcheck.jl:85`–`92` (`archetype_sig`) |
+| T-20 | [§5.6](#56-results-declared-types-like-withfields), [§13](#13-compiling-ahead) | `verify_main` lists the rebuilding step of `Like{t}` results. | It reports them as holes (`:inverse`). | `TraitWorld/src/verify.jl:746`, `:813` |
+| T-21 | [§10.3](#103-strict-mode) | `PirateError` names the trait code the pirate would change. | It names the call signature (`Tuple{typeof(abs2), Float64}`); the trait-module function only when a walk up the callers finds it, which the tutorial's example does not. | `TraitWorld/src/strict.jl:74`, `:48` (`_trait_root`); [tutorial §18](../intro/traits-by-example.md) |
+| T-22 | [§5.5](#55-dispatch-types-first-then-traits) | A value that conforms to no bound raises `MethodError` with a hint naming the bound. | Julia also prints "This error has been manually thrown", since the entry exists and throws. | `TraitWorld/src/entry.jl:499` |
+| T-23 | [§14](#14-membership) | `x isa X` and `T <: X` answer whether a value or a type conforms, and `B <: A` whether `A` is a supertrait of `B`, once traits are in the type system. | Both are accepted today with Julia's meaning: a trait is an abstract type that no conforming type subtypes, so both are `false` for every conforming value and type. Between traits, `B <: A` is `false` too: every trait is a direct subtype of `Trait`, and supertraits are declarations the trait records (`supertype(B) === Trait` for `@trait B <: A`). | `TraitWorld/src/trait.jl:198` (`abstract type X{…} <: Trait`) |
+| T-24 | — | *Retired*: see [§13](#13-compiling-ahead). | — | — |
+| T-25 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
+| T-26 | — | *Retired*: see [§4.7](#47-families). | — | — |
+| T-27 | — | *Retired*: see [§4.7](#47-families). | — | — |
+| T-28 | [§4.7](#47-families) | An override of one family member is declared only by the package that owns the member's parameter type, in that package. | A member's own declaration is refused after the member's first use in the session and in a package extension; it is also accepted from the trait's or the family type's owner, not only from the parameter type's owner. | `TraitWorld/src/implement.jl` (`_member_override_problem`) |
+| T-29 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |
+| T-30 | [§4.8](#48-generic-implementations) | Forwarding carries through a generic implementation: a type that forwards `Indexable` to a field forwards `GTable` to the same field. | A `by` declaration makes a `projection` record and no `implementation` record, so the generic implementation's constraint finds no witness for the forwarding type: it does not conform to `GTable`, and a call raises `MethodError`. Only an explicit `@implement GTable U by data` works. | `TraitWorld/src/implement.jl:337`–`367`, `:414`–`424`, `:1363`–`1366` |
+| T-31 | [§4.4](#44-field-mappings), [§4.5](#45-several-traits-at-once) | Any traits take any form of implementation, field mappings included. | Several traits at once are handled only as `(X, Y) T by f`. `(X, Y) T name => stored` is refused with "a projection needs exactly one `project(t) = …`", and `(X, Y) T by f, name => stored` with "expected `project(t) = …` or a begin … end block after the type": both name forms the design does not have. | `TraitWorld/src/implement.jl:863`–`866`, `:1280`, `:1286` |
+| T-32 | [§3.2](#32-defaults), [§4.9](#49-checks-at-the-declaration) | An implementation keeps a default or overrides it with the type's own method; a supertype owner's method defined before the declaration is part of it. | With a block, every operation the block leaves out is served by its default, whether or not the type has a method for it, and the override records leave such operations out: the existing method is not used, and a later redefinition of it is not refused. The one-line form follows the reference. | `TraitWorld/src/implement.jl:837`–`845`, `:648`; `src/core.jl:671`–`674` |
+| T-33 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration). | — | — |
+| T-34 | [§5.5](#55-dispatch-types-first-then-traits), [§9](#9-checks-and-when-they-run) | A definition in a trait module that fails ownership raises `OwnershipError`; refused definitions raise the errors of the checks table. | These are `ErrorException`s: a bounded method added to another module's function where it has no entry of that shape; a vararg of `Callable`; `@specialize`; a vararg that is not last; `::Like{x}` naming no bounded argument; a keyword with several `Callable` bounds ([T-36](#17-deviations)). | `TraitWorld/src/trait_module.jl:537`–`539`, `:268`, `:260`, `:466`, `:522`, `:341` |
+| T-35 | [§3.5](#35-self), [§5.6](#56-results-declared-types-like-withfields) | On a kept value, a constructor operation and a `Like` function return a kept value of the same form and attribute. | A constructor operation on a kept value of a trait with fields raises `TraitBoundError` ("declares fields"). A kept value of an immutable value kept by its parts, not whole, gives no `Like` result: `TraitBoundError`, "pass the value itself". | `TraitWorld/src/entry.jl` (`_dyn_like`, `_like_out`) |
+| T-36 | [§1](#1-syntax-summary), [§5.7](#57-keywords-defaults-and-varargs) | An operation names its receiver (`t::Shape`); a keyword takes any bound, several `Callable`s included. | An unnamed receiver, `area(::Shape)::Float64`, is accepted. A keyword with several `Callable` bounds is refused with an `ErrorException`. | `TraitWorld/src/trait.jl:156`; `src/trait_module.jl:341` |
+| T-37 | [§3.4](#34-parameters-and-associated-types), [§4.6](#46-stating-parameters) | An equation always holds: a stated value for a parameter an equation defines is checked against the equation, and an implementation where they disagree is refused with `ImplementError`. | Checked for an implementation of one type (`_param_agrees` in `TraitWorld/src/implement.jl`; `test/params.jl`). For a family (`@implement X{T} S{T} where {T}`) the stated value still replaces the equation's, unchecked: the equation is not evaluated at the family's free parameters. As [lowering L-26](lowering.md#18-deviations). | `implement.jl` (`_param_methods`) |
+| T-38 | [§4.7](#47-families) | A family is declared as `@implement X S{P} where {P}`, also for a trait whose parameters are defined by equations (`@implement Iterable DynamicItems{X, V} where {X, V}`). | Refused with "a family `…` needs the trait's parameters": the form is taken as a joint family conforming by its fields, which requires every parameter to be defined by a field. The variable form works: `@implement Iterable D where {D <: DynamicItems}` (BaseTraits uses it). Found while writing BaseTraits. | `TraitWorld/src/implement.jl` (`_implement_expand`, the joint family branch) |
+| T-39 | [§8.3](#83-a-users-container-taken-as-it-is), [§5.7](#57-keywords-defaults-and-varargs) | A container is taken at a bounded keyword as at a positional argument. | A bounded keyword is handled by `enter_kw`, which does not take a container through its item positions. A keyword bound that fixes a parameter (`shapes::Iterable{Shape}`) fails before that, for any value: `MethodError` from `trait_ops` at the trait instance (`Iterable{Dynamic{Shape}}`) instead of its family. Found while checking §10.3. | `TraitWorld/src/entry.jl` (`enter_kw`), `src/trait_module.jl` (the keyword's trait list); `experiments/hetero-idiomatic/reference_examples.jl` |
+| T-40 | — | *Retired*: see [§6](#6-values-in-trait-code-compiled-and-dynamic). | — | — |
+| T-41 | — | *Retired*: see [§6](#6-values-in-trait-code-compiled-and-dynamic). | — | — |
+| T-42 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
+| T-43 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
+| T-44 | — | *Retired*: see [§8.2](#82-item-positions). | — | — |
+| T-45 | — | *Retired*: see [§7](#7-kept-values-dynamicx-compiledx-keptx). | — | — |
+| T-46 | — | *Retired*: see [§4](#4-implementations). | — | — |
+| T-47 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
+| T-48 | [§5](#5-bounded-functions), [§5.7](#57-keywords-defaults-and-varargs) | A bounded function may bound only keyword arguments (`f(; s::Shape)`, `f(n::Int; s::Shape)`). | Its entry and its worker have the same positional signature, so the later definition replaces the earlier: a call raises `TraitBoundError` ("no trait-bounded method … accepts trait objects of"). A bounded positional argument avoids it. Found while building W-4; the same on main (TraitWorld 5b172e1). | `TraitWorld/src/trait_module.jl` (`_rewrite_fdef`) |
+| T-49 | [§3.1](#31-operations), [§6](#6-values-in-trait-code-compiled-and-dynamic) | An operation with an argument declared `Self` works on a `Dynamic` value. | At the erased key the argument's declared type is unknown, and the call raises `TraitArgumentError`. Found while building W-4 (by reading). | `TraitWorld/src/core.jl` (`opcall`), `src/attributes.jl` (`ErasedSelf`) |
+| T-50 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
+| T-51 | — | *Retired*: see [§5.8](#58-callable-functions-at-a-declared-signature). | — | — |
+| T-52 | [§4.8](#48-generic-implementations) | A type that conforms through a generic implementation and whose operations do not conform is refused at its first use (`ImplementError`). | It is accepted with a warning naming the problems (`_generic_problems`); the call then fails where the problem is, or returns a value of another type behind the result's assertion. Its concreteness and bounds are checked as designed. | `TraitWorld/src/implement.jl` (`_witness`, generic branch); `test/runtests.jl`, "M2" |
+| T-53 | — | *Retired*: see [§6.5](#65-values-carry). | — | — |
+| T-54 | — | *Retired*: see [§6.5](#65-values-carry). | — | — |
+| T-55 | [§8.3](#83-a-users-container-taken-as-it-is) | The explicit wrappers are `DynamicItems{X}` and `DynamicValues{X}`. | TraitWorld also exports `CompiledItems` and `CompiledValues`, the views at `Compiled` that the lowering uses ([lowering §13](lowering.md)). | `TraitWorld/src/TraitWorld.jl:84`; `src/BaseTraits.jl` |
+| T-56 | [§10.2](#102-pirates) | A pirate in a trait module is refused at its definition. | Only plain function definitions, and those under the macros TraitWorld passes through, are checked when they are defined. A method made by another macro (`@generated`, `@eval`, `Base.@constprop`), a functor's call method, a definition inside a top-level block, or `Core.eval` into another module is not; a later checked definition of the same function catches it, so whether it is refused depends on the order. | `TraitWorld/src/trait_module.jl` (`_process`, `_is_fdef`); [the review of the P3 plan](../reviews/2026-10-21-ndport-facts-first-plan.md) |
+| T-57 | [§4.7](#47-families) | A family with a block of methods is declared as `@implement X A where {A <: S} begin … end`, by the trait's or the type's owner. | Declared outside the trait's module, it is refused by the rule-3 precheck, which evaluates `A` without its `where`. The family without a block, by the type owner's own methods, avoids both. | `TraitWorld/src/implement.jl` (`_implement_where`, the precheck in `_op_method`); probes of 2026-10-21; [the review of the W-34 plan](../reviews/2026-10-21-w34-sciml-prerequisites.md) |
+| T-58 | — | *Retired*: see [§5.2](#52-what-a-bounded-function-receives). | — | — |
+| T-59 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
+| T-60 | — | *Retired*: see [§7.4](#74-a-struct-parameter-bounded-by-a-trait). | — | — |
+| T-61 | — | *Retired*: see [§7.3](#73-assigning-from-plain-code). | — | — |
+| T-62 | — | *Retired*: see [§4.9](#49-checks-at-the-declaration)]. | — | — |
+| T-63 | — | *Retired*: see [§4.7](#47-families). | — | — |
+| T-64 | — | *Retired*: see [§6.2](#62-how-plain-values-enter-the-trait-world). | — | — |
+| T-65 | — | *Retired*: see [§5.3](#53-what-trait-code-may-do-with-a-trait-object). | — | — |
+| T-66 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
+| T-67 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-68 | [§3.4](#34-parameters-and-associated-types), [§3.6](#36-supertraits-and-bundles) | A parameter defined by a field takes its value from the stored field the implementation maps it to. | At a conforming type the parameter is read through the trait's field-matching method, which uses the field's declared name: a field mapped to another stored name (`t => _t`) fails there, for a plain field parameter and for one a subtrait takes from its supertrait (by reading, TraitWorld 2e9ed68; not reproduced by a test). | `TraitWorld/src/trait.jl` (the field-matching `param` methods) |
+| T-69 | — | *Retired*: see [§7.2](#72-a-traits-name-as-a-storage-type). | — | — |
+| T-70 | — | *Retired*: see [§7.1](#71-the-three-forms). | — | — |
+| T-71 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-72 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles). | — | — |
+| T-73 | — | *Retired*: see [§3.6](#36-supertraits-and-bundles), [§3.7](#37-tuples-of-traits). | — | — |
+| T-74 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | The constructor with explicit parameters checks that a trait-bounded parameter conforms. | It stores what it is given: the bound is not part of the struct's type, so `S{MyType}(x)` with a non-conforming `MyType` is accepted and fails at its first operation. | `TraitWorld/src/trait_module.jl` (the struct rewrite); [lowering §13.2](lowering.md#132-a-struct-parameter-bounded-by-a-trait) |
+| T-75 | [§11](#11-concreteness-and-fully-typed-mode) | A kept form counts as concrete. | `key_concrete` counts `Dynamic{X}` as concrete, but `Kept{X}` and `Compiled{X}` fall through to the parameter check, which finds the trait abstract. | `TraitWorld/src/implement.jl` (`key_concrete`) |
+| T-76 | [§3.1](#31-operations) | A trait's bare name on an operation's further argument is refused at `@trait`. | It is accepted by `@trait` and by definition checking; every call then raises `TraitArgumentError` (declared at the trait, got a `Dynamic` value). | `TraitWorld/src/trait.jl`; `experiments/review-2026-10-26-references/probe.jl` (P2) |
+| T-77 | — | *Retired*: see [§4.7](#47-families). | — | — |
+| T-78 | — | *Retired*: see [§5.1](#51-bounds). | — | — |
+| T-79 | [§4.8](#48-generic-implementations) | A generic implementation's constraints are patterns; a computed condition is refused at the declaration. | A computed condition (`eltype(R) == Vector{Float64}`) is accepted and evaluated per type; TraitWorld's tests use one. | `TraitWorld/test/runtests.jl:268`; `src/implement.jl:15`; W-67 |
+| T-80 | — | *Retired*: see [§5.5](#55-dispatch-types-first-then-traits). | — | — |
+| T-81 | [§2](#2-trait-modules) | A bounded function defined again after its trait module is complete goes through the module's end for that function, by `eval` or by Revise. | By `eval` it does. Revise does not apply an edit of a trait module's file: it cannot load a file whose top level is `@trait_module module … end` ("module expression not at top level"), and it re-evaluates a `@trait_module begin … end` block as one statement, so the edit does not take effect ([open issue 81](../open-issues.md#1-decisions-waiting-for-the-user)). | `experiments/w78/revise/`, `experiments/w78/README.md` |
+| T-82 | [§11.3](#113-fully-typed-mode) | A root cause in a key's declared field is named in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). | It names TraitWorld's view type ("field `parts` of `TraitWorld.View{…}` is declared `Tuple{Nothing, AbstractVector}`"), and reports the view's `o::Any` field as a second root cause. | `experiments/checks/w67_probes.jl`, `.log` (probe 1) |
+| T-84 | [§3.4](#34-parameters-and-associated-types) | An implementation may state an input parameter as a `where` variable (one implementation for every value, a `NamedTuple` at all its names); a bound may fix it by a `where` variable another argument fixes. | Both are refused (`ImplementError`, `TraitBoundError`). | TraitWorld 2215188, `test/basetraits_next.jl` |
+| T-85 | [§3.4](#34-parameters-and-associated-types) | A trait with input parameters may declare fields; a subtrait may pass its own input variable to a supertrait with inputs. | Fields in such a trait are refused; the subtrait form is not built. | TraitWorld 2215188 |
+| T-86 | [§3.4](#34-parameters-and-associated-types) | The owners of an input parameter's type count as stakeholders of an implementation. | Not counted: only the trait's and the type's owners. | TraitWorld 2215188 |
+| T-87 | [§3.4](#34-parameters-and-associated-types) | `Callable` is a trait with input parameters. | `Callable` keeps its own mechanism. | TraitWorld 2215188 |
+| T-89 | [§7.4](#74-a-struct-parameter-bounded-by-a-trait) | A field bounded by a trait, read back under `Compiled`, is `Compiled` at the next bound. | It is the user's object, a plain value: `Compiled` by the first-seen rule where the code knows the struct's type; `Dynamic` where it does not, and under the trait's `@default_with_dynamic_self`. No port has such a field under a dynamic default (TDE keeps its `IndexProvider` as `Dynamic{…}`). A write of a read-back `Callable` to a mutable struct's bounded field is refused (`convert`). | TraitWorld `_bounded_struct` (`trait_module.jl`): a `getproperty` for `Callable` bounds only |
+| T-90 | [§5.8](#58-callable-functions-at-a-declared-signature) | A function refused for its result is named with the declared and the returned type, with a hint where the result is `Nothing`. | Where a family member's operation calls the function (TDE's `ODEProblem` holding `compiled_for(f)`), the member check refuses the member: the operation "always throws (inferred `Union{}`)", without the function's result type or the hint. | `TraitWorld/src/implement.jl:273` (`conformance_problems`) |
+| T-88 | [§6.4](#64-casts) | A keyword argument may be `Opened{X}`. | Only positional arguments are lowered so; on a keyword `Opened{X}` is taken as a plain type. | TraitWorld `_strip_opened!` (`trait_module.jl`) |
+| T-83 | [§5.5](#55-dispatch-types-first-then-traits) | Unrelated bounds added by two packages that do not depend on each other are reported at the load that creates the overlap. | Not reported until a call (the Makie agent's reading of the code; its probe F2, W-80, confirms). | `TraitWorld/src/trait_module.jl` (`check_bounds` at a module's end); W-82 |
+| T-91 | [§9](#9-checks-and-when-they-run) | Definition checking reports each use of a trait object that its traits do not declare ([§5.3](#53-what-trait-code-may-do-with-a-trait-object)), so a function that passes reaches its bounded arguments only through its traits. | A call to an operation's function at an arity the trait does not declare (`eachindex(a, b)` where the trait declares `eachindex(c)`) is neither reported nor resolved: `worker_problems` skips it as an operation (`_is_op` matches the function, not the signature), inference gives `Union{}`, and nothing after the call is checked. Such a function passes: Base's `zero` passed through `similar(x, Float64)` while the contract declared only `similar(a)` (E-258). | `TraitWorld/src/checks.jl:81` (`_is_op`), `:225`; `experiments/w83/u1/logs/dev/run2.log` |
+| T-92 | [§9](#9-checks-and-when-they-run) | `check_definitions` raises `TraitUseError` listing a function's problems. | It reports only the first use outside the traits in each function: a call the traits do not answer infers as `Union{}`, inference stops there, and the rest of the body is not checked (17 of the open Base functions of E-258's first variant). The list is a lower bound on what a body reaches. | `TraitWorld/src/checks.jl:107` (`worker_problems`); `experiments/w83/u1/run.jl` (`[inference stops …]`) |
+| T-93 | [§9](#9-checks-and-when-they-run), [§3.6](#36-supertraits-and-bundles) | Every bounded function is checked at the end of its trait module; only a parameter left open waits for the first call. | BaseTraits declares `@trait MutableIndexable{T} <: Indexable`, so the supertrait's item type is open in every `MutableIndexable` bound: `archetype_sig` sees an open parameter and defers every function bounded by `MutableIndexable{T}`, also with `T` fixed, to its first call (E-258). The declaration can tie it (`<: Indexable{T}`, §3.6), or definition checking can tie a supertrait's parameter defined by the same equation (`eltype(Self)`). | `TraitWorld/src/BaseTraits.jl:61`; `src/defcheck.jl:89` (`archetype_sig`) |
+| T-94 | [§6.7](#67-what-compiled-code-is-compiled-for), [§6.8](#68-costs-and-choosing) | A `Dynamic` argument adds nothing per type: at a bound a `Dynamic` value runs the code compiled once for the position. | The worker is compiled once, but the entry rebuilds the trait object from the held object at its run-time type on every call (`_enter_keyed` with the held object, [lowering §8.2](lowering.md#82-the-entry)): a dispatch per call, 80–96 ns and 80 B per call for a one-operation worker whose operation costs 1 ns, and 45 (product setting) / 32 (`all`) CodeInstances per new held type (E-256; [evidence §2](../design/evidence.md#2-run-time)). | `TraitWorld/src/entry.jl:242`, `:257`, `:271` (`_enter_held`, `_enter_erased`, `_enter_keyed`); `experiments/w83/u4/` |
+| T-95 | [§5.5](#55-dispatch-types-first-then-traits), [§5.6](#56-results-declared-types-like-withfields) | A value that conforms to none of the bounds' traits reaches the most specific ordinary method that applies, as in plain Julia. An ordinary result annotation works as in Julia: a bounded method's declared result is that method's, and the fallback returns its own. | The entry asserts a bounded method's declared result (a plain type or a `Dynamic{X}`) at each of its returns, the fallback's included ([lowering §8.1](lowering.md#81-the-rewrite)). So `describe(x) = :plain` beside `describe(s::Shape)::String` raises `TypeError` when a non-member reaches the fallback (E-259's self-test). Bears on W-83: under level 2's rule ([compiler §7.1](compiler.md#71-memberships-and-dispatch)) a guarded call's result is the bounded method's declared result joined with the selected method's own. | `TraitWorld/src/trait_module.jl:1391` at 33dd55e (`_assert_returns` over the entry's statements); `experiments/w83/u9/README.md`, finding 5 |

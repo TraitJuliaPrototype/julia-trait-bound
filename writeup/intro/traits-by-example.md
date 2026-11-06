@@ -1,5 +1,7 @@
 # Traits by example
 
+**Status:** this page describes the design of [the earlier references](../../attic/writeup/reference/README.md), which [the current references](../reference/README.md) replaced on 2026-11-06. It is rewritten for them in [W-117](../record/todo.md).
+
 This page builds a small geometry library with traits, one step at a time, and uses every part of the trait language on the way. Each step links to the precise rules in [Traits: the reference](../reference/traits.md). Why traits exist, and what they buy, is in [Traits for Julia](traits-for-julia.md). The terms are in the [glossary](../glossary.md).
 
 Every example of an implemented feature runs as written. The scripts are in [`experiments/docs-examples/`](../../experiments/docs-examples/), with a README that says how to run them. A part that shows planned syntax says so in a note.
@@ -50,7 +52,7 @@ using .Geometry
 
 **A note on order.** A trait module is defined in one piece. The sections below show the library in parts, each marked "In `Geometry`". All of them go inside the one `@trait_module module Geometry … end`, in the order shown. The complete module is in `experiments/docs-examples/tutorial.jl`.
 
-Rules: [reference §2](../reference/traits.md#2-trait-modules).
+Rules: [reference §2](../../attic/writeup/reference/traits.md#2-trait-modules).
 
 ---
 
@@ -72,7 +74,7 @@ end
 - `describe` has a body: it is a **default**, written in terms of the other operations. A type may keep it or override it.
 - Declaring the trait defines no method for any type. No type conforms yet.
 
-Rules: [reference §3](../reference/traits.md#3-trait-declarations).
+Rules: [reference §3](../../attic/writeup/reference/traits.md#3-trait-declarations).
 
 ---
 
@@ -122,7 +124,7 @@ Defaults, and the forwarding of [§5](#5-forwarding-to-a-field), serve the libra
 
 **Who may write `@implement`:** the package that defines the trait, or the package that defines the type. Here the user's code defines `Circle` and `Rect`, so it may.
 
-Rules: [reference §4.1, §4.2](../reference/traits.md#41-with-a-block-of-methods), [§10.1](../reference/traits.md#101-who-may-implement).
+Rules: [reference §4.1, §4.2](../../attic/writeup/reference/traits.md#41-with-a-block-of-methods), [§10.1](../../attic/writeup/reference/traits.md#101-who-may-implement).
 
 ---
 
@@ -177,7 +179,7 @@ ratio(compiled_for(Circle(1.0)))      # at the prompt: Compiled, by a cast
 ratio(with_dynamic(Circle(1.0)))      # Dynamic, by a cast
 ```
 
-Rules: [reference §5](../reference/traits.md#5-bounded-functions), [§6](../reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.7](../reference/traits.md#67-what-compiled-code-is-compiled-for).
+Rules: [reference §5](../../attic/writeup/reference/traits.md#5-bounded-functions), [§6](../../attic/writeup/reference/traits.md#6-values-in-trait-code-compiled-and-dynamic), [§6.7](../../attic/writeup/reference/traits.md#67-what-compiled-code-is-compiled-for).
 
 ---
 
@@ -209,7 +211,7 @@ ratio(Window(Rect(3.0, 3.0), Rect(1.0, 2.0)))       # 0.3333333333333333
 - Forwarding gives the bounded functions the field's behaviour. It adds no methods to `Tile` itself: `area(Tile(…))` called directly from plain code has no method.
 - Forwarding does not chain: the field's type must implement the operations itself.
 
-Rules: [reference §4.3](../reference/traits.md#43-forwarding-with-by).
+Rules: [reference §4.3](../../attic/writeup/reference/traits.md#43-forwarding-with-by).
 
 ---
 
@@ -261,7 +263,7 @@ greet(Book("Julia", 300))          # "hello, Julia"
 - A writable field needs a mutable type, a field that is not `const`, and exactly the declared type. `@const` fields may be in immutable types.
 - A trait with fields only has no receiver type. Its key is the fields' types. So every type with two `Float64` fields `x` and `y` runs the same compiled `move!`, whatever else it holds.
 
-Rules: [reference §3.3](../reference/traits.md#33-fields), [§4.4](../reference/traits.md#44-field-mappings).
+Rules: [reference §3.3](../../attic/writeup/reference/traits.md#33-fields), [§4.4](../../attic/writeup/reference/traits.md#44-field-mappings).
 
 ---
 
@@ -287,7 +289,7 @@ report(sp)        # "a shape of area 0.7853981633974483 at (1.0, 2.0)"
 - Both traits see the same object, so they always agree.
 - A library can name a combination as a bundle, `@trait Sprite2D <: (Shape, Placed)`, and write `s::Sprite2D`.
 
-Rules: [reference §5.1](../reference/traits.md#51-bounds), [§3.6](../reference/traits.md#36-supertraits-and-bundles), [§4.5](../reference/traits.md#45-several-traits-at-once).
+Rules: [reference §5.1](../../attic/writeup/reference/traits.md#51-bounds), [§3.6](../../attic/writeup/reference/traits.md#36-supertraits-and-bundles), [§4.5](../../attic/writeup/reference/traits.md#45-several-traits-at-once).
 
 ---
 
@@ -307,7 +309,7 @@ Geometry.describe(c::Circle) = "a circle"
 
 To override a default, define the method before `@implement`, or in its block, as `Rect` did. To change an existing implementation, change the declaration and restart Julia.
 
-Rules: [reference §3.2](../reference/traits.md#32-defaults), [§4.9](../reference/traits.md#49-checks-at-the-declaration).
+Rules: [reference §3.2](../../attic/writeup/reference/traits.md#32-defaults), [§4.9](../../attic/writeup/reference/traits.md#49-checks-at-the-declaration).
 
 ---
 
@@ -336,7 +338,7 @@ fits(Circle(1.0); within = 42)                   # TraitBoundError: 42 conforms 
 - The elements of a vararg may be of different types: `largest` takes a `Circle`, a `Rect` and a `Tile` at once.
 - Bounded keywords and vararg elements get their attribute as positional arguments do ([§4](#4-functions-bounded-by-a-trait)).
 
-Rules: [reference §5.7](../reference/traits.md#57-keywords-defaults-and-varargs).
+Rules: [reference §5.7](../../attic/writeup/reference/traits.md#57-keywords-defaults-and-varargs).
 
 ---
 
@@ -361,7 +363,7 @@ kind(42)              # "something else"
 - So a library can adopt traits one function at a time. Existing calls that reached a typed method keep reaching it.
 - Two bounds that are unrelated, `f(s::Shape)` and `f(p::Placed)`, need a method for both, `f(x::(Shape, Placed))`. Otherwise the module's definition fails with `TraitBoundError`.
 
-Rules: [reference §5.5](../reference/traits.md#55-dispatch-types-first-then-traits).
+Rules: [reference §5.5](../../attic/writeup/reference/traits.md#55-dispatch-types-first-then-traits).
 
 ---
 
@@ -397,7 +399,7 @@ nudged(sp)                                # a new Sprite, x = 2.0; `sp` is uncha
 - For a type that forwards, the result is the user's object rebuilt with the field replaced.
 - `withfields` replaces declared fields, for a trait with fields.
 
-Rules: [reference §3.5](../reference/traits.md#35-self), [§5.6](../reference/traits.md#56-results-declared-types-like-withfields).
+Rules: [reference §3.5](../../attic/writeup/reference/traits.md#35-self), [§5.6](../../attic/writeup/reference/traits.md#56-results-declared-types-like-withfields).
 
 ---
 
@@ -450,7 +452,7 @@ ratio(d)                          # 1.0
 - Passed to a bounded function, `ratio(d)`, a `Dynamic` stays `Dynamic`: the code compiled once runs. `ratio(compiled_for(d))` runs the code compiled for what it holds.
 - A shape type declared later works at once, and discards no compiled code.
 
-Rules: [reference §7](../reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§6.5](../reference/traits.md#65-values-carry), [§6.8](../reference/traits.md#68-costs-and-choosing).
+Rules: [reference §7](../../attic/writeup/reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [§6.5](../../attic/writeup/reference/traits.md#65-values-carry), [§6.8](../../attic/writeup/reference/traits.md#68-costs-and-choosing).
 
 ---
 
@@ -514,7 +516,7 @@ mean64([1, 2])                    # TraitBoundError: the bound fixes T = Float64
 - A parameter is defined by an equation (`T = eltype(Self)`), by a field's type, or by the implementation (`@implement ArrayLike{Float32, 1} MyVec`, for a trait with no equation for its parameters).
 - An equation always holds. `@implement Samples{T} Series{T} where {T}` states `T`, and the stated value must agree with the equation: `eltype(Series{Float32})` must be `Float32`. Without the `eltype` method it is `Any`, and the implementation is refused with `ImplementError`.
 
-> **Planned, not implemented:** the check of a stated value against the equation. Today a stated value replaces the equation's, so the example also runs without the `eltype` method ([reference T-37](../reference/traits.md#17-deviations)).
+> **Planned, not implemented:** the check of a stated value against the equation. Today a stated value replaces the equation's, so the example also runs without the `eltype` method ([reference T-37](../../attic/writeup/reference/traits.md#17-deviations)).
 - A bound may fix a parameter, `Samples{Float64}`, or leave it open, `Samples`.
 - Each member of a family is fixed at its first use. Code is compiled per member.
 
@@ -532,7 +534,7 @@ dotp([1.0, 2.0], [3.0, 4.0])     # 11.0
 dotp([1.0], [1])                 # TraitBoundError: argument `b`: parameter 1 of Samples is Int64, but `T` is Float64
 ```
 
-Rules: [reference §3.4](../reference/traits.md#34-parameters-and-associated-types), [§4.6, §4.7](../reference/traits.md#46-stating-parameters).
+Rules: [reference §3.4](../../attic/writeup/reference/traits.md#34-parameters-and-associated-types), [§4.6, §4.7](../../attic/writeup/reference/traits.md#46-stating-parameters).
 
 ---
 
@@ -620,7 +622,7 @@ countgate(Gate(x -> x > 1.0), [0.5, 1.5, 2.5])   # 2
 - `Dynamic`: the parameter is `Dynamic{Callable{A, S}}`, and code over the struct is compiled once.
 - `Compiled`: the parameter is the function's own type, and code over the struct is compiled per function, at plain Julia's speed.
 
-Rules: [reference §5.8](../reference/traits.md#58-callable-functions-at-a-declared-signature), [§7.4](../reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), [§7.5](../reference/traits.md#75-functions-kept).
+Rules: [reference §5.8](../../attic/writeup/reference/traits.md#58-callable-functions-at-a-declared-signature), [§7.4](../../attic/writeup/reference/traits.md#74-a-struct-parameter-bounded-by-a-trait), [§7.5](../../attic/writeup/reference/traits.md#75-functions-kept).
 
 ---
 
@@ -666,9 +668,9 @@ energy(Ring([3.0, 4.0]))  # 25.0
 - A more specific implementation, for one type, beats the generic one.
 - A generic implementation makes members only of a trait without declared fields.
 
-> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §4.8](../reference/traits.md#48-generic-implementations).
+> **Planned, not implemented:** checks that two generic implementations do not overlap. **Open:** what a condition in the `where` braces may say. See [reference §4.8](../../attic/writeup/reference/traits.md#48-generic-implementations).
 
-Rules: [reference §4.8](../reference/traits.md#48-generic-implementations).
+Rules: [reference §4.8](../../attic/writeup/reference/traits.md#48-generic-implementations).
 
 ---
 
@@ -735,7 +737,7 @@ end
 
 **Printing.** Types print by bound and key, not as the machinery's types. A trait object's type, in messages and stack frames, prints as `Shape at Circle`. A kept value prints with its form and attribute: `Dynamic{Shape} at Circle`, `Kept{Shape}: Compiled at Circle`.
 
-Rules: [reference §9](../reference/traits.md#9-checks-and-when-they-run), [§10](../reference/traits.md#10-who-may-implement-pirates-strict-mode), [§12](../reference/traits.md#12-printing).
+Rules: [reference §9](../../attic/writeup/reference/traits.md#9-checks-and-when-they-run), [§10](../../attic/writeup/reference/traits.md#10-who-may-implement-pirates-strict-mode), [§12](../../attic/writeup/reference/traits.md#12-printing).
 
 ---
 
@@ -798,7 +800,7 @@ isfullytyped(fully_typed(Weights.wscaled, (Vector{Float64}, Vector{Any})))   # f
 
 `@warn_not_fully_typed` or `@enforce_fully_typed` in front of `@trait_module`, or of one function, checks this at a bounded function's first run.
 
-Rules: [reference §11](../reference/traits.md#11-concreteness-and-fully-typed-mode).
+Rules: [reference §11](../../attic/writeup/reference/traits.md#11-concreteness-and-fully-typed-mode).
 
 ---
 
@@ -836,7 +838,7 @@ sq([1.0, 2.0, 3.0])                 # 14.0: the pirate was never defined
 - A package extension's method counts as its parent package's change. It is followed, not refused. Where it changes compiled trait code, a warning names the method and the trait code.
 - Strict mode is off by default. It changes nothing at run time.
 
-Rules: [reference §10.3](../reference/traits.md#103-strict-mode).
+Rules: [reference §10.3](../../attic/writeup/reference/traits.md#103-strict-mode).
 
 ---
 
@@ -867,7 +869,7 @@ This section shows the layout of a package; it is taken from the demonstrators a
   Loading InlineStrings then discards none of the reader's compiled code.
 - `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`.
 
-Rules: [reference §13](../reference/traits.md#13-compiling-ahead).
+Rules: [reference §13](../../attic/writeup/reference/traits.md#13-compiling-ahead).
 
 ---
 
@@ -898,4 +900,4 @@ Today it is refused when the method is defined: `Callable` takes two parameters.
 
 **Named implementations:** `Via{Fast}(m)`, a wrapper that selects a second implementation.
 
-The full list, with where each is decided: [reference §16](../reference/traits.md#16-status-index).
+The full list, with where each is decided: [reference §16](../../attic/writeup/reference/traits.md#16-status-index).

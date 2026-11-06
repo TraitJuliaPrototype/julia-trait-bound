@@ -229,3 +229,23 @@ The user (2026-11-06):
 
 - Keys: Optional, built late (P-29, W-110; decision log). Open issue 146's keys part decided; guards and the guarantee/mechanism rule remain open there.
 - The use case is open issue 147 (§2, not urgent). Under the draft's key, a member serving an operation by its own method is its own key, so operation-only traits share nothing. The investigation: a key that names what the operations resolve to.
+
+## The open decisions, adopted
+
+The user (2026-11-06):
+
+> Adopt all recommendations. Go
+
+- **Open issue 146 closed:**
+  - the references separate guarantees from mechanisms (their conventions);
+  - "a membership invalidates nothing" is committed, with guards after the first slice (W-112 queued) and E-268 measuring the stopgap until then.
+- **Open issue 144 closed:** P-21 to P-28, P-30 and `@open` confirmed, with every choice marked mine, by the adoption.
+- **The references adopted:**
+  - `writeup/reference-unified/` moved to `writeup/reference/`;
+  - the earlier references moved to `attic/writeup/reference/`, following the attic's rule that a path maps to `attic/<same path>`, and `reference-unified/` keeps Moved pages;
+  - T-1–T-95, F-1–F-23, L-1–L-50 and C-1–C-17 are Retired rows; C-18–C-26 continue;
+  - 870 links in current documents (five repositories) pointed to anchors that only the earlier references had: rewritten to the attic, so they keep working;
+  - open issues 137, 138, 140 closed with the adoption;
+  - the glossary, `design.md` and `intro/` carry a status line until W-115–W-117 rewrite them; W-118 triages the open issues on the prototype's mechanisms.
+- W-71 dropped: the adoption settles it. W-19 waits, with W-100 as the first candidate. Open issue 2 stays deferred.
+- W-98 resumes.

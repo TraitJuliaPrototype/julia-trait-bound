@@ -1,5 +1,7 @@
 # Traits for Julia
 
+**Status:** this page describes the design of [the earlier references](../../attic/writeup/reference/README.md), which [the current references](../reference/README.md) replaced on 2026-11-06. It is rewritten for them in [W-117](../record/todo.md).
+
 This page is for Julia users and package authors. It covers:
 - the problems the design addresses;
 - what you write;
@@ -91,7 +93,7 @@ A trait is a kind of abstract type: you write it where you would write an abstra
 - **A supertrait is a requirement.** `@trait B <: A` says a type that implements `B` implements `A` too. It is not a place in a tree.
 - **Types win in dispatch.** A method for a type, concrete or abstract, is chosen before a method bounded by a trait, so a library can adopt traits one function at a time.
 
-Abstract types stay in Julia: numbers keep `Number` and `Real`. `conforms(T, X)` asks whether a type implements a trait; `T <: X` will ask the same once traits are part of Julia's types (today it is `false`). The full comparison is in [the traits reference §14](../reference/traits.md#14-membership).
+Abstract types stay in Julia: numbers keep `Number` and `Real`. `conforms(T, X)` asks whether a type implements a trait; `T <: X` will ask the same once traits are part of Julia's types (today it is `false`). The full comparison is in [the traits reference §14](../../attic/writeup/reference/traits.md#14-membership).
 
 ### An implementation: your type implements a trait
 

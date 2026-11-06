@@ -24,7 +24,7 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
 - **What changed.** `release-1.14`'s `jl_type_infer` has no `JL_LOCK(&jl_typeinf_lock)`. It keeps the reentrancy guard on a MethodInstance the thread already reserves (`jl_engine_hasreserved`) and wraps inference in a `sigatomic` region ("sigatomic defers asynchronous unwinds (e.g. task abandonment) until inference has finished"). In 1.13 the lock is there, marked temporary.
 - **For us:**
   - W-40 ([the note](../plans/2026-10-26-w40-member-builder-fold.md) §10, §11): the first review's B1 was a deadlock between the inference lock and TraitWorld's lock. In 1.14 that lock is gone, but folds then run on several threads truly at once. The discipline stays (no waiting on TraitWorld's lock, no yield), and the thread checks in §7 become meaningful, where under 1.13 they prove little.
-  - The facts mode's own state shared across inferences (the split's candidate registry, `SPLIT_TABLES`, the plain `return_type` cache) is copy-on-write or atomic already ([compiler §4.2](../reference/compiler.md#42-compilersplit_call-the-call-site-split), §4.3). It should be reviewed for concurrent inference before a move.
+  - The facts mode's own state shared across inferences (the split's candidate registry, `SPLIT_TABLES`, the plain `return_type` cache) is copy-on-write or atomic already ([compiler §4.2](../../attic/writeup/reference/compiler.md#42-compilersplit_call-the-call-site-split), §4.3). It should be reviewed for concurrent inference before a move.
 - **Recommendation:** watch; plan the move for 1.14.0 final. Revisit W-40's §7 thread checks on 1.14.
 
 ### 2. `reset_safe` in `Effects`
@@ -42,7 +42,7 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
   - new builtins: `getglobal_partition`, `setglobal_partition` and their kin;
   - code that inspects optimized IR sees new operand types.
 - **For us:**
-  - The facts mode treats binding edges as allowed edges ([facts G2](../reference/facts.md#g2)), so the rule holds. But TraitWorld's checks that walk optimized IR (`verify_main`, the keep analysis, fully typed mode) must learn the new operands.
+  - The facts mode treats binding edges as allowed edges ([facts G2](../../attic/writeup/reference/facts.md#g2)), so the rule holds. But TraitWorld's checks that walk optimized IR (`verify_main`, the keep analysis, fully typed mode) must learn the new operands.
   - `rests_on_facts` (`facts.jl`) and the W-40 record's walkers handle `Core.Binding` edges already.
   - Image validation in 1.14 also adds a `Core.PossiblyAmbiguous` marker before an edge (`reinfer.jl`), which our walkers must skip as well.
 - **Recommendation:** rebase cost, moderate, in TraitWorld's IR walkers.
@@ -51,14 +51,14 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
 
 - **What changed** ([#60018](https://github.com/JuliaLang/julia/pull/60018)): `syntax.julia_version` in `Project.toml` (default: the lowest Julia in compat) selects the parser's revision for the package. Macros see the calling module's syntax. The author: "I'm not proposing using this for any big syntax revolutions", the aim being to clean up corners.
 - **For us:**
-  - The design's last step ([compiler §7](../reference/compiler.md#7-traits-in-the-type-system)) brings traits into the type system and then into syntax. A versioned parser is the mechanism by which `trait` and `implement` could become keywords for packages that opt in, while every other package parses as before.
+  - The design's last step ([compiler §7](../../attic/writeup/reference/compiler.md#7-traits-in-the-type-system)) brings traits into the type system and then into syntax. A versioned parser is the mechanism by which `trait` and `implement` could become keywords for packages that opt in, while every other package parses as before.
   - It also gives macros like `@trait_module` a defined contract across versions.
 - **Recommendation:** an opportunity for the upstream proposals ([`../design/julia-changes.md`](../design/julia-changes.md) §4): name it there as the route for syntax.
 
 ### 5. Broadcast element types
 
 - **What changed** ([#62564](https://github.com/JuliaLang/julia/pull/62564)): `Broadcast.result_eltype(bc)`, one inferred return type of the element computation, replaces `combine_eltypes`. Array leaves are read at their declared element types behind an inference barrier.
-- **For us:** [facts §2.1](../reference/facts.md#g1) and §7.1 list broadcast element types among the values decided by inference, answered by plain inference under the facts mode. The mechanism changes; whether the answer is still a `return_type` query under the facts mode's rules is to check before a move.
+- **For us:** [facts §2.1](../../attic/writeup/reference/facts.md#g1) and §7.1 list broadcast element types among the values decided by inference, answered by plain inference under the facts mode. The mechanism changes; whether the answer is still a `return_type` query under the facts mode's rules is to check before a move.
 - **Recommendation:** watch; a check on a move (acceptance G1.9 and G1.11 cover `return_type`).
 
 ### 6. Task cancellation

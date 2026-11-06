@@ -1,1020 +1,784 @@
 # Compiler and runtime: the reference
 
-This page defines what Julia's compiler and runtime provide to the design: each interface, where it lives, what it means and its rules. It describes the interfaces as designed, including the parts not built yet. Each section says how far it is built.
+**Draft** (W-105; [the folder's README](README.md)). This page defines what Julia's compiler and runtime provide to the design: each interface, what it means, and its rules. It describes the interfaces as designed. The status line of each section says how far it is built.
 
-- What compiled code may assume, and why each interface is needed, is in [`facts.md`](facts.md). This page states the semantics an interface implements and links there for the reason.
-- How the trait language uses these interfaces is in [`lowering.md`](lowering.md).
-- The inventory of the changes, with commits, files and upstream status, is [`../design/julia-changes.md`](../design/julia-changes.md).
-- The patched Julia is `julia-1.13/`, branch `trait-world-1.13`, on v1.13.2. TraitWorld requires it.
-- Section 7 is built on branch `unified` of the julia repository, also on v1.13.2 (the worktree `julia-unified/`).
-- Terms as in the [glossary](../glossary.md). The ones this page relies on most:
-  - a *fact signature* is a call signature at which only its stakeholders or a pirate can change dispatch; a *fact* is what dispatch selects at one ([`facts.md`](facts.md#facts-and-fact-signatures));
-  - a *run-time site* is a call compiled as a dynamic dispatch, with no edge;
-  - a *cache owner* is the key under which Julia caches a `CodeInstance` (`CodeInstance.owner`); plain Julia's is `nothing`;
-  - a *facts method* is a method whose code is always compiled by facts.
-
-**Status labels.** Every section carries one:
-- **Implemented:** in the patched Julia today.
-- **Planned:** decided, not built.
-- **Optional:** built only if a measurement or a demonstrator asks for it.
-- **Open:** not decided. The link names the question.
-
-Where the implementation differs from this page, the row in [Deviations](#deviations) says how.
+- Why each interface is needed, and what compiled code may assume: [`facts.md`](facts.md).
+- How the language uses them: [`traits.md`](traits.md) for what a user sees, [`lowering.md`](lowering.md) for what the library's macros emit.
+- The build is branch `unified` of the julia repository, on v1.13.2 (the worktree `julia-unified/`), in the stages W-98 to W-114 ([the work queue](../record/todo.md); [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted). The inventory of its changes: [`../design/julia-changes.md`](../design/julia-changes.md).
+- Terms:
+  - a **set** is an abstract type whose members may join after their definition: a trait;
+  - a **membership** makes a type, a family, an abstract type or a set a member of a set;
+  - a **fact signature** is a call signature at which only its stakeholders or a pirate can change dispatch ([facts §3](facts.md#3-fact-signatures));
+  - a **run-time site** is a call compiled as a dynamic dispatch, with no edge;
+  - the **policy** of a method is whether its code is compiled by facts or plainly.
 
 ## Summary
 
-The interfaces follow four mechanisms. Mechanisms 1 and 2 are the facts compiler. Mechanisms 3 and 4 are general improvements to Julia that the facts mode made necessary. Around them are hooks the library needs, changes useful without traits, and one planned last step: traits in the type system.
-
-| Mechanism | Implemented | Planned | Optional or Open |
-|---|---|---|---|
-| [1. Infer across a call only where a fact holds](#1-the-facts-inference-mode) | The facts mode of `NativeInterpreter`; `is_fact_sig`; run-time sites; the `return_type` rule; effects | — | Guarded devirtualization (Optional); revalidating cached `return_type` answers after loads (Optional; [PE-5](../record/performance-explorations.md)); standard libraries as owners of their own (Open) |
-| [2. Code of two modes side by side, each under its own owner](#2-mode-and-owner-per-method) | The module option and `Method.facts`; owner `:facts`; dispatch from facts code, and through `jl_apply` to the default owner's code; calls, inlining, edges and images across owners; `--trim` plain | One function for the mode and owner; the facts owner for code compiled by facts under the test bed too; a module's other compiler options in both modes | A memo for the facts owner's normalization (Optional) |
-| [3. Caches at dynamic boundaries are checked against the caller's world](#3-world-checked-caches-at-dynamic-boundaries) | `cfunction` convention `:caller_world`; exact-type and wildcard entries in the per-call-site cache | Entries with an open `max_world` | beyond a split's table (a carried witness, a runtime table of entry points, recompiling); a codegen-emitted cache (all Optional) |
-| [4. Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one) | `Compiler.known_type`; `Compiler.split_call`; the table of a split's targets; `Compiler.fold_call` | the targets compiled ahead (C-14) | — |
-| [5. Hooks for the library](#5-hooks-for-the-library) | Definition hooks; field-offset intrinsics; type printers | Deletion hook, "would invalidate" query, image-validation report | — |
-| [6. Changes useful without traits](#6-changes-useful-without-traits) | Two inliner changes; the run-time `return_type` entry in the image; reflection in the compiler's world; the dispatch profiler | Upstream proposals | — |
-| [7. Traits in the type system](#7-traits-in-the-type-system) | — | Membership as subtyping; one dispatch, never folding a negative membership, with guards; keys as compilation signatures; compiling by facts per method, one owner, with the code slot; memberships in images; then syntax: last | sealed sets, whose negatives fold (Optional; [PE-19](../record/performance-explorations.md)); the entries of generic implementations (Open, [open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)) |
-
-## Contents
-
-1. [The facts inference mode](#1-the-facts-inference-mode)
-2. [Mode and owner per method](#2-mode-and-owner-per-method)
-3. [World-checked caches at dynamic boundaries](#3-world-checked-caches-at-dynamic-boundaries)
-4. [Primitives for a specialized path beside a general one](#4-primitives-for-a-specialized-path-beside-a-general-one)
-5. [Hooks for the library](#5-hooks-for-the-library)
-6. [Changes useful without traits](#6-changes-useful-without-traits)
-7. [Traits in the type system](#7-traits-in-the-type-system)
-8. [Deviations](#deviations)
+| Part | What it provides |
+|---|---|
+| [1. The facts inference](#1-the-facts-inference) | Inference that commits across a call only at a fact; run-time sites; `return_type`'s plain answers; effects |
+| [2. The policy per method](#2-the-policy-per-method) | Which methods are compiled by facts; one CodeInstance per MethodInstance and policy; calls between policies |
+| [3. The dependency record and the code slot](#3-the-dependency-record-and-the-code-slot) | What each CodeInstance assumed; G2 as a predicate; callers that survive a callee's recompilation |
+| [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections |
+| [5. Dispatch](#5-dispatch) | Methods at sets in the method table, specificity, the ambiguity report, guards |
+| [6. Keys and the attribute](#6-keys-and-the-attribute) | Code per key, per type or once, chosen per call; the calling convention; the definition-time check |
+| [7. Operations on a value typed by its trait](#7-operations-on-a-value-typed-by-its-trait) | Declared results, the split over members, the table of targets, `Callable`'s call |
+| [8. World-checked caches](#8-world-checked-caches-at-dynamic-boundaries) | Caches at dynamic boundaries checked against the caller's world |
+| [9. Images and the machine-code cache](#9-images-and-the-machine-code-cache) | Memberships in package images; a record complete enough for a cache of machine code |
+| [10. Hooks for the library](#10-hooks-for-the-library) | Definition and image hooks; field-offset intrinsics |
+| [11. Changes useful without traits](#11-changes-useful-without-traits) | Inliner and reflection changes |
 
 ---
 
-## 1. The facts inference mode
+## 1. The facts inference
 
-**The principle.** A call is inferred, with an edge, only at a fact. Every other call is a run-time site, dispatched when it runs. Code inferred this way is invalidated only by stakeholders and pirates ([`facts.md`](facts.md#the-guarantees)).
+**The principle.** In code compiled by facts, a call is inferred, with an edge, only at a fact. Every other call is a run-time site, dispatched when it runs. So such code is invalidated only by stakeholders and pirates ([facts §2](facts.md#2-the-guarantees)).
 
-### 1.1 The interpreter
-
-**Status: Implemented.**
+### 1.1 The policy and the interpreter
 
 ```julia
-Compiler.NativeInterpreter(world::UInt = get_world_counter();
-                           inf_params = InferenceParams(), opt_params = OptimizationParams(),
-                           owner = facts_default() ? FACTS_OWNER : nothing,
-                           facts::Bool = owner === FACTS_OWNER)
-Compiler.cache_owner(interp::NativeInterpreter) = interp.owner
-Compiler.facts_mode(interp::AbstractInterpreter)::Bool   # interp isa NativeInterpreter && interp.facts
+Compiler.NativeInterpreter(world::UInt = get_world_counter(); facts::Bool = false, …)
+Compiler.facts_mode(interp::AbstractInterpreter)::Bool
 ```
 
-Lives in `Compiler/src/types.jl` and `Compiler/src/facts.jl`.
+- `facts` says whether the interpreter infers calls only at facts. `false` is Julia's own inference.
+- An inference of a MethodInstance runs with `facts` set to its method's policy (§2). Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags (§2.3).
+- Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules.
 
-**Meaning.**
-- `facts`: whether this interpreter infers calls only at facts (§1.2). `false` is plain Julia's inference.
-- `owner`: the cache owner of the code it infers and caches. `nothing` is plain Julia's cache; `:facts` is the cache of code compiled by facts beside plain code (§2.3).
-- **The mode is the owner.** By default `facts` is whether the owner is `:facts`: an interpreter of owner `nothing` is plain in both settings, one of owner `:facts` compiles by facts in both. An interpreter with an owner of its own (TraitWorld's check results) sets both.
-- Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules: `facts_mode` is `false` for it.
-
-**The process switch.**
-- `Compiler.facts_default()` decides the default owner of a fresh interpreter: `:facts` with the switch on. It reads `jl_compile_by_facts()` (`src/gf.c`) once per process:
-  - `JULIA_COMPILE_BY_FACTS=1` (any non-empty value but `0`): on;
-  - `JULIA_COMPILE_BY_FACTS=0`: off;
-  - unset or empty: the system image's default. An image built with the switch on keeps it on: the first call of `facts_default()` with the switch on sets `FACTS_IMAGE`, which the image saves. The runtime reads it when the image is restored, before any module's `__init__` runs (`jl_read_facts_image_default`), since it calls the initializers under the default owner.
-- With the switch on, every method not marked otherwise is compiled by facts, under the owner `:facts`: *the test bed* (`all`). With the switch off, only facts methods are compiled by facts: *the product setting* ([`facts.md`](facts.md#the-test-bed)).
-- `--trim` turns the switch off (§2.10).
-- **Planned:** a command-line flag, `--compile-by-facts=no|all|traits`, in place of the environment variable; `--trim` implies `no`.
-
-**Rules.**
-- A package image records the system image, not the switch. Package images built under the test bed belong in a depot of their own.
+**Status:** Planned (W-100).
 
 ### 1.2 Fact signatures
-
-**Status: Implemented.**
 
 ```julia
 Compiler.is_fact_sig(T)::Bool          # T: a call's argument types, as a Tuple type
 Compiler.MAX_FACT_SPLITS = 4
 ```
 
-Lives in `Compiler/src/facts.jl`.
+`is_fact_sig(T)` is true when `T` is one of:
+- a dispatch tuple: concrete types that are not kinds, and `Type{T}` with `T` known;
+- a tuple without a `Vararg` tail whose elements are concrete, or tuple types of concrete elements or unions of concrete elements, split by Julia's union-splitting cost at the interpreter's `max_union_splitting`;
+- concrete members followed by a `Vararg{E}` tail of a concrete member `E`;
+- a closure's call at kinds: the first argument a closure type, every other concrete or one of `DataType`, `UnionAll`, `Union`.
 
-**Meaning.** `is_fact_sig(T)` is true when `T` is one of:
-- a dispatch tuple (`isdispatchtuple(T)`);
-- a tuple without a `Vararg` tail whose arguments are concrete, or tuple types whose elements are concrete or unions of concrete types, split by Julia's union-splitting cost (`unionsplitcost`) over the tuple's elements, at the interpreter's `max_union_splitting`;
-- a tuple of *concrete members* with a `Vararg{E}` tail of a concrete member `E`. A concrete member is a dispatch element that is not a kind (a concrete type, or `Type{T}` with `T` known), or a tuple type of concrete members;
-- a closure's call at kinds: the first argument is a closure type (its name is generated, `#…`), and every argument is concrete or one of `DataType`, `UnionAll`, `Union`.
+A union at a call's top level is split as Julia splits it, each split a fact signature with its own edge.
 
-A union at the top level of a call's arguments is split as Julia splits unions (`max_union_splitting`, four by default). Each split must be a fact signature, so the two limits compose: up to sixteen concrete signatures per call. Each top-level split gets an edge; a union in a tuple argument is one edge at the tuple signature.
+**Not gated:** `invoke` and `hasmethod` at a declared signature resolve it as Julia does, with an invoke edge at the declared signature ([facts §3](facts.md#3-fact-signatures)).
 
-**Not gated: `invoke` and `hasmethod` at a declared signature.** Only `find_method_matches` gates a call by `is_fact_sig`. `abstract_invoke` and `hasmethod`'s tfunc resolve the declared signature with `findsup`, as plain Julia does, in facts code too, and record an invoke edge at the declared signature (`abstractinterpretation.jl:2369`, `tfuncs.jl:3269`). Julia invalidates such an edge only when the resolution of the declared signature changes: an edge at the method's own signature only when the method is replaced (`src/gf.c:2532`–`2537`). That is the sixth form of fact ([`facts.md`](facts.md#facts-and-fact-signatures)).
+A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
 
-Why exactly these are facts is defined in [`facts.md`](facts.md#facts-and-fact-signatures). Which unions split is Julia's cost model, exactly ([facts §3](facts.md#facts-and-fact-signatures); F-15).
+**Status:** Planned (W-100).
 
 ### 1.3 Run-time sites
 
-**Status: Implemented.**
-
 ```julia
-Compiler.FACTS_ABSTRACT_SITE::FailedMethodMatch
-Compiler.unedged_effects(interp)::Effects        # EFFECTS_RTSITE under the facts mode
-Effects.nortsite::Bool                           # no run-time site, here or in a callee
+Effects.nortsite::Bool          # no run-time site, here or in a callee
 ```
 
-Lives in `Compiler/src/facts.jl`, `effects.jl`, `abstractinterpretation.jl` (`find_method_matches`, `abstract_call_gf_by_type`, `abstract_invoke`).
-
-**Meaning.**
 - **A run-time site is a call that records no edge.** Under the facts mode that is:
-  - a call whose signature, or one of whose union splits, is not a fact: it gets no method matches (`FACTS_ABSTRACT_SITE`);
-  - a call at a fact signature that Julia's method matching gives up on: more matches than `max_methods`, a call after `:latestworld`, an `invoke` it cannot resolve, a concrete-only refusal;
-  - the fallback of an open split (§4.2).
-- A run-time site's result is `Any`, its exception type `Any`, its effects unknown. Codegen emits a dynamic dispatch (§2.5).
-- **Its effects clear `nortsite`.** The bit is part of `Effects`, so it is merged into the frame's effects and carried through calls to every caller, as `nortcall` is. It is stored in a CodeInstance's encoded effects, inverted, so zeroed bits read as no run-time site. Only the facts mode clears it; no assertion sets it. §1.5 uses it.
+  - a call whose signature, or one of whose splits, is not a fact;
+  - a call at a fact that Julia's method matching gives up on: more matches than `max_methods`, a call after `:latestworld`, an `invoke` it cannot resolve;
+  - the fallback of a split over a set's members (§7.2).
+- Its result type is `Any`, its exception type `Any`, its effects unknown, except where a declared result types it (§7.1). Codegen emits a dynamic dispatch.
+- **It clears `nortsite`,** an effects bit carried to every caller as `nortcall` is, stored inverted in a CodeInstance's effects.
 
-**Rules.**
-- A call at a fact that Julia resolves is inferred as plain Julia infers it, with its edges, including constant propagation and concrete evaluation.
-- The semantics of a run-time site, and what code around it may assume, are in [`facts.md`](facts.md#run-time-sites).
+**Status:** Planned (W-100).
 
 ### 1.4 `return_type`
 
-**Status: Implemented**, except where marked.
-
-`Core.Compiler.return_type` asks what *plain* inference gives for a call. Its answer is observable: `collect` of a generator, `map` over an empty collection, broadcasting and `promote_op` use it. Under the facts mode the answer must be plain Julia's, in the same world ([`facts.md`](facts.md#return-type)).
+`Core.Compiler.return_type` asks what **plain** inference gives for a call. `collect` of a generator, `map` over an empty collection, broadcasting and `promote_op` use the answer, so it must be plain Julia's in the same world, under either policy.
 
 ```julia
-Compiler.PlainRTInterp(world::UInt) <: AbstractInterpreter      # cache_owner: :facts_plain_return_type
-Compiler.return_type_interp(world::UInt)                         # the interpreter of run-time queries
-Compiler.facts_plain_return_type(interp, sig, sv)                # the compile-time fold
-Compiler.PlainRTInfo(sigs, cis) <: CallInfo                      # its edges
+Compiler.PlainRTInterp(world::UInt) <: AbstractInterpreter      # its own cache owner
 ```
 
-Lives in `Compiler/src/facts.jl` and `tfuncs.jl` (`return_type_tfunc`); the run-time entry in `typeinfer.jl` (`return_type`).
+**At compile time,** in code compiled by facts, `return_type` is decided in this order:
+1. The facts answer, when it cannot be wider than plain inference's: a constant, a concrete type that is not a kind, or `Union{}`. It is folded.
+2. Plain inference's answer, when it rests on facts:
+   - the signature splits into at most four concrete signatures;
+   - each has exactly one method that covers it;
+   - every edge of each answer, transitively, is at a fact signature or an invoke edge at the method's own signature.
 
-**At compile time**, in facts code, `return_type_tfunc` decides in this order:
-1. **The facts answer, when it cannot be wider than plain inference's:** a constant, a concrete type that is not a kind, or `Union{}`. It is folded, as plain Julia folds it.
-2. **Plain inference's answer, when it rests on facts.**
-   - The signature is split into at most `MAX_FACT_SPLITS` concrete signatures.
-   - Each split must have exactly one matching method that covers it.
-   - Plain inference answers each split in `PlainRTInterp`.
-   - Every edge of every answer, transitively, must be at a fact signature, or an invoke edge at the method's own signature (§1.2). Bare MethodInstance edges and method-table edges disqualify it.
-   - The merged answer is folded, with an edge (`PlainRTInfo`) from the facts code to each plain answer. A load that changes plain Julia's answer invalidates the folded code.
-3. **Otherwise, a call at run time.**
+   The answer is folded, with an edge from the caller to each plain answer.
+3. Otherwise a call at run time.
 
-**At run time**, `return_type` calls `_return_type(return_type_interp(world), tt)` in the compiler's world. `return_type_interp` is `PlainRTInterp` in both settings, so the run-time answer is the fold's: plain inference's, facts methods included.
+**At run time** the answer is plain inference's, from `PlainRTInterp`, which infers every method plainly. Its answers live under a cache owner of their own. No code runs from that cache.
 
-
-**The answer cache.** `PlainRTInterp`'s owner is `:facts_plain_return_type`. No code that runs is taken from it: dispatch looks up code only under the owner it asks for, `nothing` or `:facts` (`jl_method_compiled_callptr_owner`, `src/gf.c:3559`). It holds only plain answers, so no plain code enters a cache that facts code is compiled from.
-
-**Rules.**
-- `PlainRTInterp` is not a `NativeInterpreter`, so it infers every method plainly, facts methods included (§2.6).
-- An answer is the same as plain Julia's in the same world. Across worlds it moves exactly when plain Julia's does.
-
-**Optional: revalidation after loads** (not pursued now: [PE-5](../record/performance-explorations.md)). When a load invalidates a cached answer, the answer's edges are checked bottom-up, and an answer whose inputs did not change is kept instead of inferred again (red-green revalidation). A differential test against stock Julia comes first: every logged query, answered by both, must give identical answers before and after the loads.
+**Status:** Planned (W-100). Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
 
 ### 1.5 Effects
 
-**Status: Implemented** (acceptance G1.10, G1.32, G1.33).
+Under the facts mode no asserted effect applies over a run-time site, at any depth: a method's `@assume_effects` is ignored where its frame's `nortsite` is clear, and a statement's where its call's is ([facts §8](facts.md#8-asserted-effects)).
 
-Lives in `Compiler/src/typeinfer.jl` (`adjust_effects(ipo_effects, def, frame)`) and `abstractinterpretation.jl` (`merge_override_effects!`).
-
-**Meaning.** Under the facts mode, no asserted effect applies over a run-time site, at any depth (§1.3, `nortsite`):
-- a method's `@assume_effects` is ignored when the frame's effects have `nortsite` clear: the frame or a callee holds a run-time site;
-- a statement's `@assume_effects` is ignored when the statement's call has `nortsite` clear.
-
-**Why.** An assertion would let a caller fold a call whose dispatch no edge records ([`facts.md`](facts.md#asserted-effects)).
-
-### 1.6 Further work on mechanism 1
-
-- **Optional: guarded devirtualization at run-time sites.** A run-time site would call a guessed target behind a type check, with the dynamic call as fallback.
-  - The objection is a permanent slowdown: a site whose guard fails stays on the fallback, silently, until its caller happens to compile again.
-  - The objection goes away if the slowdown is temporary: a site that keeps taking the fallback has its caller compiled again in the background, with the observed types in the split, and the new code is swapped in once it is ready (tiered recompilation, as in HotSpot, .NET and V8).
-  - In the facts mode the swap is not an invalidation. The old and the new code are valid in the same worlds and compute the same results.
-  - For a split it is the last option of §3.3. Only if untyped code under the test bed still matters after the other work.
-- **Open: standard libraries as owners of their own.** Today Julia's standard libraries count as Julia's own code, so a standard library's method that wins at a fact is a stakeholder's change; to settle by a census (E-189; [open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Status:** Planned (W-100).
 
 ---
 
-## 2. Mode and owner per method
-
-**The principle.** Code of both modes lives side by side, each with its own cache owner, caches, edges and images. Which mode and owner a method's code gets follows from the method and the mode that reaches it, never from a particular caller. A call from one mode into the other crosses explicitly. What each kind of code may assume is in [`facts.md`](facts.md#which-code-is-compiled-how).
+## 2. The policy per method
 
 ### 2.1 The module option
 
-**Status: Implemented**, except a module's other compiler options in the facts mode (**Planned**, [C-6](#deviations)).
-
 ```julia
-module M
-Base.Experimental.@compiler_options facts=true      # or facts=false
-end
+Base.Experimental.@compiler_options facts=true
 ```
 
-Lives in `base/experimental.jl`, `src/interpreter.c`, `src/module.c`.
+- `facts=true` makes every method of the module compiled by facts, unless the method says otherwise. It emits `Expr(:meta, :facts, 1)` at the module's top level.
+- The module flag (`jl_module_t.facts`): 0 plain, 1 facts, 2 never by facts (the compiler's own modules). A submodule takes its parent's flag when created. The flag is saved with the module in images.
+- **Four more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
+  - `bounded=true`: an open method at a trait argument is refused (§6.7);
+  - `no_pirates=true`: a pirate is refused by the library's definition hook;
+  - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3);
+  - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
+- A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
-**Meaning.**
-- `facts=true` (also `:yes`) makes every method of the module a facts method, unless the method says otherwise (§2.2).
-- `facts=false` (also `:no`) turns the option off.
-- The macro emits `Expr(:meta, :facts, 1)` or `Expr(:meta, :facts, 0)` at the module's top level. Evaluating it sets the module's flag.
+**Status:** Planned (W-100, W-111).
 
-**The module flag** (`jl_module_t.facts`):
-
-| Value | Meaning | Set by |
-|---|---|---|
-| 0 | plain (the default) | `facts=false`, or nothing |
-| 1 | facts | `facts=true` |
-| 2 | never by facts: compiled plainly whoever calls it | `jl_set_module_facts(Compiler, 2)`, at the Compiler's start |
-
-```c
-void jl_set_module_facts(jl_module_t *m, int value);   // 0, 1 or 2
-int  jl_get_module_facts(jl_module_t *m);              // 1 when the flag is 1
-```
-
-**Rules.**
-- A submodule takes its parent's flag when it is created. So a submodule defined after the option inherits it.
-- Flag 2 is for the compiler's own code (§2.6). No Julia-level syntax sets it.
-- `@trait_module` declares `facts=true` ([`traits.md` §2](traits.md#2-trait-modules)).
-- `Expr(:meta, :facts, 1)` and `Expr(:meta, :facts, 0)` mean the module option only, at a module's top level. A method body names its mode with its own markers (§2.2).
-
-**Planned: the other compiler options in both modes.** A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code in both modes, as they apply to plain code. Today `compile` (`min`, `no`) is ignored for code of owner `:facts` ([C-6](#deviations)).
-
-### 2.2 The method flag: boundaries and always-facts methods
-
-**Status: Implemented.**
-
-The interface is a meta at the start of a method's body, as `Expr(:meta, :inline)` is for `@inline`:
+### 2.2 The method flag
 
 ```julia
-Expr(:meta, :facts_boundary)   # compiled in the mode of the code that reaches it
+Expr(:meta, :facts_boundary)   # compiled in the policy of the code that reaches it
 Expr(:meta, :facts_always)     # always compiled by facts
 ```
 
-Julia defines no macro for them. A macro that puts the meta first in the body is enough; TraitWorld's is `@machinery` for always-facts methods, and its lowering inserts `:facts_boundary` itself ([lowering §2](lowering.md#2-modes-owners-and-images)).
+- `Method.facts::UInt8`: 0 as its module says; 1 a boundary; 2 always facts. Lowering carries the meta into every method a definition makes (keyword sorters, positional forwarders). It is saved with the method.
+- **The boundary flag is the second policy per method.** A neutral method has plain code only (§2.3), so facts code that calls it rests on code that loads may invalidate. A boundary gives facts code a facts copy that no load discards, for the methods where that matters. Which of Base's methods carry it is a choice of the setting, made by measurement ([evidence](../design/evidence.md)), not a rule of the design.
 
-Lives in `src/method.c` (`jl_method_set_source`), `src/ast.c` (the symbols), `src/ast.scm`, `src/julia-syntax.scm`, `src/module.c`.
+**Status:** Planned (W-100). The boundary flag as the second policy per method: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M2.
 
-**The method flag** (`Method.facts::UInt8`):
+### 2.3 One CodeInstance per MethodInstance and policy
 
-| Value | Meaning | Written as |
-|---|---|---|
-| 0 | as its module's flag says | (nothing) |
-| 1 | a boundary: compiled in the mode of the code that reaches it | `Expr(:meta, :facts_boundary)` |
-| 2 | always facts | `Expr(:meta, :facts_always)` |
+- **The policy of a method's code:**
 
-```c
-int jl_method_is_facts(jl_method_t *m);   // flag 2, or flag 0 in a module of flag 1; 0 under --trim
-int jl_method_is_plain(jl_method_t *m);   // flag 0 in a module of flag 2
-```
+  | Method | Policy |
+  |---|---|
+  | always facts, or in a module of flag 1 | facts |
+  | in a module of flag 2 (the compiler) | plain |
+  | a boundary | the policy of the code that reaches it |
+  | any other (a *neutral* method) | the session's default: plain in the product setting, facts under the test bed (§2.5) |
 
-**Rules.**
-- Lowering carries the meta into every method a definition lowers to: the keyword sorter and the positional forwarders of default arguments.
-- The meta may be merged with other metas, as `pushmeta!` merges `@inline`'s. It is still found.
-- Each marker has one meaning. `:facts_boundary` and `:facts_always` are read in a method body only. `Expr(:meta, :facts, n)` is the module option, at a module's top level (§2.1).
-- TraitWorld marks entries as boundaries and its machinery as always facts ([`lowering.md`](lowering.md#82-the-entry)).
+- **A CodeInstance records its policy** in its flags. A lookup asks for the policy the method has; a CodeInstance of the other policy never stands in.
+- So a neutral method in the product setting has plain code only, whoever calls it. A boundary has up to one CodeInstance per policy.
+- Under `--trim` every method is plain (§2.6).
 
-### 2.3 The owners, and the mode and owner of a MethodInstance's code
+**Status:** Planned (W-100).
 
-**Status: Implemented.**
+### 2.4 Calls between policies
 
-Three cache owners:
+- **In inference,** a callee whose policy differs from the caller's is inferred under its own policy, in an inference of its own. The caller records:
+  - a **result edge** where it emits the call and uses its result type, exception type, effects or a constant result as a type;
+  - a **code edge** where it inlines the callee, propagates constants into it or evaluates it at compile time.
+- **Constant propagation from plain code into a facts callee** infers the callee again for the constants under the facts policy, in a call stack of its own; the result is the caller's, the edges that inference's.
+- **Concrete and semi-concrete evaluation** of a facts callee from plain code use its effects as facts inferred them, with a code edge to its CodeInstance; not over a run-time site.
+- A facts caller of the compiler's own plain code propagates no constants into it.
+- **At run time,** every dispatch runs the selected method's code of its policy, whoever dispatches: generic calls, `invoke`, `_apply_iterate`, `invokelatest`, `jl_apply`, `@cfunction` pointers, finalizers, task entry.
 
-| Owner | Holds | Code run from it |
-|---|---|---|
-| `nothing` | plain code | yes |
-| `:facts` (`Compiler.FACTS_OWNER`) | code compiled by facts | yes |
-| `:facts_plain_return_type` | plain answers for `return_type` (§1.4) | never |
+**Status:** Planned (W-100).
 
-**The rule.** The mode and owner of the code for a MethodInstance `mi`, reached from code of a given mode:
+### 2.5 The test bed
 
-| `mi`'s method | Product setting | Test bed |
-|---|---|---|
-| a builtin (`Core.Builtin`, intrinsics among them) | its one CodeInstance, `nothing` | its one CodeInstance, `nothing` |
-| a facts method (§2.2) | facts, `:facts` | facts, `:facts` |
-| never by facts (flag 0 in a module of flag 2) | plain, `nothing` | plain, `nothing` |
-| a boundary (flag 1) | the mode and owner that reach it | the mode and owner that reach it |
-| any other method, reached from the runtime or the top level | plain, `nothing` | facts, `:facts` |
-| any other method, reached from plain code | plain, `nothing` | plain, `nothing` (under the test bed only the compiler's code and what it calls are plain code) |
-| any other method, reached from facts code | facts, `:facts` | facts, `:facts` |
+- With `JULIA_COMPILE_BY_FACTS=1` (Planned spelling: `--compile-by-facts=all`), every neutral method's policy is facts: *the test bed* `all`. The compiler stays plain.
+- An image records the policy of each CodeInstance, so it is correct under either setting. The other setting finds no code of its policy and compiles it. The test bed keeps a depot of its own, for speed.
 
-So an ordinary method has one copy per mode that reaches it. A facts method has only facts code, and the compiler's code only plain code. A builtin has no code to compile: the runtime's one CodeInstance of it, of owner `nothing`, serves every caller. A builtin is recognised by its function's type, a subtype of `Core.Builtin`.
+**Status:** Planned (W-100).
 
-**One function** decides it, given what reaches the code: the runtime or the top level, plain code, or code of the facts owner.
+### 2.6 `--trim`
 
-```c
-jl_value_t *jl_code_owner(jl_value_t *def, int reach);    // def: a method, or a module's top-level thunk; :facts or nothing
-```
+A trimmed build has no facts policy: every method is inferred plainly, and the image writes no facts flags. A binary is a closed world ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-```julia
-Compiler.code_owner(def, reach)        # reach: REACH_RUNTIME, REACH_PLAIN, REACH_FACTS
-```
-
-Every place that decides asks it: the runtime's default owner (`jl_default_owner`, for dispatch from the runtime and the single-request entry, §2.4), its dispatch from facts code (§2.5), calls between the modes in inference (`leaves_to`, §2.6), and the compile queues, through each item's owner (§2.4). It uses one predicate for "the compiler's code": the module flag 2 (`jl_method_is_plain`).
-
-**The setting decides one thing:** the default owner of a method that is neither a facts method nor the compiler's code, and of a top-level thunk, reached from the runtime or the top level (`jl_default_owner`, and the owner of a fresh `NativeInterpreter`): `:facts` under the test bed, `nothing` in the product setting. So plain code (the compiler, and the Base methods the compiler calls) never shares a cache with code compiled by facts ([`facts.md`](facts.md#the-mode-rule)), and a CodeInstance means the same in both settings.
-
-### 2.4 Compile requests
-
-**Status: Implemented.**
-
-```c
-jl_value_t *jl_default_owner(jl_method_instance_t *mi);   // jl_code_owner(mi->def, reached from the runtime)
-jl_code_instance_t *jl_type_infer(jl_method_instance_t *mi, size_t world, uint8_t source_mode, uint8_t trim_mode);
-```
-
-```julia
-Compiler.typeinf_ext_toplevel(mi, world, source_mode, trim_mode, owner)   # the runtime's entry (jl_typeinf_func)
-Compiler.typeinf_ext(interp, mi, source_mode)
-Compiler.interp_for_owner(interp, owner)       # the interpreter for a queue item of owner `owner`
-Compiler.interp_for_mi(interp, owner, mi)      # the same (for the compile queues)
-Compiler.default_owner(mi)                     # code_owner(mi.def, REACH_RUNTIME)
-```
-
-Lives in `src/gf.c`, `Compiler/src/typeinfer.jl` and `Compiler/src/facts.jl`.
-
-**Meaning.**
-- The runtime asks for code of an owner. `jl_type_infer` asks for `mi`'s default owner. The runtime's other entries take the owner explicitly (§2.5).
-- The single-request entry builds the interpreter of that owner: facts under `:facts`, plain under `nothing`.
-- `typeinf_ext` hands a facts method to a facts interpreter, whoever asks (reflection, compile queues).
-- A compile queue holds `CodeInstance`s of both owners. Each item is inferred by the interpreter of its own owner (`interp_for_owner`); a MethodInstance by that of its default owner.
-- Reflection shows the code that runs: `typeinf_frame` infers a facts method by facts.
-
-### 2.5 Dispatch from facts code
-
-**Status: Implemented.**
-
-```c
-jl_value_t *jl_apply_generic_facts(jl_value_t *F, jl_value_t **args, uint32_t nargs);
-jl_value_t *jl_invoke_facts(jl_value_t *F, jl_value_t **args, uint32_t nargs, jl_method_instance_t *mi);
-```
-
-Lives in `src/gf.c` and `src/codegen.cpp` (`applygeneric_for`, `invoke_for`).
-
-**Meaning.**
-- Code of owner `:facts` calls these at its run-time sites instead of `jl_apply_generic` and `jl_invoke`.
-- They do the same method lookup, with the same caches (§3.2). They then run the callee's code of owner `:facts`, compiled on a miss. The exception is a method never by facts, which runs its plain code.
-- Codegen emits them for:
-  - direct calls;
-  - `invoke` of a MethodInstance;
-  - `_apply_iterate` and `_apply` with known tuples;
-  - `invokelatest` and `invoke_in_world`;
-  - `modifyfield!` and its kin through `:invoke_modify`.
-- Dispatch on a narrow MethodInstance runs the code of the wider instance Julia compiles for it, copied onto the narrow instance as for the plain owner: it runs with the narrow instance's static parameters, and the next call finds it there (`jl_compile_method_internal_owner`).
-- Where compilation is off (`--compile=min`) or the method has no source, the code that runs is the method's unspecialized code, or the interpreter. The CodeInstance made for it is the asking owner's, so the next call finds it. The unspecialized code read is the asking owner's, else the plain owner's; the plain owner never runs code compiled by facts.
-
-**Dispatch through the runtime's `jl_apply`** runs the callee's default owner's code (`jl_default_owner`, §2.4):
-- splats of unknown length;
-- the `invoke` builtin at run time;
-- `jl_call`;
-- `@cfunction` callbacks, including `:caller_world` pointers (§3.1);
-- finalizers and task entry.
-
-A trait module's method is a facts method, whose default owner is `:facts`: trait code reached this way is code compiled by facts. A neutral method runs its plain code in the product setting. That is not trait code, so trait code is never invalidated through this path. The rule needs nothing of the runtime's internals: `jl_apply` asks for the default owner's code, as any call from the runtime does ([facts §5](facts.md#run-time-sites)).
-
-### 2.6 Calls between the modes in inference
-
-**Status: Implemented.**
-
-```julia
-Compiler.leaves_to(interp, method)    # the interpreter `method`'s code belongs to, or nothing
-Compiler.facts_edge(interp, other, method, mi, caller, edgecycle, edgelimited)
-Compiler.facts_const_call(interp, other, result, f, arginfo, si, match, sv, invokecall)   # the gate: concrete, semi-concrete, then constant propagation
-Compiler.facts_const_prop_call(interp, other, result, f, arginfo, si, match, sv)        # constant propagation into a facts callee
-Compiler.is_facts_method(m), Compiler.is_plain_method(m)
-```
-
-Lives in `Compiler/src/facts.jl`, `typeinfer.jl` (`typeinf_edge`), `abstractinterpretation.jl`.
-
-**Meaning.** When inference reaches a method whose code belongs to the other mode (§2.3):
-- the callee is inferred by the other interpreter, in an inference of its own, as a request from the runtime would be (`facts_edge`);
-- the call names that `CodeInstance`, with an edge to it;
-- a plain caller propagates constants into a facts callee: `facts_const_prop_call` infers the callee again for the constants with the facts interpreter, in a call stack of its own, the result local and the edges that inference's ([facts §6.3](facts.md#calls-between-the-modes)); concrete and semi-concrete evaluation cross on the callee's facts CodeInstance, with an edge to it;
-- a facts caller of the compiler's plain code propagates no constants.
-
-Neither owner infers the other's methods by its own rules.
-
-**The compiler is plain.**
-- The Compiler module has flag 2 (§2.1). Its submodules inherit it.
-- A facts frame's call into the compiler leaves to plain inference. A facts caller of `Compiler.typeinf_frame` would otherwise compile the abstract interpreter by facts.
-- Code compiled by facts dispatches to the compiler's plain code (§2.5).
-- **The boundary:** facts code that calls compiler functions directly (TraitWorld calls `argextype`, `widenconst`, `sptypes_from_meth_instance`) holds edges to plain compiler code. Its validity there is plain Julia's ([`facts.md`](facts.md#which-code-is-compiled-how)). Running such calls in the compiler's world instead would break code that extends the compiler for its own interpreter types.
-
-**Rules.**
-- `leaves_to` applies only to `NativeInterpreter`. It leaves to facts only from the plain owner `nothing`, never from another owner's interpreter.
-- Other interpreters (`PlainRTInterp`, TraitWorld's checking interpreter, Cthulhu-style tools) infer facts methods by their own rules in their own caches.
-
-### 2.7 Inlining across owners
-
-**Status: Implemented.**
-
-Lives in `Compiler/src/ssair/inlining.jl` (`handle_invoke_expr!`, `resolve_todo`, `compileable_specialization`) and `stmtinfo.jl` (`add_inlining_edge!`).
-
-**Meaning.**
-- **An `:invoke` of a given `CodeInstance` of another owner** inlines exactly that code. The caller's own cache may hold different code for the same MethodInstance. Inlining it would run code the call never asked for.
-- **A call to a method whose code belongs to the other owner** (§2.6) inlines that owner's cached code. Both `resolve_todo(mi, …)` look it up there when the caller's own cache misses.
-- When not inlined, the call is an `:invoke` of the other owner's `CodeInstance`.
-
-**Rules.**
-- Inlining does not infer again. The inlined code stays the other owner's, with an edge to its `CodeInstance` only.
-- Edges to two `CodeInstance`s of the same MethodInstance with different owners are two edges (`add_inlining_edge!` compares the owner). Each is invalidated separately.
-
-### 2.8 Edges for a second owner
-
-**Status: Implemented.**
-
-Lives in `src/gf.c` (`_invalidate_backedges`).
-
-**Meaning.** When one `CodeInstance` is invalidated, a caller whose edge names only the MethodInstance is invalidated only if:
-- the caller has the same owner; or
-- the caller is a generator's cached output (owner `:uninferred`), which may have read any owner's result.
-
-Replacing the method itself reaches callers of every owner.
-
-**Why.** A bare MethodInstance edge stands for the caller's dependence on its own interpreter's result for that instance. An interpreter consults only its own cache. So only a `CodeInstance` of the caller's owner can break it ([`facts.md`](facts.md#edges-and-invalidation)).
-
-### 2.9 What package images keep
-
-**Status: Implemented**, including copies of code compiled by facts whose inferred source was discarded.
-
-```c
-void jl_set_image_keep_compiled(int on);    // for the image being built in this process
-```
-
-Lives in `src/staticdata_utils.c` (`queue_external_cis`) and `Compiler/src/precompile.jl` (`compile_and_emit_native`).
-
-**Meaning.**
-- **Machine code only for the owners whose code runs,** `nothing` and `:facts` (§2.3). Code of other owners (`return_type`'s answers, an `AbstractInterpreter`'s results) is serialized with its methods and gets no machine code: nothing calls it.
-- **Code of owner `:facts`** goes through the compile queue, as plain code does. The queue infers it again by facts where its inferred source was discarded.
-- **With keep-compiled on:**
-  - a `CodeInstance` of the facts owner of an upstream method, compiled during precompilation and reached by no call of the package that Julia can see (a dynamic call, `invokelatest`, a call from upstream code the workload ran), is kept with its machine code, also where its inferred source was discarded. It stays valid across unrelated loads (G2).
-  - Plain code reached that way is not kept, as in stock Julia: it depends on the whole method table.
-- Without keep-compiled, Julia drops such code, as stock Julia does.
-
-**Rules.**
-- TraitWorld switches keep-compiled on while a package that uses it is precompiled ([`lowering.md`](lowering.md#2-modes-owners-and-images)).
-- **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance, such as a type value pushed into a `Type[]`): its insertion at load scans its method's list of specializations. Dropping compiled code from an image changes no result (julia-1.13 6800be7839, W-59).
-  - Julia gives a type value no hash when its parameters hold a `Union` directly (`Type{Tuple{Union{Missing, Float64}}}`, `Type{Union{Missing, Int}}`): such a type has several equal forms. A type with invariant parameters around it has one (`Type{Callable{Tuple{Union{Missing, Float64}}, Bool}}`).
-  - Code reached by a static call from the image's own code is kept through that caller's edges. The rule drops code that only a workload's dynamic call reached.
-  - TraitWorld keys its entries for function arguments by the bound for this reason ([lowering §12](lowering.md#12-callable-and-dynamiccallable)).
-
-### 2.10 `--trim`
-
-**Status: Implemented.**
-
-Lives in `src/module.c` (`jl_method_is_facts`), `src/gf.c` (`jl_compile_by_facts`), `src/staticdata.c` (`jl_write_module`, `jl_write_values`).
-
-**Meaning.** A trimmed binary is plain code.
-- While a trimmed image is built, no method is a facts method and the switch is off. Every method is inferred plainly.
-- The image writes no facts flags: every module's flag is 0, and every method flag that was not 0 becomes 1 (a boundary, so the caller's mode, which is plain).
-
-**Why.** A trimmed binary is a closed world: nothing loads later, so plain code keeps its guarantees ([`facts.md`](facts.md#trimmed-binaries)).
+**Status:** Planned (W-100).
 
 ---
 
-## 3. World-checked caches at dynamic boundaries
+## 3. The dependency record and the code slot
 
-**The principle.** Every cache that skips a dispatch at run time holds world ranges and is checked against the caller's world, as Julia's method cache already is. A cache never decides which method runs. It only remembers what dispatch decided, for the worlds where that holds.
+### 3.1 The record
 
-### 3.1 The `cfunction` calling convention `:caller_world`
+A CodeInstance's edges name everything its code assumed:
+- **dispatch edges:** facts at signatures, including "no method" and "ambiguous";
+- **result edges:** an emitted call whose result type, exception type, effects or constant the caller used as a type. Nothing else is a result edge;
+- **code edges:** the identity of each inlined, constant-propagated or concretely evaluated callee: the method and a digest of its lowered code;
+- **binding edges:** the global bindings it reads;
+- **layout identities:** the types whose fields it reads, by path and layout;
+- **membership cells** (§5.6) and **positive memberships** it folded (§4.8).
 
-**Status: Implemented**, with cache entries capped at the latest world ([C-3](#deviations)).
+The backedge iterator, `verify_method`, codegen's walkers and the image writer read every kind. Targets are named by identities stable across sessions where one serves (§9).
+
+**Status:** Planned (W-100).
+
+### 3.2 G2 as a predicate
+
+When a CodeInstance of either policy is finished, a bit in its flags records whether its record satisfies G2:
+- every dispatch edge is at a fact signature;
+- every inlined callee's own record satisfies G2;
+- result edges may go anywhere.
+
+Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
+
+**Status:** Planned (W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
+
+### 3.3 The code slot
+
+- **One slot per (MethodInstance, calling convention)** holds the current valid code's pointer and its validity. It is written when a CodeInstance of that MethodInstance compiles and when one is invalidated.
+- **A static call that holds only a result edge to its callee** loads its target through the slot. Every other call binds the callee's address.
+- **When a callee is replaced,** a caller holding only result edges to it is marked for revalidation, not invalidated. Its next lookup compares each result edge with the callee's current result:
+  - equal: the caller is valid again in the current world;
+  - different: the caller is inferred again.
+- So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
+
+**Status:** Planned (W-101).
+
+---
+
+## 4. Sets and memberships
+
+### 4.1 Sets
+
+- **A set** is an abstract type whose `TypeName` has the `open` bit. A trait's declaration sets it; a set is open from its declaration.
+- Every other abstract type is closed, Base's and Core's included.
+- **`never_member`:** a bit on Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures and the memory types. A membership of one is refused.
+- A set's declared supertype is `Any` or a set. A closed abstract type is never a member of a closed abstract type through a set.
+- **A set's `TypeName` carries its contract,** written once by the library at the declaration and saved with it in images ([lowering §2](lowering.md#2-trait)):
+  - the operations, each with the trait's method that carries its declared result (§6.8);
+  - the declared fields, with their types and whether read-only;
+  - each parameter's definition;
+  - the default attribute bit (§6.3).
+
+  The compiler reads it without an edge: it never changes after the declaration.
+
+**Status:** Planned (W-98, W-106). Built in part on branch `unified` (C-24). The contract on the `TypeName`: mine (2026-11-06).
+
+### 4.2 Memberships
+
+- **A membership is an immutable entry on the member's `TypeName`,** never on the set's:
+  - the set;
+  - the member pattern: `S`, `S{T} where T`, an abstract type, a set instance, `Type{S}`;
+  - the set's instance for the pattern (`X`, `X{T}`);
+  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (§6.1);
+  - `min_world` and `max_world`;
+  - the declaring module;
+  - the forwarding field, if any.
+- A `TypeName`'s list of entries is replaced copy-on-write; readers take no lock.
+- `jl_declare_membership(member, set_instance, declarer, by, receiver)` declares one. The library checks ownership and the contract first ([traits §5.10](traits.md#510-checks)).
+- **A pattern's variable bounded by a `Union` of types** (`I where {I <: Base.BitInteger}`) is declared as one entry per type of the union.
+- **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s receiver on `S`'s `TypeName`, with its world, as an entry would ([lowering §3](lowering.md#3-implement)).
+
+**Status:** Planned (W-98). Built in part (C-21).
+
+### 4.3 Worlds
+
+- A membership is declared as a method is inserted: under the world counter's lock, the entry gets `min_world = counter + 1`, is published, and the counter advances.
+- The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
+- A task in an older world does not see it.
+- **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
+- **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one. They are the one kind that can end.
+
+**Status:** Planned (W-98). C-25.
+
+### 4.4 Transitivity
+
+- `A <: B` and `B <: C` give `A <: C`, whichever link is a declared supertype, a membership, or a set's membership in a set.
+- **`<:`, `isa`, intersection and dispatch read the same relation,** so `isa(x, T)` and `typeof(x) <: T` agree.
+- The entries of every type on a member's supertype chain are consulted.
+- A composed membership holds from the latest `min_world` of its links; with several chains, from the earliest of those.
+- A membership that would close a cycle among sets is refused, by a check over every path.
+
+**Status:** Planned (W-98). C-22, C-23.
+
+### 4.5 Subtyping
+
+- **A membership is one more supertype of its member, inside subtyping's walk.** Where `S`'s supertype chain does not meet an open `X`, `jl_subtype` takes the entries of `S` and of each type on its chain. For each entry, it continues the same walk from the entry's instance, in the same environment, as it continues from a declared supertype. The pattern's variables join the walk as existential variables. The choice among a type's entries is made as a union's is.
+- So set-in-set entries are followed transitively, and a miss is `false`.
+- **Parameters are invariant.** With `S`'s entry for `X{Int}`: `S <: X{Int}`, `S <: X{<:Real}` and `S <: X{>:Int}` hold; `S <: X{Real}` does not.
+- **A method's `where` variables and `X{<:T}`'s existential variables** are the walk's own. So dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
+- **Only entries whose set reaches the queried set are choices.** Reachability between two `TypeName`s is memoized per world range. So a type with many entries on its chain (BaseTraits' families on `AbstractVector`) costs a walk only for the entries that can lead to the set asked about.
+
+**Status:** Planned (W-98). C-26.
+
+### 4.6 One instance per member
+
+A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The runtime checks it: exactly for a concrete member; for a pattern, by intersecting it with each pattern that already reaches the set. The library reports the refusal as `ImplementError`.
+
+**Status:** Planned (W-98).
+
+### 4.7 Three layers
+
+Questions about open sets are answered in three layers:
+- **`<:` and `isa`** read the entries: the answer in the current world.
+- **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a non-member gives `Union{}`. Dispatch's match construction and the inliner's union split see only members.
+- **`jl_could_join(S, X)`** answers whether `S` could become a member of `X`. Inference's lattice and the guards' shadow query (§5.6) use it; dispatch's match construction does not.
+
+**Status:** Planned (W-98).
+
+### 4.8 Negatives never fold; positives through entries
+
+- **A negative answer is never folded for an open set.** `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set or a key (§6.1); it is cached on the type object.
+- `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
+- **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
+- **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
+
+**Status:** Planned (W-98; W-100 for the fold's world).
+
+### 4.9 Intersections
+
+```julia
+Core.All{X, Y}
+```
+
+- **`All{X, Y, …}` is an intersection type,** the dual of `Union`:
+  - `S <: All{X, Y}` when `S <: X` and `S <: Y`;
+  - `All{X, Y} <: Z` when some component is a subtype of `Z`, and `<: All{Z, W}` when it is a subtype of each.
+- **Normal form:** components flattened, sorted by the order `Union` uses, deduplicated; a component that is a subtype of another by declared supertypes absorbs it; two closed types with no common subtype give `Union{}`.
+- **Normal forms read declared supertypes only.** A membership never absorbs a component of an `All` or a `Union`: `Union{S, X}` stays as written where `S` is a member of `X` by an entry. So a type expression gives the same type object in every world.
+- `jl_type_intersection` of two sets is `All{X, Y}` with their known common members' exactness kept; `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
+- **At an argument typed by an intersection,** the key is the tuple of the member's keys for each component (§6.1); the split's candidates are the first component's that are members of every component (§7.2).
+- The negative-fold rule (§4.8) treats each component.
+- It takes any number of components: `All{X, Y, Z, …}`.
+
+**Status:** Planned (W-98; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
+
+### 4.10 Type values
+
+A type value is a member of a set only by an entry whose pattern is `Type{S}`. Such an entry is kept on `S`'s `TypeName`, marked as being for the type value, not on `Type`'s. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
+
+**Status:** Planned (W-98). C-19.
+
+### 4.11 Inference's world
+
+Membership queries during inference run at the world being inferred for, carried from `ml_matches` and the insertion walk into the membership lookup, not at the world the compiler runs in.
+
+**Status:** Planned (W-98, W-99).
+
+---
+
+## 5. Dispatch
+
+A method whose signature names a set is a plain method at that set. Memberships and dispatch follow these rules:
+- **Memberships only grow.** Positive answers fold; negative ones never, for an open set (§4.8).
+- **Memberships invalidate no code.** A call that a later membership could change carries a guard (§5.6).
+- **Methods invalidate as in Julia,** under ownership ([facts §2.2](facts.md#22-g2-stable-caches)).
+
+### 5.1 The method table
+
+A method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain need not name the set. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
+
+**Status:** Planned (W-99). Built in part.
+
+### 5.2 Specificity
+
+In `type_morespecific_`, at each argument:
+- a closed type other than `Any` is more specific than an open set;
+- between open sets, by subtyping: a set whose membership in another makes it a subtype is more specific; else unordered;
+- an intersection is more specific than each component; one with a closed component counts as closed against an open set.
+
+So `Method.interferences`, `detect_ambiguities` and the insertion walk order these pairs as any others. Inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts. The `obviously_disjoint` short-circuit is bypassed where either side has an open set.
+
+**Status:** Planned (W-99). Built in part.
+
+### 5.3 Match world ranges and abstract queries
+
+- A match through an entry carries the entry's `min_world` into its valid worlds, at fixed, vararg and union argument positions.
+- At an abstract query whose type is not a member, a method at a set is pruned, as any method with an empty intersection is.
+
+**Status:** Planned (W-99).
+
+### 5.4 The ambiguity report at a membership
+
+At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, with no method more specific for the member, a warning names the pair and the joint method's signature. Strict mode makes it an error. A method that dominates every common member suppresses it.
+
+**Status:** Planned (W-99).
+
+### 5.5 A membership lowers dispatch caches
+
+A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
+
+**Status:** Planned (W-99, W-112). Until the guards exist: C-18.
+
+### 5.6 Guards and cells
+
+- **The shadow query.** Inference at a call `f(s::S)` with `S` concrete selects a method `m₀`. It also asks for the methods of `f` at open sets `Z` that `S` could join (`jl_could_join`) and that would beat `m₀` at `S`. A method matched through `S`'s supertype chain, other than `f(::Any)`, has none. Each such (set, argument) is a shadow.
+- **The cell.** For each shadow, inference records an edge to a membership cell: one mutable object per (member type object, set) for a parametric member, per (member typename, set) otherwise. The compiler creates it on demand and hangs it on the member's `TypeName`. Its `min_world` is `typemax` until an entry matches, then the entry's.
+- **The guard** loads the cell's `min_world`, compares it with the task's world, and branches, as the inliner's union split branches. The slow branch is a full dispatch with no edge; the fast branch is the static call to `m₀`. The load is hoisted out of loops.
+- **The guarded call's result** is the join of `m₀`'s and the declared result of the shadowing method (§6.8); `Any` where none is declared.
+- **`Callable`'s memberships** (§7.4) have cells as any membership does; a method definition of the member's type lowers the cells it changes.
+- **No guard arises:**
+  - at a final non-member (§4.8);
+  - where `m₀` matched through the chain and is not `f(::Any)`;
+  - at a function with no method at an open set.
+- A method at an open set defined later invalidates the compiled callers its insertion reaches; they compile again with the guard.
+
+**Status:** Planned (W-112), after the first slice; until then C-18. They deliver a committed guarantee, a membership invalidates nothing ([facts §10](facts.md#10-memberships); the user, 2026-11-06, open issue 146). E-268 measures the stopgap until then.
+
+---
+
+## 6. Keys and the attribute
+
+### 6.1 The key as a type
+
+```julia
+Core.TraitKey{X, R, F}
+```
+
+- `TraitKey{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F`, a tuple type ([traits §7.2](traits.md#72-the-key)).
+- **The runtime computes a member's key** from its membership and the set's contract, without running Julia code: the receiver the entry records (the member, its forwarding field's type, or none), the declared fields' types at the member (`fieldtype`), and the parameter values (the pattern's match). A member of a pattern has its key from the entry like any other. The answer is memoized per (member type, set) on the member's `TypeName`, with the membership's worlds.
+- `S <: TraitKey{X, R, F}` holds when `S`'s key for `X`, computed in the world asked about, is that key. It is a case of `subtype`, as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`.
+- **At an intersection** `All{X, Y}`, the key is the tuple of the member's keys for each component.
+- **The erased key** is the set's instance `X{p…}` itself.
+- It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
+
+**Status:** Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"); a use case to investigate: [open issue 147](../open-issues.md#2-design). The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+
+### 6.2 Compilation signatures
+
+At each argument whose declared type is a set, or a parameter bounded by one, a method's compilation signature is one of:
+- **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes. Optional with keys: until they are built, such an argument is compiled per type;
+- **per type:** the member's type, where the method is open at the argument and the attribute is `Compiled`;
+- **once:** the erased key `X{p…}`, where the attribute is `Dynamic`.
+
+A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7](traits.md#77-dynamicx)).
+
+- So one (method, argument tuple) has up to two compilation signatures per trait argument, chosen per call (§6.3): up to 2ⁿ for n trait arguments, each compiled only where a call asks for it.
+- Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
+- **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is open at that argument.
+
+**Status:** Planned (W-106: per type and once). Per key: Optional (W-110).
+
+### 6.3 The attribute at a call
+
+- **Each trait argument of a call has an attribute bit,** `Compiled` or `Dynamic`, which chooses its compilation signature.
+- **It is resolved, strongest first** ([traits §7.5](traits.md#75-what-decides)):
+  1. a cast written at the call (§6.9);
+  2. an attribute the value carries:
+     - an argument inside an instance compiled per key or per type is `Compiled`, inside an instance compiled once `Dynamic`. The instance's attribute is part of its CodeInstance, so inference knows it at every call that passes the argument on;
+     - a value of type `Dynamic{X}` is `Dynamic`;
+     - a value read from a field whose declared type is a struct parameter bounded by a set: inference tracks the attribute the parameter records, `Dynamic` for a `Dynamic{X}`, else `Compiled`;
+  3. the method's attribute bits at the argument, from `@nospecialize` (`Dynamic`) and `@specialize` (`Compiled`) at an argument typed by a set, saved with the method as its `nospecialize` bits are; then the module's option;
+  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define;
+  5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
+- **A static call** resolves the bits in the caller's inference and invokes the instance.
+- **A dynamic call with bits from 1 or 2** is a call of `Core.attributed_call` (§6.9): a cast written at the call, or a run-time site that passes on a trait argument of an instance compiled per key or once (codegen emits it there). It selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method.
+- **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
+- **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
+
+**Status:** Planned (W-111); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
+
+### 6.4 Calls from code compiled per key
+
+- Code compiled per key holds the argument at the type `TraitKey{X, R, F}`. Operations and declared fields act on its parts (§6.5), whose types are concrete: each call there is at a fact.
+- **Passing the argument on to another function `g`:**
+  - **static** where the method of `g` selected at the key is the one selected for every member with that key in the current world. A guard reads a cell per (key, `g`). A later membership with that key lowers the cell when some method of `g` is more specific for the new member (found through the set-to-methods index at `jl_declare_membership`). A later method of `g` invalidates the caller through its dispatch edge at the key, as any insertion does;
+  - **otherwise a run-time site,** dispatched on the object with the `Compiled` bit; the instance then receives the object (§6.5).
+- Swift and Rust resolve such a call where the generic code is written, at the constraint. Julia dispatches it on the value's type, and G1 asks for Julia's answer. So the guard is what keeps the shared code equal to that answer, by the same mechanism as a membership's guard (§5.6).
+
+**Status:** Optional (W-110), with keys; mine (2026-11-06).
+
+### 6.5 The calling convention
+
+A static caller passes a keyed argument as its parts:
+- the receiver, by its own convention;
+- each declared field that is `@const`, or of an immutable member, by value;
+- each writable declared field as a field reference: the object and an offset, so a write reaches the caller's object (§10.3);
+- the object itself, boxed, where the method may keep the value, return it, or pass it to a run-time site. An escape pass of inference decides this per instance.
+
+**The parts in the trait's methods.** The trait's method for an operation (§6.8) reaches the receiver and the declared fields through two intrinsics:
+
+```julia
+Core.trait_receiver(t, X)          # the receiver: t itself, or its forwarding field
+Core.trait_field(t, X, name)       # a declared field
+```
+
+At a key, inference resolves them to the parts above. At a member, it resolves them to `t` or to the forwarding field's `getfield`. So members that share a key and forward through fields of different names share the code.
+
+**Status:** Optional (W-110), with keys.
+
+### 6.6 The boxed adapter
+
+A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstance. The wrapper reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target in [the evidence](../design/evidence.md) §2, there is one wrapper per member instead (W-110 measures).
+
+**Status:** Optional (W-110), with keys.
+
+### 6.7 The definition-time check
+
+- **One inference of a method at the erased signature** of each set argument, under a check flag of the native interpreter. There, operations of the set and its supertraits resolve to their declared results (§6.8), declared fields to their declared types, and calls passing the argument to a method at the set or a supertrait to that method.
+- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or open. The classification is kept with edges to the unannotated functions it followed, so a later definition of one classifies the method again.
+- **Under the `bounded` option** of the method's module or the method itself, an open argument raises `TraitUseError` listing every recorded use, at the method's definition or at the definition that opens it. A method marked `@open` (`Expr(:meta, :bounded, false)`) is exempt, and so is a constructor of a struct whose parameter is bounded by a set where it sets that parameter, Julia's default constructor included ([traits §8.2](traits.md#82-a-struct-parameter-bounded-by-a-trait)).
+- Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
+- **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
+
+**Status:** Planned (W-109; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
+
+### 6.8 A declared result on `Method`
+
+- Lowering records `f(…)::RT` as the method's declared result. Inference may read it as an upper bound, since the body asserts it.
+- **The trait's method for an operation** carries the operation's declared result, with a flag that it covers every member: each member's serving method is checked to infer within it ([traits §5.10](traits.md#510-checks)). §7 relies on the flag.
+
+**Status:** Planned (W-109).
+
+### 6.9 Casts and `keep`
+
+- **Lowering turns a call with cast arguments,** `f(compiled_for(x), y)` or `f(with_dynamic(x))`, into `Core.attributed_call(bits, f, args…)`, a builtin that dispatches as the call with those attribute bits. Inference resolves it statically where it can. A cast anywhere else is a lowering error. A cast of a `Dynamic{X}` to `Compiled` passes the held object.
+- **The front end reserves the names** `compiled_for` and `with_dynamic` as it reserves `ccall`: in a call's arguments they are the casts whatever the scope binds, and a local variable or a definition of either name is a lowering error.
+- **A cast at an argument the selected method does not type by a set** has no effect. Inference records each such cast it finds; `detect_unused_casts(mod)` lists them.
+- `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits.
+- **`Core.Dynamic{X}`** is an ordinary struct of `Core`, with no rule of subtyping: its memberships are declared by the library ([lowering §7](lowering.md#7-dynamicx-keep-casts)). `Core` defines it so that `keep` can make one.
+- **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. Where the code is not compiled, it is resolved at the method's default attribute.
+- Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
+
+**Status:** Planned (W-111); mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
+
+---
+
+## 7. Operations on a value typed by its trait
+
+### 7.1 The rule
+
+- **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a key and not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the trait's method's flag (§6.8).
+- The call is compiled as a split (§7.2), with the result asserted to the declared type (`TypeError`).
+- A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
+- Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
+
+**Status:** Planned (W-109).
+
+### 7.2 The split
+
+```julia
+Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
+Compiler.register_dynamic_candidate!(K, C)
+Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS, in order
+```
+
+- **The candidates of a set** are its concrete members in declaration order, from an index per set that the runtime keeps. An entry records its declaration's file and line; the order is by those. A concrete type joins the index at its membership, a member of a pattern at its first use (§10.4). The index is read without an edge.
+- **At an intersection** `All{X, Y}`, the candidates are those of `X`'s index that are members of every component.
+- `register_dynamic_candidate!(K, C)` registers candidates for a key `K` that is not a set.
+- **Inference:** where `x`'s type is not concrete and the set has candidates, `f` is inferred at `x`'s type intersected with the union of the first four candidates; each split is a fact with its edge.
+- **The split:** the inliner splits the call over them. The last branch, the fallback, calls through the table of the call's targets (§7.3), or is the dynamic call where no table applies. The split is never fully covered.
+- **The result:** each case not known to be an `RT`, and the fallback, are asserted to `RT`; the join is `RT`.
+- **Which candidates a caller splits over is fixed when it is compiled.** A member registered later reaches the fallback, and invalidates nothing.
+- Registration is lock-free for readers: the table is replaced on each registration.
+
+**Status:** Planned (W-109).
+
+### 7.3 The table of a call's targets
+
+```c
+void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
+```
+
+- A value of a type outside a split's candidates is called through a table of the call's targets, keyed by its type:
+
+  ```julia
+  T  = Core.typeof(x)
+  fp = foreigncall(:jl_split_table_ptr, Ptr{Cvoid}, (Any, Any), table, T)
+  r  = foreigncall(fp, R, (Any, Any, A...), f, x, args...)
+  ```
+
+- **The table** belongs to the call's signature: the function's type, the other arguments' types, the result type, and the caller's policy. Sites with that signature share it.
+- **A miss** makes the pointer in the caller's world and adds it. The pointer is a `:caller_world` `cfunction` (§8.1) of a target whose method asserts each argument and the result. A type with no method for the call gets a pointer that raises the `MethodError` the call would.
+- **Arguments and result** pass by value where the type is an isbits type of nonzero size, else boxed.
+- **The fallback stays a run-time site:** it dispatches in the caller's world and records no edge. The table needs no invalidation.
+- **Sessions:** pointers are valid in their session; a table saved in an image counts as empty in another.
+- **Threads:** a table's state is replaced on each addition, never mutated; readers take no lock.
+- **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call.
+- **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image, at each call signature whose other arguments are concrete. A target whose call has abstract further arguments is made at its first call.
+
+**Status:** Planned (W-109).
+
+### 7.4 `Callable`'s call
+
+**Memberships.**
+- `Core.Callable{A, S}` is a set with two input parameters. `F <: Callable{A, S}` holds where a call of an `F` at `A` selects a method (`hasmethod`), for every `S`. So dispatch picks by the arguments' signature, and `S` takes no part in membership.
+- **Each method of `F` is a membership.** A method `f(x::T₁, …)` makes `F` a member of `Callable{A, S}` for every `A <: Tuple{T₁, …}`, in the method's worlds; one method must cover `A`, as for `hasmethod`. Subtyping reads `F`'s methods as it reads entries, through the method table's index by the function's type, and checks `A` against each method's argument types in the same subtyping environment. Subtyping runs no inference and keeps no memo of its own.
+- **A question that reaches itself** (a method of `F` whose argument is bounded by a `Callable` that `F` must satisfy) is subtyping's own assumption within the query, recomputed at each query: the answer is the least fixed point, the same in every order of questions.
+- **Defining a method declares the membership,** and deleting or replacing it ends it. What relied on the old answer is found as for any membership (§5.5, §5.6).
+- **`Dynamic{Z}` with `Z <: Callable{A, S}`** is a member by the entry the library declares, as for any set ([lowering §9](lowering.md#9-callable)), never by a query of its call method.
+- **Negatives are never folded:** a call whose method a later membership could change is guarded (§5.6). Compiled code that relies on a membership holds an edge to `F`'s dispatch at `A`, and is invalidated with it.
+- `Callable` alone is any type with a call method.
+
+**The call.**
+- **A call of a value the code knows as a `Callable{A, S}`** (declared so as an argument, a field or an element, or a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted on return (`TypeError`). Where inference proves the result, the assertion costs nothing. Each argument must be of `A`, or the call raises `MethodError`.
+- **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`. The pointer is made at the first call per (signature, function type). The result is asserted to `S` (`TypeError`).
+- **In an instance compiled per key,** whose key is the function's type, the call is direct.
+
+This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
+
+**Status:** Planned (W-113). Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267).
+
+---
+
+## 8. World-checked caches at dynamic boundaries
+
+**The principle.** Every cache that skips a dispatch at run time holds world ranges and is checked against the caller's world. A cache never decides which method runs; it remembers what dispatch decided, for the worlds where that holds.
+
+### 8.1 The `cfunction` calling convention `:caller_world`
 
 ```julia
 Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), QuoteNode(:caller_world))
 ```
 
-`@cfunction` has no argument for the convention. Code writes the expression, as TraitWorld's `Callable` does ([`lowering.md`](lowering.md#12-callable-and-dynamiccallable)). Lives in `src/codegen.cpp` (`emit_cfunction`, `emit_abi_call`) and `src/runtime_ccall.cpp` (`jl_get_abi_converter_caller_world`).
+- A call through the pointer runs in the caller's world (the task's world age), as a direct call does.
+- The pointer's thunk is a world-checked cache:
+  - each target is an entry: a function pointer, its CodeInstance, and a range of worlds where both the dispatch of the signature and the CodeInstance hold;
+  - a call in the current entry's range calls it directly; any other looks up its world and adds an entry.
+- A thread with no world (a C callback) uses the latest world. A signature one method covers only in part dispatches dynamically, in the caller's world.
+- An entry stays valid until invalidation lowers what it copies: its range ends at the copied method-cache entry's and CodeInstance's `max_world`.
 
-**Meaning.**
-- A call through the pointer runs in the caller's world (the task's world age), as a direct call does. A plain `@cfunction` runs in the latest world, as a callback from C must.
-- The pointer's thunk is a world-checked call-site cache:
-  - each target the thunk has called is a cache entry: a function pointer, its `CodeInstance`, and a range of worlds;
-  - the range is where both hold: the dispatch of the signature (`jl_get_specialization1_worlds`), and the target's `CodeInstance`;
-  - a call whose world is in the current cache entry's range calls it directly;
-  - any other call looks for a cache entry of its world, or looks the target up in its world and adds one.
-- A thread with no world (a C callback) uses the latest world.
-- A signature that one method covers only in part dispatches dynamically, in the caller's world.
+**Status:** Planned (W-109).
 
-```c
-jl_value_t *jl_get_specialization1_worlds(jl_tupletype_t *types, size_t world,
-                                          size_t *min_valid, size_t *max_valid);
-```
+### 8.2 The per-call-site dispatch cache
 
-The MethodInstance for `types` in `world`, with the range of worlds where that answer holds, or `nothing` when the dispatch is not unique.
+- Julia's `call_cache` holds method-cache entries per call site. Two kinds are added:
+  - **wildcard entries:** a method-cache entry with no `Vararg`, no type variables and no guard signatures, whose parameters are concrete or `Any`, matched where every non-`Any` position has the argument's exact type;
+  - **exact-type entries:** for any other entry, a new entry at the call's exact argument types.
+- A plain dynamic call carries no attribute bits (§6.3), so entries are keyed as Julia's are.
+- Each entry's range is the copied entry's; a call outside it looks up again.
 
-**Rules.**
-- Cache entries are never freed. There is one per target and contiguous range of worlds, and targets are rooted by their MethodInstances' caches.
-- The callee's code is the default owner's: a facts method's facts code, any other method's plain code in the product setting (§2.5).
+**Status:** Planned (W-109).
 
-### 3.2 The per-call-site dispatch cache
+### 8.3 Further work
 
-**Status: Implemented**, with exact-type cache entries capped at the latest world ([C-3](#deviations)).
+Optional, each only if a measurement asks for it:
+- a runtime table of compiled entry points with their world ranges;
+- a witness carried in the value;
+- recompiling in the background with the observed types;
+- a cache emitted by codegen with direct calls.
 
-Julia's `call_cache` (`src/gf.c`) holds method-cache entries per call site, keyed by the call's return address. Stock Julia puts only leaf signatures there. The patched build adds two kinds of entries, for every dynamic call, plain and facts.
-
-**Wildcard entries** (`call_cache_any_ok`, `sig_match_any`):
-- A method-cache entry qualifies when:
-  - its signature is not a leaf signature, has no `Vararg`, no type variables, and no guard signatures;
-  - its parameters are concrete types (not kinds, not `Type{…}`) or `Any`, with at least one `Any`, and the function's own type concrete;
-  - its simple signature, if any, is implied by the signature.
-- The site holds the method-cache entry itself. A call matches it when every non-`Any` position has exactly the argument's type.
-- Its world range is the entry's own, so invalidation lowers it.
-
-**Exact-type entries** (`call_cache_exact`):
-- For any other entry that is not a leaf signature (a `@nospecialize` method, guard signatures, `Any` in the signature), the site gets a new entry for the call's exact argument types, mapping to the same MethodInstance.
-- It is matched by exact types only.
-- Its range runs from the method-cache entry's first world to its last, capped at the latest world when the entry is made.
-- No entry is made when the function or an argument is a type, since a type argument is matched as `Type{T}`, not by its type.
-
-**Rules.** A site cache entry never outlives what it copies: a call in a world outside its range looks up again.
-
-### 3.3 Further work on mechanism 3
-
-- **Planned: entries with an open `max_world`.** An exact-type entry and a `:caller_world` entry refer to the method-cache entry and the `CodeInstance` they copy, whose `max_world` invalidation lowers. A hit compares the world with both ranges. A method definition then costs a cached site nothing unless it invalidates what the site calls ([C-3](#deviations)).
-- **Optional: beyond the table of a split's targets** (§4.3; E-145, [`design/evidence.md`](../design/evidence.md)):
-  - **a runtime table of specialized entry points with their world ranges,** checked at the probe and never saved: one indirect call, no thunk and no target method per type;
-  - **a witness carried in the value,** the pointer arriving with it: faster on large mixes of many types ([evidence](../design/evidence.md), E-145), at a word per value and a lookup per value made from an unknown type;
-  - **recompiling in the background** with the observed types in the split (§1.6): E-145 found it pays only for skewed mixes of cheap operations on data in the cache.
-- **Optional: a codegen-emitted cache with direct calls.** Only if profiles show lookup, not the call or the callee, dominating.
-- **Not planned:** a hook by which a package substitutes the target of a call, for untyped trait calls.
+**Status:** Optional.
 
 ---
 
-## 4. Primitives for a specialized path beside a general one
+## 9. Images and the machine-code cache
 
-**The principle.** Library code may write two paths that compute the same result. The compiler picks one from what inference knows. The choice changes speed, never the result.
+- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds. Validation knows the membership cell and positive-membership edge kinds.
+- **Machine code only for code that runs:** CodeInstances of either policy; never `return_type`'s answers.
+- **Code reached only by a dynamic call is kept** where its G2 bit is set (§3.2), of either policy: plain code that facts code reaches is then cached as facts code is.
+- **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
+- **The checks' records** of members checked while the image was built (traits §5.10) are kept with it.
+- **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's key ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+- **A machine-code cache across sessions is the goal of the record.** The record of §3.1 is kept complete, naming its targets by identities stable across sessions:
+  - a method by module path, name, signature and a digest of its lowered code;
+  - a type by path and layout;
+  - a membership by member, set and declarer.
 
-### 4.1 `Compiler.known_type`
+  So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
+- No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status: Implemented.**
-
-```julia
-Compiler.known_type(x)::Bool
-```
-
-Lives in `Compiler/src/facts.jl` and `abstractinterpretation.jl` (`abstract_call_known`).
-
-**Meaning.**
-- Where a call is compiled, inference folds it to whether it knows `x`'s concrete type there: a constant, with total effects.
-- Where it is not folded (the interpreter, code compiled at abstract types), it is `false`.
-- GCC's `__builtin_constant_p`, for types.
-
-**Rules.**
-- Code branches on it only between paths that compute the same result. Anything else makes a result depend on how the code was compiled.
-- TraitWorld's entry uses it to decide a plain value's attribute: a typed caller inlines the entry, where it folds to `true`, and passes a `Compiled` value; an untyped caller, and code Julia does not compile (a statement at the prompt), reach the entry compiled at `Any`, where it is `false`, and pass a `Dynamic` one ([`lowering.md`](lowering.md#82-the-entry); [`traits.md`](traits.md#6-values-in-trait-code-compiled-and-dynamic)). The attribute changes speed, never results, so the rule above holds.
-
-### 4.2 `Compiler.split_call`: the call-site split
-
-**Status: Implemented.**
-
-```julia
-Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
-Compiler.register_dynamic_candidate!(K, C)                    # C: a candidate type of K
-Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS registered, in order
-```
-
-Lives in `Compiler/src/facts.jl` (`abstract_split_call`, `SplitCallInfo`), `ssair/inlining.jl` (`process_simple!`, `compute_inlining_cases`, `handle_call!`, `ir_inline_unionsplit!`), `stmtinfo.jl`.
-
-**Meaning.** `split_call(K, RT, f, x, args...)` is `f(x, args...)` where `x` is a value of an open set of types, the candidates registered for `K`.
-- **Inference.** When `x`'s type is not concrete and `K` has candidates, `f` is inferred at `x`'s type intersected with the union of the candidates. Each split is a fact, with its edge.
-- **The split.** The inliner rewrites the statement to the call of `f` and splits it over the candidates. The last branch, the **fallback**, calls through the table of the call's targets (§4.3), or is the dynamic call where no table applies. The split is never "fully covered": a value of another type reaches the fallback.
-- **The result.** Inference types the call `Any` where it splits: the fallback's result is unknown. The inliner's split asserts the fallback's result, and any case not known to be an `RT`, to `RT`, and types the join `RT`. A caller that needs the type after the call asserts it there, as TraitWorld's lowering does ([`lowering.md`](lowering.md#13-dynamicx)).
-- **No edge to the registry.** Candidates are read without an edge. A type registered later reaches the fallback, and invalidates nothing.
-- When `x`'s type is concrete, or `K` has no candidates, it is the call `f(x, args...)` as inference finds it.
-
-**Rules.**
-- At most `MAX_FACT_SPLITS` candidates are split: the first four registered, in the order of registration. Later ones reach the fallback.
-- TraitWorld registers a trait's implementations in declaration order (the declaration's file, then its line), at each declaration and each package load, so the split covers **the first four declared**, in a session that loads a package image as in the image's own code ([`lowering.md`](lowering.md#13-dynamicx)).
-- Which candidates a caller splits over is fixed when the caller is compiled. A caller compiled before a candidate is registered keeps the smaller split. So code compiled into a package image, such as a worker at a `Dynamic` position, splits over the implementations registered while the image was built, and a user's type declared later takes the fallback (measured with the gaps of [W-17](../record/todo.md)).
-- Registration is lock-free for readers: the table is replaced on each registration, never mutated.
-- How TraitWorld uses it for `Dynamic{X}` values and for operations and field reads at a `Dynamic` position is in [`lowering.md`](lowering.md#13-dynamicx); what code may assume about it, in [`facts.md`](facts.md#run-time-sites).
-
-### 4.3 What follows the split: the table of a call's targets
-
-**Status: Implemented**, with the pointers made at a type's first use, not ahead ([C-14](#deviations)), and their thunks' entries capped at the latest world ([C-3](#deviations)).
-
-```c
-void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);    // the pointer for type T; made at a miss
-uint64_t jl_split_session(void);                              // this session's stamp, never 0
-void jl_set_split_table_miss(jl_value_t *f);                  // Base._split_table_miss!, set by Base.__init__
-```
-
-Lives in `src/gf.c`, `Compiler/src/facts.jl` (`SplitTable`, `SplitState`, `split_table`, `split_state_add`), `Compiler/src/ssair/inlining.jl` (`split_fallback_table`, `split_table_call!`), `base/splittable.jl` (`_SplitTarget`, `_SplitTargetFacts`, `_split_pointer`, `_split_table_miss!`).
-
-**Meaning.** A value of a type outside a split's candidates is called through a table of the call's targets, keyed by its type. The last branch of the split is:
-
-```julia
-T  = Core.typeof(x)
-fp = foreigncall(:jl_split_table_ptr, Ptr{Cvoid}, (Any, Any), table, T)
-r  = foreigncall(fp, R, (Any, Any, A...), f, x, args...)
-```
-
-- **The table** belongs to the call's signature: the function's type `F`, the other arguments' types `A`, the result type `R`, and whether the calling code is compiled by facts. Sites with the same signature share one, made when the first of them is compiled (`split_table`) and embedded in their code.
-- **The probe** looks up the address of `T` in the table's state (open addressing). A hit returns the pointer.
-- **A miss** calls `Base._split_table_miss!(table, T)` in the caller's world. It makes the pointer and adds it. A type with no method for the call gets a pointer too: calling it raises the `MethodError` the call would.
-- **The pointer** is a `:caller_world` `cfunction` (§3.1) of the target `_SplitTarget{F, T, R, A}()`, whose method is `(f::F)(x::T, args::A...)::R`, with `f` and `x` passed boxed. Under the facts mode the target is `_SplitTargetFacts`, compiled by facts whoever calls it (`Expr(:meta, :facts_always)`): code compiled by facts reaches code compiled by facts at run time, as with `jl_apply_generic_facts` (§2.5).
-- **Arguments and result** (`split_ccall_type`): a value passes by value where its type is an isbits type of nonzero size, else boxed (`Any`), so a mutable object keeps its identity and a struct with references is never copied field by field. The target asserts each argument to its type at the site (`_SplitTarget{F, T, R, A}`), so its call is static where the site's other argument types are concrete; an argument the site holds at an abstract type is passed as `Any` and dispatched inside the target. `R` is the split's declared result; it returns by value under the same rule (`Nothing` as no value), else boxed, and the target asserts it, so a value of another type raises a `TypeError`, never a conversion.
-
-**Rules.**
-- **The fallback stays a run-time site.** It dispatches in the caller's world, through the thunk's world-checked cache, and records no edge ([`facts.md`](facts.md#dynamic-split)). A redefinition is followed as a dynamic call follows it. The table needs no invalidation.
-- **Sessions.** Pointers are valid in their session only. A state carries its session's stamp, checked by the probe on every call. A table saved in a package image counts as empty in another session and fills again. Sites compiled into different images keep tables of their own.
-- **Threads.** A table's state is replaced on each addition, never mutated (copy-on-write, published atomically). The pointer is made before the update. Readers take no lock.
-- **Where it applies:** an open split (§4.2) whose function's type is concrete and not a kind, with at most `MAX_SPLIT_TABLE_ARGS` (6) arguments after the value. Elsewhere the fallback is the dynamic call.
-- **Ahead of time** (Planned, [C-14](#deviations)): for each declared implementation the targets and their thunks are compiled into the declaring package's image, as the untyped table's pattern methods are ([`lowering.md`](lowering.md#151-compiling-ahead-from-declarations)). A session's first use of the type then only fills the table.
-- **Not in a trimmed program** (`--trim`), which makes no code at run time: there the fallback is the dynamic call. Whether code precompiled into a package image with a table, and reused by a `--trim` build, keeps a miss path that needs code made at run time is to verify when the trimmed rows are built.
-- The table answers what Rust's vtables and Swift's witness tables answer. Its key is the type in the object's header, as for C++'s and the JVM's vtables.
-
-### 4.4 `Compiler.fold_call`
-
-**Status: Implemented.**
-
-```julia
-Compiler.fold_call(g, args...)            # a value fixed where the code is compiled; nothing where it is not
-Compiler.Undecided()                      # g's answer for not now
-Compiler.AtLoad()                         # g's first argument when a fold is evaluated again at load
-Compiler.FoldRecord(g, args, value)       # the fold, kept in the caller's edges
-```
-
-Lives in `Compiler/src/facts.jl` (`abstract_fold_call`, `fold_holds`), `abstractinterpretation.jl` (`abstract_call_known`), `ssair/inlining.jl` (`process_simple!`), `typeinfer.jl` (`ForwardToBackedgeIterator`), `reinfer.jl` (`verify_method`).
-
-**Meaning.**
-- **At run time** `fold_call(g, args...)` is `nothing`; `g` is not called.
-- **Where it folds:** in a frame of the native interpreter compiled for the global cache, with every argument a constant to inference. Inference calls `g(args...)` with `Core._call_in_world` in the inference world. A value `v` is the call's result, `Const(v)` with total effects; the inliner replaces the call by `v` whatever its size; the frame's edges keep `FoldRecord(g, args, v)`. `nothing`, `Undecided()` or an error leave the call unfolded: it is `nothing`, as at run time.
-- **Not folded:** reflection's top frame, constant propagation and semi-concrete evaluation, other interpreters.
-- **The record has no backedge:** nothing invalidates it in a session. `rests_on_facts` counts it as resting on facts.
-- **At load,** image validation evaluates each record again: `g(AtLoad(), args...)` in the validation world. A different value (by egal), `nothing` or an error makes the code invalid, as a failed edge does.
-
-**Rules,** for the library:
-- Code uses it only between paths that compute the same result, as `known_type` (§4.1).
-- One answer per session: once `g` returns `v` for some arguments, it returns `v` for them.
-- Called from inference, `g` waits for no lock, does not yield or write, and runs no user code; it fixes nothing except in the latest world. A value holds no pointer of a session.
-
-**Why the design needs it:** a family member's builder fixed in its callers' code ([`lowering.md`](lowering.md#46-families)).
+**Status:** Planned (W-108; the keep rule by the G2 bit in W-100; the cache paused).
 
 ---
 
-## 5. Hooks for the library
+## 10. Hooks for the library
 
-### 5.1 Method-definition and image-activation hooks
-
-**Status: Implemented.**
+### 10.1 Definition and image hooks
 
 ```c
-void jl_set_method_definition_hook(jl_value_t *hook);   // hook(m::Method, after::Bool); nothing removes it
-void jl_set_image_methods_hook(jl_value_t *hook);       // hook(ms::Vector{Any}, pkg::String) -> methods to leave inactive, or nothing
+void jl_set_method_definition_hook(jl_value_t *hook);   // hook(m::Method, after::Bool)
+void jl_set_image_methods_hook(jl_value_t *hook);       // hook(ms::Vector{Any}, pkg::String) -> methods to leave inactive
+void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 ```
 
-Lives in `src/gf.c` (`jl_method_table_insert`, `jl_run_image_methods_hook`) and `src/staticdata.c`, `src/staticdata_utils.c` (`jl_activate_methods`).
+- **The definition hook** runs twice per method definition: before the method enters the table, where it may throw to refuse it (no world is allocated), and once it is visible.
+- **The image hook** runs once per package image, with its methods for other modules' functions, before any is activated. Methods it returns stay inactive.
+- Both run in the latest world, outside the world-counter lock, not for a definition a hook makes, and not while the system image is built.
+- **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
+- Strict mode, the override rule, the `no_pirates` and `bounded` options use them.
 
-**Meaning.**
-- **The definition hook** is called twice per method definition:
-  - with `after = false` before the method enters the method table. It may throw to refuse the definition: the method then never becomes visible and no world is allocated;
-  - with `after = true` once the method is visible.
-- **The image hook** is called once per package image, with the image's methods that extend functions of other modules, before any is activated. Methods in the vector it returns stay inactive: they never become visible.
+**Status:** Planned (W-108). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
 
-**Rules.**
-- Both run in the latest world, outside the world-counter lock.
-- Neither runs for a definition a hook itself makes.
-- The definition hook does not run while the system image is built.
-- If the image hook throws, Julia warns and activates every method.
-- The caller roots the hook functions.
-- Strict mode uses both ([`traits.md` §10](traits.md#10-who-may-implement-pirates-strict-mode)).
+### 10.2 Hooks for strict mode
 
-### 5.2 Field-offset intrinsics
+- **A deletion hook,** called at method deletion; it may refuse.
+- **A hook for a binding redefined from another module,** at its source.
+- **A report per image:** the edges that failed validation, with the winning method.
 
-**Status: Implemented**, except fields stored inline that hold references ([C-7](#deviations)).
+**Status:** Planned (W-114).
+
+### 10.3 Field-offset intrinsics
 
 ```julia
 Core.Intrinsics.getfield_at_offset(obj, T::Type, off::Int)::T
 Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
 ```
 
-Lives in `src/intrinsics.cpp`, `src/runtime_intrinsics.c`, `Compiler/src/tfuncs.jl`.
+- Read or write the value of type `T` at byte offset `off` of `obj`, with the write barrier for a reference and Julia's alias metadata for a mutable field.
+- The offset is not checked; the caller guarantees the field.
+- The calling convention's field references (§6.5) use them.
 
-**Meaning.**
-- `getfield_at_offset` reads the value of type `T` stored at byte offset `off` of `obj`: the bits of an isbits `T`, or a reference.
-- `setfield_at_offset` stores `x` there. It checks `x isa T` (a `TypeError` otherwise) and applies the write barrier for a reference.
-- Codegen emits the load or store with the alias metadata of a mutable field, so loops that read it while storing into an array still vectorize. A reference is loaded as a tracked pointer and checked for null (`UndefRefError`).
-- The result type is `T` when `T` is a known constant, else `Any`.
+**Status:** Optional (W-110), with keys.
 
-**Rules.**
-- The offset is not checked. The caller guarantees that `obj`'s type has a field of type `T` at `off`, as with `pointerref`.
-- `getfield_at_offset` reads mutable memory: it is not `:consistent`. `setfield_at_offset` is not effect-free.
-- Codegen emits the inline form when `T` is a constant, `off` an `Int` and `obj` held by reference. Otherwise it calls the runtime.
-- Trait objects read the user's object through them ([`lowering.md`](lowering.md#6-trait-objects-layout-fields-writes)).
-
-### 5.3 Type printers
-
-**Status: Implemented.**
-
-```julia
-Base.Experimental.register_type_printer(name::Core.TypeName, printer)   # printer(io, T); nothing removes it
-Base.Experimental.show_type_plain(io::IO, T::Type)
-```
-
-Lives in `base/experimental.jl` and `base/show.jl` (`_show_type`).
-
-**Meaning.**
-- Every type whose name is `name` prints by `printer(io, T)`, wherever Julia prints a type: by `show`, nested in other types, in method signatures and stack traces.
-- `show_type_plain` prints `T` as Julia does without a printer. Parameters of `T` still print through their own printers.
-
-**Rules.**
-- Registering a printer invalidates no compiled code. A method `show(::IO, ::Type{<:X})` would invalidate every caller compiled for `show(::IO, ::Type)`.
-- The printer is called with `invokelatest`.
-- The registry is copy-on-write: readers take no lock.
-- TraitWorld prints trait objects by bound and key with it ([`traits.md` §12](traits.md#12-printing)).
-
-### 5.4 Planned: hooks for strict mode's intended design
-
-**Status: Planned** for two pieces; strict mode's report at an image's load uses an internal interface (below). Strict mode's intended design ([`facts.md` §10.3](facts.md#strict-intended); [W-66](../record/todo.md)) needs:
-- **A deletion hook (1′):** called at method deletion (`jl_method_table_disable`). It may refuse.
-- **A hook for a binding redefined from another module** (facts §2.2's exception), at its source.
-
-**Used as it is, an internal interface:** validation's own log, `Compiler.ReinferUtils.debug_method_invalidation(true)` (`Compiler/src/reinfer.jl`), apart from the runtime's `jl_debug_method_invalidation`. Each edge that fails is an entry `(edge, "insert_backedges_callee", codeinst, matches)`, and each CodeInstance made invalid is an entry `(child, "verify_methods", cause)`. Julia also writes an `insert_backedges_callee` entry for a binding's edge that holds where the binding has no partitions: whether code was rejected is its `verify_methods` entry, or its world range after the load (`max_world`), not that entry. A fold that holds writes none. TraitWorld keeps it on in strict mode and reads it after each load. It may change with Julia. Its Julia form would pass the entries per image to a callback from `_include_from_serialized`.
-
-A "what would this definition invalidate" query is not needed: code of the facts owner holds facts at concrete signatures, and the walk through the plain code it rests on decides (facts §10.2).
-
----
-
-## 6. Changes useful without traits
-
-Each of these applies to all code, plain Julia's included.
-
-**Planned:** propose them upstream; the two inliner changes after broader measurement in plain Julia. Their upstream status is in [`../design/julia-changes.md` §4](../design/julia-changes.md#4-upstream-status).
-
-### 6.1 An invoke keeps the exact specialization over a widened varargs tail
-
-**Status: Implemented.**
-
-Lives in `Compiler/src/ssair/inlining.jl` (`compileable_specialization`, `only_vararg_widened`).
-
-**Meaning.**
-- When the inliner emits an `:invoke` for a call inferred at a dispatch tuple, it normally invokes the compileable signature.
-- When the compileable signature only widens a varargs tail to `Vararg`, and the exact specialization has code in the cache, the invoke names the exact specialization.
-- Otherwise the widened specialization would be inferred again at `Any` arguments and box every argument.
-
-**Rules.** Julia's other widenings stay: a type or a function passed to an argument that does not specialize on it. They keep the number of compiled specializations small.
-
-### 6.2 An inference cycle's members inline each other
-
-**Status: Implemented.**
-
-Lives in `Compiler/src/typeinfer.jl` (`finish_cycle`) and `optimize.jl` (`InliningState.cycle_results`).
-
-**Meaning.**
-- When an inference cycle finishes, its members are optimized callees first: the frames after a caller, before it.
-- Each optimized member is offered to the inliner of the members optimized after it.
-- A recursion through wrappers then keeps one call per turn, at the edge back to an earlier frame, instead of one call per member.
-
-### 6.3 The run-time `return_type` entry in the system image
-
-**Status: Implemented.**
-
-Lives in `Compiler/src/bootstrap.jl`.
-
-**Meaning.** The run-time entry, `_return_type(::PlainRTInterp, ::DataType)` (§1.4), and `_return_type(::NativeInterpreter, ::DataType)` are compiler bootstrap entries, so the system image holds their code, with the inference and optimizer methods inference reaches by dynamic dispatch for `PlainRTInterp`, as for `NativeInterpreter`. Otherwise the first `collect` of a generator or `map` over an empty collection in every session compiles the compiler for that interpreter (E-209).
-
-### 6.4 Reflection in the compiler's world
-
-**Status: Implemented.**
-
-Lives in `base/reflection.jl` (`invoke_interp_compiler`).
-
-**Meaning.** Reflection with an explicit `NativeInterpreter` (`code_typed(f, types; interp)` and its kin) runs the native compiler in the compiler's world, as reflection without one does. It applies when no reflection compiler is set.
-
-**Why.** Otherwise the compiler runs in the latest world, on code that later definitions invalidate.
-
-### 6.5 The dispatch profiler
-
-**Status: Implemented.** A tool, off by default.
-
-```sh
-JULIA_FACTS_DISPATCH_PROFILE=1 julia …
-```
+### 10.4 The member hook
 
 ```c
-void jl_facts_dispatch_profile_reset(void);   // zero the counts, to profile one region
-void jl_facts_dispatch_profile_print(void);   // print now; it also prints at exit
+void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothing, or throws
 ```
 
-Lives in `src/gf.c`.
+- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked. Its key needs no hook (§6.1).
+- **The runtime calls it at the member's first use,** where no answer is kept for (member type, set):
+  - at dispatch, before the instance lookup, and at a split's table miss or `keep`;
+  - in the compile queue, before a CodeInstance that relies on the member is published. A failing check compiles that use as the `ImplementError`.
+- **Inference never calls it,** and no runtime lock is held while it runs. It runs in the latest world. A per-(member type, set) state marks a check in progress; a check that reaches its own member again raises.
+- The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
+- **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Meaning.** It counts dynamic calls:
-- **per callee method,** by the path the lookup took (the per-call-site cache, the leaf cache, the method cache's search, the full lookup), separately for calls from code of owner `:facts` and from code of the default owner;
-- **per call site,** by the calling code's return address and the callee.
-
-At exit it prints the 40 methods and the 40 call sites with the most calls.
-
-**Rules.** Off, it costs one load and a branch per dynamic call.
+**Status:** Planned (W-106); mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
-## 7. Traits in the type system
+## 11. Changes useful without traits
 
-**Status: Planned.** Built in stages on branch `unified` of the julia repository, from v1.13.2 ([the plan](../plans/2026-11-05-unification-synthesis.md); W-83, W-97 to W-104). Nothing of it is in `julia-1.13/`. Whether level 1 (membership as subtyping, §7.2) and level 2 (one dispatch, §7.3, §7.4) are adopted is decided by the user at the plan's gates B and C.
+Each applies to all code.
+- **An invoke keeps the exact specialization over a widened varargs tail,** where the compileable signature only widens a `Vararg` tail and the exact specialization has code.
+- **An inference cycle's members inline each other:** when a cycle finishes, each optimized member is offered to the inliner of the members optimized after it.
+- **The run-time `return_type` entry in the system image:** `_return_type(::PlainRTInterp, ::DataType)` is a compiler bootstrap entry.
+- **Reflection in the compiler's world** with an explicit `NativeInterpreter`.
+- **The dispatch profiler:** `JULIA_FACTS_DISPATCH_PROFILE=1` counts dynamic calls per callee method and per call site.
 
-**The intended shape:**
-- **Membership as subtyping,** by declaration after the type is defined: `T <: ColTable`, `x isa ColTable` ([`traits.md` §14](traits.md#14-membership)). Memberships: §7.2.
-- **One dispatch:** a bounded method is a Julia method at its set. A set ranks above `Any` and below every other type at a position (§7.1, §7.3).
-- **Guards** where a later membership could change a compiled call (§7.1, §7.4).
-- **Keys as compilation signatures:** code compiled per key by Julia's own specialization, with no entries, workers or views (§7.5).
-- **Compiling by facts as a property of the method,** with one CodeInstance per MethodInstance and policy (§7.6), and a slot that lets a caller survive a callee's recompilation to an equal result (§7.7).
-- **Memberships in package images,** and a record of each CodeInstance's dependencies complete enough for a machine-code cache across sessions (§7.8).
-- **Syntax:** `trait`, `implement`, `Self`, a trait's name in a field meaning a value that keeps its attribute (`Kept{X}`), bounds in `where` clauses and on struct parameters.
+**Status:** Planned (W-100). Upstream proposals: [`../design/julia-changes.md`](../design/julia-changes.md).
 
-**What it replaces:**
-- the encodings TraitWorld needs today: entry methods at `Any`, tags for trait sets, sentinel methods, `conforms`, views and witnesses ([lowering §17](lowering.md#17-encodings-until-traits-are-in-the-type-system));
-- in the product setting, the second cache owner of §2: plain code and code compiled by facts of one method do not live side by side. The owner stays a token for the test bed `all` and for `return_type`'s cache (§7.6).
+---
 
-**Why last.** It changes the type system, so it comes once the demonstrators' numbers support the proposal.
+## 12. Status index
 
-### 7.1 Memberships and dispatch
-
-**Status: Planned** (W-83's level 2, one dispatch; [open issue 136](../open-issues.md#closed-items), closed). Built by W-99 (dispatch) and W-112 (guards); until the guards exist, a membership invalidates as a method insertion would ([C-18](#deviations)).
-
-A bounded method `f(x::X)` is a method at the set `X`. Memberships and dispatch follow these rules:
-
-- **Memberships only grow.** A membership `S ∈ X` holds from the world in which it is declared.
-- **Positive answers fold, negative ones never.** Inference (`isa`, `<:`) and dispatch may rely on `S ∈ X`. They never rely on `S ∉ X` for an open set.
-- **Except where the answer is final:**
-  - a set whose members join only with their own definition (`struct S <: A`), as every abstract type of plain Julia, so plain Julia carries no guards;
-  - Base's abstract types, which are closed: their members come only from `struct S <: A`;
-  - Core's kinds (`DataType`, `UnionAll`, `Union`, `Module`, `TypeVar`, the builtins, opaque closures, the memory types), which are never members of a set.
-- **A guard** stands at a compiled call `f(s::S)` where a method of `f` on an open set that `S` is not a member of would beat the method selected now (a fallback `f(::Any)`, a method on a less specific set, or none):
-  - it reads a cell per (type, set), holding the membership's `min_world`, against the caller's world;
-  - the cell is fixed when the guard compiles: a load and a compare, never a lookup in a table;
-  - then it calls the bounded method, else the method selected now;
-  - the guarded call's result is the bounded method's declared result joined with the selected method's.
-- **Specificity per argument:** a plain type other than `Any` first, then a set, then `Any`. Between sets, a subtrait first. So a later membership never beats a method on the type's own supertypes.
-- **Memberships invalidate nothing.** Methods invalidate as in Julia, under ownership ([facts §2.2](facts.md#g2)). Ownership decides who may declare a membership ([traits §10.1](traits.md#101-who-may-implement)).
-- **Sealed sets** (Optional; [PE-19](../record/performance-explorations.md)): a set whose memberships are all declared with the member type's definition or in the member's own package (not in an extension) may fold its negatives too. How a set is declared sealed is not settled.
-
-The evidence: E-252 (memberships declared in extensions arrive after code that depends on them is compiled), E-255 (Core's kinds), E-259 (the guards in the ports' sessions, and a guard's cost, [evidence §2](../design/evidence.md#2-run-time)).
-
-### 7.2 Memberships
-
-**Status: Planned** (W-98). Built in part on branch `unified`; its audit is W-97.
-
-**A set** is an abstract type whose `TypeName` has the `open` bit.
-- A trait declaration sets it. `abstract type A end` leaves it clear. A set is open from its declaration.
-- Base's abstract types are closed.
-- Core's kinds carry a `never_member` bit. A membership of one of them is refused.
-
-**A membership** is an immutable entry on the member's `TypeName`, never on the set's. The member is a type, a family of types, an abstract type or another set:
-- its fields: the set; the member pattern (`S`, or `S{T} where T` for a family); the set's instance for the pattern (`X`, `X{T}`); the key (§7.5); `min_world` and `max_world`; the declaring module; the forwarding field, if any;
-- the list of a `TypeName`'s entries is replaced copy-on-write, so readers take no lock;
-- `struct S <: X` for an open `X` adds an entry with the type. It is final: it holds from the type's definition;
-- `jl_declare_membership(member, set_instance, key, declarer, by)` declares one. The library checks ownership and the contract before the call ([traits §4.9](traits.md#49-checks-at-the-declaration), [§10.1](traits.md#101-who-may-implement)); the runtime records the declarer.
-
-**Membership is transitive.** `A <: B` and `B <: C` imply `A <: C`, whichever link is a supertype, a membership or a set's membership in another set:
-- `@implement B S` declares `S`'s entry for `B`. `@trait B <: A` declares `B`'s entry for `A`. So `S <: A`.
-- `struct S <: AbstractFoo` with an entry of `AbstractFoo` for `X` gives `S <: X`.
-- A generic implementation, `@implement GTable R where {R: Indexable{Vector{Float64}}}` ([traits §4.8](traits.md#48-generic-implementations)), is the membership of `Indexable{Vector{Float64}}` in `GTable`. A family over an abstract type, `G where {G <: AbstractGraph}`, is the membership of `AbstractGraph` in the set.
-- `<:`, `isa`, intersection and dispatch read the same transitive relation. So `isa(x, T)` and `typeof(x) <: T` agree.
-- A composed membership holds from the latest `min_world` of its links; with several chains, from the earliest of those.
-- A membership that would close a cycle among sets is refused: it would make two sets equal.
-- A type that conforms to `B` still implements `A`'s operations by its own implementation ([traits §3.6](traits.md#36-supertraits-and-bundles)). That is a check of the library's; the membership follows from the chain.
-- **Open:** a family whose parameter an equation defines that is not a pattern over the family's variables ([open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)).
-
-**Worlds.** A membership is declared as a method is inserted:
-- under the world counter's lock, the entry gets `min_world = counter + 1`, is published, and the counter advances;
-- `@implement` lowers to the declaration followed by `Expr(:latestworld)`, so the declaring code sees its own membership, as it sees its own method definitions;
-- a task in an older world does not see it.
-
-**Memberships only grow.** An entry is never removed. A redeclared implementation gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it (a walk by key). It is a stakeholder's change ([facts §2.2](facts.md#g2)).
-
-**Subtyping.** A membership is one more supertype of its member:
-- where `S`'s supertype chain fails to meet an open `X`, `jl_subtype` takes the entries of `S` and of each type on `S`'s chain; for each that matches, it continues the same walk from the entry's instance (`subtype(instance, X, e)`), in the same environment, as it continues from a supertype;
-- so entries of sets in sets are followed transitively, and a miss is `false`;
-- a set's parameters are associated types, one value per member ([traits §3.4](traits.md#34-parameters-and-associated-types)), and are invariant, as Julia's parameters are: with `S`'s entry for `X{Int}`, `S <: X{Int}`, `S <: X{<:Real}` and `S <: X{>:Int}` hold, and `S <: X{Real}` does not;
-- the existential variables of `X{<:T}` and the bindings of a method's `where` clause are the walk's own, so dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
-
-**Three layers** for questions about open sets:
-- `<:` and `isa` read the entries: the answer in the current world.
-- `jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache stay exact in the current world. A known member keeps the exact result; a non-member gives `Union{}`. So dispatch's match construction and the inliner's union split see only members.
-- `jl_could_join(S, X)` answers the forward-looking question: whether `S` could become a member of `X`. Inference's lattice and the guard's shadow query (§7.4) use it; dispatch's match construction does not.
-
-**Negatives are never folded for an open set** (§7.1), and the test is structural:
-- `has_open_set(t)` is true when `t`, a parameter of `t` or a member of a union in `t` is an open set. It is cached on the type object.
-- `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative. So `isa(t, Tuple{X})` with `t::Tuple{S}` is not folded to `false`.
-
-**Positives fold through entries only.** A fold of `S <: X` to `true` raises the CodeInstance's `min_world` to the entry's, so a task in an older world never runs code that assumed the membership.
-
-**`Type{S}` as a member** ([traits §4](traits.md#4-implementations), open issue 91's decision): the entry's pattern is `Type{S}`. `jl_isa`'s branch for a type value and `intersect` consult such entries.
-
-**Inference asks in the world it infers for.** Membership queries during inference run at the query's world, not at the world the compiler runs in.
-
-### 7.3 One dispatch
-
-**Status: Planned** (W-99). Built in part on branch `unified`; its audit is W-97.
-
-- **A bounded method is a plain method** at `Tuple{typeof(f), X, …}`. Nothing is generated beside it: no entry at `Any`, no worker, no untyped fallback, no keyword sorter of its own.
-- **The method table:** a method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain never names the set.
-- **Specificity per argument** (§7.1) lives in `type_morespecific_`: at a position, a closed type other than `Any` is more specific than an open set. Open against open is ordered by a set-in-set entry (`B <: A`), else unordered. So `Method.interferences`, `detect_ambiguities` and Julia's insertion walk order these pairs as they order any others, and inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts.
-- **Match world ranges:** a match through an entry carries the entry's `min_world` into its valid worlds, at fixed, vararg and union positions.
-- **Abstract queries:** a bounded method at an abstract query whose type is not a member is pruned, as any method with an empty intersection is.
-- **The ambiguity report at a membership:** at `jl_declare_membership`, for each function with a method on the new set and a method on another set the member is in, and no method on both, a warning names the pair. It is an error where strict mode protects ([traits §10.3](traits.md#103-strict-mode)). A pair that a third method dominates at every member is not reported. An index from each set to the methods that name it serves the report.
-- **A membership lowers dispatch caches and invalidates no code** (§7.1): the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member is lowered, so the next call looks up again. Compiled code that a membership could change carries a guard (§7.4).
-
-### 7.4 Guards and cells
-
-**Status: Planned** (W-112; the stages revised under [the draft reference](../reference-unified/README.md) by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
-
-- **The shadow query.** Inference at a call `f(s::S)` with `S` concrete selects a method `m₀`. It also asks for the methods of `f` on open sets `Z` that `S` could join (`jl_could_join`) and that would beat `m₀` at `(S,)`. A method matched through `S`'s supertype chain, other than `f(::Any)`, has none. Each such pair `(Z, position)` is a shadow.
-- **The cell.** For each shadow, inference records an edge to a membership cell: one mutable object per (member type object, set) for a parametric member, per (member typename, set) otherwise. The compiler creates it on demand and hangs it on the member's `TypeName`. Its `min_world` is `typemax` until an entry matches, then the entry's.
-- **The guard** is a load of the cell's `min_world`, a compare against the task's world, and a two-way branch, emitted as the inliner's union split emits its branches. The slow branch is a full dispatch with no edge; the fast branch is the static call to `m₀`. LLVM hoists the load out of a loop.
-- **The guarded call's result** is the bounded method's declared result joined with `m₀`'s ([§7.5](#75-keys-attributes-and-the-check), the declared result on `Method`); `Any` where none is declared.
-- **Where guards do not arise:** inside bounded code (an argument there is a member by construction); at a final non-member (§7.1); where `m₀` matched through the chain and is not `f(::Any)`; at a function with no method on an open set.
-- **A method on an open set defined later** invalidates the compiled callers that its insertion reaches (§7.3), and they compile again with the guard.
-
-### 7.5 Keys, attributes and the check
-
-**Status: Planned** (W-109 to W-113; keys Optional, W-110: the stages revised under [the draft reference](../reference-unified/README.md) by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
-
-**A key is a type.** `Core.Keyed{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F` ([traits §6.7](traits.md#67-what-compiled-code-is-compiled-for)):
-- `S <: Keyed{X, R, F}` holds when `S`'s entry for `X` has that key. It is a case of `subtype` as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`;
-- the erased key is `X` itself;
-- `Keyed` is never written by a user. It prints as the key wherever it appears: `ColTable at Vector{Vector{Float64}}`, in `show`, in stack traces (`show_tuple_as_call`), in `MethodError` hints and in reflection ([traits §12](traits.md#12-printing)).
-
-**Per-key code through the compilation signature.** A bounded method carries bits for its bound positions:
-- at a `Compiled` position, the compilation signature maps a concrete member `S` to `Keyed{X, R, F}` from `S`'s entry, by the path `@nospecializeinfer` takes (`get_nospecializeinfer_sig`'s analogue), so inference runs once per key, not per member;
-- at a `Dynamic` position, the compilation signature is the erased key `X`;
-- so one `(method, tuple)` has two compilation signatures: the key for a static caller that knows `S`, the erased key for a dynamic one. Keyed instances are cached with their original tuple (`cache_with_orig`), so the leaf cache maps each concrete tuple to its keyed instance.
-
-**The calling convention of a keyed argument** is the key's parts, for a static caller:
-- the receiver by its own convention;
-- each declared field that is `@const`, or of an immutable member, by value;
-- each writable declared field as a field reference (the object and an offset), so a write reaches the user's object;
-- the object itself, boxed, where the method may keep the value (the keep analysis, an escape pass of inference).
-
-**The boxed adapter** serves a dynamic call: one wrapper per keyed CodeInstance that reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the dynamic call does today ([evidence §2](../design/evidence.md#2-run-time)), there is one wrapper per member instead (W-110 measures it).
-
-**Attributes are the choice of compilation signature:**
-- `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are Core types holding the object; each is a member of `X` at the erased key by a rule of `subtype`, not by an entry;
-- `Dynamic{X}` reaches the erased instance; `Compiled{X}` dispatches on its object's type to the keyed instance; `Kept{X}` branches on its flag first;
-- casts are constructors of these types; `convert(Kept{X}, x)` is how a plain value enters a field declared with a set's name;
-- `Callable`'s `Dynamic` form keeps the `:caller_world` thunk ([§3.1](#31-the-cfunction-calling-convention-caller_world)).
-
-**A declared result on `Method`.** Lowering records `f(…)::RT` as the method's declared result. Inference may read it as an upper bound, because the body asserts it. The guards (§7.4), `Callable` and `return_type` use it.
-
-**The definition-time check** ([traits §9](traits.md#9-checks-and-when-they-run)) is one inference of the method at its erased signature under a check flag of the native interpreter. Only the contract's operations resolve on the bounded argument. Any other use of it is a run-time site, reported as `TraitUseError` or recorded as the method's classification "open".
-
-### 7.6 Compiling by facts, per method
-
-**Status: Planned** (W-100).
-
-- **The policy is the method's:** `facts` or plain, from the module option ([§2.1](#21-the-module-option)) and the method flag ([§2.2](#22-the-method-flag-boundaries-and-always-facts-methods)), which keep their spellings and are saved with the method, so package images keep them. The compiler's own code is plain whoever calls it ([facts §6.4](facts.md#the-compilers-own-code)). Under `facts`, inference commits only at fact signatures ([facts §3](facts.md#facts-and-fact-signatures)) and marks run-time sites ([§1.3](#13-run-time-sites)). The decision is keyed by the caller's method.
-- **One CodeInstance per MethodInstance, policy and flags.** In the product setting there is no second owner. The test bed `all` is a default policy for the session, switched by the environment variable, not an owner of its own.
-- **The dependency record** of a CodeInstance names everything its code assumed:
-  - dispatch edges, bindings and folds, as today;
-  - result edges: a call emitted as a call whose result type, exception type, effects or constant the caller used as a type. Nothing else is a result edge: constant propagation, concrete evaluation and inlining depend on the callee's code, and record a code edge;
-  - the identity of each inlined method: the method and a digest of its lowered code;
-  - the layouts of the types whose fields the code reads;
-  - membership cells (§7.4) and the entries of folded positives (§7.2).
-- **G2 is a predicate on the record,** computed once when the CodeInstance is finished and kept as a bit in its flags: every dispatch edge is at a fact signature, every inlined method's own record satisfies G2, and result edges may go anywhere. Strict mode and the concreteness checks read it.
-- **A facts caller of a plain callee** holds a result edge to it where it calls it by an emitted call. When the callee is recompiled to an equal result, the slot of §7.7 keeps the caller; otherwise the caller is invalidated with it ([facts §6.5](facts.md#65-under-traits-in-the-type-system)).
-- `fold_call`, `known_type`, `split_call` with the table of a call's targets, and `return_type`'s rule (§1.4, §4) carry over unchanged.
-
-### 7.7 The code slot
-
-**Status: Planned** (W-101). The estimate E-261 shows a material share of the sessions' invalidated code that it keeps ([evidence §1](../design/evidence.md#1-the-guarantee)).
-
-- One slot per (MethodInstance, calling convention) holds the current valid specialization's pointer and its validity. It is written when a CodeInstance of that MethodInstance compiles and when one is invalidated.
-- A static call that holds a result edge to its callee loads its target through the slot. Every other call binds the callee's address, as today.
-- When a callee is replaced, a caller that holds only result edges to it is marked for revalidation, not invalidated. The next lookup of the caller compares each result edge against the callee's current result: equal, and the caller is valid again in the current world; different, and it is inferred again.
-- With the slot, G2 covers a facts caller of a plain callee whose result is unchanged by the callee's recompilation.
-
-### 7.8 Images, and the machine-code cache
-
-**Status: Planned** (W-108, W-114; the stages revised by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
-
-- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds. Validation knows the membership edge kind.
-- **A machine-code cache across sessions is the goal of the record.** The record of §7.6 is kept complete, and names its targets by identities stable across sessions (a method by module path, name, signature and a digest of its lowered code; a type by path and layout), so that a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
-- No part of §7 stores a world, a session object or an address where a stable identity serves.
+| Interface | Status | Section |
+|---|---|---|
+| the facts inference, fact signatures, run-time sites, `return_type`, effects | Planned (W-100) | §1 |
+| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies | Planned (W-100) | §2 |
+| the dependency record; G2 as a predicate | Planned (W-100) | §3.1, §3.2 |
+| the code slot | Planned (W-101) | §3.3 |
+| sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Planned (W-98); built in part | §4.1–§4.5 |
+| one instance per member | Planned (W-98) | §4.6 |
+| three layers; negatives never fold; positives through entries | Planned (W-98) | §4.7, §4.8 |
+| intersections `All{X, Y, Z, …}` | Planned (W-98) | §4.9 |
+| type values as members | Planned (W-98) | §4.10 |
+| methods at sets in the table; specificity; match ranges | Planned (W-99); built in part | §5.1–§5.3 |
+| the ambiguity report at a membership | Planned (W-99) | §5.4 |
+| guards and cells | Planned (W-112) | §5.6 |
+| `TraitKey`; compilation signatures per key, per type, once | Planned (W-106): per type, once; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
+| the attribute bits at a call | Planned (W-111) | §6.3 |
+| calls from code compiled per key | Optional (W-110) | §6.4 |
+| the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
+| the definition-time check and the classification | Planned (W-109) | §6.7 |
+| a declared result on `Method`; the operation's flag | Planned (W-109) | §6.8 |
+| casts at the call; `keep` | Planned (W-111) | §6.9 |
+| operations on a value typed by its trait; the split; the table | Planned (W-109) | §7.1–§7.3 |
+| `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
+| world-checked caches | Planned (W-109) | §8 |
+| memberships in images; the record toward a machine-code cache | Planned (W-108; the G2 keep rule W-100) | §9 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-108, W-114, W-106); field-offset intrinsics Optional (W-110) | §10 |
+| changes useful without traits | Planned (W-100) | §11 |
 
 ---
 
 ## Deviations
 
+Branch `unified` at c3f0b4bc11 (the stage-1 rework, W-98, is begun and uncommitted). IDs are shared with the record's other references and never reused.
+
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| C-1 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code)]. | — | — |
-| C-2 | — | *Retired*: see [§2.3](#23-the-owners-and-the-mode-and-owner-of-a-methodinstances-code), the setting. | — | — |
-| C-3 | [§3.1](#31-the-cfunction-calling-convention-caller_world), [§3.2](#32-the-per-call-site-dispatch-cache), [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | A cached entry stays valid until invalidation lowers what it copies. | Exact-type entries and `:caller_world` entries are capped at the latest world when made. After any method definition, every such cached site misses once and looks up again. Wildcard entries are not capped. Every pointer of a split table misses once in its thunk after each method definition: an allocation and a lookup, per pointer (acceptance G1.24, julia-1.13 `split-table`). | `src/gf.c:4670`–`4673`; `src/runtime_ccall.cpp:424` |
-| C-4 | — | *Retired*: see [§2.5](#25-dispatch-from-facts-code)]. | — | — |
-| C-5 | — | *Retired*: see [§2.5](#25-dispatch-from-facts-code). | — | — |
-| C-6 | [§2.1](#21-the-module-option) | A module's other compiler options apply to its code in both modes (Planned). | The module option `compile` (`min`, `no`) is ignored for code of owner `:facts`. | `src/gf.c:3928`–`3933` |
-| C-7 | [§5.2](#52-field-offset-intrinsics) | The intrinsics read and write a field of any stored type. | A field stored inline whose type holds references is refused with an error, in codegen (runtime call) and in the runtime. | `src/runtime_intrinsics.c` (`jl_getfield_at_offset`, `jl_setfield_at_offset`); `src/intrinsics.cpp` (`emit_getfield_at_offset`) |
-| C-8 | [§4.2](#42-compilersplit_call-the-call-site-split) | `split_call(K, RT, f, x, args...)` is `f(x, args...)::RT` on every path. | Only the split asserts `RT`. When `x`'s type is concrete or `K` has no candidates, the inliner rewrites the call to `f(x, args...)` without the assertion. So it does when no split is built although `x`'s type is open: the candidates and the other arguments' unions exceed `max_union_splitting`, no candidate is admitted by `x`'s type, or inlining is off. Inference types the open call `Any` in every case. The method itself asserts it, so compiled and interpreted code can differ on a result that is not an `RT`. TraitWorld asserts the result after the call. | `Compiler/src/facts.jl` (`split_call`); `Compiler/src/ssair/inlining.jl` (`process_simple!`) |
-| C-9 | [§1.4](#14-return_type) | A plain answer is folded when every edge of it rests on facts. | The walk gives up after 2000 `CodeInstance`s, and the site is answered at run time. The walk is not memoized, so each fold walks again. | `Compiler/src/facts.jl` (`rests_on_facts`) |
-| C-10 | — | *Retired*: see [§1.4](#14-return_type)]. | — | — |
-| C-11 | — | *Retired*: see [§1.4](#14-return_type). | — | — |
-| C-12 | — | *Retired*: see [§2.9](#29-what-package-images-keep). | — | — |
-| C-13 | — | *Retired*: see [§1.5](#15-effects). | — | — |
-| C-14 | [§4.3](#43-what-follows-the-split-the-table-of-a-calls-targets) | The targets and thunks of a split table for declared implementations are compiled ahead, into the declaring package's image. | Each pointer is made at the type's first use at the call's signature in the session: its maker, thunk and target compiled (E-145). | `base/splittable.jl` (`_split_table_miss!`) |
-| C-15 | — | *Retired*: see [§1.3](#13-run-time-sites). | — | — |
-| C-16 | [§2.5](#25-dispatch-from-facts-code) | A CodeInstance made for an owner's call is that owner's, so its next call finds it. | Where inference failed, the copy of the unspecialized code at the instance's own signature is made for the owner `nothing`; the facts owner misses it and makes another at each such call (stock Julia's plain owner misses there too). A rare path: only after inference failed. | `julia-1.13/src/gf.c:4069` (`jl_compile_method_internal_owner`); `experiments/factscompiler/w89/README.md` |
-| C-17 | — | *Retired*: see [§5.4](#54-planned-hooks-for-strict-modes-intended-design), validation's own log. | — | — |
-| C-18 | [§7.1](#71-memberships-and-dispatch), [§7.3](#73-one-dispatch) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call that a later membership could change ([§7.4](#74-guards-and-cells)). | Until the guards exist (W-112), `jl_declare_membership` replays Julia's method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | branch `unified` c3f0b4bc11: `src/datatype.c:288` (the call), `src/gf.c:2105` (the replay in the insertion walk) |
-| C-19 | [§7.2](#72-memberships) | A type value is a member of a set only by an entry for `Type{S}`; `S <: X` and `S isa X` are different questions. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a bounded method on `X` is called with the type object `S` ([the audit](../reviews/2026-11-06-oc-build-audit.md) A1). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
-| C-20 | [§7.5](#75-keys-attributes-and-the-check) | `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are members of `X`: subtyping, intersection and dispatch agree. | Subtyping and `isa` erase a wrapper to its set, intersection and the method table's match do not: a call with a `Dynamic{X}` reaches the fallback, not the method on `X` (A2). | branch `unified` c3f0b4bc11: `src/subtype.c` (`intersect`); probe P2 |
-| C-21 | [§7.2](#72-memberships) | Any member pattern a type can be written in is a membership. | A pattern with more than eight type variables is accepted and never matches (A3). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_env_match`); probe P3 |
-| C-22 | [§7.2](#72-memberships) | Membership is transitive; `<:`, `isa`, intersection and dispatch read one relation. | `isa`, intersection and dispatch compose memberships through set-in-set entries; `<:` reads direct entries only, so `<:` is not transitive across memberships and `isa(x, T)` can differ from `typeof(x) <: T` ([the audit](../reviews/2026-11-06-oc-build-audit.md) A8 and its addendum). Entries of the types on a member's supertype chain are not consulted. | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_answer_direct` in `subtype`'s chain-miss fallback); probe P4 |
-| C-23 | [§7.2](#72-memberships) | Set-in-set memberships never form a cycle. | A cycle closing through a set's second entry is accepted (A6). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`); probe P5 |
-| C-24 | [§7.1](#71-memberships-and-dispatch) | Core's kinds, the builtins included, are never members. | A builtin function's type is accepted as a member (A9). | branch `unified` c3f0b4bc11: `src/jltypes.c` (the `never_member` bits); probe P6 |
-| C-25 | [§7.2](#72-memberships) | `@implement` lowers to the declaration followed by `Expr(:latestworld)`; the runtime does not set a task's world. | `jl_declare_membership` sets the declaring task's `world_age` to the entry's world (A12). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`) |
-| C-26 | [§7.2](#72-memberships) | A membership is consulted as a supertype within subtyping's walk, so `X{<:T}`, `X{>:T}` and `where` variables see members. | The fallback asks the entries in a fresh subtyping query outside the walk: with `S`'s entry for `X{Int}`, `S <: X{<:Real}`, `S <: X{>:Int}`, `S() isa X{<:Integer}` and dispatch at `f(::X{<:Integer})` are all false ([the audit](../reviews/2026-11-06-oc-build-audit.md), second addendum, A15). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_holds`, called from `subtype`'s chain-miss fallback); probe P8 |
+| C-1 to C-17 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/compiler.md` | — | — |
+| C-18 | [§5.5](#55-a-membership-lowers-dispatch-caches) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call a later membership could change. | Until the guards exist, `jl_declare_membership` replays the method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | `src/datatype.c:288`, `src/gf.c:2105` |
+| C-19 | [§4.10](#410-type-values) | A type value is a member only by an entry for `Type{S}`. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a method at `X` is called with the type object `S`. | `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
+| C-20 | [§6.1](#61-the-key-as-a-type), [§6.9](#69-casts-and-keep), [traits §7.7](traits.md#77-dynamicx) | `Dynamic{X}` is an ordinary struct of `Core`, a member of `X` by a membership the library declares; the key's type is `Core.TraitKey`. | The branch defines `Core.Keyed`, `Core.Dynamic`, `Core.Compiled` and `Core.Kept`, the last three members of `X` by an erasure rule in subtyping that intersection and the method table's match do not follow: a call with a `Dynamic{X}` reaches the fallback, not the method at `X`. | `src/subtype.c` (`intersect`), `base/boot.jl`; probe P2 |
+| C-21 | [§4.2](#42-memberships) | Any member pattern is a membership. | A pattern with more than eight type variables is accepted and never matches. | `src/subtype.c` (`jl_membership_env_match`); probe P3 |
+| C-22 | [§4.4](#44-transitivity) | Membership is transitive; `<:`, `isa`, intersection and dispatch read one relation; the entries of a member's supertype chain are consulted. | `isa`, intersection and dispatch compose memberships through set-in-set entries; `<:` reads direct entries only; entries along the supertype chain are not consulted. | `src/subtype.c` (`jl_membership_answer_direct`); probes P4, P7 |
+| C-23 | [§4.4](#44-transitivity) | A membership that would close a cycle among sets is refused. | A cycle closing through a set's second entry is accepted. | `src/datatype.c` (`jl_declare_membership`); probe P5 |
+| C-24 | [§4.1](#41-sets) | The builtins' types are never members. | A builtin function's type is accepted as a member. | `src/jltypes.c` (the `never_member` bits); probe P6 |
+| C-25 | [§4.3](#43-worlds) | The declaration is followed by `Expr(:latestworld)`; the runtime does not set a task's world. | `jl_declare_membership` sets the declaring task's world age to the entry's world. | `src/datatype.c` (`jl_declare_membership`) |
+| C-26 | [§4.5](#45-subtyping) | A membership is a supertype inside subtyping's walk, so `X{<:T}`, `X{>:T}` and `where` variables see members. | The fallback asks the entries in a fresh query outside the walk: with `S`'s entry for `X{Int}`, `S <: X{<:Real}` and dispatch at `f(::X{<:Integer})` are false. | `src/subtype.c` (`jl_membership_holds`); probe P8 |
