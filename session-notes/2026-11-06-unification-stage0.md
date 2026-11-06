@@ -96,3 +96,42 @@ And, while the analysis was written:
   - Every section's disposition.
 - No port or fork declares a field mapping (grep, for Q7).
 - W-98 waits for W-105: Q4, Q5, Q8 and F12 change what stage 1 builds. The uncommitted stage-1 work in `julia-unified` is left as it was.
+
+## The draft reference
+
+The user (2026-11-06), after the analysis:
+
+> SO we should have a new reference that describes the unified design as a greenfield fresh document that does not refer to the previous design and changes. This should be a new reference folder with four new documents. Then I would like to understand the changes this implies for Dynamic and for error messages. Specifically I think its valuable if we can have Dynamic or not as a trait and library default, that the user can override. Is that still feasible in the new design? Also do we keep the keys optimization where two trait bound methods for different types that have the same key can reuse code?
+
+And, while the draft was written:
+
+> I am looking at some other questions right now: Q7: (a), Q2: (a), Q5 (a) spelled All{X,Y,Z,...}, Also I think Callable deserves special handling. Q8 (c) declared membership stays as a design goal. q-a,b,c your call. For the Gaps: Make decisions, think about existing languages, only where no principled option exists, come back to me.
+
+- **The draft:** [`../writeup/reference-unified/`](../writeup/reference-unified/README.md), with a README and `traits.md`, `facts.md`, `compiler.md`, `lowering.md`, written from the ground up. Its README lists every choice (P-1 to P-19) with who made it.
+- **The attribute, as the user asked:** for each trait argument at each call, strongest first:
+  - a cast written at the call;
+  - what the value carries (code per key or compiled once passes its argument on so; a `Dynamic{X}`; a struct parameter's record);
+  - the library's default (`@nospecialize`/`@specialize` at the argument, then the module's option);
+  - the trait's default (`@default_dynamic`/`@default_compiled`);
+  - otherwise `Compiled`.
+
+  The mechanism: up to two compilation signatures per method and argument tuple, and attribute bits passed with a call.
+- **Keys stay:** a method fully bounded at an argument is compiled per key; members with equal keys share it.
+- **Errors:** `TraitBoundError` and `TraitArgumentError` have no cases left: Julia's `MethodError` (with the library's hints) and `TypeError` take them. `ImplementError`, `OwnershipError`, `TraitUseError` and `PirateError` stay ([traits §11](../writeup/reference-unified/traits.md#11-checks-and-errors)).
+- **The gaps decided, mine,** with Rust's and Swift's precedents (decision log §9). Each is marked mine for the user to confirm:
+  - defaults reached by every caller;
+  - casts at the call;
+  - `Dynamic{X}` as Rust's `dyn`/Swift's `any`;
+  - the guarded call from per-key code;
+  - the contract on the `TypeName`;
+  - candidates from the runtime's index;
+  - a family states its instance (open issue 140);
+  - `eltype(t)` in the contract (open issue 137);
+  - the member hook;
+  - `TraitKey`;
+  - `like` per type;
+  - a trait counting as concrete.
+- **Two items come back to the user** (open issue 142):
+  - `Callable`'s form;
+  - the attribute's last step (`Compiled`, Julia's rule, or what the caller knows).
+- Nothing built; W-98 still waits.

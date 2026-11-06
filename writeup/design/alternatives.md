@@ -385,3 +385,21 @@ The unified design is built on branch `unified` from an earlier attempt's branch
 - **Refusing methods at open sets until guards exist** (the review's H4 option (b)). Not taken: the replay of the insertion walk at a membership is less code and measures what a membership costs ([compiler C-18](../reference/compiler.md#deviations)).
 - **`Callable`'s `Dynamic` form on `OpaqueClosure`** (the exploration's D7). Not taken: an opaque closure fixes one source method and one world; a form that follows the caller's world re-creates the `:caller_world` thunk (the review's M9). To revisit if a measurement names a cost of the thunk.
 - **A trait's parameters covariant, or each parameter's variance derived from the trait's contract** (open issue 141; covariance was the user's first lean, derivation my proposal). Not taken: covariance for every parameter is unsound where the contract consumes the parameter (a call the check accepts fails at run time on a narrower member), and both forms give traits a rule abstract types do not have. With unification one rule holds for both: invariant parameters, `X{<:T}` and `X{>:T}` at the place of use (the user, 2026-11-06: "If we unify Traits and AbstractTypes, then we should follow that rule.").
+
+## Traits as abstract types: options not taken
+
+The draft reference ([`../reference-unified/`](../reference-unified/README.md), W-105) describes the design with traits as abstract types (the user, 2026-11-06). These are the options of [the analysis](../plans/2026-11-06-traits-are-abstract-types.md) §4 not taken.
+
+- **The unified design beside the current one in each reference** (Q1 (b)). Not taken: the user asked for a new reference written from the ground up (2026-11-06).
+- **Open methods at traits refused everywhere** (Q2 (b)). Not taken: a method on an abstract type may do anything with its argument; the user chose the classification with `bounded` as an option (Q2 (a)).
+- **Classification only, with no refusal anywhere** (Q2 (c)). Not taken: a library loses the guarantee that its functions are shared.
+- **Intersections by derived entries,** a `TypeName` per pair with an entry declared whenever a type joins the second (Q5 (b)). Not taken: a product of memberships to maintain and redeclare; the user chose the type constructor `All{X, Y, Z, …}` (Q5 (a)).
+- **No anonymous intersections,** every combination a named subtrait (Q5 (c)). Not taken: several traits at one argument and `Callable` at several signatures would need other forms.
+- **Field mappings served by a method of `getproperty` at the trait** (Q7 (b)). Not taken: a type's property names are its own, so two traits mapping one name differently conflict, and plain code would see the mapping. No port declared a mapping. The user chose stored fields of the declared name (Q7 (a)).
+- **Declared fields read through the trait with another spelling than `.`** (Q7 (c)). Not taken: `t.f` is how Julia reads a field.
+- **`struct S <: X` checked at its first use, or at its module's end alone** (Q8 (a), (b)). Not taken: the user (2026-11-06): "declared membership stays as a design goal"; the membership is declared and checked by `@implement X S`.
+- **`Dynamic{X}`, `Compiled{X}` and `Kept{X}` as Core types, members of `X` by a rule of subtyping** (the unified branch's form). Not taken: `Compiled{X}` is a member's own value and `Kept{X}` a field typed `X`; `Dynamic{X}` is a member by an ordinary membership, so intersection and dispatch need no special case (mine, P-5).
+- **Dispatch that looks through `Dynamic{X}` to the object's other traits.** Not taken: value-dependent dispatch outside the type system; Rust's `dyn` and Swift's `any` are usable through their own trait only, and `Dynamic{All{X, Y}}` names both (mine, P-5).
+- **Casts as marker values that pass dispatch** (`compiled_for(x)` a wrapper that is a member of every trait its object is in). Not taken: it needs a wrapper transparent to subtyping, and the method would receive the wrapper, not the value (mine, P-4).
+- **A family's equation evaluated on its pattern at the declaration** (open issue 140's earlier proposal). Not taken: the family states the instance itself, as Rust's generic `impl` states an associated type, and each member's check compares it with the equation (mine, P-16).
+

@@ -11,7 +11,8 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
   - `results.md`: what the demonstrators show, in plain words;
   - `porting.md`: how to port a package (was `writeup/porting-to-traits.md`).
 - **Core developers** (the precise rules and the major implementation choices):
-  - [`../reference/`](../reference/README.md): **the source of truth** for the intended shape (since 2026-10-19): `traits.md`, `facts.md`, `compiler.md`, `lowering.md`, each with a Deviations table (IDs T-, F-, C-, L-). [`../design.md`](../design.md) is the rationale; [`../design/implementation.md`](../design/implementation.md) and `mechanisms.md` were retired into the references (older documents cite their section numbers);
+  - [`../reference/`](../reference/README.md): **the source of truth** for the intended shape (since 2026-10-19): `traits.md`, `facts.md`, `compiler.md`, `lowering.md`, each with a Deviations table
+  - [`../reference-unified/`](../reference-unified/README.md): **a draft** of the four references for traits as abstract types, written from the ground up (W-105, 2026-11-06); it replaces `../reference/` when the user adopts it. Its choices and who made them: its README (IDs T-, F-, C-, L-). [`../design.md`](../design.md) is the rationale; [`../design/implementation.md`](../design/implementation.md) and `mechanisms.md` were retired into the references (older documents cite their section numbers);
   - [`../design/`](../design/), the chapters of the details:
     - `julia-changes.md`: every change to Julia as built (parts A–D, optimizer changes, pieces kept and reverted);
     - `evidence.md`: the current measurements, one table per demonstrator and experiment;

@@ -1,5 +1,7 @@
 # The references
 
+A draft of these four references for traits as abstract types, written from the ground up, is in [`../reference-unified/`](../reference-unified/README.md) (W-105). Until the user adopts it, this folder stands.
+
 The four references define the intended shape of the design. For that shape they are the source of truth: where any other document disagrees with them, they win. Each one also records, separately, where the current implementation deviates from it.
 
 | Reference | Defines | Wins on |
