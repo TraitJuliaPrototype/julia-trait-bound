@@ -122,7 +122,12 @@ On a machine shared with other people, without root:
   - keeps the Julia depot in `.julia-depot/` inside the workspace;
   - limits Julia, make and `jl` to 4 cores, with no core pinning;
   - sets `$J` (the patched Julia) and `$JSTOCK` (stock 1.13.2 through juliaup).
-- **Builds:** `tw-build.sh` as above. `tools-local/loadguard.sh <pgid>` pauses a build's process group while the machine's load is above 110 and resumes it below 90 (`HI`, `LO`).
+- **Builds:** `tools-local/build.sh <julia tree> [make target]` (from the design repository). It applies the rule for cores by load ([standing constraints](record/INDEX.md)):
+  - while the others' load is below half the cores, `make -j<half the cores>`; otherwise `-j4`;
+  - a wide build whose others' load reaches half the cores is stopped and continues at `-j4`;
+  - a narrow build pauses while the load is above 110 and resumes below 90 (`HI`, `LO`), as `tools-local/loadguard.sh <pgid>` does for any process group;
+  - niced, killed below 4 GB of available memory; the log `<tree>/tw-build.log` is time-stamped per line, ends with the wall time, the sampled peak RSS and `BUILD EXIT <rc>`.
+- **Subagents:** none on a shared host; see [`CLAUDE.md`](../CLAUDE.md).
 - **Module names** are those of the host it was written for. Adjust them elsewhere.
 
 ## Working with Claude Code

@@ -66,7 +66,13 @@ Everything worth remembering is kept in the project's notes and guidance: this f
 
 **On a shared host, `source env.sh` first.** It loads the compiler from modules, keeps the Julia depot inside the workspace and limits Julia and `experiments/tools/jl` to 4 cores. See [`writeup/setup.md`](writeup/setup.md).
 
+**Cores by load on the shared host** (2026-11-06, the user: "As long as load is this low, its fine to use more of the machine: You can use half the machine for compiles while it is mostly empty. Once it fills up to at least half load you restrict to four cores and sequential work."):
+- Check the load (`/proc/loadavg`) before each compile and before starting jobs side by side.
+- While the others' load is below half the cores, compiles may use up to half the cores. Build Julia with `tools-local/build.sh <tree>`, which chooses and enforces this.
+- Once the others' load reaches half the cores: 4 cores, one job at a time.
+
+**No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so.
 
 **No excessive benchmarking unless the work is specific performance work.** Otherwise run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
 
-The machine is shared. One Julia job at a time, niced; full builds alone, under a memory guard. Details and the push pattern: `writeup/record/INDEX.md` ("Standing constraints") and `session-notes/00-environment-and-workflow.md`.
+The machine is shared. Jobs niced; full builds under a memory guard; above half load, one Julia job at a time and full builds alone. Details and the push pattern: `writeup/record/INDEX.md` ("Standing constraints") and `session-notes/00-environment-and-workflow.md`.

@@ -23,3 +23,5 @@ site-src/
 /.julia-depot/
 /.jl-locks/
 /tools-local/logs/
+/julia-unified/
+/julia-vanilla/
