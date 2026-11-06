@@ -220,3 +220,12 @@ And, while the experiments ran:
   - §8's draft changes applied (P-31, P-32);
   - open issue 145 closed.
 - **The user's thought** became open issue 146, with a proposal: separate guarantees from mechanisms, and commit to "a membership invalidates nothing" and to keys' guarantee, with their stages late. The evidence's TraitCSV case (extension by implementation keeps the reader's code; CSV.jl's extension by methods discarded it, 2.5 against 0.19 s) shows the ecosystem pattern the guards' guarantee makes safe.
+
+## Keys: built late; the open decisions
+
+The user (2026-11-06):
+
+> A usecase for keys:  Operation only traits. That just guarantee functions of a certain signature exist. Keep them optional and build them late. Needs more investigation but is probably not urgent. Give me the open decisions concisely with recommendations
+
+- Keys: Optional, built late (P-29, W-110; decision log). Open issue 146's keys part decided; guards and the guarantee/mechanism rule remain open there.
+- The use case is open issue 147 (§2, not urgent). Under the draft's key, a member serving an operation by its own method is its own key, so operation-only traits share nothing. The investigation: a key that names what the operations resolve to.

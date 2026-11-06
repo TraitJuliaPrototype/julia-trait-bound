@@ -568,5 +568,5 @@ So the plan's gates measure what a mechanism costs or saves today; they do not d
 - keys: undeclared parts never cause a compile;
 - guards: a membership invalidates nothing.
 
-That is a decision for the user: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user), with a proposal. Until it is decided, keys stay Optional (W-110) as approved, and guards Planned after the first slice (W-112), with E-268 measuring the stopgap meanwhile.
+That is a decision for the user: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user), with a proposal. Until it is decided, keys stay Optional (W-110) as approved, and guards Planned after the first slice (W-112), with E-268 measuring the stopgap meanwhile. Keys were decided the same day (the user: "A usecase for keys: Operation only traits. That just guarantee functions of a certain signature exist. Keep them optional and build them late. Needs more investigation but is probably not urgent."): Optional, built late; the use case is open issue 147.
 

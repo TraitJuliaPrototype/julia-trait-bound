@@ -584,7 +584,7 @@ At each argument typed by a trait, a method is compiled:
 
 Which one: §7.3 and §7.5.
 
-**Status:** Planned (W-106: per type and once; W-111: the attribute that chooses). Per key: Optional (W-110; the user, 2026-11-06: "keys as optional is approved"). Whether the design commits to what keys guarantee: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user).
+**Status:** Planned (W-106: per type and once; W-111: the attribute that chooses). Per key: Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
 
 ### 7.2 The key
 
@@ -599,7 +599,7 @@ Which one: §7.3 and §7.5.
 - **At an argument typed by an intersection** `All{X, Y}`, the key is the member's key for each component; members with equal keys for every component share code.
 - A key prints as `ColTable at Vector{Vector{Float64}}` (§15).
 
-**Status:** Optional (W-110; the user, 2026-11-06: "keys as optional is approved"; [compiler §6](compiler.md#6-keys-and-the-attribute)). What keys need is Planned in the stages before them: the classification (§7.3, W-109), the contract on the trait's `TypeName` and the receiver each membership records ([compiler §4.1](compiler.md#41-sets), [§4.2](compiler.md#42-memberships); W-98, W-106). Whether the design commits to what keys guarantee: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user).
+**Status:** Optional (W-110; the user, 2026-11-06: "keys as optional is approved"; [compiler §6](compiler.md#6-keys-and-the-attribute)). What keys need is Planned in the stages before them: the classification (§7.3, W-109), the contract on the trait's `TypeName` and the receiver each membership records ([compiler §4.1](compiler.md#41-sets), [§4.2](compiler.md#42-memberships); W-98, W-106). Built late; a use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
 
 ### 7.3 Fully bounded methods
 
@@ -1100,7 +1100,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | overrides fixed; redeclaration | Planned | §5.11 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Planned (W-99) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Planned | §6.5 |
-| keys and shared code | Optional (W-110; open issue 146) | §7.2 |
+| keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
 | fully bounded and open methods | Planned (W-109) | §7.3 |
 | the attribute and what decides it | Planned (W-111) | §7.4, §7.5 |
 | casts at the call | Planned (W-111) | §7.6 |
