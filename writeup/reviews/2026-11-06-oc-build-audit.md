@@ -174,3 +174,14 @@
 | A4, A5, A7 | W-98 (A5), W-99 (A4, A7) |
 | A10, A11, A13 | W-98's list |
 | A14 | fixed: `tools-local/build.sh` (design repository) |
+
+---
+
+## Addendum (2026-11-06, later the same day): membership is transitive
+
+The user reversed decision 4 the same day: "I have reconsidered explicit membership. It must be transitive. So A <: B <: C has to imply A <: C." ([decisions](../record/decisions.md) §5; [compiler §7.2](../reference/compiler.md#72-memberships)). What changes in this audit:
+- **A8 reverses.** The attempt's composition is the basis, not something to remove. `subtype`'s chain-miss fallback composes too (it reads direct entries only today), and the entries of the types on a member's supertype chain are consulted, which the attempt does not do. Compiler C-22 is restated so; probe P4's intended answers become `true` for both questions, and probe P7 checks the supertype chain.
+- **The verdicts** for `src/subtype.c`, `src/typemap.c` and `src/gf.c` change from "remove the composition" to "keep the composition, extend it to `<:` and to supertype chains". The world range of a composed chain (the attempt's `best_lo`, the minimum over chains) is kept.
+- **A6 (the cycle check) matters more:** under transitivity, a cycle among sets makes them equal. The check must cover every path.
+- **D-M2-1 and D-M2-2** are resolved by extending the composition to `<:`, not by removing it.
+- The gate `m2_set_in_set` pins composition for `isa` and dispatch; its line 19 (`!(Late2 <: A2)`) is re-pinned to `true`.

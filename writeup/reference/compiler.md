@@ -854,17 +854,21 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 - Base's abstract types are closed.
 - Core's kinds carry a `never_member` bit. A membership of one of them is refused.
 
-**A membership** is an immutable entry on the member's `TypeName`, never on the set's:
+**A membership** is an immutable entry on the member's `TypeName`, never on the set's. The member is a type, a family of types, an abstract type or another set:
 - its fields: the set; the member pattern (`S`, or `S{T} where T` for a family); the set's instance for the pattern (`X`, `X{T}`); the key (§7.5); `min_world` and `max_world`; the declaring module; the forwarding field, if any;
 - the list of a `TypeName`'s entries is replaced copy-on-write, so readers take no lock;
 - `struct S <: X` for an open `X` adds an entry with the type. It is final: it holds from the type's definition;
 - `jl_declare_membership(member, set_instance, key, declarer, by)` declares one. The library checks ownership and the contract before the call ([traits §4.9](traits.md#49-checks-at-the-declaration), [§10.1](traits.md#101-who-may-implement)); the runtime records the declarer.
 
-**Every membership is explicit.** The runtime derives no membership from another:
-- `@implement B S` declares `S`'s entry for `B`. `S`'s entry for each supertrait `A` of `B` comes from `S`'s own implementation of `A` ([traits §3.6](traits.md#36-supertraits-and-bundles)). An implementation of a bundle declares an entry for each trait of the bundle and one for the bundle.
-- `@trait B <: A` declares `B`'s entry for `A`. So `B <: A`.
-- `<:`, `isa`, intersection and dispatch read entries and derive nothing. So `isa(x, T)` and `typeof(x) <: T` agree.
-- **Open:** how a generic implementation (`R: Indexable`, [traits §4.8](traits.md#48-generic-implementations)) and a family over an abstract type get their entries ([open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Membership is transitive.** `A <: B` and `B <: C` imply `A <: C`, whichever link is a supertype, a membership or a set's membership in another set:
+- `@implement B S` declares `S`'s entry for `B`. `@trait B <: A` declares `B`'s entry for `A`. So `S <: A`.
+- `struct S <: AbstractFoo` with an entry of `AbstractFoo` for `X` gives `S <: X`.
+- A generic implementation, `@implement GTable R where {R: Indexable{Vector{Float64}}}` ([traits §4.8](traits.md#48-generic-implementations)), is the membership of `Indexable{Vector{Float64}}` in `GTable`. A family over an abstract type, `G where {G <: AbstractGraph}`, is the membership of `AbstractGraph` in the set.
+- `<:`, `isa`, intersection and dispatch read the same transitive relation. So `isa(x, T)` and `typeof(x) <: T` agree.
+- A composed membership holds from the latest `min_world` of its links; with several chains, from the earliest of those.
+- A membership that would close a cycle among sets is refused: it would make two sets equal.
+- A type that conforms to `B` still implements `A`'s operations by its own implementation ([traits §3.6](traits.md#36-supertraits-and-bundles)). That is a check of the library's; the membership follows from the chain.
+- **Open:** a family whose parameter an equation defines that is not a pattern over the family's variables ([open issue 140](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 **Worlds.** A membership is declared as a method is inserted:
 - under the world counter's lock, the entry gets `min_world = counter + 1`, is published, and the counter advances;
@@ -873,7 +877,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 
 **Memberships only grow.** An entry is never removed. A redeclared implementation gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it (a walk by key). It is a stakeholder's change ([facts §2.2](facts.md#g2)).
 
-**Subtyping.** `jl_subtype(S, X)` consults `S`'s entries where `S`'s supertype chain fails to meet `X` and `X` is open, in both chain walks of `subtype`. A matching entry's instance is compared with `X`'s parameters as a supertype's are, invariantly. A miss is `false`. A set's parameters are associated types: one value per member ([traits §3.4](traits.md#34-parameters-and-associated-types)).
+**Subtyping.** `jl_subtype(S, X)` consults the entries of `S` and of each type on `S`'s supertype chain where the chain fails to meet `X` and `X` is open, in both chain walks of `subtype`, and follows entries of sets in sets transitively. A matching entry's instance is compared with `X`'s parameters as a supertype's are. A miss is `false`. A set's parameters are associated types: one value per member ([traits §3.4](traits.md#34-parameters-and-associated-types)). They are compared invariantly; whether `U <: V` implies `X{U} <: X{V}` is **Open** ([open issue 141](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 **Three layers** for questions about open sets:
 - `<:` and `isa` read the entries: the answer in the current world.
@@ -1005,7 +1009,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 | C-19 | [§7.2](#72-memberships) | A type value is a member of a set only by an entry for `Type{S}`; `S <: X` and `S isa X` are different questions. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a bounded method on `X` is called with the type object `S` ([the audit](../reviews/2026-11-06-oc-build-audit.md) A1). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
 | C-20 | [§7.5](#75-keys-attributes-and-the-check) | `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are members of `X`: subtyping, intersection and dispatch agree. | Subtyping and `isa` erase a wrapper to its set, intersection and the method table's match do not: a call with a `Dynamic{X}` reaches the fallback, not the method on `X` (A2). | branch `unified` c3f0b4bc11: `src/subtype.c` (`intersect`); probe P2 |
 | C-21 | [§7.2](#72-memberships) | Any member pattern a type can be written in is a membership. | A pattern with more than eight type variables is accepted and never matches (A3). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_env_match`); probe P3 |
-| C-22 | [§7.2](#72-memberships) | Every membership is explicit; `isa(x, T)` and `typeof(x) <: T` agree. | `isa`, intersection and dispatch compose memberships through set-in-set entries, `<:` does not (A8). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_lookup_level`'s `chain`), `src/typemap.c`, `src/gf.c` (`membership_superset_sets`); probe P4 |
+| C-22 | [§7.2](#72-memberships) | Membership is transitive; `<:`, `isa`, intersection and dispatch read one relation. | `isa`, intersection and dispatch compose memberships through set-in-set entries; `<:` reads direct entries only, so `<:` is not transitive across memberships and `isa(x, T)` can differ from `typeof(x) <: T` ([the audit](../reviews/2026-11-06-oc-build-audit.md) A8 and its addendum). Entries of the types on a member's supertype chain are not consulted. | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_answer_direct` in `subtype`'s chain-miss fallback); probe P4 |
 | C-23 | [§7.2](#72-memberships) | Set-in-set memberships never form a cycle. | A cycle closing through a set's second entry is accepted (A6). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`); probe P5 |
 | C-24 | [§7.1](#71-memberships-and-dispatch) | Core's kinds, the builtins included, are never members. | A builtin function's type is accepted as a member (A9). | branch `unified` c3f0b4bc11: `src/jltypes.c` (the `never_member` bits); probe P6 |
 | C-25 | [§7.2](#72-memberships) | `@implement` lowers to the declaration followed by `Expr(:latestworld)`; the runtime does not set a task's world. | `jl_declare_membership` sets the declaring task's `world_age` to the entry's world (A12). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`) |

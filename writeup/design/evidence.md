@@ -293,6 +293,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 
 - A trimmed TraitMakie binary: 4.07 MB (previous prototype, under the package policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.
 - The system image with the two inliner changes: 200.0 MB against 199.2 MB without them (the build of 2026-10-19).
+- **The unified build's membership machinery and plain Julia** (E-262; branch `unified` c3f0b4bc11 against vanilla v1.13.2 `45b6d15e34`, both built on the shared host 2026-11-06; plain code only, no open set declared; one run each, load 5–14): Base's `subtype`, `core`, `ambiguous` and `worlds` test files pass on both, in 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s (2–6 % slower); `detect_ambiguities(Base)` finds 0 on both. Building `Base.Compiler` took 295 against 289 s. Not yet a gate's control: one run each, and the branch is unaudited code under rework (W-98).
 
 ## 5. Not shown
 

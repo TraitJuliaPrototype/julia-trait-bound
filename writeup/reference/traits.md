@@ -323,7 +323,7 @@ end
   - the supertrait's parameters are written with the subtrait's variables, constants and type constructors, as a joint family's are ([§4.7](#47-families)).
 
 - The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
-- **Membership follows each implementation, never a chain** (with [§14](#14-membership), Planned): a type is a member of `A` by its own implementation of `A`, not because it is a member of `B` and `B <: A`. So `T <: A` and `x isa A` hold exactly when `T`'s implementation of `A` exists ([compiler §7.2](compiler.md#72-memberships)).
+- **Membership is transitive** (with [§14](#14-membership), Planned): a type that conforms to `B` is a member of `A` when `B <: A`, so `T <: B <: A` gives `T <: A` ([compiler §7.2](compiler.md#72-memberships)). Its implementation of `A`'s operations is still its own, as above.
 
 **Status:** Implemented ([T-68](#17-deviations) for a mapped field). Membership as subtyping: Planned ([§14](#14-membership)).
 
@@ -1433,7 +1433,8 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | **Joining later** | no: a type's supertype is fixed where it is defined | yes: a later package may declare an implementation, if it is a stakeholder |
 
 - **`T <: X` and `x isa X`** mean "`T` conforms to `X`" and "`x`'s type conforms to `X`". An implementation adds the trait to the type's supertypes after the type is defined. That is sound because only a stakeholder declares it, and a pirate's implementation is refused. Compiled code never folds a membership test to `false`: the answer is taken when the code runs, so a later implementation invalidates no trait code ([§4](#4-implementations)).
-- **Between traits, `B <: A`** means `A` is a supertrait of `B`: every type that conforms to `B` conforms to `A`, by its own implementation of `A`.
+- **Between traits, `B <: A`** means `A` is a supertrait of `B`: every type that conforms to `B` conforms to `A`, by its own implementation of `A`. With traits in the type system, `<:` is transitive through memberships as through supertypes ([compiler §7.2](compiler.md#72-memberships)).
+- **Parameters are invariant** for traits as for Julia's types. Whether `U <: V` makes `X{U} <: X{V}` for a trait's parameters is open ([open issue 141](../open-issues.md#1-decisions-waiting-for-the-user)).
 - **`conforms(T, X)`** answers the same question as `T <: X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
 - **Abstract types stay.** Where a tree of types is right, a library declares one, and its methods take abstract types as Julia's do. Numbers need no trait: `Number`, `Real` and `Integer` stay as they are. A type may subtype an abstract type and implement traits, and dispatch takes a typed method first.
 
@@ -1540,7 +1541,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | `verify_main`, `@workload` | Implemented | [§13](#13-compiling-ahead), T-20 |
 | `conforms(T, X)` | Implemented | [§14](#14-membership) |
 | `x isa X`, `T <: X` | Planned | [§14](#14-membership), T-23; [compiler §7.2](compiler.md#72-memberships) |
-| membership by each implementation, never through a chain of supertraits | Planned | [§3.6](#36-supertraits-and-bundles), [§14](#14-membership) |
+| membership transitive: `T <: B <: A` gives `T <: A` | Planned | [§3.6](#36-supertraits-and-bundles), [§14](#14-membership) |
 | named implementations, `Via{Fast}(x)` | Planned (deferred) | [§15](#15-named-implementations) |
 
 ---

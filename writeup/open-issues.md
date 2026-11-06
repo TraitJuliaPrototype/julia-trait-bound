@@ -15,17 +15,40 @@ Eight of the choices the clean-up adopted, and the choices marked mine in the de
 
 **From the unification synthesis (2026-11-06):**
 
-140. **Memberships that an implementation derives from another set** (W-98; [compiler §7.2](reference/compiler.md#72-memberships), Open). Every membership is explicit: the runtime derives none from another (the user, 2026-11-06, decision 4). Three kinds of implementation name their members through something other than the member type:
-   - a generic implementation, `@implement GTable R where {R: Indexable{Vector{Float64}}}` ([traits §4.8](reference/traits.md#48-generic-implementations)): its members are the members of another trait;
-   - a family over an abstract type, `@implement GraphInterface{V} G where {G <: AbstractGraph}` (the NetworkDynamics port, E-235): its members are the subtypes of a closed abstract type, defined anywhere;
-   - a family whose parameter an equation defines that is not a pattern over the family's variables: its set instance is known per member only.
+140. **A family whose parameter an equation defines that is not a pattern** (W-98; [compiler §7.2](reference/compiler.md#72-memberships), Open). Narrowed 2026-11-06: membership is transitive (the user, 2026-11-06: "It must be transitive. So A <: B <: C has to imply A <: C."), so a generic implementation is the membership of its constraint set in the trait, and a family over an abstract type is the membership of the abstract type in the trait; both are entries before any call. What remains: a family whose set instance depends on an equation (`T = f(Self)`) that cannot be written over the family's variables. Its entry needs the instance before the first call, and dispatch needs the entry.
 
-   **The rule that blocks it:** dispatch at a set needs the member's entry before the first call. Without it the type is not a member, a guard's slow branch dispatches without the bounded method, and the first-use check that would declare the entry is never reached.
+   **Proposal (mine):** the equation is evaluated on the family's pattern at the declaration, with the family's variables as type variables (`eltype(Vector{T})` gives `T`). A family for which that gives no pattern is refused, with a message naming the parameter to state at the implementation.
 
-   **Proposal (mine):**
-   - (i) a family over a closed abstract type keeps its pattern on the abstract type's `TypeName`, and subtyping reads the entries of each type on the member's supertype chain as it walks it. The chain is the type's own definition, so no membership is derived from a membership;
-   - (ii) a generic implementation is expanded by the library into an entry per member of its constraint: at its declaration for the current members, and at each later membership in the constraint (a hook of the library's, run after the declaration, outside the type system's lock). Package images list these entries as they list memberships on other modules' types ([compiler §7.8](reference/compiler.md#78-images-and-the-machine-code-cache));
-   - (iii) an equation is evaluated on the family's pattern at the declaration, with the family's variables as type variables; a family for which that gives no pattern is refused, with a message naming the parameter to state.
+141. **Variance of a trait's parameters: does `U <: V` imply `X{U} <: X{V}`?** (W-98; [compiler §7.2](reference/compiler.md#72-memberships), [traits §3.4](reference/traits.md#34-parameters-and-associated-types), [§14](reference/traits.md#14-membership); Open). The user (2026-11-06): "We need to explicitly think about invariance, covariance and contravariance with respect to parameters. Does U <: V imply T{U} <: T{V} I lean towards: yes if all parameters satisfy it. This decision might simplify other aspects of the design, too."
+
+   **Today:** a trait's parameters are invariant, as Julia's are. `Column{Real}` means a column whose element type is `Real`; a column of `Int` is `Column{<:Real}`.
+
+   **The scope.** Only a set's parameters. Julia's own parametric types stay invariant: a concrete type's parameters fix its layout (`Vector{Int}` stores its items inline, `Vector{Real}` boxes them), and Base's dispatch and specificity rest on invariance. Core's `Dynamic{X}`, `Compiled{X}` and `Kept{X}` hold `object::Any`; their layout does not depend on `X`, so they can follow `X`'s variance.
+
+   **What covariance means for a trait.** `Column{Real}` would accept every member whose element type is a subtype of `Real`: what `Column{<:Real}` means today. The exact value stays reachable: in `f(c::Column{T}) where {T}`, `T` binds the member's own value.
+
+   **Where it is sound, and where not:**
+   - **A parameter the contract only produces** (an operation's result, a `@const` field, a field read only): covariance is sound. `first(c::Column{Real})::Real` holds for an `Int` column.
+   - **A parameter the contract consumes** (an argument of an operation, a writable field): covariance is not. Through `Column{Real}` the definition check accepts `setindex!(c, 1.5, i)`, and on an `Int` column the member's method fails when it runs. This is Java's array covariance (`ArrayStoreException`). It is why C#, Kotlin and Scala allow covariance only for parameters in output positions (`out T`, `+T`), and why Rust infers each parameter's variance from its uses.
+   - **Contravariance is the dual:** a parameter the contract only consumes (`put!(s::Sink{T}, x::T)`) gives `Sink{Real} <: Sink{Int}`. `Callable{A, S}` ([traits §5.8](reference/traits.md#58-callable-functions-at-a-declared-signature)) is the case in the design: contravariant in its arguments `A`, covariant in its result `S`, as function types are everywhere.
+   - **A parameter in an invariant position of another type** (`data::Vector{T}`): invariant, because `Vector` is.
+
+   **Proposal (mine, refining the user's lean):** each parameter's variance is derived from the trait's contract at its declaration:
+   - covariant if it appears only in output positions;
+   - contravariant if it appears only in argument positions of operations;
+   - invariant otherwise, and always for an input parameter (`@input`, a value).
+   - `X{U₁, …, Uₙ} <: X{V₁, …, Vₙ}` when every pair relates by its parameter's variance: the user's "yes if all parameters satisfy it", for the parameters where it is sound.
+   - A trait's contract is fixed at its declaration, so its variance is too. Reflection prints it.
+   - The alternative, covariance for every parameter, accepts at the definition check calls that fail at run time on members whose parameter is narrower.
+
+   **To work through before it is adopted:**
+   - **Julia's diagonal rule:** a `where T` that occurs more than once in covariant positions must be concrete. If trait parameters count as covariant positions, `push!(c::Column{T}, x::T) where {T}` stops matching a member whose element type is abstract (`Column{Real}` with `x::Int`), which it matches under invariance. The rule must say whether trait parameters take part in the diagonal rule.
+   - **Intersection and specificity** at a covariant parameter (`Column{Int}` more specific than `Column{Real}`, their intersection `Column{Int}`) and at a contravariant one (`Sink{Real} ∩ Sink{Int}` is `Sink{Real}`).
+   - **Supertraits with parameters** (`@trait B{T} <: A{T}`) compose through the variance of each.
+   - **Keys are not affected:** code is compiled per key, which fixes each parameter's exact value.
+
+   **What it would simplify:** generic code over `Column{Real}` without a `where` clause; `Callable`'s function subtyping by the general rule instead of its own check; a kept value of a subtrait where a supertrait's kept value is expected.
+
 
 Waiting for evidence, not for the user:
 
