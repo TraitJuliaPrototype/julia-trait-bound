@@ -188,3 +188,11 @@ The user (2026-11-06): "Go for it." (on running experiments 1 and 2 of the list:
 - Registered first (E-263, E-264), then run on julia-1.13 with TraitWorld in three sessions (`experiments/w105/census/`), no subagents, nothing timed, load 3–15 of 128.
 - **E-263:** 4 of 148 memberships share a key, each a TraitMakie `Live{…}` wrapper with what it wraps; every other member serves its operations by its own methods, so its key is its own type. Below the registered tenth: open issue 145 proposes keys as Optional (the user's call: the user had asked whether keys stay).
 - **E-264:** 3 of 52 public and 14 of 77 internal methods at traits are open by the draft's rule (13 functions); P-20 stands. 11 structs with a parameter bounded by a trait have default constructors the rule calls open: the draft now exempts constructors that set such a parameter (mine).
+
+## The trade-offs of unification
+
+The user (2026-11-06):
+
+> The original implementation made a lot of progress to our main goal of cutting load times, recompiles, session times, and enabling caching and better type signatures and error messages. Painless AOT and machine code caches that leverage the gnew guarantees were also well in sight. The unification offers substantial conceptual simplifications. The question is what the trade off is and whether they can be recovered later through further work. The unification plan should focus on identifying these trade offs and exploring mitigations. As always Swift, Rust and Mojo provide crucial real world experience. Have a Fable agent look at all this from this perspective.
+
+- A Fable agent (`fable-critic`) was sent at the user's explicit request, again an exception to "no subagents on the shared host" (load 4.6 of 128). It reads only (web sources allowed for Swift, Rust and Mojo), runs no Julia, and writes `writeup/reviews/2026-11-06-unification-tradeoffs.md`: per goal, what the original implementation achieved, what the unified draft keeps or loses, whether and how a loss is recoverable later, what has to be done now to keep that door open, mitigations and experiments.
