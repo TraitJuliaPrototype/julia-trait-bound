@@ -48,3 +48,31 @@ And, while the work ran:
 - Pushing at will recorded in `CLAUDE.md` and the standing constraints.
 - Open issue 141 closed: parameters invariant, `X{<:T}` and `X{>:T}` where a type is used; the diagonal-rule question disappears (a parameter of a trait stays an invariant position). Compiler §7.2, traits §3.4, §5.8 (`Callable{A, <:Any}`), §14; alternatives.
 - Probe P8: the branch's fallback answers `S <: X{<:Real}` false (A15, high, C-26). The fix is also the simplest reading of the decision: an entry is a supertype within subtyping's walk.
+
+## Stage 1 begun; the disk quota; the move
+
+The user (12:41):
+
+> Go ahead with Stage 1. Continue with the next stages unless something comes up that really requires my attention. Remember: Principled solutions. Simplify rather than add wherever possible.
+
+- **12:52–13:00, W-98 begun in `julia-unified`, uncommitted:**
+  - `subtype.c`: the branch's membership section (about 720 lines) replaced by the in-walk rule. An entry is one more supertype inside subtyping's walk: its pattern's variables join the walk as existential variables, and the choice among a type's entries is made as a union's is. It covers transitivity, `X{<:T}`, `Type{S}` entries, `jl_isa`, intersection, and C7's order between two sets (`jl_typename_reaches`). `jl_membership_world_range` is the world range for dispatch. Removed: `jl_membership_match_range`, `jl_membership_match_sig`, `jl_lookup_membership` and the chain lookup.
+  - `builtins.c`: the `_setsuper!` hook dropped (a declared supertype is a supertype). A set's supertype must be `Any` or a set. Each builtin's type never a member (A9).
+  - `jl_exported_funcs.inc`: `jl_lookup_membership` dropped.
+- **About 13:00 the home filesystem's quota ran out.** `datatype.c`, `jltypes.c`, `julia.h` and `julia_internal.h` in `julia-unified/src` were emptied, cause not established. The session restored them from `HEAD`. That lost its applied edit of `julia_internal.h` (12:59): the epoch's declaration removed, the removed functions' declarations replaced by `jl_typename_reaches` and the others. The edit is in the session's transcript. Its retry left an empty `src/julia_internal.h.tmp-edit`; the header itself is intact. The edit of `jltypes.c` (A9 for `jl_builtin_type`) never applied.
+- **Still to do for W-98, so the tree does not build yet:**
+  - the header edit, redone;
+  - `jltypes.c`;
+  - `datatype.c`: a full cycle check through `jl_typename_reaches`, a set open from its declaration, the epoch removed;
+  - `gf.c` and `typemap.c`, which still call the removed `jl_membership_match_range` and `jl_membership_match_sig`;
+  - `datatype.c` and `jl_internal_funcs.inc`, which still name `jl_lookup_membership`;
+  - then the rest of W-98's list.
+  
+  The last build of `unified` is of c3f0b4bc11 (11:48–12:01).
+- **The workspace moved** from `/home/hellmann/julia-trait-bound` to `/p/projects/coen/julia-trait-bound`: the user's `mv`, then `rsync --remove-source-files`, done by 13:35. The checks and repairs, in a later session:
+  - Every repository's objects pass `git fsck`.
+  - Every tracked file matches its index; the only changes are the WIP above and untracked logs.
+  - The 16 worktrees' links repaired with `git worktree repair`.
+  - The three Julia trees' 198 absolute symlinks into the old path re-pointed, with their `usr/manifest` records; the three builds load stdlibs again.
+  - `base/build_h.jl`'s `SOURCEDIR` still names the old path until the next `make` regenerates it, which rebuilds the system image.
+  - The depot's packages precompile once more.

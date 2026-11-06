@@ -74,6 +74,8 @@ Everything worth remembering is kept in the project's notes and guidance: this f
 
 **Pushing:** commits may be pushed at will, to every repository of the workspace (the user (2026-11-06): "You may push at will.).
 
+**Never search the whole file system** (2026-11-06, the user: "NEVER search the entire file system. You are connected to a massive storage system."). `find`, `du`, `grep -r`, `locate` and the like run inside the workspace, and there inside the directories they concern. Never on `/`, `/p`, `/home` or the home directory.
+
 **No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so.
 
 **No excessive benchmarking unless the work is specific performance work.** Otherwise run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
