@@ -96,7 +96,6 @@ tools-local/build.sh julia-vanilla
 ```
 
 - Copy `julia-1.13/deps/srccache/` into each new tree first to save the downloads.
-- Until branch `unified` is pushed, start it from `origin/oc-build` (`-b unified c3f0b4bc11`).
 - Its gates and acceptance cases: `experiments/unification/`.
 
 ## Paths
