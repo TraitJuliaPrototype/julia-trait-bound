@@ -76,3 +76,23 @@ The user (12:41):
   - The three Julia trees' 198 absolute symlinks into the old path re-pointed, with their `usr/manifest` records; the three builds load stdlibs again.
   - `base/build_h.jl`'s `SOURCEDIR` still names the old path until the next `make` regenerates it, which rebuilds the system image.
   - The depot's packages precompile once more.
+
+## The references before the build: "traits are abstract types"
+
+After the move, the user (2026-11-06):
+
+> We were working on unification when we were interrupted. An earlier session recorded the state of the interrupted work. Before we resume the unification push, there is an important point though: Unification changes and simplifies the referecne design substantially. Unification states "Traits are AbstractTypes" From this it follows that Traits can occur everywhere AbstractTypes can, and that they are parametrized the way AbstractTypes are parametrized, including Trait{<:T} and the like. This explicitly contradicts a number of things that are currently in the reference design. It also should eliminate a lot of the reference design. So before we continue implementation work on the unified perspective, we need to actually fix and simplify the reference. Carefully go through the four reference documents and work out the implications of unification.
+
+And, while the analysis was written:
+
+> If the ports have to be substantially changed that is fine. They were built under old assumptions and should be considred informative rather than limitative.
+
+- The four references read in full at f19f5ac (traits 1,651 lines, compiler 1,020, facts 638, lowering 835), with the decision log's §5, open issues 135–141, the exploration's unified model (§3–§5) and the evidence plan's three levels.
+- **The analysis:** [`../writeup/plans/2026-11-06-traits-are-abstract-types.md`](../writeup/plans/2026-11-06-traits-are-abstract-types.md), a proposal (W-105):
+  - F1–F18, what follows with no decision. F1 reverses decision 41; F8 reverses "defaults and forwarding serve trait code only".
+  - 27 statements in force that the premise contradicts, compiler §7's "a trait's name in a field means `Kept{X}`" among them.
+  - What goes.
+  - Eight choices with recommendations (Q1–Q8), three small ones, eleven gaps.
+  - Every section's disposition.
+- No port or fork declares a field mapping (grep, for Q7).
+- W-98 waits for W-105: Q4, Q5, Q8 and F12 change what stage 1 builds. The uncommitted stage-1 work in `julia-unified` is left as it was.
