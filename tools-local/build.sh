@@ -8,6 +8,8 @@
 # Niced; killed below 4 GB available memory. Each output line is time-stamped, so the stages
 # (Base, Base.Compiler, the system image) can be timed from the log; the peak RSS of the largest
 # process is sampled every 10 s. The log is <tree>/tw-build.log and ends with "BUILD EXIT <rc>".
+# A wide build is a spike (its parallel compile phase lasts minutes); builds one after another
+# (a bisection) are sustained use and run with WIDE=0.
 # Usage: tools-local/build.sh <julia tree> [make target]     (WIDE=0 forces -j4)
 TREE=$(cd "$1" && pwd) || exit 2
 TARGET=${2:-}

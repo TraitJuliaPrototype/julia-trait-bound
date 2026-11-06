@@ -126,6 +126,7 @@ On a machine shared with other people, without root:
   - while the others' load is below half the cores, `make -j<half the cores>`; otherwise `-j4`;
   - a wide build whose others' load reaches half the cores is stopped and continues at `-j4`;
   - a narrow build pauses while the load is above 110 and resumes below 90 (`HI`, `LO`), as `tools-local/loadguard.sh <pgid>` does for any process group;
+  - a wide build is a spike: its parallel compile phase lasts minutes. Sustained use (builds one after another, long jobs) stays considerably lower: `WIDE=0`, and at most 16 cores in all;
   - niced, killed below 4 GB of available memory; the log `<tree>/tw-build.log` is time-stamped per line, ends with the wall time, the sampled peak RSS and `BUILD EXIT <rc>`.
 - **Subagents:** none on a shared host; see [`CLAUDE.md`](../CLAUDE.md).
 - **Module names** are those of the host it was written for. Adjust them elsewhere.

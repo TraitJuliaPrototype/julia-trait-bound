@@ -31,7 +31,7 @@ The root `README.md` has the table of repositories. In short:
 
 ## Basic workflow
 
-**On the shared host** (since 2026-11-05) the standing constraints of [`../writeup/record/INDEX.md`](../writeup/record/INDEX.md) apply first: `source env.sh`; cores by load (half the cores for compiles while the others' load is below half, else 4 cores and one job at a time; `tools-local/build.sh`); no subagents. The list below is the project machine's workflow; where it names 16 cores, `/tmp/claude-1000` or `~/.julia`, the shared host uses `env.sh`'s settings.
+**On the shared host** (since 2026-11-05) the standing constraints of [`../writeup/record/INDEX.md`](../writeup/record/INDEX.md) apply first: `source env.sh`; cores by load (a build may spike to half the cores while the others' load is below half; sustained use at most 16 cores in all; at or above half, 4 cores and one job at a time; `tools-local/build.sh`); no subagents. The list below is the project machine's workflow; where it names 16 cores, `/tmp/claude-1000` or `~/.julia`, the shared host uses `env.sh`'s settings.
 
 1. **One Julia job at a time,** under the shared lock: `flock /tmp/claude-1000/julia-review.lock nice -n 10 …` (tests may use `nice -n 19`). The machine is shared with other simulations (30 GB, 16 cores); a parallel chain took it down on 2026-10-15. `JULIA_NUM_PRECOMPILE_TASKS=4`.
 2. **Building Julia:** `julia-1.13/tw-build.sh` (niced, `-j4`, a memory watchdog), alone. Check `BUILD EXIT 0` at the end of `julia-1.13/tw-build.log`: a Julia-level error in the system image build leaves no crash message. Every package image is rebuilt afterwards, so first runs include precompilation.
