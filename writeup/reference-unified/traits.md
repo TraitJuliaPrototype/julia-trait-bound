@@ -109,7 +109,7 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (
   - **with its definition:** `struct S <: X … end`, declared and checked by an `@implement X S` after its methods (§5.2);
   - **after its definition:** `@implement X S` (§5.3 to §5.9), by a stakeholder (§12.1);
   - **through another membership:** membership is transitive. `S <: B` and `B <: A` give `S <: A`, whether each link is a declared supertype, a membership, or a trait's membership in another trait.
-- **Memberships only grow.** A membership holds from the world in which it is declared. A task running in an older world does not see it. Once declared, a membership is never withdrawn; it may be redeclared (§5.11).
+- **Memberships only grow.** A membership holds from the world in which it is declared. A task running in an older world does not see it. Once declared, a membership is never withdrawn; it may be redeclared (§5.11). `Callable`'s memberships are derived from the method table and follow it (§9).
 - **What may be a member:** a concrete type; a family of types (`S{P} where P`); a closed abstract type (`AbstractVector{T}`); another trait. A trait is never a member of a closed abstract type. A trait's declared supertype is `Any` or a trait.
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
@@ -645,9 +645,11 @@ For each trait argument of a call, the first that applies, strongest first:
    - at the argument: `@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`;
    - for the module: the scope's option `dynamic` (§13) gives `Dynamic` to every trait argument of its methods.
 4. **The trait's default** (§4.6): `@default_dynamic` or `@default_compiled`. With several traits at one argument (an intersection), it applies where their defaults agree. **`@default_dynamic` does not apply to a value whose type Julia itself or the trait's own package defines:** those types are few and fixed, so code per type for them is bounded.
-5. **Otherwise `Compiled`.**
+5. **Otherwise, the scope's fallback:**
+   - in a trait module (§13), **what the caller knows:** a caller compiled with the value's type passes `Compiled`; a call made when the program runs, from code that does not know the type (the prompt, a `Vector{Any}`'s item), passes `Dynamic`;
+   - elsewhere, **`Compiled`,** Julia's rule for an abstract type.
 
-Every value not covered by 2 is **plain**: a value in code not compiled at a trait argument, a value at the prompt, a value read from a field or container typed by a trait or by `Any`. Defaults (3, 4, 5) decide only for plain values.
+Every value not covered by 2 is **plain**: a value in code not compiled at a trait argument, a value at the prompt, a value read from a field or container typed by a trait or by `Any`. Defaults (3, 4, 5) decide only for plain values. The scope of step 5 is the method's module.
 
 ```julia
 @trait Model begin
@@ -659,7 +661,7 @@ solve(m::Model, u0) = …                       # Dynamic for a user's model: th
 solve(compiled_for(MyModel()), u0)            # Compiled at this call: the caller's cast
 ```
 
-**Status:** Planned (W-102). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". `Compiled` as the last step is Julia's rule for an abstract type; to confirm, since the alternative puts what the caller knows there (a static caller `Compiled`, a dynamic one `Dynamic`).
+**Status:** Planned (W-102). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
 
 ### 7.6 Casts
 
@@ -778,30 +780,31 @@ ODEProblem(Dynamic{Callable{RHSSig{P, T}, Nothing}}(lorenz!), u0, tspan, p)   # 
 
 ```julia
 colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t, i))
+apply(f::Callable{Tuple{Int}, Int}, x) = "an integer map"
+apply(f::Callable{Tuple{String}, <:AbstractString}, x) = "a string map"     # dispatch picks by signature
 both(f::All{Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}}, x::Float64, n::Int) = (f(x), f(n))
-byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S} = …
+byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S} = …                 # S: the function's result at T
 
 colmap(x -> 2x, m, 1)                     # Dynamic: Callable's default
 colmap(compiled_for(x -> 2x), m, 1)       # Compiled at this call
 colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 ```
 
-- **`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** Every value is a member; no membership is declared.
-- **It has rules of its own,** as Rust's `Fn` traits are the compiler's own: its membership is a rule of the type system, and its call is a form of the compiler ([compiler §7.4](compiler.md#74-callables-call)).
-- **Its one operation is the call.** A call whose callee the code knows as a `Callable{A, S}` (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) is checked:
-  - arguments that are not of `A`: `MethodError`;
-  - a result that is not an `S`: `TypeError`, naming the declared and the returned type. Where `S` is `Nothing`, the message adds: end the function with `nothing`.
-- Where the code knows the function by its own type (a struct parameter `F`), the call is the function's own call.
+**`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** It has rules of its own, as Rust's `Fn` traits are the compiler's own:
+- **Its memberships are derived, not declared.** A type `F` is a member of `Callable{A, S}` where a call of an `F` value at `A` selects a method, and plain inference's result of that call is `S`. `A` is an input parameter; `S` is an associated type, one per member and `A`.
+- **So dispatch picks by signature,** as for any trait: `apply(sqrt)` takes neither method above, `apply(uppercase)` the second. Variance is Julia's: `Callable{A, <:Real}` takes a function whose result at `A` is any subtype of `Real`; `Callable{A, <:Any}` any function with a method at `A`. A `where` variable in the result binds to the function's result.
+- **A derived membership follows the method table.** It holds in the worlds where the call's dispatch and its inferred result hold. A method of `F` defined later can begin or end one. It is the only kind of membership that can end, and only by a definition of `F`'s methods: a stakeholder's change, or a pirate's ([facts §10](facts.md#10-memberships)).
+- **A function whose result inference cannot narrow** (`Any`, a wide union) is a member only where the result matches: of `Callable{A, <:Any}`, not of `Callable{A, Float64}`. Narrow it with a result annotation on the function, `x -> (2x)::Float64`.
+- **A call through a value the code knows as a `Callable{A, S}`** (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) has the result type `S`. Where it is compiled once, it goes through a pointer that follows the caller's world, and its result is asserted (`TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`).
+- **Where the code knows the function by its own type** (a struct parameter `F`), the call is the function's own call.
 - **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled` (§7.5).
-- **Any result:** `Callable{A, <:Any}` leaves the result unchecked. **An open result,** `f::Callable{Tuple{T}, S} where {T, S}` with `S` named only there, binds `S` to plain inference's result of the function at the argument types, `Any` where that is `Union{}`. The code is compiled per `S` and every call is checked against it.
+- **Several signatures** are an intersection: a call picks the signature its argument types match.
 - **Argument types may follow other arguments:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`.
-- **Several signatures** are an intersection: a call picks the signature its argument types match; a call at another one raises `MethodError`.
-- **Dispatch cannot choose by a function's signature:** every function is a member of every `Callable`. Two methods that differ only in a `Callable` argument are ambiguous for every function.
-- `Callable` without parameters keeps a function before its signature is known.
+- `Callable` without parameters takes any function, kept before its signature is known.
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 
-**Status:** Proposed (P-7: the user, 2026-11-06, "Callable deserves special handling"; this form is mine, to confirm); keywords Planned.
+**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); derived memberships as the form: mine (2026-11-06). Keywords Planned.
 
 ---
 
@@ -966,7 +969,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 ```julia
 module Geometry
 using TraitWorld
-@trait_module                     # facts, bounded, no_pirates
+@trait_module                     # facts, bounded, no_pirates, first_seen
 @trait Shape begin … end
 area_sum(shapes::Iterable{<:Shape}) = …
 end
@@ -976,8 +979,9 @@ end
   - **`facts`:** its methods are compiled by facts ([facts §6](facts.md#6-which-code-is-compiled-how));
   - **`bounded`:** an open method at a trait argument is refused (§7.3);
   - **`no_pirates`:** a pirate is refused (§12.2);
-  - **`dynamic`:** the library's default for every trait argument of its methods is `Dynamic` (§7.5). Off unless written.
-- The first three are on unless written otherwise (`@trait_module bounded = false`).
+  - **`dynamic`:** the library's default for every trait argument of its methods is `Dynamic` (§7.5). Off unless written;
+  - **`first_seen`:** where nothing else decides, a trait argument's attribute is what the caller knows (§7.5, step 5).
+- All but `dynamic` are on unless written otherwise (`@trait_module bounded = false`).
 - A method may set an option for itself: `@bounded f(…) = …`, `@facts f(…) = …`.
 - The module's statements are Julia's; nothing is rewritten. Revise and other tools that read a module by its statements see an ordinary module.
 - At the module's end, methods whose classification waited for later definitions are classified (§7.3).
@@ -1084,7 +1088,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `Dynamic{X}`, `keep` | Planned (W-102) | §7.7, §7.8 |
 | operations on a value known only by its trait | Planned (W-102) | §7.9 |
 | storage typed by a trait; struct parameters | Planned | §8 |
-| `Callable` | Proposed (P-7) | §9 |
+| `Callable`: derived memberships, dispatch by signature | Planned (W-102) | §9 |
 | BaseTraits; element types by variance; `retain!` | Planned | §10 |
 | checks, errors, hints | Planned (W-102, W-103) | §11 |
 | ownership, joint owners, pirates, strict mode | Planned (W-103) | §12 |

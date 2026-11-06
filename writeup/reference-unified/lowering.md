@@ -121,7 +121,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 ## 6. Scopes
 
 `@trait_module opts…` as a module's first statement emits:
-- `Base.Experimental.@compiler_options facts=true bounded=true no_pirates=true`, with the options as written, and `dynamic=true` where written ([compiler §2.1](compiler.md#21-the-module-option));
+- `Base.Experimental.@compiler_options facts=true bounded=true no_pirates=true first_seen=true`, with the options as written, and `dynamic=true` where written ([compiler §2.1](compiler.md#21-the-module-option));
 - `using` of the library's names.
 
 The module's statements are Julia's; nothing is rewritten. At the module's end (Julia's hook), methods whose classification waited are classified, and `struct S <: X` without its `@implement` is refused.
@@ -166,10 +166,10 @@ end
 
 ## 9. `Callable`
 
-- `Core.Callable{A, S}` is an abstract type that the type system makes every type a member of ([compiler §7.4](compiler.md#74-callables-call)). Its default attribute bit is `Dynamic`.
-- Its call's check and its erased call are the compiler's ([compiler §7.4](compiler.md#74-callables-call)). The library adds the error hints of [traits §9](traits.md#9-functions-callable).
+- `Core.Callable{A, S}` is a set of Julia's whose memberships the runtime derives from the method table ([compiler §7.4](compiler.md#74-callables-call)). Its default attribute bit is `Dynamic`.
+- The library declares nothing for it. It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods at `A` and their inferred results.
 
-**Status:** Proposed (P-7).
+**Status:** Planned (W-102).
 
 ---
 

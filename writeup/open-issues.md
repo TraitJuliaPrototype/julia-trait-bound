@@ -13,18 +13,6 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 Eight of the choices the clean-up adopted, and the choices marked mine in the decision log since 2026-10-27, are for a review session with the user ([W-71](record/todo.md)).
 
 
-**From the draft reference (2026-11-06, W-105):**
-
-142. **Two choices of [the draft reference](reference-unified/README.md#the-choices-in-this-draft) that wait for the user** (W-105).
-   - **(a) `Callable`'s form** (P-7). The user (2026-11-06): "Also I think Callable deserves special handling." The draft's form, mine: every type is a member of every `Callable{A, S}` by a rule of the type system. A call through a value the code knows as a `Callable{A, S}` is checked (arguments against `A`, the result asserted to `S`). Its default is `Dynamic`, through the `:caller_world` thunk. A `where` variable that only its result names is bound to plain inference's result. Consequence: dispatch cannot choose among methods by a function's signature. Alternatives:
-     - membership on demand, a function joining `Callable{A, S}` with its inferred `S` at its first meeting with a `Callable{A, …}` argument, which makes dispatch by signature possible;
-     - a wrapper the caller builds.
-
-     ([traits §9](reference-unified/traits.md#9-functions-callable), [compiler §7.4](reference-unified/compiler.md#74-callables-call)).
-   - **(b) The last step of the attribute's order** (P-3). The draft: `Compiled` where nothing decides, Julia's rule for an abstract type. The alternative: what the caller knows, a static caller `Compiled` and a dynamic one `Dynamic`, which is the earlier first-seen rule and costs nothing more in mechanism, since the overrides already need two compilation signatures ([traits §7.5](reference-unified/traits.md#75-what-decides)).
-
-   The draft's other choices marked mine (P-1, P-3's order, P-4, P-5, P-10 to P-19) are in [the decision log](record/decisions.md) §9, for the user to confirm with W-71's.
-
 **From the unification synthesis (2026-11-06):**
 
 140. **A family whose parameter an equation defines that is not a pattern** (decided in the draft reference, mine, 2026-11-06: the family states the instance as a pattern of its variables, the equation's parameter included, as Rust writes an associated type in a generic `impl`; checked at each member; closes when the draft is adopted: [P-16](reference-unified/README.md#the-choices-in-this-draft)) (W-98; [compiler §7.2](reference/compiler.md#72-memberships), Open). Narrowed 2026-11-06: membership is transitive (the user, 2026-11-06: "It must be transitive. So A <: B <: C has to imply A <: C."), so a generic implementation is the membership of its constraint set in the trait, and a family over an abstract type is the membership of the abstract type in the trait; both are entries before any call. What remains: a family whose set instance depends on an equation (`T = f(Self)`) that cannot be written over the family's variables. Its entry needs the instance before the first call, and dispatch needs the entry.
@@ -126,6 +114,8 @@ Choices whose repercussions are unclear either way, where experience with large-
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 
 ### §1
+
+142. **Closed (2026-11-06, the user (2026-11-06): "I think we need dispatch to pick by signature. falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia."):** (a) `Callable`'s memberships are derived from the method table, so dispatch picks by signature (the form mine: [traits §9](reference-unified/traits.md#9-functions-callable), [compiler §7.4](reference-unified/compiler.md#74-callables-call)); (b) the attribute's fallback is the scope's: what the caller knows in a trait module, `Compiled` elsewhere ([traits §7.5](reference-unified/traits.md#75-what-decides)); [decisions](record/decisions.md) §9. The universal membership and the wrapper: [`design/alternatives.md`](design/alternatives.md), "Traits as abstract types: options not taken". *As it stood:* **Two choices of the draft reference that wait for the user** (W-105): `Callable`'s form (P-7), and the last step of the attribute's order (P-3).
 
 Closed on 2026-11-06:
 

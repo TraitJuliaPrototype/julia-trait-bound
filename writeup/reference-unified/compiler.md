@@ -126,7 +126,8 @@ Base.Experimental.@compiler_options facts=true
 - **Three more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
   - `bounded=true`: an open method at a trait argument is refused (§6.7);
   - `no_pirates=true`: a pirate is refused by the library's definition hook;
-  - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3).
+  - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3);
+  - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
 - A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
 **Status:** Planned (W-100, W-103).
@@ -266,6 +267,7 @@ Strict mode and the concreteness checks read it.
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
+- **`Callable`'s memberships are derived** from the method table (§7.4). They are the one kind that can end, and only by a method definition of the member's type.
 
 **Status:** Planned (W-98). C-25.
 
@@ -391,6 +393,7 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
 - **The cell.** For each shadow, inference records an edge to a membership cell: one mutable object per (member type object, set) for a parametric member, per (member typename, set) otherwise. The compiler creates it on demand and hangs it on the member's `TypeName`. Its `min_world` is `typemax` until an entry matches, then the entry's.
 - **The guard** loads the cell's `min_world`, compares it with the task's world, and branches, as the inliner's union split branches. The slow branch is a full dispatch with no edge; the fast branch is the static call to `m₀`. The load is hoisted out of loops.
 - **The guarded call's result** is the join of `m₀`'s and the declared result of the shadowing method (§6.8); `Any` where none is declared.
+- **A derived `Callable` membership** (§7.4) has cells too, derived again at a method definition of the member's type.
 - **No guard arises:**
   - at a final non-member (§4.8);
   - where `m₀` matched through the chain and is not `f(::Any)`;
@@ -442,12 +445,12 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
      - a value read from a field whose declared type is a struct parameter bounded by a set: inference tracks the attribute the parameter records, `Dynamic` for a `Dynamic{X}`, else `Compiled`;
   3. the method's attribute bits at the argument, from `@nospecialize` (`Dynamic`) and `@specialize` (`Compiled`) at an argument typed by a set, saved with the method as its `nospecialize` bits are; then the module's option;
   4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define;
-  5. `Compiled`.
+  5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
 - **A static call** resolves the bits in the caller's inference and invokes the instance.
 - **A dynamic call** passes the bits the caller has (from 1 and 2) to dispatch, `jl_apply_generic_attr(F, args, nargs, bits)`. The runtime selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method. The per-call-site cache and the leaf cache key their entries by the bits too.
 - **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
 
-**Status:** Planned (W-102); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override".
+**Status:** Planned (W-102); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06).
 
 ### 6.4 Calls from code compiled per key
 
@@ -558,14 +561,22 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 
 ### 7.4 `Callable`'s call
 
-- `Callable{A, S}` has every type as a member: `T <: Callable{A, S}` for every `T`, by a rule of `subtype`.
-- **A call through a value whose inferred type is a `Callable{A, S}`** is checked: each argument against `A` (`MethodError`), the result asserted to `S` (`TypeError`).
-- **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`, made at the first call per (signature, function type) and kept with the value's slot.
-- **In an instance compiled per key,** whose key is the function's type, the call is direct, with the result asserted.
-- **A `where` variable that only a `Callable`'s result names** is bound at the call to plain inference's result of the function at `A` (§1.4), `Any` where that is `Union{}`.
-- This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own: no membership is declared, the rule of `subtype` is its alone, and its call has a form of its own.
+**Derived memberships.**
+- `Core.Callable{A, S}` is a set with an input parameter `A` and an associated type `S`. Its memberships are derived by the runtime, never declared. `F <: Callable{A, S}` holds where a call of an `F` value at `A` selects a method (one, not ambiguous) and plain inference's result of that call (§1.4) is `S`.
+- **The runtime keeps a derived membership as an entry** on `F`'s `TypeName`, with the world range where the call's dispatch and its inferred result hold, and the edges that record them: the dispatch at `(F, A…)` and the result. A method definition that breaks either gives the entry a `max_world`; the next question derives it again. So a derived membership follows `F`'s methods.
+- **Compiled code that relies on one** holds an edge to its entry and is invalidated with it.
+- **Negatives are never folded:** a call whose method a later derived membership could change is guarded (§5.6). A cell for `(F, Callable{A, S})` is derived again when a method of `F` is defined.
+- **Subtyping and dispatch** derive on demand, in the world asked about; inference derives at the world it infers for.
+- `Callable{A, S} where S` binds `S` to the derived result; `Callable` alone is any type with a call method.
 
-**Status:** Proposed (P-7: the user, 2026-11-06, "Callable deserves special handling"; this form is mine, to confirm).
+**The call.**
+- **A call through a value whose inferred type is a `Callable{A, S}`** has the result type `S`. Each argument must be of `A`, or the call raises `MethodError`.
+- **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`. The pointer is made at the first call per (signature, function type). The result is asserted to `S` (`TypeError`).
+- **In an instance compiled per key,** whose key is the function's type, the call is direct.
+
+This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution; here, dispatch matches a function's derived signature.
+
+**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06); derived memberships as its form: mine (2026-11-06).
 
 ---
 
@@ -718,7 +729,7 @@ Each applies to all code.
 | a declared result on `Method`; the operation's flag | Planned (W-102) | §6.8 |
 | casts at the call; `keep` | Planned (W-102) | §6.9 |
 | operations on a value typed by its trait; the split; the table | Planned (W-102) | §7.1–§7.3 |
-| `Callable`'s call | Proposed (P-7) | §7.4 |
+| `Callable`: derived memberships and its call | Planned (W-102) | §7.4 |
 | world-checked caches | Planned (W-102) | §8 |
 | memberships in images; the record toward a machine-code cache | Planned (W-103) | §9 |
 | hooks; field-offset intrinsics; the member hook | Planned (W-102, W-103) | §10 |
