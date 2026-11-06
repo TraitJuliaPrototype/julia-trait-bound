@@ -229,3 +229,19 @@ In the registry's style; none run. Each on today's patched build (julia-1.13 00d
 - The trade-offs, the experiments X1 to X7 with the stage each must precede, the stage changes and the draft changes: [the work plan's proposal](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §8. The draft changes are applied when the user adopts that plan.
 - Keys as Optional: open issue 145 (the user's). Guards against the stopgap: the work plan's weak point 13, decided by X2 (the user's).
 - Verified in the main session: the boundary flag's "up to one CodeInstance per policy" (draft compiler §2.3), 9892bfc288's 188 against 17 ms (`design/julia-changes.md:36`), E-259's 7 guard sites none in a loop, the synthesis plan's 2,898 cache entries.
+
+## Addendum (2026-11-06, later, the main session): the plan adopted
+
+- The user (2026-11-06): "Adopt, keys as optional is approved. Run the X now".
+- Taken into the draft:
+  - M1 and M2 as P-31;
+  - M4 as P-30, after X6;
+  - M5 in W-109;
+  - M7 in W-100's scope;
+  - M9 as P-32.
+- X1, X5 and X6 were run as E-265 to E-267 ([the plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §8.1):
+  - X1 put trade-off 1 at 0.2–0.3 s per session with the slot, on a package's own plain methods rather than Base's;
+  - X5 put M1 at 50–92 %;
+  - X6 met its criterion.
+- The user's point that guarantees matter to the ecosystem beyond what a measurement shows bears on this review's §6 ("Keys: Optional, not removed"; "Guards: decided by X2"). It is open issue 146.
+
