@@ -201,7 +201,7 @@ Dynamic{All{Shape, Placed}}(x)                     # kept with both traits
 - A bundle is a `const` alias of an intersection. Its members are every type that is a member of all of its components, whoever declared them.
 - `@implement (X, Y) S` declares both memberships (§5.6).
 
-**Status:** Planned (W-98; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}").
+**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}").
 
 ---
 
@@ -1087,7 +1087,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | a family states its instance as a pattern, equations included | Planned | §3.2, §5.8 |
 | a trait wherever a type stands | Planned (W-98, W-99) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
-| intersections `All{X, Y, Z, …}`; bundles as aliases | Planned (W-98) | §3.6 |
+| intersections `All{X, Y, Z, …}`; bundles as aliases | Planned (W-107) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Planned | §4.1 |
 | defaults as the trait's methods, reached by every caller | Planned | §4.2 |
 | declared fields as stored fields | Planned | §4.3 |

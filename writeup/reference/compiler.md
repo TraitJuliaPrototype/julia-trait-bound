@@ -333,7 +333,7 @@ Core.All{X, Y}
 - The negative-fold rule (§4.8) treats each component.
 - It takes any number of components: `All{X, Y, Z, …}`.
 
-**Status:** Planned (W-98; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
 
 ### 4.10 Type values
 
