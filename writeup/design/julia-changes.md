@@ -110,3 +110,13 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 - `julia-1.13/tw-build.sh`: a cold build of the patched 1.13.2, niced, `-j4`, with a memory watchdog; check `BUILD EXIT 0` at the end of `tw-build.log` (a Julia-level error during the system image build ends with a nonzero exit, not a crash message).
 - The facts system image: `experiments/factscompiler/scripts/build_facts_sysimage.sh` (about 5 minutes), rebuilt after every change to Base or the compiler; used with its own depot first and `~/.julia` second (`JULIA_DEPOT_PATH=<dir>:$HOME/.julia:`: a trailing colon alone adds only the bundled depots).
 - Every package image is rebuilt after a build: the first runs include precompilation.
+
+## 7. The unified build (branch `unified`)
+
+The build of [compiler §7](../reference/compiler.md#7-traits-in-the-type-system), traits in the type system, in stages W-97 to W-104 ([the synthesis plan](../plans/2026-11-05-unification-synthesis.md)).
+
+- **Branch** `unified` of the julia repository; worktree `julia-unified/` in the workspace. On v1.13.2 (`45b6d15e34`), with no rebase on 1.14 planned ([decisions](../record/decisions.md) §5, 2026-11-06).
+- **Its start:** the earlier attempt's branch `oc-build` at c3f0b4bc11, unaudited: 24 files, +2,627/−171 lines over v1.13.2; the largest changes in `src/gf.c`, `src/subtype.c` and `src/datatype.c`. Its four commits: the membership substrate (`open_set`, `never_member` and `generic_wrapper` bits on `jl_typename_t`, a list of entries per typename, `jl_declare_membership`, `Keyed`, `Dynamic`, `Compiled`, `Kept` as Core types; 2a2b2ba749), a build script (361d3014f8), subtyping and inference with memberships (efb87dfbdf), dispatch at sets (c3f0b4bc11). The audit (W-97) decides what is kept.
+- **The control:** vanilla v1.13.2, worktree `julia-vanilla/` (detached at `45b6d15e34`), built on the same host for E-262's comparisons.
+- **Building:** `tools-local/build.sh julia-unified` (the rule for cores by load, stage times in the log; [setup](../setup.md#on-a-shared-host)).
+- **Its deviations** are rows of the references' Deviations tables naming branch `unified` (compiler C-18). Its gates and acceptance cases are in `experiments/unification/`.

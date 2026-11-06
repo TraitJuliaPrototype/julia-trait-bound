@@ -323,8 +323,9 @@ end
   - the supertrait's parameters are written with the subtrait's variables, constants and type constructors, as a joint family's are ([§4.7](#47-families)).
 
 - The agreement is checked against the type's own implementations; one by a family or a generic implementation is not the type's own.
+- **Membership follows each implementation, never a chain** (with [§14](#14-membership), Planned): a type is a member of `A` by its own implementation of `A`, not because it is a member of `B` and `B <: A`. So `T <: A` and `x isa A` hold exactly when `T`'s implementation of `A` exists ([compiler §7.2](compiler.md#72-memberships)).
 
-**Status:** Implemented ([T-68](#17-deviations) for a mapped field).
+**Status:** Implemented ([T-68](#17-deviations) for a mapped field). Membership as subtyping: Planned ([§14](#14-membership)).
 
 ### 3.7 Tuples of traits
 
@@ -925,7 +926,7 @@ There is no syntax for this. It follows from the declarations.
 
 How a key is represented: [`lowering.md`](lowering.md#5-keys-and-views).
 
-**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)), and that the entry compiles code per held type of a `Dynamic` value ([T-94](#17-deviations)).
+**Status:** Implemented, except that TraitWorld gives an implementation served by defaults alone a receiver type in two more cases ([lowering L-21](lowering.md#18-deviations)), and that the entry compiles code per held type of a `Dynamic` value ([T-94](#17-deviations)). With traits in the type system (Planned), a key is a compilation signature of Julia's, and code is compiled per key by Julia's own specialization ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)).
 
 ### 6.8 Costs, and choosing
 
@@ -1380,8 +1381,9 @@ Two guarantees, asked for separately:
 - A kept value prints with its trait and its object's key: `Dynamic{Shape} at Circle`, `Compiled{Shape} at Circle`, `Kept{Shape}: Compiled at Circle`.
 - A function bound prints as `Callable{Tuple{Float64}, Float64} at Dynamic`, or at the function's type when `Compiled`.
 - Stack traces hide TraitWorld's own frames. `JULIA_TW_ALL_FRAMES=1` shows them.
+- **A key in a signature prints as the key,** wherever a signature appears: `colmean(::ColTable at Vector{Vector{Float64}}, ::Int64)` in a stack trace, a `MethodError` hint, `code_typed` and the list of a method's specializations. Under traits in the type system the key is a type the user never writes and may see, `Core.Keyed{X, R, F}` ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)); it always prints this way.
 
-**Status:** Implemented. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)).
+**Status:** Implemented. It needs the patched Julia's type printers ([`compiler.md`](compiler.md#53-type-printers)). A key in a signature: Planned, with traits in the type system.
 
 ---
 
@@ -1435,7 +1437,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 - **`conforms(T, X)`** answers the same question as `T <: X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
 - **Abstract types stay.** Where a tree of types is right, a library declares one, and its methods take abstract types as Julia's do. Numbers need no trait: `Number`, `Real` and `Integer` stay as they are. A type may subtype an abstract type and implement traits, and dispatch takes a typed method first.
 
-**Status:** `conforms` is Implemented. `T <: X` and `x isa X` for traits are Planned: today a trait is encoded as an abstract type that no conforming type subtypes, so both are accepted and `false` for every conforming value and type, and `B <: A` between traits is `false` too ([T-23](#17-deviations); [`lowering.md` §17](lowering.md#17-encodings-until-traits-are-in-the-type-system)).
+**Status:** `conforms` is Implemented. `T <: X` and `x isa X` for traits are Planned ([compiler §7.2](compiler.md#72-memberships), W-98): today a trait is encoded as an abstract type that no conforming type subtypes, so both are accepted and `false` for every conforming value and type, and `B <: A` between traits is `false` too ([T-23](#17-deviations); [`lowering.md` §17](lowering.md#17-encodings-until-traits-are-in-the-type-system)).
 
 ---
 
@@ -1533,10 +1535,12 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 | fully typed mode: `@enforce_fully_typed`, `@warn_not_fully_typed`, `fully_typed` | Implemented | [§11.3](#113-fully-typed-mode) |
 | a small union: concrete, and fully typed (fully typed mode is silent about it) | Implemented | [§11](#11-concreteness-and-fully-typed-mode) |
 | printing by bound and key | Implemented | [§12](#12-printing) |
+| a key in a signature printed as the key | Planned | [§12](#12-printing) |
 | compiling ahead from `@implement` | Implemented | [§13](#13-compiling-ahead) |
 | `verify_main`, `@workload` | Implemented | [§13](#13-compiling-ahead), T-20 |
 | `conforms(T, X)` | Implemented | [§14](#14-membership) |
-| `x isa X`, `T <: X` | Planned | [§14](#14-membership), T-23 |
+| `x isa X`, `T <: X` | Planned | [§14](#14-membership), T-23; [compiler §7.2](compiler.md#72-memberships) |
+| membership by each implementation, never through a chain of supertraits | Planned | [§3.6](#36-supertraits-and-bundles), [§14](#14-membership) |
 | named implementations, `Via{Fast}(x)` | Planned (deferred) | [§15](#15-named-implementations) |
 
 ---

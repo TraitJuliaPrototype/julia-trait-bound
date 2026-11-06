@@ -766,6 +766,16 @@ Julia has no trait in its type system, so TraitWorld encodes what membership as 
 
 The meanings are permanent ([`traits.md#14-membership`](traits.md#14-membership)); only these forms go.
 
+**What removes each encoding** ([compiler §7](compiler.md#7-traits-in-the-type-system); the stages are W-98 to W-103):
+
+| Encoding | Removed by | Work item |
+|---|---|---|
+| `conforms(T, X)` (L-5); registries for memberships (L-4, the membership half) | memberships in the type system ([compiler §7.2](compiler.md#72-memberships)) | W-98 |
+| entries at `Any`, the `Untyped` fallback, the hand-written joint-method and ambiguity checks (L-3; and L-47, L-48, L-50) | one dispatch ([compiler §7.3](compiler.md#73-one-dispatch)) | W-99 |
+| the key as the trait type's last parameter (L-1); trait sets as families and tags, workers on `TObj` (L-2); attributes as annotation types read by the rewrite (L-2); views and witnesses (§5, §6) | keys as compilation signatures, attributes as the choice of compilation signature ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)) | W-102 |
+| a trait's name as `Kept` by rewriting a module's source (L-6) | `Kept{X}` a Core type; a set's name in a field means it ([compiler §7.5](compiler.md#75-keys-attributes-and-the-check)) | W-102, W-103 |
+| the remaining registries and dispatch tokens (L-4) | declarations the runtime holds; the printer registry by the key's own printing | W-102, W-103 |
+
 ---
 
 ## 18. Deviations

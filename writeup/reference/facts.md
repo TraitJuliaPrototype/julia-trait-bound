@@ -148,6 +148,8 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - plain code that code compiled by facts runs: the compiler's ([§6.4](#the-compilers-own-code)). When such plain code is invalidated, the CodeInstance compiled by facts that names it is compiled again too;
 - plain inference's answers behind `return_type` ([§7](#return-type)). They change exactly when plain Julia's do.
 
+Under traits in the type system, the scope is stated per CodeInstance by its record ([§6.5](#65-under-traits-in-the-type-system)); a facts caller of a plain callee is out of it unless the code slot exists.
+
 **Exceptions**, named wherever G2 is claimed:
 - **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension. This is the stated exception.
 - **A stakeholder's extension activated by an unrelated package,** whose method applies at a fact without mentioning its triggers' types. It is admitted as the stakeholder's change: followed, never refused. In strict mode a warning names the method and the trait code it affects ([§10.3](#strict-intended)).
@@ -329,6 +331,16 @@ colmean(m, 1)                        # in plain code: the entry is compiled plai
 - Why: otherwise a caller compiled by facts would compile the abstract interpreter by facts, as type-unstable code with run-time sites.
 - The compiler runs in its own world, as plain Julia's does. Reflection runs it there also for an explicit interpreter. So later definitions cannot invalidate the compiler's code that reflection runs.
 - **The limit.** Code compiled by facts that calls compiler functions directly, not through reflection, holds edges to plain compiler code. Those edges are valid as long as plain Julia keeps them valid. TraitWorld's checks make such calls. Running them in the compiler's world would break packages that extend the compiler for their own interpreters. The loss is cacheability, not correctness.
+
+<a id="65-under-traits-in-the-type-system"></a>
+### 6.5 Under traits in the type system
+
+**Status: Planned** ([compiler §7.6](compiler.md#76-compiling-by-facts-per-method), W-100). When compiler §7 is built, the rule of §6.1–§6.3 becomes a property of each method:
+
+- **The mode is the method's policy:** a facts method, a boundary method and a plain method keep their kinds (§6.1); a neutral method is plain in the product setting and facts under `all`. A CodeInstance's mode follows from its method, not from the owner that reached it.
+- **One CodeInstance per MethodInstance, policy and flags.** Code compiled by facts calls a plain callee's plain CodeInstance; there are no facts copies of neutral methods in the product setting.
+- **G2's scope** (§2.2) is then a predicate on each CodeInstance's dependency record ([compiler §7.6](compiler.md#76-compiling-by-facts-per-method)). A facts caller that calls a plain callee by an emitted call holds an ordinary edge to it and is invalidated with it, unless the code slot exists ([compiler §7.7](compiler.md#77-the-code-slot), Optional): then it survives a recompilation of the callee to an equal result.
+- Calls between the modes (§6.3) keep their rules for constant propagation, concrete evaluation and inlining: each depends on the callee's code and records a code edge.
 
 ---
 
@@ -573,6 +585,7 @@ Its world range comes from that validation, never from the record.
 | four kinds of methods | Implemented | [§6.1](#kinds-of-methods) |
 | calls and inlining between the modes | Implemented | [§6.3](#calls-between-the-modes) |
 | the compiler plain whoever calls it | Implemented | [§6.4](#the-compilers-own-code) |
+| the mode as each method's policy, one CodeInstance per MethodInstance and policy; G2 a predicate on the record | Planned | [§6.5](#65-under-traits-in-the-type-system) |
 | direct calls into the compiler from code compiled by facts: edges to plain code | Implemented | [§6.4](#the-compilers-own-code) |
 | `return_type`: plain inference's answer, at compile time and at run time, in both settings | Implemented | [§7.1](#return-type) |
 | `return_type`: revalidation after loads | Optional | [§7.1](#return-type); [PE-5](../record/performance-explorations.md) |

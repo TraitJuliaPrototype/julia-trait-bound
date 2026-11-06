@@ -36,6 +36,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Caches across sessions: combination caches and view caches, removed
 - Choices of the clean-up of 2026-10-27: options not taken
 - Level 2 of unification: options not taken
+- The unified build: options not taken
 
 ---
 
@@ -365,3 +366,21 @@ W-83's level 2 makes a bounded method a Julia method at its set: one dispatch. U
 - **(b) No membership in a package extension.** Not taken: it excludes the arrangements that work too, the 20 memberships in extensions that E-253 counts (`InlineStrings` columns, `PooledVector`, `CategoricalVector`), and the pattern of an implementation in the trait owner's package extension ([traits §10.1](../reference/traits.md#101-who-may-implement)), which would need a dependency or a newtype.
 - **(c) Memberships in packages as dispatch facts, memberships in extensions decided at run time.** Not taken: two kinds of membership again, for extensions only.
 - **(d) Today's two tiers for dispatch** (an entry at `Any`, membership decided at run time), with level 1 only. Not taken: the simplifications of level 2 (the entries and untyped fallbacks of lowering L-3, L-47, L-50) would stay out of reach.
+
+## The unified build: options not taken
+
+The unified design is built on branch `unified` from an earlier attempt's branch `oc-build`, by [the synthesis plan](../plans/2026-11-05-unification-synthesis.md) (the user, 2026-11-06, decisions 1–13; [decisions](../record/decisions.md) §5). The options not taken, with the reason:
+
+- **Rebuild from upstream with the earlier attempt as reference only.** Not taken: it would pay again for the findings of the attempt's notes (the self-described bit groups, the supertype hook in `jl_set_datatype_super`, the `obviously_disjoint` short-circuit, the inference world, the GC roots), with 2,627 lines and 22 gates already there. The audit (W-97) decides file by file instead.
+- **Membership chains composed by the runtime** (the attempt's form: `isa`, intersection and dispatch composed `S ∈ B` and `B <: A`, while `<:` answered direct entries only). Not taken: `<:` was not transitive across memberships, `isa(x, T)` could differ from `typeof(x) <: T`, and it needed walks over chains, a bound over every chain and a cycle guard. Explicit memberships match [traits §3.6](../reference/traits.md#36-supertraits-and-bundles), where a type implements each supertrait by its own implementation.
+- **Membership in subtyping composed too** (composition in `<:`). Not taken: the same walks in every subtype query, for memberships the library writes anyway.
+- **One world bump for a membership that also sets the declaring task's world from C.** Not taken: two protocols where methods have one, and C writing a task's world. A membership follows the method-insertion protocol, and `@implement` lowers to `Expr(:latestworld)` after it.
+- **C7 per match, in `ml_matches`** (the exploration's D5 form, a flag per match). Not taken: `type_morespecific_` can order a closed type before an open set at a position, so the ambiguity tools and the insertion walk work unchanged; the attempt's count on the patched build (to be re-run as E-260) found the flag placement reaching 92–99 % of a function's dispatch entries at a bounded method's definition.
+- **An intersection that over-approximates for open sets** (the exploration's §2.3). Replaced by three layers ([compiler §7.2](../reference/compiler.md#72-memberships)): an over-approximating intersection gives the method table's visitor matches outside the method's signature, and the inliner's union split then takes a bounded method's branch for non-members (the review's H2).
+- **Result edges that revalidate without a slot** (the exploration's D3). Not taken: a static call binds the callee's machine code, so a kept caller would keep calling the invalidated callee's code (the review's H1). The slot is Optional ([compiler §7.7](../reference/compiler.md#77-the-code-slot)).
+- **The second owner kept as the product setting's design** (the review's fallback for D3). Not taken: its cost in the ports' sessions, Base's facts copies (open issue 125: 0.24–0.34 s per session).
+- **The facts policy switched by an environment variable, with marks in session dictionaries.** Not taken: the marks must survive into package images from the first package compiled by facts; the module option and the method flag are saved with the method.
+- **Rebasing the unified build on Julia 1.14 after the compiler stage.** Not taken: the user (2026-11-06): "we stay on 13.2".
+- **Offsets in the key** (the exploration's D2 option). Not taken: two members with one field type at different offsets would get two keys; the key holds types, and the boxed adapter reads offsets from a table ([compiler §7.5](../reference/compiler.md#75-keys-attributes-and-the-check)).
+- **Refusing methods at open sets until guards exist** (the review's H4 option (b)). Not taken: the replay of the insertion walk at a membership is less code and measures what a membership costs ([compiler C-18](../reference/compiler.md#deviations)).
+- **`Callable`'s `Dynamic` form on `OpaqueClosure`** (the exploration's D7). Not taken: an opaque closure fixes one source method and one world; a form that follows the caller's world re-creates the `:caller_world` thunk (the review's M9). To revisit if a measurement names a cost of the thunk.

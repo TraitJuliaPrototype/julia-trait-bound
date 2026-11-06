@@ -83,21 +83,21 @@ Run TraitWorld's test suite for a fuller check:
 
 The checks to run after a change to Julia are in [the workflow notes](../session-notes/00-environment-and-workflow.md).
 
-## Work from the upstream Julia base
+## The unified build
 
-The unified design can be built from upstream Julia instead of on the patched branch. This route is [an exploration](explorations/unified-build-from-vanilla-julia.md), not an adopted plan. Read [its review](reviews/2026-10-29-unified-build-review.md) with it.
-
-Upstream v1.13.2 is commit `45b6d15e34`, and the exploration's line citations refer to that commit. To get a tree at that commit on its own branch:
+The unified design ([compiler §7](reference/compiler.md#7-traits-in-the-type-system)) is built from upstream Julia v1.13.2 (`45b6d15e34`) on branch `unified` of the julia repository ([the synthesis plan](plans/2026-11-05-unification-synthesis.md), W-97 to W-104). Its worktree, and a vanilla control for comparisons:
 
 ```sh
-git -C julia-1.13 worktree add ../julia-upstream -b unified 45b6d15e34
-cp julia-1.13/tw-build.sh julia-upstream/
-julia-upstream/tw-build.sh
+git -C julia-1.13 fetch origin unified
+git -C julia-1.13 worktree add ../julia-unified unified
+git -C julia-1.13 worktree add --detach ../julia-vanilla 45b6d15e34
+tools-local/build.sh julia-unified
+tools-local/build.sh julia-vanilla
 ```
 
-`unified` is only an example name for the branch.
-
-An unfinished earlier attempt is available as material to draw on, unverified: its Julia commits are on `origin/oc-build`, and its plan, notes and tests are in `attic/oc-notes/` and `attic/oc-traits/`.
+- Copy `julia-1.13/deps/srccache/` into each new tree first to save the downloads.
+- Until branch `unified` is pushed, start it from `origin/oc-build` (`-b unified c3f0b4bc11`).
+- Its gates and acceptance cases: `experiments/unification/`.
 
 ## Paths
 

@@ -1,6 +1,6 @@
 # Building the unified design into Julia from the upstream base
 
-Status: **exploration** (2026-10-29, a fresh-eyes Fable agent; not adopted). Not normative. Serves W-83 and W-27.
+Status: **exploration** (2026-10-29, a fresh-eyes Fable agent; not adopted). Not normative. Serves W-83 and W-27. **Its decisions D1–D9 are decided through [the synthesis plan](../plans/2026-11-05-unification-synthesis.md) (the user, 2026-11-06), with [the review's](../reviews/2026-10-29-unified-build-review.md) corrections: the intended design is [compiler §7](../reference/compiler.md#7-traits-in-the-type-system). Where this document differs (§2.3's intersection, §2.4's C7 placement, §3.3's codegen sentence, §3.8's revalidation, D1's order, D3), the reference holds.**
 
 The user's question (2026-10-29): "I want a fresh eyes Fable agent to think about how to build this (especially the type system and compiler changes) together with the caching of machine code, from a vanilla Julia base. This is not an incremental change but a fundamental reframing."
 
