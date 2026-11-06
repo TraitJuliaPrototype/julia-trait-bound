@@ -72,6 +72,8 @@ Everything worth remembering is kept in the project's notes and guidance: this f
 - Sustained use stays considerably lower: env.sh's 4 cores per job, at most 16 cores in all (my reading of "considerably lower"). Builds one after another, as in a bisection, are sustained use: `WIDE=0`.
 - Once the others' load reaches half the cores: 4 cores, one job at a time.
 
+**Pushing:** commits may be pushed at will, to every repository of the workspace (the user (2026-11-06): "You may push at will.).
+
 **No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so.
 
 **No excessive benchmarking unless the work is specific performance work.** Otherwise run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.

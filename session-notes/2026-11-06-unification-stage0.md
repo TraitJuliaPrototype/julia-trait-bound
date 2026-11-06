@@ -40,3 +40,11 @@ And, while the work ran:
 - Probe P7: the branch does not read entries along a member's supertype chain (`PS7 <: PAbs7`, `PAbs7` a member of `PX7`, but `!(PS7 <: PX7)`).
 - **E-260 and E-261 done** (the environments installed 12:08–12:21, no errors). E-260 reproduces the attempt's C7 count exactly: decision 2 stands. E-261: the slot keeps 341 of 1,233 and 1,622 of 6,430 invalidated CodeInstances, and 67 of 120 and 91 of 100 facts callers of invalidated plain code. By decision 3's rule the slot is built (W-101); compiler §7.7 Planned; the decision log row marked mine.
 - **W-97 done.** The build discipline is in `00-environment-and-workflow.md`. Nothing pushed: the commits of the design and experiments repositories are local, waiting for the user's word.
+
+## Pushing, and the variance of parameters
+
+> You may push at will. Let me get this right: Standard AbstractTypes in Julia are invariant, but there is a separate spelling AbstractArray{<:T} (that looks a lot like a trait bound) that makes it covariant? If we unify Traits and AbstractTypes, then we should follow that rule. Trait{U} <: Trait{<:T} if U <: T. That way we can also spell a callable with arbitrary return type Callable{T, <:Any}.
+
+- Pushing at will recorded in `CLAUDE.md` and the standing constraints.
+- Open issue 141 closed: parameters invariant, `X{<:T}` and `X{>:T}` where a type is used; the diagonal-rule question disappears (a parameter of a trait stays an invariant position). Compiler §7.2, traits §3.4, §5.8 (`Callable{A, <:Any}`), §14; alternatives.
+- Probe P8: the branch's fallback answers `S <: X{<:Real}` false (A15, high, C-26). The fix is also the simplest reading of the decision: an entry is a supertype within subtyping's walk.

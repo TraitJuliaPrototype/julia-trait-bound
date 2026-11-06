@@ -278,6 +278,7 @@ end
 - A parameter defined by a field and by an equation is an error ("defined by the field").
 - **An equation always holds.** A parameter defined by an equation is never replaced. An implementation may state its value too; the stated value is checked against the equation's ([§4.6](#46-stating-parameters)).
 - Operations and fields name the parameters: `kget(v::KVec{T}, i::Int)::T`.
+- **Parameters are invariant,** as Julia's are. `KVec{Real}` means a parameter that is exactly `Real`. A bound that accepts every subtype is written as for a Julia type: `v::KVec{<:Real}` (a vector of `Int` conforms), and `KVec{>:Int}` for every supertype. In `f(v::KVec{T}) where {T}`, `T` is the member's own value.
 - **Bounds on parameters,** `@trait ArrayLike{T <: Real, N}` or `T <: NumberLike` with a trait. The bound is checked at every implementation: a value outside it is refused with `ImplementError`. A trait bound also lets definition checking ([§9](#9-checks-and-when-they-run)) cover code that computes with the parameter.
 - **A parameter may be required to be concrete** at every implementation: `@enforce_concrete_only T` ([§11](#11-concreteness-and-fully-typed-mode)).
 - **Input parameters:** a parameter marked as an input may take several values per type. It is declared by a line `@input N` in the trait's body, and input parameters come first in the header: `@trait HasProperty{N, R} begin @input N; … end`.
@@ -727,12 +728,13 @@ colsum(abs2, m, 1)                       # Compiled at colsum's position
 
 **Rules.**
 - **The argument types `A` may follow the other arguments.** A bound whose `A` names the method's `where` variables, fixed by other arguments or bounds, is a bound at the signature those give: `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`, `rhs!(f::Callable{RHSSig{P, T}, Nothing}, u::Vector{T}, p::P) where {T, P}`. The entry enters the other arguments first, then the function at the signature they fix; it is compiled once per signature, at its first call. The variables must be fixed by the other arguments; a `where` variable only the `Callable` names is refused when the method is defined. A struct parameter's bound may name the struct's other parameters: it only keeps the function ([§7.4](#74-a-struct-parameter-bounded-by-a-trait)).
+- **Any result:** `f::Callable{Tuple{Float64}, <:Any}` accepts a function whatever it returns; the result is not checked. Where the body names the result type, it is a `where` variable instead:
 - **An open result type,** `f::Callable{Tuple{Float64}, S} where S`, is inferred at the call, in plain code, after the argument types are fixed: `byrow(f::Callable{Tuple{T}, S}, c::Column{T}) where {T, S}` is compiled per cell type and result type. It becomes part of what the code is compiled for, and every call is checked against it. A function with no method at the argument types raises `MethodError` at its first call.
 - **Functions returned to plain code** are ordinary closures of the trait module. A closure that captured a trait object keeps the user's object.
 - **Bounded closures,** `(u::ColTable) -> …`, are bounded functions.
 - **A `Callable` whose result is a trait or a `Callable`** (`f::Callable{Tuple{Int}, ColTable}`) sees the function's results through that bound, as an argument's bound would.
 
-**Status:** Implemented. Planned: bounded closures and results that are traits or `Callable`s. A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)). A family member refused for a function's result is not named with the result type ([T-90](#17-deviations)).
+**Status:** Implemented. Planned: bounded closures and results that are traits or `Callable`s; `Callable{A, <:Any}` (with traits in the type system, [compiler §7.2](compiler.md#72-memberships)). A trait object passed to a `Callable`'s argument declared `Dynamic{X}` is refused ([lowering L-31](lowering.md#18-deviations)). A family member refused for a function's result is not named with the result type ([T-90](#17-deviations)).
 
 ---
 
@@ -1434,7 +1436,7 @@ A trait is a kind of abstract type: it names a set of types, and it is written w
 
 - **`T <: X` and `x isa X`** mean "`T` conforms to `X`" and "`x`'s type conforms to `X`". An implementation adds the trait to the type's supertypes after the type is defined. That is sound because only a stakeholder declares it, and a pirate's implementation is refused. Compiled code never folds a membership test to `false`: the answer is taken when the code runs, so a later implementation invalidates no trait code ([§4](#4-implementations)).
 - **Between traits, `B <: A`** means `A` is a supertrait of `B`: every type that conforms to `B` conforms to `A`, by its own implementation of `A`. With traits in the type system, `<:` is transitive through memberships as through supertypes ([compiler §7.2](compiler.md#72-memberships)).
-- **Parameters are invariant** for traits as for Julia's types. Whether `U <: V` makes `X{U} <: X{V}` for a trait's parameters is open ([open issue 141](../open-issues.md#1-decisions-waiting-for-the-user)).
+- **Parameters are invariant** for traits as for Julia's types: `X{U} <: X{<:T}` when `U <: T`, and `X{U} <: X{V}` only when `U` and `V` are equal ([§3.4](#34-parameters-and-associated-types)).
 - **`conforms(T, X)`** answers the same question as `T <: X`. With fixed parameters, `conforms(Vector{Int}, PVec{Float64})` is `false`. `conforms(Dynamic{X}, X)` is `true`.
 - **Abstract types stay.** Where a tree of types is right, a library declares one, and its methods take abstract types as Julia's do. Numbers need no trait: `Number`, `Real` and `Integer` stay as they are. A type may subtype an abstract type and implement traits, and dispatch takes a typed method first.
 

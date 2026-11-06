@@ -19,37 +19,6 @@ Eight of the choices the clean-up adopted, and the choices marked mine in the de
 
    **Proposal (mine):** the equation is evaluated on the family's pattern at the declaration, with the family's variables as type variables (`eltype(Vector{T})` gives `T`). A family for which that gives no pattern is refused, with a message naming the parameter to state at the implementation.
 
-141. **Variance of a trait's parameters: does `U <: V` imply `X{U} <: X{V}`?** (W-98; [compiler §7.2](reference/compiler.md#72-memberships), [traits §3.4](reference/traits.md#34-parameters-and-associated-types), [§14](reference/traits.md#14-membership); Open). The user (2026-11-06): "We need to explicitly think about invariance, covariance and contravariance with respect to parameters. Does U <: V imply T{U} <: T{V} I lean towards: yes if all parameters satisfy it. This decision might simplify other aspects of the design, too."
-
-   **Today:** a trait's parameters are invariant, as Julia's are. `Column{Real}` means a column whose element type is `Real`; a column of `Int` is `Column{<:Real}`.
-
-   **The scope.** Only a set's parameters. Julia's own parametric types stay invariant: a concrete type's parameters fix its layout (`Vector{Int}` stores its items inline, `Vector{Real}` boxes them), and Base's dispatch and specificity rest on invariance. Core's `Dynamic{X}`, `Compiled{X}` and `Kept{X}` hold `object::Any`; their layout does not depend on `X`, so they can follow `X`'s variance.
-
-   **What covariance means for a trait.** `Column{Real}` would accept every member whose element type is a subtype of `Real`: what `Column{<:Real}` means today. The exact value stays reachable: in `f(c::Column{T}) where {T}`, `T` binds the member's own value.
-
-   **Where it is sound, and where not:**
-   - **A parameter the contract only produces** (an operation's result, a `@const` field, a field read only): covariance is sound. `first(c::Column{Real})::Real` holds for an `Int` column.
-   - **A parameter the contract consumes** (an argument of an operation, a writable field): covariance is not. Through `Column{Real}` the definition check accepts `setindex!(c, 1.5, i)`, and on an `Int` column the member's method fails when it runs. This is Java's array covariance (`ArrayStoreException`). It is why C#, Kotlin and Scala allow covariance only for parameters in output positions (`out T`, `+T`), and why Rust infers each parameter's variance from its uses.
-   - **Contravariance is the dual:** a parameter the contract only consumes (`put!(s::Sink{T}, x::T)`) gives `Sink{Real} <: Sink{Int}`. `Callable{A, S}` ([traits §5.8](reference/traits.md#58-callable-functions-at-a-declared-signature)) is the case in the design: contravariant in its arguments `A`, covariant in its result `S`, as function types are everywhere.
-   - **A parameter in an invariant position of another type** (`data::Vector{T}`): invariant, because `Vector` is.
-
-   **Proposal (mine, refining the user's lean):** each parameter's variance is derived from the trait's contract at its declaration:
-   - covariant if it appears only in output positions;
-   - contravariant if it appears only in argument positions of operations;
-   - invariant otherwise, and always for an input parameter (`@input`, a value).
-   - `X{U₁, …, Uₙ} <: X{V₁, …, Vₙ}` when every pair relates by its parameter's variance: the user's "yes if all parameters satisfy it", for the parameters where it is sound.
-   - A trait's contract is fixed at its declaration, so its variance is too. Reflection prints it.
-   - The alternative, covariance for every parameter, accepts at the definition check calls that fail at run time on members whose parameter is narrower.
-
-   **To work through before it is adopted:**
-   - **Julia's diagonal rule:** a `where T` that occurs more than once in covariant positions must be concrete. If trait parameters count as covariant positions, `push!(c::Column{T}, x::T) where {T}` stops matching a member whose element type is abstract (`Column{Real}` with `x::Int`), which it matches under invariance. The rule must say whether trait parameters take part in the diagonal rule.
-   - **Intersection and specificity** at a covariant parameter (`Column{Int}` more specific than `Column{Real}`, their intersection `Column{Int}`) and at a contravariant one (`Sink{Real} ∩ Sink{Int}` is `Sink{Real}`).
-   - **Supertraits with parameters** (`@trait B{T} <: A{T}`) compose through the variance of each.
-   - **Keys are not affected:** code is compiled per key, which fixes each parameter's exact value.
-
-   **What it would simplify:** generic code over `Column{Real}` without a `where` clause; `Callable`'s function subtyping by the general rule instead of its own check; a kept value of a subtrait where a supertrait's kept value is expected.
-
-
 Waiting for evidence, not for the user:
 
 19. **Should standard libraries be separate owners?** Today Julia (Core, Base, the standard libraries) is one owner ([facts §1](reference/facts.md#term-owner); `TraitWorld/src/ownership.jl` `owner(m)` returns `:Julia` for every standard library, `strict.jl` skips `:Julia`), so a standard library's method on Base types (SparseArrays' `vcat` for `Number` and `Vector`, loaded by StatsBase) is a stakeholder's change: followed, never refused. TraitWorld's `_type_root` already treats a standard library's types as its own. Found by the writeup review of 2026-10-19 (finding 1). **To settle by E-189** (W-65; with strict mode's intended design, W-66): a census of the standard-library methods that are pirates by the letter if each library is its own owner, and which of them win at a fact of trait code in the demonstrators and the port's core. Outside strict mode the choice changes nothing, since a winning pirate is followed by default. Only late-loaded libraries win (SparseArrays' `vcat`): each library its own owner. A library in the system image wins (LinearAlgebra's methods of Base's functions): Julia stays one owner.
@@ -145,6 +114,10 @@ Choices whose repercussions are unclear either way, where experience with large-
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 
 ### §1
+
+Closed on 2026-11-06:
+
+141. **Closed (2026-11-06, the user (2026-11-06): "Let me get this right: Standard AbstractTypes in Julia are invariant, but there is a separate spelling AbstractArray{<:T} (that looks a lot like a trait bound) that makes it covariant? If we unify Traits and AbstractTypes, then we should follow that rule. Trait{U} <: Trait{<:T} if U <: T. That way we can also spell a callable with arbitrary return type Callable{T, <:Any}."):** a trait's parameters are invariant, as Julia's are; `X{<:T}` and `X{>:T}` are the covariant and contravariant spellings, at the place of use ([compiler §7.2](reference/compiler.md#72-memberships), [traits §3.4](reference/traits.md#34-parameters-and-associated-types); [decisions](record/decisions.md) §5). The variance derived from the contract (my proposal) and covariance for every parameter: [`design/alternatives.md`](design/alternatives.md), "The unified build: options not taken". *As it stood:* **Variance of a trait's parameters: does `U <: V` imply `X{U} <: X{V}`?** (W-98; [compiler §7.2](reference/compiler.md#72-memberships), [traits §3.4](reference/traits.md#34-parameters-and-associated-types), [§14](reference/traits.md#14-membership); Open). The user (2026-11-06): "We need to explicitly think about invariance, covariance and contravariance with respect to parameters. Does U <: V imply T{U} <: T{V} I lean towards: yes if all parameters satisfy it. This decision might simplify other aspects of the design, too."
 
 Closed on 2026-10-29:
 

@@ -877,7 +877,11 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 
 **Memberships only grow.** An entry is never removed. A redeclared implementation gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it (a walk by key). It is a stakeholder's change ([facts §2.2](facts.md#g2)).
 
-**Subtyping.** `jl_subtype(S, X)` consults the entries of `S` and of each type on `S`'s supertype chain where the chain fails to meet `X` and `X` is open, in both chain walks of `subtype`, and follows entries of sets in sets transitively. A matching entry's instance is compared with `X`'s parameters as a supertype's are. A miss is `false`. A set's parameters are associated types: one value per member ([traits §3.4](traits.md#34-parameters-and-associated-types)). They are compared invariantly; whether `U <: V` implies `X{U} <: X{V}` is **Open** ([open issue 141](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Subtyping.** A membership is one more supertype of its member:
+- where `S`'s supertype chain fails to meet an open `X`, `jl_subtype` takes the entries of `S` and of each type on `S`'s chain; for each that matches, it continues the same walk from the entry's instance (`subtype(instance, X, e)`), in the same environment, as it continues from a supertype;
+- so entries of sets in sets are followed transitively, and a miss is `false`;
+- a set's parameters are associated types, one value per member ([traits §3.4](traits.md#34-parameters-and-associated-types)), and are invariant, as Julia's parameters are: with `S`'s entry for `X{Int}`, `S <: X{Int}`, `S <: X{<:Real}` and `S <: X{>:Int}` hold, and `S <: X{Real}` does not;
+- the existential variables of `X{<:T}` and the bindings of a method's `where` clause are the walk's own, so dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
 
 **Three layers** for questions about open sets:
 - `<:` and `isa` read the entries: the answer in the current world.
@@ -1013,3 +1017,4 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 | C-23 | [§7.2](#72-memberships) | Set-in-set memberships never form a cycle. | A cycle closing through a set's second entry is accepted (A6). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`); probe P5 |
 | C-24 | [§7.1](#71-memberships-and-dispatch) | Core's kinds, the builtins included, are never members. | A builtin function's type is accepted as a member (A9). | branch `unified` c3f0b4bc11: `src/jltypes.c` (the `never_member` bits); probe P6 |
 | C-25 | [§7.2](#72-memberships) | `@implement` lowers to the declaration followed by `Expr(:latestworld)`; the runtime does not set a task's world. | `jl_declare_membership` sets the declaring task's `world_age` to the entry's world (A12). | branch `unified` c3f0b4bc11: `src/datatype.c` (`jl_declare_membership`) |
+| C-26 | [§7.2](#72-memberships) | A membership is consulted as a supertype within subtyping's walk, so `X{<:T}`, `X{>:T}` and `where` variables see members. | The fallback asks the entries in a fresh subtyping query outside the walk: with `S`'s entry for `X{Int}`, `S <: X{<:Real}`, `S <: X{>:Int}`, `S() isa X{<:Integer}` and dispatch at `f(::X{<:Integer})` are all false ([the audit](../reviews/2026-11-06-oc-build-audit.md), second addendum, A15). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_holds`, called from `subtype`'s chain-miss fallback); probe P8 |

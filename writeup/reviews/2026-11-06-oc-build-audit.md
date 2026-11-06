@@ -185,3 +185,15 @@ The user reversed decision 4 the same day: "I have reconsidered explicit members
 - **A6 (the cycle check) matters more:** under transitivity, a cycle among sets makes them equal. The check must cover every path.
 - **D-M2-1 and D-M2-2** are resolved by extending the composition to `<:`, not by removing it.
 - The gate `m2_set_in_set` pins composition for `isa` and dispatch; its line 19 (`!(Late2 <: A2)`) is re-pinned to `true`.
+
+## Second addendum (2026-11-06): parameters invariant, with `X{<:T}`
+
+The user decided that a trait's parameters follow Julia's rule: invariant, with `X{<:T}` and `X{>:T}` at the place of use ([decisions](../record/decisions.md) §5). Probe P8 on the built branch shows a further defect:
+
+### A15 (high). The membership fallback answers outside subtyping's walk
+
+**Where:** `src/subtype.c`: `subtype`'s chain-miss fallback calls `jl_membership_answer_direct(x, y)`, which runs `jl_membership_holds` and, in it, a fresh `jl_subtype(yq, inst)`. The existential variables of the right-hand side and the walk's bindings are not passed.
+
+**Shown by** probe P8: with `PS8`'s entry for `PX8{Int}`, `PS8 <: PX8{Int}` holds, but `PS8 <: PX8{<:Real}`, `PS8 <: PX8{>:Int}`, `PS8() isa PX8{<:Integer}` and `typeintersect(PS8, PX8{<:Real}) == PS8` are false, and `p8(::PX8{<:Integer})` is not called for `PS8()`.
+
+**Fix:** treat an entry as a supertype within the walk. Where the chain fails and `y` names an open set, continue with `subtype(instance, y, e, param)` for each matching entry of `x` and of each type on `x`'s chain, under the walk's save and restore of the environment. Transitivity, invariance and the existential spellings then come from the existing algorithm. The parallel answers in `intersect` and in the typemap's match follow the same rule. Compiler C-26; W-98.
