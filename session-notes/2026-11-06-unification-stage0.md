@@ -146,3 +146,18 @@ The user (2026-11-06):
 - **The fallback:** a module option `first_seen`, on in `@trait_module`; `Compiled` elsewhere (traits §7.5, §13; compiler §2.1, §6.3).
 - Open issue 142 closed; decision log §9 updated; 96d3915.
 - **A Fable reviewer** (the `fable-critic` agent) was sent at the user's explicit request, an exception to the standing "no subagents on the shared host" (load 25 of 128 at the start). It reads only: no Julia, no builds. It writes `writeup/reviews/2026-11-06-unified-reference-prototypes.md`.
+
+## The work plan under the draft
+
+The user (2026-11-06):
+
+> Send out a second Opus agent that compares the unification work plan that was started with the new design and figures out how the work plan would have to change and how it could be simplified.
+
+- An Opus agent (general-purpose) was sent at the user's explicit request, again an exception to "no subagents on the shared host" (load 26 of 128). It only read: no Julia, no builds, no other file edited.
+- Its proposal: [`writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md`](../writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md).
+  - W-98 and W-99 survive almost whole; the uncommitted in-walk subtyping is the draft's compiler §4.4, §4.5, §4.10. The tree does not build yet: `typemap.c:553, 572, 915` and `gf.c:3798, 5409` still call the removed `jl_membership_match_sig` and `jl_membership_match_range` (checked in the main session).
+  - Delete rather than fix: the Core wrappers, `generic_wrapper`, `Keyed`, the composed matches (C-20 retires by deletion).
+  - The premise first: a slice of W-98, W-99 and a new small library with two workloads, compiled per type, before keys, the attribute, the split, guards and the facts policy.
+  - W-102 and W-103 retired into N1–N9 (placeholders for new W- IDs).
+  - Weak points 1–14 of the draft. Checked in the main session against the draft: weak point 1 holds (compiler §7.4 has subtyping derive memberships by running inference; and an inferred result changes with any callee's redefinition, so traits §9's and facts §10's "only by a definition of `F`'s methods" is false); weak point 4 holds (compiler §4.2 "needs no entry" against §6.1 "`S`'s entry … has that key"); weak point 3 holds (lowering §2's pattern `Dynamic{X{P…}}` misses `Dynamic{All{…}}`); compiler §2.1 says "three more options" and lists four.
+- Nothing applied yet: the draft's fixes wait for the Fable review, so both are worked in one pass. For the user: `Callable`'s result (weak point 1) and whether to adopt the revised stages.
