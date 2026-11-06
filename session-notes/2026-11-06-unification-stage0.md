@@ -135,3 +135,14 @@ And, while the draft was written:
   - `Callable`'s form;
   - the attribute's last step (`Compiled`, Julia's rule, or what the caller knows).
 - Nothing built; W-98 still waits.
+
+## Callable by signature; the fallback by scope; a review of the prototypes
+
+The user (2026-11-06):
+
+> I think we need dispatch to pick by signature. falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia. Send out a fable reviewer that checks what the new unified reference would imply for the prototypes we built.
+
+- **`Callable`:** memberships derived from the method table. `F <: Callable{A, S}` where a call at `A` selects a method whose plain-inferred result is `S`; `A` is an input, `S` an associated type. A derived membership follows the method table: it is the one kind that can end, and only by a definition of the member's methods (a stakeholder's or a pirate's). Code relying on one holds an edge to it; negatives are guarded as for any membership. The form is mine (traits §9, compiler §7.4, facts §10 of the draft).
+- **The fallback:** a module option `first_seen`, on in `@trait_module`; `Compiled` elsewhere (traits §7.5, §13; compiler §2.1, §6.3).
+- Open issue 142 closed; decision log §9 updated; 96d3915.
+- **A Fable reviewer** (the `fable-critic` agent) was sent at the user's explicit request, an exception to the standing "no subagents on the shared host" (load 25 of 128 at the start). It reads only: no Julia, no builds. It writes `writeup/reviews/2026-11-06-unified-reference-prototypes.md`.
