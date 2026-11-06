@@ -11,9 +11,13 @@
 # A wide build is a spike (its parallel compile phase lasts minutes); builds one after another
 # (a bisection) are sustained use and run with WIDE=0.
 # Usage: tools-local/build.sh <julia tree> [make target]     (WIDE=0 forces -j4)
+# Run from a private copy: bash reads a script as it runs, so an edit to this file would corrupt a running build.
+if [ -z "${BUILD_SH_COPY:-}" ]; then t=$(mktemp); cp "$0" "$t"; BUILD_SH_COPY=$t exec bash "$t" "$@"; fi
+trap 'rm -f "$BUILD_SH_COPY"' EXIT
 TREE=$(cd "$1" && pwd) || exit 2
 TARGET=${2:-}
-NCPU=$(nproc); HALF=$((NCPU / 2)); NARROW=4
+NCPU=$(getconf _NPROCESSORS_ONLN);  # not nproc: it honours OMP_NUM_THREADS, which env.sh sets to 1
+ HALF=$((NCPU / 2)); NARROW=4
 HI=${HI:-110}; LO=${LO:-90}
 LOG=$TREE/tw-build.log
 : > "$LOG"
