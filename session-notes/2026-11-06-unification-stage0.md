@@ -161,3 +161,13 @@ The user (2026-11-06):
   - W-102 and W-103 retired into N1–N9 (placeholders for new W- IDs).
   - Weak points 1–14 of the draft. Checked in the main session against the draft: weak point 1 holds (compiler §7.4 has subtyping derive memberships by running inference; and an inferred result changes with any callee's redefinition, so traits §9's and facts §10's "only by a definition of `F`'s methods" is false); weak point 4 holds (compiler §4.2 "needs no entry" against §6.1 "`S`'s entry … has that key"); weak point 3 holds (lowering §2's pattern `Dynamic{X{P…}}` misses `Dynamic{All{…}}`); compiler §2.1 says "three more options" and lists four.
 - Nothing applied yet: the draft's fixes wait for the Fable review, so both are worked in one pass. For the user: `Callable`'s result (weak point 1) and whether to adopt the revised stages.
+
+## The prototypes' review; one pass over the draft
+
+- The Fable review arrived: [`writeup/reviews/2026-11-06-unified-reference-prototypes.md`](../writeup/reviews/2026-11-06-unified-reference-prototypes.md). 2 high, 8 medium, 10 low. H1 is the work plan's weak point 1 found independently: `Callable` by plain inference is unsound (the result depends on every callee and on inference's limits) and cannot run inside subtyping. H2: `bounded` on in `@trait_module` refuses the ports' constructors and adapters and the draft's own `keep`/`typeof` idiom.
+- One pass over the draft took both reviews' findings, on the user's standing instruction ("Make decisions, think about existing languages, only where no principled option exists, come back to me"): P-20 to P-28, mine, in the README and decisions §9; the review's addendum lists every finding's disposition; the plan's status line its own.
+  - H2: `bounded` stays in the bundle (the user's Q2 (a)); `@open` marks a method open on purpose (P-20). The review's opt-in is in `alternatives.md`.
+  - Keys computed by the runtime from the membership and the contract, so `S <: TraitKey` follows the membership's worlds and the member hook only checks (P-12, P-18).
+  - `Dynamic{X}` a struct of `Core`, its pattern `Dynamic{Z} where {Z <: X{P…}}`, parameters required (P-5).
+  - Attribute bits only through `Core.attributed_call` (P-24); cast names reserved as `ccall` (P-23); normal forms by declared supertypes (P-21); intersections' keys and candidates (P-22); `trait_receiver`/`trait_field` (P-25); a module-end hook (P-26); `HasProperty` by `getproperty` at a constant name (P-27); smaller rules (P-28).
+- For the user: open issue 143 (`Callable`'s result type: (a) declared results, (b) inferred outside subtyping, (c) arguments only, recommended (c)); open issue 144 (confirm P-20 to P-28); the work plan's revised stages.

@@ -1,6 +1,6 @@
 # The unification work plan under the draft reference
 
-Status: proposal (2026-11-06), for the user; not normative.
+Status: proposal (2026-11-06), for the user; not normative. Taken into the draft the same day (mine, its README P-20 to P-28): weak points 2 to 12 and 14, and S6. Weak point 1 is open issue 143. Waiting for the user: the revised stages (§5) and weak point 13 (after W-99's measurement).
 
 **The request** (the user, 2026-11-06): "Send out a second Opus agent that compares the unification work plan that was started with the new design and figures out how the work plan would have to change and how it could be simplified."
 

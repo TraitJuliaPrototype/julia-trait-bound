@@ -123,7 +123,7 @@ Base.Experimental.@compiler_options facts=true
 
 - `facts=true` makes every method of the module compiled by facts, unless the method says otherwise. It emits `Expr(:meta, :facts, 1)` at the module's top level.
 - The module flag (`jl_module_t.facts`): 0 plain, 1 facts, 2 never by facts (the compiler's own modules). A submodule takes its parent's flag when created. The flag is saved with the module in images.
-- **Three more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
+- **Four more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
   - `bounded=true`: an open method at a trait argument is refused (§6.7);
   - `no_pirates=true`: a pirate is refused by the library's definition hook;
   - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3);
@@ -251,13 +251,14 @@ Strict mode and the concreteness checks read it.
   - the set;
   - the member pattern: `S`, `S{T} where T`, an abstract type, a set instance, `Type{S}`;
   - the set's instance for the pattern (`X`, `X{T}`);
-  - the key (§6.1), or none;
+  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (§6.1);
   - `min_world` and `max_world`;
   - the declaring module;
   - the forwarding field, if any.
 - A `TypeName`'s list of entries is replaced copy-on-write; readers take no lock.
-- `jl_declare_membership(member, set_instance, key, declarer, by)` declares one. The library checks ownership and the contract first ([traits §5.10](traits.md#510-checks)).
-- **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s key on `S`'s `TypeName` ([lowering §3](lowering.md#3-implement)).
+- `jl_declare_membership(member, set_instance, declarer, by, receiver)` declares one. The library checks ownership and the contract first ([traits §5.10](traits.md#510-checks)).
+- **A pattern's variable bounded by a `Union` of types** (`I where {I <: Base.BitInteger}`) is declared as one entry per type of the union.
+- **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s receiver on `S`'s `TypeName`, with its world, as an entry would ([lowering §3](lowering.md#3-implement)).
 
 **Status:** Planned (W-98). Built in part (C-21).
 
@@ -267,7 +268,7 @@ Strict mode and the concreteness checks read it.
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
-- **`Callable`'s memberships are derived** from the method table (§7.4). They are the one kind that can end, and only by a method definition of the member's type.
+- **`Callable`'s memberships** are not declared: §7.4 (how a function's result type is found: Open, [open issue 143](../open-issues.md)).
 
 **Status:** Planned (W-98). C-25.
 
@@ -287,12 +288,13 @@ Strict mode and the concreteness checks read it.
 - So set-in-set entries are followed transitively, and a miss is `false`.
 - **Parameters are invariant.** With `S`'s entry for `X{Int}`: `S <: X{Int}`, `S <: X{<:Real}` and `S <: X{>:Int}` hold; `S <: X{Real}` does not.
 - **A method's `where` variables and `X{<:T}`'s existential variables** are the walk's own. So dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
+- **Only entries whose set reaches the queried set are choices.** Reachability between two `TypeName`s is memoized per world range. So a type with many entries on its chain (BaseTraits' families on `AbstractVector`) costs a walk only for the entries that can lead to the set asked about.
 
 **Status:** Planned (W-98). C-26.
 
 ### 4.6 One instance per member
 
-A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The check walks the instances of that set the member already reaches.
+A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The runtime checks it: exactly for a concrete member; for a pattern, by intersecting it with each pattern that already reaches the set. The library reports the refusal as `ImplementError`.
 
 **Status:** Planned (W-98).
 
@@ -323,16 +325,18 @@ Core.All{X, Y}
 - **`All{X, Y, …}` is an intersection type,** the dual of `Union`:
   - `S <: All{X, Y}` when `S <: X` and `S <: Y`;
   - `All{X, Y} <: Z` when some component is a subtype of `Z`, and `<: All{Z, W}` when it is a subtype of each.
-- **Normal form:** components flattened, sorted by the order `Union` uses, deduplicated; a component that is a subtype of another absorbs it; two closed types with no common subtype give `Union{}`.
-- `jl_type_intersection` of two sets is `All{X, Y}` with their known common members' exactness kept; `type_morespecific_` ranks `All{X, Y}` above each component.
+- **Normal form:** components flattened, sorted by the order `Union` uses, deduplicated; a component that is a subtype of another by declared supertypes absorbs it; two closed types with no common subtype give `Union{}`.
+- **Normal forms read declared supertypes only.** A membership never absorbs a component of an `All` or a `Union`: `Union{S, X}` stays as written where `S` is a member of `X` by an entry. So a type expression gives the same type object in every world.
+- `jl_type_intersection` of two sets is `All{X, Y}` with their known common members' exactness kept; `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
+- **At an argument typed by an intersection,** the key is the tuple of the member's keys for each component (§6.1); the split's candidates are the first component's that are members of every component (§7.2).
 - The negative-fold rule (§4.8) treats each component.
 - It takes any number of components: `All{X, Y, Z, …}`.
 
-**Status:** Planned (W-98; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}").
+**Status:** Planned (W-98; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
 
 ### 4.10 Type values
 
-A type value is a member of a set only by an entry whose pattern is `Type{S}`. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
+A type value is a member of a set only by an entry whose pattern is `Type{S}`. Such an entry is kept on `S`'s `TypeName`, marked as being for the type value, not on `Type`'s. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
 
 **Status:** Planned (W-98). C-19.
 
@@ -362,7 +366,7 @@ A method whose signature names an open set goes into its typemap's linear list, 
 In `type_morespecific_`, at each argument:
 - a closed type other than `Any` is more specific than an open set;
 - between open sets, by subtyping: a set whose membership in another makes it a subtype is more specific; else unordered;
-- an intersection is more specific than each component.
+- an intersection is more specific than each component; one with a closed component counts as closed against an open set.
 
 So `Method.interferences`, `detect_ambiguities` and the insertion walk order these pairs as any others. Inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts. The `obviously_disjoint` short-circuit is bypassed where either side has an open set.
 
@@ -393,7 +397,7 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
 - **The cell.** For each shadow, inference records an edge to a membership cell: one mutable object per (member type object, set) for a parametric member, per (member typename, set) otherwise. The compiler creates it on demand and hangs it on the member's `TypeName`. Its `min_world` is `typemax` until an entry matches, then the entry's.
 - **The guard** loads the cell's `min_world`, compares it with the task's world, and branches, as the inliner's union split branches. The slow branch is a full dispatch with no edge; the fast branch is the static call to `m₀`. The load is hoisted out of loops.
 - **The guarded call's result** is the join of `m₀`'s and the declared result of the shadowing method (§6.8); `Any` where none is declared.
-- **A derived `Callable` membership** (§7.4) has cells too, derived again at a method definition of the member's type.
+- **`Callable`'s memberships** (§7.4) have cells as any membership does; a method definition of the member's type lowers the cells it changes.
 - **No guard arises:**
   - at a final non-member (§4.8);
   - where `m₀` matched through the chain and is not `f(::Any)`;
@@ -412,24 +416,26 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
 Core.TraitKey{X, R, F}
 ```
 
-- `TraitKey{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F`, a tuple type ([traits §7.2](traits.md#72-the-key)). The library computes a member's key and stores it in its entry.
-- `S <: TraitKey{X, R, F}` holds when `S`'s entry for `X` has that key. It is a case of `subtype`, as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`.
+- `TraitKey{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F`, a tuple type ([traits §7.2](traits.md#72-the-key)).
+- **The runtime computes a member's key** from its membership and the set's contract, without running Julia code: the receiver the entry records (the member, its forwarding field's type, or none), the declared fields' types at the member (`fieldtype`), and the parameter values (the pattern's match). A member of a pattern has its key from the entry like any other. The answer is memoized per (member type, set) on the member's `TypeName`, with the membership's worlds.
+- `S <: TraitKey{X, R, F}` holds when `S`'s key for `X`, computed in the world asked about, is that key. It is a case of `subtype`, as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`.
+- **At an intersection** `All{X, Y}`, the key is the tuple of the member's keys for each component.
 - **The erased key** is the set's instance `X{p…}` itself.
 - It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
 
-**Status:** Planned (W-102); the name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06).
+**Status:** Planned (W-102); the name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
 
 ### 6.2 Compilation signatures
 
 At each argument whose declared type is a set, or a parameter bounded by one, a method's compilation signature is one of:
-- **per key:** `TraitKey{X, R, F}` from the member's entry, where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes;
+- **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes;
 - **per type:** the member's type, where the method is open at the argument and the attribute is `Compiled`;
 - **once:** the erased key `X{p…}`, where the attribute is `Dynamic`.
 
 A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7](traits.md#77-dynamicx)).
 
-- So one (method, argument tuple) has up to two compilation signatures per trait argument, chosen per call (§6.3).
-- Keyed instances are cached with their original tuple (`cache_with_orig`), and the leaf cache keys entries by the tuple and the attribute bits, so a concrete tuple maps to its keyed or its erased instance.
+- So one (method, argument tuple) has up to two compilation signatures per trait argument, chosen per call (§6.3): up to 2ⁿ for n trait arguments, each compiled only where a call asks for it.
+- Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
 - **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is open at that argument.
 
 **Status:** Planned (W-102).
@@ -447,10 +453,11 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
   4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define;
   5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
 - **A static call** resolves the bits in the caller's inference and invokes the instance.
-- **A dynamic call** passes the bits the caller has (from 1 and 2) to dispatch, `jl_apply_generic_attr(F, args, nargs, bits)`. The runtime selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method. The per-call-site cache and the leaf cache key their entries by the bits too.
+- **A dynamic call with bits from 1 or 2** is a call of `Core.attributed_call` (§6.9): a cast written at the call, or a run-time site that passes on a trait argument of an instance compiled per key or once (codegen emits it there). It selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method.
+- **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
 - **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
 
-**Status:** Planned (W-102); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06).
+**Status:** Planned (W-102); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
 
 ### 6.4 Calls from code compiled per key
 
@@ -470,6 +477,15 @@ A static caller passes a keyed argument as its parts:
 - each writable declared field as a field reference: the object and an offset, so a write reaches the caller's object (§10.3);
 - the object itself, boxed, where the method may keep the value, return it, or pass it to a run-time site. An escape pass of inference decides this per instance.
 
+**The parts in the trait's methods.** The trait's method for an operation (§6.8) reaches the receiver and the declared fields through two intrinsics:
+
+```julia
+Core.trait_receiver(t, X)          # the receiver: t itself, or its forwarding field
+Core.trait_field(t, X, name)       # a declared field
+```
+
+At a key, inference resolves them to the parts above. At a member, it resolves them to `t` or to the forwarding field's `getfield`. So members that share a key and forward through fields of different names share the code.
+
 **Status:** Planned (W-102).
 
 ### 6.6 The boxed adapter
@@ -481,12 +497,12 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 ### 6.7 The definition-time check
 
 - **One inference of a method at the erased signature** of each set argument, under a check flag of the native interpreter. There, operations of the set and its supertraits resolve to their declared results (§6.8), declared fields to their declared types, and calls passing the argument to a method at the set or a supertrait to that method.
-- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or open: bits on the `Method`.
-- **Under the `bounded` option** of the method's module or the method itself, an open argument raises `TraitUseError` listing every recorded use.
+- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or open. The classification is kept with edges to the unannotated functions it followed, so a later definition of one classifies the method again.
+- **Under the `bounded` option** of the method's module or the method itself, an open argument raises `TraitUseError` listing every recorded use, at the method's definition or at the definition that opens it. A method marked `@open` (`Expr(:meta, :bounded, false)`) is exempt.
 - Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
 - **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
 
-**Status:** Planned (W-102; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137).
+**Status:** Planned (W-102; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
 
 ### 6.8 A declared result on `Method`
 
@@ -498,10 +514,14 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 ### 6.9 Casts and `keep`
 
 - **Lowering turns a call with cast arguments,** `f(compiled_for(x), y)` or `f(with_dynamic(x))`, into `Core.attributed_call(bits, f, args…)`, a builtin that dispatches as the call with those attribute bits. Inference resolves it statically where it can. A cast anywhere else is a lowering error. A cast of a `Dynamic{X}` to `Compiled` passes the held object.
+- **The front end reserves the names** `compiled_for` and `with_dynamic` as it reserves `ccall`: in a call's arguments they are the casts whatever the scope binds, and a local variable or a definition of either name is a lowering error.
+- **A cast at an argument the selected method does not type by a set** has no effect. Inference records each such cast it finds; `detect_unused_casts(mod)` lists them.
+- `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits.
+- **`Core.Dynamic{X}`** is an ordinary struct of `Core`, with no rule of subtyping: its memberships are declared by the library ([lowering §7](lowering.md#7-dynamicx-keep-casts)). `Core` defines it so that `keep` can make one.
 - **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. Where the code is not compiled, it is resolved at the method's default attribute.
 - Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-102); mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -511,7 +531,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 
 - **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a key and not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the trait's method's flag (§6.8).
 - The call is compiled as a split (§7.2), with the result asserted to the declared type (`TypeError`).
-- A declared field read at such a value works the same way.
+- A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
 - Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
 
 **Status:** Planned (W-102).
@@ -525,6 +545,7 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 ```
 
 - **The candidates of a set** are its concrete members in declaration order, from an index per set that the runtime keeps. An entry records its declaration's file and line; the order is by those. A concrete type joins the index at its membership, a member of a pattern at its first use (§10.4). The index is read without an edge.
+- **At an intersection** `All{X, Y}`, the candidates are those of `X`'s index that are members of every component.
 - `register_dynamic_candidate!(K, C)` registers candidates for a key `K` that is not a set.
 - **Inference:** where `x`'s type is not concrete and the set has candidates, `f` is inferred at `x`'s type intersected with the union of the first four candidates; each split is a fact with its edge.
 - **The split:** the inliner splits the call over them. The last branch, the fallback, calls through the table of the call's targets (§7.3), or is the dynamic call where no table applies. The split is never fully covered.
@@ -555,28 +576,26 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 - **Sessions:** pointers are valid in their session; a table saved in an image counts as empty in another.
 - **Threads:** a table's state is replaced on each addition, never mutated; readers take no lock.
 - **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call.
-- **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image.
+- **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image, at each call signature whose other arguments are concrete. A target whose call has abstract further arguments is made at its first call.
 
 **Status:** Planned (W-102).
 
 ### 7.4 `Callable`'s call
 
-**Derived memberships.**
-- `Core.Callable{A, S}` is a set with an input parameter `A` and an associated type `S`. Its memberships are derived by the runtime, never declared. `F <: Callable{A, S}` holds where a call of an `F` value at `A` selects a method (one, not ambiguous) and plain inference's result of that call (§1.4) is `S`.
-- **The runtime keeps a derived membership as an entry** on `F`'s `TypeName`, with the world range where the call's dispatch and its inferred result hold, and the edges that record them: the dispatch at `(F, A…)` and the result. A method definition that breaks either gives the entry a `max_world`; the next question derives it again. So a derived membership follows `F`'s methods.
-- **Compiled code that relies on one** holds an edge to its entry and is invalidated with it.
-- **Negatives are never folded:** a call whose method a later derived membership could change is guarded (§5.6). A cell for `(F, Callable{A, S})` is derived again when a method of `F` is defined.
-- **Subtyping and dispatch** derive on demand, in the world asked about; inference derives at the world it infers for.
-- `Callable{A, S} where S` binds `S` to the derived result; `Callable` alone is any type with a call method.
+**Memberships.**
+- `Core.Callable{A, S}` is a set with an input parameter `A` and an associated type `S`. Its memberships are not declared: a function's methods decide them, so dispatch picks by signature.
+- **How `S` is found for a function** is Open ([open issue 143](../open-issues.md)). Whatever is chosen, subtyping never runs inference: `jl_subtype` runs under the runtime's locks and inside method insertion.
+- **Negatives are never folded:** a call whose method a later membership could change is guarded (§5.6).
+- `Callable` alone is any type with a call method.
 
 **The call.**
 - **A call through a value whose inferred type is a `Callable{A, S}`** has the result type `S`. Each argument must be of `A`, or the call raises `MethodError`.
 - **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`. The pointer is made at the first call per (signature, function type). The result is asserted to `S` (`TypeError`).
 - **In an instance compiled per key,** whose key is the function's type, the call is direct.
 
-This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution; here, dispatch matches a function's derived signature.
+This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
 
-**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06); derived memberships as its form: mine (2026-11-06).
+**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06). How a function's result type is found: Open ([open issue 143](../open-issues.md)).
 
 ---
 
@@ -604,7 +623,7 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 - Julia's `call_cache` holds method-cache entries per call site. Two kinds are added:
   - **wildcard entries:** a method-cache entry with no `Vararg`, no type variables and no guard signatures, whose parameters are concrete or `Any`, matched where every non-`Any` position has the argument's exact type;
   - **exact-type entries:** for any other entry, a new entry at the call's exact argument types.
-- Entries are keyed by the attribute bits too (§6.3).
+- A plain dynamic call carries no attribute bits (§6.3), so entries are keyed as Julia's are.
 - Each entry's range is the copied entry's; a call outside it looks up again.
 
 **Status:** Planned (W-102).
@@ -647,14 +666,16 @@ Optional, each only if a measurement asks for it:
 ```c
 void jl_set_method_definition_hook(jl_value_t *hook);   // hook(m::Method, after::Bool)
 void jl_set_image_methods_hook(jl_value_t *hook);       // hook(ms::Vector{Any}, pkg::String) -> methods to leave inactive
+void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 ```
 
 - **The definition hook** runs twice per method definition: before the method enters the table, where it may throw to refuse it (no world is allocated), and once it is visible.
 - **The image hook** runs once per package image, with its methods for other modules' functions, before any is activated. Methods it returns stay inactive.
 - Both run in the latest world, outside the world-counter lock, not for a definition a hook makes, and not while the system image is built.
-- Strict mode, the override rule and the `no_pirates` option use them.
+- **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
+- Strict mode, the override rule, the `no_pirates` and `bounded` options use them.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-103). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
 
 ### 10.2 Hooks for strict mode
 
@@ -680,15 +701,18 @@ Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
 ### 10.4 The member hook
 
 ```c
-void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> key, or throws
+void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothing, or throws
 ```
 
-- **The runtime calls the hook** when a member's key is first needed at run time and no entry holds one: a member of a pattern (a family, a closed abstract type, a set), or a type whose declared supertype is a set. That happens at dispatch, at a split's table miss, or at `keep`.
-- The hook runs the member's checks and returns its key, or throws (`ImplementError`). The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
-- **Inference never calls it.** Where a member's key is not known yet, a call that needs it is a run-time site.
-- It runs in the latest world, outside the world-counter lock. A package image keeps the answers found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently.
+- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked. Its key needs no hook (§6.1).
+- **The runtime calls it at the member's first use,** where no answer is kept for (member type, set):
+  - at dispatch, before the instance lookup, and at a split's table miss or `keep`;
+  - in the compile queue, before a CodeInstance that relies on the member is published. A failing check compiles that use as the `ImplementError`.
+- **Inference never calls it,** and no runtime lock is held while it runs. It runs in the latest world. A per-(member type, set) state marks a check in progress; a check that reaches its own member again raises.
+- The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
+- **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-102); mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -729,10 +753,10 @@ Each applies to all code.
 | a declared result on `Method`; the operation's flag | Planned (W-102) | §6.8 |
 | casts at the call; `keep` | Planned (W-102) | §6.9 |
 | operations on a value typed by its trait; the split; the table | Planned (W-102) | §7.1–§7.3 |
-| `Callable`: derived memberships and its call | Planned (W-102) | §7.4 |
+| `Callable`: dispatch by signature, its call; how a function's result type is found: Open (issue 143) | Planned (W-102) | §7.4 |
 | world-checked caches | Planned (W-102) | §8 |
 | memberships in images; the record toward a machine-code cache | Planned (W-103) | §9 |
-| hooks; field-offset intrinsics; the member hook | Planned (W-102, W-103) | §10 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-102, W-103) | §10 |
 | changes useful without traits | Planned (W-100) | §11 |
 
 ---
@@ -745,7 +769,7 @@ Branch `unified` at c3f0b4bc11 (the stage-1 rework, W-98, is begun and uncommitt
 |---|---|---|---|---|
 | C-18 | [§5.5](#55-a-membership-lowers-dispatch-caches) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call a later membership could change. | Until the guards exist, `jl_declare_membership` replays the method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | `src/datatype.c:288`, `src/gf.c:2105` |
 | C-19 | [§4.10](#410-type-values) | A type value is a member only by an entry for `Type{S}`. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a method at `X` is called with the type object `S`. | `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
-| C-20 | [§6.1](#61-the-key-as-a-type), [traits §7.7](traits.md#77-dynamicx) | `Dynamic{X}` is a type of the library, a member of `X` by an ordinary membership; the key's type is `Core.TraitKey`. | The branch defines `Core.Keyed`, `Core.Dynamic`, `Core.Compiled` and `Core.Kept`, the last three members of `X` by an erasure rule in subtyping that intersection and the method table's match do not follow: a call with a `Dynamic{X}` reaches the fallback, not the method at `X`. | `src/subtype.c` (`intersect`), `base/boot.jl`; probe P2 |
+| C-20 | [§6.1](#61-the-key-as-a-type), [§6.9](#69-casts-and-keep), [traits §7.7](traits.md#77-dynamicx) | `Dynamic{X}` is an ordinary struct of `Core`, a member of `X` by a membership the library declares; the key's type is `Core.TraitKey`. | The branch defines `Core.Keyed`, `Core.Dynamic`, `Core.Compiled` and `Core.Kept`, the last three members of `X` by an erasure rule in subtyping that intersection and the method table's match do not follow: a call with a `Dynamic{X}` reaches the fallback, not the method at `X`. | `src/subtype.c` (`intersect`), `base/boot.jl`; probe P2 |
 | C-21 | [§4.2](#42-memberships) | Any member pattern is a membership. | A pattern with more than eight type variables is accepted and never matches. | `src/subtype.c` (`jl_membership_env_match`); probe P3 |
 | C-22 | [§4.4](#44-transitivity) | Membership is transitive; `<:`, `isa`, intersection and dispatch read one relation; the entries of a member's supertype chain are consulted. | `isa`, intersection and dispatch compose memberships through set-in-set entries; `<:` reads direct entries only; entries along the supertype chain are not consulted. | `src/subtype.c` (`jl_membership_answer_direct`); probes P4, P7 |
 | C-23 | [§4.4](#44-transitivity) | A membership that would close a cycle among sets is refused. | A cycle closing through a set's second entry is accepted. | `src/datatype.c` (`jl_declare_membership`); probe P5 |
