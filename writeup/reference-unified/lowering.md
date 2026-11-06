@@ -35,7 +35,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 | `@trait_module` | module option bits | before the module's first method |
 | `Dynamic{X}`, `keep`, casts | a struct of `Core` with the library's memberships and methods; a compiler-resolved call; a form of the call | — |
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106, W-111).
 
 ---
 
@@ -65,7 +65,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet.
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106).
 
 ---
 
@@ -93,7 +93,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Planned (W-102, W-103); `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Planned (W-106, W-108); `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -106,7 +106,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Planned (W-102). The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
+**Status:** Planned (W-106). The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
 
 ---
 
@@ -116,7 +116,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `@nospecialize t::X` and `@specialize t::X` set the method's attribute bits at the argument ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)). They are Julia's macros.
 - **Per-method options:** `@bounded f(…) = …`, `@open f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106).
 
 ---
 
@@ -128,7 +128,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose classification waited are classified, and `struct S <: X` without its `@implement` is refused.
 
-**Status:** Planned (W-103); the options decided (the user, 2026-11-06, Q2 (a)).
+**Status:** Planned (W-111); the options decided (the user, 2026-11-06, Q2 (a)).
 
 ---
 
@@ -155,7 +155,7 @@ end
 - **`keep(x)`** is `Core.keep`, resolved by the compiler ([compiler §6.9](compiler.md#69-casts-and-keep)).
 - **Casts** `compiled_for` and `with_dynamic` are `Core.compiled_for` and `Core.with_dynamic`, names Julia's front end reserves as it reserves `ccall`, recognized in a call's arguments and lowered to `Core.attributed_call` ([compiler §6.9](compiler.md#69-casts-and-keep)). The library re-exports them and defines `detect_unused_casts(mod)`.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106, W-111).
 
 ---
 
@@ -168,7 +168,7 @@ end
 - `withfields(t; name = v, …)` calls the positional constructor with the declared fields replaced.
 - A type without a positional constructor that takes every field in order cannot be rebuilt: `MethodError`, with a hint naming the constructor needed.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-106).
 
 ---
 
@@ -178,7 +178,7 @@ end
 - **The library declares one membership for it:** the family `Dynamic{Z} where {A, S, Z <: Callable{A, S}}` in `Callable{A, S}`, as `@trait` does for a trait (§2). `Dynamic{Callable{A, S}}`'s call method asserts the arguments to `A` and the result to `S`.
 - It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods near `A`; where a result fails its check, the hint names `S`.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-113).
 
 ---
 
@@ -190,7 +190,7 @@ end
 - `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`. A member's own `getproperty` serves it; on a value typed by the trait, the compiler's rule for operations gives `x.N` the declared type `R` ([compiler §7.1](compiler.md#71-the-rule)).
 - `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable}`.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -216,7 +216,7 @@ end
 - the override records;
 - code compiled ahead.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-108).
 
 ---
 
@@ -229,7 +229,7 @@ While a package that declares `@implement X S` is precompiled:
 
 `JULIA_TW_AHEAD=0` turns it off. A workload is PrecompileTools' `@compile_workload`.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -245,7 +245,7 @@ While a package that declares `@implement X S` is precompiled:
 - **After an image's load,** the report of edges that failed validation names a pirate loaded earlier.
 - **Deletions and bindings redefined from other modules** are refused through their hooks ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 

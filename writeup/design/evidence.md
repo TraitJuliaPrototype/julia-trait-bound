@@ -302,6 +302,13 @@ Censuses of code, not timings (E-263, E-264; julia-1.13 00dcc9994c, TraitWorld 3
 - **Members rarely share a key** (E-263): 4 of 148 memberships in the ports and BaseTraits, each a forwarding wrapper with what it wraps (TraitMakie's `Live{…}`). Every other member serves its operations by its own methods, so its key is its own type ([traits §7.2](../reference-unified/traits.md#72-the-key) of the draft).
 - **Few methods at traits are open** (E-264): 3 of 52 public and 14 of 77 internal methods at traits in the ports' trait modules use the argument beyond the contract as the draft's rule counts it ([traits §7.3](../reference-unified/traits.md#73-fully-bounded-methods)): 13 functions to mark `@open`. Besides, 11 structs have a parameter bounded by a trait.
 
+## 4c. The unification's trade-offs, measured on today's build
+
+What the draft's one CodeInstance per MethodInstance and policy, and its `Callable` mechanism, would cost. Measured on julia-1.13 00dcc9994c standing in for the unified build, which does not exist yet (TraitWorld 33dd55e, forks 77b9aab, TraitMakie ba46982, TDE e9e07ed; product setting, strict mode off; two runs; load 3–5 of 128 cores; [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §8):
+- **G2's narrower scope costs a session 0.2–0.3 s with the code slot, 0.7–1.0 s without it** (E-265, `experiments/unification/x1/`). This is the forks' session work after its loads, against a control in which nothing is lost: with the slot +0.14–0.16 s wall time and +0.21–0.26 s of compile counter, plus 0.06 s of plain callees. The g2all session's work pays nothing. The loss is CSV's facts code resting on CSV's own plain methods, not Base's. Measures interop, the facts code made to lose what the draft's rule would lose.
+- **Keeping plain code that satisfies G2 in images (M1) keeps 50–92 % of what the facts copies of Base hold today** (E-266, `experiments/unification/x5/`). Facts copies of Core and Base with no plain CodeInstance after `using`: 1,159, 3,917 and 2,307 in TraitWorld's, TDE's and TraitMakie's images, compiled plainly in 4.5, 20.0 and 7.9 s. The part not G2 as plain code is 0.9–4.4 s per image, if every instance is used again.
+- **`Callable` by a memoized method-table query inside subtyping:** 1.4 µs for the first query per closure type, 75 ns repeated, 18 ns for a memo hit, against an entry's 80–96 ns (E-256). In an emulation, its rule for a question that reaches itself gave answers that depended on the order of questions (E-267, `experiments/unification/x6/`).
+
 ## 5. Not shown
 
 - **Diagnosis:**

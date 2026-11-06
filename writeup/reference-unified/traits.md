@@ -96,7 +96,7 @@ FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (* only as an argument of a call *)
 ```
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106, W-111).
 
 ---
 
@@ -146,7 +146,7 @@ end
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
-**Status:** Planned (W-98 for subtyping, W-102 for the checks). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
+**Status:** Planned (W-98 for subtyping, W-106 for the checks). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
 
 ### 3.3 Where a trait stands
 
@@ -231,7 +231,7 @@ end
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106, W-109).
 
 ### 4.2 Defaults
 
@@ -245,7 +245,7 @@ describe(s::Shape)::String = "a shape of area $(area(s))"
 - Which operations a default serves for a member is fixed at its membership (§5.11).
 - Rust's and Swift's default methods are reached by every caller in the same way, as a method on an abstract type is in Julia.
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-106); mine (2026-11-06).
 
 ### 4.3 Fields
 
@@ -266,7 +266,7 @@ end
 - The declared fields' types are part of the key (§7.2). A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
 - **State some members write and others only read** is two traits: one that declares the field `@const`, and a subtrait that adds the operations that change it.
 
-**Status:** Planned (W-102; the user, 2026-11-06, Q7 (a)). Swift's protocol properties are the conforming type's own properties in the same way.
+**Status:** Planned (W-106; the user, 2026-11-06, Q7 (a)). Swift's protocol properties are the conforming type's own properties in the same way.
 
 ### 4.4 `Self`
 
@@ -292,13 +292,13 @@ end
 - **Several supertraits:** `@trait C <: (A, B)`. `C`'s members must join `C`, and are then members of `A` and of `B`. A name for "a member of both" is an intersection (§3.6).
 - **Parameters:** a supertrait is written with the subtrait's parameters, constants and type constructors. Every member of `B{U, T, P}` is a member of `A{U, T, P}`.
 
-**Status:** Planned (W-98, W-102).
+**Status:** Planned (W-98, W-106).
 
 ### 4.6 The trait's default attribute
 
 `@default_dynamic` or `@default_compiled` in the body sets how the trait's arguments are compiled where nothing stronger decides (§7.5).
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-111); mine (2026-11-06).
 
 ---
 
@@ -323,7 +323,7 @@ All forms share these rules:
 - It is checked against the contract (§5.10).
 - **It invalidates no compiled code:** a call that the new membership could change is guarded ([facts §10](facts.md#10-memberships)).
 
-**Status:** Planned (W-98, W-102).
+**Status:** Planned (W-98, W-106).
 
 ### 5.2 With the type's definition
 
@@ -340,7 +340,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters; the `@implement` may repeat them.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Planned (W-102, W-103; the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The refusal at a module's end uses Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), Planned).
+**Status:** Planned (W-106, W-108; the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The refusal at a module's end uses Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), Planned).
 
 ### 5.3 One line
 
@@ -384,7 +384,7 @@ end
 - **The trait's method for each operation** serves a forwarding member: it calls the operation on the field. Every caller reaches it, as for a default (§4.2).
 - A trait that requires a concrete `Self` (§14) refuses a forwarding field of an abstract type.
 
-**Status:** Planned (W-102); the trait's method serving a forwarding member is mine (2026-11-06).
+**Status:** Planned (W-106); the trait's method serving a forwarding member is mine (2026-11-06).
 
 ### 5.6 Several traits at once
 
@@ -426,7 +426,7 @@ end
 - Where an operation's declared argument type is abstract, a member's check counts only the methods of its stakeholders there. So a member's check does not depend on which packages loaded before its first use.
 - **Where an equation defines a parameter** (`T = eltype(Self)`), the family states it as a type expression of its variables: `@implement Iterable{T} Wrapped{T} where {T}`. Each member's check compares the equation's value with it. A family whose instance cannot be written so is refused, naming the parameter. Rust writes an associated type in a generic `impl` the same way.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106).
 
 ### 5.9 Abstract types and traits as members
 
@@ -444,7 +444,7 @@ end
 - A membership of a trait in a trait applies only to a trait without declared fields; a trait with fields needs each type's own membership, which locates them.
 - Each member reached this way is checked at its first use.
 
-**Status:** Planned (W-98, W-102).
+**Status:** Planned (W-98, W-106).
 
 ### 5.10 Checks
 
@@ -469,7 +469,7 @@ end
 
 Not everything is caught: a conversion that fails at run time is not proved by the check.
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106, W-108).
 
 ### 5.11 Overrides and redeclaration
 
@@ -548,7 +548,7 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
 - **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced.
 - **A method whose result is built by `like(t, …)` or `withfields(t; …)` is compiled per type at `t`:** its result's type is `t`'s family.
 
-**Status:** Planned (W-103); the compilation per type is mine (2026-11-06), as Rust and Swift compile a function that returns `Self` per type.
+**Status:** Planned (W-106); the compilation per type is mine (2026-11-06), as Rust and Swift compile a function that returns `Self` per type.
 
 ### 6.6 Keywords, defaults, varargs
 
@@ -579,12 +579,12 @@ Everything in this chapter is a choice of speed. Results never depend on it.
 
 At each argument typed by a trait, a method is compiled:
 - **per type,** as Julia compiles: one copy per concrete type;
-- **per key:** one copy per key (§7.2), shared by every member with that key;
+- **per key:** one copy per key (§7.2), shared by every member with that key. Optional: until keys are built, a method compiled per key is compiled per type;
 - **once:** one copy for every member, at the trait's parameter values.
 
 Which one: §7.3 and §7.5.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106: per type and once; W-111: the attribute that chooses). Per key: Optional (W-110; the user, 2026-11-06: "keys as optional is approved"). Whether the design commits to what keys guarantee: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user).
 
 ### 7.2 The key
 
@@ -599,7 +599,7 @@ Which one: §7.3 and §7.5.
 - **At an argument typed by an intersection** `All{X, Y}`, the key is the member's key for each component; members with equal keys for every component share code.
 - A key prints as `ColTable at Vector{Vector{Float64}}` (§15).
 
-**Status:** Planned (W-102; [compiler §6](compiler.md#6-keys-and-the-attribute)).
+**Status:** Optional (W-110; the user, 2026-11-06: "keys as optional is approved"; [compiler §6](compiler.md#6-keys-and-the-attribute)). What keys need is Planned in the stages before them: the classification (§7.3, W-109), the contract on the trait's `TypeName` and the receiver each membership records ([compiler §4.1](compiler.md#41-sets), [§4.2](compiler.md#42-memberships); W-98, W-106). Whether the design commits to what keys guarantee: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user).
 
 ### 7.3 Fully bounded methods
 
@@ -618,7 +618,7 @@ Any other use makes the method **open** at that argument: `typeof(t)`, `isa` aga
 - **storing it in a struct whose parameter takes its type:** `Problem{typeof(k)}(k, u0)`, or a constructor that sets a parameter bounded by the trait (`CellVector(c)`, §8.2). The struct's type names the member's type, which the key does not fix;
 - **capturing it in a closure:** the closure's field takes its type.
 
-- A fully bounded method is compiled per key at that argument. An open one is compiled per type, or once where the attribute is `Dynamic` (§7.4), its uses beyond the contract then dispatched when they run.
+- A fully bounded method is compiled per key at that argument where keys are built (§7.2, Optional), per type until then. An open one is compiled per type, or once where the attribute is `Dynamic` (§7.4), its uses beyond the contract then dispatched when they run.
 - The compiler classifies each method where it is defined, or at the end of its module or its first call where it calls functions not yet defined. The classification follows the unannotated functions it reaches: a later definition of one classifies the method again.
 - **A scope that declares `bounded`** (§13) refuses an open method at a trait argument with `TraitUseError`, naming the use and its line.
 - **`@open f(…) = …` marks a method open on purpose:** `bounded` does not refuse it. A library's adapters, which store their argument with its type, are written so; its kernels stay fully bounded.
@@ -630,7 +630,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** Planned (W-102; the user, 2026-11-06, Q2 (a)). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** Planned (W-109; the user, 2026-11-06, Q2 (a)). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -640,7 +640,7 @@ At each call, each trait argument has an **attribute**:
 
 Both run the same methods and give the same results, or raise the same error.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-111).
 
 ### 7.5 What decides
 
@@ -670,7 +670,7 @@ solve(m::Model, u0) = …                       # Dynamic for a user's model: th
 solve(compiled_for(MyModel()), u0)            # Compiled at this call: the caller's cast
 ```
 
-**Status:** Planned (W-102). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
+**Status:** Planned (W-111). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
 
 ### 7.6 Casts
 
@@ -682,7 +682,7 @@ solve(compiled_for(MyModel()), u0)            # Compiled at this call: the calle
 - **A plain function that stores its argument** (a front end typed `@nospecialize(f)`) passes no cast on. The caller keeps its choice by what it passes: the value itself is compiled per type where the struct records its type, a `Dynamic{X}` once (§8.2).
 - Julia's call-site `@inline` is the precedent: a statement about one call, written at the call.
 
-**Status:** Planned (W-102); mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-111); mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft).
 
 ### 7.7 `Dynamic{X}`
 
@@ -703,7 +703,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Planned (W-102); mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-106); mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
 
 ### 7.8 Keeping an argument with its attribute
 
@@ -716,7 +716,7 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
 
 Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-111); mine (2026-11-06).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -726,7 +726,7 @@ Where the code holds a value at the trait's type (code compiled once, a field or
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
 
-**Status:** Planned (W-102; [compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)).
+**Status:** Planned (W-109; [compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)).
 
 ### 7.10 Costs, and choosing
 
@@ -762,7 +762,7 @@ end
 - **A value read back is what was stored:** a member, or a `Dynamic{X}`. A member read back is plain (§7.5); a `Dynamic{X}` stays `Dynamic`.
 - An operation on a value read back follows §7.9.
 
-**Status:** Planned (W-98, W-102).
+**Status:** Planned (W-98, W-106).
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -783,13 +783,13 @@ ODEProblem(Dynamic{Callable{RHSSig{P, T}, Nothing}}(lorenz!), u0, tspan, p)   # 
 - **A parameter named only in a bound** is matched through the membership, as a `where` clause matches: in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, the constructor `CellVector(c::C) where {T, C <: Column{T}} = CellVector{T, C}(c)` reads `T` from the column's membership.
 - **A constructor that sets the parameter from its trait argument is open there** (§7.3): the struct's type names the member's type. It is open by design, so `bounded` does not refuse it, Julia's default constructor included.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106).
 
 ### 8.3 Equality
 
 `Dynamic{X}(a) == Dynamic{Y}(b)` when `a === b`, for a mutable object by identity, for an immutable one by value; `hash` agrees. `===` compares the wrappers.
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Planned (W-106); mine (2026-11-06).
 
 ---
 
@@ -821,7 +821,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 
-**Status:** Planned (W-102). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
+**Status:** Planned (W-113). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
 ---
 
@@ -852,7 +852,7 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 - `asvector(x::Indexable{T})` is the collection as a read-only `AbstractVector{T}` for plain code, without a copy: `IndexableVector{T, C <: Indexable{T}}`. It is an open method (§7.3).
 - A module that uses BaseTraits and another module exporting the same name gets Julia's usual ambiguity of names.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ### 10.2 Element types
 
@@ -899,7 +899,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Planned (W-102, W-103).
+**Status:** Planned (W-106, W-108).
 
 ### 11.2 Definition checking
 
@@ -913,7 +913,7 @@ spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable: open
 leak(t::ColTable) = typeof(t)    # open: the code depends on the type
 ```
 
-**Status:** Planned (W-102; [compiler §6.7](compiler.md#67-the-definition-time-check)).
+**Status:** Planned (W-109; [compiler §6.7](compiler.md#67-the-definition-time-check)).
 
 ### 11.3 Errors and their messages
 
@@ -928,7 +928,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
 | `TypeError` | an operation's or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-106).
 
 ### 11.4 Hints
 
@@ -939,7 +939,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **a call at an operation's function outside its declared signature:** the declared signature, "`col` is declared `col(t::ColTable, i::Int)::Vector{Float64}`";
 - **an ambiguity between two traits:** the joint method to define, `f(::All{ColTable, RowTable})`.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -954,7 +954,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **An operation that is an existing function** (`Base.size`) may be served by methods in a block only for types the declaring package owns. Otherwise declare the type's existing methods: `@implement Sized Vector{Float32}`.
 - **Joint owners:** a package may name packages that own its functions and types with it (`@joint_owners DiffEqBase OrdinaryDiffEqCore`, at the top level of its own module). They are owners wherever the declaring package is one: memberships, pirates, strict mode's stakeholders. Not symmetric, not transitive; a joint owner's extension is a joint owner too. A joint owner's change is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Planned (W-103). Open: whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Status:** Planned (W-114). Open: whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
 
 ### 12.2 Pirates
 
@@ -962,7 +962,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **A scope that declares `no_pirates`** refuses one at its definition (`OwnershipError`).
 - Elsewhere a pirate is followed, as in Julia; code compiled by facts that it changes is compiled again once ([facts §11](facts.md#11-pirates-and-strict-mode)).
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ### 12.3 Strict mode
 
@@ -978,7 +978,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - A package extension's method that wins at a fact without naming its triggers' types is followed, as its parent's change, with a warning.
 - An ambiguity at a membership (§6.3) is an error.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -1006,7 +1006,7 @@ end
 - Concreteness and fully typed mode (§14) take the same places: before `@trait_module`, for the module; before a method, for it.
 - Traits, memberships and methods at traits work in any module; a scope decides only these options.
 
-**Status:** Planned (W-103; the user, 2026-11-06, Q2 (a)).
+**Status:** Planned (W-111; the user, 2026-11-06, Q2 (a)).
 
 ---
 
@@ -1026,7 +1026,7 @@ fully_typed(colmean, (Vector{Vector{Float64}}, Int))
 
 Two guarantees, asked for separately.
 
-**Concrete parts** are a property of a membership or a call: the receiver type and the named parameters are concrete. Then code per key reads the receiver and calls on values typed by those parameters directly, never dispatching when it runs.
+**Concrete parts** are a property of a membership or a call: the receiver type and the named parameters are concrete. Then the member's compiled code reads the receiver and calls on values typed by those parameters directly, never dispatching when it runs.
 - **Concrete** means a concrete type, or a `Union` of at most four concrete types, whose parameters are concrete in the same sense. A parameter value that is not a type is concrete. A `Dynamic{X}` is concrete. A trait with a contract as a parameter's value counts as concrete: its operations have declared results, so code over it is typed.
 - **Per trait:** `@enforce_concrete_only names…` refuses a membership where a named part is not concrete (`ImplementError`); `@warn_on_abstract names…` warns. The names are the trait's parameters and `Self`; without names, all of them. A trait's declaration applies at every membership of it and of its subtraits. Checked at the declaration, or at the member's first use.
 - **Per method:** `@enforce_concrete_only names…` before a method refuses a call where a named part is not concrete; `@warn_on_abstract` warns once per method and type. The names are the method's `where` variables that traits fix, and trait arguments, each standing for its `Self`. For a `Compiled` value the answer is decided where the call is compiled; for a `Dynamic` one, `Self` is not checked.
@@ -1035,20 +1035,21 @@ Two guarantees, asked for separately.
 - `@warn_not_fully_typed` warns at a method's first run at a signature; `@enforce_fully_typed` raises `AbstractTypeError` where the code uses a value of an abstract type there, or `NotFullyTypedError` at a call it cannot resolve when compiled.
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers, in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). `isfullytyped(report)` answers yes or no.
 - **Operations on a value the code knows only by its trait count as declared,** not as faults (§7.9).
+- **An argument the scope's fallback made `Dynamic`** (§7.5, the last step) is reported, not counted as declared: `detect_dynamic_fallbacks(mod)` lists each such argument per method, with its line, beside `detect_unused_casts` (§7.6).
 
 **They differ.** Concrete parts do not make code fully typed (a `Vector{Any}` argument, an abstract declared result can each leave a call unresolved). Fully typed code is checked at the signatures it ran at; concrete parts are promised for every member.
 
-**Status:** Planned (W-103). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete.
+**Status:** Planned (W-114). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. The report of the fallback's arguments: mine (2026-11-06, [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md) M9), adopted with the work plan by the user.
 
 ---
 
 ## 15. Printing
 
-- **A key prints as the key,** wherever a signature appears: `colmean(::ColTable at Vector{Vector{Float64}}, ::Int64)` in a stack trace, a `MethodError`, `code_typed` and the list of a method's compiled copies. Code compiled once prints its argument as the trait: `colmean(::ColTable, ::Int64)`.
+- **A key prints as the key** where keys are built (§7.2), wherever a signature appears: `colmean(::ColTable at Vector{Vector{Float64}}, ::Int64)` in a stack trace, a `MethodError`, `code_typed` and the list of a method's compiled copies. Code compiled once prints its argument as the trait: `colmean(::ColTable, ::Int64)`.
 - **A `Dynamic{X}`** prints as `Dynamic{Shape}(Circle(1.0))`.
 - A trait prints as the type it is.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114); a key's printing with keys (W-110, Optional).
 
 ---
 
@@ -1065,7 +1066,7 @@ Two guarantees, asked for separately.
   - each set of supplied keywords is a signature.
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -1082,7 +1083,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | Construct | Status | Section |
 |---|---|---|
 | a trait is an abstract type; membership, transitivity, worlds | Planned (W-98) | §3.1 |
-| parameters as associated types; invariance, `X{<:T}`; one instance per member | Planned (W-98, W-102) | §3.2 |
+| parameters as associated types; invariance, `X{<:T}`; one instance per member | Planned (W-98, W-106) | §3.2 |
 | a family states its instance as a pattern, equations included | Planned | §3.2, §5.8 |
 | a trait wherever a type stands | Planned (W-98, W-99) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
@@ -1099,20 +1100,20 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | overrides fixed; redeclaration | Planned | §5.11 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Planned (W-99) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Planned | §6.5 |
-| keys and shared code | Planned (W-102) | §7.2 |
-| fully bounded and open methods | Planned (W-102) | §7.3 |
-| the attribute and what decides it | Planned (W-102) | §7.4, §7.5 |
-| casts at the call | Planned (W-102) | §7.6 |
-| `Dynamic{X}`, `keep` | Planned (W-102) | §7.7, §7.8 |
-| operations on a value known only by its trait | Planned (W-102) | §7.9 |
+| keys and shared code | Optional (W-110; open issue 146) | §7.2 |
+| fully bounded and open methods | Planned (W-109) | §7.3 |
+| the attribute and what decides it | Planned (W-111) | §7.4, §7.5 |
+| casts at the call | Planned (W-111) | §7.6 |
+| `Dynamic{X}`, `keep` | Planned (W-106, W-111) | §7.7, §7.8 |
+| operations on a value known only by its trait | Planned (W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Planned | §8 |
-| `Callable`: dispatch by signature, the result checked on return | Planned (W-102) | §9 |
+| `Callable`: dispatch by signature, the result checked on return | Planned (W-113) | §9 |
 | BaseTraits; element types by variance; `retain!` | Planned | §10 |
-| checks, errors, hints | Planned (W-102, W-103) | §11 |
-| ownership, joint owners, pirates, strict mode | Planned (W-103) | §12 |
+| checks, errors, hints | Planned (W-106, W-109, W-114) | §11 |
+| ownership, joint owners, pirates, strict mode | Planned (W-114) | §12 |
 | the standard libraries as owners | Open | §12.1 |
-| scopes: `@trait_module` and its options | Planned (W-103) | §13 |
-| concreteness and fully typed mode | Planned (W-103) | §14 |
+| scopes: `@trait_module` and its options | Planned (W-111) | §13 |
+| concreteness and fully typed mode | Planned (W-114) | §14 |
 | printing | Planned | §15 |
 | compiling ahead, `verify_main` | Planned | §16 |
 | named implementations | Planned (deferred) | §17 |

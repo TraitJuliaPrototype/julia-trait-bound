@@ -1,6 +1,6 @@
 # The unification work plan under the draft reference
 
-Status: proposal (2026-11-06), for the user; not normative. Taken into the draft the same day (mine, its README P-20 to P-28): weak points 2 to 12 and 14, and S6. Weak point 1 decided by the user (open issue 143: `S` checked on return). Waiting for the user: the revised stages (§5) and weak point 13 (after W-99's measurement). Revised the same day with §8, the trade-offs against the original implementation and their gates ([the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md)), on the user's "The unification plan should focus on identifying these trade offs and exploring mitigations".
+Status: **adopted** (2026-11-06, the user: "Adopt, keys as optional is approved. Run the X now"), with §5's stages as W-98, W-99, W-100, W-101, W-104 and N1–N9 as W-106–W-114 ([the work queue](../record/todo.md)), keys (N5, W-110) Optional, and §8's draft changes applied (P-29 to P-32 of the draft's README). Not normative. Before that: proposal (2026-11-06), for the user. Taken into the draft the same day (mine, its README P-20 to P-28): weak points 2 to 12 and 14, and S6. Weak point 1 decided by the user (open issue 143: `S` checked on return). Waiting for the user: the revised stages (§5) and weak point 13 (after W-99's measurement). Revised the same day with §8, the trade-offs against the original implementation and their gates ([the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md)), on the user's "The unification plan should focus on identifying these trade offs and exploring mitigations".
 
 **The request** (the user, 2026-11-06): "Send out a second Opus agent that compares the unification work plan that was started with the new design and figures out how the work plan would have to change and how it could be simplified."
 
@@ -543,3 +543,30 @@ X1, X5 and X6 run on today's patched build and could run now.
 - compiler §5.5, §5.6: guards "Planned; Optional if X2 says so", the narrowed stopgap as the alternative design.
 - traits §14: an operation made `Dynamic` by the fallback is reportable.
 - `design.md` §2.6 and `alternatives.md`: the second owner's replacement and its measured cost (E-261).
+
+### 8.1 Results of X1, X5, X6 (2026-11-06)
+
+Run on the user's "Run the X now" (registry rows E-265 to E-267; [evidence §4c](../design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)):
+- **X1 (E-265):**
+  - with the slot, the forks' session pays 0.2–0.3 s for G2's narrower scope; without it 0.7–1.0 s; the g2all session pays nothing;
+  - the loss is CSV's facts code resting on CSV's own plain methods, not Base's;
+  - so W-101 (the slot) is confirmed, and M2's boundary flag is a package author's tool for the package's own helpers, not a policy over Base's methods.
+- **X5 (E-266):**
+  - M1 keeps 50–92 % of the compile time the images' facts copies of Base hold (4.5–20 s per image);
+  - the rest is 0.9–4.4 s per image if every instance is used again;
+  - M1 suffices; it is in W-100's scope.
+- **X6 (E-267):**
+  - the memoized query's answers depend on the order of questions;
+  - the membership changes inside method insertion, under its lock;
+  - M4 taken into the draft as P-30: a function's methods are read as its `Callable` memberships, with no memo (W-113).
+
+### 8.2 Guarantees, not only measurements
+
+The user (2026-11-06): "A general thought: Simplifying the design by delaying performance optimizations like keys and guards sounds good. The trade off is ecosystem. If certain performance characteristics are guaranteed that enables to build around them, even if they don't have a measurable effect now."
+
+So the plan's gates measure what a mechanism costs or saves today; they do not decide whether the design promises the guarantee a mechanism gives:
+- keys: undeclared parts never cause a compile;
+- guards: a membership invalidates nothing.
+
+That is a decision for the user: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user), with a proposal. Until it is decided, keys stay Optional (W-110) as approved, and guards Planned after the first slice (W-112), with E-268 measuring the stopgap meanwhile.
+

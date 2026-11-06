@@ -824,7 +824,7 @@ At exit it prints the 40 methods and the 40 call sites with the most calls.
 
 ### 7.1 Memberships and dispatch
 
-**Status: Planned** (W-83's level 2, one dispatch; [open issue 136](../open-issues.md#closed-items), closed). Built by W-99 (dispatch) and W-102 (guards); until the guards exist, a membership invalidates as a method insertion would ([C-18](#deviations)).
+**Status: Planned** (W-83's level 2, one dispatch; [open issue 136](../open-issues.md#closed-items), closed). Built by W-99 (dispatch) and W-112 (guards); until the guards exist, a membership invalidates as a method insertion would ([C-18](#deviations)).
 
 A bounded method `f(x::X)` is a method at the set `X`. Memberships and dispatch follow these rules:
 
@@ -912,7 +912,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 
 ### 7.4 Guards and cells
 
-**Status: Planned** (W-102).
+**Status: Planned** (W-112; the stages revised under [the draft reference](../reference-unified/README.md) by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
 
 - **The shadow query.** Inference at a call `f(s::S)` with `S` concrete selects a method `m₀`. It also asks for the methods of `f` on open sets `Z` that `S` could join (`jl_could_join`) and that would beat `m₀` at `(S,)`. A method matched through `S`'s supertype chain, other than `f(::Any)`, has none. Each such pair `(Z, position)` is a shadow.
 - **The cell.** For each shadow, inference records an edge to a membership cell: one mutable object per (member type object, set) for a parametric member, per (member typename, set) otherwise. The compiler creates it on demand and hangs it on the member's `TypeName`. Its `min_world` is `typemax` until an entry matches, then the entry's.
@@ -923,7 +923,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 
 ### 7.5 Keys, attributes and the check
 
-**Status: Planned** (W-102).
+**Status: Planned** (W-109 to W-113; keys Optional, W-110: the stages revised under [the draft reference](../reference-unified/README.md) by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
 
 **A key is a type.** `Core.Keyed{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F` ([traits §6.7](traits.md#67-what-compiled-code-is-compiled-for)):
 - `S <: Keyed{X, R, F}` holds when `S`'s entry for `X` has that key. It is a case of `subtype` as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`;
@@ -941,7 +941,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 - each writable declared field as a field reference (the object and an offset), so a write reaches the user's object;
 - the object itself, boxed, where the method may keep the value (the keep analysis, an escape pass of inference).
 
-**The boxed adapter** serves a dynamic call: one wrapper per keyed CodeInstance that reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the dynamic call does today ([evidence §2](../design/evidence.md#2-run-time)), there is one wrapper per member instead (W-102 measures it).
+**The boxed adapter** serves a dynamic call: one wrapper per keyed CodeInstance that reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the dynamic call does today ([evidence §2](../design/evidence.md#2-run-time)), there is one wrapper per member instead (W-110 measures it).
 
 **Attributes are the choice of compilation signature:**
 - `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are Core types holding the object; each is a member of `X` at the erased key by a rule of `subtype`, not by an entry;
@@ -980,7 +980,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 
 ### 7.8 Images, and the machine-code cache
 
-**Status: Planned** (W-103).
+**Status: Planned** (W-108, W-114; the stages revised by [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
 
 - **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds. Validation knows the membership edge kind.
 - **A machine-code cache across sessions is the goal of the record.** The record of §7.6 is kept complete, and names its targets by identities stable across sessions (a method by module path, name, signature and a digest of its lowered code; a type by path and layout), so that a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
@@ -1009,7 +1009,7 @@ The evidence: E-252 (memberships declared in extensions arrive after code that d
 | C-15 | — | *Retired*: see [§1.3](#13-run-time-sites). | — | — |
 | C-16 | [§2.5](#25-dispatch-from-facts-code) | A CodeInstance made for an owner's call is that owner's, so its next call finds it. | Where inference failed, the copy of the unspecialized code at the instance's own signature is made for the owner `nothing`; the facts owner misses it and makes another at each such call (stock Julia's plain owner misses there too). A rare path: only after inference failed. | `julia-1.13/src/gf.c:4069` (`jl_compile_method_internal_owner`); `experiments/factscompiler/w89/README.md` |
 | C-17 | — | *Retired*: see [§5.4](#54-planned-hooks-for-strict-modes-intended-design), validation's own log. | — | — |
-| C-18 | [§7.1](#71-memberships-and-dispatch), [§7.3](#73-one-dispatch) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call that a later membership could change ([§7.4](#74-guards-and-cells)). | Until the guards exist (W-102), `jl_declare_membership` replays Julia's method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | branch `unified` c3f0b4bc11: `src/datatype.c:288` (the call), `src/gf.c:2105` (the replay in the insertion walk) |
+| C-18 | [§7.1](#71-memberships-and-dispatch), [§7.3](#73-one-dispatch) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call that a later membership could change ([§7.4](#74-guards-and-cells)). | Until the guards exist (W-112), `jl_declare_membership` replays Julia's method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | branch `unified` c3f0b4bc11: `src/datatype.c:288` (the call), `src/gf.c:2105` (the replay in the insertion walk) |
 | C-19 | [§7.2](#72-memberships) | A type value is a member of a set only by an entry for `Type{S}`; `S <: X` and `S isa X` are different questions. | An entry for `S` also answers `S isa X` and `Type{S} <: X`, so a bounded method on `X` is called with the type object `S` ([the audit](../reviews/2026-11-06-oc-build-audit.md) A1). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_holds`, `subtype`'s `Type{T}` arm, `jl_isa`); `experiments/unification/audit/probes.jl` P1 |
 | C-20 | [§7.5](#75-keys-attributes-and-the-check) | `Dynamic{X}`, `Compiled{X}` and `Kept{X}` are members of `X`: subtyping, intersection and dispatch agree. | Subtyping and `isa` erase a wrapper to its set, intersection and the method table's match do not: a call with a `Dynamic{X}` reaches the fallback, not the method on `X` (A2). | branch `unified` c3f0b4bc11: `src/subtype.c` (`intersect`); probe P2 |
 | C-21 | [§7.2](#72-memberships) | Any member pattern a type can be written in is a membership. | A pattern with more than eight type variables is accepted and never matches (A3). | branch `unified` c3f0b4bc11: `src/subtype.c` (`jl_membership_env_match`); probe P3 |

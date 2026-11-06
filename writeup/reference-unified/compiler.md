@@ -4,7 +4,7 @@
 
 - Why each interface is needed, and what compiled code may assume: [`facts.md`](facts.md).
 - How the language uses them: [`traits.md`](traits.md) for what a user sees, [`lowering.md`](lowering.md) for what the library's macros emit.
-- The build is branch `unified` of the julia repository, on v1.13.2 (the worktree `julia-unified/`), in the stages W-98 to W-104 ([the work queue](../record/todo.md)). The inventory of its changes: [`../design/julia-changes.md`](../design/julia-changes.md).
+- The build is branch `unified` of the julia repository, on v1.13.2 (the worktree `julia-unified/`), in the stages W-98 to W-114 ([the work queue](../record/todo.md); [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted). The inventory of its changes: [`../design/julia-changes.md`](../design/julia-changes.md).
 - Terms:
   - a **set** is an abstract type whose members may join after their definition: a trait;
   - a **membership** makes a type, a family, an abstract type or a set a member of a set;
@@ -130,7 +130,7 @@ Base.Experimental.@compiler_options facts=true
   - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
 - A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
-**Status:** Planned (W-100, W-103).
+**Status:** Planned (W-100, W-111).
 
 ### 2.2 The method flag
 
@@ -140,8 +140,9 @@ Expr(:meta, :facts_always)     # always compiled by facts
 ```
 
 - `Method.facts::UInt8`: 0 as its module says; 1 a boundary; 2 always facts. Lowering carries the meta into every method a definition makes (keyword sorters, positional forwarders). It is saved with the method.
+- **The boundary flag is the second policy per method.** A neutral method has plain code only (§2.3), so facts code that calls it rests on code that loads may invalidate. A boundary gives facts code a facts copy that no load discards, for the methods where that matters. Which of Base's methods carry it is a choice of the setting, made by measurement ([evidence](../design/evidence.md)), not a rule of the design.
 
-**Status:** Planned (W-100).
+**Status:** Planned (W-100). The boundary flag as the second policy per method: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M2.
 
 ### 2.3 One CodeInstance per MethodInstance and policy
 
@@ -205,14 +206,14 @@ The backedge iterator, `verify_method`, codegen's walkers and the image writer r
 
 ### 3.2 G2 as a predicate
 
-When a CodeInstance is finished, a bit in its flags records whether its record satisfies G2:
+When a CodeInstance of either policy is finished, a bit in its flags records whether its record satisfies G2:
 - every dispatch edge is at a fact signature;
 - every inlined callee's own record satisfies G2;
 - result edges may go anywhere.
 
-Strict mode and the concreteness checks read it.
+Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
 
-**Status:** Planned (W-100).
+**Status:** Planned (W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
 
 ### 3.3 The code slot
 
@@ -243,7 +244,7 @@ Strict mode and the concreteness checks read it.
 
   The compiler reads it without an edge: it never changes after the declaration.
 
-**Status:** Planned (W-98, W-102). Built in part on branch `unified` (C-24). The contract on the `TypeName`: mine (2026-11-06).
+**Status:** Planned (W-98, W-106). Built in part on branch `unified` (C-24). The contract on the `TypeName`: mine (2026-11-06).
 
 ### 4.2 Memberships
 
@@ -314,7 +315,7 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 
-**Status:** Planned (W-98, W-102 for the fold's world).
+**Status:** Planned (W-98; W-100 for the fold's world).
 
 ### 4.9 Intersections
 
@@ -389,7 +390,7 @@ At `jl_declare_membership`, for each function with a method at the new set and a
 
 A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
 
-**Status:** Planned (W-99, W-102). Until the guards exist: C-18.
+**Status:** Planned (W-99, W-112). Until the guards exist: C-18.
 
 ### 5.6 Guards and cells
 
@@ -404,7 +405,7 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
   - at a function with no method at an open set.
 - A method at an open set defined later invalidates the compiled callers its insertion reaches; they compile again with the guard.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-112), after the first slice; until then C-18. Whether the design commits to what guards guarantee (a membership invalidates nothing), or the stopgap narrowed to the member's typenames is the design: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user), with E-268.
 
 ---
 
@@ -423,12 +424,12 @@ Core.TraitKey{X, R, F}
 - **The erased key** is the set's instance `X{p…}` itself.
 - It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
 
-**Status:** Planned (W-102); the name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+**Status:** Optional (W-110; the user, 2026-11-06: "keys as optional is approved"); its guarantee: [open issue 146](../open-issues.md#1-decisions-waiting-for-the-user). The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
 
 ### 6.2 Compilation signatures
 
 At each argument whose declared type is a set, or a parameter bounded by one, a method's compilation signature is one of:
-- **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes;
+- **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes. Optional with keys: until they are built, such an argument is compiled per type;
 - **per type:** the member's type, where the method is open at the argument and the attribute is `Compiled`;
 - **once:** the erased key `X{p…}`, where the attribute is `Dynamic`.
 
@@ -438,7 +439,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
 - Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
 - **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is open at that argument.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-106: per type and once). Per key: Optional (W-110).
 
 ### 6.3 The attribute at a call
 
@@ -457,7 +458,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
 - **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
 - **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
 
-**Status:** Planned (W-102); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
+**Status:** Planned (W-111); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
 
 ### 6.4 Calls from code compiled per key
 
@@ -467,7 +468,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
   - **otherwise a run-time site,** dispatched on the object with the `Compiled` bit; the instance then receives the object (§6.5).
 - Swift and Rust resolve such a call where the generic code is written, at the constraint. Julia dispatches it on the value's type, and G1 asks for Julia's answer. So the guard is what keeps the shared code equal to that answer, by the same mechanism as a membership's guard (§5.6).
 
-**Status:** Planned (W-102); mine (2026-11-06).
+**Status:** Optional (W-110), with keys; mine (2026-11-06).
 
 ### 6.5 The calling convention
 
@@ -486,13 +487,13 @@ Core.trait_field(t, X, name)       # a declared field
 
 At a key, inference resolves them to the parts above. At a member, it resolves them to `t` or to the forwarding field's `getfield`. So members that share a key and forward through fields of different names share the code.
 
-**Status:** Planned (W-102).
+**Status:** Optional (W-110), with keys.
 
 ### 6.6 The boxed adapter
 
-A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstance. The wrapper reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target in [the evidence](../design/evidence.md) §2, there is one wrapper per member instead (W-102 measures).
+A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstance. The wrapper reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target in [the evidence](../design/evidence.md) §2, there is one wrapper per member instead (W-110 measures).
 
-**Status:** Planned (W-102).
+**Status:** Optional (W-110), with keys.
 
 ### 6.7 The definition-time check
 
@@ -502,14 +503,14 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
 - **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
 
-**Status:** Planned (W-102; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-109; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
 
 ### 6.8 A declared result on `Method`
 
 - Lowering records `f(…)::RT` as the method's declared result. Inference may read it as an upper bound, since the body asserts it.
 - **The trait's method for an operation** carries the operation's declared result, with a flag that it covers every member: each member's serving method is checked to infer within it ([traits §5.10](traits.md#510-checks)). §7 relies on the flag.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 6.9 Casts and `keep`
 
@@ -521,7 +522,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. Where the code is not compiled, it is resolved at the method's default attribute.
 - Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
 
-**Status:** Planned (W-102); mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-111); mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -534,7 +535,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
 - Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 7.2 The split
 
@@ -553,7 +554,7 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 - **Which candidates a caller splits over is fixed when it is compiled.** A member registered later reaches the fallback, and invalidates nothing.
 - Registration is lock-free for readers: the table is replaced on each registration.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 7.3 The table of a call's targets
 
@@ -578,13 +579,15 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 - **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call.
 - **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image, at each call signature whose other arguments are concrete. A target whose call has abstract further arguments is made at its first call.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 7.4 `Callable`'s call
 
 **Memberships.**
 - `Core.Callable{A, S}` is a set with two input parameters. `F <: Callable{A, S}` holds where a call of an `F` at `A` selects a method (`hasmethod`), for every `S`. So dispatch picks by the arguments' signature, and `S` takes no part in membership.
-- **The answer is a query of `F`'s method table** in the world asked about, memoized per (`F`, `A`) with its world range; a method definition of `F` lowers the memo's range. A query that reaches itself again answers no. Subtyping runs no inference.
+- **Each method of `F` is a membership.** A method `f(x::T₁, …)` makes `F` a member of `Callable{A, S}` for every `A <: Tuple{T₁, …}`, in the method's worlds; one method must cover `A`, as for `hasmethod`. Subtyping reads `F`'s methods as it reads entries, through the method table's index by the function's type, and checks `A` against each method's argument types in the same subtyping environment. Subtyping runs no inference and keeps no memo of its own.
+- **A question that reaches itself** (a method of `F` whose argument is bounded by a `Callable` that `F` must satisfy) is subtyping's own assumption within the query, recomputed at each query: the answer is the least fixed point, the same in every order of questions.
+- **Defining a method declares the membership,** and deleting or replacing it ends it. What relied on the old answer is found as for any membership (§5.5, §5.6).
 - **`Dynamic{Z}` with `Z <: Callable{A, S}`** is a member by the entry the library declares, as for any set ([lowering §9](lowering.md#9-callable)), never by a query of its call method.
 - **Negatives are never folded:** a call whose method a later membership could change is guarded (§5.6). Compiled code that relies on a membership holds an edge to `F`'s dispatch at `A`, and is invalidated with it.
 - `Callable` alone is any type with a call method.
@@ -596,7 +599,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 
 This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
 
-**Status:** Planned (W-102). Dispatch by signature, `S` checked on return: the user (2026-11-06). The method-table query inside subtyping and its memo: mine (2026-11-06).
+**Status:** Planned (W-113). Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267).
 
 ---
 
@@ -617,7 +620,7 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 - A thread with no world (a C callback) uses the latest world. A signature one method covers only in part dispatches dynamically, in the caller's world.
 - An entry stays valid until invalidation lowers what it copies: its range ends at the copied method-cache entry's and CodeInstance's `max_world`.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 8.2 The per-call-site dispatch cache
 
@@ -627,7 +630,7 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 - A plain dynamic call carries no attribute bits (§6.3), so entries are keyed as Julia's are.
 - Each entry's range is the copied entry's; a call outside it looks up again.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ### 8.3 Further work
 
@@ -645,6 +648,7 @@ Optional, each only if a measurement asks for it:
 
 - **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds. Validation knows the membership cell and positive-membership edge kinds.
 - **Machine code only for code that runs:** CodeInstances of either policy; never `return_type`'s answers.
+- **Code reached only by a dynamic call is kept** where its G2 bit is set (§3.2), of either policy: plain code that facts code reaches is then cached as facts code is.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
 - **The checks' records** of members checked while the image was built (traits §5.10) are kept with it.
 - **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's key ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
@@ -656,7 +660,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Planned (W-103; the cache paused).
+**Status:** Planned (W-108; the keep rule by the G2 bit in W-100; the cache paused).
 
 ---
 
@@ -676,7 +680,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
 - Strict mode, the override rule, the `no_pirates` and `bounded` options use them.
 
-**Status:** Planned (W-103). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
+**Status:** Planned (W-108). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
 
 ### 10.2 Hooks for strict mode
 
@@ -684,7 +688,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **A hook for a binding redefined from another module,** at its source.
 - **A report per image:** the edges that failed validation, with the winning method.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ### 10.3 Field-offset intrinsics
 
@@ -697,7 +701,7 @@ Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
 - The offset is not checked; the caller guarantees the field.
 - The calling convention's field references (§6.5) use them.
 
-**Status:** Planned (W-102).
+**Status:** Optional (W-110), with keys.
 
 ### 10.4 The member hook
 
@@ -713,7 +717,7 @@ void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothin
 - The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
 - **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Planned (W-102); mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-106); mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -745,19 +749,19 @@ Each applies to all code.
 | type values as members | Planned (W-98) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Planned (W-99); built in part | §5.1–§5.3 |
 | the ambiguity report at a membership | Planned (W-99) | §5.4 |
-| guards and cells | Planned (W-102) | §5.6 |
-| `TraitKey`; compilation signatures per key, per type, once | Planned (W-102) | §6.1, §6.2 |
-| the attribute bits at a call | Planned (W-102) | §6.3 |
-| calls from code compiled per key | Planned (W-102) | §6.4 |
-| the calling convention; the boxed adapter | Planned (W-102) | §6.5, §6.6 |
-| the definition-time check and the classification | Planned (W-102) | §6.7 |
-| a declared result on `Method`; the operation's flag | Planned (W-102) | §6.8 |
-| casts at the call; `keep` | Planned (W-102) | §6.9 |
-| operations on a value typed by its trait; the split; the table | Planned (W-102) | §7.1–§7.3 |
-| `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-102) | §7.4 |
-| world-checked caches | Planned (W-102) | §8 |
-| memberships in images; the record toward a machine-code cache | Planned (W-103) | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-102, W-103) | §10 |
+| guards and cells | Planned (W-112; open issue 146) | §5.6 |
+| `TraitKey`; compilation signatures per key, per type, once | Planned (W-106): per type, once; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
+| the attribute bits at a call | Planned (W-111) | §6.3 |
+| calls from code compiled per key | Optional (W-110) | §6.4 |
+| the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
+| the definition-time check and the classification | Planned (W-109) | §6.7 |
+| a declared result on `Method`; the operation's flag | Planned (W-109) | §6.8 |
+| casts at the call; `keep` | Planned (W-111) | §6.9 |
+| operations on a value typed by its trait; the split; the table | Planned (W-109) | §7.1–§7.3 |
+| `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
+| world-checked caches | Planned (W-109) | §8 |
+| memberships in images; the record toward a machine-code cache | Planned (W-108; the G2 keep rule W-100) | §9 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-108, W-114, W-106); field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Planned (W-100) | §11 |
 
 ---

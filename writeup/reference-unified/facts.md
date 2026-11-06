@@ -145,7 +145,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The compiled code is the same in both tiers. Strict mode acts only when a method is defined or an image's methods are activated.
 - By default a winning pirate is followed, as plain Julia follows it: the code with the broken fact is compiled again, once.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -173,7 +173,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a union with more than four splits;
 - a `Vararg` tail of an abstract or kind element.
 
-**Status:** Planned (W-100, W-102).
+**Status:** Planned (W-100). The rows for keys: Optional, with keys (W-110).
 
 ---
 
@@ -318,7 +318,7 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Planned (W-102).
+**Status:** Planned (W-109).
 
 ---
 
@@ -334,7 +334,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Planned (W-98, W-99, W-102). Until the guards exist: [compiler C-18](compiler.md#deviations).
+**Status:** Planned (W-98, W-99, W-112). Until the guards exist: [compiler C-18](compiler.md#deviations).
 
 ---
 
@@ -368,7 +368,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **Effects.** The refused method does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ### 11.3 Strict mode's errors at their sources
 
@@ -385,7 +385,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -408,7 +408,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** Planned (W-103; the store paused).
+**Status:** Planned (W-108; the store paused).
 
 ---
 
@@ -438,7 +438,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Planned (W-103).
+**Status:** Planned (W-114).
 
 ---
 
@@ -458,18 +458,18 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 |---|---|---|
 | G1, identical or error | Planned (W-100) | §2.1 |
 | G2, stable caches; exceptions named | Planned (W-100, W-101) | §2.2 |
-| fact signatures, keys among them | Planned (W-100, W-102) | §3 |
+| fact signatures, keys among them | Planned (W-100); the keys' rows Optional (W-110) | §3 |
 | run-time sites; each callee runs its own policy's code | Planned (W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Planned (W-100) | §6 |
 | result edges and the code slot | Planned (W-101) | §4.3, §6.3 |
 | `return_type`; reflection | Planned (W-100) | §7 |
 | no asserted effect over a run-time site | Planned (W-100) | §8 |
-| operations on a value typed by its trait: the split | Planned (W-102) | §9 |
-| memberships invalidate nothing; guards | Planned (W-98, W-99, W-102) | §10 |
-| pirates followed; strict mode and its errors at their sources | Planned (W-103) | §11 |
-| package images, memberships activated before validation | Planned (W-103) | §12 |
+| operations on a value typed by its trait: the split | Planned (W-109) | §9 |
+| memberships invalidate nothing; guards | Planned (W-98, W-99, W-112; open issue 146) | §10 |
+| pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
+| package images, memberships activated before validation | Planned (W-108) | §12 |
 | the store across sessions | paused | §12 |
-| product setting, test bed, `--trim` | Planned (W-100, W-103) | §13 |
+| product setting, test bed, `--trim` | Planned (W-100, W-114) | §13 |
 | standard libraries as owners | Open | §1 |
 
 ---

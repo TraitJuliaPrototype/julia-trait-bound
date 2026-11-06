@@ -197,3 +197,26 @@ The user (2026-11-06):
 
 - A Fable agent (`fable-critic`) was sent at the user's explicit request, again an exception to "no subagents on the shared host" (load 4.6 of 128). It reads only (web sources allowed for Swift, Rust and Mojo), runs no Julia, and writes `writeup/reviews/2026-11-06-unification-tradeoffs.md`: per goal, what the original implementation achieved, what the unified draft keeps or loses, whether and how a loss is recoverable later, what has to be done now to keep that door open, mitigations and experiments.
 - The trade-offs review arrived: `writeup/reviews/2026-11-06-unification-tradeoffs.md`. The guarantee machinery carries over; four trade-offs: G2 without the second owner (E-261: 100–120 facts callers lost per session of loads, the slot keeps 67 and 91), the stopgap until guards, keys Optional, plain code's cost of the type system. No loss found unrecoverable. Folded into the work plan's proposal as §8 (gates X1–X7 before the stages they decide); its draft changes wait for the plan's adoption. Verified in the main session: the boundary flag, 188 against 17 ms, E-259's sites, 2,898 entries.
+
+## The work plan adopted; keys Optional; X1, X5, X6
+
+The user (2026-11-06):
+
+> Adopt, keys as optional is approved. Run the X now
+
+And, while the experiments ran:
+
+> A general thought: Simplifying the design by delaying performance optimizations like keys and guards sounds good. The trade off is ecosystem. If certain performance characteristics are guaranteed that enables to build around them, even if they don't have a measurable effect now.
+
+- **The registry first:** E-265 to E-271 for X1 to X7 (16baab3). X2, X3, X4 and X7 wait for the unified build's stages.
+- **The runs:** no subagents; 4 cores per job, two jobs side by side (load 3–5 of 128); X1 and X5 two runs each.
+  - **X1 (E-265):** the forks' session pays 0.2–0.3 s with the slot, 0.7–1.0 s without; g2all nothing. The loss is CSV's facts code on CSV's own plain methods.
+    - The first attempt ran both cases in one process and counted twice; the second stopped at a scoping error. Both are kept as attempts.
+  - **X5 (E-266):** M1 keeps 50–92 % of the facts copies' compile time.
+  - **X6 (E-267):** the memoized query's answers depend on the order of questions; the membership changes inside method insertion under its lock. The draft's §7.4 now reads a function's methods as its memberships (P-30, mine).
+- **The adoption:**
+  - N1–N9 are W-106 to W-114, keys (W-110) Optional, W-102 and W-103 merged;
+  - every status line of the draft remapped;
+  - §8's draft changes applied (P-31, P-32);
+  - open issue 145 closed.
+- **The user's thought** became open issue 146, with a proposal: separate guarantees from mechanisms, and commit to "a membership invalidates nothing" and to keys' guarantee, with their stages late. The evidence's TraitCSV case (extension by implementation keeps the reader's code; CSV.jl's extension by methods discarded it, 2.5 against 0.19 s) shows the ecosystem pattern the guards' guarantee makes safe.
