@@ -103,7 +103,7 @@ Compiler.PlainRTInterp(world::UInt) <: AbstractInterpreter      # its own cache 
 
 **At run time** the answer is plain inference's, from `PlainRTInterp`, which infers every method plainly. Its answers live under a cache owner of their own. No code runs from that cache.
 
-**Status:** Planned (W-100). Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
+**Status:** Implemented on branch `w100` b87d863b9e (W-100) for steps 1 and 3 and the run-time answer (`PlainRTInterp` is `NativeInterpreter(; plainrt = true)`, owner `:plain_rt`); step 2: C-47. Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
 
 ### 1.5 Effects
 
@@ -820,3 +820,4 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-44 | [§2.2](#22-the-method-flag), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A boundary is compiled in the policy of the code that reaches it, with up to one CodeInstance per policy. | A boundary's code is plain, whoever reaches it. | `src/gf.c` (`mi_policy_facts`), `Compiler/src/facts.jl` |
 | C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
 | C-46 | [§3.2](#32-g2-as-a-predicate) | The bit holds when every dispatch edge is at a fact signature and every inlined callee's own record satisfies G2. | Every dispatch edge at a fact signature: an inlined callee's own record is not consulted, since the edges do not tell an inlined callee from a called one. | `Compiler/src/facts.jl` (`edges_satisfy_g2`) |
+| C-47 | [§1.4](#14-return_type) | In code compiled by facts, plain inference's answer is folded where it rests on facts (at most four concrete signatures, one covering method each, every edge at a fact). | Such an answer is asked at run time too: only a constant, a concrete type that is not a kind, or `Union{}` from the facts answer is folded. | `Compiler/src/tfuncs.jl` (`return_type_tfunc`) |
