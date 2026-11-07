@@ -10,6 +10,17 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 
+**The machine-code cache's review (W-120; [the review](reviews/2026-11-07-machine-code-cache-design.md), 2026-11-07), waiting for the user:** it finds that no cache reaches the goal alone (a perfect one leaves the DataFrames session at 5.5–6× pandas, E-234), while TraitReport's small cores already match pandas and matplotlib (E-233). It proposes, in place of the order the user accepted:
+1. W-104 with DataFrames first, then Makie (not SciML);
+2. a goal gate, `goal.jl` against `goal.py`, registered and measured on the unified build;
+3. package-image workloads for the goal's shapes;
+4. C-40 built as the reference says (E-281's 1,070 invalidations per load);
+5. validation broken down by the G2 bit;
+6. a session cache keyed on the environment, admitting all code by the G2 bit (open issue 95's two layers), with C-65 fixed first;
+7. only on measured manifest churn, C-52 and relinking by stable names.
+
+It recommends revisiting: facts-only scope (2026-10-27), the environment-keyed cache's retirement (2026-10-27), relinking as step 3's vehicle (2026-10-28), C-52 first and SciML first (2026-11-07, mine). It keeps the slot (rerun its cost 3×) and no boundary flag on Base.
+
 Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
 - **The library on the unified build is TraitWorld on an orphan branch `unified`** ([decisions](record/decisions.md) §9).
 - **The trait's method types only its receiver** (and arguments that bind parameters), so a member's own method wins (lowering §2; [decisions](record/decisions.md) §9).
