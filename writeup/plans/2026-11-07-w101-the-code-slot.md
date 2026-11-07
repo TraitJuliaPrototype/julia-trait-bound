@@ -45,7 +45,7 @@ Status: **adopted**, done (`unified` 7500630036; built with two changes to §2: 
      - `max_world` is restored.
    - On failure, the mark becomes an invalidation.
 6. **Inference does not revalidate.** New code that calls a marked callee infers that callee again. A deviation row says so.
-7. **A switch:** `JULIA_CODE_SLOT=0` turns the slot off: codegen binds every call's address, and the walk marks nothing. The switch is for E-283's cost measurement, and as a safety valve.
+7. **A switch:** `JULIA_CODE_SLOT=0` turns the slot off: codegen binds every call's address, and the walk marks nothing. The switch is for E-283's cost measurement, and as a safety valve. (As built: the system image keeps the slots it was built with, so the switch covers the session's code only; [the review of the day](../reviews/2026-11-07-implementation-day.md) M1.)
 
 ## 3. Soundness, in brief
 

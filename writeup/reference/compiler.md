@@ -269,9 +269,9 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
   - Equal, and valid from the world of the mark on: the caller is valid again, and the edge names the callee's new CodeInstance.
   - Otherwise the mark is final, and the caller is inferred again.
 - So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
-- `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing.
+- `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing. The system image keeps the slots it was built with.
 
-**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). With C-64 to C-67.
+**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). With C-64 to C-69.
 
 ---
 
@@ -805,7 +805,7 @@ Each applies to all code.
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
-| the code slot | Implemented (W-101), with C-64 to C-67 | §3.3 |
+| the code slot | Implemented (W-101), with C-64 to C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
 | three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
@@ -834,7 +834,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e; W-113, `Callable`: 7195706721, 5f0a8ffd50). IDs are shared with the record's other references and never reused.
+Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e; W-113, `Callable`: 7195706721, 5f0a8ffd50; W-114, the surface: e81cd49a67, 5f2373b2d5, 0ce5b7f752; W-101, the code slot: 7500630036; W-104, the ports: 51a143a2f6, 67ba8105fb, fb0c7ba75a, and the slot's hardening f90d152208 after [the review of the day](../reviews/2026-11-07-implementation-day.md)). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -889,3 +889,5 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-65 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A loaded image's caller of a callee that the session changed before the load is marked and revalidated, as a caller in the session is. | Validation at load does not mark: such a caller is dropped and compiled again. | `base/staticdata.jl` (`verify_method_graph`) |
 | C-66 | [§3.3](#33-the-code-slot) | A cycle of marked CodeInstances is revalidated as one. | Revalidation goes depth first; a CodeInstance met again on its own path fails, and the cycle's CodeInstances are compiled again. | `src/gf.c` (`revalidate_code_instance`) |
 | C-67 | [§3.3](#33-the-code-slot), [facts §6.4](facts.md#64-the-compilers-own-code) | Every static call with only a result edge goes through a slot. | The compiler's own code, compiled while it bootstraps itself, binds every call: its call targets need not be cached then. Its callers are invalidated as before. | `Compiler/src/typeinfer.jl` (`slot_result_edges`, `bootstrapping_compiler`) |
+| C-68 | [§3.3](#33-the-code-slot) | A slot's miss always finds the callee's code valid in the task's world, with the caller's result. | Where no such code can be made, the miss raises an error: a task in an older world calling an image's caller whose callee's code there was never compiled and whose inference fails; a callee whose only entry there is boxed or interpreted while the call takes the specialized signature; a re-inference that folds to a constant. A fallback is planned: an entry with the specialized signature that dispatches and asserts the result. | `src/gf.c` (`jl_code_slot_resolve`); [the review](../reviews/2026-11-07-implementation-day.md) H1 |
+| C-69 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A marked caller is kept through an image written before its revalidation. | The image writer writes a marked caller as invalid (its lowered `max_world`): the image drops it. | `src/staticdata.c`; [the review](../reviews/2026-11-07-implementation-day.md) L3 |
