@@ -195,6 +195,25 @@ A trimmed build has no facts policy: every method is inferred plainly, and the i
 
 **Status:** Implemented on `unified` cb7f55bd35 (W-100): under `--trim` every method and top-level thunk is plain, so every CodeInstance is; not run here, since no trimmed binary is built in this workspace. With C-53.
 
+### 2.7 Fully typed mode
+
+```julia
+Expr(:meta, :fully_typed_warn)       # a method: warn
+Expr(:meta, :fully_typed_enforce)    # a method: raise
+Base.Experimental.@compiler_options fully_typed=enforce   # every method of the module: off, warn, enforce
+```
+
+- **Fully typed mode** ([traits §14](traits.md#14-concreteness-and-fully-typed-mode)) is a method's flag (`Method.facts` bits 4 and 8), or its module's option (trait-option bits 16 and 32), inherited and saved as the others are. The method's own flag wins.
+- **A method in the mode is compiled by facts** (§2.3): the mode is about the facts the code rests on.
+- **The fault of its code at a signature,** known when inference finishes:
+  - a run-time site, in it or in a callee compiled by facts (`nortsite` cleared, §1.3);
+  - else a result of an abstract type that is neither a union of at most four concrete types, a type's type, nor a set or an intersection of sets.
+- **Code with a fault starts with a check:** `jl_not_fully_typed(svec(mi, level, warned, kind, rt))`, a call into the runtime that reaches the library's hook (`jl_set_fully_typed_hook`) in the latest world. Under warn it runs the hook once per check; under enforce at every run, and the hook raises. Without a hook, enforce raises Julia's error.
+- **The check is never folded or removed:** the code's effects are neither consistent, nor effect-free, nor nothrow.
+- **Fully typed code has no check** and pays nothing.
+
+**Status:** Implemented on `unified` 5f2373b2d5 (W-114): the flag and the option, the policy, the check after optimization, the hook; gate `n9_fully_typed`. The library's report and errors: [lowering §14](lowering.md#14-fully-typed-mode-and-concrete-parts). Where the mode lives (the compiler finds the fault, the library explains it): mine (2026-11-07).
+
 ---
 
 ## 3. The dependency record and the code slot
@@ -380,7 +399,7 @@ A method whose signature names a set is a plain method at that set. Memberships 
 
 A method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain need not name the set. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
 
-**Status:** Implemented on `unified` 29035cab11; the index serves compiling ahead with §9, Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs), W-114).
+**Status:** Implemented on `unified` 29035cab11; `jl_open_set_methods_of(X)` reads the index for compiling ahead (5f2373b2d5, W-114; [lowering §12](lowering.md#12-compiling-ahead)). A membership ends only the fast path that a method at the set is the only one at its signature: the method stays the one `which` selects there, so validation does not read it as deleted and an image keeps its code (e81cd49a67).
 
 ### 5.2 Specificity
 
@@ -391,9 +410,9 @@ In `type_morespecific_`, at each argument:
 
 So `Method.interferences`, `detect_ambiguities` and the insertion walk order these pairs as any others. Inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts. The `obviously_disjoint` short-circuit is bypassed where either side has an open set.
 
-- **A later membership can order two sets.** `Method.interferences` is recorded when a method is inserted. Method matching asks a recorded pair whose two signatures name open sets again, in the query's world (§4.11). Memberships only grow and a cycle among sets is refused (§4.4), so the record over-states such a pair's ambiguity and never under-states it.
+- **A later membership can make two methods meet, or order two sets.** `Method.interferences` is recorded when a method is inserted; a method at a set and one at a type that later joins it were disjoint then. Method matching therefore asks a pair in which either signature names an open set with the methods' specificity, in the query's world (§4.11), and reads the record only for a pair of closed signatures.
 
-**Status:** Implemented on `unified` 62016706d0; intersections and the pair asked again 8a9144928e (W-107; the pair asked again: mine, 2026-11-07).
+**Status:** Implemented on `unified` 62016706d0; intersections and a pair at two sets asked again 8a9144928e (W-107); a pair with one method at a set 0ce5b7f752 (W-114, found by BaseTraits: a `KeySet` and a `BitMatrix` read as ambiguous). Mine (2026-11-07).
 
 ### 5.3 Match world ranges and abstract queries
 
@@ -707,7 +726,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
 - Strict mode, the override rule, the `no_pirates` and `bounded` options use them.
 
-**Status:** Implemented on `unified` 28c401eb0c (W-108). TraitWorld `unified` 701aaab uses them for the override rule and for a `struct S <: X` without its `@implement`; strict mode, `no_pirates` and `bounded` with W-114 and W-109. The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
+**Status:** Implemented on `unified` 28c401eb0c (W-108). TraitWorld `unified` 701aaab uses them for the override rule and for a `struct S <: X` without its `@implement`; `bounded` bb78d02 (W-111); strict mode and `no_pirates` 7adcc94 (W-114). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
 
 ### 10.2 Hooks for strict mode
 
@@ -715,7 +734,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **A hook for a binding redefined from another module,** at its source.
 - **A report per image:** the edges that failed validation, with the winning method.
 
-**Status:** Planned (W-114).
+**Status:** The deletion hook implemented on `unified` 5f2373b2d5 (`jl_set_method_deletion_hook`, W-114). The report per image is the library's, from validation's log (TraitWorld 7adcc94). The hook for a binding redefined from another module: Planned ([traits T-96](traits.md#19-deviations)).
 
 ### 10.3 Field-offset intrinsics
 
@@ -769,6 +788,7 @@ Each applies to all code.
 |---|---|---|
 | the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47 | §1 |
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
+| fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
 | the code slot | Planned (W-101) | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
@@ -792,7 +812,7 @@ Each applies to all code.
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's hooks Planned (W-114); field-offset intrinsics Optional (W-110) | §10 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
 ---

@@ -19,7 +19,8 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 11. [Checks, errors, and what images keep](#11-checks-errors-and-what-images-keep)
 12. [Compiling ahead](#12-compiling-ahead)
 13. [Strict mode](#13-strict-mode)
-14. [Deviations](#14-deviations)
+14. [Fully typed mode, concrete parts, closed programs](#14-fully-typed-mode-concrete-parts-closed-programs)
+15. [Deviations](#15-deviations)
 
 ---
 
@@ -46,7 +47,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **The abstract type** `X{P…}`, created open ([compiler §4.1](compiler.md#41-sets)), its declared supertype `Any`. Bounds on parameters are the type's bounds.
 - **Its supertraits' memberships:** for each supertrait `A{q…}`, `jl_declare_membership(X{P…} where {P…}, A{q…}, nothing, mod, nothing)` ([compiler §4.2](compiler.md#42-memberships)).
 - **The operation functions:** a plain name makes a new generic function in the module; a qualified name uses the existing one.
-- **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2). The checks use the declared types (§3). Its body:
+- **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2): Base's `haskey(d::AbstractDict, k)` for `Keyed`'s `haskey(d, k::K)`. A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
   - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`;
   - for a member that a default serves, the default's body;
   - otherwise unreachable: such a member was refused at its check.
@@ -65,7 +66,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 with W-109.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 with W-109. A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary).
 
 ---
 
@@ -93,7 +94,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) W-114, the override records (step 7) in TraitWorld 701aaab, per session (L-55). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, per session (L-55). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -168,7 +169,7 @@ end
 - `withfields(t; name = v, …)` calls the positional constructor with the declared fields replaced.
 - A type without a positional constructor that takes every field in order cannot be rebuilt: `MethodError`, with a hint naming the constructor needed.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the hint W-114.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, without the hint (L-57).
 
 ---
 
@@ -178,19 +179,21 @@ end
 - **The library declares one membership for it:** the family `Dynamic{Z} where {A, S, Z <: Callable{A, S}}` in `Callable{A, S}`, as `@trait` does for a trait (§2). `Dynamic{Callable{A, S}}`'s call method asserts the arguments to `A` and the result to `S`.
 - It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods near `A`; where a result fails its check, the hint names `S`.
 
-**Status:** Implemented in TraitWorld `unified` 5d52f0d (W-113): `Callable` is Julia's, its default `Dynamic`; `Dynamic{Z}`'s membership and its call, checked at both ends. The hints: W-114.
+**Status:** Implemented in TraitWorld `unified` 5d52f0d (W-113): `Callable` is Julia's, its default `Dynamic`; `Dynamic{Z}`'s membership and its call, checked at both ends. The hint for a function that is not a member: TraitWorld e572379 (W-114); the hint at a result that fails its check: L-58.
 
 ---
 
 ## 10. BaseTraits
 
-- BaseTraits' traits are ordinary `@trait` declarations of the library.
-- Base's types join by memberships of Base's abstract types, declared in BaseTraits, which owns the traits: `@implement Indexable{T} AbstractVector{T} where {T}`, `@implement Keyed{K, V} AbstractDict{K, V} where {K, V}`. LinearAlgebra and Dates are dependencies of the library, so their types' memberships hold in every load order.
-- `@open asvector(x::Indexable{T}) = IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` whose `getindex` and `size` call `Indexable`'s operations.
+- BaseTraits is a module of the library (`TraitWorld.BaseTraits`, a trait module), its names exported with the library's. Its traits are ordinary `@trait` declarations.
+- Base's types join by memberships of Base's abstract types, declared in BaseTraits, which owns the traits: `@implement Indexable{T} AbstractVector{T} where {T}`, `@implement Keyed{K, V} AbstractDict{K, V} where {K, V}`. A view joins where its parent does: `@implement MutableIndexable{T} SubArray{T, 1, P} where {T, P <: MutableIndexable{T}}`. LinearAlgebra and Dates are dependencies of the library, so their types' memberships hold in every load order.
+- `Solvable`'s operation is LinearAlgebra's `ldiv!`; each factorization that solves, and each matrix type `factorize` returns, joins by its own `ldiv!`. `LinearOp`'s operation is BaseTraits' `apply!`; `AbstractMatrix` joins with the block `apply!(y, A, x) = mul!(y, A, x)`.
+- `textbound(T::Type)` is a method of `textbound` beside the operation: `nothing` by default, a constant for the types of fixed width.
+- `@open asvector(x::Indexable{T})` builds `IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` with linear indexing whose `getindex` calls `Indexable`'s operations with the member's own bounds checks.
 - `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`. A member's own `getproperty` serves it; on a value typed by the trait, the compiler's rule for operations gives `x.N` the declared type `R` ([compiler §7.1](compiler.md#71-the-rule)).
-- `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable}`.
+- `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable{T}}`.
 
-**Status:** Planned (W-114).
+**Status:** Implemented in TraitWorld `unified` 4be0097 (W-114), but `HasProperty` ([traits T-103](traits.md#19-deviations)).
 
 ---
 
@@ -216,7 +219,7 @@ end
 - the override records;
 - code compiled ahead.
 
-**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The checks' records and the override records in images: L-55. Pirates, `bounded` and the classification: W-114, W-109. Code compiled ahead: W-114.
+**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The checks' records and the override records in images: L-55. `bounded` and the classification in TraitWorld bb78d02 (W-109, W-111); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379.
 
 ---
 
@@ -229,7 +232,10 @@ While a package that declares `@implement X S` is precompiled:
 
 `JULIA_TW_AHEAD=0` turns it off. A workload is PrecompileTools' `@compile_workload`.
 
-**Status:** Planned (W-114).
+- The compile request at a method at the set asks for the instance a static call at `S` runs ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)): `jl_attributed_mi` with the argument's bit, `Compiled` for `S`, or the set's instance where the method's own attribute is `Dynamic` (`jl_attribute_dynamic_bits`). A plain `precompile` of the signature would ask for the set's instance: a compile request is not a static call (step 5).
+- The set-to-methods index is read with `jl_open_set_methods_of(X)`; `ahead_requests(X, S)` lists the requests.
+
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 and e81cd49a67 (W-114); gate `experiments/unification/stack/ahead_two_packages.jl`: in a fresh session that loads the member's package, the methods at the set have their code for `S` from its image, and with `JULIA_TW_AHEAD=0` none. The request for the instance a static call runs: mine (2026-11-07).
 
 ---
 
@@ -245,11 +251,29 @@ While a package that declares `@implement X S` is precompiled:
 - **After an image's load,** the report of edges that failed validation names a pirate loaded earlier.
 - **Deletions and bindings redefined from other modules** are refused through their hooks ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 
-**Status:** Planned (W-114).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the walk before the definition and the log after it, the image hook, the report after a load from validation's log, the deletion hook; bindings redefined from other modules: [traits T-96](traits.md#19-deviations).
 
 ---
 
-## 14. Deviations
+## 14. Fully typed mode, concrete parts, closed programs
+
+- **`@enforce_fully_typed f(…) = …`** and **`@warn_not_fully_typed`** add `Expr(:meta, :fully_typed_enforce)` or `:fully_typed_warn` to the method ([compiler §2.7](compiler.md#27-fully-typed-mode)). Before `@trait_module` they add the option `fully_typed = enforce` or `warn` to its `@compiler_options`.
+- **The hook** (`jl_set_fully_typed_hook`) receives the compiler's site: it builds `fully_typed`'s report at the instance's signature, once per instance, and raises `NotFullyTypedError` (a run-time site) or `AbstractTypeError` (an abstract result), or warns.
+- **`fully_typed(f, argtypes)`** walks the code from the signature:
+  - each signature it reaches is inferred by facts, to the IR before inlining, whatever the method's own policy;
+  - the normal path is the blocks from which a return with a value is reachable;
+  - a call is a run-time site by its call info: no info at a generic function, an unknown function value, a splat left to run time, a call in the latest world, an argument compiled for a type the caller does not know;
+  - an operation on a value known by its trait (a declared result, a split) is declared, not a site;
+  - a site's root cause is traced in the code: an argument, a field's declared type, a container's element type, a call's result through up to three callees, a variable whose type differs between paths, a global;
+  - the walk stops after 400 signatures and says so.
+- **Concrete parts:** in a trait's body, `@enforce_concrete_only` and `@warn_on_abstract` name parameters and `Self` in the contract; `check_member` checks them for each contract, a supertrait's included, at a concrete member. Before a method, the macro puts a check per named part at the top of its body: a `where` variable's type, and an argument's `Self` through `keep(x)`, a constant where the call is compiled (a generated predicate); a `Dynamic` value is not checked.
+- **`verify_main(main, argtypes)`** is the same walk from `main`: its targets are the signatures the code resolves, a function passed at a `Callable{A, S}` argument at `A`, and each declared member (the set's candidates) of an operation on a value known by its trait; its holes are the run-time sites.
+
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114); tests `fullytyped.jl`, `verify.jl`.
+
+---
+
+## 15. Deviations
 
 The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice, W-106).
 
@@ -262,3 +286,5 @@ The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice,
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members checked while it was built, with the methods each check relied on, and the override records. | The library keeps both per session (`_CHECKED`, `_DEFAULT_SERVED`): an image keeps none. A member of a pattern is checked again at its first use in each session, and a method that overrides a default at a member whose membership was loaded from an image is not refused. | `src/implement.jl` |
 | L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`; a local variable or a definition of either name is refused. | A cast in a call with keyword arguments or a splatted argument is refused ("not supported yet"); an argument named `compiled_for` or `with_dynamic` is not refused. | `src/julia-syntax.scm` (`lower-cast-call`, `check-not-cast-name`) |
+| L-57 | [§8](#8-like-and-withfields) | A type without a positional constructor that takes every field in order is refused with a hint naming the constructor needed. | Julia's `MethodError`, without the hint. | TraitWorld `src/like.jl` |
+| L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |
