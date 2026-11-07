@@ -37,3 +37,7 @@
 - 18 pass in both settings. `AC_18`, `AC_20` wait for the record's kinds; `AC_16` for `@enforce_fully_typed` (W-114).
 - Six cases had errors of their own, fixed. Four asserted the earlier attempt's representation and now assert G1 and the reference's facts: per-split edge pairs (`AC_02`, `AC_13`), a CodeInstance per type value (`AC_14`), a neutral helper compiled by facts in the product setting (`AC_10`: in the product setting the marked caller rests on plain inference's folded value, which is plain Julia's).
 - One defect: a compiler method marked "always facts" became facts code; the compiler's module flag now comes first (w100 95fe10427c).
+
+## The user confirms
+
+- "Confirm. Please delete for me." What reaches code (decisions §9) confirmed. The six core dumps and the parent's build `julia-w100base/` deleted; a bisection for PE-24 builds its commits again.
