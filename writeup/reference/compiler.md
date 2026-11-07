@@ -45,7 +45,7 @@ Compiler.facts_mode(interp::AbstractInterpreter)::Bool
 - An inference of a MethodInstance runs with `facts` set to its method's policy (§2). Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags (§2.3).
 - Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules.
 
-**Status:** The interpreter's mode implemented on branch `w100` 28fe27b2f7 (W-100), with C-42; an inference run under its method's policy (§2.3): Planned (W-100).
+**Status:** The interpreter's mode implemented on branch `w100` 28fe27b2f7 (W-100); an inference of a method instance for its code run under its method's policy, both policies under Julia's own owner, 10c7e1c2cf.
 
 ### 1.2 Fact signatures
 
@@ -159,7 +159,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - So a neutral method in the product setting has plain code only, whoever calls it. A boundary has up to one CodeInstance per policy.
 - Under `--trim` every method is plain (§2.6).
 
-**Status:** Planned (W-100).
+**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100): the policy bit in a CodeInstance's flags, set at its creation from its method instance's policy and kept in images; the lookups of Julia's own owner take only a CodeInstance of that policy. A boundary: C-44. The test bed's default for neutral methods: §2.5. Under `--trim`: Planned.
 
 ### 2.4 Calls between policies
 
@@ -171,7 +171,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - A facts caller of the compiler's own plain code propagates no constants into it.
 - **At run time,** every dispatch runs the selected method's code of its policy, whoever dispatches: generic calls, `invoke`, `_apply_iterate`, `invokelatest`, `jl_apply`, `@cfunction` pointers, finalizers, task entry.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100) for inference: a callee of the other policy is inferred in an inference of its own and the caller rests on its CodeInstance; at run time every dispatch takes the method's code of its policy. With C-45.
 
 ### 2.5 The test bed
 
@@ -815,5 +815,7 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
 | C-40 | [§6.7](#67-the-definition-time-check) | One inference of the method at the erased signature, under a check flag of the native interpreter, records each use of a trait argument outside the contract; the classification is per argument. | The library infers the method with an interpreter of its own (`TraitWorld.ClassifyInterp`, an ephemeral cache, so every function it follows is inferred again) and records each call that takes a value typed by a trait outside the contract: per method, each use against the trait the value is known by. | TraitWorld `src/classify.jl` |
 | C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `@bounded` once at the method's definition; it is not kept; no constructor is exempt. | TraitWorld `src/classify.jl` |
-| C-42 | [§1.1](#11-the-policy-and-the-interpreter), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags. | On branch `w100`, a facts interpreter caches under an owner of its own (`:facts`). | `Compiler/src/types.jl` (`cache_owner`) |
+| C-42 | — | *Retired* (2026-11-07): code of both policies under Julia's own owner on branch `w100` 10c7e1c2cf ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `f3_policy_code` | — | — |
 | C-43 | [§2.2](#22-the-method-flag) | Lowering carries a method's policy meta into every method a definition makes (keyword sorters, positional forwarders). | Only the method whose body holds the meta takes it. | `src/method.c` (`jl_method_set_source`) |
+| C-44 | [§2.2](#22-the-method-flag), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A boundary is compiled in the policy of the code that reaches it, with up to one CodeInstance per policy. | A boundary's code is plain, whoever reaches it. | `src/gf.c` (`mi_policy_facts`), `Compiler/src/facts.jl` |
+| C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
