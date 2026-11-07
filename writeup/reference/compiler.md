@@ -213,7 +213,7 @@ When a CodeInstance of either policy is finished, a bit in its flags records whe
 
 Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
 
-**Status:** Planned (W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
+**Status:** The bit implemented on branch `w100` 8ef154476f (W-100), for code of either policy and kept in images, with C-46; its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
 
 ### 3.3 The code slot
 
@@ -819,3 +819,4 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-43 | [§2.2](#22-the-method-flag) | Lowering carries a method's policy meta into every method a definition makes (keyword sorters, positional forwarders). | Only the method whose body holds the meta takes it. | `src/method.c` (`jl_method_set_source`) |
 | C-44 | [§2.2](#22-the-method-flag), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A boundary is compiled in the policy of the code that reaches it, with up to one CodeInstance per policy. | A boundary's code is plain, whoever reaches it. | `src/gf.c` (`mi_policy_facts`), `Compiler/src/facts.jl` |
 | C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
+| C-46 | [§3.2](#32-g2-as-a-predicate) | The bit holds when every dispatch edge is at a fact signature and every inlined callee's own record satisfies G2. | Every dispatch edge at a fact signature: an inlined callee's own record is not consulted, since the edges do not tell an inlined callee from a called one. | `Compiler/src/facts.jl` (`edges_satisfy_g2`) |
