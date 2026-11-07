@@ -96,7 +96,7 @@ FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (* only as an argument of a call *)
 ```
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait` and `@implement` (W-106); `@trait_module`, `@default_dynamic` and casts W-111, concreteness W-114.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait` and `@implement` (W-106); `@trait_module`, `@default_dynamic` and casts bb78d02 (W-111); concreteness W-114.
 
 ---
 
@@ -299,7 +299,7 @@ end
 
 `@default_dynamic` or `@default_compiled` in the body sets how the trait's arguments are compiled where nothing stronger decides (§7.5).
 
-**Status:** Planned (W-111); mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` bb78d02: `@default_dynamic` and `@default_compiled` write the set's default on its `TypeName`, which the compiler reads (compiler §6.3; `unified` e692e57ab7, W-111). Mine (2026-11-06).
 
 ---
 
@@ -631,7 +631,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (W-111); the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -641,7 +641,7 @@ At each call, each trait argument has an **attribute**:
 
 Both run the same methods and give the same results, or raise the same error.
 
-**Status:** Planned (W-111).
+**Status:** Implemented on `unified` e692e57ab7 (W-111; [compiler §6.2](compiler.md#62-compilation-signatures), [§6.3](compiler.md#63-the-attribute-at-a-call)), but at an argument typed by a `where` variable (compiler C-54).
 
 ### 7.5 What decides
 
@@ -671,7 +671,7 @@ solve(m::Model, u0) = …                       # Dynamic for a user's model: th
 solve(compiled_for(MyModel()), u0)            # Compiled at this call: the caller's cast
 ```
 
-**Status:** Planned (W-111). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
+**Status:** Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111), with compiler C-55; gate `n6_attribute`, TraitWorld's test `the attribute`. The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
 
 ### 7.6 Casts
 
@@ -683,7 +683,7 @@ solve(compiled_for(MyModel()), u0)            # Compiled at this call: the calle
 - **A plain function that stores its argument** (a front end typed `@nospecialize(f)`) passes no cast on. The caller keeps its choice by what it passes: the value itself is compiled per type where the struct records its type, a `Dynamic{X}` once (§8.2).
 - Julia's call-site `@inline` is the precedent: a statement about one call, written at the call.
 
-**Status:** Planned (W-111); mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` e692e57ab7 (W-111), but in a call with keyword arguments or a splat (lowering L-56); `detect_unused_casts` in TraitWorld `unified` bb78d02. Mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft).
 
 ### 7.7 `Dynamic{X}`
 
@@ -704,7 +704,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, a struct of the library's until W-111 (lowering L-51); mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented: the struct is Julia's `Core.Dynamic` (`unified` e692e57ab7, W-111); its memberships and methods are the library's (TraitWorld `unified` bb78d02). Mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
 
 ### 7.8 Keeping an argument with its attribute
 
@@ -717,7 +717,7 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
 
 Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** Planned (W-111); mine (2026-11-06).
+**Status:** Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -914,7 +914,7 @@ spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable: open
 leak(t::ColTable) = typeof(t)    # open: the code depends on the type
 ```
 
-**Status:** `check_definitions(M)` implemented in TraitWorld `unified` 59134ef, returning the list ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); the failure while a package is precompiled, with `@trait_module` (W-111).
+**Status:** `check_definitions(M)` implemented in TraitWorld `unified` 59134ef, returning the list ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); the failure at the definition in a trait module, and so while a package is precompiled (TraitWorld `unified` bb78d02, W-111).
 
 ### 11.3 Errors and their messages
 
@@ -1007,7 +1007,7 @@ end
 - Concreteness and fully typed mode (§14) take the same places: before `@trait_module`, for the module; before a method, for it.
 - Traits, memberships and methods at traits work in any module; a scope decides only these options.
 
-**Status:** Planned (W-111; the user, 2026-11-06, Q2 (a)).
+**Status:** Implemented in TraitWorld `unified` bb78d02 (`@trait_module`; W-111; the user, 2026-11-06, Q2 (a)); `detect_dynamic_fallbacks` there (§14).
 
 ---
 

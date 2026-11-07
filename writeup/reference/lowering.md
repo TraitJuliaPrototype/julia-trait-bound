@@ -128,7 +128,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose classification waited are classified, and `struct S <: X` without its `@implement` is refused.
 
-**Status:** Planned (W-111); the options decided (the user, 2026-11-06, Q2 (a)).
+**Status:** Implemented in TraitWorld `unified` bb78d02 (W-111); the options decided (the user, 2026-11-06, Q2 (a)).
 
 ---
 
@@ -155,7 +155,7 @@ end
 - **`keep(x)`** is `Core.keep`, resolved by the compiler ([compiler §6.9](compiler.md#69-casts-and-keep)).
 - **Casts** `compiled_for` and `with_dynamic` are `Core.compiled_for` and `Core.with_dynamic`, names Julia's front end reserves as it reserves `ccall`, recognized in a call's arguments and lowered to `Core.attributed_call` ([compiler §6.9](compiler.md#69-casts-and-keep)). The library re-exports them and defines `detect_unused_casts(mod)`.
 
-**Status:** `Dynamic{X}` implemented in TraitWorld `unified` e7ff8e2 (L-51); `keep` and casts W-111.
+**Status:** Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111), with L-56 and compiler C-56.
 
 ---
 
@@ -256,8 +256,9 @@ The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice,
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
-| L-51 | [§7](#7-dynamicx-keep-casts) | `Dynamic{X}` is a struct of `Core`. | It is the library's struct, `TraitWorld.Dynamic`, until `keep` needs it in `Core` (W-111). | `src/dynamic.jl` |
+| L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
 | L-52 | [§3](#3-implement) | `struct S <: X` records the receiver on `S`'s `TypeName`; a use of `S` through `X` before the `@implement` raises `ImplementError`. | The `@implement` checks and declares nothing in the runtime: the receiver is not recorded (keys, Optional), and a use before the `@implement` is not caught. | `src/implement.jl` (`_implement_one!`) |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members checked while it was built, with the methods each check relied on, and the override records. | The library keeps both per session (`_CHECKED`, `_DEFAULT_SERVED`): an image keeps none. A member of a pattern is checked again at its first use in each session, and a method that overrides a default at a member whose membership was loaded from an image is not refused. | `src/implement.jl` |
+| L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`; a local variable or a definition of either name is refused. | A cast in a call with keyword arguments or a splatted argument is refused ("not supported yet"); an argument named `compiled_for` or `with_dynamic` is not refused. | `src/julia-syntax.scm` (`lower-cast-call`, `check-not-cast-name`) |

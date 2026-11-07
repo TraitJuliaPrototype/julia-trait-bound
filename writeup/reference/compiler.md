@@ -466,7 +466,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
 - Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
 - **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is open at that argument.
 
-**Status:** Planned (W-106: per type and once). Per key: Optional (W-110).
+**Status:** Implemented on `unified` e692e57ab7 (W-111) per type and once, chosen per call by the attribute (§6.3). Inference infers a call at the instance that runs: the set's type at an argument compiled once. A dynamic call's instance compiled once by an attribute is cached with the call's own types. Per key: Optional (W-110). With C-54.
 
 ### 6.3 The attribute at a call
 
@@ -485,7 +485,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
 - **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
 - **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
 
-**Status:** Planned (W-111); the order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
+**Status:** Implemented on `unified` e692e57ab7 (W-111): a static call's bits resolved in the caller's inference, a dynamic call's at the method by the runtime, `Core.attributed_call` from casts and from a run-time site that passes on a trait argument of code compiled once; an argument `Compiled` whose type the caller does not know makes the call dispatch on it when it runs, a function barrier; gate `n6_attribute`. With C-54, C-55, C-57. The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
 
 ### 6.4 Calls from code compiled per key
 
@@ -530,7 +530,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
 - **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; `bounded` per method (`@bounded`) and `@open` there; the module's `bounded` option with `@trait_module` (W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; `bounded` per method (`@bounded`) and `@open` there; the module's `bounded` option with `@trait_module` (TraitWorld `unified` bb78d02, W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
 
 ### 6.8 A declared result on `Method`
 
@@ -549,7 +549,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. Where the code is not compiled, it is resolved at the method's default attribute.
 - Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
 
-**Status:** Planned (W-111); mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` e692e57ab7 (W-111): the casts lowered to `Core.attributed_call` and reserved, the builtin with its cache, `Core.Dynamic`, `keep` resolved by inference; `detect_unused_casts` in the library (TraitWorld `unified` bb78d02). With C-56 and lowering L-56. Mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -780,13 +780,13 @@ Each applies to all code.
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9) for a concrete member; C-29; strict mode's error W-114 | §5.4 |
 | dispatch caches lowered at a membership | Implemented (`unified` 29035cab11) as the stopgap, C-18 | §5.5 |
 | guards and cells | Planned (W-112) | §5.6 |
-| `TraitKey`; compilation signatures per key, per type, once | Planned (W-106): per type, once; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
-| the attribute bits at a call | Planned (W-111) | §6.3 |
+| `TraitKey`; compilation signatures per key, per type, once | per type and once implemented (`unified` e692e57ab7, W-111), with C-54; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
+| the attribute bits at a call | Implemented (`unified` e692e57ab7, W-111), with C-54, C-55, C-57 | §6.3 |
 | calls from code compiled per key | Optional (W-110) | §6.4 |
 | the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
 | the definition-time check and the classification | Implemented (TraitWorld `unified` 59134ef), with C-40, C-41 | §6.7 |
 | a declared result on `Method`; the operation's flag | Implemented (`unified` e70675a606), with C-36 | §6.8 |
-| casts at the call; `keep` | Planned (W-111) | §6.9 |
+| casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
@@ -799,7 +799,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at cb7f55bd35 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35). IDs are shared with the record's other references and never reused.
+Branch `unified` at 1f6d1e45d7 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -840,3 +840,7 @@ Branch `unified` at cb7f55bd35 (stage 1, W-98: the type system 62016706d0, dispa
 | C-51 | [§4.8](#48-negatives-never-fold-positives-through-entries), [§3.1](#31-the-record) | A positive answer through an entry folds, with the code's worlds from the entry's and the entry in its record. | It folds at `isa`, `<:` and a dispatch match in the frame being inferred. `typeassert`'s nothrow, `typesubtract`, the optimizer's own `isa` queries and the semi-concrete pass leave such an answer unfolded. | `Compiler/src/typeutils.jl` (`positive_fold_blocked`), `Compiler/src/tfuncs.jl` |
 | C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | An emitted call's edge is a dispatch edge; a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. Result edges come with the code slot (W-101); the rest with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
 | C-53 | [§2.6](#26---trim) | A trimmed image writes no facts flags. | It keeps the module's and the methods' flags; nothing reads them under `--trim`, and its CodeInstances are all plain. | `src/staticdata.c` |
+| C-54 | [§6.2](#62-compilation-signatures), [§6.3](#63-the-attribute-at-a-call) | At each argument whose declared type is a set, or a parameter bounded by one, the attribute chooses the compilation signature. | An argument typed by a `where` variable bounded by a set, or by a set whose type has a free variable (`X{T}` with `T` a method's variable), is compiled for the value's type whatever its attribute: the method's body is compiled for its variables' values. | `src/gf.c` (`is_trait_arg_type`) |
+| C-55 | [§6.3](#63-the-attribute-at-a-call) | A set's default does not apply to a value whose type Julia's own modules define. | Julia's own modules are `Core` and `Base`: a standard library's type takes the set's default as a package's type would. A module of a script (under `Main`) counts as a package of its own. | `src/gf.c` (`type_is_own`, `module_package`) |
+| C-56 | [§6.9](#69-casts-and-keep) | Where the code is not compiled, `keep(x)` is resolved at the method's default attribute. | It is `x`. | `base/boot.jl` (`Core.keep`) |
+| C-57 | [§6.3](#63-the-attribute-at-a-call), [§3.2](#32-g2-as-a-predicate) | A call records its dispatch fact at its own signature, whichever instance runs. | A static call that runs an instance compiled once records the instance's signature, at the set, as its dispatch edge, which is not a fact signature: the caller's G2 bit is clear. | `Compiler/src/stmtinfo.jl` (`_add_edges_impl`) |
