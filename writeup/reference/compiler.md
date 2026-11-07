@@ -142,7 +142,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - `Method.facts::UInt8`: 0 as its module says; 1 a boundary; 2 always facts. Lowering carries the meta into every method a definition makes (keyword sorters, positional forwarders). It is saved with the method.
 - **The boundary flag is the second policy per method.** A neutral method has plain code only (§2.3), so facts code that calls it rests on code that loads may invalidate. A boundary gives facts code a facts copy that no load discards, for the methods where that matters. Which of Base's methods carry it is a choice of the setting, made by measurement ([evidence](../design/evidence.md)), not a rule of the design.
 
-**Status:** The method flag implemented on branch `w100` beafa01b36 (W-100), with C-43. The boundary flag as the second policy per method: implemented on branch `w100` c44a447f2c (W-100; §2.3); gate `f6_reach_policy`. Which of Base's methods carry it: Planned (W-100).
+**Status:** The method flag implemented on branch `w100` beafa01b36 (W-100), with C-43. The boundary flag as the second policy per method: implemented on branch `w100` c44a447f2c (W-100; §2.3); gate `f6_reach_policy`. Which of Base's methods carry it: none, in the product setting (mine, 2026-11-07): facts code rests on plain code of Base whose own records satisfy G2 (E-279, [evidence](../design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)).
 
 ### 2.3 One CodeInstance per MethodInstance and policy
 
@@ -211,7 +211,11 @@ A CodeInstance's edges name everything its code assumed:
 
 The backedge iterator, `verify_method`, codegen's walkers and the image writer read every kind. Targets are named by identities stable across sessions where one serves (§9).
 
-**Status:** Planned (W-100).
+- **A positive membership is recorded as its entry.** Where inference folds a positive answer through an entry (§4.8), or a dispatch match passes through one (§5.3), the entries the answer rests on join the record: each entry in force in the world being inferred on a `TypeName` reachable from the member (its supertypes, parameters and entries' instances) whose set reaches a set the question names. A chain of memberships records each link.
+- The code's worlds start no earlier than the latest of those entries'. An entry in the record takes no backedge: memberships only grow, and a redeclared one keeps its answer (§4.3).
+- Validation of a loaded image's record takes an entry's worlds where the entry is in force in the session, and refuses the code where it is not (§9).
+
+**Status:** On branch `w100` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. Membership cells with the guards (W-112); result edges apart from dispatch edges, code edges' digests and layout identities: C-52.
 
 ### 3.2 G2 as a predicate
 
@@ -324,7 +328,7 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 
-**Status:** Implemented on `unified` 62016706d0 for the negative folds; W-100 for the fold's world.
+**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on branch `w100` 9a601902a0 (W-100), with C-51.
 
 ### 4.9 Intersections
 
@@ -763,13 +767,13 @@ Each applies to all code.
 
 | Interface | Status | Section |
 |---|---|---|
-| the facts inference, fact signatures, run-time sites, `return_type`, effects | Planned (W-100) | §1 |
-| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies | Planned (W-100) | §2 |
-| the dependency record; G2 as a predicate | Planned (W-100) | §3.1, §3.2 |
+| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (branch `w100`, W-100), with C-45, C-47 | §1 |
+| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed | Implemented (branch `w100`, W-100), with C-43, C-49, C-50; which of Base's methods are boundaries and `--trim` Planned (W-100) | §2 |
+| the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (branch `w100` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
 | the code slot | Planned (W-101) | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); W-100 for the fold's world | §4.7, §4.8 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on branch `w100` 9a601902a0, with C-51 | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
@@ -780,14 +784,14 @@ Each applies to all code.
 | the attribute bits at a call | Planned (W-111) | §6.3 |
 | calls from code compiled per key | Optional (W-110) | §6.4 |
 | the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
-| the definition-time check and the classification | Planned (W-109) | §6.7 |
-| a declared result on `Method`; the operation's flag | Planned (W-109) | §6.8 |
+| the definition-time check and the classification | Implemented (TraitWorld `unified` 59134ef), with C-40, C-41 | §6.7 |
+| a declared result on `Method`; the operation's flag | Implemented (`unified` e70675a606), with C-36 | §6.8 |
 | casts at the call; `keep` | Planned (W-111) | §6.9 |
-| operations on a value typed by its trait; the split; the table | Planned (W-109) | §7.1–§7.3 |
+| operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
-| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the record Planned (W-100) | §9 |
+| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (branch `w100` 9a601902a0); the record's stable identities: C-52 | §9 |
 | hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's hooks Planned (W-114); field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
@@ -833,3 +837,5 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-48 | — | *Retired* (2026-11-07): the test bed starts and runs on branch `w100` c44a447f2c ([§2.5](#25-the-test-bed)); E-275, gate `f6_reach_policy` | — | — |
 | C-49 | [§2.1](#21-the-module-option), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A method's policy follows its module's option. | A method instance's policy is read at its first use and cached in its flags (an image does not keep it); a module option set after one of the module's methods was first called leaves that method's policy as first read. | `src/gf.c` (`mi_policy`) |
 | C-50 | [§2.4](#24-calls-between-policies) | The operation of `modifyfield!`, `modifyglobal!` and `memoryrefmodify!`, and a builtin that calls a function, reached by a dynamic call, dispatch with the policy of the code that calls them. | They reach with the setting's default; so does an ABI converter's generic call. | `src/builtins.c` (`jl_apply_reach`), `src/datatype.c`, `src/codegen.cpp` (`emit_abi_dispatcher`) |
+| C-51 | [§4.8](#48-negatives-never-fold-positives-through-entries), [§3.1](#31-the-record) | A positive answer through an entry folds, with the code's worlds from the entry's and the entry in its record. | It folds at `isa`, `<:` and a dispatch match in the frame being inferred. `typeassert`'s nothrow, `typesubtract`, the optimizer's own `isa` queries and the semi-concrete pass leave such an answer unfolded. | `Compiler/src/typeutils.jl` (`positive_fold_blocked`), `Compiler/src/tfuncs.jl` |
+| C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | An emitted call's edge is a dispatch edge; a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. Result edges come with the code slot (W-101); the rest with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |

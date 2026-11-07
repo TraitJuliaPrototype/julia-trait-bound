@@ -41,3 +41,12 @@
 ## The user confirms
 
 - "Confirm. Please delete for me." What reaches code (decisions §9) confirmed. The six core dumps and the parent's build `julia-w100base/` deleted; a bisection for PE-24 builds its commits again.
+
+## The record's positive memberships (E-277), G2 under the test bed (E-278), Base's boundaries (E-279)
+
+- The user: "Continue with everything. I am away from the machine. Try to finish the unification on your own as far as possible."
+- **The record (compiler §3.1, §4.8), w100 9a601902a0.** A positive answer through a membership entry folds at `isa`, `<:` and a dispatch match, in the frame being inferred: the entries it rests on (every link of a chain) join the CodeInstance's edges as the entry objects themselves, and the code's worlds start at theirs. No backedge (memberships only grow). Image validation takes the entry's worlds where it is in force. Elsewhere (typeassert's nothrow, `typesubtract`, the optimizer, the semi-concrete pass) such an answer stays unfolded: C-51. The record's other kinds: result edges with the code slot (W-101); digests, layouts and stable identities with the paused machine-code cache: C-52.
+- Gate `f7_membership_edges`; `AC_18` and `AC_20` re-judged to the entry as the edge (both links of a chain recorded; `jl_membership_entries_for` in place of the earlier attempt's `jl_membership_entry_for`).
+- **E-278:** 99.8 % and 99.9 % of the facts code satisfies G2 under the test bed; the gate (≥ 99 %) passes.
+- **E-279:** 65–72 % of facts code in a facts module rests on plain code of Base, none on plain code that misses G2. Mine: no method of Base carries the boundary flag (decisions §9, open issues §1).
+- Next build: C-43 (lowering carries the policy meta into keyword sorters and positional forwarders) and `--trim` (every method plain).
