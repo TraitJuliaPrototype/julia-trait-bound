@@ -367,3 +367,6 @@ Recorded in CLAUDE.md. No choice tonight was high-impact enough for a Fable revi
 - **A W-108 bug found on the way:** `jl_add_methods` replaces an image's methods by their typemap entries during the restore, so the image hook passed entries, which the library skipped.
 - **A build interrupted:** Compiler sources edited while the build compiled the Compiler; the build was stopped and started again with all files touched.
 - Next: declared fields (the compiler needs the set's declared fields from something the runtime keeps), the classification, `bounded` and `@open`.
+- **Declared fields:** a field `declared_fields` on `TypeName` (atomic, the 22nd); the first build's rule did not fire, since `getproperty` inside the Compiler is `Core`'s, not `Base`'s. Base's `core` test lists `TypeName`'s atomic fields and was updated.
+- **The classification** in TraitWorld: an `AbstractInterpreter` of the library's with an ephemeral cache, so functions it follows are inferred again; a trait's own methods are skipped (their bodies are the contract); uses are recorded once each (constant propagation infers a call twice). `check_definitions`, `@bounded` (refused at definition by the definition hook), `@open`.
+- **W-109 done:** `unified` 50da8d8ee2 (commits 20–23), TraitWorld 59134ef.

@@ -631,7 +631,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** Planned (W-109; the user, 2026-11-06, Q2 (a)). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (W-111); the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -914,7 +914,7 @@ spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable: open
 leak(t::ColTable) = typeof(t)    # open: the code depends on the type
 ```
 
-**Status:** Planned (W-109; [compiler §6.7](compiler.md#67-the-definition-time-check)).
+**Status:** `check_definitions(M)` implemented in TraitWorld `unified` 59134ef, returning the list ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); the failure while a package is precompiled, with `@trait_module` (W-111).
 
 ### 11.3 Errors and their messages
 

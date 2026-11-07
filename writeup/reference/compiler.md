@@ -517,7 +517,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
 - **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
 
-**Status:** Planned (W-109; the classification and the `bounded` option: the user, 2026-11-06, Q2 (a)). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; `bounded` per method (`@bounded`) and `@open` there; the module's `bounded` option with `@trait_module` (W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
 
 ### 6.8 A declared result on `Method`
 
@@ -549,7 +549,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
 - Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
 
-**Status:** The rule for an operation's call implemented on `unified` e70675a606, compiled as the split (§7.2) with the result asserted. Declared fields and `getproperty`: Planned (W-109). The facts mode: W-100.
+**Status:** The rule for an operation's call implemented on `unified` e70675a606, compiled as the split (§7.2) with the result asserted. Declared fields implemented on `unified` 50da8d8ee2: the library writes a trait's declared fields on its `TypeName` (`jl_set_declared_fields`), inference reads them along the trait's supertraits. `getproperty` at a `HasProperty{N, R}`: with BaseTraits (W-114). The facts mode: W-100.
 
 ### 7.2 The split
 
@@ -786,7 +786,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at e70675a606 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606). IDs are shared with the record's other references and never reused.
+Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -813,3 +813,5 @@ Branch `unified` at e70675a606 (stage 1, W-98: the type system 62016706d0, dispa
 | C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
 | C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
+| C-40 | [§6.7](#67-the-definition-time-check) | One inference of the method at the erased signature, under a check flag of the native interpreter, records each use of a trait argument outside the contract; the classification is per argument. | The library infers the method with an interpreter of its own (`TraitWorld.ClassifyInterp`, an ephemeral cache, so every function it follows is inferred again) and records each call that takes a value typed by a trait outside the contract: per method, each use against the trait the value is known by. | TraitWorld `src/classify.jl` |
+| C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `@bounded` once at the method's definition; it is not kept; no constructor is exempt. | TraitWorld `src/classify.jl` |
