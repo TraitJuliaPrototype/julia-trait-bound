@@ -524,7 +524,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - Lowering records `f(…)::RT` as the method's declared result. Inference may read it as an upper bound, since the body asserts it.
 - **The trait's method for an operation** carries the operation's declared result, with a flag that it covers every member: each member's serving method is checked to infer within it ([traits §5.10](traits.md#510-checks)). §7 relies on the flag.
 
-**Status:** Planned (W-109).
+**Status:** The trait's method's declared result and its flag implemented on `unified` e70675a606, set by the library (TraitWorld `unified` e9a63f7); lowering's record of `f(…)::RT`: C-36.
 
 ### 6.9 Casts and `keep`
 
@@ -549,7 +549,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
 - Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
 
-**Status:** Planned (W-109).
+**Status:** The rule for an operation's call implemented on `unified` e70675a606, compiled as the split (§7.2) with the result asserted. Declared fields and `getproperty`: Planned (W-109). The facts mode: W-100.
 
 ### 7.2 The split
 
@@ -568,7 +568,7 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 - **Which candidates a caller splits over is fixed when it is compiled.** A member registered later reaches the fallback, and invalidates nothing.
 - Registration is lock-free for readers: the table is replaced on each registration.
 
-**Status:** Planned (W-109).
+**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). `register_dynamic_candidate!` for a key: with keys (W-110).
 
 ### 7.3 The table of a call's targets
 
@@ -593,7 +593,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 - **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call.
 - **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image, at each call signature whose other arguments are concrete. A target whose call has abstract further arguments is made at its first call.
 
-**Status:** Planned (W-109).
+**Status:** Implemented on `unified` e70675a606, ported from `trait-world-1.13` 711484a23e and 6d480d0753, but for the targets compiled ahead into images (C-39).
 
 ### 7.4 `Callable`'s call
 
@@ -786,7 +786,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 28c401eb0c (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c). IDs are shared with the record's other references and never reused.
+Branch `unified` at e70675a606 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109's first commit e70675a606). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -809,3 +809,7 @@ Branch `unified` at 28c401eb0c (stage 1, W-98: the type system 62016706d0, dispa
 | C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
 | C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |
 | C-35 | [§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache) | A membership that would give a member a second instance of a set is refused. | An image's memberships are activated at load without the check: two images that declare one member at two instances of a set both hold. | `src/datatype.c` (`jl_activate_memberships`) |
+| C-36 | [§6.8](#68-a-declared-result-on-method) | Lowering records `f(…)::RT` as the method's declared result. | Only the library sets one, on a trait's method for an operation, through `jl_method_set_declared_result`; lowering records none. | `src/gf.c`; TraitWorld `src/runtime.jl` (`_set_declared!`) |
+| C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
+| C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
+| C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |

@@ -727,7 +727,7 @@ Where the code holds a value at the trait's type (code compiled once, a field or
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
 
-**Status:** Planned (W-109; [compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)).
+**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109.
 
 ### 7.10 Costs, and choosing
 
