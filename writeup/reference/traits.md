@@ -96,7 +96,7 @@ FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (* only as an argument of a call *)
 ```
 
-**Status:** Planned (W-106, W-111).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait` and `@implement` (W-106); `@trait_module`, `@default_dynamic` and casts W-111, concreteness W-114.
 
 ---
 
@@ -114,7 +114,7 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
 
-**Status:** Implemented in Julia's type system on branch `unified` 5db05880d7 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); the library's `@trait` and `@implement`: W-106.
+**Status:** Implemented in Julia's type system on branch `unified` e0487d74d9 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2.
 
 ### 3.2 Parameters
 
@@ -146,7 +146,7 @@ end
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
-**Status:** Planned (W-98 for subtyping, W-106 for the checks). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
+**Status:** Implemented on `unified` e0487d74d9 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks), but for a member at several values of an input, which the runtime refuses as a second instance (compiler C-32). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
 
 ### 3.3 Where a trait stands
 
@@ -231,7 +231,7 @@ end
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 
-**Status:** Planned (W-106, W-109).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result's assertion at a call through the trait: W-109.
 
 ### 4.2 Defaults
 
@@ -245,7 +245,7 @@ describe(s::Shape)::String = "a shape of area $(area(s))"
 - Which operations a default serves for a member is fixed at its membership (§5.11).
 - Rust's and Swift's default methods are reached by every caller in the same way, as a method on an abstract type is in Julia.
 
-**Status:** Planned (W-106); mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; mine (2026-11-06).
 
 ### 4.3 Fields
 
@@ -266,7 +266,7 @@ end
 - The declared fields' types are part of the key (§7.2). A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
 - **State some members write and others only read** is two traits: one that declares the field `@const`, and a subtrait that adds the operations that change it.
 
-**Status:** Planned (W-106; the user, 2026-11-06, Q7 (a)). Swift's protocol properties are the conforming type's own properties in the same way.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 (the user, 2026-11-06, Q7 (a)). Swift's protocol properties are the conforming type's own properties in the same way.
 
 ### 4.4 `Self`
 
@@ -274,7 +274,7 @@ end
 - It appears as an argument's type, in result types and in equations (`T = eltype(Self)`).
 - **A constructor operation** returns `Self`: `kwith(t::KTable, cs::Vector{Vector{Float64}})::Self`. With `like(t, x)` (§6.5) it returns "a value like the input".
 
-**Status:** Planned.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 4.5 Supertraits
 
@@ -292,7 +292,7 @@ end
 - **Several supertraits:** `@trait C <: (A, B)`. `C`'s members must join `C`, and are then members of `A` and of `B`. A name for "a member of both" is an intersection (§3.6).
 - **Parameters:** a supertrait is written with the subtrait's parameters, constants and type constructors. Every member of `B{U, T, P}` is a member of `A{U, T, P}`.
 
-**Status:** Planned (W-98, W-106).
+**Status:** Implemented on `unified` e0487d74d9 and in TraitWorld `unified` e7ff8e2.
 
 ### 4.6 The trait's default attribute
 
@@ -323,7 +323,7 @@ All forms share these rules:
 - It is checked against the contract (§5.10).
 - **It invalidates no compiled code:** a call that the new membership could change is guarded ([facts §10](facts.md#10-memberships)).
 
-**Status:** Planned (W-98, W-106).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, but as lowering L-52 says.
 
 ### 5.2 With the type's definition
 
@@ -340,7 +340,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters; the `@implement` may repeat them.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Planned (W-106, W-108; the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The refusal at a module's end uses Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), Planned).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check; the use before it and the module's end: W-108 (lowering L-52) ( the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The refusal at a module's end uses Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), Planned).
 
 ### 5.3 One line
 
@@ -354,7 +354,7 @@ perimeter(c::Circle) = 2π * c.r
 - **No field is special:** the one-line form never forwards. Forwarding is written with `by` (§5.5).
 - Errors name the operations: methods for some operations and not for others; no methods (listing the fields whose type is a member, each with its `by` line).
 
-**Status:** Planned.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 5.4 With a block of methods
 
@@ -370,7 +370,7 @@ end
 - The receiver is typed by the member; unannotated arguments take the operation's declared types.
 - The methods are ordinary methods of the type; every caller finds them.
 
-**Status:** Planned.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 5.5 Forwarding with `by`
 
@@ -384,7 +384,7 @@ end
 - **The trait's method for each operation** serves a forwarding member: it calls the operation on the field. Every caller reaches it, as for a default (§4.2).
 - A trait that requires a concrete `Self` (§14) refuses a forwarding field of an abstract type.
 
-**Status:** Planned (W-106); the trait's method serving a forwarding member is mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06).
 
 ### 5.6 Several traits at once
 
@@ -394,7 +394,7 @@ end
 
 One declaration, one membership per trait, all served the same way. Each may also be declared on its own.
 
-**Status:** Planned.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 5.7 Stating parameters
 
@@ -405,7 +405,7 @@ One declaration, one membership per trait, all served the same way. Each may als
 - A membership states the parameters that no field and no equation defines.
 - A stated value for a parameter an equation defines is checked against the equation at the member. If they differ, the membership is refused (`ImplementError`).
 
-**Status:** Planned.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 5.8 Families
 
@@ -426,7 +426,7 @@ end
 - Where an operation's declared argument type is abstract, a member's check counts only the methods of its stakeholders there. So a member's check does not depend on which packages loaded before its first use.
 - **Where an equation defines a parameter** (`T = eltype(Self)`), the family states it as a type expression of its variables: `@implement Iterable{T} Wrapped{T} where {T}`. Each member's check compares the equation's value with it. A family whose instance cannot be written so is refused, naming the parameter. Rust writes an associated type in a generic `impl` the same way.
 
-**Status:** Planned (W-106).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use at dispatch (compiler C-31); a variable bounded by a `Union` declared per type in dd72b10.
 
 ### 5.9 Abstract types and traits as members
 
@@ -444,7 +444,7 @@ end
 - A membership of a trait in a trait applies only to a trait without declared fields; a trait with fields needs each type's own membership, which locates them.
 - Each member reached this way is checked at its first use.
 
-**Status:** Planned (W-98, W-106).
+**Status:** Implemented on `unified` e0487d74d9 and in TraitWorld `unified` e7ff8e2.
 
 ### 5.10 Checks
 
@@ -469,14 +469,14 @@ end
 
 Not everything is caught: a conversion that fails at run time is not proved by the check.
 
-**Status:** Planned (W-106, W-108).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: W-108.
 
 ### 5.11 Overrides and redeclaration
 
 - **Which operations defaults serve for a member is fixed at its membership.** A later method of such an operation for the member is refused when it is defined (`ImplementError`). The message names the fix: define the method before the membership, or in its block. A package image that brings such a method is refused when it loads.
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Planned.
+**Status:** Planned (W-108, the definition hook); a redeclaration's new entry on `unified` e0487d74d9.
 
 ### 5.12 Types that only convert
 
@@ -509,7 +509,7 @@ describe(x) = "something else"
 - Any method in any module may name a trait in its signature. It is a method of its generic function, dispatched by Julia.
 - Its body may do with the argument what any body may do with an abstract-typed argument. What the body does decides how the method is compiled (§7.3), never what it means.
 
-**Status:** Planned (W-99).
+**Status:** Implemented in Julia's dispatch on `unified` 7db137f922 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled (§7.3): W-109.
 
 ### 6.2 Specificity
 
@@ -517,20 +517,20 @@ describe(x) = "something else"
 - **Between traits:** by subtyping. A subtrait is more specific than its supertrait; an intersection than each of its components. Unrelated traits are unordered.
 - `Any` is the least specific, as always.
 
-**Status:** Planned (W-99; [compiler §5.2](compiler.md#52-specificity)).
+**Status:** Implemented on `unified` e0487d74d9 ([compiler §5.2](compiler.md#52-specificity)), but for intersections (W-107).
 
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
 - **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3). A method that dominates every common member suppresses the report.
 
-**Status:** Planned (W-99).
+**Status:** Implemented on `unified` 67cc090897 for a concrete member ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership); C-29 for a pattern): the warning names the function, the two traits and the joint method's signature at the member; `f(::All{…})` with intersections (W-107); the error under strict mode with W-114.
 
 ### 6.4 The fallback
 
 A value that matches no method at a trait reaches the most specific method that applies, as in Julia, or raises `MethodError`. A member at other parameter values than a method states, or a broken shared variable, is such a value.
 
-**Status:** Planned.
+**Status:** Implemented on `unified` 7db137f922: Julia's dispatch.
 
 ### 6.5 Results
 
@@ -548,7 +548,7 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
 - **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced.
 - **A method whose result is built by `like(t, …)` or `withfields(t; …)` is compiled per type at `t`:** its result's type is `t`'s family.
 
-**Status:** Planned (W-106); the compilation per type is mine (2026-11-06), as Rust and Swift compile a function that returns `Self` per type.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the compilation per type is mine (2026-11-06), as Rust and Swift compile a function that returns `Self` per type.
 
 ### 6.6 Keywords, defaults, varargs
 
@@ -584,7 +584,7 @@ At each argument typed by a trait, a method is compiled:
 
 Which one: §7.3 and §7.5.
 
-**Status:** Planned (W-106: per type and once; W-111: the attribute that chooses). Per key: Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
+**Status:** Implemented: per type, Julia's; once for a `Dynamic{X}` (TraitWorld e7ff8e2); W-111: the attribute that chooses. Per key: Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
 
 ### 7.2 The key
 
@@ -703,7 +703,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Planned (W-106); mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, a struct of the library's until W-111 (lowering L-51); mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
 
 ### 7.8 Keeping an argument with its attribute
 
@@ -762,7 +762,7 @@ end
 - **A value read back is what was stored:** a member, or a `Dynamic{X}`. A member read back is plain (§7.5); a `Dynamic{X}` stays `Dynamic`.
 - An operation on a value read back follows §7.9.
 
-**Status:** Planned (W-98, W-106).
+**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -783,13 +783,13 @@ ODEProblem(Dynamic{Callable{RHSSig{P, T}, Nothing}}(lorenz!), u0, tspan, p)   # 
 - **A parameter named only in a bound** is matched through the membership, as a `where` clause matches: in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, the constructor `CellVector(c::C) where {T, C <: Column{T}} = CellVector{T, C}(c)` reads `T` from the column's membership.
 - **A constructor that sets the parameter from its trait argument is open there** (§7.3): the struct's type names the member's type. It is open by design, so `bounded` does not refuse it, Julia's default constructor included.
 
-**Status:** Planned (W-106).
+**Status:** Implemented: Julia's bound and default constructor, with TraitWorld `unified` e7ff8e2's members.
 
 ### 8.3 Equality
 
 `Dynamic{X}(a) == Dynamic{Y}(b)` when `a === b`, for a mutable object by identity, for an immutable one by value; `hash` agrees. `===` compares the wrappers.
 
-**Status:** Planned (W-106); mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; mine (2026-11-06).
 
 ---
 
@@ -899,7 +899,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Planned (W-106, W-108).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and a method's definition: W-108, W-109, W-114.
 
 ### 11.2 Definition checking
 
@@ -928,7 +928,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
 | `TypeError` | an operation's or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 
-**Status:** Planned (W-106).
+**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError` and `PirateError` with W-114.
 
 ### 11.4 Hints
 
@@ -1082,34 +1082,34 @@ A second way for a type to join a trait, used only where a caller names it, is a
 
 | Construct | Status | Section |
 |---|---|---|
-| a trait is an abstract type; membership, transitivity, worlds | Planned (W-98) | §3.1 |
-| parameters as associated types; invariance, `X{<:T}`; one instance per member | Planned (W-98, W-106) | §3.2 |
-| a family states its instance as a pattern, equations included | Planned | §3.2, §5.8 |
-| a trait wherever a type stands | Planned (W-98, W-99) | §3.3 |
+| a trait is an abstract type; membership, transitivity, worlds | Implemented (`unified` e0487d74d9) | §3.1 |
+| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` e0487d74d9, TraitWorld e7ff8e2); inputs: compiler C-32 | §3.2 |
+| a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
+| a trait wherever a type stands | Implemented (`unified` 7db137f922) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Planned (W-107) | §3.6 |
-| operations, `where` on operations, the receiver at any position | Planned | §4.1 |
-| defaults as the trait's methods, reached by every caller | Planned | §4.2 |
-| declared fields as stored fields | Planned | §4.3 |
-| `Self`; supertraits | Planned | §4.4, §4.5 |
-| `struct S <: X`, declared and checked by `@implement X S` | Planned | §5.2 |
-| one line, block, several traits, stated parameters | Planned | §5.3–§5.7 |
-| forwarding by the trait's method | Planned | §5.5 |
-| families; abstract types and traits as members | Planned | §5.8, §5.9 |
-| checks at the declaration and at first use | Planned | §5.10 |
-| overrides fixed; redeclaration | Planned | §5.11 |
-| dispatch: specificity, ambiguity reported at a membership, fallback | Planned (W-99) | §6.2–§6.4 |
-| `like`, `withfields`; their compilation per type | Planned | §6.5 |
+| operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
+| defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
+| declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
+| `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
+| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2); the use before and the module's end W-108 (L-52) | §5.2 |
+| one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
+| forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
+| families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
+| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` 3ad297247e), at dispatch (C-31); in images W-108 | §5.10 |
+| overrides fixed; redeclaration | Planned (W-108); a redeclaration's entry implemented (`unified` e0487d74d9) | §5.11 |
+| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` e0487d74d9, 67cc090897), but for intersections (W-107) | §6.2–§6.4 |
+| `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
 | fully bounded and open methods | Planned (W-109) | §7.3 |
 | the attribute and what decides it | Planned (W-111) | §7.4, §7.5 |
 | casts at the call | Planned (W-111) | §7.6 |
-| `Dynamic{X}`, `keep` | Planned (W-106, W-111) | §7.7, §7.8 |
+| `Dynamic{X}`, `keep` | `Dynamic{X}` implemented (TraitWorld e7ff8e2; L-51); `keep` W-111 | §7.7, §7.8 |
 | operations on a value known only by its trait | Planned (W-109) | §7.9 |
-| storage typed by a trait; struct parameters | Planned | §8 |
+| storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
 | `Callable`: dispatch by signature, the result checked on return | Planned (W-113) | §9 |
 | BaseTraits; element types by variance; `retain!` | Planned | §10 |
-| checks, errors, hints | Planned (W-106, W-109, W-114) | §11 |
+| checks, errors, hints | Checks at declarations and first uses, `ImplementError` implemented (TraitWorld e7ff8e2); definition checking W-109; hints W-114 | §11 |
 | ownership, joint owners, pirates, strict mode | Planned (W-114) | §12 |
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options | Planned (W-111) | §13 |

@@ -244,7 +244,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 
   The compiler reads it without an edge: it never changes after the declaration.
 
-**Status:** Implemented on `unified` 5db05880d7: the `open` bit, `never_member` (the builtins' types included), a set's supertype, the contract's slot. The contract itself is written by the library (W-106). The contract on the `TypeName`: mine (2026-11-06).
+**Status:** Implemented on `unified` e0487d74d9: the `open` bit, `never_member` (the builtins' types included), a set's supertype, the contract's slot. The contract itself is written by the library (W-106). The contract on the `TypeName`: mine (2026-11-06).
 
 ### 4.2 Memberships
 
@@ -261,7 +261,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **A pattern's variable bounded by a `Union` of types** (`I where {I <: Base.BitInteger}`) is declared as one entry per type of the union.
 - **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s receiver on `S`'s `TypeName`, with its world, as an entry would ([lowering §3](lowering.md#3-implement)).
 
-**Status:** Implemented on `unified` 5db05880d7, but for a pattern variable bounded by a `Union`, which the library declares per type (W-106).
+**Status:** Implemented on `unified` e0487d74d9, but for a pattern variable bounded by a `Union`, which the library declares per type (W-106).
 
 ### 4.3 Worlds
 
@@ -271,7 +271,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
 - **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one. They are the one kind that can end.
 
-**Status:** Implemented on `unified` 5db05880d7.
+**Status:** Implemented on `unified` e0487d74d9.
 
 ### 4.4 Transitivity
 
@@ -281,7 +281,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - A composed membership holds from the latest `min_world` of its links; with several chains, from the earliest of those.
 - A membership that would close a cycle among sets is refused, by a check over every path.
 
-**Status:** Implemented on `unified` 5db05880d7.
+**Status:** Implemented on `unified` e0487d74d9.
 
 ### 4.5 Subtyping
 
@@ -291,22 +291,22 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - **A method's `where` variables and `X{<:T}`'s existential variables** are the walk's own. So dispatch at `f(::X{<:T})` and `f(::X{T}) where {T}` sees members as `<:` does.
 - **Only entries whose set reaches the queried set are choices.** Reachability between two `TypeName`s is memoized per world range. So a type with many entries on its chain (BaseTraits' families on `AbstractVector`) costs a walk only for the entries that can lead to the set asked about.
 
-**Status:** Implemented on `unified` 5db05880d7.
+**Status:** Implemented on `unified` e0487d74d9.
 
 ### 4.6 One instance per member
 
 A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The runtime checks it: exactly for a concrete member; for a pattern, by intersecting it with each pattern that already reaches the set. The library reports the refusal as `ImplementError`.
 
-**Status:** Implemented on `unified` 5db05880d7 for a concrete member; for a pattern, C-27.
+**Status:** Implemented on `unified` e0487d74d9 for a concrete member; for a pattern, C-27.
 
 ### 4.7 Three layers
 
 Questions about open sets are answered in three layers:
 - **`<:` and `isa`** read the entries: the answer in the current world.
-- **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a non-member gives `Union{}`. Dispatch's match construction and the inliner's union split see only members.
+- **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a non-member gives `Union{}`. Dispatch's match construction and the inliner's union split see only members. A concrete type no entry of whose chain can reach the set is obviously disjoint from it, by the reachability of §4.5.
 - **`jl_could_join(S, X)`** answers whether `S` could become a member of `X`. Inference's lattice and the guards' shadow query (§5.6) use it; dispatch's match construction does not.
 
-**Status:** Implemented on `unified` 5db05880d7.
+**Status:** Implemented on `unified` e0487d74d9; a concrete non-member's disjointness by reachability 9a31442a09.
 
 ### 4.8 Negatives never fold; positives through entries
 
@@ -315,7 +315,7 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 
-**Status:** Implemented on `unified` 5db05880d7 for the negative folds; W-100 for the fold's world.
+**Status:** Implemented on `unified` e0487d74d9 for the negative folds; W-100 for the fold's world.
 
 ### 4.9 Intersections
 
@@ -339,13 +339,16 @@ Core.All{X, Y}
 
 A type value is a member of a set only by an entry whose pattern is `Type{S}`. Such an entry is kept on `S`'s `TypeName`, marked as being for the type value, not on `Type`'s. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
 
-**Status:** Implemented on `unified` 5db05880d7.
+**Status:** Implemented on `unified` e0487d74d9.
 
 ### 4.11 Inference's world
 
-Membership queries during inference run at the world being inferred for, carried from `ml_matches` and the insertion walk into the membership lookup, not at the world the compiler runs in.
+Membership queries during inference run at the world being inferred for, not at the world the compiler runs in.
+- That world is the task's **query world.** Inference, method matching (`ml_matches`, with the world it is given) and a declaration's walk set it for the length of their query.
+- It is restored as the task's world age is, by an exception handler too. Another task never sees it.
+- Elsewhere a membership question is asked in the task's world age.
 
-**Status:** Implemented on `unified` 5db05880d7 with a per-thread override for the length of a query (C-28); W-99 carries the world in the query.
+**Status:** Implemented on `unified` bdd48fe0bb.
 
 ---
 
@@ -360,7 +363,7 @@ A method whose signature names a set is a plain method at that set. Memberships 
 
 A method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain need not name the set. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
 
-**Status:** Planned (W-99). Built in part.
+**Status:** Implemented on `unified` 7db137f922; the index serves compiling ahead with §9 (W-108).
 
 ### 5.2 Specificity
 
@@ -371,26 +374,29 @@ In `type_morespecific_`, at each argument:
 
 So `Method.interferences`, `detect_ambiguities` and the insertion walk order these pairs as any others. Inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts. The `obviously_disjoint` short-circuit is bypassed where either side has an open set.
 
-**Status:** Planned (W-99). Built in part.
+**Status:** Implemented on `unified` e0487d74d9, but for intersections (W-107).
 
 ### 5.3 Match world ranges and abstract queries
 
 - A match through an entry carries the entry's `min_world` into its valid worlds, at fixed, vararg and union argument positions.
 - At an abstract query whose type is not a member, a method at a set is pruned, as any method with an empty intersection is.
 
-**Status:** Planned (W-99).
+**Status:** Implemented on `unified` 7db137f922.
 
 ### 5.4 The ambiguity report at a membership
 
 At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, with no method more specific for the member, a warning names the pair and the joint method's signature. Strict mode makes it an error. A method that dominates every common member suppresses it.
+- The question is asked at the methods' own arity: each method's signature with the member in place of its set, the two intersected. An empty intersection is no ambiguity.
+- At those call types the two methods are ambiguous as `Base.isambiguous` decides: both match, neither is more specific, and no matching method more specific than both covers the types.
+- One warning per function and pair of sets.
 
-**Status:** Planned (W-99).
+**Status:** Implemented on `unified` 67cc090897 for a concrete member; for a pattern, C-29. Strict mode's error with strict mode (W-114).
 
 ### 5.5 A membership lowers dispatch caches
 
 A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
 
-**Status:** Planned (W-99, W-112). Until the guards exist: C-18.
+**Status:** Implemented on `unified` 7db137f922 as the stopgap, which also invalidates compiled callers (C-18) until the guards exist (W-112).
 
 ### 5.6 Guards and cells
 
@@ -620,17 +626,17 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 - A thread with no world (a C callback) uses the latest world. A signature one method covers only in part dispatches dynamically, in the caller's world.
 - An entry stays valid until invalidation lowers what it copies: its range ends at the copied method-cache entry's and CodeInstance's `max_world`.
 
-**Status:** Implemented on `unified` 4df0a0bd5b.
+**Status:** Implemented on `unified` 6f936edf18.
 
 ### 8.2 The per-call-site dispatch cache
 
 - Julia's `call_cache` holds method-cache entries per call site. Two kinds are added:
   - **wildcard entries:** a method-cache entry with no `Vararg`, no type variables and no guard signatures, whose parameters are concrete or `Any`, matched where every non-`Any` position has the argument's exact type;
-  - **exact-type entries:** for any other entry, a new entry at the call's exact argument types, for a varargs method only up to as many arguments as Julia's compilation signatures spell out for it.
+  - **exact-type entries:** for any other entry, an entry at the call's exact argument types, kept in the method cache's leaf cache, so later misses reuse it; for a varargs method only up to as many arguments as Julia's compilation signatures spell out for it.
 - A plain dynamic call carries no attribute bits (§6.3), so entries are keyed as Julia's are.
 - Each entry's range is the copied entry's; a call outside it looks up again.
 
-**Status:** Implemented on `unified` 7e314b9947 (exact-type entries) and 3767a38282 (wildcard entries).
+**Status:** Implemented on `unified` 8319275b9e for wildcard entries. Exact-type entries: W-109, in a form whose cost at a site that sees many types is vanilla's ([PE-20](../record/performance-explorations.md)).
 
 ### 8.3 Further work
 
@@ -660,7 +666,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Planned (W-108; the keep rule by the G2 bit in W-100; the cache paused). The rule for a signature type without a hash is implemented on `unified` 1e6ceffce3.
+**Status:** Planned (W-108; the keep rule by the G2 bit in W-100; the cache paused). The rule for a signature type without a hash is implemented on `unified` 999634c858.
 
 ---
 
@@ -717,7 +723,7 @@ void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothin
 - The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
 - **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Planned (W-106); mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` 3ad297247e at dispatch, with C-30 and C-31; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -744,13 +750,14 @@ Each applies to all code.
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies | Planned (W-100) | §2 |
 | the dependency record; G2 as a predicate | Planned (W-100) | §3.1, §3.2 |
 | the code slot | Planned (W-101) | §3.3 |
-| sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 5db05880d7) | §4.1–§4.5 |
-| one instance per member | Implemented (`unified` 5db05880d7) for a concrete member; C-27 | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 5db05880d7); W-100 for the fold's world | §4.7, §4.8 |
+| sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` e0487d74d9) | §4.1–§4.5 |
+| one instance per member | Implemented (`unified` e0487d74d9) for a concrete member; C-27 | §4.6 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` e0487d74d9); W-100 for the fold's world | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Planned (W-107) | §4.9 |
-| type values as members | Implemented (`unified` 5db05880d7) | §4.10 |
-| methods at sets in the table; specificity; match ranges | Planned (W-99); built in part | §5.1–§5.3 |
-| the ambiguity report at a membership | Planned (W-99) | §5.4 |
+| type values as members | Implemented (`unified` e0487d74d9) | §4.10 |
+| methods at sets in the table; specificity; match ranges | Implemented (`unified` 7db137f922, e0487d74d9); intersections W-107 | §5.1–§5.3 |
+| the ambiguity report at a membership | Implemented (`unified` 67cc090897) for a concrete member; C-29; strict mode's error W-114 | §5.4 |
+| dispatch caches lowered at a membership | Implemented (`unified` 7db137f922) as the stopgap, C-18 | §5.5 |
 | guards and cells | Planned (W-112) | §5.6 |
 | `TraitKey`; compilation signatures per key, per type, once | Planned (W-106): per type, once; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
 | the attribute bits at a call | Planned (W-111) | §6.3 |
@@ -761,29 +768,33 @@ Each applies to all code.
 | casts at the call; `keep` | Planned (W-111) | §6.9 |
 | operations on a value typed by its trait; the split; the table | Planned (W-109) | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
-| world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 4df0a0bd5b, 7e314b9947, 3767a38282) | §8.1, §8.2 |
+| world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | Planned (W-108; the G2 keep rule W-100) | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | Planned (W-108, W-114, W-106); field-offset intrinsics Optional (W-110) | §10 |
-| changes useful without traits | Implemented (`unified`, the stack's first twelve commits) | §11 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` 3ad297247e; C-30, C-31); the other hooks Planned (W-108, W-114); field-offset intrinsics Optional (W-110) | §10 |
+| changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
 ---
 
 ## Deviations
 
-Branch `unified` at a7ab25d01a (stage 1, W-98, done: the type system 5db05880d7, dispatch with C-18 a7ab25d01a). IDs are shared with the record's other references and never reused.
+Branch `unified` at 3ad297247e (stage 1, W-98: the type system e0487d74d9, dispatch with C-18 7db137f922; stage 2, W-99: 67cc090897, bdd48fe0bb, 9a31442a09; W-106: the member hook 3ad297247e). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | C-1 to C-17 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/compiler.md` | — | — |
 | C-18 | [§5.5](#55-a-membership-lowers-dispatch-caches) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call a later membership could change. | Until the guards exist, `jl_declare_membership` replays the method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | `src/datatype.c:288`, `src/gf.c:2105` |
-| C-19 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.10](#410-type-values)); gate `m1_typevalue_isa` | — | — |
-| C-20 | — | *Retired* (2026-11-06): `Core` has no wrappers and no `Keyed` on `unified` 5db05880d7; `Dynamic{X}` is W-106's struct ([traits §7.7](traits.md#77-dynamicx)); gate `m1_no_wrappers` | — | — |
-| C-21 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.2](#42-memberships)); gate `m1_audit_probes` (P3) | — | — |
-| C-22 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.4](#44-transitivity)); gates `m2_set_in_set`, `m1_audit_probes` (P4, P7) | — | — |
-| C-23 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.4](#44-transitivity)); gate `m1_audit_probes` (P5) | — | — |
-| C-24 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.1](#41-sets)); gate `m1_audit_probes` (P6) | — | — |
-| C-25 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.3](#43-worlds)); gate `m1_audit_probes` | — | — |
-| C-26 | — | *Retired* (2026-11-06): fixed on `unified` 5db05880d7 ([§4.5](#45-subtyping)); gates `m1_audit_probes` (P8), `m1_parametric_set` | — | — |
+| C-19 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.10](#410-type-values)); gate `m1_typevalue_isa` | — | — |
+| C-20 | — | *Retired* (2026-11-06): `Core` has no wrappers and no `Keyed` on `unified` e0487d74d9; `Dynamic{X}` is W-106's struct ([traits §7.7](traits.md#77-dynamicx)); gate `m1_no_wrappers` | — | — |
+| C-21 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.2](#42-memberships)); gate `m1_audit_probes` (P3) | — | — |
+| C-22 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.4](#44-transitivity)); gates `m2_set_in_set`, `m1_audit_probes` (P4, P7) | — | — |
+| C-23 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.4](#44-transitivity)); gate `m1_audit_probes` (P5) | — | — |
+| C-24 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.1](#41-sets)); gate `m1_audit_probes` (P6) | — | — |
+| C-25 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.3](#43-worlds)); gate `m1_audit_probes` | — | — |
+| C-26 | — | *Retired* (2026-11-06): fixed on `unified` e0487d74d9 ([§4.5](#45-subtyping)); gates `m1_audit_probes` (P8), `m1_parametric_set` | — | — |
 | C-27 | [§4.6](#46-one-instance-per-member) | A membership that would give a member a second instance of a set is refused, for a pattern too, by intersecting it with each pattern that already reaches the set. | Checked exactly for a concrete member only; a pattern's second instance is accepted. | `src/datatype.c` (`jl_declare_membership`) |
-| C-28 | [§4.11](#411-inferences-world) | Membership queries during inference run at the world being inferred for, carried from `ml_matches` and the insertion walk into the lookup. | The world is a per-thread override set for the length of a query (the audit's A4); a task switch inside such a region would hand it to another task. | `src/subtype.c` (`jl_set_membership_query_world`), `src/gf.c`; W-99 |
+| C-28 | — | *Retired* (2026-11-06): the query world is the task's, restored by exception handlers, on `unified` bdd48fe0bb ([§4.11](#411-inferences-world)); gate `m2_query_world_task` | — | — |
+| C-29 | [§5.4](#54-the-ambiguity-report-at-a-membership) | For every member, the report asks at the call types where both methods apply, and a method that dominates every common member suppresses it. | For a pattern member (no instance to ask), a pair warns unless a method at one of the two sets, or at a set that joins one of them, is more specific than both. A closed method more specific than both is missed, so such a pair over-warns; the warning names no joint signature. | `src/gf.c` (`jl_membership_ambiguity_report`) |
+| C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
+| C-31 | [§10.4](#104-the-member-hook) | The hook also runs in the compile queue, before a CodeInstance that relies on the member is published; a failing check compiles that use as the `ImplementError`. | Only at dispatch: a call compiled with the member's type known reaches the trait's method without a check, and a member that fails raises `MethodError` there. | `src/gf.c` |
+| C-32 | [§4.6](#46-one-instance-per-member) | A second instance of a set is refused where it differs in a parameter that is not an input. | The runtime does not know the inputs: a member at a second value of an input is refused too. | `src/datatype.c` (`jl_declare_membership`) |

@@ -35,7 +35,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 | `@trait_module` | module option bits | before the module's first method |
 | `Dynamic{X}`, `keep`, casts | a struct of `Core` with the library's memberships and methods; a compiler-resolved call; a form of the call | — |
 
-**Status:** Planned (W-106, W-111).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait`, `@implement`, a pattern's members, a method at a trait and `Dynamic{X}` (L-51); `@trait_module`, `keep` and casts W-111.
 
 ---
 
@@ -46,7 +46,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **The abstract type** `X{P…}`, created open ([compiler §4.1](compiler.md#41-sets)), its declared supertype `Any`. Bounds on parameters are the type's bounds.
 - **Its supertraits' memberships:** for each supertrait `A{q…}`, `jl_declare_membership(X{P…} where {P…}, A{q…}, nothing, mod, nothing)` ([compiler §4.2](compiler.md#42-memberships)).
 - **The operation functions:** a plain name makes a new generic function in the module; a qualified name uses the existing one.
-- **The trait's method for each operation and arity:** a method at `X` with the operation's declared signature and result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its body:
+- **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2). The checks use the declared types (§3). Its body:
   - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`;
   - for a member that a default serves, the default's body;
   - otherwise unreachable: such a member was refused at its check.
@@ -65,7 +65,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet.
 
-**Status:** Planned (W-106).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 with W-109.
 
 ---
 
@@ -93,7 +93,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Planned (W-106, W-108); `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) W-114, the override records (step 7) W-108. `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -106,7 +106,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Planned (W-106). The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); the answers in images W-108. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
 
 ---
 
@@ -116,7 +116,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `@nospecialize t::X` and `@specialize t::X` set the method's attribute bits at the argument ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)). They are Julia's macros.
 - **Per-method options:** `@bounded f(…) = …`, `@open f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** Planned (W-106).
+**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: W-109 (`@bounded`, `@open`), W-100 (`@facts`).
 
 ---
 
@@ -155,7 +155,7 @@ end
 - **`keep(x)`** is `Core.keep`, resolved by the compiler ([compiler §6.9](compiler.md#69-casts-and-keep)).
 - **Casts** `compiled_for` and `with_dynamic` are `Core.compiled_for` and `Core.with_dynamic`, names Julia's front end reserves as it reserves `ccall`, recognized in a call's arguments and lowered to `Core.attributed_call` ([compiler §6.9](compiler.md#69-casts-and-keep)). The library re-exports them and defines `detect_unused_casts(mod)`.
 
-**Status:** Planned (W-106, W-111).
+**Status:** `Dynamic{X}` implemented in TraitWorld `unified` e7ff8e2 (L-51); `keep` and casts W-111.
 
 ---
 
@@ -168,7 +168,7 @@ end
 - `withfields(t; name = v, …)` calls the positional constructor with the declared fields replaced.
 - A type without a positional constructor that takes every field in order cannot be rebuilt: `MethodError`, with a hint naming the constructor needed.
 
-**Status:** Planned (W-106).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the hint W-114.
 
 ---
 
@@ -251,8 +251,12 @@ While a package that declares `@implement X S` is precompiled:
 
 ## 14. Deviations
 
-The library on the unified build is not begun; nothing is recorded.
+The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice, W-106).
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
+| L-51 | [§7](#7-dynamicx-keep-casts) | `Dynamic{X}` is a struct of `Core`. | It is the library's struct, `TraitWorld.Dynamic`, until `keep` needs it in `Core` (W-111). | `src/dynamic.jl` |
+| L-52 | [§3](#3-implement) | `struct S <: X` records the receiver on `S`'s `TypeName`; a use of `S` through `X` before the `@implement` raises `ImplementError`; a module that ends without it is refused. | The `@implement` checks and declares nothing in the runtime: the receiver is not recorded (keys, Optional), and the use before it and the module's end are not checked (the module-end hook, W-108). | `src/implement.jl` (`_implement_one!`) |
+| L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
+| L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |

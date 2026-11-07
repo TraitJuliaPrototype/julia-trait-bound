@@ -286,7 +286,7 @@ After the adoption, stage 1 on `julia-unified` (no subagents; builds by `tools-l
   > Go. I am stepping away from the session for several hours so don't stop to ask or report.
 - **The stack** on v1.13.2, branch `series` in `julia-unified`, then force-pushed as `unified` ([julia-changes §7.1](../writeup/design/julia-changes.md#71-the-stack)):
   - twelve changes useful without traits, one commit each: the three W-57 Base commits, the two per-call-site cache commits, the dispatch profiler (its two commits merged, without the split by owner, renamed `JULIA_DISPATCH_PROFILE`), `:caller_world`, the `return_type` image entry, the image rule for hashless signatures, the reflection fix (its facts half left), the two inliner changes (their facts gates left; each its own commit);
-  - W-98 as two commits: the type system (`5db05880d7`), dispatch at sets with the stopgap (`a7ab25d01a`). Its comments lost the old plan's and reviews' IDs and point at the references; a comparison after stripping comments shows the code equal to fd800b27b9's plus the general commits. The comments of the stopgap's walk in `gf.c` were left, since W-99 replaces it;
+  - W-98 as two commits: the type system (`e0487d74d9`), dispatch at sets with the stopgap (`7db137f922`). Its comments lost the old plan's and reviews' IDs and point at the references; a comparison after stripping comments shows the code equal to fd800b27b9's plus the general commits. The comments of the stopgap's walk in `gf.c` were left, since W-99 replaces it;
   - not carried yet: `known_type`, the type printers' registry (no stage uses them yet); the facts mode and the other pieces wait for their stages;
   - the W-57 commits' messages were rewritten without the facts mode's terms (same trees).
 - **The checks:** every commit changing C built on its own; full builds with tests at commit 12 and at the top (`experiments/unification/stack/README.md`).
@@ -295,3 +295,40 @@ After the adoption, stage 1 on `julia-unified` (no subagents; builds by `tools-l
 - **Kept:** fd800b27b9, the build W-98's gates and E-270 measured, on branch `w98-fd800b27b9`. E-270's questions were run again on the top: the same.
 - **Records:** julia-changes §7, compiler §4 statuses and §8, §9, §11 (the stack's commits; the profiler's name; `_return_type`'s entry for `NativeInterpreter`), traits §3.1, the references' README, W-19, W-98, W-100, W-109, `state.md`, decisions §8, open issues §1 (the carried set as a choice marked mine; the stale line about W-71 replaced), E-270's README, evidence and registry row.
 - **A slip:** `git add -A base` took a core dump from the earlier crash (`base/core-login02-2010139`) into the type-system commit; it was taken out before anything was pushed. Both dumps are still on disk, untracked.
+
+## W-99: dispatch
+
+On the restructured stack, the next stage of the adopted plan (the user had said "Go" and stepped away).
+- **What W-98 had built already:** methods at sets in the typemap's linear list, the set-to-methods index, match world ranges, specificity at sets, the stopgap's walk with its volume log (`JULIA_MEMBERSHIP_LOG`), the 200-method lookup gate (`m2_typemap_linear`).
+- **A7, the ambiguity report:** it asked with `Tuple{typeof(f), member}` whatever the methods' arity and called an empty match an ambiguity. Running the new gate showed two more defects: the warning named the method table, which every function shares in 1.13 (`WARNING: method methodtable …`), and it was given once per pair of sets across all functions. Now: each method's signature with the member in place of its set, intersected; `Base.isambiguous`'s rule at the intersection; the function, the two sets and the joint signature named; once per function and pair of sets (commit 15). Gate `m2_ambiguity_arity`. The earlier attempt's `m3_ambiguity_dominance` pins a fixed-arity method at one set beating a `Vararg` at another, which the references do not have (dispatch itself raises there); noted in the gates README, not run.
+- **A4, the query world:** a per-thread override, so a task switch inside a region handed it to another task, and each region needed a `JL_TRY`. Now a field at the end of `jl_task_t`, saved and restored by exception handlers beside `world_age`; the three `JL_TRY` wrappers went (commit 16). Carrying it in the subtyping environment, as the audit proposed, cannot reach inference's own `<:` and `typeintersect` calls; the decision is marked mine. Gate `m2_query_world_task`. C-28 retired.
+- **E-269 (X3)** found, before any method at a set was installed, dynamic calls over 50 container types 33 % slower than vanilla's, on `trait-world-1.13` too: commit 4's exact-type entries at a megamorphic site evicted each other and allocated at every call. Commit 4 now makes none at a site whose four slots hold exact entries for the method instance (`length` over 25 tuple types: 121 ns vanilla, 203 before, 114 after; 4 types: 18 ns).
+- **Gates:** 24 of 24 at commit 16.
+- **E-269 (X3)** failed its gate on two counts:
+  - a method at an open set on `length` made method matching 60 % slower for every non-member (`iterate` 19 %, `getindex` 7 %), flat in the number of members: intersecting a concrete non-member with a set skipped `obviously_disjoint` and took 349 ns against vanilla's 30. Now a concrete type no entry of whose chain can reach the set is obviously disjoint from it (commit 17);
+  - with no method at a set at all, dynamic calls over 50 container types were 24–33 % slower than vanilla's: the stack's commit 4 still allocated at mixed megamorphic sites. Its exact entries now live in the leaf cache and are reused.
+  - The quick BaseBenchmarks subset showed nothing beyond its noise (two vanilla runs differ by a geomean of 0.975).
+  - The `threads` test file failed its BLAS-threads case identically on vanilla: env.sh's `JULIA_CPU_THREADS=4`.
+
+## The user, at night
+
+> Okay, don't stop at gates, even if they fail. Make a choice and record it. Ask a Fable agent to review the choice but only if it is really high impact. I am going to bed. Keep implementing.
+
+Recorded in CLAUDE.md. No choice tonight was high-impact enough for a Fable review.
+
+## W-106: the library core
+
+- **Where:** TraitWorld, branch `unified` (orphan), worktree `TraitWorld-unified/`: a fresh library; the prototype on `main` stays for the ports on the old build (mine).
+- **Built:** `@trait` (operations, defaults, fields, parameters by fields, equations and statement, supertraits, the trait's method per operation, the contract on the TypeName, `Dynamic{X}`'s membership); `@implement` (block, `by`, several traits, stated parameters, families, abstract types and traits as members, a `Union`-bounded variable split per type, `struct S <: X`); the checks with `ImplementError`; `Dynamic{X}`, `unwrap`, `like`, `withfields`.
+- **The member hook** in the runtime (commit 18): at a dispatch miss, before the instance lookup. Two things found on the way:
+  - the library's own trait-method detection missed a reference that lowering hoists into its own statement;
+  - the check's method matching cached an entry for the failing member's call, so the second call skipped the hook: a failed check now lowers those entries.
+  The hook's half in the compile queue is not built (compiler C-31): a call compiled with the member's type known reaches the trait's method unchecked.
+- **A design finding:** the ODE workload's `step!(::Euler, u, f, t, dt)` was ambiguous with the trait's method typed as declared. The trait's method now types only its receiver and the arguments that bind parameters (lowering §2; mine).
+- **Gates:** the library's tests, F1–F8, F10, F11, F14 as acceptance cases, both workloads equal to plain Julia's; the stopgap's volume (2,905 cache entries lowered at a parametric trait's first membership, tens after).
+
+## The stack's final shape for the night
+
+- After commit 4's entries were reused from the leaf cache, a site that sees many types still cost 50 % more than vanilla (`length` over 25 tuple types 189 against 121 ns; 50 containers 170 against 137). Dropped from the stack (PE-20); the wildcard entries stay. Commit 5's message no longer leans on it.
+- Method matching at a set still cost a non-member 48 %: the typemap computed the world range of the memberships the query reads (945 ns for an inference query with a `Vararg` tail) even for an empty intersection of a query with no entries anywhere. Now only where a membership can narrow it (`jl_type_has_memberships`), in the W-99 commit with the disjointness.
+- The stack: 17 commits (eleven general, two W-98, three W-99, one W-106).

@@ -11,7 +11,11 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 
 Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
-- **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the twelve useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
+- **The library on the unified build is TraitWorld on an orphan branch `unified`** ([decisions](record/decisions.md) §9).
+- **The trait's method types only its receiver** (and arguments that bind parameters), so a member's own method wins (lowering §2; [decisions](record/decisions.md) §9).
+- **E-269's failed gate answered in the runtime** (disjointness by reachability, the typemap's world range) rather than BaseTraits' operations off Base's functions, and the exact-type call-cache entries dropped (compiler §4.7, §8.2; [decisions](record/decisions.md) §9).
+- **The query world is the task's,** restored by exception handlers as the world age is (compiler §4.11; [decisions](record/decisions.md) §9; the audit's A4 proposed the subtyping environment).
+- **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the eleven useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the per-call-site cache's exact-type entries wait for W-109 (they slowed sites that see many types, [PE-20](record/performance-explorations.md)); the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
 
 
 Waiting for evidence, not for the user:
