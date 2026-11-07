@@ -367,7 +367,7 @@ A method whose signature names a set is a plain method at that set. Memberships 
 
 A method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain need not name the set. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
 
-**Status:** Implemented on `unified` 29035cab11; the index serves compiling ahead with §9 (W-108).
+**Status:** Implemented on `unified` 29035cab11; the index serves compiling ahead with §9, Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs), W-114).
 
 ### 5.2 Specificity
 
@@ -660,7 +660,7 @@ Optional, each only if a measurement asks for it:
 
 ## 9. Images and the machine-code cache
 
-- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds. Validation knows the membership cell and positive-membership edge kinds.
+- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds, the world of the image's methods. The stopgap's walk (C-18) and the ambiguity report (§5.4) run for each as at a declaration. Validation knows the membership cell and positive-membership edge kinds.
 - **Machine code only for code that runs:** CodeInstances of either policy; never `return_type`'s answers.
 - **Code reached only by a dynamic call is kept** where its G2 bit is set (§3.2), of either policy: plain code that facts code reaches is then cached as facts code is.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
@@ -674,7 +674,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Planned (W-108; the keep rule by the G2 bit in W-100; the cache paused). The rule for a signature type without a hash is implemented on `unified` 999634c858.
+**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), with C-35; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit: W-100. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07).
 
 ---
 
@@ -694,7 +694,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
 - Strict mode, the override rule, the `no_pirates` and `bounded` options use them.
 
-**Status:** Planned (W-108). The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
+**Status:** Implemented on `unified` 28c401eb0c (W-108). TraitWorld `unified` 701aaab uses them for the override rule and for a `struct S <: X` without its `@implement`; strict mode, `no_pirates` and `bounded` with W-114 and W-109. The module-end hook: mine (2026-11-06, the work plan's review, weak point 6).
 
 ### 10.2 Hooks for strict mode
 
@@ -778,15 +778,15 @@ Each applies to all code.
 | `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
-| memberships in images; the record toward a machine-code cache | Planned (W-108; the G2 keep rule W-100) | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the other hooks Planned (W-108, W-114); field-offset intrinsics Optional (W-110) | §10 |
+| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the record Planned (W-100) | §9 |
+| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's hooks Planned (W-114); field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
 ---
 
 ## Deviations
 
-Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e). IDs are shared with the record's other references and never reused.
+Branch `unified` at 28c401eb0c (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -808,3 +808,4 @@ Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispa
 | C-32 | [§4.6](#46-one-instance-per-member) | A second instance of a set is refused where it differs in a parameter that is not an input. | The runtime does not know the inputs: a member at a second value of an input is refused too. | `src/datatype.c` (`jl_declare_membership`) |
 | C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
 | C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |
+| C-35 | [§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache) | A membership that would give a member a second instance of a set is refused. | An image's memberships are activated at load without the check: two images that declare one member at two instances of a set both hold. | `src/datatype.c` (`jl_activate_memberships`) |

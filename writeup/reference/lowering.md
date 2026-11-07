@@ -93,7 +93,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) W-114, the override records (step 7) W-108. `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) W-114, the override records (step 7) in TraitWorld 701aaab, per session (L-55). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -106,7 +106,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); the answers in images W-108. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
 
 ---
 
@@ -216,7 +216,7 @@ end
 - the override records;
 - code compiled ahead.
 
-**Status:** Planned (W-108).
+**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The checks' records and the override records in images: L-55. Pirates, `bounded` and the classification: W-114, W-109. Code compiled ahead: W-114.
 
 ---
 
@@ -257,6 +257,7 @@ The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice,
 |---|---|---|---|---|
 | L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
 | L-51 | [§7](#7-dynamicx-keep-casts) | `Dynamic{X}` is a struct of `Core`. | It is the library's struct, `TraitWorld.Dynamic`, until `keep` needs it in `Core` (W-111). | `src/dynamic.jl` |
-| L-52 | [§3](#3-implement) | `struct S <: X` records the receiver on `S`'s `TypeName`; a use of `S` through `X` before the `@implement` raises `ImplementError`; a module that ends without it is refused. | The `@implement` checks and declares nothing in the runtime: the receiver is not recorded (keys, Optional), and the use before it and the module's end are not checked (the module-end hook, W-108). | `src/implement.jl` (`_implement_one!`) |
+| L-52 | [§3](#3-implement) | `struct S <: X` records the receiver on `S`'s `TypeName`; a use of `S` through `X` before the `@implement` raises `ImplementError`. | The `@implement` checks and declares nothing in the runtime: the receiver is not recorded (keys, Optional), and a use before the `@implement` is not caught. | `src/implement.jl` (`_implement_one!`) |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
+| L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members checked while it was built, with the methods each check relied on, and the override records. | The library keeps both per session (`_CHECKED`, `_DEFAULT_SERVED`): an image keeps none. A member of a pattern is checked again at its first use in each session, and a method that overrides a default at a member whose membership was loaded from an image is not refused. | `src/implement.jl` |

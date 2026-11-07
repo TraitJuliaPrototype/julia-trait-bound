@@ -408,7 +408,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** Planned (W-108; the store paused).
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). The rest Planned (W-100's facts and edges; the check records: lowering L-55; the store paused).
 
 ---
 
@@ -467,7 +467,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | operations on a value typed by its trait: the split | Planned (W-109) | §9 |
 | memberships invalidate nothing; guards | Planned (W-98, W-99, W-112) | §10 |
 | pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
-| package images, memberships activated before validation | Planned (W-108) | §12 |
+| package images, memberships activated before validation | memberships implemented (`unified` 28c401eb0c); the rest Planned (W-100) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Planned (W-100, W-114) | §13 |
 | standard libraries as owners | Open | §1 |

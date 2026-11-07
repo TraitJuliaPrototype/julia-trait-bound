@@ -341,7 +341,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters; the `@implement` may repeat them.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check; the use before it and the module's end: W-108 (lowering L-52) ( the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The refusal at a module's end uses Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), Planned).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal").
 
 ### 5.3 One line
 
@@ -470,14 +470,14 @@ end
 
 Not everything is caught: a conversion that fails at run time is not proved by the check.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: W-108.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: lowering L-55.
 
 ### 5.11 Overrides and redeclaration
 
 - **Which operations defaults serve for a member is fixed at its membership.** A later method of such an operation for the member is refused when it is defined (`ImplementError`). The message names the fix: define the method before the membership, or in its block. A package image that brings such a method is refused when it loads.
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Planned (W-108, the definition hook); a redeclaration's new entry on `unified` 62016706d0.
+**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image: lowering L-55. A redeclaration's new entry on `unified` 62016706d0.
 
 ### 5.12 Types that only convert
 
@@ -900,7 +900,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and a method's definition: W-108, W-109, W-114.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; pirates and `bounded`: W-114, W-109.
 
 ### 11.2 Definition checking
 
@@ -1093,12 +1093,12 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
 | declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
 | `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
-| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2); the use before and the module's end W-108 (L-52) | §5.2 |
+| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end); the use before L-52 | §5.2 |
 | one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
 | forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
-| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714), at dispatch (C-31); in images W-108 | §5.10 |
-| overrides fixed; redeclaration | Planned (W-108); a redeclaration's entry implemented (`unified` 62016706d0) | §5.11 |
+| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714), at dispatch (C-31); in images L-55 | §5.10 |
+| overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; images L-55); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
