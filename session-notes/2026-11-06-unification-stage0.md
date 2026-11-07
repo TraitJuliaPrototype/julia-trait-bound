@@ -339,3 +339,21 @@ Recorded in CLAUDE.md. No choice tonight was high-impact enough for a Fable revi
 - **The first build** aborted in `boot.jl`: `All{T<:Tuple}` lowers to a `TypeVar` call, and the declaration came before `TypeVar`'s constructors. Moved after them.
 - **The probe passes:** the normal form (order, duplicates, nesting, `Any`, `Union{}`, absorption by declared supertypes, closed types with nothing in common), subtyping with `Union`, `UnionAll`, `Vararg` and invariance, the normal form unchanged by a later set-in-set membership, printing. The 24 gates and E-262's four files pass with it.
 - **The name:** `Core` does not export `All`, since DataAPI exports `struct All{T<:Tuple}` and DataFrames re-exports it: open issue 148.
+
+## W-107: done (2026-11-07, early morning)
+
+- **The review's proposals built** on `w107-probe` (5a161a28a4): the typemap and the fold gates see through `All`; the diagonal rule and the occurrence walks treat components as covariant; instantiation and `apply_type` keep the normal form; the left rule backtracks; `Union` components distribute; two closed components collapse; the `Tuple` guard. The addendum of the review lists each.
+- **A hole of the stack, found by the review's gate** `methods(length, (C,))`, which was empty for a single set as well: a set and an abstract type met as `Union{}`. So `g(@nospecialize(x::AbstractVector)) = f(x)` called `f(::Any)` for a member where `f(::X)` exists, and code compiled at a set raised `MethodError` at `length(x)`. They now meet as `All{X, T}` (C-33, mine; no other answer is sound once memberships end single inheritance).
+- **The first fix overflowed the stack:** meeting an `All` with a set built an `All` and met it again. A type now meets each component once, and the results' intersection is taken in the normal form.
+- **TraitWorld's acceptance cases turned ambiguous twice,** each a real finding:
+  - `overview.jl` and `acceptance.jl` declared a trait `Shape` each and the same `struct Circle` in `Main`, so `Circle` was a member of two unrelated sets with a default each; the stack had hidden it, since two unrelated sets did not intersect. The tests now run each file in a module of its own.
+  - F11 (`@implement GTable Indexable{Vector{Float64}}` after the block's methods): `Method.interferences`, recorded at insertion, said the two methods were ambiguous; the later set-in-set membership orders them. Matching now asks such a pair again in the query's world (mine).
+- **Rank, report, name:** the rank of an intersection by its components; the report's joint method as the two signatures' intersection, `f(::All{X, Y})`; `jl_static_show` prints `All{X, Y}`; TraitWorld exports `All` (open issue 148 (b), mine).
+- **E-269 at no method at a set rose to +8–11 %** on the probe. `perf stat` and `perf record` by instructions: an unwrap per `obvious_subtype` call, exported calls for the open-set bit and the current task on the hot paths. Fixed by inline reads; left: +2.2 % instructions, +4–8 % time (PE-22).
+- **Folded** as the stack's commit 18, 8a9144928e (the probe's tree, `git commit-tree`, so the build stayed valid). Battery: gates 32 of 32, the four files and the stage-top files, `detect_ambiguities(Base)` 0, TraitWorld, both workloads.
+
+## W-108: begun
+
+- Memberships in package images: the session's declarations kept in a rooted list; an image writes those its modules declared (an entry's `min_world` written as `~0`, as a typemap entry's), and activates them at load in the methods' world, before validation, then runs the stopgap's walk and the ambiguity report as a declaration does.
+- The definition, image and module-end hooks in the runtime; in TraitWorld the override rule (records of the operations a default serves at a member, per session) and the refusal of a `struct S <: X` without `@implement` at the module's end.
+- **Done:** `unified` 28c401eb0c (commit 19), TraitWorld 701aaab. The image gate passed on the first build. F8's acceptance case defined a member's method after its `@implement`, which §5.11 refuses: the method moved before the membership. Deviations: the check and override records in images (L-55), the one-instance check at activation (C-35). Battery: gates 33 of 33, the stage-top files with `precompile`, both workloads.
