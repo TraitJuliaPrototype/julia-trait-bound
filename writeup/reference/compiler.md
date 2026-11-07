@@ -417,7 +417,7 @@ At `jl_declare_membership`, for each function with a method at the new set and a
 
 A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
 
-**Status:** Implemented on `unified` 29035cab11 as the stopgap, which also invalidates compiled callers (C-18) until the guards exist (W-112).
+**Status:** Implemented on `unified` 29035cab11; that the walk invalidates no code, on `unified` 79b948420e (W-112): a compiled call a membership could change carries its guard (§5.6). Gates `m2_dispatch_worlds`, `m2_stale_caller`, `n7_guards`.
 
 ### 5.6 Guards and cells
 
@@ -432,7 +432,7 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
   - at a function with no method at an open set.
 - A method at an open set defined later invalidates the compiled callers its insertion reaches; they compile again with the guard.
 
-**Status:** Planned (W-112), after the first slice; until then C-18. They deliver a committed guarantee, a membership invalidates nothing ([facts §10](facts.md#10-memberships); the user, 2026-11-06, open issue 146). E-268 measures the stopgap until then.
+**Status:** Implemented on `unified` 79b948420e (W-112): the shadow query over each function's methods at sets (a set under a union's arm, an intersection, a parameter or a varargs tail included); a cell per (member type, set), registered with each set, opened by a declaration or an image's activation, registered when an image brings it; the guard in the inliner's union split, its fallback the dynamic call; a method at a set defined later invalidates the callers it shadows. Gate `n7_guards`; E-280. They deliver a committed guarantee, a membership invalidates nothing ([facts §10](facts.md#10-memberships); the user, 2026-11-06, open issue 146). With C-58, C-59. `Callable`'s cells with W-113.
 
 ---
 
@@ -673,7 +673,7 @@ Optional, each only if a measurement asks for it:
 
 ## 9. Images and the machine-code cache
 
-- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds, the world of the image's methods. The stopgap's walk (C-18) and the ambiguity report (§5.4) run for each as at a declaration. Validation knows the membership cell and positive-membership edge kinds.
+- **Memberships in package images.** An image writes the entries it declares on other modules' typenames in a list of its own, as it writes its methods for other modules' functions. At load the list is activated before the image's code is validated: the entries get the loading session's worlds, the world of the image's methods. The cells' update, the dispatch caches' lowering (§5.5) and the ambiguity report (§5.4) run for each as at a declaration. Validation knows the membership cell and positive-membership edge kinds.
 - **Machine code only for code that runs:** CodeInstances of either policy; never `return_type`'s answers.
 - **Code reached only by a dynamic call is kept** where its G2 bit is set (§3.2), of either policy: plain code that facts code reaches is then cached as facts code is.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
@@ -778,8 +778,8 @@ Each applies to all code.
 | type values as members | Implemented (`unified` 62016706d0) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9) for a concrete member; C-29; strict mode's error W-114 | §5.4 |
-| dispatch caches lowered at a membership | Implemented (`unified` 29035cab11) as the stopgap, C-18 | §5.5 |
-| guards and cells | Planned (W-112) | §5.6 |
+| dispatch caches lowered at a membership | Implemented (`unified` 29035cab11; no code invalidated 79b948420e) | §5.5 |
+| guards and cells | Implemented (`unified` 79b948420e, W-112), with C-58, C-59 | §5.6 |
 | `TraitKey`; compilation signatures per key, per type, once | per type and once implemented (`unified` e692e57ab7, W-111), with C-54; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
 | the attribute bits at a call | Implemented (`unified` e692e57ab7, W-111), with C-54, C-55, C-57 | §6.3 |
 | calls from code compiled per key | Optional (W-110) | §6.4 |
@@ -799,12 +799,12 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 1f6d1e45d7 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7). IDs are shared with the record's other references and never reused.
+Branch `unified` at 79b948420e (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | C-1 to C-17 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/compiler.md` | — | — |
-| C-18 | [§5.5](#55-a-membership-lowers-dispatch-caches) | A membership lowers dispatch caches and invalidates no code; a guard covers a compiled call a later membership could change. | Until the guards exist, `jl_declare_membership` replays the method-insertion walk for every method at the set or a superset, as if the member's tuple had been inserted: compiled callers the membership could change are invalidated, and each declaration logs how many. | `src/datatype.c:288`, `src/gf.c:2105` |
+| C-18 | — | *Retired* (2026-11-07): a membership invalidates no code on `unified` 79b948420e; guards cover the calls it could change ([§5.5](#55-a-membership-lowers-dispatch-caches), [§5.6](#56-guards-and-cells)); gates `n7_guards`, `m2_stale_caller` | — | — |
 | C-19 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.10](#410-type-values)); gate `m1_typevalue_isa` | — | — |
 | C-20 | — | *Retired* (2026-11-06): `Core` has no wrappers and no `Keyed` on `unified` 62016706d0; `Dynamic{X}` is W-106's struct ([traits §7.7](traits.md#77-dynamicx)); gate `m1_no_wrappers` | — | — |
 | C-21 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.2](#42-memberships)); gate `m1_audit_probes` (P3) | — | — |
@@ -844,3 +844,5 @@ Branch `unified` at 1f6d1e45d7 (stage 1, W-98: the type system 62016706d0, dispa
 | C-55 | [§6.3](#63-the-attribute-at-a-call) | A set's default does not apply to a value whose type Julia's own modules define. | Julia's own modules are `Core` and `Base`: a standard library's type takes the set's default as a package's type would. A module of a script (under `Main`) counts as a package of its own. | `src/gf.c` (`type_is_own`, `module_package`) |
 | C-56 | [§6.9](#69-casts-and-keep) | Where the code is not compiled, `keep(x)` is resolved at the method's default attribute. | It is `x`. | `base/boot.jl` (`Core.keep`) |
 | C-57 | [§6.3](#63-the-attribute-at-a-call), [§3.2](#32-g2-as-a-predicate) | A call records its dispatch fact at its own signature, whichever instance runs. | A static call that runs an instance compiled once records the instance's signature, at the set, as its dispatch edge, which is not a fact signature: the caller's G2 bit is clear. | `Compiler/src/stmtinfo.jl` (`_add_edges_impl`) |
+| C-58 | [§5.6](#56-guards-and-cells) | The guard compares the cell's `min_world` with the task's world. | It tests whether the cell is still closed (`min_world` is `typemax`): once a membership opens it, a task in an older world takes the dynamic call too, which gives that world's answer. | `Compiler/src/ssair/inlining.jl` (`ir_inline_unionsplit!`) |
+| C-59 | [§5.6](#56-guards-and-cells) | The guard's load is hoisted out of loops. | It is an atomic load that LLVM leaves in a loop whose body calls a function. | `Compiler/src/ssair/inlining.jl` |

@@ -119,7 +119,7 @@ The build of [the references](../reference/README.md) for traits as abstract typ
 - **A stack of self-contained commits** (W-19; [decisions](../record/decisions.md) §8, 2026-11-06): first the changes useful without traits, one commit each, each building on v1.13.2 with only the commits below it; then each stage's commits. A stage's rework replaces its commits instead of adding fixes on top; the branch is force-pushed (no one else uses the remote).
 - **The control:** vanilla v1.13.2, worktree `julia-vanilla/` (detached at `45b6d15e34`), built on the same host for E-262's comparisons.
 - **Building:** `tools-local/build.sh julia-unified` (the rule for cores by load, stage times in the log; [setup](../setup.md#on-a-shared-host)).
-- **Its deviations** are rows of the references' Deviations tables naming branch `unified` (compiler C-18, C-27, C-28). Its gates and acceptance cases are in `experiments/unification/`.
+- **Its deviations** are rows of the references' Deviations tables naming branch `unified`. Its gates and acceptance cases are in `experiments/unification/`.
 
 ### 7.1 The stack
 
@@ -165,6 +165,8 @@ Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, 
 | 36 | d0270568cc | **W-111:** the attribute of a trait argument: resolved at the method for a dynamic call (`Method.specialize`, the module's `dynamic`, the set's default on its `TypeName`, `first_seen`), an instance compiled once cached with the call's types; the casts lowered to `Core.attributed_call`, a builtin with its cache; `Core.Dynamic`, `Core.keep` | traits | [compiler §6.2](../reference/compiler.md#62-compilation-signatures), [§6.3](../reference/compiler.md#63-the-attribute-at-a-call), [§6.9](../reference/compiler.md#69-casts-and-keep) | — |
 | 37 | e692e57ab7 | **W-111:** inference infers a call at the instance that runs; the attributes carried and passed on through `Core.attributed_call`; a `Compiled` argument of unknown type dispatches when the call runs; `keep` resolved | traits | compiler §6.3, §6.9 | — |
 | 38 | 1f6d1e45d7 | **W-111:** `Core.attributed_call`'s cache rooted by both collectors | traits | compiler §6.9 | — |
+| 39 | 9f60cc350b | **W-112:** membership cells and the shadow query; a method at a set invalidates the callers it shadows; the membership walk lowers caches and invalidates no code; cells in images registered at load | traits | [compiler §5.5](../reference/compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](../reference/compiler.md#56-guards-and-cells) | — |
+| 40 | 79b948420e | **W-112:** guards: inference records the cells and joins the shadowing results; the inliner's union split runs the cases behind the guard | traits | compiler §5.6 | — |
 
 - **W-100 was developed on branch `w100`** from the stack's top (commits 24–35), and joined the stack when the stage was done. Its commits but 34 are confined to the facts mode, for a rebase onto vanilla when the series is proposed; 34 goes with the type system's commits.
 - **Not carried yet,** each with the stage that needs it: the field-offset intrinsics (W-110); `known_type` (b5bb9ab881) and the registry of type printers (db82407fa6), which no stage of the references uses yet.

@@ -105,7 +105,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; until the guards (W-112), a membership invalidates the compiled callers it could change (compiler C-18), which keeps G1. The acceptance suite (`experiments/unification/test/acceptance/`): 20 of 21 cases pass in the product setting and under the test bed (E-277); one waits for `@enforce_fully_typed` (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; guards cover the calls a membership could change (compiler §5.6, `unified` 79b948420e). The acceptance suite (`experiments/unification/test/acceptance/`): 20 of 21 cases pass in the product setting and under the test bed (E-277); one waits for `@enforce_fully_typed` (W-114).
 
 ### 2.2 G2: stable caches
 
@@ -133,7 +133,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new membership (§10);
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (W-101). A membership invalidates nothing: the guards (W-112); until then C-18.
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (W-101). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
 
 ### 2.3 Two tiers
 
@@ -335,7 +335,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Planned (W-98, W-99, W-112). "A membership invalidates nothing" is a guarantee the design commits to (the user, 2026-11-06, open issue 146); the guards that deliver it come after the first slice. Until they exist: [compiler C-18](compiler.md#deviations).
+**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)), with compiler C-58, C-59. "A membership invalidates nothing" is a guarantee the design commits to (the user, 2026-11-06, open issue 146).
 
 ---
 
@@ -466,7 +466,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Planned (W-109) | §9 |
-| memberships invalidate nothing; guards | Planned (W-98, W-99, W-112) | §10 |
+| memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59 | §10 |
 | pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
