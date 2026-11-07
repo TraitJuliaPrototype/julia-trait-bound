@@ -303,10 +303,10 @@ A membership that would give a member a second instance of a set, differing in a
 
 Questions about open sets are answered in three layers:
 - **`<:` and `isa`** read the entries: the answer in the current world.
-- **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a non-member gives `Union{}`. Dispatch's match construction and the inliner's union split see only members. A concrete type no entry of whose chain can reach the set is obviously disjoint from it, by the reachability of §4.5.
+- **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a concrete non-member gives `Union{}`; an abstract type that no entry relates to the set meets it as their intersection `All{X, T}` (§4.9): the members of `X` below `T`, whenever they are declared. Dispatch's match construction and the inliner's union split see only members. A concrete type no entry of whose chain can reach the set is obviously disjoint from it, by the reachability of §4.5.
 - **`jl_could_join(S, X)`** answers whether `S` could become a member of `X`. Inference's lattice and the guards' shadow query (§5.6) use it; dispatch's match construction does not.
 
-**Status:** Implemented on `unified` 62016706d0; a concrete non-member's disjointness by reachability 88daaca7fe.
+**Status:** Implemented on `unified` 62016706d0; a concrete non-member's disjointness by reachability 88daaca7fe; the meet of a set and an abstract type on branch `w107-probe` 5a161a28a4 (W-107), C-33 on `unified`. The meet as `All{X, T}`: mine (2026-11-07).
 
 ### 4.8 Negatives never fold; positives through entries
 
@@ -328,7 +328,8 @@ Core.All{X, Y}
   - `All{X, Y} <: Z` when some component is a subtype of `Z`, and `<: All{Z, W}` when it is a subtype of each.
 - **Normal form:** components flattened, sorted by the order `Union` uses, deduplicated; a component that is a subtype of another by declared supertypes absorbs it; two closed types with no common subtype give `Union{}`.
 - **Normal forms read declared supertypes only.** A membership never absorbs a component of an `All` or a `Union`: `Union{S, X}` stays as written where `S` is a member of `X` by an entry. So a type expression gives the same type object in every world.
-- `jl_type_intersection` of two sets is `All{X, Y}` with their known common members' exactness kept; `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
+- `jl_type_intersection` of two sets, or of a set and an abstract type, that no entry relates is `All{X, T}`, with their known common members' exactness kept (§4.7). A type meets an intersection as the intersection of its meets with each component.
+- `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
 - **At an argument typed by an intersection,** the key is the tuple of the member's keys for each component (§6.1); the split's candidates are the first component's that are members of every component (§7.2).
 - The negative-fold rule (§4.8) treats each component.
 - It takes any number of components: `All{X, Y, Z, …}`.
@@ -336,7 +337,7 @@ Core.All{X, Y}
 - **In the normal form, further:** a variable as a component is in a covariant position, and the diagonal rule applies to it; a `Union` component distributes (`All{Union{A, B}, Y}` is `Union{All{A, Y}, All{B, Y}}`); a component that is itself an intersection under a `UnionAll` is flattened; two closed components whose intersection Julia computes exactly are replaced by it.
 - **Its name** is not exported by `Core` ([open issue 148](../open-issues.md#2-design)).
 
-**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Subtyping and the normal form's first rules built on branch `w107-probe` 04327f3912, outside the stack until the stage is done; the encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Subtyping, the normal form, intersection and dispatch at an intersection built on branch `w107-probe` 5a161a28a4, outside the stack until the stage is done; specificity (§5.2) and the report's joint method (§5.4) to come; the encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
 
 ### 4.10 Type values
 
@@ -382,9 +383,11 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 ### 5.3 Match world ranges and abstract queries
 
 - A match through an entry carries the entry's `min_world` into its valid worlds, at fixed, vararg and union argument positions.
-- At an abstract query whose type is not a member, a method at a set is pruned, as any method with an empty intersection is.
+- **At an abstract query,** a method at a set matches at their intersection `All{X, T}` (§4.7). A closed method that covers the query is more specific (§5.2), so the method at the set is dropped from the matches, as any method a covering more specific one hides.
+- At a query at a set, a method at an abstract type matches likewise.
+- A concrete query that is not a member meets no method at the set.
 
-**Status:** Implemented on `unified` 29035cab11.
+**Status:** Implemented on `unified` 29035cab11, but for the matches at an abstract query: on branch `w107-probe` 5a161a28a4 (W-107), C-33 on `unified`.
 
 ### 5.4 The ambiguity report at a membership
 
@@ -801,3 +804,5 @@ Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispa
 | C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
 | C-31 | [§10.4](#104-the-member-hook) | The hook also runs in the compile queue, before a CodeInstance that relies on the member is published; a failing check compiles that use as the `ImplementError`. | Only at dispatch: a call compiled with the member's type known reaches the trait's method without a check, and a member that fails raises `MethodError` there. | `src/gf.c` |
 | C-32 | [§4.6](#46-one-instance-per-member) | A second instance of a set is refused where it differs in a parameter that is not an input. | The runtime does not know the inputs: a member at a second value of an input is refused too. | `src/datatype.c` (`jl_declare_membership`) |
+| C-33 | [§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries) | An open set and an abstract type that no entry relates meet as `All{X, T}`, so a query at either side sees the methods at the other. | On `unified` ec4f9a8714 they meet as `Union{}`: an abstract query drops a method at a set, and a query at a set drops the methods at abstract types. So `g(@nospecialize(x::AbstractVector)) = f(x)` calls `f(::Any)` for a member of `X` where `f(::X)` exists, and code compiled at a set raises `MethodError` at `length(x)`. Fixed on branch `w107-probe` 5a161a28a4; retires when W-107 joins the stack. | `src/subtype.c` (`intersect`, where the supertype chains miss); gate `n2_open_abstract` |
+| C-34 | [§4.9](#49-intersections) | A component that is itself an intersection under a `UnionAll` is flattened into the normal form. | On branch `w107-probe` it stays one component: `All{All{X, Q{T}} where T, Z}` keeps two components. Subtyping still answers by the components. | `src/jltypes.c` (`jl_type_all`) |

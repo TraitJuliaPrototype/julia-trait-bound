@@ -199,3 +199,24 @@ For `n2_all_probe.jl` or a new `n2_all_form.jl`, each a one-line assertion from 
 - `Union{S2, PZ}` is the same object before and after `@implement PZ S2`.
 - `Core.All{Int, Core.All.body}` raises a `TypeError`, not a crash.
 - `All{AbstractArray{Int}, AbstractVector} === AbstractVector{Int}` (finding 9, once adopted).
+
+## Addendum (2026-11-07): what was done with each finding
+
+The main session built each proposal on branch `w107-probe` 5a161a28a4 (rebased onto `unified` ec4f9a8714), outside the stack until W-107 is done. The gate additions of §6 are `experiments/unification/gates/n2_all_form.jl`; intersection and dispatch are `n2_all_dispatch.jl`.
+
+| Finding | Done | Where |
+|---|---|---|
+| 1. The typemap and the supertype chain | The insert routing, `jl_type_extract_name` and `tname_intersection` treat an intersection, and on the query side an open set, as meeting any name. The query side for sets is on the stack. The gate's `methods(length, (C,))` found a further hole, also for one set: on the stack a set and an abstract type met as `Union{}`. They now meet as `All{X, T}`. | `w107-probe` 5a161a28a4; `unified` ec4f9a8714 (gate `m2_set_query_split`); compiler §4.7, §5.3, C-33, gate `n2_open_abstract` |
+| 2. The fold gates | `has_open_set` is set for an intersection; `jl_could_join` and `jl_subtype_via_membership` see through it. | `w107-probe`; gate `n2_all_form` (`q`) |
+| 3. The diagonal rule | `var_occurs_inside` and `always_occurs_cov` walk an intersection's components as covariant. | `w107-probe`; gate `n2_all_form` |
+| 4. Instantiation | `inst_type_w_` rebuilds an intersection through `jl_type_all`; `jl_apply_type` normalizes. | `w107-probe`; gate `n2_all_form` |
+| 5. The parameter | `apply_type` takes `Core.All{Tuple{X, Y}}` as the components; the wrapper and serialization round-trip. | `w107-probe`; gate `n2_all_form` |
+| 6. The left rule's backtracking | `subtype_all_left` chooses its component as a union's member is chosen. | `w107-probe`; gate `n2_all_form` |
+| 7. `Union`'s normal form | `jl_type_union`'s absorption reads declared supertypes only. | `unified` ec4f9a8714; gate `m2_union_normal_form` |
+| 8. Intersection | A type meets an intersection as the intersection of its meets with each component; two sets that no entry relates meet as `All{X, Y}`. | `w107-probe`; gate `n2_all_dispatch` |
+| 9. Two closed components | Replaced by Julia's intersection where it is exact. | `w107-probe`; gate `n2_all_form` |
+| 10. `Union` and `UnionAll` components | A `Union` component distributes. A component that is an intersection under a `UnionAll` is not flattened yet. | `w107-probe`; gate `n2_all_form`; C-34 |
+| 11. The `Tuple` guard | A non-`Tuple` parameter raises `TypeError`. | `w107-probe`; gate `n2_all_form` |
+| 12. Reflection | Nothing, as proposed. | — |
+
+Question 1's glossary entry waits for the glossary's rewrite (W-115). The encoding is in compiler §4.9.
