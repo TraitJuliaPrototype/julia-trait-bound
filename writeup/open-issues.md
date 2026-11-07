@@ -10,7 +10,7 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 
-**The machine-code cache's review (W-120; [the review](reviews/2026-11-07-machine-code-cache-design.md), 2026-11-07), waiting for the user:** it finds that no cache reaches the goal alone (a perfect one leaves the DataFrames session at 5.5–6× pandas, E-234), while TraitReport's small cores already match pandas and matplotlib (E-233). It proposes, in place of the order the user accepted:
+**The machine-code cache's review (W-120; [the review](reviews/2026-11-07-machine-code-cache-design.md), 2026-11-07), to revisit later** (the user, 2026-11-07: "Let's revisit this later. Do no regret work now. Building the ports is definitely sensible"): it finds that no cache reaches the goal alone (a perfect one leaves the DataFrames session at 5.5–6× pandas, E-234), while TraitReport's small cores already match pandas and matplotlib (E-233). It proposes, in place of the order the user accepted:
 1. W-104 with DataFrames first, then Makie (not SciML);
 2. a goal gate, `goal.jl` against `goal.py`, registered and measured on the unified build;
 3. package-image workloads for the goal's shapes;
@@ -117,6 +117,17 @@ Deferred by the user (s25), to take up when wanted:
 154. **Keys of another type:** `haskey(d::Keyed{String}, k::SubString)` is outside the contract, though Base's dictionaries take an equal key of another type (Rust's `Borrow<Q>`, [the research](record/collection-and-linalg-traits-research-2026-11-07.md) §1.2).
 155. **Single-pass iteration:** generators, `eachline` and `Iterators`' adapters are no `Iterable` (it promises repeatable iteration). *Proposal:* `IterableOnce{T}` as `Iterable`'s supertrait ([the research](record/collection-and-linalg-traits-research-2026-11-07.md) §1.1).
 156. **The iteration state is `Any`:** a loop over a value known only as `Dynamic{Iterable{T}}` boxes the state at each step ([the review](reviews/2026-11-07-basetraits-choices.md) L1). *To measure:* items per second against a `Vector`, before a port's hot loop runs on such a value.
+
+157. **In code compiled by facts, a function barrier loses its callee's declared result** (found 2026-11-07 by W-104's first slice).
+   - *The case:* TraitMakie's recipes keep their data in fields typed by a trait (`pos::Positions`), and call kernels compiled per type (`limits(@specialize(pos::Positions))::NTuple{4,Float64}`). Then `datalimits(p::Lines) = limits(p.pos)` is a run-time site, and facts types its result `Any`. So the operation's declared result fails the membership check, at the library's recipes and at a user's recipe (`Ribbon`) that calls them.
+   - *The rules that block it:* a run-time site's result is `Any` under facts ([facts §5](reference/facts.md#5-run-time-sites)). A declared result is read only for a trait's operation; lowering's record of `f(…)::RT` is not built ([compiler §6.8](reference/compiler.md#68-a-declared-result-on-method), C-36). Even with that record, a dispatch made when the code runs could select a later method that declares nothing.
+   - *Also:* the membership check infers its top frame plainly but its callees under their own policy, so a member is checked by a mix of the two.
+   - *Proposals:*
+     - (a) A run-time site in facts code types its result as the declared result `RT` of every method it could select now, asserted at the call, as an operation's is (§7.9). A later method returning something else raises `TypeError` there.
+     - (b) An idiom, no rule: a kernel whose result callers rely on becomes an operation of the trait, with a default.
+     - (c) The check infers under the serving method's own policy, whatever (a) or (b) gives.
+
+     The port asserts the result at each such barrier until this is decided (TraitMakie `unified` e95da97).
 
 ## 3. TraitWorld (the prototype)
 
