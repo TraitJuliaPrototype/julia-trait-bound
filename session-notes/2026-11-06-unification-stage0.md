@@ -370,3 +370,15 @@ Recorded in CLAUDE.md. No choice tonight was high-impact enough for a Fable revi
 - **Declared fields:** a field `declared_fields` on `TypeName` (atomic, the 22nd); the first build's rule did not fire, since `getproperty` inside the Compiler is `Core`'s, not `Base`'s. Base's `core` test lists `TypeName`'s atomic fields and was updated.
 - **The classification** in TraitWorld: an `AbstractInterpreter` of the library's with an ephemeral cache, so functions it follows are inferred again; a trait's own methods are skipped (their bodies are the contract); uses are recorded once each (constant propagation infers a call twice). `check_definitions`, `@bounded` (refused at definition by the definition hook), `@open`.
 - **W-109 done:** `unified` 50da8d8ee2 (commits 20–23), TraitWorld 59134ef.
+
+## W-100: begun (2026-11-07, morning)
+
+- **Where:** branch `w100` of the julia repository, from the stack's top 50da8d8ee2, its commits confined to the facts mode for a later rebase onto vanilla (mine).
+- **E-272, the earlier attempt's hang:** the `nortsite` bit alone builds in 700 s. No hang.
+- **Slices, each with a full build and the battery:**
+  - the facts inference (28fe27b2f7): `NativeInterpreter(; facts=true)`, `is_fact_sig` from `trait-world-1.13`, run-time sites that clear `nortsite`, asserted effects not applied over them;
+  - the flags (beafa01b36): the module's `facts` and the four trait options by `@compiler_options`, the method's flag from `:facts_boundary` / `:facts_always`. The first build's options did not take: the interpreter reads only two-argument metas at top level, so an option is one integer, bit and value;
+  - one CodeInstance per policy (10c7e1c2cf): the policy bit set when a CodeInstance is made, the lookups of Julia's own owner filtered by it, three flag writes that would have cleared it fixed; a callee of the other policy inferred in an inference of its own, at most four nested. Boundaries stay plain (C-44); constant propagation across policies runs in the caller's (C-45);
+  - G2's bit (8ef154476f): every dispatch edge at a fact; E-273 counts 62 % of a workload's plain code;
+  - `return_type` (b87d863b9e): folded in facts code only where it cannot be wider; otherwise at run time by a plain interpreter of its own. The gate's empty `map` would give `Vector{Any}` without it.
+- **Left in W-100:** the record's kinds (§3.1), the test bed (§2.5: under it the system image's plain code cannot stand in, so all of Base compiles again; a long run), the image's keep rule by the G2 bit (§9), the boundary's second policy.
