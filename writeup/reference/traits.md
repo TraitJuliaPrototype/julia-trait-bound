@@ -822,7 +822,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 
-**Status:** Planned (W-113). Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
+**Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-60 to C-63; the hints W-114; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
 ---
 
@@ -1108,7 +1108,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `Dynamic{X}`, `keep` | `Dynamic{X}` implemented (TraitWorld e7ff8e2; L-51); `keep` W-111 | §7.7, §7.8 |
 | operations on a value known only by its trait | Planned (W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
-| `Callable`: dispatch by signature, the result checked on return | Planned (W-113) | §9 |
+| `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
 | BaseTraits; element types by variance; `retain!` | Planned | §10 |
 | checks, errors, hints | Checks at declarations and first uses, `ImplementError` implemented (TraitWorld e7ff8e2); definition checking W-109; hints W-114 | §11 |
 | ownership, joint owners, pirates, strict mode | Planned (W-114) | §12 |

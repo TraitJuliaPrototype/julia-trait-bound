@@ -178,7 +178,7 @@ end
 - **The library declares one membership for it:** the family `Dynamic{Z} where {A, S, Z <: Callable{A, S}}` in `Callable{A, S}`, as `@trait` does for a trait (§2). `Dynamic{Callable{A, S}}`'s call method asserts the arguments to `A` and the result to `S`.
 - It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function is not a member, the hint names its methods near `A`; where a result fails its check, the hint names `S`.
 
-**Status:** Planned (W-113).
+**Status:** Implemented in TraitWorld `unified` 5d52f0d (W-113): `Callable` is Julia's, its default `Dynamic`; `Dynamic{Z}`'s membership and its call, checked at both ends. The hints: W-114.
 
 ---
 

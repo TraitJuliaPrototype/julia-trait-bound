@@ -167,6 +167,8 @@ Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, 
 | 38 | 1f6d1e45d7 | **W-111:** `Core.attributed_call`'s cache rooted by both collectors | traits | compiler §6.9 | — |
 | 39 | 9f60cc350b | **W-112:** membership cells and the shadow query; a method at a set invalidates the callers it shadows; the membership walk lowers caches and invalidates no code; cells in images registered at load | traits | [compiler §5.5](../reference/compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](../reference/compiler.md#56-guards-and-cells) | — |
 | 40 | 79b948420e | **W-112:** guards: inference records the cells and joins the shadowing results; the inliner's union split runs the cases behind the guard | traits | compiler §5.6 | — |
+| 41 | 7195706721 | **W-113:** `Core.Callable{A, S}`, its memberships its members' methods, read by subtyping; Callable's cells opened by a definition; cache entries lowered by a deletion | traits | [compiler §7.4](../reference/compiler.md#74-callables-call) | — |
+| 42 | 5f0a8ffd50 | **W-113:** a call through a value known as `Callable{A, S}` infers `S`, asserted; a match through Callable records the member's dispatch | traits | compiler §7.4 | — |
 
 - **W-100 was developed on branch `w100`** from the stack's top (commits 24–35), and joined the stack when the stage was done. Its commits but 34 are confined to the facts mode, for a rebase onto vanilla when the series is proposed; 34 goes with the type system's commits.
 - **Not carried yet,** each with the stage that needs it: the field-offset intrinsics (W-110); `known_type` (b5bb9ab881) and the registry of type printers (db82407fa6), which no stage of the references uses yet.

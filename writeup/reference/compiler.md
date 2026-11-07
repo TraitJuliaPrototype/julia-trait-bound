@@ -626,7 +626,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 
 This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
 
-**Status:** Planned (W-113). Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267).
+**Status:** Implemented on `unified` 7195706721, 5f0a8ffd50 (W-113): `Core.Callable` an open set from Core's build, compiled once by default; a concrete callable type a member by its methods visible in the query world, read by subtyping as choices beside its entries, a question that reaches itself answering no within the query; a method's definition opens Callable's cells, its deletion lowers the dispatch cache entries that went through Callable; a match through Callable holds an edge to the member's dispatch at `A`; a call through a value known as `Callable{A, S}` infers `S`, asserted. Gate `n8_callable`. With C-60 to C-63. Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267). An abstract type a member only by an entry: mine (2026-11-07).
 
 ---
 
@@ -788,7 +788,7 @@ Each applies to all code.
 | a declared result on `Method`; the operation's flag | Implemented (`unified` e70675a606), with C-36 | §6.8 |
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
-| `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
+| `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-60 to C-63 | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
@@ -799,7 +799,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 79b948420e (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e). IDs are shared with the record's other references and never reused.
+Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e; W-113, `Callable`: 7195706721, 5f0a8ffd50). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -846,3 +846,7 @@ Branch `unified` at 79b948420e (stage 1, W-98: the type system 62016706d0, dispa
 | C-57 | [§6.3](#63-the-attribute-at-a-call), [§3.2](#32-g2-as-a-predicate) | A call records its dispatch fact at its own signature, whichever instance runs. | A static call that runs an instance compiled once records the instance's signature, at the set, as its dispatch edge, which is not a fact signature: the caller's G2 bit is clear. | `Compiler/src/stmtinfo.jl` (`_add_edges_impl`) |
 | C-58 | [§5.6](#56-guards-and-cells) | The guard compares the cell's `min_world` with the task's world. | It tests whether the cell is still closed (`min_world` is `typemax`): once a membership opens it, a task in an older world takes the dynamic call too, which gives that world's answer. | `Compiler/src/ssair/inlining.jl` (`ir_inline_unionsplit!`) |
 | C-59 | [§5.6](#56-guards-and-cells) | The guard's load is hoisted out of loops. | It is an atomic load that LLVM leaves in a loop whose body calls a function. | `Compiler/src/ssair/inlining.jl` |
+| C-60 | [§7.4](#74-callables-call) | At a call of a value known as a `Callable{A, S}`, each argument must be of `A`, or the call raises `MethodError`. | The arguments are not checked against `A` there; `Dynamic{Callable{A, S}}`'s call (the library's) checks them. | `Compiler/src/abstractinterpretation.jl` (`callable_result`) |
+| C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
+| C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-never-fold-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
+| C-63 | [§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries) | A match through `Callable` carries the world range of the member's methods it rests on. | Its world range is not bounded by them: a task in a world before the member's method existed can reach a dispatch cache entry made later. | `src/gf.c` (`ml_matches`), `src/subtype.c` |
