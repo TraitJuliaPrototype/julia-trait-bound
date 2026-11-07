@@ -150,8 +150,8 @@ Expr(:meta, :facts_always)     # always compiled by facts
 
   | Method | Policy |
   |---|---|
+  | in a module of flag 2 (the compiler), whatever its own flag ([facts §6.4](facts.md#64-the-compilers-own-code)) | plain |
   | always facts, or in a module of flag 1 | facts |
-  | in a module of flag 2 (the compiler) | plain |
   | a boundary | the policy of the code that reaches it |
   | any other (a *neutral* method) | plain in the product setting; under the test bed, the policy of the code that reaches it (§2.5) |
 

@@ -30,3 +30,10 @@
 - `julia-w100base/`: the parent's build, kept for PE-24's bisection if it is taken up.
 - Six core dumps from E-274's crashes (3.1 GB) in the workspace root, in no repository.
 - Next in W-100: the gate's acceptance cases and G2 share under the test bed; which of Base's methods are boundaries; the record's kinds (§3.1).
+
+## E-276: the acceptance cases (W-100's gate)
+
+- The earlier attempt's 21 cases, never run before (its build hung), ported: `mark!` sets the method flag "always facts"; each case re-runs under `JULIA_COMPILE_BY_FACTS=1`.
+- 18 pass in both settings. `AC_18`, `AC_20` wait for the record's kinds; `AC_16` for `@enforce_fully_typed` (W-114).
+- Six cases had errors of their own, fixed. Four asserted the earlier attempt's representation and now assert G1 and the reference's facts: per-split edge pairs (`AC_02`, `AC_13`), a CodeInstance per type value (`AC_14`), a neutral helper compiled by facts in the product setting (`AC_10`: in the product setting the marked caller rests on plain inference's folded value, which is plain Julia's).
+- One defect: a compiler method marked "always facts" became facts code; the compiler's module flag now comes first (w100 95fe10427c).

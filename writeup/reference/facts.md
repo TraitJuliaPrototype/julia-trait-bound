@@ -105,7 +105,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Planned (W-100; the acceptance suite in `experiments/unification/`).
+**Status:** Planned (W-100). The acceptance suite (`experiments/unification/test/acceptance/`): 18 of 21 cases pass in the product setting and under the test bed on branch `w100` 95fe10427c (E-276); two wait for the record's kinds, one for `@enforce_fully_typed` (W-114).
 
 ### 2.2 G2: stable caches
 
