@@ -178,7 +178,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - With `JULIA_COMPILE_BY_FACTS=1` (Planned spelling: `--compile-by-facts=all`), every neutral method's policy is facts: *the test bed* `all`. The compiler stays plain.
 - An image records the policy of each CodeInstance, so it is correct under either setting. The other setting finds no code of its policy and compiles it. The test bed keeps a depot of its own, for speed.
 
-**Status:** Planned (W-100).
+**Status:** The switch implemented on branch `w100` 4ba5b7025f (W-100), and the compiler's modules never by facts; a session under it does not start: C-48, [open issue 149](../open-issues.md#2-design). The spelling `--compile-by-facts=all`: Planned.
 
 ### 2.6 `--trim`
 
@@ -821,3 +821,4 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
 | C-46 | [§3.2](#32-g2-as-a-predicate) | The bit holds when every dispatch edge is at a fact signature and every inlined callee's own record satisfies G2. | Every dispatch edge at a fact signature: an inlined callee's own record is not consulted, since the edges do not tell an inlined callee from a called one. | `Compiler/src/facts.jl` (`edges_satisfy_g2`) |
 | C-47 | [§1.4](#14-return_type) | In code compiled by facts, plain inference's answer is folded where it rests on facts (at most four concrete signatures, one covering method each, every edge at a fact). | Such an answer is asked at run time too: only a constant, a concrete type that is not a kind, or `Union{}` from the facts answer is folded. | `Compiler/src/tfuncs.jl` (`return_type_tfunc`) |
+| C-48 | [§2.5](#25-the-test-bed) | Under the test bed every neutral method is compiled by facts and the compiler stays plain. | A session under `JULIA_COMPILE_BY_FACTS=1` recurses at start-up and crashes: the compiler's calls into Base's neutral methods need their facts code, which only the compiler makes (E-274; open issue 149). | `src/module.c` (`jl_method_is_facts`) |

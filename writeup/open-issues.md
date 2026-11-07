@@ -20,6 +20,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Method matching asks a recorded interference between two methods at open sets again, in the query's world,** so a later set-in-set membership orders them (compiler §5.2; [decisions](record/decisions.md) §9).
 - **An image's memberships run the stopgap's walk and the ambiguity report at load,** as a declaration does (compiler §9; [decisions](record/decisions.md) §9).
 - **W-100 developed on the stack's top** (branch `w100`), its commits confined to the facts mode for a later rebase onto vanilla ([decisions](record/decisions.md) §9).
+- **Open issue 149** (W-100): how the compiler's calls into Base run under the test bed; the recommendation is the boundary's second policy.
 - **The query world is the task's,** restored by exception handlers as the world age is (compiler §4.11; [decisions](record/decisions.md) §9; the audit's A4 proposed the subtyping environment).
 - **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the eleven useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the per-call-site cache's exact-type entries wait for W-109 (they slowed sites that see many types, [PE-20](record/performance-explorations.md)); the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
 
@@ -46,6 +47,10 @@ Deferred by the user (s25), to take up when wanted:
    - **Options:** (a) `Core` exports `All`, and DataFrames code qualifies `DataAPI.All`; (b) the library exports `All` (= `Core.All`), so only modules that use both qualify; (c) another name, such as `Both`, `AllOf` or `Meet`.
    - **Recommendation:** (b): trait code gets the user's spelling, plain Julia keeps its names, and the clash is local to modules that use both.
    - **Taken for now:** (b), mine (2026-11-07): TraitWorld `unified` ae4d250 exports `All` ([traits §3.6](reference/traits.md#36-intersections)); for the user to confirm (§1).
+149. **Under the test bed `all`, the compiler's calls into Base need code only the compiler can make** (W-100, E-274; found 2026-11-07). [Compiler §2.5](reference/compiler.md#25-the-test-bed) makes every neutral method facts and keeps the compiler plain; §2.3 lets no CodeInstance of the other policy stand in. The compiler calls Base's neutral methods (`getindex`, `length`, `iterate`), whose system-image code is plain, so each such call needs facts code first, which only the compiler can make: a session under `JULIA_COMPILE_BY_FACTS=1` recurses at start-up and crashes (`experiments/unification/stack/logs/e274-testbed.log`).
+   - **Options:** (a) the code the compiler runs takes the code of its own policy: a neutral method reached from the compiler is a boundary in effect, which needs the boundary's second policy (C-44: dispatch that knows the caller's policy); (b) the test bed has a system image of its own, built with Base's neutral methods compiled by facts, the compiler's callees included; (c) under the test bed, a plain CodeInstance stands in while the task runs in the compiler's world (`jl_typeinf_world`).
+   - **Recommendation:** (a): it is the design's own mechanism, and the boundary's second policy is planned anyway; (b) costs a second system image per build; (c) is a special case in every lookup.
+
 
 **From TraitMakie's REPL session (2026-10-29):**
 
