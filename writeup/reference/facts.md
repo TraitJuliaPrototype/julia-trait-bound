@@ -105,7 +105,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Planned (W-100). The acceptance suite (`experiments/unification/test/acceptance/`): 18 of 21 cases pass in the product setting and under the test bed on branch `w100` 95fe10427c (E-276); two wait for the record's kinds, one for `@enforce_fully_typed` (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; until the guards (W-112), a membership invalidates the compiled callers it could change (compiler C-18), which keeps G1. The acceptance suite (`experiments/unification/test/acceptance/`): 20 of 21 cases pass in the product setting and under the test bed (E-277); one waits for `@enforce_fully_typed` (W-114).
 
 ### 2.2 G2: stable caches
 
@@ -133,7 +133,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new membership (§10);
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Planned (W-100, W-101).
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (W-101). A membership invalidates nothing: the guards (W-112); until then C-18.
 
 ### 2.3 Two tiers
 
@@ -173,7 +173,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a union with more than four splits;
 - a `Vararg` tail of an abstract or kind element.
 
-**Status:** Planned (W-100). The rows for keys: Optional, with keys (W-110).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110).
 
 ---
 
@@ -199,7 +199,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a CodeInstance it holds a code edge to is invalidated, or one it holds a result edge to changes its result. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
 - **A result edge** to a callee recompiled to an equal result is revalidated, not broken ([compiler §3.3](compiler.md#33-the-code-slot)).
 
-**Status:** Planned (W-100, W-101).
+**Status:** Implemented on `unified` (W-100) for facts, binding edges, code edges as CodeInstance edges and positive memberships (compiler §3.1, with C-52); result edges and their revalidation with the code slot (W-101).
 
 ---
 
@@ -210,7 +210,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Caches at run-time sites** remember what dispatch decided, for the worlds where that holds, and are checked against the caller's world. They never decide which method runs ([compiler §8](compiler.md#8-world-checked-caches-at-dynamic-boundaries)).
 - A run-time site costs a dynamic dispatch, as in plain Julia.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)).
 
 ---
 
@@ -227,7 +227,7 @@ The kind follows from the method and its module alone.
 | **Plain method** | the compiler's own code | the module flag "never by facts" |
 | **Neutral method** | everything else: Base, packages, user code at the prompt | — |
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` beafa01b36, c44a447f2c (W-100; [compiler §2.1–§2.3](compiler.md#2-the-policy-per-method)); no method of Base is a boundary (E-279).
 
 ### 6.2 The policy rule
 
@@ -242,7 +242,7 @@ The kind follows from the method and its module alone.
 - **One CodeInstance per MethodInstance and policy.** A CodeInstance records its policy; a lookup never takes code of another policy. A neutral method in the product setting has only plain code, whoever calls it.
 - **Under `--trim`** every method is plain (§13.3).
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 10c7e1c2cf, c44a447f2c (W-100; [compiler §2.3](compiler.md#23-one-codeinstance-per-methodinstance-and-policy)), with compiler C-49.
 
 ### 6.3 Calls between policies
 
@@ -254,7 +254,7 @@ The kind follows from the method and its module alone.
 - **Code compiled by facts calling the compiler's own plain code** propagates no constants into it.
 - **At run time** each callee runs its own policy's code (§5). A callee that takes the policy of the code reaching it runs the code of the caller's policy, through every way of calling: a generic call, `invoke`, a splat, `invokelatest`.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 10c7e1c2cf, c44a447f2c (W-100; [compiler §2.4](compiler.md#24-calls-between-policies)), with compiler C-45, C-50.
 
 ### 6.4 The compiler's own code
 
@@ -262,7 +262,7 @@ The kind follows from the method and its module alone.
 - The compiler runs in its own world. Reflection runs it there also with an explicit interpreter.
 - **The limit.** Code compiled by facts that calls compiler functions directly holds code edges to plain compiler code, valid as long as plain Julia keeps it valid. The loss is cacheability, not correctness.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 4ba5b7025f, 95fe10427c (W-100).
 
 ---
 
@@ -277,7 +277,7 @@ The kind follows from the method and its module alone.
 
 So a load changes a folded answer exactly when it changes plain Julia's.
 
-**Status:** Planned (W-100). Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
+**Status:** Implemented on `unified` b87d863b9e (W-100; [compiler §1.4](compiler.md#14-return_type)), with compiler C-47. Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
 
 ### 7.2 Reflection
 
@@ -285,7 +285,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 - `code_typed`, `infer_return_type`, `verify_main` and the definition-time check see that code.
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` (W-100): `code_typed` and `infer_return_type` show the code of the method's policy; the definition-time check is the library's (compiler C-40).
 
 ---
 
@@ -299,7 +299,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 
 The rule applies to every method, Base's included. A frame without run-time sites keeps its assertions.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 3363088725, 28fe27b2f7 (W-100): the `nortsite` bit carries a run-time site to every caller, and an assertion does not apply over it.
 
 ---
 
@@ -350,7 +350,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 - A pirate defined before the code is compiled is in the method table; the code's facts select it from the start.
 - A pirate loaded before a package image breaks the image's facts at that signature; that code is discarded at validation and compiled again.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9).
 
 ### 11.2 Strict mode
 
@@ -409,7 +409,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). The rest Planned (W-100's facts and edges; the check records: lowering L-55; the store paused).
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). Cells with the guards (W-112); the check records: lowering L-55; the store paused.
 
 ---
 
@@ -421,7 +421,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - Plain code keeps all of Julia's behaviour: its inference, its speed, its invalidation.
 - G1 and G2 hold for code compiled by facts.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` (W-100).
 
 ### 13.2 The test bed `all`
 
@@ -430,7 +430,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - `JULIA_COMPILE_BY_FACTS=1`, read once per process; planned spelling `--compile-by-facts=all`. A depot of its own, for speed.
 - G1 and G2 hold under `all` for all code. Strict mode protects all code but the compiler's.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` 4ba5b7025f, c44a447f2c (W-100; [compiler §2.5](compiler.md#25-the-test-bed)): a session's start-up compiles Base's start-up code by facts, 24–25 s ([PE-23](../record/performance-explorations.md)).
 
 ### 13.3 Trimmed binaries
 
@@ -457,20 +457,20 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 | Item | Status | Where |
 |---|---|---|
-| G1, identical or error | Planned (W-100) | §2.1 |
-| G2, stable caches; exceptions named | Planned (W-100, W-101) | §2.2 |
-| fact signatures, keys among them | Planned (W-100); the keys' rows Optional (W-110) | §3 |
-| run-time sites; each callee runs its own policy's code | Planned (W-100) | §4.2, §5 |
-| kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Planned (W-100) | §6 |
+| G1, identical or error | Implemented (`unified`, W-100); 20 of 21 acceptance cases in both settings (E-277) | §2.1 |
+| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot W-101; guards W-112 | §2.2 |
+| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
+| run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
+| kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | result edges and the code slot | Planned (W-101) | §4.3, §6.3 |
-| `return_type`; reflection | Planned (W-100) | §7 |
-| no asserted effect over a run-time site | Planned (W-100) | §8 |
+| `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
+| no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Planned (W-109) | §9 |
 | memberships invalidate nothing; guards | Planned (W-98, W-99, W-112) | §10 |
 | pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
-| package images, memberships activated before validation | memberships implemented (`unified` 28c401eb0c); the rest Planned (W-100) | §12 |
+| package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
-| product setting, test bed, `--trim` | Planned (W-100, W-114) | §13 |
+| product setting, test bed, `--trim` | Implemented (`unified`, W-100), with compiler C-53; strict mode W-114 | §13 |
 | standard libraries as owners | Open | §1 |
 
 ---

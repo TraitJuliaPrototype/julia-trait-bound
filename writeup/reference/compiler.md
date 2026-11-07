@@ -45,7 +45,7 @@ Compiler.facts_mode(interp::AbstractInterpreter)::Bool
 - An inference of a MethodInstance runs with `facts` set to its method's policy (§2). Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags (§2.3).
 - Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules.
 
-**Status:** The interpreter's mode implemented on branch `w100` 28fe27b2f7 (W-100); an inference of a method instance for its code run under its method's policy, both policies under Julia's own owner, 10c7e1c2cf.
+**Status:** The interpreter's mode implemented on `unified` 28fe27b2f7 (W-100); an inference of a method instance for its code run under its method's policy, both policies under Julia's own owner, 10c7e1c2cf.
 
 ### 1.2 Fact signatures
 
@@ -66,7 +66,7 @@ A union at a call's top level is split as Julia splits it, each split a fact sig
 
 A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
 
-**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`.
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`.
 
 ### 1.3 Run-time sites
 
@@ -81,7 +81,7 @@ Effects.nortsite::Bool          # no run-time site, here or in a callee
 - Its result type is `Any`, its exception type `Any`, its effects unknown, except where a declared result types it (§7.1). Codegen emits a dynamic dispatch.
 - **It clears `nortsite`,** an effects bit carried to every caller as `nortcall` is, stored inverted in a CodeInstance's effects.
 
-**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100); the split's fallback (§7.2) marks one under the facts mode with W-100's policy.
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100); the split's fallback (§7.2) marks one under the facts mode with W-100's policy.
 
 ### 1.4 `return_type`
 
@@ -103,13 +103,13 @@ Compiler.PlainRTInterp(world::UInt) <: AbstractInterpreter      # its own cache 
 
 **At run time** the answer is plain inference's, from `PlainRTInterp`, which infers every method plainly. Its answers live under a cache owner of their own. No code runs from that cache.
 
-**Status:** Implemented on branch `w100` b87d863b9e (W-100) for steps 1 and 3 and the run-time answer (`PlainRTInterp` is `NativeInterpreter(; plainrt = true)`, owner `:plain_rt`); step 2: C-47. Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
+**Status:** Implemented on `unified` b87d863b9e (W-100) for steps 1 and 3 and the run-time answer (`PlainRTInterp` is `NativeInterpreter(; plainrt = true)`, owner `:plain_rt`); step 2: C-47. Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
 
 ### 1.5 Effects
 
 Under the facts mode no asserted effect applies over a run-time site, at any depth: a method's `@assume_effects` is ignored where its frame's `nortsite` is clear, and a statement's where its call's is ([facts §8](facts.md#8-asserted-effects)).
 
-**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100).
 
 ---
 
@@ -130,7 +130,7 @@ Base.Experimental.@compiler_options facts=true
   - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
 - A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
-**Status:** The module option implemented on branch `w100` beafa01b36 (W-100): `facts` and the four trait options, set by `Base.Experimental.@compiler_options`, inherited by submodules, saved with the module; their consumers: §2.3 (W-100) and W-109, W-111, W-114.
+**Status:** The module option implemented on `unified` beafa01b36 (W-100): `facts` and the four trait options, set by `Base.Experimental.@compiler_options`, inherited by submodules, saved with the module; their consumers: §2.3 (W-100) and W-109, W-111, W-114.
 
 ### 2.2 The method flag
 
@@ -142,7 +142,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - `Method.facts::UInt8`: 0 as its module says; 1 a boundary; 2 always facts. Lowering carries the meta into every method a definition makes (keyword sorters, positional forwarders). It is saved with the method.
 - **The boundary flag is the second policy per method.** A neutral method has plain code only (§2.3), so facts code that calls it rests on code that loads may invalidate. A boundary gives facts code a facts copy that no load discards, for the methods where that matters. Which of Base's methods carry it is a choice of the setting, made by measurement ([evidence](../design/evidence.md)), not a rule of the design.
 
-**Status:** The method flag implemented on branch `w100` beafa01b36 (W-100), with C-43. The boundary flag as the second policy per method: implemented on branch `w100` c44a447f2c (W-100; §2.3); gate `f6_reach_policy`. Which of Base's methods carry it: none, in the product setting (mine, 2026-11-07): facts code rests on plain code of Base whose own records satisfy G2 (E-279, [evidence](../design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)).
+**Status:** The method flag implemented on `unified` beafa01b36 (W-100), carried into every method a definition makes cb7f55bd35 (gate `f2_policy_flags`). The boundary flag as the second policy per method: implemented on `unified` c44a447f2c (W-100; §2.3); gate `f6_reach_policy`. Which of Base's methods carry it: none, in the product setting (mine, 2026-11-07): facts code rests on plain code of Base whose own records satisfy G2 (E-279, [evidence](../design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)).
 
 ### 2.3 One CodeInstance per MethodInstance and policy
 
@@ -163,7 +163,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - So a neutral method in the product setting has plain code only, whoever calls it. A method that takes the policy of the code reaching it has up to one CodeInstance per policy.
 - Under `--trim` every method is plain (§2.6).
 
-**Status:** Implemented on branch `w100` 10c7e1c2cf and c44a447f2c (W-100): the policy bit in a CodeInstance's flags, set from the policy it is compiled in and kept in images; the lookups of Julia's own owner take only a CodeInstance of the policy wanted; the policy of the code that reaches a method, through inference and the engine's reservations; gate `f6_reach_policy`. With C-49. Under `--trim`: Planned.
+**Status:** Implemented on `unified` 10c7e1c2cf and c44a447f2c (W-100): the policy bit in a CodeInstance's flags, set from the policy it is compiled in and kept in images; the lookups of Julia's own owner take only a CodeInstance of the policy wanted; the policy of the code that reaches a method, through inference and the engine's reservations; gate `f6_reach_policy`. With C-49. Under `--trim`: Planned.
 
 ### 2.4 Calls between policies
 
@@ -179,7 +179,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
   - **from the interpreter:** the policy of the code it runs;
   - **from the runtime's own entries** (§2.3): the setting's default.
 
-**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100) for inference: a callee of the other policy is inferred in an inference of its own and the caller rests on its CodeInstance. At run time, on c44a447f2c: entries of compiled code of each policy, the builtins' variants, the interpreter's policy, the runtime's entries with the setting's default; gate `f6_reach_policy`. With C-45 and C-50.
+**Status:** Implemented on `unified` 10c7e1c2cf (W-100) for inference: a callee of the other policy is inferred in an inference of its own and the caller rests on its CodeInstance. At run time, on c44a447f2c: entries of compiled code of each policy, the builtins' variants, the interpreter's policy, the runtime's entries with the setting's default; gate `f6_reach_policy`. With C-45 and C-50.
 
 ### 2.5 The test bed
 
@@ -187,13 +187,13 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - So every method that user code reaches is compiled by facts. The compiler stays plain, and so do the neutral methods it reaches; their plain code in the system image serves it.
 - An image records the policy of each CodeInstance, so it is correct under either setting. The other setting finds no code of its policy and compiles it. The test bed keeps a depot of its own, for speed.
 
-**Status:** Implemented on branch `w100` 4ba5b7025f and c44a447f2c (W-100): a session under it starts and runs, and its user code is compiled by facts (E-275; gate `f6_reach_policy`). A session's start-up compiles Base's start-up code by facts, 24–25 s ([PE-23](../record/performance-explorations.md)). The spelling `--compile-by-facts=all`: Planned.
+**Status:** Implemented on `unified` 4ba5b7025f and c44a447f2c (W-100): a session under it starts and runs, and its user code is compiled by facts (E-275; gate `f6_reach_policy`). A session's start-up compiles Base's start-up code by facts, 24–25 s ([PE-23](../record/performance-explorations.md)). The spelling `--compile-by-facts=all`: Planned.
 
 ### 2.6 `--trim`
 
 A trimmed build has no facts policy: every method is inferred plainly, and the image writes no facts flags. A binary is a closed world ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Planned (W-100).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100): under `--trim` every method and top-level thunk is plain, so every CodeInstance is; not run here, since no trimmed binary is built in this workspace. With C-53.
 
 ---
 
@@ -215,7 +215,7 @@ The backedge iterator, `verify_method`, codegen's walkers and the image writer r
 - The code's worlds start no earlier than the latest of those entries'. An entry in the record takes no backedge: memberships only grow, and a redeclared one keeps its answer (§4.3).
 - Validation of a loaded image's record takes an entry's worlds where the entry is in force in the session, and refuses the code where it is not (§9).
 
-**Status:** On branch `w100` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. Membership cells with the guards (W-112); result edges apart from dispatch edges, code edges' digests and layout identities: C-52.
+**Status:** On `unified` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. Membership cells with the guards (W-112); result edges apart from dispatch edges, code edges' digests and layout identities: C-52.
 
 ### 3.2 G2 as a predicate
 
@@ -226,7 +226,7 @@ When a CodeInstance of either policy is finished, a bit in its flags records whe
 
 Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
 
-**Status:** The bit implemented on branch `w100` 8ef154476f (W-100), for code of either policy and kept in images, with C-46; its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
+**Status:** The bit implemented on `unified` 8ef154476f (W-100), for code of either policy and kept in images, with C-46; its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
 
 ### 3.3 The code slot
 
@@ -328,7 +328,7 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 
-**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on branch `w100` 9a601902a0 (W-100), with C-51.
+**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51.
 
 ### 4.9 Intersections
 
@@ -687,7 +687,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), with C-35; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on branch `w100` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07).
+**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), with C-35; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07).
 
 ---
 
@@ -767,13 +767,13 @@ Each applies to all code.
 
 | Interface | Status | Section |
 |---|---|---|
-| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (branch `w100`, W-100), with C-45, C-47 | §1 |
-| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed | Implemented (branch `w100`, W-100), with C-43, C-49, C-50; which of Base's methods are boundaries and `--trim` Planned (W-100) | §2 |
-| the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (branch `w100` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
+| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47 | §1 |
+| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
+| the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
 | the code slot | Planned (W-101) | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on branch `w100` 9a601902a0, with C-51 | §4.7, §4.8 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
@@ -791,7 +791,7 @@ Each applies to all code.
 | `Callable`: dispatch by signature, its call, the result checked on return | Planned (W-113) | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
-| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (branch `w100` 9a601902a0); the record's stable identities: C-52 | §9 |
+| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
 | hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's hooks Planned (W-114); field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
@@ -799,7 +799,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2). IDs are shared with the record's other references and never reused.
+Branch `unified` at cb7f55bd35 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -828,14 +828,15 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
 | C-40 | [§6.7](#67-the-definition-time-check) | One inference of the method at the erased signature, under a check flag of the native interpreter, records each use of a trait argument outside the contract; the classification is per argument. | The library infers the method with an interpreter of its own (`TraitWorld.ClassifyInterp`, an ephemeral cache, so every function it follows is inferred again) and records each call that takes a value typed by a trait outside the contract: per method, each use against the trait the value is known by. | TraitWorld `src/classify.jl` |
 | C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `@bounded` once at the method's definition; it is not kept; no constructor is exempt. | TraitWorld `src/classify.jl` |
-| C-42 | — | *Retired* (2026-11-07): code of both policies under Julia's own owner on branch `w100` 10c7e1c2cf ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `f3_policy_code` | — | — |
-| C-43 | [§2.2](#22-the-method-flag) | Lowering carries a method's policy meta into every method a definition makes (keyword sorters, positional forwarders). | Only the method whose body holds the meta takes it. | `src/method.c` (`jl_method_set_source`) |
-| C-44 | — | *Retired* (2026-11-07): the policy of the code that reaches a method on branch `w100` c44a447f2c ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](#24-calls-between-policies)); gate `f6_reach_policy` | — | — |
+| C-42 | — | *Retired* (2026-11-07): code of both policies under Julia's own owner on `unified` 10c7e1c2cf ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `f3_policy_code` | — | — |
+| C-43 | — | *Retired* (2026-11-07): lowering carries the policy meta into every method a definition makes, on `unified` cb7f55bd35 ([§2.2](#22-the-method-flag)); gate `f2_policy_flags` | — | — |
+| C-44 | — | *Retired* (2026-11-07): the policy of the code that reaches a method on `unified` c44a447f2c ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](#24-calls-between-policies)); gate `f6_reach_policy` | — | — |
 | C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
 | C-46 | [§3.2](#32-g2-as-a-predicate) | The bit holds when every dispatch edge is at a fact signature and every inlined callee's own record satisfies G2. | Every dispatch edge at a fact signature: an inlined callee's own record is not consulted, since the edges do not tell an inlined callee from a called one. | `Compiler/src/facts.jl` (`edges_satisfy_g2`) |
 | C-47 | [§1.4](#14-return_type) | In code compiled by facts, plain inference's answer is folded where it rests on facts (at most four concrete signatures, one covering method each, every edge at a fact). | Such an answer is asked at run time too: only a constant, a concrete type that is not a kind, or `Union{}` from the facts answer is folded. | `Compiler/src/tfuncs.jl` (`return_type_tfunc`) |
-| C-48 | — | *Retired* (2026-11-07): the test bed starts and runs on branch `w100` c44a447f2c ([§2.5](#25-the-test-bed)); E-275, gate `f6_reach_policy` | — | — |
+| C-48 | — | *Retired* (2026-11-07): the test bed starts and runs on `unified` c44a447f2c ([§2.5](#25-the-test-bed)); E-275, gate `f6_reach_policy` | — | — |
 | C-49 | [§2.1](#21-the-module-option), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A method's policy follows its module's option. | A method instance's policy is read at its first use and cached in its flags (an image does not keep it); a module option set after one of the module's methods was first called leaves that method's policy as first read. | `src/gf.c` (`mi_policy`) |
 | C-50 | [§2.4](#24-calls-between-policies) | The operation of `modifyfield!`, `modifyglobal!` and `memoryrefmodify!`, and a builtin that calls a function, reached by a dynamic call, dispatch with the policy of the code that calls them. | They reach with the setting's default; so does an ABI converter's generic call. | `src/builtins.c` (`jl_apply_reach`), `src/datatype.c`, `src/codegen.cpp` (`emit_abi_dispatcher`) |
 | C-51 | [§4.8](#48-negatives-never-fold-positives-through-entries), [§3.1](#31-the-record) | A positive answer through an entry folds, with the code's worlds from the entry's and the entry in its record. | It folds at `isa`, `<:` and a dispatch match in the frame being inferred. `typeassert`'s nothrow, `typesubtract`, the optimizer's own `isa` queries and the semi-concrete pass leave such an answer unfolded. | `Compiler/src/typeutils.jl` (`positive_fold_blocked`), `Compiler/src/tfuncs.jl` |
 | C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | An emitted call's edge is a dispatch edge; a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. Result edges come with the code slot (W-101); the rest with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
+| C-53 | [§2.6](#26---trim) | A trimmed image writes no facts flags. | It keeps the module's and the methods' flags; nothing reads them under `--trim`, and its CodeInstances are all plain. | `src/staticdata.c` |

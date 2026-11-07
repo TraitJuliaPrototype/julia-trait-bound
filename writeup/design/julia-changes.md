@@ -123,7 +123,7 @@ The build of [the references](../reference/README.md) for traits as abstract typ
 
 ### 7.1 The stack
 
-Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, the type system's sets and memberships. The last column names the commits of branch `trait-world-1.13` (§1–§6) each was taken from.
+Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, the type system's sets and memberships; **facts**, the facts mode. The last column names the commits of branch `trait-world-1.13` (§1–§6) each was taken from.
 
 | # | Commit | What | Kind | Reference | From `trait-world-1.13` |
 |---|---|---|---|---|---|
@@ -150,9 +150,21 @@ Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, 
 | 21 | f7a14de82f | **W-109:** the candidates per set; an operation's call split over the first four | traits | [compiler §7.2](../reference/compiler.md#72-the-split) | — |
 | 22 | e70675a606 | **W-109:** the table of a call's targets past the split | traits | [compiler §7.3](../reference/compiler.md#73-the-table-of-a-calls-targets) | 711484a23e, 6d480d0753, without the facts variant |
 | 23 | 50da8d8ee2 | **W-109:** a set's declared fields on its `TypeName`; a declared field read at a value typed by its set inferred as its declared type | traits | [compiler §7.1](../reference/compiler.md#71-the-rule) | — |
+| 24 | 3363088725 | **W-100:** the `nortsite` effect bit: a run-time site, here or in a callee | facts | [compiler §1.3](../reference/compiler.md#13-run-time-sites) | the earlier attempt's |
+| 25 | 28fe27b2f7 | **W-100:** the facts inference: calls inferred only at fact signatures, run-time sites elsewhere | facts | [compiler §1](../reference/compiler.md#1-the-facts-inference) | `trait-world-1.13`'s `facts.jl` |
+| 26 | beafa01b36 | **W-100:** the module and method flags, and the trait language's module options | facts | [compiler §2.1](../reference/compiler.md#21-the-module-option), [§2.2](../reference/compiler.md#22-the-method-flag) | — |
+| 27 | 10c7e1c2cf | **W-100:** one CodeInstance per MethodInstance and policy; calls between policies | facts | [compiler §2.3](../reference/compiler.md#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](../reference/compiler.md#24-calls-between-policies) | — |
+| 28 | 8ef154476f | **W-100:** G2 as a bit on every CodeInstance | facts | [compiler §3.2](../reference/compiler.md#32-g2-as-a-predicate) | — |
+| 29 | b87d863b9e | **W-100:** `return_type` gives plain inference's answer under either policy | facts | [compiler §1.4](../reference/compiler.md#14-return_type) | — |
+| 30 | 823754556f | **W-100:** an image keeps code reached only dynamically where G2 holds | facts | [compiler §9](../reference/compiler.md#9-images-and-the-machine-code-cache) | — |
+| 31 | 4ba5b7025f | **W-100:** the test bed's switch; the compiler never compiled by facts | facts | [compiler §2.5](../reference/compiler.md#25-the-test-bed) | — |
+| 32 | c44a447f2c | **W-100:** the policy of the code that reaches a method: entries of compiled code per policy, the builtins' variants, the interpreter's policy, through inference and the engine | facts | [compiler §2.3](../reference/compiler.md#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](../reference/compiler.md#24-calls-between-policies) | — |
+| 33 | 95fe10427c | **W-100:** the compiler's module flag before a method's own | facts | compiler §2.3 | — |
+| 34 | 9a601902a0 | **W-100:** positive memberships in the record; the code's worlds from their entries' | traits | [compiler §3.1](../reference/compiler.md#31-the-record), [§4.8](../reference/compiler.md#48-negatives-never-fold-positives-through-entries) | — |
+| 35 | cb7f55bd35 | **W-100:** lowering carries a method's policy into every method a definition makes; plain under `--trim` | facts | compiler §2.2, [§2.6](../reference/compiler.md#26---trim) | — |
 
-- **On branch `w100`** (W-100, in progress; it joins the stack when the stage is done), each commit confined to the facts mode: 3363088725 the run-time site's effect bit; 28fe27b2f7 inference at fact signatures only ([compiler §1](../reference/compiler.md#1-the-facts-inference)); beafa01b36 the module and method flags (§2.1, §2.2); 10c7e1c2cf one CodeInstance per method instance and policy, and calls between policies (§2.3, §2.4); 8ef154476f G2's bit (§3.2); b87d863b9e `return_type`'s rule (§1.4); 823754556f the image's keep rule by G2; 4ba5b7025f the test bed's switch, the compiler never by facts (§2.5); c44a447f2c the policy of the code that reaches a method: entries of compiled code per policy, the builtins' variants, the interpreter's policy, the policy through inference and the engine (§2.3, §2.4); 95fe10427c the compiler's module flag before a method's own (§2.3). One commit is not confined to the facts mode and goes with the type system's commits when the series is rebased onto vanilla: 9a601902a0 the positive memberships in the record (§3.1, §4.8).
-- **Not carried yet,** each with the stage that needs it: the facts mode and its pieces (W-100); the split and its table (W-109); the definition and image hooks (W-108); the field-offset intrinsics (W-110); `known_type` (b5bb9ab881) and the registry of type printers (db82407fa6), which no stage of the references uses yet.
+- **W-100 was developed on branch `w100`** from the stack's top (commits 24–35), and joined the stack when the stage was done. Its commits but 34 are confined to the facts mode, for a rebase onto vanilla when the series is proposed; 34 goes with the type system's commits.
+- **Not carried yet,** each with the stage that needs it: the field-offset intrinsics (W-110); `known_type` (b5bb9ab881) and the registry of type printers (db82407fa6), which no stage of the references uses yet.
 - **Not carried:** the invalidation filter and its hooks (pieces 2 and 4, reverted on `trait-world-1.13`), the remembered validation (reverted there), build scripts.
 - **The measured first build of stage 1,** fd800b27b9 (the W-98 gates' and E-270's build; commits 13 and 14 are its code with their comments cleaned, the same after comments are stripped), is kept on branch `w98-fd800b27b9`.
 - **How the stack was checked (2026-11-06 and 07;** `experiments/unification/stack/README.md`**):**
