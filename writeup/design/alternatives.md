@@ -432,3 +432,16 @@ Choices made while building W-114 (2026-11-07), each recorded in [the decision l
 - **The trait's method typing every further argument that names a parameter.** Replaced by typing only an argument that binds an input: a parameter the receiver fixes made `Keyed`'s `haskey(d, k::K)` tie with Base's `haskey(d::AbstractDict, k)` for every dictionary ([lowering §2](../reference/lowering.md#2-trait)).
 - **The trait's method passing a call it hides on to the member's untyped method, by `invoke`.** Not taken for now: on the error path the `MethodError` names the `invoke`, and the method at the set still invalidates the fallback's callers at each load; such a member is refused at its check instead ([open issue 150](../open-issues.md#2-design)).
 - **Method matching reading the recorded interferences for a pair with one method at a set.** Replaced by asking the pair in the query's world: a method at a set and one at a type that later joins it were disjoint at insertion ([compiler §5.2](../reference/compiler.md#52-specificity)).
+
+## W-101, the code slot: options not taken
+
+Choices made while building W-101 (2026-11-07), each recorded in [the decision log](../record/decisions.md) §9 as mine and listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) for the user to confirm. The plan: [plans/2026-11-07-w101-the-code-slot.md](../plans/2026-11-07-w101-the-code-slot.md).
+
+- **One slot per (MethodInstance, calling convention), written when a CodeInstance of it compiles and when one is invalidated** (the draft's §7.7). Replaced by a slot per call site that holds the CodeInstance it last called, checked against the task's world at each call:
+  - nothing writes the slots at compile or invalidation time;
+  - code in an older world still finds that world's code;
+  - an image's slots start empty.
+- **A new field on the CodeInstance for the result edges.** Not taken: the record lives on the analysis results, which images already keep, and no core type changes ([compiler §3.1](../reference/compiler.md#31-the-record)).
+- **The mark as a flag beside a valid world range.** Replaced by a lowered `max_world` with the flag: every cache that checks worlds misses a marked CodeInstance with no change of its own (dispatch, `invoke`, `cfunction`, the slots).
+- **Revalidation only where code is about to run** (dispatch, `invoke`, a `cfunction`, a slot's miss). Not taken: a caller invalidated above a marked callee infers it again, and the mark is lost; inference's cache miss revalidates too ([compiler §3.3](../reference/compiler.md#33-the-code-slot)).
+- **A slot at every static call during the compiler's own bootstrap.** Not taken: the call targets of the compiler compiling itself need not be cached, so a slot's miss could find no code; that code binds every call (C-67).

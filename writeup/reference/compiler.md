@@ -234,7 +234,7 @@ The backedge iterator, `verify_method`, codegen's walkers and the image writer r
 - The code's worlds start no earlier than the latest of those entries'. An entry in the record takes no backedge: memberships only grow, and a redeclared one keeps its answer (§4.3).
 - Validation of a loaded image's record takes an entry's worlds where the entry is in force in the session, and refuses the code where it is not (§9).
 
-**Status:** On `unified` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. Membership cells with the guards (W-112); result edges apart from dispatch edges, code edges' digests and layout identities: C-52.
+**Status:** On `unified` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. Membership cells with the guards (W-112); result edges apart, as the list the code slot reads (W-101, §3.3); code edges' digests and layout identities: C-52.
 
 ### 3.2 G2 as a predicate
 
@@ -249,14 +249,29 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 
 ### 3.3 The code slot
 
-- **One slot per (MethodInstance, calling convention)** holds the current valid code's pointer and its validity. It is written when a CodeInstance of that MethodInstance compiles and when one is invalidated.
-- **A static call that holds only a result edge to its callee** loads its target through the slot. Every other call binds the callee's address.
-- **When a callee is replaced,** a caller holding only result edges to it is marked for revalidation, not invalidated. Its next lookup compares each result edge with the callee's current result:
-  - equal: the caller is valid again in the current world;
-  - different: the caller is inferred again.
+- **A static call that holds only a result edge to its callee** loads its target through a slot. Every other call binds the callee's address.
+  - The record lists these callees with the CodeInstance (§3.1).
+  - A callee qualifies when every call of it in the code is emitted as an `:invoke` typed by its result, and no statement inlines it, evaluates it concretely or propagates constants into it.
+  - The callee's CodeInstance is Julia's own and in its MethodInstance's cache.
+- **The slot is the call site's.**
+  - It holds the CodeInstance the site last called.
+  - A call checks the task's world against that CodeInstance's world range, and calls its entry.
+  - On a miss, the runtime finds the callee's code valid in that world, with the result the caller was compiled against, compiling it where needed. It puts that code in the slot.
+  - Nothing else writes a slot. An image's slots start empty.
+- **When a callee is invalidated through its own edges,** a caller whose only edge to it is a result edge is marked for revalidation, not invalidated.
+  - A callee replaced by a definition at its signature invalidates its callers.
+  - A marked CodeInstance's world range is lowered as an invalidation lowers it, so every cache that checks worlds misses it.
+  - The walk goes on from a marked caller as from an invalidated one.
+  - A later invalidation of a marked CodeInstance makes the mark final.
+- **Its next lookup in the latest world revalidates it.** The lookups are dispatch, `invoke`, a `cfunction`, a slot's miss, and inference's cache miss. Each edge to a callee not valid there is checked:
+  - A marked callee is revalidated first.
+  - For a result edge, the callee is inferred again, and its result is compared with the one the caller used: return type, exception type, constant and effects.
+  - Equal, and valid from the world of the mark on: the caller is valid again, and the edge names the callee's new CodeInstance.
+  - Otherwise the mark is final, and the caller is inferred again.
 - So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
+- `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing.
 
-**Status:** Planned (W-101).
+**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). With C-64 to C-67.
 
 ---
 
@@ -790,7 +805,7 @@ Each applies to all code.
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
-| the code slot | Planned (W-101) | §3.3 |
+| the code slot | Implemented (W-101), with C-64 to C-67 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
 | three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
@@ -858,7 +873,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-49 | [§2.1](#21-the-module-option), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A method's policy follows its module's option. | A method instance's policy is read at its first use and cached in its flags (an image does not keep it); a module option set after one of the module's methods was first called leaves that method's policy as first read. | `src/gf.c` (`mi_policy`) |
 | C-50 | [§2.4](#24-calls-between-policies) | The operation of `modifyfield!`, `modifyglobal!` and `memoryrefmodify!`, and a builtin that calls a function, reached by a dynamic call, dispatch with the policy of the code that calls them. | They reach with the setting's default; so does an ABI converter's generic call. | `src/builtins.c` (`jl_apply_reach`), `src/datatype.c`, `src/codegen.cpp` (`emit_abi_dispatcher`) |
 | C-51 | [§4.8](#48-negatives-never-fold-positives-through-entries), [§3.1](#31-the-record) | A positive answer through an entry folds, with the code's worlds from the entry's and the entry in its record. | It folds at `isa`, `<:` and a dispatch match in the frame being inferred. `typeassert`'s nothrow, `typesubtract`, the optimizer's own `isa` queries and the semi-concrete pass leave such an answer unfolded. | `Compiler/src/typeutils.jl` (`positive_fold_blocked`), `Compiler/src/tfuncs.jl` |
-| C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | An emitted call's edge is a dispatch edge; a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. Result edges come with the code slot (W-101); the rest with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
+| C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | Result edges are listed apart, on the CodeInstance's analysis results (W-101); a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. The rest comes with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
 | C-53 | [§2.6](#26---trim) | A trimmed image writes no facts flags. | It keeps the module's and the methods' flags; nothing reads them under `--trim`, and its CodeInstances are all plain. | `src/staticdata.c` |
 | C-54 | [§6.2](#62-compilation-signatures), [§6.3](#63-the-attribute-at-a-call) | At each argument whose declared type is a set, or a parameter bounded by one, the attribute chooses the compilation signature. | An argument typed by a `where` variable bounded by a set, or by a set whose type has a free variable (`X{T}` with `T` a method's variable), is compiled for the value's type whatever its attribute: the method's body is compiled for its variables' values. | `src/gf.c` (`is_trait_arg_type`) |
 | C-55 | [§6.3](#63-the-attribute-at-a-call) | A set's default does not apply to a value whose type Julia's own modules define. | Julia's own modules are `Core` and `Base`: a standard library's type takes the set's default as a package's type would. A module of a script (under `Main`) counts as a package of its own. | `src/gf.c` (`type_is_own`, `module_package`) |
@@ -870,3 +885,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
 | C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-never-fold-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
 | C-63 | [§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries) | A match through `Callable` carries the world range of the member's methods it rests on. | Its world range is not bounded by them: a task in a world before the member's method existed can reach a dispatch cache entry made later. | `src/gf.c` (`ml_matches`), `src/subtype.c` |
+| C-64 | [§3.3](#33-the-code-slot) | Reflection shows the code that runs. | `code_llvm` and `code_native` compile a CodeInstance of their own, with no record of result edges: they show each call bound by address, where the code that runs calls through a slot. | `Compiler/src/typeinfer.jl` (`slot_result_edges`: only for cached CodeInstances) |
+| C-65 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A loaded image's caller of a callee that the session changed before the load is marked and revalidated, as a caller in the session is. | Validation at load does not mark: such a caller is dropped and compiled again. | `base/staticdata.jl` (`verify_method_graph`) |
+| C-66 | [§3.3](#33-the-code-slot) | A cycle of marked CodeInstances is revalidated as one. | Revalidation goes depth first; a CodeInstance met again on its own path fails, and the cycle's CodeInstances are compiled again. | `src/gf.c` (`revalidate_code_instance`) |
+| C-67 | [§3.3](#33-the-code-slot), [facts §6.4](facts.md#64-the-compilers-own-code) | Every static call with only a result edge goes through a slot. | The compiler's own code, compiled while it bootstraps itself, binds every call: its call targets need not be cached then. Its callers are invalidated as before. | `Compiler/src/typeinfer.jl` (`slot_result_edges`, `bootstrapping_compiler`) |

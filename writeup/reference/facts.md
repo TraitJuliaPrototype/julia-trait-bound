@@ -133,7 +133,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new membership (§10);
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (W-101). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
 
 ### 2.3 Two tiers
 
@@ -199,7 +199,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a CodeInstance it holds a code edge to is invalidated, or one it holds a result edge to changes its result. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
 - **A result edge** to a callee recompiled to an equal result is revalidated, not broken ([compiler §3.3](compiler.md#33-the-code-slot)).
 
-**Status:** Implemented on `unified` (W-100) for facts, binding edges, code edges as CodeInstance edges and positive memberships (compiler §3.1, with C-52); result edges and their revalidation with the code slot (W-101).
+**Status:** Implemented on `unified` (W-100) for facts, binding edges, code edges as CodeInstance edges and positive memberships (compiler §3.1, with C-52); result edges and their revalidation with the code slot (W-101; compiler §3.3, with C-64 to C-67).
 
 ---
 
@@ -458,11 +458,11 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | Item | Status | Where |
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 20 of 21 acceptance cases in both settings (E-277) | §2.1 |
-| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot W-101; guards W-112 | §2.2 |
+| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); guards (W-112) | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
-| result edges and the code slot | Planned (W-101) | §4.3, §6.3 |
+| result edges and the code slot | Implemented (`unified`, W-101), with compiler C-64 to C-67 | §4.3, §6.3 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Planned (W-109) | §9 |

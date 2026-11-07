@@ -26,6 +26,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Fully typed mode in the compiler, explained by the library** (compiler §2.7; [decisions](record/decisions.md) §9), and `AbstractTypeError` for an abstract result (traits §14).
 - **Compiling ahead asks for the instance a static call at the member runs** (lowering §12; [decisions](record/decisions.md) §9).
 - **W-101 (the code slot) after W-113 and W-114:** the language first, the slot's optimization last ([decisions](record/decisions.md) §9).
+- **The code slot as built** (compiler §3.3; [decisions](record/decisions.md) §9; [the plan](plans/2026-11-07-w101-the-code-slot.md)): a slot per call site checked against the task's world; the result edges on the CodeInstance's analysis results; a mark as a lowered `max_world` with a flag, made valid again where code is looked up in the latest world.
 - **No method of Base carries the boundary flag** in the product setting, by E-279: the plain code facts code rests on satisfies G2 itself (compiler §2.2; [decisions](record/decisions.md) §9).
 - **W-100 developed on the stack's top** (branch `w100`), its commits confined to the facts mode for a later rebase onto vanilla ([decisions](record/decisions.md) §9).
 - **The query world is the task's,** restored by exception handlers as the world age is (compiler §4.11; [decisions](record/decisions.md) §9; the audit's A4 proposed the subtyping environment).
