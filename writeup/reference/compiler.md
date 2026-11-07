@@ -306,7 +306,7 @@ Questions about open sets are answered in three layers:
 - **`jl_type_intersection`, `jl_has_empty_intersection`, `obviously_disjoint` and the type cache** stay exact in the current world: a known member keeps the exact result; a concrete non-member gives `Union{}`; an abstract type that no entry relates to the set meets it as their intersection `All{X, T}` (§4.9): the members of `X` below `T`, whenever they are declared. Dispatch's match construction and the inliner's union split see only members. A concrete type no entry of whose chain can reach the set is obviously disjoint from it, by the reachability of §4.5.
 - **`jl_could_join(S, X)`** answers whether `S` could become a member of `X`. Inference's lattice and the guards' shadow query (§5.6) use it; dispatch's match construction does not.
 
-**Status:** Implemented on `unified` 62016706d0; a concrete non-member's disjointness by reachability 88daaca7fe; the meet of a set and an abstract type on branch `w107-probe` 5a161a28a4 (W-107), C-33 on `unified`. The meet as `All{X, T}`: mine (2026-11-07).
+**Status:** Implemented on `unified` 62016706d0; a concrete non-member's disjointness by reachability 88daaca7fe; the meet of a set and an abstract type as `All{X, T}` 8a9144928e (W-107; mine, 2026-11-07).
 
 ### 4.8 Negatives never fold; positives through entries
 
@@ -337,7 +337,7 @@ Core.All{X, Y}
 - **In the normal form, further:** a variable as a component is in a covariant position, and the diagonal rule applies to it; a `Union` component distributes (`All{Union{A, B}, Y}` is `Union{All{A, Y}, All{B, Y}}`); a component that is itself an intersection under a `UnionAll` is flattened; two closed components whose intersection Julia computes exactly are replaced by it.
 - **Its name** is not exported by `Core` ([open issue 148](../open-issues.md#2-design)).
 
-**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"). Subtyping, the normal form, intersection and dispatch at an intersection built on branch `w107-probe` 5a161a28a4, outside the stack until the stage is done; specificity (§5.2) and the report's joint method (§5.4) to come; the encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` 8a9144928e (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"), but for the key at an intersection (W-110) and the split's candidates (W-109). The encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft).
 
 ### 4.10 Type values
 
@@ -378,7 +378,9 @@ In `type_morespecific_`, at each argument:
 
 So `Method.interferences`, `detect_ambiguities` and the insertion walk order these pairs as any others. Inserting `f(::X)` reaches only the specializations of `f(::Any)` and the "no method" facts. The `obviously_disjoint` short-circuit is bypassed where either side has an open set.
 
-**Status:** Implemented on `unified` 62016706d0, but for intersections (W-107).
+- **A later membership can order two sets.** `Method.interferences` is recorded when a method is inserted. Method matching asks a recorded pair whose two signatures name open sets again, in the query's world (§4.11). Memberships only grow and a cycle among sets is refused (§4.4), so the record over-states such a pair's ambiguity and never under-states it.
+
+**Status:** Implemented on `unified` 62016706d0; intersections and the pair asked again 8a9144928e (W-107; the pair asked again: mine, 2026-11-07).
 
 ### 5.3 Match world ranges and abstract queries
 
@@ -387,16 +389,16 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 - At a query at a set, a method at an abstract type matches likewise.
 - A concrete query that is not a member meets no method at the set.
 
-**Status:** Implemented on `unified` 29035cab11, but for the matches at an abstract query: on branch `w107-probe` 5a161a28a4 (W-107), C-33 on `unified`.
+**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107).
 
 ### 5.4 The ambiguity report at a membership
 
-At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, with no method more specific for the member, a warning names the pair and the joint method's signature. Strict mode makes it an error. A method that dominates every common member suppresses it.
+At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, with no method more specific for the member, a warning names the pair and the joint method's signature: the two signatures' intersection, where the two sets meet as `All{X, Y}` (§4.9). Strict mode makes it an error. A method that dominates every common member suppresses it.
 - The question is asked at the methods' own arity: each method's signature with the member in place of its set, the two intersected. An empty intersection is no ambiguity.
 - At those call types the two methods are ambiguous as `Base.isambiguous` decides: both match, neither is more specific, and no matching method more specific than both covers the types.
 - One warning per function and pair of sets.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member; for a pattern, C-29. Strict mode's error with strict mode (W-114).
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107); for a pattern, C-29. Strict mode's error with strict mode (W-114).
 
 ### 5.5 A membership lowers dispatch caches
 
@@ -759,9 +761,9 @@ Each applies to all code.
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
 | three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); W-100 for the fold's world | §4.7, §4.8 |
-| intersections `All{X, Y, Z, …}` | Planned (W-107) | §4.9 |
+| intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0) | §4.10 |
-| methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0); intersections W-107 | §5.1–§5.3 |
+| methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9) for a concrete member; C-29; strict mode's error W-114 | §5.4 |
 | dispatch caches lowered at a membership | Implemented (`unified` 29035cab11) as the stopgap, C-18 | §5.5 |
 | guards and cells | Planned (W-112) | §5.6 |
@@ -784,7 +786,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714). IDs are shared with the record's other references and never reused.
+Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
@@ -804,5 +806,5 @@ Branch `unified` at ec4f9a8714 (stage 1, W-98: the type system 62016706d0, dispa
 | C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
 | C-31 | [§10.4](#104-the-member-hook) | The hook also runs in the compile queue, before a CodeInstance that relies on the member is published; a failing check compiles that use as the `ImplementError`. | Only at dispatch: a call compiled with the member's type known reaches the trait's method without a check, and a member that fails raises `MethodError` there. | `src/gf.c` |
 | C-32 | [§4.6](#46-one-instance-per-member) | A second instance of a set is refused where it differs in a parameter that is not an input. | The runtime does not know the inputs: a member at a second value of an input is refused too. | `src/datatype.c` (`jl_declare_membership`) |
-| C-33 | [§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries) | An open set and an abstract type that no entry relates meet as `All{X, T}`, so a query at either side sees the methods at the other. | On `unified` ec4f9a8714 they meet as `Union{}`: an abstract query drops a method at a set, and a query at a set drops the methods at abstract types. So `g(@nospecialize(x::AbstractVector)) = f(x)` calls `f(::Any)` for a member of `X` where `f(::X)` exists, and code compiled at a set raises `MethodError` at `length(x)`. Fixed on branch `w107-probe` 5a161a28a4; retires when W-107 joins the stack. | `src/subtype.c` (`intersect`, where the supertype chains miss); gate `n2_open_abstract` |
-| C-34 | [§4.9](#49-intersections) | A component that is itself an intersection under a `UnionAll` is flattened into the normal form. | On branch `w107-probe` it stays one component: `All{All{X, Q{T}} where T, Z}` keeps two components. Subtyping still answers by the components. | `src/jltypes.c` (`jl_type_all`) |
+| C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
+| C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |

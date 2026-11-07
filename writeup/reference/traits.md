@@ -200,8 +200,9 @@ Dynamic{All{Shape, Placed}}(x)                     # kept with both traits
 - At an argument typed by an intersection, the key is the member's keys for each component (§7.2), and an operation's split takes the first component's members that are members of every component (§7.9).
 - A bundle is a `const` alias of an intersection. Its members are every type that is a member of all of its components, whoever declared them.
 - `@implement (X, Y) S` declares both memberships (§5.6).
+- **The name comes from the library:** TraitWorld exports `All`, which is `Core.All`; `Core` does not export it. A module that also uses DataAPI's `All` (DataFrames' column selector) qualifies one of them.
 
-**Status:** Planned (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}").
+**Status:** Implemented (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}") on `unified` 8a9144928e with TraitWorld `unified` ae4d250, but for the key at an intersection (W-110) and the split's members (W-109). The name from the library: mine (2026-11-07; [open issue 148](../open-issues.md#2-design), its recommendation (b)).
 
 ---
 
@@ -517,14 +518,14 @@ describe(x) = "something else"
 - **Between traits:** by subtyping. A subtrait is more specific than its supertrait; an intersection than each of its components. Unrelated traits are unordered.
 - `Any` is the least specific, as always.
 
-**Status:** Implemented on `unified` 62016706d0 ([compiler §5.2](compiler.md#52-specificity)), but for intersections (W-107).
+**Status:** Implemented on `unified` 62016706d0 ([compiler §5.2](compiler.md#52-specificity)); intersections 8a9144928e (W-107).
 
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
 - **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3). A method that dominates every common member suppresses the report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership); C-29 for a pattern): the warning names the function, the two traits and the joint method's signature at the member; `f(::All{…})` with intersections (W-107); the error under strict mode with W-114.
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership); C-29 for a pattern): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode with W-114.
 
 ### 6.4 The fallback
 
@@ -1087,7 +1088,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
-| intersections `All{X, Y, Z, …}`; bundles as aliases | Planned (W-107) | §3.6 |
+| intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
 | declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
@@ -1098,7 +1099,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
 | checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714), at dispatch (C-31); in images W-108 | §5.10 |
 | overrides fixed; redeclaration | Planned (W-108); a redeclaration's entry implemented (`unified` 62016706d0) | §5.11 |
-| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9), but for intersections (W-107) | §6.2–§6.4 |
+| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
 | fully bounded and open methods | Planned (W-109) | §7.3 |

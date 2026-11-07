@@ -16,6 +16,8 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **E-269's failed gate answered in the runtime** (disjointness by reachability, the typemap's world range) rather than BaseTraits' operations off Base's functions, and the exact-type call-cache entries dropped (compiler §4.7, §8.2; [decisions](record/decisions.md) §9).
 - **`All{X, Y}` encoded as the abstract type `Core.All{Tuple{X, Y}}`,** with branches at every site that reads a type's name, supertype or parameters (compiler §4.9; reviewed by Fable, [the review](reviews/2026-11-07-all-representation.md); [decisions](record/decisions.md) §9).
 - **An open set meets an abstract type as `All{X, T}`** (compiler §4.7, §5.3; C-33): a query at an abstract type sees the methods at sets, so inference at such a query is less precise where no closed method covers it ([decisions](record/decisions.md) §9).
+- **The library exports `All`; `Core` does not** (open issue 148's recommendation (b); [traits §3.6](reference/traits.md#36-intersections); [decisions](record/decisions.md) §9).
+- **Method matching asks a recorded interference between two methods at open sets again, in the query's world,** so a later set-in-set membership orders them (compiler §5.2; [decisions](record/decisions.md) §9).
 - **The query world is the task's,** restored by exception handlers as the world age is (compiler §4.11; [decisions](record/decisions.md) §9; the audit's A4 proposed the subtyping environment).
 - **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the eleven useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the per-call-site cache's exact-type entries wait for W-109 (they slowed sites that see many types, [PE-20](record/performance-explorations.md)); the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
 
@@ -41,6 +43,7 @@ Deferred by the user (s25), to take up when wanted:
 148. **The name `All` collides with DataAPI's `All`** (W-107; found 2026-11-07). The user's spelling for intersections is `All{X, Y, Z, …}` (Q5 (a); [traits §3.6](reference/traits.md#36-intersections)). DataAPI exports a type `All` (a column selector, `select(df, All())`), and DataFrames re-exports it; the DataFrames port uses it. If `Core` exported `All`, every module that uses DataFrames would see two `All`s and have to qualify one. The build keeps `Core.All` unexported for now (W-107's probe); trait code would reach it through the library.
    - **Options:** (a) `Core` exports `All`, and DataFrames code qualifies `DataAPI.All`; (b) the library exports `All` (= `Core.All`), so only modules that use both qualify; (c) another name, such as `Both`, `AllOf` or `Meet`.
    - **Recommendation:** (b): trait code gets the user's spelling, plain Julia keeps its names, and the clash is local to modules that use both.
+   - **Taken for now:** (b), mine (2026-11-07): TraitWorld `unified` ae4d250 exports `All` ([traits §3.6](reference/traits.md#36-intersections)); for the user to confirm (§1).
 
 **From TraitMakie's REPL session (2026-10-29):**
 
