@@ -153,13 +153,17 @@ Expr(:meta, :facts_always)     # always compiled by facts
   | always facts, or in a module of flag 1 | facts |
   | in a module of flag 2 (the compiler) | plain |
   | a boundary | the policy of the code that reaches it |
-  | any other (a *neutral* method) | the session's default: plain in the product setting, facts under the test bed (§2.5) |
+  | any other (a *neutral* method) | plain in the product setting; under the test bed, the policy of the code that reaches it (§2.5) |
 
-- **A CodeInstance records its policy** in its flags. A lookup asks for the policy the method has; a CodeInstance of the other policy never stands in.
-- So a neutral method in the product setting has plain code only, whoever calls it. A boundary has up to one CodeInstance per policy.
+- **What reaches code:**
+  - compiled code and the interpreter reach with the policy of the code they run;
+  - the runtime's own entries reach with the setting's default: plain in the product setting, facts under the test bed. They are the C API (`jl_call`, `jl_apply` from C), task entry, finalizers, `@cfunction` pointers, a module's `__init__`, staging a generated function, and a compile request (`precompile`, the compile queues).
+  - A top-level thunk's policy is its module's: facts for flag 1, plain for flag 2, the setting's default otherwise.
+- **A CodeInstance records its policy** in its flags. A lookup asks for the policy the code is wanted in; a CodeInstance of the other policy never stands in.
+- So a neutral method in the product setting has plain code only, whoever calls it. A method that takes the policy of the code reaching it has up to one CodeInstance per policy.
 - Under `--trim` every method is plain (§2.6).
 
-**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100): the policy bit in a CodeInstance's flags, set at its creation from its method instance's policy and kept in images; the lookups of Julia's own owner take only a CodeInstance of that policy. A boundary: C-44. The test bed's default for neutral methods: §2.5. Under `--trim`: Planned.
+**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100) for the methods of a fixed policy: the policy bit in a CodeInstance's flags, set at its creation from its method instance's policy and kept in images; the lookups of Julia's own owner take only a CodeInstance of that policy. The policy of the code that reaches a method: Planned (W-100; C-44). Under `--trim`: Planned.
 
 ### 2.4 Calls between policies
 
@@ -169,16 +173,21 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - **Constant propagation from plain code into a facts callee** infers the callee again for the constants under the facts policy, in a call stack of its own; the result is the caller's, the edges that inference's.
 - **Concrete and semi-concrete evaluation** of a facts callee from plain code use its effects as facts inferred them, with a code edge to its CodeInstance; not over a run-time site.
 - A facts caller of the compiler's own plain code propagates no constants into it.
-- **At run time,** every dispatch runs the selected method's code of its policy, whoever dispatches: generic calls, `invoke`, `_apply_iterate`, `invokelatest`, `jl_apply`, `@cfunction` pointers, finalizers, task entry.
+- **A callee that takes the policy of the code reaching it** is inferred under the caller's policy, in the caller's inference.
+- **At run time,** every dispatch runs the selected method's code of its policy (§2.3), for the policy of the code that dispatches:
+  - **from compiled code:** generic calls, `invoke`, and the builtins that call a function: `_apply_iterate`, `invokelatest`, `invoke_in_world`, `_call_in_world_total`, `Core.invoke`, and the operation of `modifyfield!`, `modifyglobal!` and `memoryrefmodify!`. Compiled code of each policy calls an entry of its own, and the builtin passes the policy on to every dispatch it makes;
+  - **from the interpreter:** the policy of the code it runs;
+  - **from the runtime's own entries** (§2.3): the setting's default.
 
-**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100) for inference: a callee of the other policy is inferred in an inference of its own and the caller rests on its CodeInstance; at run time every dispatch takes the method's code of its policy. With C-45.
+**Status:** Implemented on branch `w100` 10c7e1c2cf (W-100) for inference: a callee of the other policy is inferred in an inference of its own and the caller rests on its CodeInstance; at run time every dispatch takes the method's code of its policy. With C-45. The policy of the code that dispatches: Planned (W-100; C-44).
 
 ### 2.5 The test bed
 
-- With `JULIA_COMPILE_BY_FACTS=1` (Planned spelling: `--compile-by-facts=all`), every neutral method's policy is facts: *the test bed* `all`. The compiler stays plain.
+- With `JULIA_COMPILE_BY_FACTS=1` (Planned spelling: `--compile-by-facts=all`), every neutral method takes the policy of the code that reaches it, and the runtime's own entries reach with facts: *the test bed* `all`.
+- So every method that user code reaches is compiled by facts. The compiler stays plain, and so do the neutral methods it reaches; their plain code in the system image serves it.
 - An image records the policy of each CodeInstance, so it is correct under either setting. The other setting finds no code of its policy and compiles it. The test bed keeps a depot of its own, for speed.
 
-**Status:** The switch implemented on branch `w100` 4ba5b7025f (W-100), and the compiler's modules never by facts; a session under it does not start: C-48, [open issue 149](../open-issues.md#2-design). The spelling `--compile-by-facts=all`: Planned.
+**Status:** The switch implemented on branch `w100` 4ba5b7025f (W-100), and the compiler's modules never by facts; a neutral method's policy there is facts, whoever reaches it, and a session does not start: C-48. The policy of the code that reaches it: Planned (W-100; §2.3). The spelling `--compile-by-facts=all`: Planned.
 
 ### 2.6 `--trim`
 
@@ -817,8 +826,8 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `@bounded` once at the method's definition; it is not kept; no constructor is exempt. | TraitWorld `src/classify.jl` |
 | C-42 | — | *Retired* (2026-11-07): code of both policies under Julia's own owner on branch `w100` 10c7e1c2cf ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `f3_policy_code` | — | — |
 | C-43 | [§2.2](#22-the-method-flag) | Lowering carries a method's policy meta into every method a definition makes (keyword sorters, positional forwarders). | Only the method whose body holds the meta takes it. | `src/method.c` (`jl_method_set_source`) |
-| C-44 | [§2.2](#22-the-method-flag), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A boundary is compiled in the policy of the code that reaches it, with up to one CodeInstance per policy. | A boundary's code is plain, whoever reaches it. | `src/gf.c` (`mi_policy_facts`), `Compiler/src/facts.jl` |
+| C-44 | [§2.2](#22-the-method-flag), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](#24-calls-between-policies) | A boundary, and under the test bed a neutral method, is compiled in the policy of the code that reaches it, with up to one CodeInstance per policy; dispatch knows the policy of the code that dispatches. | A boundary's code is plain, whoever reaches it; dispatch takes the method's own policy. | `src/gf.c` (`mi_policy_facts`), `Compiler/src/facts.jl` |
 | C-45 | [§2.4](#24-calls-between-policies) | Constant propagation from plain code into a facts callee infers the callee again under the facts policy; concrete evaluation of a facts callee from plain code uses its facts effects with a code edge. | Constant propagation and constant evaluation into a callee of the other policy run under the caller's policy, in the caller's inference; past four nested inferences of the other policy a call is answered as unknown. | `Compiler/src/facts.jl` (`typeinf_other_policy`) |
 | C-46 | [§3.2](#32-g2-as-a-predicate) | The bit holds when every dispatch edge is at a fact signature and every inlined callee's own record satisfies G2. | Every dispatch edge at a fact signature: an inlined callee's own record is not consulted, since the edges do not tell an inlined callee from a called one. | `Compiler/src/facts.jl` (`edges_satisfy_g2`) |
 | C-47 | [§1.4](#14-return_type) | In code compiled by facts, plain inference's answer is folded where it rests on facts (at most four concrete signatures, one covering method each, every edge at a fact). | Such an answer is asked at run time too: only a constant, a concrete type that is not a kind, or `Union{}` from the facts answer is folded. | `Compiler/src/tfuncs.jl` (`return_type_tfunc`) |
-| C-48 | [§2.5](#25-the-test-bed) | Under the test bed every neutral method is compiled by facts and the compiler stays plain. | A session under `JULIA_COMPILE_BY_FACTS=1` recurses at start-up and crashes: the compiler's calls into Base's neutral methods need their facts code, which only the compiler makes (E-274; open issue 149). | `src/module.c` (`jl_method_is_facts`) |
+| C-48 | [§2.5](#25-the-test-bed) | Under the test bed a neutral method takes the policy of the code that reaches it, the runtime's own entries reach with facts, and the compiler stays plain. | Under `JULIA_COMPILE_BY_FACTS=1` a neutral method's policy is facts, whoever reaches it. A session recurses at start-up and crashes: the compiler's calls into Base's neutral methods need their facts code, which only the compiler makes (E-274). | `src/module.c` (`jl_method_is_facts`) |

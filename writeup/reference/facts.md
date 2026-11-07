@@ -236,8 +236,9 @@ The kind follows from the method and its module alone.
 | facts method | facts |
 | plain method | plain |
 | boundary method | the policy of the code that reaches it |
-| neutral method | the setting's: plain in the product setting, facts under the test bed `all` |
+| neutral method | plain in the product setting; under the test bed `all`, the policy of the code that reaches it |
 
+- **The code that reaches a method** is the code that calls it, of its own policy. Where the runtime itself calls (task entry, finalizers, `__init__`, a C caller), the setting's default reaches: plain in the product setting, facts under the test bed ([compiler §2.3](compiler.md#23-one-codeinstance-per-methodinstance-and-policy)). So under the test bed everything user code reaches is compiled by facts, and the compiler's own calls stay plain.
 - **One CodeInstance per MethodInstance and policy.** A CodeInstance records its policy; a lookup never takes code of another policy. A neutral method in the product setting has only plain code, whoever calls it.
 - **Under `--trim`** every method is plain (§13.3).
 
@@ -251,7 +252,7 @@ The kind follows from the method and its module alone.
 - **Constant propagation from plain code into code compiled by facts** infers the callee again for the constants by the facts rules, in a call stack of its own. The result stays the caller's; the caller's edges are that inference's, facts on the path the constants take.
 - **Concrete and semi-concrete evaluation** from plain code into a facts callee use the callee's effects as facts inferred them, with a code edge; not where the callee holds a run-time site.
 - **Code compiled by facts calling the compiler's own plain code** propagates no constants into it.
-- **At run time** each callee runs its own policy's code (§5).
+- **At run time** each callee runs its own policy's code (§5). A callee that takes the policy of the code reaching it runs the code of the caller's policy, through every way of calling: a generic call, `invoke`, a splat, `invokelatest`.
 
 **Status:** Planned (W-100).
 
