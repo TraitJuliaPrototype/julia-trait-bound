@@ -114,7 +114,7 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
 
-**Status:** Implemented in Julia's type system on branch `unified` e0487d74d9 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented in Julia's type system on branch `unified` 62016706d0 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2.
 
 ### 3.2 Parameters
 
@@ -146,7 +146,7 @@ end
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
-**Status:** Implemented on `unified` e0487d74d9 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks), but for a member at several values of an input, which the runtime refuses as a second instance (compiler C-32). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
+**Status:** Implemented on `unified` 62016706d0 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks), but for a member at several values of an input, which the runtime refuses as a second instance (compiler C-32). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
 
 ### 3.3 Where a trait stands
 
@@ -292,7 +292,7 @@ end
 - **Several supertraits:** `@trait C <: (A, B)`. `C`'s members must join `C`, and are then members of `A` and of `B`. A name for "a member of both" is an intersection (§3.6).
 - **Parameters:** a supertrait is written with the subtrait's parameters, constants and type constructors. Every member of `B{U, T, P}` is a member of `A{U, T, P}`.
 
-**Status:** Implemented on `unified` e0487d74d9 and in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented on `unified` 62016706d0 and in TraitWorld `unified` e7ff8e2.
 
 ### 4.6 The trait's default attribute
 
@@ -444,7 +444,7 @@ end
 - A membership of a trait in a trait applies only to a trait without declared fields; a trait with fields needs each type's own membership, which locates them.
 - Each member reached this way is checked at its first use.
 
-**Status:** Implemented on `unified` e0487d74d9 and in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented on `unified` 62016706d0 and in TraitWorld `unified` e7ff8e2.
 
 ### 5.10 Checks
 
@@ -476,7 +476,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - **Which operations defaults serve for a member is fixed at its membership.** A later method of such an operation for the member is refused when it is defined (`ImplementError`). The message names the fix: define the method before the membership, or in its block. A package image that brings such a method is refused when it loads.
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Planned (W-108, the definition hook); a redeclaration's new entry on `unified` e0487d74d9.
+**Status:** Planned (W-108, the definition hook); a redeclaration's new entry on `unified` 62016706d0.
 
 ### 5.12 Types that only convert
 
@@ -509,7 +509,7 @@ describe(x) = "something else"
 - Any method in any module may name a trait in its signature. It is a method of its generic function, dispatched by Julia.
 - Its body may do with the argument what any body may do with an abstract-typed argument. What the body does decides how the method is compiled (§7.3), never what it means.
 
-**Status:** Implemented in Julia's dispatch on `unified` 7db137f922 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled (§7.3): W-109.
+**Status:** Implemented in Julia's dispatch on `unified` 29035cab11 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled (§7.3): W-109.
 
 ### 6.2 Specificity
 
@@ -517,20 +517,20 @@ describe(x) = "something else"
 - **Between traits:** by subtyping. A subtrait is more specific than its supertrait; an intersection than each of its components. Unrelated traits are unordered.
 - `Any` is the least specific, as always.
 
-**Status:** Implemented on `unified` e0487d74d9 ([compiler §5.2](compiler.md#52-specificity)), but for intersections (W-107).
+**Status:** Implemented on `unified` 62016706d0 ([compiler §5.2](compiler.md#52-specificity)), but for intersections (W-107).
 
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
 - **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3). A method that dominates every common member suppresses the report.
 
-**Status:** Implemented on `unified` 67cc090897 for a concrete member ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership); C-29 for a pattern): the warning names the function, the two traits and the joint method's signature at the member; `f(::All{…})` with intersections (W-107); the error under strict mode with W-114.
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership); C-29 for a pattern): the warning names the function, the two traits and the joint method's signature at the member; `f(::All{…})` with intersections (W-107); the error under strict mode with W-114.
 
 ### 6.4 The fallback
 
 A value that matches no method at a trait reaches the most specific method that applies, as in Julia, or raises `MethodError`. A member at other parameter values than a method states, or a broken shared variable, is such a value.
 
-**Status:** Implemented on `unified` 7db137f922: Julia's dispatch.
+**Status:** Implemented on `unified` 29035cab11: Julia's dispatch.
 
 ### 6.5 Results
 
@@ -1082,10 +1082,10 @@ A second way for a type to join a trait, used only where a caller names it, is a
 
 | Construct | Status | Section |
 |---|---|---|
-| a trait is an abstract type; membership, transitivity, worlds | Implemented (`unified` e0487d74d9) | §3.1 |
-| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` e0487d74d9, TraitWorld e7ff8e2); inputs: compiler C-32 | §3.2 |
+| a trait is an abstract type; membership, transitivity, worlds | Implemented (`unified` 62016706d0) | §3.1 |
+| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs: compiler C-32 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
-| a trait wherever a type stands | Implemented (`unified` 7db137f922) | §3.3 |
+| a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Planned (W-107) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
@@ -1096,9 +1096,9 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
 | forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
-| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` 3ad297247e), at dispatch (C-31); in images W-108 | §5.10 |
-| overrides fixed; redeclaration | Planned (W-108); a redeclaration's entry implemented (`unified` e0487d74d9) | §5.11 |
-| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` e0487d74d9, 67cc090897), but for intersections (W-107) | §6.2–§6.4 |
+| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714), at dispatch (C-31); in images W-108 | §5.10 |
+| overrides fixed; redeclaration | Planned (W-108); a redeclaration's entry implemented (`unified` 62016706d0) | §5.11 |
+| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9), but for intersections (W-107) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
 | fully bounded and open methods | Planned (W-109) | §7.3 |
