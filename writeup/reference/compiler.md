@@ -45,7 +45,7 @@ Compiler.facts_mode(interp::AbstractInterpreter)::Bool
 - An inference of a MethodInstance runs with `facts` set to its method's policy (§2). Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags (§2.3).
 - Only `NativeInterpreter` has the mode. Any other `AbstractInterpreter` infers by its own rules.
 
-**Status:** Planned (W-100).
+**Status:** The interpreter's mode implemented on branch `w100` 28fe27b2f7 (W-100), with C-42; an inference run under its method's policy (§2.3): Planned (W-100).
 
 ### 1.2 Fact signatures
 
@@ -66,7 +66,7 @@ A union at a call's top level is split as Julia splits it, each split a fact sig
 
 A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`.
 
 ### 1.3 Run-time sites
 
@@ -81,7 +81,7 @@ Effects.nortsite::Bool          # no run-time site, here or in a callee
 - Its result type is `Any`, its exception type `Any`, its effects unknown, except where a declared result types it (§7.1). Codegen emits a dynamic dispatch.
 - **It clears `nortsite`,** an effects bit carried to every caller as `nortcall` is, stored inverted in a CodeInstance's effects.
 
-**Status:** Planned (W-100).
+**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100); the split's fallback (§7.2) marks one under the facts mode with W-100's policy.
 
 ### 1.4 `return_type`
 
@@ -109,7 +109,7 @@ Compiler.PlainRTInterp(world::UInt) <: AbstractInterpreter      # its own cache 
 
 Under the facts mode no asserted effect applies over a run-time site, at any depth: a method's `@assume_effects` is ignored where its frame's `nortsite` is clear, and a statement's where its call's is ([facts §8](facts.md#8-asserted-effects)).
 
-**Status:** Planned (W-100).
+**Status:** Implemented on branch `w100` 28fe27b2f7 (W-100).
 
 ---
 
@@ -130,7 +130,7 @@ Base.Experimental.@compiler_options facts=true
   - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
 - A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
-**Status:** Planned (W-100, W-111).
+**Status:** The module option implemented on branch `w100` beafa01b36 (W-100): `facts` and the four trait options, set by `Base.Experimental.@compiler_options`, inherited by submodules, saved with the module; their consumers: §2.3 (W-100) and W-109, W-111, W-114.
 
 ### 2.2 The method flag
 
@@ -142,7 +142,7 @@ Expr(:meta, :facts_always)     # always compiled by facts
 - `Method.facts::UInt8`: 0 as its module says; 1 a boundary; 2 always facts. Lowering carries the meta into every method a definition makes (keyword sorters, positional forwarders). It is saved with the method.
 - **The boundary flag is the second policy per method.** A neutral method has plain code only (§2.3), so facts code that calls it rests on code that loads may invalidate. A boundary gives facts code a facts copy that no load discards, for the methods where that matters. Which of Base's methods carry it is a choice of the setting, made by measurement ([evidence](../design/evidence.md)), not a rule of the design.
 
-**Status:** Planned (W-100). The boundary flag as the second policy per method: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M2.
+**Status:** The method flag implemented on branch `w100` beafa01b36 (W-100), with C-43. The boundary flag as the second policy per method: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M2.
 
 ### 2.3 One CodeInstance per MethodInstance and policy
 
@@ -815,3 +815,5 @@ Branch `unified` at 50da8d8ee2 (stage 1, W-98: the type system 62016706d0, dispa
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
 | C-40 | [§6.7](#67-the-definition-time-check) | One inference of the method at the erased signature, under a check flag of the native interpreter, records each use of a trait argument outside the contract; the classification is per argument. | The library infers the method with an interpreter of its own (`TraitWorld.ClassifyInterp`, an ephemeral cache, so every function it follows is inferred again) and records each call that takes a value typed by a trait outside the contract: per method, each use against the trait the value is known by. | TraitWorld `src/classify.jl` |
 | C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `@bounded` once at the method's definition; it is not kept; no constructor is exempt. | TraitWorld `src/classify.jl` |
+| C-42 | [§1.1](#11-the-policy-and-the-interpreter), [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | Code of either policy is cached under Julia's own cache owner, with the policy in the CodeInstance's flags. | On branch `w100`, a facts interpreter caches under an owner of its own (`:facts`). | `Compiler/src/types.jl` (`cache_owner`) |
+| C-43 | [§2.2](#22-the-method-flag) | Lowering carries a method's policy meta into every method a definition makes (keyword sorters, positional forwarders). | Only the method whose body holds the meta takes it. | `src/method.c` (`jl_method_set_source`) |
