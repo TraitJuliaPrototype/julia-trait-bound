@@ -19,6 +19,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **The library exports `All`; `Core` does not** (open issue 148's recommendation (b); [traits §3.6](reference/traits.md#36-intersections); [decisions](record/decisions.md) §9).
 - **Method matching asks a recorded interference between two methods at open sets again, in the query's world,** so a later set-in-set membership orders them (compiler §5.2; [decisions](record/decisions.md) §9).
 - **An image's memberships run the stopgap's walk and the ambiguity report at load,** as a declaration does (compiler §9; [decisions](record/decisions.md) §9).
+- **W-101 (the code slot) after W-113 and W-114:** the language first, the slot's optimization last ([decisions](record/decisions.md) §9).
 - **No method of Base carries the boundary flag** in the product setting, by E-279: the plain code facts code rests on satisfies G2 itself (compiler §2.2; [decisions](record/decisions.md) §9).
 - **W-100 developed on the stack's top** (branch `w100`), its commits confined to the facts mode for a later rebase onto vanilla ([decisions](record/decisions.md) §9).
 - **The query world is the task's,** restored by exception handlers as the world age is (compiler §4.11; [decisions](record/decisions.md) §9; the audit's A4 proposed the subtyping environment).
