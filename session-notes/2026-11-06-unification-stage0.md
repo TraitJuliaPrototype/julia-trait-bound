@@ -332,3 +332,10 @@ Recorded in CLAUDE.md. No choice tonight was high-impact enough for a Fable revi
 - After commit 4's entries were reused from the leaf cache, a site that sees many types still cost 50 % more than vanilla (`length` over 25 tuple types 189 against 121 ns; 50 containers 170 against 137). Dropped from the stack (PE-20); the wildcard entries stay. Commit 5's message no longer leans on it.
 - Method matching at a set still cost a non-member 48 %: the typemap computed the world range of the memberships the query reads (945 ns for an inference query with a `Vararg` tail) even for an empty intersection of a query with no entries anywhere. Now only where a membership can narrow it (`jl_type_has_memberships`), in the W-99 commit with the disjointness.
 - The stack: 17 commits (eleven general, two W-98, three W-99, one W-106).
+
+## W-107: the probe of All
+
+- **The representation** (mine, high impact, so a Fable review): `Core.All{T<:Tuple}` an abstract `DataType`; `All{X, Y}` applied as `Union{…}` is and built in its normal form, `All{Tuple{X, Y}}`; subtyping on the right each component, on the left some component, each try from the saved environment; the fast paths abstain. The alternative, a new kind beside `Union`, touches every place Julia and its compiler switch on kinds.
+- **The first build** aborted in `boot.jl`: `All{T<:Tuple}` lowers to a `TypeVar` call, and the declaration came before `TypeVar`'s constructors. Moved after them.
+- **The probe passes:** the normal form (order, duplicates, nesting, `Any`, `Union{}`, absorption by declared supertypes, closed types with nothing in common), subtyping with `Union`, `UnionAll`, `Vararg` and invariance, the normal form unchanged by a later set-in-set membership, printing. The 24 gates and E-262's four files pass with it.
+- **The name:** `Core` does not export `All`, since DataAPI exports `struct All{T<:Tuple}` and DataFrames re-exports it: open issue 148.
