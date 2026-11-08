@@ -313,6 +313,13 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 
   - Every timed session's digests equal its reference exactly.
   - **The steady state is 35 times U′'s.** Without callbacks PT's solves are U′'s (Tsit5 0.06 against 0.02 ms, Rodas5 0.43 against 0.55 ms; one session each, the minimum of 3). With the workload's 40 continuous component callbacks, one TDE `EventCallback` each, a Tsit5 solve takes 377 ms and 200 MB in 159 steps (U′: 2.3 ms, 0.17 MB, 162 steps). Not attributed further ([PE-18](../record/performance-explorations.md)).
+- **NetworkDynamics on the unified build** (E-309; `unified` 24c8d4db60, TraitWorld 24a5fcd, TDE fcee973, NetworkDynamics `unified` fc25b89; the shared host, load 7.6–9.9 of 128; a warm-up and 2 runs, one thread, niced; strict mode off; E-250's passes and `graphtype`; `ndport/scripts/u_workload.sh`). Interop and idiomatic trait code as in E-250. The digests equal the earlier build's.
+
+  | Build, port | Session | Graphs and NetworkDynamics loaded | First a–e | First plot (f) | New equations (b–e) | Steady state (`again` d) | A new graph type (`graphtype` b–e) |
+  |---|---|---|---|---|---|---|---|
+  | E-309: the model stored as itself | 71.0–72.1 s | 4.5–5.0 s | 17.6–17.9 s | 6.0 s | **6.6–6.7 s** | 189–230 ms | 7.2–7.4 s |
+
+  - **A new model compiles the code over the network again:** `Network`'s type names the user's component functions through the batches' parameter `M` (E-309's trace, `ndport/logs/unified/e309-trace-by-step.txt`).
 - **Threads in the facts mode** (E-152, S0, the wrapped package without traits): `ThreadedExecution` 43.8 µs and 5.2 kB per right-hand side against 9.2 µs and 2.8 kB upstream. One measurement; not diagnosed.
 - **NetworkDynamics wrapped as a trait module** (E-153, one run; Static.jl's promotion fixed): the steady state is faster (a Tsit5 and a Rodas5P solve with the cascade, 15.3 against 19.7 ms); the first simulation slower (steps a–e 37.8 against 21.5 s: the code it reaches is compiled by facts in the session, the first fixed point 21.9 against 6.5 s); the new equations the same (15 s). With the workload's own module a trait module too, the first plot takes 48.5 against 16.0 s (Makie compiled by facts in the session).
 
