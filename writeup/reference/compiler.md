@@ -257,6 +257,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
   - It holds the CodeInstance the site last called.
   - A call checks the task's world against that CodeInstance's world range, and calls its entry.
   - On a miss, the runtime finds the callee's code valid in that world, with the result the caller was compiled against, compiling it where needed. It puts that code in the slot.
+  - **Where no such code can be made,** it puts an entry with the call's signature that dispatches the call when it runs, in the task's world, and asserts the caller's result type. A boxed call runs the method's code in the interpreter. The entry is valid in every world.
   - Nothing else writes a slot. An image's slots start empty.
 - **When a callee is invalidated through its own edges,** a caller whose only edge to it is a result edge is marked for revalidation, not invalidated.
   - A callee replaced by a definition at its signature invalidates its callers.
@@ -271,7 +272,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
 - `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing. The system image keeps the slots it was built with.
 
-**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). With C-64 to C-69.
+**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). The entry where no code can be made on `unified` 49ab4294b6 (`code_slot_fallback`; the gate's case "the last resort", through a test switch). With C-64 to C-67 and C-69.
 
 ---
 
@@ -343,8 +344,10 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 ### 4.6 One instance per member
 
 A membership that would give a member a second instance of a set, differing in a parameter that is not an input, is refused at `jl_declare_membership`. The runtime checks it: exactly for a concrete member; for a pattern, by intersecting it with each pattern that already reaches the set. The library reports the refusal as `ImplementError`.
+- **The runtime knows a set's inputs:** the library writes them once at the declaration, before the set has a member (`jl_set_input_params(X, mask)`, a bit for each of the first eight parameters, on the set's `TypeName`; images keep it).
+- The check asks the member against the set at the new instance's input values, its other parameters free. A redeclaration ends only the entry at the same input values.
 
-**Status:** Implemented on `unified` 62016706d0 for a concrete member; for a pattern, C-27.
+**Status:** Implemented on `unified` 62016706d0 for a concrete member, a set's inputs on `unified` 350c5b1c59 (gate `n10_inputs`); for a pattern, C-27.
 
 ### 4.7 Three layers
 
@@ -596,7 +599,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 - A declared field read at such a value works the same way, and so does `getproperty` at a constant name `N` where the set is a subtype of a `HasProperty{N, R}`: its result is `R`.
 - Under the facts mode, each branch of the split is a fact; the fallback is a run-time site.
 
-**Status:** The rule for an operation's call implemented on `unified` e70675a606, compiled as the split (§7.2) with the result asserted. Declared fields implemented on `unified` 50da8d8ee2: the library writes a trait's declared fields on its `TypeName` (`jl_set_declared_fields`), inference reads them along the trait's supertraits. `getproperty` at a `HasProperty{N, R}`: with BaseTraits (W-114). The facts mode: W-100.
+**Status:** The rule for an operation's call implemented on `unified` e70675a606, compiled as the split (§7.2) with the result asserted. Declared fields implemented on `unified` 50da8d8ee2: the library writes a trait's declared fields on its `TypeName` (`jl_set_declared_fields`), inference reads them along the trait's declared supertypes, and along its supertraits (their instances from the set's own entries, `jl_supertrait_instances`) on `unified` 350c5b1c59. `getproperty` at a `HasProperty{N, R}`: on `unified` 350c5b1c59, a declared field named by the input `N` ([traits §4.3](traits.md#43-fields)). The facts mode: W-100.
 
 ### 7.2 The split
 
@@ -805,7 +808,7 @@ Each applies to all code.
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-46, C-51, C-52; cells W-112 | §3.1, §3.2 |
-| the code slot | Implemented (W-101), with C-64 to C-69 | §3.3 |
+| the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
 | three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
@@ -853,11 +856,11 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-29 | [§5.4](#54-the-ambiguity-report-at-a-membership) | For every member, the report asks at the call types where both methods apply, and a method that dominates every common member suppresses it. | For a pattern member (no instance to ask), a pair warns unless a method at one of the two sets, or at a set that joins one of them, is more specific than both. A closed method more specific than both is missed, so such a pair over-warns; the warning names no joint signature. | `src/gf.c` (`jl_membership_ambiguity_report`) |
 | C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
 | C-31 | [§10.4](#104-the-member-hook) | The hook also runs in the compile queue, before a CodeInstance that relies on the member is published; a failing check compiles that use as the `ImplementError`. | Only at dispatch: a call compiled with the member's type known reaches the trait's method without a check, and a member that fails raises `MethodError` there. | `src/gf.c` |
-| C-32 | [§4.6](#46-one-instance-per-member) | A second instance of a set is refused where it differs in a parameter that is not an input. | The runtime does not know the inputs: a member at a second value of an input is refused too. | `src/datatype.c` (`jl_declare_membership`) |
+| C-32 | — | *Retired* (2026-11-08): a set's inputs on `unified` 350c5b1c59 ([§4.6](#46-one-instance-per-member)); gate `n10_inputs` | — | — |
 | C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
 | C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |
 | C-35 | [§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache) | A membership that would give a member a second instance of a set is refused. | An image's memberships are activated at load without the check: two images that declare one member at two instances of a set both hold. | `src/datatype.c` (`jl_activate_memberships`) |
-| C-36 | [§6.8](#68-a-declared-result-on-method) | Lowering records `f(…)::RT` as the method's declared result. | Only the library sets one, on a trait's method for an operation, through `jl_method_set_declared_result`; lowering records none. | `src/gf.c`; TraitWorld `src/runtime.jl` (`_set_declared!`) |
+| C-36 | [§6.8](#68-a-declared-result-on-method) | Lowering records `f(…)::RT` as the method's declared result. | Only the library sets one, on a trait's method for an operation, through `jl_method_set_declared_result`; lowering records none. So a guarded call whose shadow is a method at a set joins `Any` ([open issue 158](../open-issues.md#2-design), the DataFrames fork's `test/tables.jl:86`). | `src/gf.c`; TraitWorld `src/runtime.jl` (`_set_declared!`) |
 | C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
 | C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
@@ -889,6 +892,6 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-65 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A loaded image's caller of a callee that the session changed before the load is marked and revalidated, as a caller in the session is. | Validation at load does not mark: such a caller is dropped and compiled again. | `base/staticdata.jl` (`verify_method_graph`) |
 | C-66 | [§3.3](#33-the-code-slot) | A cycle of marked CodeInstances is revalidated as one. | Revalidation goes depth first; a CodeInstance met again on its own path fails, and the cycle's CodeInstances are compiled again. | `src/gf.c` (`revalidate_code_instance`) |
 | C-67 | [§3.3](#33-the-code-slot), [facts §6.4](facts.md#64-the-compilers-own-code) | Every static call with only a result edge goes through a slot. | The compiler's own code, compiled while it bootstraps itself, binds every call: its call targets need not be cached then. Its callers are invalidated as before. | `Compiler/src/typeinfer.jl` (`slot_result_edges`, `bootstrapping_compiler`) |
-| C-68 | [§3.3](#33-the-code-slot) | A slot's miss always finds the callee's code valid in the task's world, with the caller's result. | Where no such code can be made, the miss raises an error: a task in an older world calling an image's caller whose callee's code there was never compiled and whose inference fails; a callee whose only entry there is boxed or interpreted while the call takes the specialized signature; a re-inference that folds to a constant. A fallback is planned: an entry with the specialized signature that dispatches and asserts the result. | `src/gf.c` (`jl_code_slot_resolve`); [the review](../reviews/2026-11-07-implementation-day.md) H1 |
+| C-68 | — | *Retired* (2026-11-08): the slot's entry where no code can be made, on `unified` 49ab4294b6 ([§3.3](#33-the-code-slot)); gate `slot_cascade.jl` | — | — |
 | C-69 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A marked caller is kept through an image written before its revalidation. | The image writer writes a marked caller as invalid (its lowered `max_world`): the image drops it. | `src/staticdata.c`; [the review](../reviews/2026-11-07-implementation-day.md) L3 |
 | C-70 | [§4.10](#410-type-values) | A kind of type object (`DataType`, `UnionAll`, `Union`) meets a set at which a type value is a member (an entry for `Type{S}`). | The intersection of a kind with a set reads the kind's own entries, which are none: it is `Union{}`, so a call at an argument typed by a kind finds no method at the set. For `Callable`, which takes a type by its constructors, the kinds meet it (`unified` 9dab7b6983). | `src/subtype.c` (`intersect_membership`, `obviously_disjoint`) |

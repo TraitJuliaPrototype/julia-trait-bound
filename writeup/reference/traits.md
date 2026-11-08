@@ -146,7 +146,7 @@ end
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
-**Status:** Implemented on `unified` 62016706d0 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks), but for a member at several values of an input, which the runtime refuses as a second instance (compiler C-32). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
+**Status:** Implemented on `unified` 62016706d0 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks); a member at several values of an input on `unified` 350c5b1c59 and in TraitWorld `unified` a658203 (gate `n10_inputs`), but for the refusal of an input left open (T-105). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
 
 ### 3.3 Where a trait stands
 
@@ -263,11 +263,11 @@ end
 - **A read-only field** may be stored at a subtype of its declared type.
 - **A writable field** needs a mutable member, a stored field that is not `const`, and a stored type equal to the declared type at the member's parameters. So a write never changes a type compiled code relies on.
 - **A member with its own `getproperty` or `setproperty!`** conforms only where they give the stored field at each declared name. The membership's check infers them at each name and refuses another result type.
-- A computed property is not a declared field. It is the operation of `HasProperty{N, R}` (§10.1).
+- A computed property is not a declared field. It is **a field named by an input parameter:** `@const N::R` with `@input N` declares `x.N`, of type `R`, at each value of `N` a member joins at. A stored field of that name or the member's own `getproperty` serves it; the check infers `getproperty` at the constant name. BaseTraits declares `HasProperty{N, R}` so (§10.1). Only an input names a field.
 - The declared fields' types are part of the key (§7.2). A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
 - **State some members write and others only read** is two traits: one that declares the field `@const`, and a subtrait that adds the operations that change it.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 (the user, 2026-11-06, Q7 (a)). Swift's protocol properties are the conforming type's own properties in the same way.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 (the user, 2026-11-06, Q7 (a)); a field named by an input in TraitWorld `unified` a658203, mine (2026-11-08). Swift's protocol properties are the conforming type's own properties in the same way.
 
 ### 4.4 `Self`
 
@@ -845,7 +845,7 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 | `MutableIndexable{T} <: Indexable{T}` | `c[i::Int] = x::T`, which keeps the length and reads back `x` at `i` | `T = eltype(Self)` | `Vector`, `BitVector`, a view of a member (`SubArray{T, 1, P} where {P <: MutableIndexable{T}}`) |
 | `Resizable{T} <: HasLength` | `push!(c, x::T)`, an item at the end; `resize!(c, n::Int)` for `n ≤ length(c)`, the first `n` kept | `T = eltype(Self)` | `Vector`, `BitVector` |
 | `Keyed{K, V} <: HasLength` | `d[k::K]::V`, `haskey(d, k::K)::Bool`, `get(d, k::K, default::D)::Union{V, D} where {D}` | `K = keytype(Self)`, `V = valtype(Self)` | `AbstractDict` |
-| `HasProperty{N, R}` (`N` an input) | `x.N`, of type `R`: `getproperty` at the constant name `N`, served by the member's own `getproperty`; on a value known only by its trait, `x.N` has the declared type, as a declared field's read (§7.9) | — | none; a type joins at each name |
+| `HasProperty{N, R}` (`N` an input) | `x.N`, of type `R`: `getproperty` at the constant name `N`, served by a stored field or the member's own `getproperty`; on a value known only by its trait, `x.N` has the declared type, as a declared field's read (§7.9). Declared as a field named by its input, `@const N::R` (§4.3) | — | none; a type joins at each name |
 | `Solvable{T}` | `ldiv!(x::AbstractVector{T}, F, b::AbstractVector{T})::AbstractVector{T}`: `x` solves `F x = b` | `T = eltype(Self)` | LinearAlgebra's factorizations that solve (`LU`, `Cholesky`, `CholeskyPivoted`, the `QR`s, `LQ`, `BunchKaufman`, `LDLt`, `SVD`), and `Diagonal`, `UpperTriangular`, `LowerTriangular`, `Bidiagonal` |
 | `LinearOp{T}` | `size(A)::Tuple{Int, Int}`, `apply!(y::AbstractVector{T}, A, x::AbstractVector{T})::AbstractVector{T}`: `y` becomes `A x` | `T = eltype(Self)` | `AbstractMatrix`, by `mul!` |
 | `BoundedText` | `textbound(x)::Int`, an upper bound on the bytes `print(io, x)` writes; `textbound(T)` for a type, an `Int` or `nothing` | — | `Number`, `AbstractChar`, `AbstractString`, `Symbol`, Dates' `TimeType`, `Period`, `CompoundPeriod` |
@@ -859,7 +859,7 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 - `HasLength` is not `Base.HasLength`, the value of `Base.IteratorSize`.
 - A module that uses BaseTraits and another module exporting the same name gets Julia's usual ambiguity of names.
 
-**Status:** Implemented in TraitWorld `unified` 4be0097 with `unified` 0ce5b7f752 (W-114), but `HasProperty` (T-103); tests `basetraits.jl`. The table's contracts follow the prior art of Rust, Swift and Mojo ([the research](../record/collection-and-linalg-traits-research-2026-11-07.md); the user, 2026-11-07: "When it comes to Base Traits and Lin Alg Traits, send out an agent that collects prior art from Rust, Swift, Mojo") and [the review of the choices](../reviews/2026-11-07-basetraits-choices.md); each choice is mine (2026-11-07), listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user). Base's own tests pass with BaseTraits loaded, at their times without it (E-282).
+**Status:** Implemented in TraitWorld `unified` 4be0097 with `unified` 0ce5b7f752 (W-114); `HasProperty` in TraitWorld `unified` a658203 with `unified` 350c5b1c59; tests `basetraits.jl`. The table's contracts follow the prior art of Rust, Swift and Mojo ([the research](../record/collection-and-linalg-traits-research-2026-11-07.md); the user, 2026-11-07: "When it comes to Base Traits and Lin Alg Traits, send out an agent that collects prior art from Rust, Swift, Mojo") and [the review of the choices](../reviews/2026-11-07-basetraits-choices.md); each choice is mine (2026-11-07), listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user). Base's own tests pass with BaseTraits loaded, at their times without it (E-282).
 
 ### 10.2 Element types
 
@@ -1092,7 +1092,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | Construct | Status | Section |
 |---|---|---|
 | a trait is an abstract type; membership, transitivity, worlds | Implemented (`unified` 62016706d0) | §3.1 |
-| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs: compiler C-32 | §3.2 |
+| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
 | sealed traits | Optional (PE-19) | §3.4 |
@@ -1117,7 +1117,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
 | `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
-| BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114), but `HasProperty` (T-103) | §10 |
+| BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-96–T-98 | §12 |
 | the standard libraries as owners | Open | §12.1 |
@@ -1143,5 +1143,6 @@ The library on the unified build is TraitWorld `unified`; the lowering's deviati
 | T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for a call that cannot be resolved in the code or in anything it calls. | The compiler's check sees run-time sites in the code and in callees compiled by facts; one in plain code it calls (Base's, in the product setting) is reported by `fully_typed`, not raised. | `julia-unified` `Compiler/src/facts.jl` (`fully_typed_fault`) |
 | T-101 | [§14](#14-concreteness-and-fully-typed-mode) | Concreteness, like fully typed mode, can be declared for a module before `@trait_module`. | Concreteness is declared per trait and per method only. | TraitWorld `src/fullytyped.jl` |
 | T-102 | [§16](#16-compiling-ahead-closed-programs) | `verify_main` lists a `like` result's rebuilding among the targets. | It lists the calls the code resolves, `Callable`s' functions and operations' members; `like`'s rebuilding only where the code calls it. | TraitWorld `src/fullytyped.jl` (`verify_main`) |
-| T-103 | [§10.1](#101-basetraits) | `HasProperty{N, R}` is a trait of BaseTraits, a type joining at each name. | Not built: a type's membership at a second value of an input is refused ([compiler C-32](compiler.md#deviations)). | TraitWorld `src/BaseTraits.jl` |
+| T-103 | — | *Retired* (2026-11-08): `HasProperty` in TraitWorld `unified` a658203 with `unified` 350c5b1c59 ([§10.1](#101-basetraits), [§3.2](#32-parameters)); tests `basetraits.jl`, gate `n10_inputs` | — | — |
 | T-104 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises at every run of a fault. | The check is in the method's code compiled by facts. A plain caller that inlines the method, or propagates constants into it (compiler C-45), runs it without the check. The warning's once-only flag is written into the code's literal. | `Compiler/src/optimize.jl`, `base/experimental.jl`; [the review](../reviews/2026-11-07-implementation-day.md) M7 |
+| T-105 | [§3.2](#32-parameters) | An input is never left open where an operation's result needs it: a method whose `where` variable or stated value does not fix it is refused at its definition. | Not checked: such a trait's method is accepted, and the call's result names the open input. | TraitWorld `src/trait.jl` (`_trait_method`) |

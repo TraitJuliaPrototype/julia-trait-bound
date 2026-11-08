@@ -1,6 +1,6 @@
 # C-32: a member at several values of an input parameter (for W-104's SciML slice)
 
-Status: **proposal** (2026-11-08, mine). Not normative. It builds what [traits §3.2](../reference/traits.md#32-parameters) already states: inputs. Compiler C-32 and traits T-103 record the gap.
+Status: **done** (2026-11-08): `unified` 350c5b1c59, TraitWorld `unified` a658203, gate `n10_inputs`; §2.4's refusal not built (traits T-105). Proposed the same day, mine. Not normative. It builds what [traits §3.2](../reference/traits.md#32-parameters) already states: inputs. Compiler C-32 and traits T-103 record the gap.
 
 ## 1. Why now
 
