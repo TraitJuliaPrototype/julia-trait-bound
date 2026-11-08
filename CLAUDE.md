@@ -10,6 +10,10 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 
 **Principled solutions; the ports find the design's weak points.** The guiding principle is principled solutions. One purpose of the ports (SciML, Makie, DataFrames) is to find where the trait design is weak. Do not design a port around such a point. Record it as an open issue, with the case, the rule that blocks it and a proposal. A tweak in the trait design that enables a principled solution in a port's architecture is the most valuable finding there is.
 
+**Flag a design decision that makes speed hard** (2026-11-08, the user: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, stands between the code and the speed target, list it in `writeup/open-issues.md` §1 under "Flagged: design decisions that make speed hard", with the decision, its measured cost and a proposal. Do not work around it in the implementation or a port.
+
+**The speed target and workloads** (2026-11-08, the user: "If we are within Python + 1s that would be also fantastic. Python is aspirational rather than a strict goal." and "Specific precompile workloads, unless they genuinely cover broad typical cases (String, Int Columns) are cheating."): the goal's task within Python + 1 s; a package image's workload counts only where it covers broad typical cases. [decisions](writeup/record/decisions.md) §5; [the plan](writeup/plans/2026-11-08-python-speed.md).
+
 ## Where each kind of content goes
 
 | Content | Its home | Rule |

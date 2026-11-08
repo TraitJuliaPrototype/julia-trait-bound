@@ -21,6 +21,13 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 It recommends revisiting: facts-only scope (2026-10-27), the environment-keyed cache's retirement (2026-10-27), relinking as step 3's vehicle (2026-10-28), C-52 first and SciML first (2026-11-07, mine). It keeps the slot (rerun its cost 3×) and no boundary flag on Base.
 
+**Flagged: design decisions that make speed hard** (the user, 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."; [CLAUDE.md](../CLAUDE.md)):
+- **"A membership invalidates nothing"** (the committed guarantee, [facts §10](reference/facts.md#10-memberships); the user, 2026-11-06, open issue 146), with **"negatives never fold"** ([compiler §4.8](reference/compiler.md#48-negatives-never-fold-positives-through-entries)). The price is paid in code that never uses traits once the library is loaded:
+  - every call that a later membership could change carries a guard, and its result joins the shadowing method's declared result (`Any` where none is declared);
+  - a negative test at an open set never folds, so inference keeps the arm it would prune.
+  - *Measured so far:* open issue 158's two cases in upstream CSV and DataFrames (144 bytes per cell read; `@inferred` failing). How many calls a session guards is not counted (W-124 adds the counter).
+  - *Proposals:* first count (W-124). Then open issue 158 (a) with C-36, which keep the guarantee. If the count stays large in hot plain code: 158 (c), a membership invalidates the code that pruned an arm with no method at the member, as Julia does at a method definition, which narrows the guarantee.
+
 Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
 - **The library on the unified build is TraitWorld on an orphan branch `unified`** ([decisions](record/decisions.md) §9).
 - **The trait's method types only its receiver** (and arguments that bind parameters), so a member's own method wins (lowering §2; [decisions](record/decisions.md) §9).

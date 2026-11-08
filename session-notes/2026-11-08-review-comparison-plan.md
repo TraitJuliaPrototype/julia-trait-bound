@@ -30,3 +30,18 @@
   - the `-unified` worktrees ignored by the design repository.
 - **Left for the user:** the core files `core-login02-842363` (5.9 GB, the Claude Code extension's process) and `TraitWorld-unified/core-login02-3042057` (1.1 GB).
 - **Environments resolved on this host for the earlier build** (offline, julia-1.13): `TraitReport/env_t`, `env_pt`, `env_f`; `forks/env_forks` (home depot, as its script uses).
+
+## Later the same morning: the plan adopted, stage 1
+
+### The user's words
+
+- "Specific precompile workloads, unless they genuinely cover broad typical cases (String, Int Columns) are cheating. The traits+facts mode should enable us to work with Compiled code like with precompiled libraries. That's where the expectation of speed comes from. Go for the plan."
+- During the build: "One further note for the rules: Where a design decision makes speed difficult to achieve, flag that for me to review."
+
+### What was done
+
+- **Records:** the plan adopted (status, decisions §5, W-123 to W-127); stage 4 restricted to broad workloads; the user's two rules in CLAUDE.md (flag a design decision that makes speed hard; the target and workloads); the first flagged decision in open issues §1: "a membership invalidates nothing" with "negatives never fold" (open issue 158's costs, uncounted).
+- **W-123, the walk (C-72), `unified` aa997b2180:** the conservative pass and the cache walks visit the replayed method's own function only (an intersection with `Tuple{F, Vararg{Any}}`); the member is substituted at a parametric set whose parameter is a method variable (or a variable bounded by the set); a method at other instances is not replayed. New gate `m2_parametric_replay` (passes). A check of the loads (`walk_stats.jl`, not a measurement): DataFrames 21 → 1.8 s, TraitWorld 0.86 → 0.10 s, CSV 2.8 → 1.7 s. The battery `w123` on it.
+- **The next term, found by the profile after the fix:** CSV's load 75 % inference and compilation: `--trace-compile` shows 0.9 s compiling the native interpreter's `infercalls` closure and 0.26 s recompiling TraitWorld's two hooks. The invalidation log: loading TraitWorld invalidates 1,585 of the compiler's own instances, through `ClassifyInterp`'s methods of the compiler's functions (C-40, E-281). So C-40 moved into stage 1.
+- **C-40, `unified` 98fcbdfbba and TraitWorld's `classify.jl`:** `Compiler.DefinitionCheckInterpreter`, the compiler's own interpreter of the definition-time check (an ephemeral cache, the library's hook called from `abstract_call_known` behind a test that folds for every other interpreter); the library keeps its recording logic in a state object and defines no method of the compiler's functions.
+- **The binary of the first build** reports 350c5b1c59 (built before aa997b2180 was committed, from the same source); C-40's build is committed first.
