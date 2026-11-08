@@ -382,10 +382,10 @@ end
 - Every operation is served by the field `right`. The field's type is the **receiver type** and `Self`.
 - The field's type must be a member by its own methods or defaults. **Forwarding does not chain.**
 - The forwarding field may not also be a writable declared field.
-- **The trait's method for each operation** serves a forwarding member: it calls the operation on the field. Every caller reaches it, as for a default (§4.2).
+- **A forwarding member has a method of its own for each required operation,** defined with the membership: it calls the operation on the field. An operation with a default is served by the trait's method, which calls it on the field. Every caller reaches them, as for a default (§4.2).
 - A trait that requires a concrete `Self` (§14) refuses a forwarding field of an abstract type.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06). The member's own methods for required operations: TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08), so that the trait's method for a required operation is no shadow ([compiler §5.6](compiler.md#56-guards-and-cells)).
 
 ### 5.6 Several traits at once
 

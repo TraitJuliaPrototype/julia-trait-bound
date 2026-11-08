@@ -347,7 +347,7 @@ A membership that would give a member a second instance of a set, differing in a
 - **The runtime knows a set's inputs:** the library writes them once at the declaration, before the set has a member (`jl_set_input_params(X, mask)`, a bit for each of the first eight parameters, on the set's `TypeName`; images keep it).
 - The check asks the member against the set at the new instance's input values, its other parameters free. A redeclaration ends only the entry at the same input values.
 
-**Status:** Implemented on `unified` 62016706d0 for a concrete member, a set's inputs on `unified` 350c5b1c59 (gate `n10_inputs`); for a pattern, C-27.
+**Status:** Implemented on `unified` 62016706d0 for a concrete member, a set's inputs on `unified` 350c5b1c59 (gate `n10_inputs`), an image's membership at activation on 07c0bee2a2 (gate `n12_image_instances`); for a pattern, C-27.
 
 ### 4.7 Three layers
 
@@ -466,10 +466,11 @@ A membership lowers the `max_world` of each leaf-cache and typemap-cache entry w
 - **No guard arises:**
   - at a final non-member (§4.8);
   - where `m₀` matched through the chain and is not `f(::Any)`;
-  - at a function with no method at an open set.
-- A method at an open set defined later invalidates the compiled callers its insertion reaches; they compile again with the guard.
+  - at a function with no method at an open set;
+  - at a method that can only raise at a type that joins later: its declared result is `Union{}` (§6.8), or it serves no such type, marked by `Expr(:meta, :serves_no_member)` in its body. The mark is read when the method is defined, before its insertion. The trait's method for a required operation carries it ([traits §5.5](traits.md#55-forwarding-with-by)).
+- A method at an open set defined later invalidates the compiled callers its insertion reaches, a caller with a pruned arm at a type the set could take included; they compile again with the guard. A method that can only raise invalidates none of them.
 
-**Status:** Implemented on `unified` 79b948420e (W-112): the shadow query over each function's methods at sets (a set under a union's arm, an intersection, a parameter or a varargs tail included); a cell per (member type, set), registered with each set, opened by a declaration or an image's activation, registered when an image brings it; the guard in the inliner's union split, its fallback the dynamic call; a method at a set defined later invalidates the callers it shadows. Gate `n7_guards`; E-280. They deliver a committed guarantee, a membership invalidates nothing ([facts §10](facts.md#10-memberships); the user, 2026-11-06, open issue 146). With C-58, C-59. `Callable`'s cells with W-113.
+**Status:** Implemented on `unified` 79b948420e (W-112): the shadow query over each function's methods at sets (a set under a union's arm, an intersection, a parameter or a varargs tail included); a cell per (member type, set), registered with each set, opened by a declaration or an image's activation, registered when an image brings it; the guard in the inliner's union split, its fallback the dynamic call; a method at a set defined later invalidates the callers it shadows, a pruned arm included (`unified` 07c0bee2a2, gate `n11_late_shadow`, E-296). A method that can only raise is no shadow: by its declared result `Union{}` on `unified` 07c0bee2a2, by the mark on 40401f67d8 (not yet measured); mine (open issue 158 (a), 2026-11-08). Gate `n7_guards`; E-280. They deliver a committed guarantee, a membership invalidates nothing ([facts §10](facts.md#10-memberships); the user, 2026-11-06, open issue 146). With C-58, C-59. `Callable`'s cells with W-113.
 
 ---
 
@@ -724,7 +725,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), with C-35; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07).
+**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), refused at a second instance on 07c0bee2a2; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07).
 
 ---
 
@@ -781,7 +782,7 @@ void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothin
 - The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
 - **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Implemented on `unified` ec4f9a8714 at dispatch, with C-30 and C-31; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` ec4f9a8714 at dispatch, with C-30 and C-31; a failed check lowers the entries made while it ran on 07c0bee2a2; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -829,7 +830,7 @@ Each applies to all code.
 | `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-60 to C-63 | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
-| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; C-35); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
+| memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
 | hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; field-offset intrinsics Optional (W-110) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
@@ -859,7 +860,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-32 | — | *Retired* (2026-11-08): a set's inputs on `unified` 350c5b1c59 ([§4.6](#46-one-instance-per-member)); gate `n10_inputs` | — | — |
 | C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
 | C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |
-| C-35 | [§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache) | A membership that would give a member a second instance of a set is refused. | An image's memberships are activated at load without the check: two images that declare one member at two instances of a set both hold. | `src/datatype.c` (`jl_activate_memberships`) |
+| C-35 | — | *Retired* (2026-11-08): an image's membership that would give its member a second instance of a set is refused at activation, with a warning, on `unified` 07c0bee2a2 ([§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache)); gate `n12_image_instances`; E-296 | — | — |
 | C-36 | [§6.8](#68-a-declared-result-on-method) | Lowering records `f(…)::RT` as the method's declared result. | Only the library sets one, on a trait's method for an operation, through `jl_method_set_declared_result`; lowering records none. So a guarded call whose shadow is a method at a set joins `Any` ([open issue 158](../open-issues.md#2-design), the DataFrames fork's `test/tables.jl:86`). | `src/gf.c`; TraitWorld `src/runtime.jl` (`_set_declared!`) |
 | C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
 | C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
@@ -895,6 +896,6 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-68 | — | *Retired* (2026-11-08): the slot's entry where no code can be made, on `unified` 49ab4294b6 ([§3.3](#33-the-code-slot)); gate `slot_cascade.jl` | — | — |
 | C-69 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A marked caller is kept through an image written before its revalidation. | The image writer writes a marked caller as invalid (its lowered `max_world`): the image drops it. | `src/staticdata.c`; [the review](../reviews/2026-11-07-implementation-day.md) L3 |
 | C-70 | [§4.10](#410-type-values) | A kind of type object (`DataType`, `UnionAll`, `Union`) meets a set at which a type value is a member (an entry for `Type{S}`). | The intersection of a kind with a set reads the kind's own entries, which are none: it is `Union{}`, so a call at an argument typed by a kind finds no method at the set. For `Callable`, which takes a type by its constructors, the kinds meet it (`unified` 9dab7b6983). | `src/subtype.c` (`intersect_membership`, `obviously_disjoint`) |
-| C-71 | [§10.4](#104-the-member-hook) | The hook runs at a pattern's member's first use at dispatch, before any call reaches the trait's method for it. | It runs at a method-cache miss. An entry made while a check ran (its method matching for another operation) is hit without the hook, so a member that fails its check can reach the trait's method and raise `MethodError` instead of `ImplementError` (Graphs' `SimpleGraph{Int64}` at `is_directed`, found by NetworkDynamics' port, 2026-11-08). | `src/gf.c` (`member_hook_at_dispatch`, `member_hook_uncache`) |
+| C-71 | — | *Retired* (2026-11-08): a member that fails its check at dispatch lowers the cache entries made for it while the check ran, on `unified` 07c0bee2a2 ([§10.4](#104-the-member-hook)); TraitWorld's test F10b; E-296 | — | — |
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-lowers-dispatch-caches)); gate `m2_parametric_replay`; E-292 | — | — |
-| C-73 | [§5.6](#56-guards-and-cells) | A method at an open set defined later invalidates the compiled callers its insertion reaches; they compile again with the guard. | A caller compiled with a pruned `MethodError` arm at a concrete type (`g(r.x)`, `r.x::Union{Vector{Int}, P}`, `g` with no method at `P`) before any method of `g` is at a set is not reached: the insertion's walk of the other methods' specializations does not see the pruned arm, and the missing-method edge is intersected exactly, so `P`, a concrete non-member, is disjoint from the set. A later membership of `P` leaves the caller raising `MethodError` where Julia answers. Found by [the review of open issue 158](../reviews/2026-11-08-issue-158-guarantee.md) H1 (a probe, not yet an experiment). Fix: a missing edge whose concrete argument could join the set (`jl_could_join`) counts as intersecting at the method's insertion. | `src/gf.c` (`invalidate_unguarded_callers`, `_typename_invalidate_backedges`) |
+| C-73 | — | *Retired* (2026-11-08): a method at an open set reaches, at its insertion, the callers whose pruned arm its set could shadow, on `unified` 07c0bee2a2 ([§5.6](#56-guards-and-cells)); gate `n11_late_shadow`; E-296 | — | — |

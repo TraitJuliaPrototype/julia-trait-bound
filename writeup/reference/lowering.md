@@ -48,9 +48,11 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **Its supertraits' memberships:** for each supertrait `A{q…}`, `jl_declare_membership(X{P…} where {P…}, A{q…}, nothing, mod, nothing)` ([compiler §4.2](compiler.md#42-memberships)).
 - **The operation functions:** a plain name makes a new generic function in the module; a qualified name uses the existing one.
 - **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2): Base's `haskey(d::AbstractDict, k)` for `Keyed`'s `haskey(d, k::K)`. A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
-  - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`;
+  - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`. At a required operation only `Dynamic{X}` reaches this: every other forwarding member has a method of its own (§3, step 6);
   - for a member that a default serves, the default's body;
   - otherwise unreachable: such a member was refused at its check.
+
+  A required operation's method carries `Expr(:meta, :serves_no_member)` ([compiler §5.6](compiler.md#56-guards-and-cells)): the only member it serves, `Dynamic{X}`, joins at the declaration, so at a type that joins later it raises, and it is no shadow.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
   - the operations, each with its trait's method;
   - the declared fields, with their types and whether `@const`;
@@ -85,6 +87,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 4. **A refusal** deletes the block's methods and raises `ImplementError`. Nothing is declared.
 5. **The receiver** ([traits §7.2](traits.md#72-the-key)): `S` where it serves an operation by its own method, the forwarding field where it forwards, none where defaults serve every operation. The runtime computes the key from it ([compiler §6.1](compiler.md#61-the-key-as-a-type)).
 6. **The membership:** `jl_declare_membership(S, X{p…}, mod, by, receiver)`, then `Expr(:latestworld)`. The runtime refuses a second instance of `X` for `S` ([compiler §4.6](compiler.md#46-one-instance-per-member)); the library then deletes the block's methods and raises `ImplementError`.
+   - Before it, **forwarding's methods,** where `S` forwards by a field `f`: for each required operation of `X` and arity, a method at `S` that calls the operation on `t.f`, its further arguments untyped. They are the membership's, as its declaration is: no block's owner rule. A refusal deletes them.
 7. **The override records:** for each operation a default serves at `S`, a record that the definition hook reads (§11).
 8. **While the package is precompiled:** compiling ahead (§12).
 
@@ -94,7 +97,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, per session (L-55). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, per session (L-55); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 

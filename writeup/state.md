@@ -53,13 +53,13 @@ The deviations of the implementation from the design are listed per reference: [
 
   | Session | Python | Earlier build | Unified build |
   |---|---|---|---|
-  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); **4.98–5.11 s** (E-295) |
-  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; **6.48–6.51 s** (E-292) |
-  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; **9.19–9.28 s** (E-295) |
-  | TraitReport (t) | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286); **0.99–1.04 s** (E-292) |
+  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); **3.62–3.70 s** (E-296) |
+  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); **9.86–10.42 s** (E-296: §5.6's pruned arms at a REPL) |
+  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; 9.19–9.28 s (E-295); **6.35–6.56 s** (E-296) |
+  | TraitReport (t) | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286); 0.99–1.04 s (E-292); **1.02–1.07 s** (E-296) |
   | NetworkDynamics' workload, recorded | — | 31.3 s (E-250) | 100.4 s, one run with an extra pass (W-104's log, `ndport/logs/unified/`) |
 
-  - **Loading:** the dispatch walk at activation (C-72) and the library's interpreter invalidating the compiler (C-40) are fixed (W-123, E-292). What remains is compiling at load: plain packages' methods invalidate ten times as much of the compiler's own code as on vanilla (2,049 against 193 instances for upstream CSV and DataFrames), through untyped narrowings in the stack's own compiler code: fixed (28d2334164, E-295: 195 instances against vanilla's 193). Next, TraitWorld's load hooks invalidated by plain packages (W-123).
+  - **Loading:** the dispatch walk at activation (C-72) and the library's interpreter invalidating the compiler (C-40) are fixed (W-123, E-292). What remains is compiling at load: plain packages' methods invalidate ten times as much of the compiler's own code as on vanilla (2,049 against 193 instances for upstream CSV and DataFrames), through untyped narrowings in the stack's own compiler code: fixed (28d2334164, E-295: 195 instances against vanilla's 193). TraitWorld's load hooks invalidated by plain packages: fixed in the library (e6eaa85, E-296). At a REPL, TraitWorld's methods at sets for required operations invalidate the system image's code with a pruned `Nothing` arm (compiler §5.6), and REPL's interpreter methods reject the replacements TraitWorld's image carries, its hook included: the forks' session 9.9–10.4 s (E-296). Open issue 158 (a) makes those methods no shadow: built on B2 and in the library, measured by E-297.
   - **After the imports:** the forks' steps take 2.24–2.25 s against the earlier build's 2.80–2.81 s. Slower: the goal's read (0.34–0.36 against 0.095 s), setting D's first solve (2.80 against 0.19 s) and second model (0.79 against 0.06 s), NetworkDynamics' new equations (9.0 against 1.1 s, 1.5 s of it compiled again). C-54 below is the likely cause for the last three, not yet shown.
   - **The floor** (E-291): a bare Julia process takes 0.15–0.18 s on every build, Python 0.02 s.
 - **The default `Dynamic` at an argument whose trait names a method's variables** is `Compiled` (C-54), so TraitDifferentialEquations' `ODEProblem(f, …)` compiles the solver per function by default.
