@@ -57,7 +57,9 @@ The deviations of the implementation from the design are listed per reference: [
   | TraitReport, the same without traits (pt) | 3.56–3.60 s, of it imports 2.76–2.79 s | |
   | the forks' DataFrames session | 38.7–39.6 s, of it imports 35.6–36.5 s at a REPL | 0.70–0.75 s |
 
-  After the imports the forks' steps are faster than upstream's on the same build (read 0.36–0.40 against 3.1 s). The earlier build took 0.63 s for TraitReport (t) and 4.71–4.83 s for the forks' session (E-233, another machine). The pointers for W-121: TraitWorld's own load (the stopgap's walk at its memberships' activation, inference under the package callbacks), TraitTables' load compiling, CSV's InlineStrings extension.
+  | the goal's task, DataFrames + Makie (TraitReport's form (f), E-288, after the hooks' fix) | 26.4–27.0 s, of it imports 25.5–26.1 s | 0.65 s |
+
+  After the imports the forks' steps are faster than upstream's on the same build (read 0.36–0.40 against 3.1 s). The earlier build took 0.63 s for TraitReport (t) and 4.71–4.83 s for the forks' session (E-233, another machine). W-121's first phase (E-286, E-287): the package callback compiled at every first load is fixed (TraitWorld e967ca0; TraitReport (t) 4.9 → 3.2 s); what remains is the dispatch walk at an image's activation, 92 % of DataFrames' 21 s load (CSV's InlineStrings extension's memberships replay the 46 methods at `TextColumn` and `Column` each).
 - **The default `Dynamic` at an argument whose trait names a method's variables** is `Compiled` (C-54), so TraitDifferentialEquations' `ODEProblem(f, …)` compiles the solver per function by default.
 - **Keys** are Optional, built late (W-110).
 
