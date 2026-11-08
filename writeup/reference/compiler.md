@@ -439,7 +439,7 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 - At a query at a set, a method at an abstract type matches likewise.
 - A concrete query that is not a member meets no method at the set.
 
-**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81, E-300).
+**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81 and d04256a442, E-300, E-301).
 
 ### 5.4 The ambiguity report at a membership
 
