@@ -35,7 +35,7 @@ Written 2026-10-19 (session 29, the writeup cleanup: [`../plans/2026-10-19-notes
 Read, in this order:
 1. [`../../CLAUDE.md`](../../CLAUDE.md): the rules for the documents.
 2. [`../state.md`](../state.md) §6.3: the order of work, and what is waiting for the user.
-3. [`todo.md`](todo.md): the work queue, each item with its status. The latest session note: [`../../session-notes/2026-11-06-unification-stage0.md`](../../session-notes/2026-11-06-unification-stage0.md) (the unified build, stage 0); before it [`../../session-notes/2026-10-28-day.md`](../../session-notes/2026-10-28-day.md) and [`../../session-notes/2026-10-28-night-w66-w22.md`](../../session-notes/2026-10-28-night-w66-w22.md).
+3. [`todo.md`](todo.md): the work queue, each item with its status. The latest session notes: [`../../session-notes/2026-11-08-handover.md`](../../session-notes/2026-11-08-handover.md) (the handover for the next session: where the speed work stands, how to run, what is open) and [`../../session-notes/2026-11-08-review-comparison-plan.md`](../../session-notes/2026-11-08-review-comparison-plan.md) (the day's chronology).
 4. The references in [`../reference/`](../reference/README.md), each with its Deviations table; [`decisions.md`](decisions.md) for the origin of a decision.
 5. [`../open-issues.md`](../open-issues.md) §1: the decisions waiting for the user.
 
