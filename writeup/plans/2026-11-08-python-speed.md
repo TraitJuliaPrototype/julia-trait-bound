@@ -1,6 +1,6 @@
 # Reaching Python's speed on the goal's task
 
-Status: **proposal** (2026-11-08), for the user to adopt or reorder. Not normative. Written in the main session (no subagents on the shared host).
+Status: **adopted** (2026-11-08; the user: "Go for the plan."), with stage 4 restricted to broad workloads (below). Not normative. Written in the main session (no subagents on the shared host). The stages are W-123 to W-127 in [the work queue](../record/todo.md).
 
 **The goal.**
 - The user (2026-11-07): "The overarching performance goal is Makie + DataFrames first workload as fast as Python equivalent."
@@ -68,8 +68,10 @@ The earlier build's imports are the starting point, 1.78 s; the target asks for 
 
 **Gate:** the goal's task after the imports ≤ 0.2 s; the forks' steps ≤ 1 s.
 
-1. **Package-image workloads for the goal's shapes** in the forks and TraitMakie (the cache review's L1): the read with the goal's column types, the summary's reductions, the histogram. No mechanism; the code is there in the first session after an install.
-2. **The environment-keyed session cache admitting code by the G2 bit** (W-120's revised order, item 6, with C-65 fixed first), only if 1 leaves more than 0.1 s.
+The user (2026-11-08): "Specific precompile workloads, unless they genuinely cover broad typical cases (String, Int Columns) are cheating. The traits+facts mode should enable us to work with Compiled code like with precompiled libraries. That's where the expectation of speed comes from."
+1. **What a session still compiles, and why the images do not hold it.** With facts, a trait core's code is compiled per type or once and kept in its package's image; a session should compile only code at its own new types. Each CodeInstance the goal's session compiles after the imports is classified: plain code (whose code no image may keep), facts code at a new type, facts code an image could have kept but did not (a type value, compiler §9's rule; code rejected at load; a key not reached ahead). The last class is the target: fixed in the design or the implementation, not by a workload.
+2. **Broad workloads only:** a port's image may compile its operations at the typical cell types (`String`, `Int`, `Float64`, `Missing` unions) as a library's own precompilation would, never the goal's specific call shapes.
+3. **The environment-keyed session cache admitting code by the G2 bit** (W-120's revised order, item 6, with C-65 fixed first), only if 1 and 2 leave more than 0.1 s.
 
 ### Stage 5: toward Python itself (aspirational)
 
@@ -88,10 +90,14 @@ Estimates, each to be replaced by its gate's measurement.
 | stage 1 | about 2.5 s | about 5 s | about 4.8 s |
 | stage 2 | about 2.3 s | about 4.5 s | about 1.4 s |
 | stage 3 | about 1.4–1.6 s (Python + 1 s met) | about 3 s | about 1.2 s |
-| stage 4 | about 1.1–1.3 s | about 1.5–2 s (a REPL's start 0.6 s remains) | about 1.0 s (below SciPy's) |
+| stage 4 | about 1.1–1.3 s, without workloads made for the task | about 1.5–2 s (a REPL's start 0.6 s remains) | about 1.0 s (below SciPy's) |
 | stage 5 | toward 0.65 s | toward 0.7 s | |
 
-## 4. Decisions for the user
+## 4. Decisions
+
+Adopted (the user, 2026-11-08, "Go for the plan."; [decisions](../record/decisions.md) §5). Still open for the user: open issue 160, and stage 5's scope when it comes.
+
+The questions as they were put:
 
 1. The target and the order: Python + 1 s for the goal's task, stages 1 to 4 in this order, stage 5 later.
 2. Stage 1 starts now, as a bug fix under W-121's rule (C-72).

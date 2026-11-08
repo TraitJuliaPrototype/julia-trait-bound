@@ -83,7 +83,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. **The ports** (W-104): every port runs; slice 3's sessions against the evidence remain (E-284, E-285 done for slices 1 and 2).
-2. **The profiling campaign** (W-121; the user, 2026-11-07): where the time goes in the goal's session, a first Makie + DataFrames workload against Python; its first item is the load path (§5), whose cause is C-72 (E-290). Performance work is prioritised from it, the machine-code cache (W-120) and reworking the ports included: [the plan to reach Python's speed](plans/2026-11-08-python-speed.md), a proposal for the user (target: within Python + 1 s).
+2. **The profiling campaign** (W-121; the user, 2026-11-07): where the time goes in the goal's session, a first Makie + DataFrames workload against Python; its first item is the load path (§5), whose cause is C-72 (E-290). Performance work is prioritised from it, the machine-code cache (W-120) and reworking the ports included: [the plan to reach Python's speed](plans/2026-11-08-python-speed.md), adopted (the user, 2026-11-08; target: within Python + 1 s; no workloads made for the task): W-123 (the walk, C-72) first, then W-124 to W-127.
 3. Queued: W-119 (the slot's share in the ports), W-115 to W-118.
 
 **Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.

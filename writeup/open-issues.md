@@ -50,7 +50,6 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **The profiling campaign's plan, and slice 3's sessions inside it** ([the plan](plans/2026-11-08-w121-profiling-campaign.md); [decisions](record/decisions.md) §9).
 - **Open issue 159: `Dynamic{Callable}` without a signature** (proposal (a), mine), so that a record holding a function before its signature is known (SciML's `ODEFunction`, callbacks) keeps the caller's choice of attribute. The port takes (c) until then.
 - **Open issue 160: the cast names recognized by their binding, not reserved** (proposal (a), mine): P-23 reserves `compiled_for` and `with_dynamic` for all code, so a plain package that uses either name no longer loads (found by the review of 2026-11-08: TDE's `PlainODE`).
-- **The plan to reach Python's speed on the goal's task** ([the plan](plans/2026-11-08-python-speed.md), a proposal): its order of stages, for the user to adopt or reorder.
 - **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Not built; it changes compiler §5.6 and traits §5.5.
 
 Waiting for evidence, not for the user:
