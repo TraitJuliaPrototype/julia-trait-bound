@@ -64,3 +64,20 @@
 - **TDE's port bug that C-54's deviation hid:** Rodas5 with a chunk size called the problem's kept function at chunk-3 duals, outside the signatures it is kept at; the core problem now carries the plain function (TDE fcee973). C-54's three broken checks pass.
 - **E-297 and E-298:** open issue 158 (a) removed the REPL regression (CSV after REPL 0.7 s); on the completed B2, setting D 3.42 s (second model 0.06 s, as on the earlier build), the forks' session 4.76–5.17 s, the goal's task 3.37–3.45 s, TraitReport (t) 0.97–0.99 s. E-297's slower goal's task was not the library change's (E-298's A/B). C-60 and C-46 retired; C-54 narrowed to a bare `where` variable.
 - **Next:** stage 1's gate is met for the forks' session only; the loads now spend their time in validation and image restore (DataFrames 65 % validation). W-128's remaining rows: C-36, L-55, C-30, C-59, C-58, C-70, C-27, C-63, C-29, C-40's remainder, C-54's `where` variable.
+
+## Evening: stage 1 closed, stages 2–4 under way
+
+### The user's words
+
+- "Continue" (after stage 1's report), "Not right now" (the steady-state check), "Go on in any order you like".
+- On the core dump in the experiments commit: "I agree. Do it."
+
+### What was done
+
+- **Loading:** the membership range without a walk (89b3bcff81, d04256a442: E-299, E-300), the walk's matching without ranges (9ac2741187, E-303): stage 1's gate met (E-301).
+- **The forks by facts:** plain packages loaded later invalidated 752 of the forks' image instances (E-302); CSV's reader (E-302) and DataFrames' module (E-305) compiled by facts keep theirs. Validation's expensive edges were in plain code that is not G2 (E-304), so validation by the bit waits.
+- **A crash found by DataFrames' suite:** the code slot's fallback list was not a GC root (e9b9261808).
+- **The keep rule keeps the workloads' code** (E-306); the steps compile what the workloads never compile. CSV's DataFrames extension's workload extended at broad column types, DataFrames' `describe` without a type-keyed cache (E-308).
+- **TraitWorld's hooks** were invalidated by ForwardDiff through ranges over untyped bounds (E-307): typed; TraitWorld by facts tried and reverted (its facts code is not in its image).
+- **Where the sessions stand** (E-307, E-308): the goal's task 1.54–1.61 s, setting D 2.04–2.05 s, TraitReport (t) 0.72–0.75 s, all within Python + 1 s; the forks' session 3.11–3.24 s (target about 1.7 s; REPL start 0.63 s, imports 0.9 s, steps 1.5 s).
+- **Open:** C-36 (declared results by lowering: the three widened `@inferred` and open issue 158's second case), the steady-state check (deferred by the user), facts code kept in the library's own image (TraitWorld by facts), the REPL display's stream type for DataFrames' `show`.
