@@ -1,6 +1,6 @@
 # The state of the prototype (2026-11-08)
 
-Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. The unified build loses to the earlier build in loading; the work after loading is fast.
+Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. The unified build loses to the earlier build by 7–11× in the measured sessions, in loading above all, through a cost bug in the membership walk at an image's activation (C-72); after the imports it is faster in the forks' session and slower in the first calls of the ODE session and of NetworkDynamics' new equations.
 
 For core developers. The design is the four [references](reference/README.md), each with a Deviations table; this page summarizes what is built. The changes to Julia are the [compiler reference](reference/compiler.md), with the inventory in [`design/julia-changes.md`](design/julia-changes.md); the measurements are in [`design/evidence.md`](design/evidence.md). The earlier build (julia-1.13 with TraitWorld `main`) still runs, and most numbers in the evidence are its; its state on 2026-10-29 is [a dated snapshot](../attic/writeup/state-2026-10-29.md).
 
@@ -49,17 +49,19 @@ The tests of the build itself (2026-11-08, the battery `w104e`, `experiments/uni
 
 The deviations of the implementation from the design are listed per reference: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). Beyond them:
 
-- **Loading is slow on the unified build** (E-284, E-285; [evidence §3](design/evidence.md#3-first-calls-and-sessions)):
+- **The unified build against the earlier build, on the same host** (E-289, 2026-11-08; [evidence §3](design/evidence.md#3-first-calls-and-sessions)):
 
-  | Session | Unified build | Python |
-  |---|---|---|
-  | TraitReport, CSV to PNG, trait form (t) | 4.91–4.93 s, of it imports 4.08–4.10 s | 0.64–0.68 s |
-  | TraitReport, the same without traits (pt) | 3.56–3.60 s, of it imports 2.76–2.79 s | |
-  | the forks' DataFrames session | 38.7–39.6 s, of it imports 35.6–36.5 s at a REPL | 0.70–0.75 s |
+  | Session | Python | Earlier build | Unified build |
+  |---|---|---|---|
+  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s, of it imports 26.2–26.4 s |
+  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s, of it imports 34.9–35.4 s |
+  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s, of it load 7.4–7.6 s |
+  | TraitReport (t), recorded | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286) |
+  | NetworkDynamics' workload, recorded | — | 31.3 s (E-250) | 100.4 s, one run with an extra pass (W-104's log, `ndport/logs/unified/`) |
 
-  | the goal's task, DataFrames + Makie (TraitReport's form (f), E-288, after the hooks' fix) | 26.4–27.0 s, of it imports 25.5–26.1 s | 0.65 s |
-
-  After the imports the forks' steps are faster than upstream's on the same build (read 0.36–0.40 against 3.1 s). The earlier build took 0.63 s for TraitReport (t) and 4.71–4.83 s for the forks' session (E-233, another machine). W-121's first phase (E-286, E-287): the package callback compiled at every first load is fixed (TraitWorld e967ca0; TraitReport (t) 4.9 → 3.2 s); what remains is the dispatch walk at an image's activation, 92 % of DataFrames' 21 s load (CSV's InlineStrings extension's memberships replay the 46 methods at `TextColumn` and `Column` each).
+  - **Loading:** 92 % of DataFrames' 21 s load is the dispatch walk at activation, and 96 % of the walk its conservative pass, taken for every method at a parametric set and visiting every method of every function ([compiler C-72](reference/compiler.md#deviations); E-287, E-290). The package callback compiled at every first load is fixed (TraitWorld e967ca0, E-286).
+  - **After the imports:** the forks' steps take 2.24–2.25 s against the earlier build's 2.80–2.81 s. Slower: the goal's read (0.34–0.36 against 0.095 s), setting D's first solve (2.80 against 0.19 s) and second model (0.79 against 0.06 s), NetworkDynamics' new equations (9.0 against 1.1 s, 1.5 s of it compiled again). C-54 below is the likely cause for the last three, not yet shown.
+  - **The floor** (E-291): a bare Julia process takes 0.15–0.18 s on every build, Python 0.02 s.
 - **The default `Dynamic` at an argument whose trait names a method's variables** is `Compiled` (C-54), so TraitDifferentialEquations' `ODEProblem(f, …)` compiles the solver per function by default.
 - **Keys** are Optional, built late (W-110).
 
@@ -81,7 +83,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. **The ports** (W-104): every port runs; slice 3's sessions against the evidence remain (E-284, E-285 done for slices 1 and 2).
-2. **The profiling campaign** (W-121; the user, 2026-11-07): where the time goes in the goal's session, a first Makie + DataFrames workload against Python; its first item is the load path (§5). Performance work is prioritised from it, the machine-code cache (W-120) and reworking the ports included.
+2. **The profiling campaign** (W-121; the user, 2026-11-07): where the time goes in the goal's session, a first Makie + DataFrames workload against Python; its first item is the load path (§5), whose cause is C-72 (E-290). Performance work is prioritised from it, the machine-code cache (W-120) and reworking the ports included: [the plan to reach Python's speed](plans/2026-11-08-python-speed.md), a proposal for the user (target: within Python + 1 s).
 3. Queued: W-119 (the slot's share in the ports), W-115 to W-118.
 
 **Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.

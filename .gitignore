@@ -26,3 +26,11 @@ site-src/
 /tools-local/logs/
 /julia-unified/
 /julia-vanilla/
+
+# the ports' worktrees on the unified build (branch `unified` of each repository)
+/TraitTables-unified/
+/TraitCSV-unified/
+/TraitMakie-unified/
+/TraitReport-unified/
+/TraitDifferentialEquations-unified/
+/forks-unified/

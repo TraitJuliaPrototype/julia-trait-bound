@@ -49,6 +49,8 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **A family's variables are in scope in its block's methods** (traits §5.8; [decisions](record/decisions.md) §9).
 - **The profiling campaign's plan, and slice 3's sessions inside it** ([the plan](plans/2026-11-08-w121-profiling-campaign.md); [decisions](record/decisions.md) §9).
 - **Open issue 159: `Dynamic{Callable}` without a signature** (proposal (a), mine), so that a record holding a function before its signature is known (SciML's `ODEFunction`, callbacks) keeps the caller's choice of attribute. The port takes (c) until then.
+- **Open issue 160: the cast names recognized by their binding, not reserved** (proposal (a), mine): P-23 reserves `compiled_for` and `with_dynamic` for all code, so a plain package that uses either name no longer loads (found by the review of 2026-11-08: TDE's `PlainODE`).
+- **The plan to reach Python's speed on the goal's task** ([the plan](plans/2026-11-08-python-speed.md), a proposal): its order of stages, for the user to adopt or reorder.
 - **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Not built; it changes compiler §5.6 and traits §5.5.
 
 Waiting for evidence, not for the user:
@@ -168,6 +170,16 @@ Deferred by the user (s25), to take up when wanted:
      - (c) No per-function choice inside a record: the library's default decides, and a caller who wants `Compiled` builds the problem with the function itself (`ODEProblem(compiled_for(f), …)`).
    - *Recommendation:* (a), mine: one rule for a value that is not yet at its signature, the earlier design's `Kept{Callable}` as a `Dynamic` box.
    - The port takes (c) until this is decided: `ODEFunction` and the callbacks store the functions as given; `ODEProblem`'s constructor takes the function as a trait argument. The tests that cast inside a record are marked with this issue.
+
+160. **The cast names are reserved for all code, so a plain package that uses them does not load** (found 2026-11-08 by [the review of the unification](reviews/2026-11-08-unification-review.md), H3).
+   - *The case:* `PlainODE`, TraitDifferentialEquations' plain twin, defines `compiled_for(f) = Compiled(f)` (`TraitDifferentialEquations-unified/baselines/PlainODE/src/PlainODE.jl:111`). On the unified build its precompilation fails: "syntax: "compiled_for" is a cast, reserved as ccall is: it cannot be defined or assigned". Any registered package, script or notebook that names a function or a variable `compiled_for` or `with_dynamic` fails the same way, whether or not it uses traits.
+   - *The rule that blocks it:* the cast names are reserved as `ccall` is ([traits §7.6](reference/traits.md#76-casts), [compiler §6.9](reference/compiler.md#69-casts-and-keep); P-23, mine). Lowering recognizes them by name (`julia-unified/src/julia-syntax.scm`, `cast-names`).
+   - *Why it matters:* a new reserved word is a breaking change to the language. It contradicts the stack's aim that the changes are proposable upstream (W-19) and that plain code runs unchanged.
+   - *Proposals:*
+     - (a) **Casts recognized by binding, not by name:** lowering emits the cast where the name resolves to `Core.compiled_for` or `Core.with_dynamic` (exported by TraitWorld), and leaves a local or module binding of the same name alone; as `Core.Intrinsics` and `GlobalRef` calls are resolved, not reserved. A module that defines its own `compiled_for` simply does not use the cast.
+     - (b) **Macro forms:** `@compiled_for(x)` and `@with_dynamic(x)` at the argument, lowered to the same `Core.attributed_call`. Macros cannot clash with plain code.
+     - (c) Keep the reservation, and rename the twin's function.
+   - *Recommendation:* (a), mine: no reserved names, the same spelling at the call. (b) if lowering cannot see the binding where it needs it.
 
 ## 3. TraitWorld (the prototype)
 
