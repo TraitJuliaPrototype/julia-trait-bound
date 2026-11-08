@@ -46,6 +46,8 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 
 - **C-32 as built** (compiler §4.6, traits §4.3; [decisions](record/decisions.md) §9): a set's inputs a byte on its `TypeName`; a field named by an input declares a property, so `HasProperty{N, R}` is `@const N::R` with `@input N`.
 - **A slot's miss with no code to make gets a dispatching entry** (compiler §3.3; [decisions](record/decisions.md) §9; the review's H1).
+- **A family's variables are in scope in its block's methods** (traits §5.8; [decisions](record/decisions.md) §9).
+- **Open issue 159: `Dynamic{Callable}` without a signature** (proposal (a), mine), so that a record holding a function before its signature is known (SciML's `ODEFunction`, callbacks) keeps the caller's choice of attribute. The port takes (c) until then.
 - **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Not built; it changes compiler §5.6 and traits §5.5.
 
 Waiting for evidence, not for the user:
@@ -131,7 +133,7 @@ Deferred by the user (s25), to take up when wanted:
      - (b) An idiom, no rule: a kernel whose result callers rely on becomes an operation of the trait, with a default.
      - (c) The check infers under the serving method's own policy, whatever (a) or (b) gives.
 
-     The port asserts the result at each such barrier until this is decided (TraitMakie `unified` e95da97).
+     The port asserts the result at each such barrier until this is decided (TraitMakie `unified` e95da97; TraitDifferentialEquations' `at` on a solution, two sites, `unified` 893a434, found once TraitWorld bd9a721 checked a package's family members).
 
 158. **A guarded call at a type with no method takes the trait's declared result** (found 2026-11-08 by W-104's second slice, CSV's upstream suite).
    - *The case:* CSV's `_rowopts(r, j) = r.colopts === nothing ? r.opts : @inbounds(r.colopts[j])` (`forks-unified/CSV/src/tables.jl:250`) reads the field again. So the second call is `getindex(::Union{Nothing, Vector{ValueOpts}}, ::Int)`.
@@ -150,6 +152,21 @@ Deferred by the user (s25), to take up when wanted:
    - *Recommendation:* (a), mine. It keeps the guarantee, needs no declaration, and leaves fewer guards for W-121's profile to find.
    - *A second case, through a method at a set* (DataFrames' suite, `test/tables.jl:86`): the fork's `DataFrame(x)` tests `typeof(src) <: TableSource`, which never folds to `false` (§4.8), so inference also infers `fromsource(src::DataFrameColumns, …)`. `DataFrameColumns` has no method there but could join `TableSource`; the shadow is `fromsource(t::TableSource, copycols::Bool)::DataFrame`, a method at the set, whose declared result lowering does not record ([compiler C-36](reference/compiler.md#deviations)). So the join is `Any`, and upstream's `@inferred` fails. Proposal (a) does not cover this case: the shadow is real. Building C-36 gives `DataFrame`; (c) would prune the arm.
    - The fork keeps upstream's code; the tests' failures stand, listed in the forks' README, until this is decided.
+
+159. **A function stored before its signature is known cannot keep the caller's choice of attribute** (found 2026-11-08 by W-104's third slice, TraitDifferentialEquations' front end).
+   - *The case:* SciML's `ODEFunction(f; jac)` and `DiscreteCallback(condition, affect!)` store the user's functions before the problem's types are known; `ODEProblem` and a solver's `init` enter them at a signature computed from the state and the parameters (`CoreRHSSig{T}`, `CondSig{U, T, P}`). TDE's tests choose per function: `ODEFunction(compiled_for(f); jac = compiled_for(j))`, `DiscreteCallback(with_dynamic(c), a)`. The earlier design kept such a function with its attribute (`Kept{Callable}`) and wrapped it again at the signature (`rewrap`).
+   - *The rules that block it:*
+     - a cast decides only the call it is an argument of, and a plain front end passes none on ([traits §7.6](reference/traits.md#76-casts)); a cast in a call with keyword arguments is not lowered yet (lowering L-56);
+     - a value carries an attribute only as a `Dynamic{X}` ([traits §7.5](reference/traits.md#75-what-decides));
+     - `Dynamic{X}` needs `X`'s parameters, so `Dynamic{Callable}` is refused ([traits §7.7](reference/traits.md#77-dynamicx)).
+     So a record that holds a function before its signature is known holds a plain value, and the library's default decides when the function is entered: `Dynamic`, `Callable`'s. The caller cannot choose `Compiled` for a function inside an `ODEFunction` or a callback.
+   - `ODEProblem(compiled_for(f), u0, tspan, p)` itself is expressible: a constructor with a trait argument whose signature its `where` variables take from `u0` and `p`, and `keep` ([traits §8.2](reference/traits.md#82-a-struct-parameter-bounded-by-a-trait)).
+   - *Proposals:*
+     - (a) **`Dynamic{Callable}` without a signature:** a function kept `Dynamic` before its signature is known, called only after it is wrapped again at a signature (`Dynamic{Callable{A, S}}(unwrap(d))`, which a library writes where it enters the function). `keep(f)` at an argument typed by the bare `Callable` gives it under `Dynamic`, and `f` itself under `Compiled`. A record then stores `keep(f)`, and the caller's cast at the record's constructor decides. Only for `Callable`: its members are functions, which Julia already calls without a signature.
+     - (b) A library's own carrier for the choice (`TDE.Compiled(f)`), unwrapped at entry: a convention per library, not the language's.
+     - (c) No per-function choice inside a record: the library's default decides, and a caller who wants `Compiled` builds the problem with the function itself (`ODEProblem(compiled_for(f), …)`).
+   - *Recommendation:* (a), mine: one rule for a value that is not yet at its signature, the earlier design's `Kept{Callable}` as a `Dynamic` box.
+   - The port takes (c) until this is decided: `ODEFunction` and the callbacks store the functions as given; `ODEProblem`'s constructor takes the function as a trait argument. The tests that cast inside a record are marked with this issue.
 
 ## 3. TraitWorld (the prototype)
 

@@ -425,9 +425,10 @@ end
 - **The trait's parameters** are written with the family's variables, constants and type constructors, never with function calls. Every variable of the trait's parameters occurs in the type.
 - **An override of one member** is declared by the package that owns the member's parameter type (`MyT` in `S{MyT}`), in that package itself.
 - Where an operation's declared argument type is abstract, a member's check counts only the methods of its stakeholders there. So a member's check does not depend on which packages loaded before its first use.
+- **The family's variables are in scope in its block's methods,** as their static parameters: `@implement Holds{T} Box{T} where {T} begin elt(h) = T end`. Rust's generic `impl<T>` scopes them the same way.
 - **Where an equation defines a parameter** (`T = eltype(Self)`), the family states it as a type expression of its variables: `@implement Iterable{T} Wrapped{T} where {T}`. Each member's check compares the equation's value with it. A family whose instance cannot be written so is refused, naming the parameter. Rust writes an associated type in a generic `impl` the same way.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use at dispatch (compiler C-31); a variable bounded by a `Union` declared per type in dd72b10.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use at dispatch (compiler C-31); a variable bounded by a `Union` declared per type in dd72b10; the variables in the block's methods in 401c7b4, mine (2026-11-08).
 
 ### 5.9 Abstract types and traits as members
 
@@ -631,7 +632,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; per trait argument, with declared fields written, a constructor's store into a field typed by the trait and an `@open` function's uses its own, in 401c7b4; the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -704,7 +705,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Implemented: the struct is Julia's `Core.Dynamic` (`unified` e692e57ab7, W-111); its memberships and methods are the library's (TraitWorld `unified` bb78d02). Mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented: the struct is Julia's `Core.Dynamic` (`unified` e692e57ab7, W-111); its memberships and methods are the library's (TraitWorld `unified` bb78d02); a `Dynamic{All{Callable…}}` called at either signature in 401c7b4. Mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft).
 
 ### 7.8 Keeping an argument with its attribute
 
