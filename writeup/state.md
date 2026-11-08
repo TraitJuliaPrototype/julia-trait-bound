@@ -9,7 +9,7 @@ For core developers. The design is the four [references](reference/README.md), e
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
 - **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 350c5b1c59.
 - **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, d897223.
-- **The ports** (W-104): slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics' core) run (§4). NetworkDynamics' workload waits for the plotting packages it uses.
+- **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** the profiling campaign (W-121) comes once the ports run. Its first item is named: the load path (§5).
 
 ## 2. What the unified build changes in Julia
@@ -39,7 +39,7 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 | 1 | TraitReport, trait form | its summary and PNG equal the plain form's on three datasets |
 | 2 | the forks of Tables, CSV, DataFrames | the session's digests equal upstream's at 26 steps; Tables' suite passes; CSV's fails 6 of 330,545 (open issue 158); DataFrames' fails 4 at `tables.jl:86` (open issue 158's second case, C-36) |
 | 3 | TraitDifferentialEquations | every package loads; 32 testsets pass, 3 checks broken (C-54) |
-| 3 | NetworkDynamics (with Graphs' port) | the port's core loads; its test subset gives the earlier build's results; the workload waits for GraphMakie's port and MakieCompat |
+| 3 | NetworkDynamics (with Graphs' port, GraphMakie's over MakieCompat) | its test subset and its workload's 32 digests give the earlier build's results |
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [158](open-issues.md#2-design) (a guarded call at a type with no method takes the trait's declared result) and [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
@@ -68,7 +68,7 @@ The deviations of the implementation from the design are listed per reference: [
 
 - **Julia:** `julia-unified` `unified` 350c5b1c59 (with 49ab4294b6, the slot's last resort). The earlier build: `julia-1.13` 00dcc9994c.
 - **TraitWorld:** `TraitWorld-unified` `unified` d897223. The earlier library: `TraitWorld` `main` 33dd55e.
-- **The ports on the unified build:** TraitTables `unified` a9ada99, TraitCSV f92bd9f, TraitMakie e95da97, TraitReport efcb2b7, forks 128ef6b, TraitDifferentialEquations 41837ed, NetworkDynamics `unified` fc25b89 and Graphs dbcb7c70 (in `ndport`, 50125e2). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
+- **The ports on the unified build:** TraitTables `unified` a9ada99, TraitCSV f92bd9f, TraitMakie e95da97, TraitReport efcb2b7, forks 128ef6b, TraitDifferentialEquations 41837ed, NetworkDynamics `unified` fc25b89, Graphs dbcb7c70 and GraphMakie `unified` (in `ndport`, 5ae8421), MakieCompat in TraitMakie 499af5d. On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
@@ -78,7 +78,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 ### 6.3 The order of work
 
 The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). The order:
-1. **The ports** (W-104): NetworkDynamics' workload on the unified build remains (GraphMakie's port and MakieCompat); the sessions against the evidence per slice (E-284, E-285 done).
+1. **The ports** (W-104): every port runs; slice 3's sessions against the evidence remain (E-284, E-285 done for slices 1 and 2).
 2. **The profiling campaign** (W-121; the user, 2026-11-07): where the time goes in the goal's session, a first Makie + DataFrames workload against Python; its first item is the load path (§5). Performance work is prioritised from it, the machine-code cache (W-120) and reworking the ports included.
 3. Queued: W-119 (the slot's share in the ports), W-115 to W-118.
 
