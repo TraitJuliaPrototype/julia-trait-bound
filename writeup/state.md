@@ -53,8 +53,8 @@ The deviations of the implementation from the design are listed per reference: [
 
   | Session | Python | Earlier build | Unified build |
   |---|---|---|---|
-  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); 3.62–3.70 s (E-296); 3.37–3.45 s (E-298); 2.37–2.40 s (E-300); 2.21–2.28 s (E-301); 1.91–1.95 s (E-302: the forks' CSV by facts); **1.81–1.83 s** (E-303) |
-  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); 9.86–10.42 s (E-296: §5.6's pruned arms at a REPL); 4.76–5.17 s (E-298); 4.08–4.44 s (E-300); 3.98–4.42 s (E-301); 3.89–4.04 s (E-302); **3.67–3.70 s** (E-303) |
+  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); 3.62–3.70 s (E-296); 3.37–3.45 s (E-298); 2.37–2.40 s (E-300); 2.21–2.28 s (E-301); 1.91–1.95 s (E-302: the forks' CSV by facts); 1.81–1.83 s (E-303); **1.56–1.61 s** (E-305: DataFrames by facts) |
+  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); 9.86–10.42 s (E-296: §5.6's pruned arms at a REPL); 4.76–5.17 s (E-298); 4.08–4.44 s (E-300); 3.98–4.42 s (E-301); 3.89–4.04 s (E-302); 3.67–3.70 s (E-303); **3.82–4.01 s** (E-305) |
   | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; 9.19–9.28 s (E-295); 6.35–6.56 s (E-296); 3.42 s (E-298); 2.82–2.84 s (E-300); 2.75–2.82 s (E-301); **2.52–2.54 s** (E-303) |
   | TraitReport (t) | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286); 0.99–1.04 s (E-292); 1.02–1.07 s (E-296); 0.97–0.99 s (E-298); 0.89–0.91 s (E-300); 0.775–0.821 s (E-301); **0.73–0.76 s** (E-303) |
   | NetworkDynamics' workload, recorded | — | 31.3 s (E-250) | 100.4 s, one run with an extra pass (W-104's log, `ndport/logs/unified/`) |
