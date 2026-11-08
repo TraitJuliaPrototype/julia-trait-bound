@@ -8,7 +8,7 @@ For core developers. The design is the four [references](reference/README.md), e
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
 - **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 350c5b1c59.
-- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, d897223.
+- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, e967ca0.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** the profiling campaign (W-121) comes once the ports run. Its first item is named: the load path (§5).
 
@@ -69,8 +69,8 @@ The deviations of the implementation from the design are listed per reference: [
 ### 6.1 Today (2026-11-08)
 
 - **Julia:** `julia-unified` `unified` 350c5b1c59 (with 49ab4294b6, the slot's last resort). The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` d897223. The earlier library: `TraitWorld` `main` 33dd55e.
-- **The ports on the unified build:** TraitTables `unified` a9ada99, TraitCSV f92bd9f, TraitMakie e95da97, TraitReport efcb2b7, forks 128ef6b, TraitDifferentialEquations 41837ed, NetworkDynamics `unified` fc25b89, Graphs dbcb7c70 and GraphMakie `unified` (in `ndport`, 5ae8421), MakieCompat in TraitMakie 499af5d. On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
+- **TraitWorld:** `TraitWorld-unified` `unified` e967ca0. The earlier library: `TraitWorld` `main` 33dd55e.
+- **The ports on the unified build:** TraitTables `unified` d964a98, TraitCSV 90e7330, TraitMakie 499af5d, TraitReport a4bcf33, forks 128ef6b, TraitDifferentialEquations 41837ed, NetworkDynamics `unified` fc25b89, Graphs dbcb7c70 and GraphMakie `unified` (in `ndport`, 5ae8421). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
