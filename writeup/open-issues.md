@@ -47,6 +47,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **C-32 as built** (compiler §4.6, traits §4.3; [decisions](record/decisions.md) §9): a set's inputs a byte on its `TypeName`; a field named by an input declares a property, so `HasProperty{N, R}` is `@const N::R` with `@input N`.
 - **A slot's miss with no code to make gets a dispatching entry** (compiler §3.3; [decisions](record/decisions.md) §9; the review's H1).
 - **A family's variables are in scope in its block's methods** (traits §5.8; [decisions](record/decisions.md) §9).
+- **The profiling campaign's plan, and slice 3's sessions inside it** ([the plan](plans/2026-11-08-w121-profiling-campaign.md); [decisions](record/decisions.md) §9).
 - **Open issue 159: `Dynamic{Callable}` without a signature** (proposal (a), mine), so that a record holding a function before its signature is known (SciML's `ODEFunction`, callbacks) keeps the caller's choice of attribute. The port takes (c) until then.
 - **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Not built; it changes compiler §5.6 and traits §5.5.
 
