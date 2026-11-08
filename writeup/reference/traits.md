@@ -823,7 +823,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 
-**Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-60 to C-63; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
+**Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-61 to C-63; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
 ---
 

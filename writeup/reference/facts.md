@@ -133,7 +133,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new membership (§10);
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2, with C-46), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
 
 ### 2.3 Two tiers
 

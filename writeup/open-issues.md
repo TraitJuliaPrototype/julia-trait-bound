@@ -63,6 +63,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Open issue 159: `Dynamic{Callable}` without a signature** (proposal (a), mine), so that a record holding a function before its signature is known (SciML's `ODEFunction`, callbacks) keeps the caller's choice of attribute. The port takes (c) until then.
 - **Open issue 160: the cast names recognized by their binding, not reserved** (proposal (a), mine): P-23 reserves `compiled_for` and `with_dynamic` for all code, so a plain package that uses either name no longer loads (found by the review of 2026-11-08: TDE's `PlainODE`).
 - **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Compiler §5.6 and traits §5.5 changed (W-128): the runtime's half on `unified` 07c0bee2a2 and 40401f67d8 (a `serves_no_member` mark in the body, read before the insertion), the library's in TraitWorld; E-297 measures it. `Dynamic{X}` keeps being served by the trait's method rather than by methods of its own: it joins at the trait's declaration, so the method still serves no type that joins later.
+- **`keep` of a `Dynamic` holds its object anew** (compiler §6.9; [decisions](record/decisions.md) §9): never a `Dynamic` of a `Dynamic`, as the constructor does (found by TDE's suite, 2026-11-08).
 
 Waiting for evidence, not for the user:
 
