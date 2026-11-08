@@ -44,6 +44,8 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Which of `trait-world-1.13`'s changes the stack on branch `unified` carries now** ([julia-changes §7.1](design/julia-changes.md#71-the-stack); [decisions](record/decisions.md) §8): the eleven useful without traits, one commit each; `known_type` and the registry of type printers wait for a stage that uses them; the per-call-site cache's exact-type entries wait for W-109 (they slowed sites that see many types, [PE-20](record/performance-explorations.md)); the dispatch profiler is carried without its split by owner, the reflection fix and the two inliner changes without their facts halves.
 
 
+- **Open issue 158: a required operation's method is no shadow, with forwarding as methods at the member** (proposal (a), mine): the `Nothing` arm of a call to one of BaseTraits' operations prunes as in plain Julia (found by CSV's suite, 2026-11-08). Not built; it changes compiler §5.6 and traits §5.5.
+
 Waiting for evidence, not for the user:
 
 19. **Should standard libraries be separate owners?** Today Julia (Core, Base, the standard libraries) is one owner ([facts §1](reference/facts.md#term-owner); `TraitWorld/src/ownership.jl` `owner(m)` returns `:Julia` for every standard library, `strict.jl` skips `:Julia`), so a standard library's method on Base types (SparseArrays' `vcat` for `Number` and `Vector`, loaded by StatsBase) is a stakeholder's change: followed, never refused. TraitWorld's `_type_root` already treats a standard library's types as its own. Found by the writeup review of 2026-10-19 (finding 1). **To settle by E-189** (W-65; with strict mode's intended design, W-66): a census of the standard-library methods that are pirates by the letter if each library is its own owner, and which of them win at a fact of trait code in the demonstrators and the port's core. Outside strict mode the choice changes nothing, since a winning pirate is followed by default. Only late-loaded libraries win (SparseArrays' `vcat`): each library its own owner. A library in the system image wins (LinearAlgebra's methods of Base's functions): Julia stays one owner.
@@ -128,6 +130,23 @@ Deferred by the user (s25), to take up when wanted:
      - (c) The check infers under the serving method's own policy, whatever (a) or (b) gives.
 
      The port asserts the result at each such barrier until this is decided (TraitMakie `unified` e95da97).
+
+158. **A guarded call at a type with no method takes the trait's declared result** (found 2026-11-08 by W-104's second slice, CSV's upstream suite).
+   - *The case:* CSV's `_rowopts(r, j) = r.colopts === nothing ? r.opts : @inbounds(r.colopts[j])` (`forks-unified/CSV/src/tables.jl:250`) reads the field again. So the second call is `getindex(::Union{Nothing, Vector{ValueOpts}}, ::Int)`.
+     - Plain Julia finds no method for the `Nothing` arm and infers `ValueOpts`.
+     - With BaseTraits loaded, `Nothing` could join `Indexable` and `Keyed`. Their `getindex` methods shadow the arm. The guarded call's result joins their declared results, `T` and `V`, which are unbound at `Nothing`: `Any`.
+     - Each cell read then boxes a 128-byte `ValueOpts`: 144 bytes per cell. Upstream's test "Rows cell access allocations do not grow with row count" fails (6 of 330,545 tests; `forks-unified/logs/w104/suite-CSV.log`, unified 9dab7b6983). The code slot plays no part (the same with `JULIA_CODE_SLOT=0`). The values are correct.
+   - *How common:* a `Union{Nothing, T}` that reaches one of BaseTraits' operations without narrowing (a field read again after its test, a result of `findfirst`, `tryparse` or `get(d, k, nothing)` used in both arms). Plain Julia prunes the `Nothing` arm; the unified build widens the call to `Any`.
+   - *The rules that block it:*
+     - the guarded call's result is the join of `m₀`'s and the shadowing method's declared result ([compiler §5.6](reference/compiler.md#56-guards-and-cells));
+     - a non-member is final only as a closed abstract type or with the `never_member` bit ([compiler §4.8](reference/compiler.md#48-negatives-never-fold-positives-through-entries)).
+   - *What a required operation's method does:* the trait's method for an operation without a default either forwards ([traits §5.5](reference/traits.md#55-forwarding-with-by), and every `Dynamic{X}` value) or raises `MethodError` (`TraitWorld-unified/src/trait.jl`, `_trait_method`). The check accepts a member only with a serving method other than the trait's own, or a forwarding (`src/check.jl`). So at a type that does not forward, the method raises `MethodError`, as plain dispatch would without it.
+   - *Proposals:*
+     - (a) **Forwarding defines methods at the member** (or the family's pattern), as an `@implement` block does, and at `Dynamic{X}` for each operation when the trait is declared. Then the trait's method for a required operation only raises `MethodError` and is no shadow (one more "No guard arises" case in §5.6). A member's own method, forwarding included, is a method definition and invalidates as in Julia. Effect: the arm prunes as in plain Julia, and most of BaseTraits' guards go (all its operations are required). Defaults keep their guards.
+     - (b) **Negative memberships:** the owner of a set or of a type declares a pair that never joins (BaseTraits: `Nothing` and `Missing` at its container traits). A final non-member by declaration (§4.8). Exact, but by hand and per pair.
+     - (c) **A membership invalidates the code that pruned an arm with no method at the member,** as Julia does at a method definition. Changes the committed guarantee that a membership invalidates nothing ([facts §10](reference/facts.md#10-memberships); open issue 146).
+   - *Recommendation:* (a), mine. It keeps the guarantee, needs no declaration, and leaves fewer guards for W-121's profile to find.
+   - The fork keeps upstream's code; the test's failure stands, listed in the forks' README, until this is decided.
 
 ## 3. TraitWorld (the prototype)
 

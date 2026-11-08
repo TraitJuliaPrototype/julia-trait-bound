@@ -17,8 +17,8 @@ Status: **proposal** (2026-11-08, mine). Not normative. It builds what [traits ย
 2. **One instance per member, per input value.** `jl_declare_membership` refuses a second instance only where it agrees with an existing one in every input and differs elsewhere:
    - it asks the member against the set at the instance's input values, the other parameters left free (`HasProperty{:ps, R} where R`);
    - a redeclaration ends only the entry at the same input values.
-3. **Subtyping takes every entry.** `subtype_membership` and `intersect_membership` already walk all of a type's entries for a set. To check:
-   - the first-match shortcuts;
+3. **Subtyping takes every entry.** `subtype_membership` already treats each of a type's entries for a set as a choice (its union decisions over the entries), and `intersect_membership` walks them all. So subtyping needs no change. To check:
+   - the first-match shortcuts elsewhere;
    - inference's positive folds through an entry (compiler ยง4.8), which must record the entry that matched;
    - the library's `_fwd` and the checks, which look up "the" instance of a member (`_contracts_of`, `_env`).
 4. **A method's `where` variable or a stated value fixes an input** (ยง3.2). Where an operation's result needs an input that the call leaves open, the trait's method is refused at its definition.
@@ -33,7 +33,7 @@ Status: **proposal** (2026-11-08, mine). Not normative. It builds what [traits ย
 
 ## 4. Size and risk
 
-- Runtime: `datatype.c`, `jltypes.c` (the field), `julia.h`, `subtype.c` (any first-match shortcut).
+- Runtime: `datatype.c`, `jltypes.c` (the field), `julia.h`; `subtype.c` only for a first-match shortcut, if one turns up.
 - Library: `@input` passed on; the instance lookups made per input.
 - One build with the system image; a day's work.
 - The risk is in subtyping's shortcuts that assume one instance per member.
