@@ -45,3 +45,18 @@
 - **The next term, found by the profile after the fix:** CSV's load 75 % inference and compilation: `--trace-compile` shows 0.9 s compiling the native interpreter's `infercalls` closure and 0.26 s recompiling TraitWorld's two hooks. The invalidation log: loading TraitWorld invalidates 1,585 of the compiler's own instances, through `ClassifyInterp`'s methods of the compiler's functions (C-40, E-281). So C-40 moved into stage 1.
 - **C-40, `unified` 98fcbdfbba and TraitWorld's `classify.jl`:** `Compiler.DefinitionCheckInterpreter`, the compiler's own interpreter of the definition-time check (an ephemeral cache, the library's hook called from `abstract_call_known` behind a test that folds for every other interpreter); the library keeps its recording logic in a state object and defines no method of the compiler's functions.
 - **The binary of the first build** reports 350c5b1c59 (built before aa997b2180 was committed, from the same source); C-40's build is committed first.
+
+## Afternoon: stage 1 continued, W-128 begun
+
+### The user's words
+
+- On the census of deviations, and the suggestion to build the correctness group and the speed-path group alongside stage 2: "Go ahead."
+
+### What was done
+
+- **E-292 to E-295** (registry rows): the compiler's own invalidations brought to vanilla's level (195 against 193) by narrowing the stack's compiler code (9d428d473b, 28d2334164); TraitWorld's hooks no longer invalidated by a plain package's `print` method (e6eaa85, typed triggers).
+- **W-128, build B1** (`unified` 07c0bee2a2): C-73 (a method at a set re-guards a pruned arm at its insertion), C-71 (a failed member check lowers the entries made while it ran), C-35 (one instance per member through images). Gates `n11`, `n12`; TraitWorld test F10b.
+- **E-296 on B1:** correct; the goal's task 3.62–3.70 s, setting D 6.35–6.56 s, TraitReport (t) 1.02–1.07 s. The forks' session slower, 9.9–10.4 s. Diagnosis (the logs are kept with E-296): at a REPL, CSV's load takes 5.4–5.8 s against 0.6 s. C-73's rule makes TraitWorld's methods at sets for required operations invalidate the system image's code with a pruned `Nothing` arm; TraitWorld's image carries replacements compiled at `::AbstractInterpreter`; REPL's interpreter methods reject them at load, and the rejection reaches TraitWorld's hook (5.3 s inferred again). The guard cells in the validation log were a red herring: the log names every edge of a rejected instance (fixed in the log).
+- **Flagged** (open issues §1): the measured cost of the rule for pruned arms, the other side of "a membership invalidates nothing".
+- **Open issue 158 (a), built as part of W-128 (mine):** `unified` 40401f67d8 reads a `serves_no_member` meta in a method's body before its insertion (bit 1 of `declared_covers`); such a method, like one declared `Union{}`, is no shadow. A declared result could not mark it: a required operation's method carries the result covering every member. TraitWorld marks the trait's method for a required operation and defines forwarding's methods at the member. `Dynamic{X}` stays served by the trait's method (it joins at the declaration, so the method still serves no type that joins later): fewer methods than the review's proposal, same effect.
+- **Build B2** (1d493ca959 with 40401f67d8: C-54, C-60, C-46, the mark): E-297 registered, with a check of CSV's load after REPL's and TDE's suite.
