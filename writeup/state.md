@@ -1,6 +1,6 @@
 # The state of the prototype (2026-11-09)
 
-Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. The goal's task (DataFrames + Makie), the ODE session (setting D) and TraitReport's trait form run within Python + 1 s; the forks' REPL session is 2.4 s above pandas (§5).
+Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. The goal's task (DataFrames + Makie), the ODE session (setting D) and TraitReport's trait form run within Python + 1 s; the forks' REPL session is 2.3 s above pandas (§5).
 
 For core developers. The design is the four [references](reference/README.md), each with a Deviations table; this page summarizes what is built. The changes to Julia are the [compiler reference](reference/compiler.md), with the inventory in [`design/julia-changes.md`](design/julia-changes.md); the measurements are in [`design/evidence.md`](design/evidence.md). The earlier build (julia-1.13 with TraitWorld `main`) still runs, and most numbers in the evidence are its; its state on 2026-10-29 is [a dated snapshot](../attic/writeup/state-2026-10-29.md).
 
@@ -43,7 +43,7 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [158](open-issues.md#2-design) (a guarded call at a type with no method takes the trait's declared result) and [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
-The tests of the build itself (2026-11-08, the battery `w125c` on `unified` e9b9261808 with TraitWorld 24a5fcd, `experiments/unification/stack/logs/`): the gates 50 of 50; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline`, `Compiler/inference` and `precompile`; the 21 acceptance cases; TraitWorld's suite; both workloads.
+The tests of the build itself (2026-11-09, the battery `w316` on `unified` 523214899f with TraitWorld 6b342e9, `experiments/unification/stack/logs/`, E-316): the gates 52 of 52; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline`, `Compiler/inference` and `precompile`; the 21 acceptance cases; TraitWorld's suite; both workloads.
 
 ## 5. Not yet established
 
@@ -53,10 +53,10 @@ The deviations of the implementation from the design are listed per reference: [
 
   | Session | Python | Earlier build | Unified build |
   |---|---|---|---|
-  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); 3.62–3.70 s (E-296); 3.37–3.45 s (E-298); 2.37–2.40 s (E-300); 2.21–2.28 s (E-301); 1.91–1.95 s (E-302: the forks' CSV by facts); 1.81–1.83 s (E-303); 1.56–1.61 s (E-305: DataFrames by facts); **1.54–1.61 s** (E-307) |
-  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); 9.86–10.42 s (E-296: §5.6's pruned arms at a REPL); 4.76–5.17 s (E-298); 4.08–4.44 s (E-300); 3.98–4.42 s (E-301); 3.89–4.04 s (E-302); 3.67–3.70 s (E-303); 3.82–4.01 s (E-305); 3.75–3.98 s (E-307); **3.11–3.24 s** (E-308); 3.25–3.53 s (E-313, the harness's `TERM=dumb`) |
-  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; 9.19–9.28 s (E-295); 6.35–6.56 s (E-296); 3.42 s (E-298); 2.82–2.84 s (E-300); 2.75–2.82 s (E-301); 2.52–2.54 s (E-303); **2.04–2.05 s** (E-307) |
-  | TraitReport (t) | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286); 0.99–1.04 s (E-292); 1.02–1.07 s (E-296); 0.97–0.99 s (E-298); 0.89–0.91 s (E-300); 0.775–0.821 s (E-301); 0.73–0.76 s (E-303); **0.72–0.75 s** (E-307) |
+  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); 3.62–3.70 s (E-296); 3.37–3.45 s (E-298); 2.37–2.40 s (E-300); 2.21–2.28 s (E-301); 1.91–1.95 s (E-302: the forks' CSV by facts); 1.81–1.83 s (E-303); 1.56–1.61 s (E-305: DataFrames by facts); 1.54–1.61 s (E-307); **1.60–1.65 s** (E-316) |
+  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); 9.86–10.42 s (E-296: §5.6's pruned arms at a REPL); 4.76–5.17 s (E-298); 4.08–4.44 s (E-300); 3.98–4.42 s (E-301); 3.89–4.04 s (E-302); 3.67–3.70 s (E-303); 3.82–4.01 s (E-305); 3.75–3.98 s (E-307); **3.11–3.24 s (E-308); 3.25–3.53 s (E-313, the harness's `TERM=dumb`); **3.00–3.28 s** (E-316) |
+  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; 9.19–9.28 s (E-295); 6.35–6.56 s (E-296); 3.42 s (E-298); 2.82–2.84 s (E-300); 2.75–2.82 s (E-301); 2.52–2.54 s (E-303); 2.04–2.05 s (E-307); **1.98–2.01 s** (E-316) |
+  | TraitReport (t) | 0.64–0.68 s | 0.63 s (E-233) | 3.18–3.20 s (E-286); 0.99–1.04 s (E-292); 1.02–1.07 s (E-296); 0.97–0.99 s (E-298); 0.89–0.91 s (E-300); 0.775–0.821 s (E-301); 0.73–0.76 s (E-303); 0.72–0.75 s (E-307); **0.75–0.78 s** (E-316) |
   | NetworkDynamics' new equations (`changed` b–e) | — | 1.10 s (E-250) | 9.0 s (W-104); 6.6–6.7 s (E-309); 0.59–0.62 s (E-310 (a)); **0.59–0.66 s** (E-314) |
   | NetworkDynamics' steady state (`again` d) | — | 776–780 ms (E-250) | 189–230 ms (E-309); 182–213 ms (E-310 (a)); 451–475 ms (E-310 (b)); **228–257 ms** (E-314) |
 
