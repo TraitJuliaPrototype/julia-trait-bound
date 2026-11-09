@@ -1,6 +1,6 @@
 # Plan: declared results that never depend on inference (open issue 171)
 
-Status: **proposal** (2026-11-09, night), for a Fable review before it is built. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-09-plan-review-171.md)), built as `unified` ef1233e79e (E-340). The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The fault
 
@@ -65,3 +65,14 @@ Against the guarantees:
 - **A port relies on the conversion at a set:** a checked member never needed it. A `TypeError` names the member that escaped its check, which is the check's own fault to fix (168).
 - **Speed at `IO`:** a call's result `Any` where `Int` was. A count accumulated through a value typed `IO` becomes a dynamic `+`, as on vanilla. Formatted output ignores the counts.
 - **The eraser `IOContext{IO}`:** its forwarding methods return what the split returns, `Any`, as `IOContext{IO_t}` with an abstract `IO_t` does on vanilla.
+
+## 7. After the review
+
+[The review](../reviews/2026-11-09-plan-review-171.md): build with changes. What was done with each finding:
+- **H1 (a crash on the head):** constant propagation reached a member's method directly where regular inference took the declared result through the trait, and `handle1` took the constant-propagated code for its effects while keeping the narrower type; compiled code returned a `UInt` typed `Int` ("Unreachable reached"). Fixed at the rule in the same commit: a const result taken for its effects or exception type joins its type into the call's. Gates: `n19` (the closure at `IO`), `n22` (the closure at a set).
+- **H2:** `Base._SplitTarget`'s body converted too; it asserts now. Docstrings in `base/splittarget.jl`, `Compiler/src/splittable.jl`, `stmtinfo.jl` updated; `DeclaredResultInfo.convert` and `declared_converts` removed.
+- **M1:** the set gate is a serving method redefined after its check, past the split's candidates (`n22`); it fails on 8c4b93f867.
+- **M2:** alternative (d) dropped, not deferred: vanilla infers `Any` at every operation in a `@nospecialize(io::IO)` caller.
+- **M3:** the `--compile=min` comparison spawns its own process in `n19`.
+- **M4, M5 (re-check at a redefinition):** not built tonight; recorded with open issue 168 as the invariant the assertion backs.
+- **L1, L2:** the records in the same commit as the references; the closure facet in `n19`.

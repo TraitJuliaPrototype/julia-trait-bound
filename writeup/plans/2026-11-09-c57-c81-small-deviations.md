@@ -1,6 +1,6 @@
 # Plan: two small deviations, C-57 and C-81
 
-Status: **proposal** (2026-11-09, night), for a Fable review before it is built. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-09-plan-review-c57-c81.md)), built as `unified` 0ee9e4f8a6 (C-57) and 18bbbf0841 (C-81), E-340. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 Neither is unsound. Each is a place where the build falls short of a rule of the references, and each fix is small and at the rule.
 
@@ -52,3 +52,14 @@ is_fact_sig(item.specTypes) || return false
 ## 3. Build
 
 Both go into the build that carries C-82 and open issue 171 ([their plans](2026-11-09-c82-unmet-match-lookup.md), [171](2026-11-09-171-declared-results-without-conversion.md)), one commit each, then the battery once.
+
+## 4. After the review
+
+[The review](../reviews/2026-11-09-plan-review-c57-c81.md): build both, with changes. What was done:
+- **C-57, 2:** the backedge also carries the callee's own invalidation (a member's method that changes the instance's result invalidates the caller); stated in compiler §3.2's status with the commit.
+- **C-57, 3:** E-340 registered before the build, with the image keep counts and the goal's imports measured.
+- **C-57, 4:** `n21` asserts G2 for a caller at a member with the callee not inlined, inlined, and a facts caller, and not for a caller at the set or at `Any`.
+- **C-81, 6:** `jl_declare_contract` refuses a type that another image holds (Base's build excepted for Core's `IO`): a contract declared in the image that defines the type, mine, in compiler §7.1 and traits §3.4.
+- **C-81, 7:** the candidates are fixed with the contract: no module adds one later (REPL's `LimitIO` can never be `IO`'s candidate; noted in open issue 170).
+- **C-81, 8, 9:** gate `n23` (the refusals in a session; a package image keeps its candidates; the split names them after load; a later registration refused); candidates checked concrete, subtypes, named once; the list rooted.
+- **10–12:** the stale copies fixed with the references; the commits ordered 171, C-57, C-81.

@@ -1,6 +1,6 @@
 # Plan: dispatch's lookup at an unmet intersection made sound (C-82, open issue 172)
 
-Status: **proposal** (2026-11-09, night), for a Fable review before it is built. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-09-plan-review-c82.md)); built in E-341. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The fault
 
@@ -72,3 +72,16 @@ The build (`unified` b05ae361e0) deviates (C-82), in two places:
 - **The port relied on a static call at an open set:** a call becomes dynamic. The results stay equal; only the speed changes. The count says where.
 - **Reflection and dispatch disagree at an open set:** reflection reports no ambiguity where the lookup now returns an ambiguous pair. That holds today too for intersections with no value. The membership report covers the moment a value exists.
 - **An abstract query in codegen that bypasses inference** (`jl_gf_invoke_lookup`, the leaf cache): the cells go missing there. To check in the code before building.
+
+## 7. After the review
+
+[The review](../reviews/2026-11-09-plan-review-c82.md): build, with its findings folded in. What was done:
+- **H1:** the cells are a field of `MethodLookupResult` (defaulting to `nothing`), so every site that builds a lookup result carries them; `MethodMatchInfo.cells` removed; `_add_edges_impl` reads `info.results.cells`.
+- **H2:** `Callable` counts as met, checked in `set_entries_meet`, so a set `Callable` joins is covered; compiler §5.4, the decision row and open issue 172 say "met", not "read from its methods".
+- **M1:** a `Vararg` whose length is not a positive constant is never unmet (its empty tail is a value); gate case.
+- **M2:** gate (2) expects the covering match alone with the ambiguity flag set, and a dispatching caller.
+- **M3:** the drop runs at any number of matches; the lone unmet match gate case.
+- **M4:** the next free ID, E-341; the stale copies (C-79's row, `n20`'s header, `gf.c`'s comment, `reflection.jl`, `sysimg.jl`) fixed.
+- **M5:** one flag, set by both writers of closed after load (`jl_any_closed_after_load`).
+- **L1:** alternative (e)'s reason is the unbounded walk over methods, not P-30.
+- **L2:** the runtime returns the matches alone where it dropped nothing, `svec(matches, cells)` otherwise: no allocation per lookup.
