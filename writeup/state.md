@@ -88,7 +88,7 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
 1. **The ports** (W-104): every port runs; NetworkDynamics' session is measured against the evidence (E-314).
 2. **[The plan to reach Python's speed](plans/2026-11-08-python-speed.md)** (the user, 2026-11-08; target: the goal's task within Python + 1 s; workloads only at broad typical cases), from the profiling campaign (W-121): W-123 (stage 1) done; W-125's gate met; W-124 (stage 2's rest: setting D's first solve) and W-126 (stage 4: what the sessions still compile) under way; W-127 (stage 5) waits for the user's scope.
 3. **The deviations that matter for correctness or the plan** (W-128), beside it.
-4. Queued: W-119 (the slot's share in the ports), W-115 to W-118.
+4. Queued: W-119 (the slot's share in the ports). W-115 to W-118 are done: the glossary, `design.md`, `intro/` and the open issues teach and track the current references.
 
 **Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.
 
