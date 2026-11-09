@@ -246,7 +246,7 @@ When a CodeInstance of either policy is finished, a bit in its flags records whe
 
 Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
 
-**Status:** The bit implemented on `unified` 8ef154476f (W-100), for code of either policy and kept in images, inlined callees' records consulted on 1d493ca959; its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
+**Status:** The bit implemented on `unified` 8ef154476f (W-100), for code of either policy and kept in images, inlined callees' records consulted on 1d493ca959, the edge instance made for a constant-propagated result on 427760d9e9 (gate `f4_g2_bit`, E-320); its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
 
 ### 3.3 The code slot
 
@@ -449,7 +449,7 @@ At `jl_declare_membership`, for each function with a method at the new set and a
 - At those call types the two methods are ambiguous as `Base.isambiguous` decides: both match, neither is more specific, and no matching method more specific than both covers the types.
 - One warning per function and pair of sets.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107); for a pattern, C-29. Strict mode's error with strict mode (W-114).
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107), a pattern member at the call types both methods reach 264b7f959f (gate `m2_ambiguity_arity`, E-320). Strict mode's error with strict mode (W-114).
 
 ### 5.5 A membership lowers dispatch caches
 
@@ -817,7 +817,7 @@ Each applies to all code.
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
-| the ambiguity report at a membership | Implemented (`unified` 0d529d33a9) for a concrete member; C-29; strict mode's error W-114 | §5.4 |
+| the ambiguity report at a membership | Implemented (`unified` 0d529d33a9, a pattern member 264b7f959f); strict mode's error W-114 | §5.4 |
 | dispatch caches lowered at a membership | Implemented (`unified` 29035cab11; no code invalidated 79b948420e) | §5.5 |
 | guards and cells | Implemented (`unified` 79b948420e, W-112), with C-58, C-59 | §5.6 |
 | `TraitKey`; compilation signatures per key, per type, once | per type and once implemented (`unified` e692e57ab7, W-111), with C-54; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
@@ -855,7 +855,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-26 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.5](#45-subtyping)); gates `m1_audit_probes` (P8), `m1_parametric_set` | — | — |
 | C-27 | [§4.6](#46-one-instance-per-member) | A membership that would give a member a second instance of a set is refused, for a pattern too, by intersecting it with each pattern that already reaches the set. | Checked exactly for a concrete member only; a pattern's second instance is accepted. | `src/datatype.c` (`jl_declare_membership`) |
 | C-28 | — | *Retired* (2026-11-06): the query world is the task's, restored by exception handlers, on `unified` 48864e547d ([§4.11](#411-inferences-world)); gate `m2_query_world_task` | — | — |
-| C-29 | [§5.4](#54-the-ambiguity-report-at-a-membership) | For every member, the report asks at the call types where both methods apply, and a method that dominates every common member suppresses it. | For a pattern member (no instance to ask), a pair warns unless a method at one of the two sets, or at a set that joins one of them, is more specific than both. A closed method more specific than both is missed, so such a pair over-warns; the warning names no joint signature. | `src/gf.c` (`jl_membership_ambiguity_report`) |
+| C-29 | — | *Retired* (2026-11-09): a pattern member is asked at the call types both methods reach, and the warning names the joint signature, on `unified` 264b7f959f ([§5.4](#54-the-ambiguity-report-at-a-membership)); gate `m2_ambiguity_arity`; E-320 | — | — |
 | C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
 | C-31 | [§10.4](#104-the-member-hook) | The hook also runs in the compile queue, before a CodeInstance that relies on the member is published; a failing check compiles that use as the `ImplementError`. | Only at dispatch: a call compiled with the member's type known reaches the trait's method without a check, and a member that fails raises `MethodError` there. | `src/gf.c` |
 | C-32 | — | *Retired* (2026-11-08): a set's inputs on `unified` 350c5b1c59 ([§4.6](#46-one-instance-per-member)); gate `n10_inputs` | — | — |
@@ -901,3 +901,4 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-lowers-dispatch-caches)); gate `m2_parametric_replay`; E-292 | — | — |
 | C-73 | — | *Retired* (2026-11-08): a method at an open set reaches, at its insertion, the callers whose pruned arm its set could shadow, on `unified` 07c0bee2a2 ([§5.6](#56-guards-and-cells)); gate `n11_late_shadow`; E-296 | — | — |
 | C-74 | — | *Retired* (2026-11-09): code a compile queue infers anew is inferred under its method's policy on `unified` dde5f9f5dc ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `n15_image_policy`, E-311 | — | — |
+| C-75 | — | *Retired* (2026-11-09): the edge instance made for a constant-propagated result carries the G2 bit, on `unified` 427760d9e9 ([§3.2](#32-g2-as-a-predicate)); gate `f4_g2_bit`; E-320 | — | — |

@@ -230,7 +230,7 @@ Deferred by the user (s25), to take up when wanted:
    - *Proposals:*
      - (a) **The attribute passes through a parameter no trait types:** a cast or a carried attribute at such a parameter is part of the callee's key (as `Core.attributed_call` keys a trait argument), so `compiled_for(d)` passes the held object, compiled per its type, and the callee passes `Compiled` on. A plain value is unchanged: no attribute, the trait's default at the next trait-typed call. Needs the attribute bits at any argument; a key Julia's specialization does not show.
      - (b) **The idiom:** a parameter that passes a trait's value on is typed by the trait, as a Rust generic names its bound to keep static dispatch. What the port does (NetworkDynamics 7e8997d). No new rule.
-     - (c) **Make the silent case loud:** a package's tests check that `detect_unused_casts(mod)` is empty, as they check `detect_ambiguities`, so a cast at an untyped parameter fails a test. The function exists; no port's tests run it yet.
+     - (c) **Make the silent case loud:** a package's tests check that `detect_unused_casts(mod)` is empty, as they check `detect_ambiguities`, so a cast at an untyped parameter fails a test. The ports' tests run it: TraitDifferentialEquations, TraitMakie, TraitTables, TraitCSV, the forks of Tables, CSV and DataFrames, NetworkDynamics' quality tests and ndport's subset; none has a cast without effect (E-320).
    - *Recommendation:* (b) with (c), mine: no hidden key, and the trap becomes a test failure. (a) only if the ports show the idiom is too much to ask.
 
 ## 3. TraitWorld (the prototype)
