@@ -863,7 +863,7 @@ end
 - **The erased stream is `IOContext{IO}`:** `IOContext{IO}(io)` and `IOContext{IO}(io, key => value, …)` hold any stream as an `IO`. It is an `IO`, so code typed `io::IO` takes it. It forwards every stream function, as any `IOContext` does, and its operations on the stream it holds branch over the candidates. An `IOContext`'s properties (`:compact`, `:limit`, `:color`) reach `show` through it. `IOContext(io, …)` keeps the stream's type, for code per type.
 - **Erasing is the author's choice,** where large code serves many streams (§7.10): a display entry declares `@nospecialize(io::IO)` and passes `IOContext{IO}(io)` on, so one compiled body serves the REPL's stream, a file and a buffer, and a package image's workload at an `IOBuffer` covers them all. Small code that writes a byte or a short string per call stays per type.
 
-**Status:** Planned (the user, 2026-11-09: "Go with the Fable plans recommendations", [the plan](../plans/2026-11-09-io-alternatives.md) §4.2, option B). Implemented of it: the operations' declared results and the split's candidates, declared on `Core.IO` as a set (`unified` b133374e9d, [compiler C-80](compiler.md#deviations)); the counts `Int`, converted at the call (`unified` 0c836f3ef6, E-333). `eof`, `isopen` and `close` out of the contract: mine (2026-11-09).
+**Status:** Implemented on `unified` b05ae361e0, the forks' DataFrames erasing at its display entries (forks a8fe1b5; E-337); the counts `Int`, converted at the call, on 0c836f3ef6 (E-333). The user (2026-11-09: "Go with the Fable plans recommendations", [the plan](../plans/2026-11-09-io-alternatives.md) §4.2, option B). `eof`, `isopen` and `close` out of the contract: mine (2026-11-09).
 
 ---
 
@@ -1159,7 +1159,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
 | `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
-| A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Planned | §3.4, §9b |
+| A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-96–T-98 | §12 |

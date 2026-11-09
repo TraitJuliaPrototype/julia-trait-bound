@@ -265,6 +265,7 @@ Deferred by the user (s25), to take up when wanted:
    - *The rules:* code compiled once at a stream typed `IO` (erased by its author, [traits §9b](reference/traits.md#9b-streams-io)); [compiler §7.2](reference/compiler.md#72-the-split) splits only an operation's call; §9's rule that an image holds what a run-time site reaches applies to facts code.
    - *The first failure:* the readers of a package cache's header, compiled once at their stream. Compiled per stream type, as Base's methods are, they read typed values.
    - *Since E-332* (`unified` 7bd8b6e512, the battery `w332`): the same child fails one more check (437 of 457). It stops while printing a tuple. The likely cause, not traced: a split's branch through a `:caller_world` pointer, whose converter is compiled ahead of time or by the JIT, and this child has no JIT. The table's fallback takes the dynamic call there (compiler §7.3); a branch's pointer has no fallback. Proposals: an image holds the converters of its branches' pointers (as §7.3's "ahead of time" for the table's targets, C-39); without the compiler, a branch's thunk dispatches.
+   - *With Base's methods per stream type* (E-337, `unified` b05ae361e0, the battery `w337`): Base's `precompile` test passes, 457 of 457. The case stands for code an author erases.
    - *Proposals:*
      - (a) **An image holds what a call at a set's candidates reaches:** while an image is built, a dynamic call in code compiled once whose receiver is typed by a set with candidates gets the instance each of the first candidates selects, as §9's rule for facts run-time sites. The split's branches for an operation already do this.
      - (b) **Split every call at a receiver typed by a set over its first candidates,** not only an operation's, with the dynamic call as the fallback: the branches are static calls, so their targets are compiled with the caller and the image holds them. The result is the join, `Any` past the candidates.
@@ -282,6 +283,7 @@ Deferred by the user (s25), to take up when wanted:
      - (c) Base's code under `get(::TTY, …)` typed, so that no pruned arm sits there: a patch at one place; the pattern stays.
    - *Built* (E-332, mine): (a) on `unified` 0c836f3ef6, then only a leaf inlined on 7bd8b6e512 (an inlined branch, `get(::TTY, :color, false)` after constant propagation, brought its body's edges). At the goal's load: 17,035 then 6,687 instances invalidated, 22,791 then 2,110 under split edges, 7,422 then 121 under `length(::HasLength)`.
    - *Left* ([the Fable plan](plans/2026-11-09-compiled-once-equations.md) §4.1): a split with no table still inlines and calls directly; a constant-folded branch keeps its edge. The plan's proposal 1 states the firewall as a rule of §7.2 (a branch depends on its candidate by a dispatch edge, the declared result, and a code edge to a leaf only), with the code slot (§3.3) and a contract edge as a cheaper mechanism than the pointer.
+   - *Measured* (E-337, `unified` b05ae361e0): through the eraser `IOContext{IO}`, a byte or a short string per call 1.5–2.2× the hand-routed proxy, whose branches are static calls; formatted output 1.01–1.11×.
    - *Recommendation (mine):* (a) as built, stated as the plan's rule; the slot where E-328's short writes show the pointer's cost.
 
 168. **Members that join by a nominal supertype are not checked against the declared results** (found 2026-11-09 by E-333's build: Core's `unsafe_write` returned a `UInt` where `IO` declares `Int`).
@@ -293,6 +295,15 @@ Deferred by the user (s25), to take up when wanted:
      - (b) **A test helper for a package's suite,** as `detect_ambiguities`: the report's check over a module's methods serving a set's operations, reporting a result outside the declaration (after (a), one that does not convert).
      - (c) Refuse a member outside the declaration at its package's load: breaks working packages (CSV's test stream).
    - *Recommendation (mine):* (a), built; (b) with W-129's remaining work.
+
+170. **A split's table targets at a type no image saw are compiled at the first call** (found 2026-11-09 by E-337's traced forks session).
+   - *The case:* DataFrames' erasing entry `show(@nospecialize(io::IO), df; allrows = !get(io, :limit, false), …)` reads the stream's properties in its keyword defaults, at the stream typed `IO`. `get` is an operation of `IO`'s contract, so the call splits. The REPL's stream, `IOContext{REPL.LimitIO{TTYTerminal}}`, is past the candidates, and the table's miss compiles a target for it: 34.6 ms. The eraser's writes reach `unsafe_write` at `LimitIO{TTYTerminal}`: a pointer, 5.5 ms. The `TTY` branch's target in Base's image was invalidated and compiled again: 8.2 ms (the cause not traced). In all 53.5 ms of the `show` step's 81–110 ms (`experiments/unification/e323/session-traced-w337.out`).
+   - *The rules:* [compiler §7.3](reference/compiler.md#73-the-table-of-a-calls-targets) (a miss makes the target at the call; ahead of time, an image compiles the targets for the members a package declares: C-39, not built); [§7.2](reference/compiler.md#72-the-split) (a branch's pointer to its candidate's target).
+   - *Proposals:*
+     - (a) **C-39 for a closed type's subtypes:** the image of the package that defines a subtype of a type with a contract (REPL's `LimitIO`) holds the targets of the contract's operations at the concrete types its workload makes.
+     - (b) **An erasing entry reads the stream through the eraser:** it erases first and reads `:limit` from `IOContext{IO}(io)`, whose `get` reads its own properties and splits nothing. A port's idiom; `show`'s keyword defaults make it awkward.
+     - (c) **The target for a type whose method's instance is in an image is a dispatching thunk,** compiled once per call signature: past the candidates the call dispatches in the caller's world, a dynamic call in place of a compile.
+   - *Recommendation (mine):* (a), the design's own rule (C-39); the invalidated candidate's target with open issue 167.
 
 ## 3. TraitWorld (the prototype)
 
