@@ -366,11 +366,11 @@ Questions about open sets are answered in three layers:
 - **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit; a pair (type, set) whose set is closed after load and whose declarers have finished loading.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
 - **Closed after load** ([traits §3.4](traits.md#34-open-and-closed)) is a bit on the set's `TypeName`, written by the library at the declaration (`@closed_after_load`).
-  - **The declarers of a pair** are the set's owner and the type's owner, with their joint owners ([traits §12.1](traits.md#121-who-may-declare-a-membership)). A module is loaded once its package has finished loading, after its `__init__`. `Main`, and a package while it is precompiled or loaded, are not.
+  - **The declarers of a pair** are the set's owner and the type's owner, with their joint owners ([traits §12.1](traits.md#121-who-may-declare-a-membership)). A module is loaded once its package has finished loading, after its `__init__`. `Main`, and a package while it is precompiled or loaded, are not. Core and Base are loaded once Base's build has run its last definition, so the code the system image compiles after that relies on their final negatives (no `__init__` runs while an image is generated).
   - **Where both declarers have loaded,** the pair's negative is final: inference folds it, and a call whose shadow is a method at that set carries no guard (§5.6).
   - **Code that relied on a final negative records it** as an edge on the pair's cell. A membership declared later invalidates that code, as a method definition invalidates its callers. An image's code with such an edge is checked when the image is validated.
 
-**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. Closed after load: Implemented on `unified` bf447db25e (W-129 (a)), with C-76, C-77; gate `n18_closed_after_load`, E-329. Opt-in: the user (2026-11-09, "Finality should be opt in."); the bit per set and the edge on the cell: mine (2026-11-09).
+**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. Closed after load: Implemented on `unified` bf447db25e (W-129 (a)), with C-76, C-77; gate `n18_closed_after_load`, E-329. Core and Base loaded at the end of Base's build: `unified` b133374e9d (W-129 (b)), mine (2026-11-09). Opt-in: the user (2026-11-09, "Finality should be opt in."); the bit per set and the edge on the cell: mine (2026-11-09).
 
 ### 4.9 Intersections
 
@@ -450,12 +450,15 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 
 ### 5.4 The ambiguity report at a membership
 
-At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, with no method more specific for the member, a warning names the pair and the joint method's signature: the two signatures' intersection, where the two sets meet as `All{X, Y}` (§4.9). Strict mode makes it an error. A method that dominates every common member suppresses it.
+At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, or at one of the member's declared supertypes, with no method more specific for the member, a warning names the pair and the joint method's signature: the two signatures' intersection, where the two meet as `All{X, Y}` (§4.9). Strict mode makes it an error. A method that dominates every common member suppresses it.
 - The question is asked at the methods' own arity: each method's signature with the member in place of its set, the two intersected. An empty intersection is no ambiguity.
 - At those call types the two methods are ambiguous as `Base.isambiguous` decides: both match, neither is more specific, and no matching method more specific than both covers the types.
 - One warning per function and pair of sets.
+- **An intersection no type is in.** An argument `All{X, Y, …}` is *unmet* in a world where no type of that world is in every component. Nominal supertypes form a tree, so a common type is in some set component by an entry: the entries live in that world at the set components (and at the sets that join them) are read (`jl_has_unmet_argument`).
+- **Dispatch's lookup in the query's world:** a match met only at unmet arguments leaves the matches where a covering match exists that it is not more specific than. No value reaches it, and a membership that later makes one is this report's case. So it neither selects nor makes the lookup ambiguous: `write(::IO, ::Char)` against `write(filename::AbstractString, …)`, which meet only at `All{AbstractString, IO}`, is one match, and a call at `IO` is static. A match more specific than every covering match, or one with no covering match beside it, stays: a later member would select it (a pruned arm, §5.6). Until the joint method is defined, a call compiled before the membership runs the covering method for the new member.
+- **Julia's ambiguity reflection** (`Base.isambiguous`, `detect_ambiguities`) asks the same question in the query's world: an argument met only as an unmet intersection has no value there, as an argument met only as `Union{}` has none. So two methods at a set and at a type no member of it relates (`write(::AbstractString, …)` and `write(::IO, …)`) are not reported until a membership makes them meet, and then by this report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107), a pattern member at the call types both methods reach 264b7f959f (gate `m2_ambiguity_arity`, E-320). Strict mode's error with strict mode (W-114).
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107), a pattern member at the call types both methods reach 264b7f959f (gate `m2_ambiguity_arity`, E-320). Strict mode's error with strict mode (W-114). The reflection in the query's world on `unified` b133374e9d (`has_unmet_intersection`, `base/reflection.jl`; Base's ambiguities 0, as before `IO` was a set, E-330); an intersection unmet by the world's entries, and dispatch's lookup, on `unified` (E-331, being measured): mine (2026-11-09). The report at a member's declared supertype: C-78.
 
 ### 5.5 A membership lowers dispatch caches
 
@@ -622,12 +625,13 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 - **At an intersection** `All{X, Y}`, the candidates are those of `X`'s index that are members of every component.
 - `register_dynamic_candidate!(K, C)` registers candidates for a key `K` that is not a set.
 - **Inference:** where `x`'s type is not concrete and the set has candidates, `f` is inferred at `x`'s type intersected with the union of the first four candidates; each split is a fact with its edge.
+- **In each branch the value's type is the candidate:** the argument is `Compiled` there, so a branch that a method at the set serves runs that method's instance for the candidate, and the branch's case is the candidate, never the set.
 - **The split:** the inliner splits the call over them. The last branch, the fallback, calls through the table of the call's targets (§7.3), or is the dynamic call where no table applies. The split is never fully covered.
 - **The result:** each case not known to be an `RT`, and the fallback, are asserted to `RT`; the join is `RT`.
 - **Which candidates a caller splits over is fixed when it is compiled.** A member registered later reaches the fallback, and invalidates nothing.
 - Registration is lock-free for readers: the table is replaced on each registration.
 
-**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). `register_dynamic_candidate!` for a key: with keys (W-110).
+**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). Each branch `Compiled` for its candidate on `unified` b133374e9d (found by `IO`'s `get`, whose candidates are all served by the default at `::IO`; gate `n19_io_trait`): mine (2026-11-09). `register_dynamic_candidate!` for a key: with keys (W-110). Open: a branch's edge to its candidate's instance carries that instance's invalidation to every caller of an instance compiled once ([open issue 167](../open-issues.md#2-design)).
 
 ### 7.3 The table of a call's targets
 
@@ -649,10 +653,10 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 - **The fallback stays a run-time site:** it dispatches in the caller's world and records no edge. The table needs no invalidation.
 - **Sessions:** pointers are valid in their session; a table saved in an image counts as empty in another.
 - **Threads:** a table's state is replaced on each addition, never mutated; readers take no lock.
-- **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call.
+- **Applies to** a split whose function's type is concrete and not a kind, with at most six arguments after the value. Elsewhere the fallback is the dynamic call. In a trimmed program the fallback is the dynamic call. In a session without the compiler the table's miss makes no pointer, and the fallback takes the dynamic call.
 - **Ahead of time:** for each member declared in a package, its targets and their thunks are compiled into that package's image, at each call signature whose other arguments are concrete. A target whose call has abstract further arguments is made at its first call.
 
-**Status:** Implemented on `unified` e70675a606, ported from `trait-world-1.13` 711484a23e and 6d480d0753, but for the targets compiled ahead into images (C-39).
+**Status:** Implemented on `unified` e70675a606, ported from `trait-world-1.13` 711484a23e and 6d480d0753, but for the targets compiled ahead into images (C-39). The dynamic call where no pointer is made, on `unified` d554855579 (found by Base's `precompile` test, a session without LLVM; E-330): mine (2026-11-09).
 
 ### 7.4 `Callable`'s call
 
@@ -678,12 +682,12 @@ This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own.
 
 - **`Core.IO` is a set from Core's build,** as `Callable` is (§7.4): open, its default bit `Dynamic`, closed after load (§4.8), and out of §6.3's step-4 exception, so Julia's own streams take the default.
 - **Its members** are the subtypes of `IO` by their declared supertype, as in Julia, and the types an entry declares (`@implement IO S`).
-- **Its contract** is the operations of [traits §9b](traits.md#9b-streams-io), each with Base's method at `::IO` as its default, so every existing subtype satisfies it. `Dynamic{IO}` is a member by the entry the library declares, as for any set, and forwards them.
+- **Its contract** is the operations of [traits §9b](traits.md#9b-streams-io), each with Base's method at `::IO` as its default, so every existing subtype satisfies it. Where Base had none (`eof`, `isopen`, `close`), the default raises the `MethodError` the call would, and is no shadow (§5.6). `Dynamic{IO}` is a member by the entry the library declares, as for any set, and forwards them.
 - **Its candidates** for the split (§7.2) are `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint`, in that order: Base registers them at its build, before any other member. A stream past them (an `IOContext`, the REPL's `LimitIO`) takes the table (§7.3).
 - **The declared results** are asserted on the split's branches and on the fallback: `write(io, ::UInt8)` and `unsafe_write` `::Integer`, `read(io, ::Type{UInt8})` `::UInt8`, `eof` and `isopen` `::Bool`.
-- **Base's methods typed `io::IO`** are compiled once in the system image. One that writes a byte or a short string per call in a loop declares `@specialize` at its stream where a measurement shows the split's cost (E-328: about 4 ns per call).
+- **Base's methods typed `io::IO`** are compiled once in the system image. One that writes a byte or a short string per call in a loop declares `@specialize` at its stream where a measurement shows the split's cost (E-328: about 4 ns per call). The readers of the package cache's header in Base's loader declare `@specialize` at their stream: the values they read (`read(f, Int32)`, not an operation) infer as `Any` at a stream compiled once, and the calls that take them would dispatch when they run.
 
-**Status:** Planned (W-129; [open issue 164](../open-issues.md#closed-items) (d)); the split's cost measured by a proxy in plain Julia (E-328). The user (2026-11-09). The candidates' order, the declared results and `IO` closed after load: mine (2026-11-09).
+**Status:** Implemented on `unified` b133374e9d (W-129 (b); `base/iotrait.jl`, `jl_set_core_set`), with TraitWorld `unified` 4443d2c; gate `n19_io_trait`, E-330. The split's cost measured first by a proxy in plain Julia (E-328); on the build, far above it (E-330; flagged in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user), causes in 166 and 167). The cache header's readers `@specialize`d on d554855579. The user (2026-11-09). The candidates' order, the declared results and `IO` closed after load: mine (2026-11-09). The raising defaults: mine (2026-11-09).
 
 ---
 
@@ -736,6 +740,7 @@ Optional, each only if a measurement asks for it:
 - **An image holds the code a facts run-time site reaches whatever the values.** While an image is built, a run-time site in facts code whose argument types match exactly one method, which specializes on none of the site's abstract arguments, has that method's instance compiled into the image, at its compileable signature and the facts policy. *Specializes on none* means: at each abstract argument the method is `@nospecialize`, the argument is no trait argument, and its declared type has no free variables and is no kind. Code that needs an instance per value's type at such a site (a closure capturing untyped values) is not covered; it is written as a loop.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
 - **The checks' records** of members checked while the image was built (traits §5.10) are kept with it.
+- **The system image keeps the indices of sets** as it keeps its method tables: its methods at sets and each function's, the sets' candidates, entries and cells, and the split tables' miss (§7.3). So `IO`'s operations, candidates and cells hold from the start, and a membership opens the image's cells.
 - **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's key ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - **A machine-code cache across sessions is the goal of the record.** The record of §3.1 is kept complete, naming its targets by identities stable across sessions:
   - a method by module path, name, signature and a digest of its lowered code;
@@ -745,7 +750,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), refused at a second instance on 07c0bee2a2; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07). The rule for run-time sites implemented on `unified` 6767b03893 (`Compiler/src/facts.jl` `rtsite_targets`, `typeinfer.jl` `compile!`; E-326; gate `n17_rtsite_targets`), for all modules: mine (2026-11-09).
+**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), refused at a second instance on 07c0bee2a2; the edge kinds with W-100 and W-112. The checks' records: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07). The rule for run-time sites implemented on `unified` 6767b03893 (`Compiler/src/facts.jl` `rtsite_targets`, `typeinfer.jl` `compile!`; E-326; gate `n17_rtsite_targets`), for all modules: mine (2026-11-09). The system image's indices of sets on `unified` b133374e9d (W-129 (b), gate `n19_io_trait`): mine (2026-11-09).
 
 ---
 
@@ -848,7 +853,7 @@ Each applies to all code.
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61, C-62; the arguments checked against `A` on 1d493ca959 | §7.4 |
-| `IO` a set from Core's build: compiled once by default, Julia's streams included; closed after load; the split's candidates | Planned (W-129) | §7.5 |
+| `IO` a set from Core's build: compiled once by default, Julia's streams included; closed after load; the split's candidates | Implemented (`unified` b133374e9d) | §7.5 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
@@ -924,3 +929,4 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-75 | — | *Retired* (2026-11-09): the edge instance made for a constant-propagated result carries the G2 bit, on `unified` 427760d9e9 ([§3.2](#32-g2-as-a-predicate)); gate `f4_g2_bit`; E-320 | — | — |
 | C-76 | [§4.8](#48-negatives-never-fold-positives-through-entries) | The declarers of a pair are the set's owner and the type's owner, with their joint owners. | The set's module and the module of every `TypeName` in the type, each loaded with the package it is nested in; joint owners are not consulted. A joint owner that loads after the owners declares late, and its membership invalidates. | `src/datatype.c` (`jl_membership_final`, `type_declarers_loaded`) |
 | C-77 | [§4.8](#48-negatives-never-fold-positives-through-entries) | Where both declarers have loaded, inference folds the pair's negative. | It folds at `isa` and `<:` (`isa_tfunc`, `subtype_tfunc`) and leaves out the guard (`jl_call_shadows`), in a frame that records the final cell. `tmeet`, `isa_condition`, `typesubtract` and the constants' and conditionals' meets still refuse it. | `Compiler/src/typeutils.jl` (`negative_fold_blocked`), `tfuncs.jl`, `abstractinterpretation.jl` (`call_shadows`) |
+| C-78 | [§5.4](#54-the-ambiguity-report-at-a-membership) | The report at a membership covers a method at a set the member is in and one at the member's declared supertypes. | It covers methods at sets only: a member of `IO` declared `<: AbstractString` gets no warning for `write(::IO, …)` against `write(::AbstractString, …)`, and a call compiled before runs `write(::IO, …)` for it where a dynamic call raises the ambiguity. | `src/gf.c` (`jl_declare_membership`'s report); gate `n20_unmet_lookup` (3) |

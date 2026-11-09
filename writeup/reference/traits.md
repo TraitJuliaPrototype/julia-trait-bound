@@ -351,6 +351,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X` makes the trait `X` the supertype of `S`, as for any abstract type: `S <: X` holds from the definition.
 - **The membership is declared by `@implement X S`,** in the same module, after `S`'s methods. It checks the contract (§5.10) and fixes the key. A membership is always declared, and checked where it is declared.
 - **A use of `S` through `X` before the `@implement`** (a call that needs `S`'s key) raises `ImplementError` naming the missing declaration. The `@implement` then replaces that failure. A module that ends with a `struct S <: X` and no `@implement X S` is refused at its end.
+- **Base's `IO` is the exception** (§9b): a `struct S <: IO` is a member by its declared supertype, as in Julia, with no `@implement`, since each of its operations has Base's method at `::IO` as its default.
 - `struct S <: X{Float32, 1}` states parameters; the `@implement` may repeat them.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
@@ -860,7 +861,7 @@ report(IOBuffer(), t)                     # the same code
 - **A loop that writes one byte or a short string per call** declares `@specialize` at its stream: through the split, each such call costs about 4 ns more than code compiled for the stream's type ([evidence §2](../design/evidence.md#2-run-time), E-328).
 - **`IO` is closed after load** (§3.4): "`String` is not an `IO`" is final once Base has loaded, a package's type once its package has loaded. So `x isa IO` folds, and a call of `print`, `write` or `show` at a value that is not a stream carries no guard.
 
-**Status:** Planned (W-129; [open issue 164](../open-issues.md#closed-items) (d)). The user (2026-11-09): "The real point here is that Base should support and default to Dynamic{IO} right?"; on step 4's exception, the operations and the split's candidates: "Everything else is approved." The operations' declared results, the candidates' order, and `IO` closed after load: mine (2026-11-09).
+**Status:** Implemented on `unified` b133374e9d and TraitWorld `unified` 4443d2c (W-129 (b); [compiler §7.5](compiler.md#75-io); gate `n19_io_trait`, E-330), with T-106. The user (2026-11-09): "The real point here is that Base should support and default to Dynamic{IO} right?"; on step 4's exception, the operations and the split's candidates: "Everything else is approved." The operations' declared results, the candidates' order, and `IO` closed after load: mine (2026-11-09).
 
 ---
 
@@ -1156,7 +1157,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
 | `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
-| `IO` a trait of Base's, compiled once by default, closed after load; `Dynamic{IO}` an `IO` | Planned (W-129) | §9b |
+| `IO` a trait of Base's, compiled once by default, closed after load; `Dynamic{IO}` an `IO` | Implemented (`unified` b133374e9d) | §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-96–T-98 | §12 |
@@ -1186,3 +1187,4 @@ The library on the unified build is TraitWorld `unified`; the lowering's deviati
 | T-103 | — | *Retired* (2026-11-08): `HasProperty` in TraitWorld `unified` a658203 with `unified` 350c5b1c59 ([§10.1](#101-basetraits), [§3.2](#32-parameters)); tests `basetraits.jl`, gate `n10_inputs` | — | — |
 | T-104 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises at every run of a fault. | The check is in the method's code compiled by facts. A plain caller that inlines the method, or propagates constants into it (compiler C-45), runs it without the check. The warning's once-only flag is written into the code's literal. | `Compiler/src/optimize.jl`, `base/experimental.jl`; [the review](../reviews/2026-11-07-implementation-day.md) M7 |
 | T-105 | [§3.2](#32-parameters) | An input is never left open where an operation's result needs it: a method whose `where` variable or stated value does not fix it is refused at its definition. | Not checked: such a trait's method is accepted, and the call's result names the open input. | TraitWorld `src/trait.jl` (`_trait_method`) |
+| T-106 | [§9b](#9b-streams-io), [§5.10](#510-checks), [§13](#13-scopes-trait-modules) | `IO`'s contract is its operations, with Base's methods at `::IO` as defaults. | The library holds no contract for `IO`: `@implement IO S` checks nothing, `bounded` reads no use of a stream typed `IO` as within a contract, and a set whose contract no `@trait` declared is skipped at a module's end (traits §5.2's exception). | TraitWorld `src/implement.jl` (`_module_end_hook`), `src/contract.jl` |

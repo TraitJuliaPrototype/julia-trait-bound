@@ -7,8 +7,8 @@ For core developers. The design is the four [references](reference/README.md), e
 ## 1. Where the project stands
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
-- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129 (a). Latest: `unified` bf447db25e.
-- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 9a45c36.
+- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` d554855579.
+- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 4443d2c.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** [the plan to reach Python's speed](plans/2026-11-08-python-speed.md) (W-123 to W-127). Stage 1's gate (loading) and stage 3's (the goal's task within Python + 1 s) are met; stages 2 and 4 (first calls) are under way (§5).
 
@@ -22,9 +22,10 @@ By the compiler reference's sections:
 - **Operations on a value known by its trait** ([§7](reference/compiler.md#7-operations-on-a-value-typed-by-its-trait)): the declared result, a split over the first members, a table past them; `Callable` by the function's own methods.
 - **The code slot** ([§3.3](reference/compiler.md#33-the-code-slot)): a call that holds only a result edge goes through a slot; a callee recompiled to an equal result keeps its callers; a miss with no code to make gets a dispatching entry.
 - **Sets closed after load** ([§4.8](reference/compiler.md#48-negatives-never-fold-positives-through-entries)): a set's opt-in; a module's mark once its package has loaded; a final negative leaves out the guard and folds `isa`, recorded on a final cell whose opening by a late membership invalidates (W-129 (a); C-76, C-77).
+- **`IO`, Base's trait of streams** ([§7.5](reference/compiler.md#75-io); [traits §9b](reference/traits.md#9b-streams-io)): `Core.IO` a set from Core's build, a method typed `io::IO` compiled once for every stream, closed after load; its operations split over `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint`; `Dynamic{IO}` an `IO`; the system image keeps the indices of sets (W-129 (b); T-106).
 - **Images and hooks** ([§9](reference/compiler.md#9-images-and-the-machine-code-cache), [§10](reference/compiler.md#10-hooks-for-the-library)): an image keeps and activates its memberships; the member hook, the definition, module-end, deletion and fully-typed hooks.
 
-The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–71.
+The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–73.
 
 ## 3. The library
 
@@ -44,7 +45,7 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [158](open-issues.md#2-design) (a guarded call at a type with no method takes the trait's declared result) and [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
-The tests of the build itself (2026-11-09, the battery `w329` on `unified` bf447db25e with TraitWorld 9a45c36, `experiments/unification/stack/logs/`, E-329): the gates 54 of 54; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline`, `Compiler/inference` and `precompile`; the 21 acceptance cases; TraitWorld's suite; both workloads.
+The tests of the build itself (2026-11-09, the battery `w330` on `unified` d554855579 with TraitWorld 4443d2c, `experiments/unification/stack/logs/`, E-330): the gates 55 of 55; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline` and `Compiler/inference`; `precompile` 438 of 457 (the child without the compiler: [open issue 166](open-issues.md#2-design)); the 21 acceptance cases; TraitWorld's suite; both workloads.
 
 ## 5. Not yet established
 
@@ -61,6 +62,7 @@ The deviations of the implementation from the design are listed per reference: [
   | NetworkDynamics' new equations (`changed` b–e) | — | 1.10 s (E-250) | 9.0 s (W-104); 6.6–6.7 s (E-309); 0.59–0.62 s (E-310 (a)); 0.59–0.66 s (E-314); **0.57 s** (E-327) |
   | NetworkDynamics' steady state (`again` d) | — | 776–780 ms (E-250) | 189–230 ms (E-309); 182–213 ms (E-310 (a)); 451–475 ms (E-310 (b)); 228–257 ms (E-314); 224–240 ms (E-324); **237–241 ms** (E-327) |
 
+  - **With `IO` compiled once** (E-330, `unified` d554855579, load 31–36, so not in the table): the goal's task 15.8–16.1 s, the forks 20.2–21.3 s, setting D 9.48–9.68 s, (t) 5.50–5.74 s, while the unchanged early build's form (f) takes 4.08–4.28 s; E-328's workloads on an `IOBuffer` 2–24× vanilla's. Two causes: calls at `IO` left dynamic by a lookup that reports an ambiguity at an intersection no type is in (fixed in the reference, E-331 measures it), and invalidation through the split's branches ([open issue 167](open-issues.md#2-design)). Flagged for the user ([open issues §1](open-issues.md#1-decisions-waiting-for-the-user)).
   - **Loading:** the dispatch walk at activation (C-72) and the library's interpreter invalidating the compiler (C-40) are fixed (W-123, E-292). What remains is compiling at load: plain packages' methods invalidate ten times as much of the compiler's own code as on vanilla (2,049 against 193 instances for upstream CSV and DataFrames), through untyped narrowings in the stack's own compiler code: fixed (28d2334164, E-295: 195 instances against vanilla's 193). TraitWorld's load hooks invalidated by plain packages: fixed in the library (e6eaa85, E-296). At a REPL, TraitWorld's methods at sets for required operations invalidated the system image's code with a pruned `Nothing` arm (compiler §5.6; E-296); open issue 158 (a) makes them no shadow (B2 and TraitWorld c4f9f99): the forks' session 4.8–5.2 s (E-298). Validation's walk of the memberships at each match is gone (89b3bcff81, E-300: the goal's task 2.4 s); what the loads still spend is Julia's own validation, scaled by the images' size, and image restore.
   - **The imports:** the goal's task 0.98–1.03 s against Python's 0.47 s (E-307), the forks' session 0.86–0.96 s (E-308). What the loads spend is Julia's validation of the images' edges and image restore (E-303, E-304).
   - **After the imports:** the goal's read, summary and plot 0.27 s against the earlier build's 0.36 s and Python's 0.08 s (E-307); the forks' steps 1.55 s against 2.80 s and pandas' 0.41 s (E-308). What the forks' steps still compile: DataFrames' `show` at the REPL's stream; CSV's task closures come from its image (E-311). Slower than the earlier build: setting D's first solve 0.34 s against 0.19 s (E-307). Faster: NetworkDynamics' new equations 0.59–0.66 s against 1.1 s, its steady state 228–257 ms against 776–780 ms (E-314). Setting D's second model 0.05–0.06 s, as on the earlier build.
@@ -74,8 +76,8 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-09)
 
-- **Julia:** `julia-unified` `unified` bf447db25e. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 9a45c36, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **Julia:** `julia-unified` `unified` d554855579. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 4443d2c, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie 6c5b99d, TraitReport a4bcf33, forks 4824b4b, TraitDifferentialEquations 52a45b6, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
@@ -89,7 +91,7 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
 1. **The ports** (W-104): every port runs; NetworkDynamics' session is measured against the evidence (E-314).
 2. **[The plan to reach Python's speed](plans/2026-11-08-python-speed.md)** (the user, 2026-11-08; target: the goal's task within Python + 1 s; workloads only at broad typical cases), from the profiling campaign (W-121): W-123 (stage 1) done; W-125's gate met; W-124 (stage 2's rest: setting D's first solve) and W-126 (stage 4: what the sessions still compile) under way; W-127 (stage 5) waits for the user's scope.
 3. **The deviations that matter for correctness or the plan** (W-128), beside it.
-4. **Traits closed after load, then `IO` as Base's trait of streams** (W-129; decided 2026-11-09, open issue 164): the principled fix for the forks' `show` step at a REPL. (a) built (`unified` bf447db25e, E-329); (b) next.
+4. **Traits closed after load, then `IO` as Base's trait of streams** (W-129; decided 2026-11-09, open issue 164): the principled fix for the forks' `show` step at a REPL. (a) built (`unified` bf447db25e, E-329); (b) built (`unified` b133374e9d, d554855579; E-330: far slower, flagged; E-331 fixes the lookup).
 5. Queued: W-119 (the slot's share in the ports). W-115 to W-118 are done: the glossary, `design.md`, `intro/` and the open issues teach and track the current references.
 
 **Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.
