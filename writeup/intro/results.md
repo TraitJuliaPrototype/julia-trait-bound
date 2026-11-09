@@ -120,8 +120,8 @@ The facts mode's cost on code that is not type-stable: Julia's benchmark suite (
 ## NetworkDynamics
 
 A port of NetworkDynamics.jl to the unified build, its models' components as members of traits:
-- new equations in a running session: 0.59–0.66 s, against 1.10 s on the earlier build (E-314, `unified` 523214899f);
-- its workload's steady state: 224–240 ms, against 776–780 ms on the earlier build (E-324).
+- new equations in a running session: 0.57 s, against 1.10 s on the earlier build (E-327, `unified` 6767b03893 with TraitWorld c9f701e);
+- its workload's steady state: 237–241 ms, against 776–780 ms on the earlier build (E-327).
 
 ## What is not shown yet
 

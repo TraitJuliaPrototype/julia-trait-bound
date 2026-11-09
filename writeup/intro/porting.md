@@ -281,7 +281,7 @@ NetworkDynamics (`ndport/pkgs/NetworkDynamics-unified`), with Graphs' and GraphM
 
 1. **The components' traits default to `Dynamic`,** and a batch keeps its model with `keep` (0.4). The default applies to the library's own type that wraps a user's function, `FunctionDynamics{typeof(f)}`, since a type counts as the library's own only with its parameters ([open issue 161](../open-issues.md#2-design), (a)).
 2. **The kernel opens the model with a cast at a parameter typed by the trait** (0.4; [open issue 162](../open-issues.md#2-design)).
-3. Measured: new equations in a running session 0.59–0.66 s (E-314); the workload's steady state 224–240 ms (E-324), against 776–780 ms on the earlier build.
+3. Measured: new equations in a running session 0.57 s; the workload's steady state 237–241 ms, against 776–780 ms on the earlier build (E-327).
 
 ---
 
