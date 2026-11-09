@@ -738,12 +738,12 @@ Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct'
 ### 7.9 Operations on a value the code knows only by its trait
 
 Where the code holds a value at the trait's type (code compiled once, a field or element typed by the trait, an operation's result declared with the trait):
-- **an operation's result is its declared result,** asserted (`TypeError` otherwise), so the code after the call is typed;
+- **an operation's result is its declared result,** so the code after the call is typed. A member's result is converted to it, as a return annotation `f(…)::R` converts, and asserted: a result that does not convert raises. A member checked at its membership (§5.10) returns it already, and the conversion costs nothing;
 - **the call branches on the first four members declared** of the trait, each a direct call that may be inlined. Any other member is called through a table keyed by its type: one lookup and one indirect call, whatever the number of members. The order is the declarations': a trait's package declares its common members first. At an intersection, the branches take the first component's members that are members of every component;
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
 
-**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109.
+**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109. The conversion on `unified` 0c836f3ef6 (found by Base's own streams, whose `unsafe_write` returned a `UInt`, and a stream of CSV's tests; E-333): mine (2026-11-09).
 
 ### 7.10 Costs, and choosing
 
@@ -855,13 +855,14 @@ report(IOBuffer(), t)                     # the same code
 **`IO` is Base's trait of streams, compiled once by default.**
 - **Its members are Julia's streams and every `struct S <: IO`,** as in Julia; `@implement IO S` declares one too. Every existing subtype is a member: each operation has Base's method at `::IO` as its default.
 - **Its default is `Dynamic`:** a method typed `io::IO`, Base's or a plain package's, is compiled once, whatever the stream: the REPL's, a file's, a buffer. So a package image's workload at an `IOBuffer` covers every stream. Julia's own streams take the default too (§7.5, step 4).
-- **The operations,** with Base's methods as their defaults: `write(io, ::UInt8)::Integer`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)::Integer`, `read(io, ::Type{UInt8})::UInt8`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `eof(io)::Bool`, `isopen(io)::Bool`, `close(io)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)::Bool`. A result not declared is `Any`.
+- **The operations,** with Base's methods as their defaults: `write(io, ::UInt8)::Int`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)::Int`, `read(io, ::Type{UInt8})::UInt8`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `eof(io)::Bool`, `isopen(io)::Bool`, `close(io)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)::Bool`. A result not declared is `Any`.
+- **A stream whose count is another integer type** (a `UInt`) keeps working: a call through `IO` converts it to `Int` (§7.9). Julia's own streams return an `Int`. `IO`'s members join by their declared supertype, so §5.10's check does not run for them; a result that does not convert raises at the call.
 - **`Dynamic{IO}(io)` is an `IO`:** plain code typed `io::IO` takes it. It forwards the operations, so an `IOContext`'s properties (`:compact`, `:limit`, `:color`) reach `show` through it.
 - **In code compiled once,** an operation on the stream branches over `IO`'s first members, `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint`, with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)).
 - **A loop that writes one byte or a short string per call** declares `@specialize` at its stream: through the split, each such call costs about 4 ns more than code compiled for the stream's type ([evidence §2](../design/evidence.md#2-run-time), E-328).
 - **`IO` is closed after load** (§3.4): "`String` is not an `IO`" is final once Base has loaded, a package's type once its package has loaded. So `x isa IO` folds, and a call of `print`, `write` or `show` at a value that is not a stream carries no guard.
 
-**Status:** Implemented on `unified` b133374e9d and TraitWorld `unified` 4443d2c (W-129 (b); [compiler §7.5](compiler.md#75-io); gate `n19_io_trait`, E-330), with T-106. The user (2026-11-09): "The real point here is that Base should support and default to Dynamic{IO} right?"; on step 4's exception, the operations and the split's candidates: "Everything else is approved." The operations' declared results, the candidates' order, and `IO` closed after load: mine (2026-11-09).
+**Status:** Implemented on `unified` b133374e9d and TraitWorld `unified` 4443d2c (W-129 (b); [compiler §7.5](compiler.md#75-io); gate `n19_io_trait`, E-330), with T-106. The user (2026-11-09): "The real point here is that Base should support and default to Dynamic{IO} right?"; on step 4's exception, the operations and the split's candidates: "Everything else is approved." The operations' declared results, the candidates' order, and `IO` closed after load: mine (2026-11-09). The counts `Int`, converted at the call: on `unified` 0c836f3ef6, mine (2026-11-09, E-333).
 
 ---
 
@@ -942,7 +943,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode an error |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
-| a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` |
+| a call through the trait | an operation's result against its declared type, after the conversion (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a result that does not convert) |
 | a keyword typed by a trait | membership | `TypeError` |
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership is a warning under strict mode too (T-98).
@@ -972,7 +973,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method and the code compiled by facts it would change |
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
-| `TypeError` | an operation's or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
+| `TypeError` | an operation's result that is not its declared type after the conversion (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
 | `AbstractTypeError` | code under `@enforce_fully_typed` whose result is of an abstract type that is not a trait (§14) | the result's type and its root cause |
 
