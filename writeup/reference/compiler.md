@@ -425,9 +425,9 @@ A method whose signature names a set is a plain method at that set. Memberships 
 
 ### 5.1 The method table
 
-A method whose signature names an open set goes into its typemap's linear list, never under a typename's index. A query at a member reaches it, since the member's supertype chain need not name the set. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
+A method whose signature names an open set goes into the linear list of the typemap's level at the set's position, never under a typename's index there. A query at a member reaches it, since the member's supertype chain need not name the set. At the other positions the method is indexed as any other: `show(io::IO, x)` is filed under `typeof(show)`, then listed one level down. A set-to-methods index serves the ambiguity report (§5.4) and compiling ahead (§9).
 
-**Status:** Implemented on `unified` 29035cab11; `jl_open_set_methods_of(X)` reads the index for compiling ahead (5f2373b2d5, W-114; [lowering §12](lowering.md#12-compiling-ahead)). A membership ends only the fast path that a method at the set is the only one at its signature: the method stays the one `which` selects there, so validation does not read it as deleted and an image keeps its code (e81cd49a67).
+**Status:** Implemented on `unified` 29035cab11; `jl_open_set_methods_of(X)` reads the index for compiling ahead (5f2373b2d5, W-114; [lowering §12](lowering.md#12-compiling-ahead)). A membership ends only the fast path that a method at the set is the only one at its signature: the method stays the one `which` selects there, so validation does not read it as deleted and an image keeps its code (e81cd49a67). Listed at the set's position, indexed at the others: `unified` 45fa624462 (E-335), mine (2026-11-09).
 
 ### 5.2 Specificity
 
