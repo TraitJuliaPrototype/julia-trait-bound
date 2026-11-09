@@ -7,8 +7,8 @@ For core developers. The design is the four [references](reference/README.md), e
 ## 1. Where the project stands
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
-- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 23022b0ec7.
-- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 6b342e9.
+- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 6767b03893.
+- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, c9f701e.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** [the plan to reach Python's speed](plans/2026-11-08-python-speed.md) (W-123 to W-127). Stage 1's gate (loading) and stage 3's (the goal's task within Python + 1 s) are met; stages 2 and 4 (first calls) are under way (§5).
 
@@ -88,7 +88,8 @@ The work queue, with every agreed item, its source and status, is [`record/todo.
 1. **The ports** (W-104): every port runs; NetworkDynamics' session is measured against the evidence (E-314).
 2. **[The plan to reach Python's speed](plans/2026-11-08-python-speed.md)** (the user, 2026-11-08; target: the goal's task within Python + 1 s; workloads only at broad typical cases), from the profiling campaign (W-121): W-123 (stage 1) done; W-125's gate met; W-124 (stage 2's rest: setting D's first solve) and W-126 (stage 4: what the sessions still compile) under way; W-127 (stage 5) waits for the user's scope.
 3. **The deviations that matter for correctness or the plan** (W-128), beside it.
-4. Queued: W-119 (the slot's share in the ports). W-115 to W-118 are done: the glossary, `design.md`, `intro/` and the open issues teach and track the current references.
+4. **Traits closed after load, then `IO` as Base's trait of streams** (W-129; decided 2026-11-09, open issue 164): the principled fix for the forks' `show` step at a REPL.
+5. Queued: W-119 (the slot's share in the ports). W-115 to W-118 are done: the glossary, `design.md`, `intro/` and the open issues teach and track the current references.
 
 **Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.
 

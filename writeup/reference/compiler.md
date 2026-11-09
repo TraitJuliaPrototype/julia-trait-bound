@@ -19,10 +19,10 @@
 | [1. The facts inference](#1-the-facts-inference) | Inference that commits across a call only at a fact; run-time sites; `return_type`'s plain answers; effects |
 | [2. The policy per method](#2-the-policy-per-method) | Which methods are compiled by facts; one CodeInstance per MethodInstance and policy; calls between policies |
 | [3. The dependency record and the code slot](#3-the-dependency-record-and-the-code-slot) | What each CodeInstance assumed; G2 as a predicate; callers that survive a callee's recompilation |
-| [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections |
+| [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections, sets closed after load |
 | [5. Dispatch](#5-dispatch) | Methods at sets in the method table, specificity, the ambiguity report, guards |
 | [6. Keys and the attribute](#6-keys-and-the-attribute) | Code per key, per type or once, chosen per call; the calling convention; the definition-time check |
-| [7. Operations on a value typed by its trait](#7-operations-on-a-value-typed-by-its-trait) | Declared results, the split over members, the table of targets, `Callable`'s call |
+| [7. Operations on a value typed by its trait](#7-operations-on-a-value-typed-by-its-trait) | Declared results, the split over members, the table of targets, `Callable`'s call, `IO` |
 | [8. World-checked caches](#8-world-checked-caches-at-dynamic-boundaries) | Caches at dynamic boundaries checked against the caller's world |
 | [9. Images and the machine-code cache](#9-images-and-the-machine-code-cache) | Memberships in package images; a record complete enough for a cache of machine code |
 | [10. Hooks for the library](#10-hooks-for-the-library) | Definition and image hooks; field-offset intrinsics |
@@ -363,10 +363,14 @@ Questions about open sets are answered in three layers:
 
 - **A negative answer is never folded for an open set.** `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set or a key (§6.1); it is cached on the type object.
 - `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
-- **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit.
+- **Exceptions** (the answer is final): a closed abstract type; a type with the `never_member` bit; a pair (type, set) whose set is closed after load and whose declarers have finished loading.
 - **A positive answer folds only through an entry,** and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
+- **Closed after load** ([traits §3.4](traits.md#34-open-and-closed)) is a bit on the set's `TypeName`, written by the library at the declaration (`@closed_after_load`).
+  - **The declarers of a pair** are the set's owner and the type's owner, with their joint owners ([traits §12.1](traits.md#121-who-may-declare-a-membership)). A module is loaded once its package has finished loading, after its `__init__`. `Main`, and a package while it is precompiled or loaded, are not.
+  - **Where both declarers have loaded,** the pair's negative is final: inference folds it, and a call whose shadow is a method at that set carries no guard (§5.6).
+  - **Code that relied on a final negative records it** as an edge on the pair's cell. A membership declared later invalidates that code, as a method definition invalidates its callers. An image's code with such an edge is checked when the image is validated.
 
-**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51.
+**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. Closed after load: Planned (W-129); opt-in: the user (2026-11-09, "Finality should be opt in."); the bit per set and the edge on the cell: mine (2026-11-09).
 
 ### 4.9 Intersections
 
@@ -519,7 +523,7 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
      - a value of type `Dynamic{X}` is `Dynamic`;
      - a value read from a field whose declared type is a struct parameter bounded by a set: inference tracks the attribute the parameter records, `Dynamic` for a `Dynamic{X}`, else `Compiled`;
   3. the method's attribute bits at the argument, from `@nospecialize` (`Dynamic`) and `@specialize` (`Compiled`) at an argument typed by a set, saved with the method as its `nospecialize` bits are; then the module's option;
-  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define, with every type among its parameters, recursively (a value parameter is the type's own);
+  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define, with every type among its parameters, recursively (a value parameter is the type's own); the exception does not apply to `IO` (§7.5);
   5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
 - **A static call** resolves the bits in the caller's inference and invokes the instance.
 - **A dynamic call with bits from 1 or 2** is a call of `Core.attributed_call` (§6.9): a cast written at the call, or a run-time site that passes on a trait argument of an instance compiled per key or once (codegen emits it there). It selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method.
@@ -670,6 +674,17 @@ This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own.
 
 **Status:** Implemented on `unified` 7195706721, 5f0a8ffd50 (W-113): `Core.Callable` an open set from Core's build, compiled once by default; a concrete callable type a member by its methods visible in the query world, read by subtyping as choices beside its entries, a question that reaches itself answering no within the query; a method's definition opens Callable's cells, its deletion lowers the dispatch cache entries that went through Callable; a match through Callable holds an edge to the member's dispatch at `A`; a call through a value known as `Callable{A, S}` infers `S`, asserted. Gate `n8_callable`. A match's worlds bounded by the member's methods on c8ef0e581e, 1daebeab81, 23022b0ec7 (at the positions where the method's signature names `Callable`, §5.3; E-324). With C-61, C-62; the arguments checked against `A` (§7.4) on 1d493ca959 and c248dbfd8c. Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267). An abstract type a member only by an entry: mine (2026-11-07).
 
+### 7.5 `IO`
+
+- **`Core.IO` is a set from Core's build,** as `Callable` is (§7.4): open, its default bit `Dynamic`, closed after load (§4.8), and out of §6.3's step-4 exception, so Julia's own streams take the default.
+- **Its members** are the subtypes of `IO` by their declared supertype, as in Julia, and the types an entry declares (`@implement IO S`).
+- **Its contract** is the operations of [traits §9b](traits.md#9b-streams-io), each with Base's method at `::IO` as its default, so every existing subtype satisfies it. `Dynamic{IO}` is a member by the entry the library declares, as for any set, and forwards them.
+- **Its candidates** for the split (§7.2) are `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint`, in that order: Base registers them at its build, before any other member. A stream past them (an `IOContext`, the REPL's `LimitIO`) takes the table (§7.3).
+- **The declared results** are asserted on the split's branches and on the fallback: `write(io, ::UInt8)` and `unsafe_write` `::Integer`, `read(io, ::Type{UInt8})` `::UInt8`, `eof` and `isopen` `::Bool`.
+- **Base's methods typed `io::IO`** are compiled once in the system image. One that writes a byte or a short string per call in a loop declares `@specialize` at its stream where a measurement shows the split's cost (E-328: about 4 ns per call).
+
+**Status:** Planned (W-129; [open issue 164](../open-issues.md#closed-items) (d)); the split's cost measured by a proxy in plain Julia (E-328). The user (2026-11-09). The candidates' order, the declared results and `IO` closed after load: mine (2026-11-09).
+
 ---
 
 ## 8. World-checked caches at dynamic boundaries
@@ -817,7 +832,7 @@ Each applies to all code.
 | the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; closed after load Planned (W-129) | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
@@ -833,6 +848,7 @@ Each applies to all code.
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61, C-62; the arguments checked against `A` on 1d493ca959 | §7.4 |
+| `IO` a set from Core's build: compiled once by default, Julia's streams included; closed after load; the split's candidates | Planned (W-129) | §7.5 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |

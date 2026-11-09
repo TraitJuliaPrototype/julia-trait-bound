@@ -15,7 +15,7 @@
 - Two guarantees follow:
   - **G1, identical or error:** code compiled by facts computes what plainly compiled code computes, in the same world, or raises.
   - **G2, stable caches:** no load of an unrelated package invalidates code compiled by facts. Only a stakeholder's change or a winning pirate can.
-- **Memberships invalidate nothing:** compiled code never relies on a type not being a member of a trait, and a call a later membership could change is guarded.
+- **Memberships invalidate nothing:** compiled code never relies on a type not being a member of a trait, and a call a later membership could change is guarded. A trait's author may opt out for that trait by closing it after load (§10).
 - **Each method has a policy:** facts, plain, or its caller's. One CodeInstance per MethodInstance and policy.
   - Methods of modules that declare `facts` (trait modules among them) are compiled by facts, whoever calls them.
   - The compiler is compiled plainly, whoever calls it.
@@ -109,12 +109,12 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 ### 2.2 G2: stable caches
 
-> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, a redefinition of a binding it reads, a change of a callee's code it holds a code edge to, or a change of a callee's result it holds a result edge to. By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
+> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, a redefinition of a binding it reads, a change of a callee's code it holds a code edge to, a change of a callee's result it holds a result edge to, or a membership declared late at a trait closed after load. By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there. A load that brings neither invalidates none of it, in any order.
 
 **Why it holds.**
 - Code compiled by facts holds only facts, bindings, and edges to callees as edges to the method table (§4).
 - By Lemma O, a definition that changes a fact is a stakeholder's or a pirate's; by Lemma D, a pirate that does not win changes nothing.
-- A membership invalidates nothing (§10).
+- A membership invalidates nothing (§10), but one declared late at a trait closed after load, a stakeholder's declaration the trait's author opted into.
 - **A plain callee recompiled to an equal result** keeps a caller that holds only a result edge to it: the code slot revalidates the caller ([compiler §3.3](compiler.md#33-the-code-slot)).
 
 **Scope.** G2 covers code compiled by facts, as recorded per CodeInstance by the predicate of [compiler §3.2](compiler.md#32-g2-as-a-predicate). It does not cover:
@@ -123,14 +123,14 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - plain inference's answers behind `return_type` (§7), which change exactly when plain Julia's do.
 
 **Exceptions**, named wherever G2 is claimed:
-- **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension, a redeclared membership.
+- **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension, a redeclared membership, a membership declared late at a trait closed after load (§10).
 - **A stakeholder's extension activated by an unrelated package,** whose method applies at a fact without naming its triggers' types: followed, as the stakeholder's change; in strict mode with a warning.
 - **A binding redefined from another module** (`Core.eval(Other, …)`): refused at its source in strict mode (§11.3).
 - **The standard libraries count as Julia's own code.** A standard library's method that wins at a fact is a stakeholder's change.
 - **A method on a closure's type defined outside the closure's module.** The fact form "a closure's call at kinds" (§3) rests on the assumption that no other module does this.
 
 **What invalidates nothing:**
-- a new membership (§10);
+- a new membership (§10), but one declared late at a trait closed after load;
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
 **Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
@@ -327,15 +327,15 @@ So the split takes the place of the speculation the facts mode removes (§4.2), 
 
 A membership makes a type a member of a trait from a world on ([traits §3.1](traits.md#31-membership)). What compiled code may assume about memberships:
 - **A positive membership may be relied on,** with the CodeInstance's world range starting no earlier than the membership's.
-- **A negative one never, for an open trait.** No code folds "`S` is not a member of `X`", in inference or in dispatch. The exceptions are final answers: a closed abstract type, a type that is never a member.
+- **A negative one never, for an open trait.** No code folds "`S` is not a member of `X`", in inference or in dispatch. The exceptions are final answers: a closed abstract type, a type that is never a member, and a pair of a trait closed after load whose declarers, the trait's owner and the type's, have finished loading ([traits §3.4](traits.md#34-open-and-closed)).
 - **A call that a later membership could change carries a guard.** Where a method at a trait would beat the method a call selects now, should the argument's type join the trait, the call reads a cell for (type, trait) in the caller's world. It then takes the bounded method or the one selected now ([compiler §5.6](compiler.md#56-guards-and-cells)).
-- **So a membership invalidates nothing.** It lowers the dispatch caches whose answer it changes, so the next call looks up again.
+- **So a membership invalidates nothing.** It lowers the dispatch caches whose answer it changes, so the next call looks up again. The one exception is opted into by a trait's author: for a trait closed after load, a membership declared after its declarers have loaded (from the prompt, by `eval`, by Revise) invalidates the code that relied on its absence, as a late method definition does ([compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)).
 - **G1 holds in the caller's world:** a task in a world before the membership sees the type as a non-member; one after it, as a member.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)), with compiler C-58, C-59. "A membership invalidates nothing" is a guarantee the design commits to (the user, 2026-11-06, open issue 146).
+**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)), with compiler C-58, C-59. "A membership invalidates nothing" is a guarantee the design commits to (the user, 2026-11-06, open issue 146). Traits closed after load: Planned (W-129); opt-in (the user, 2026-11-09: "Finality should be opt in.").
 
 ---
 
@@ -466,7 +466,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Planned (W-109) | §9 |
-| memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59 | §10 |
+| memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59; traits closed after load Planned (W-129) | §10 |
 | pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |

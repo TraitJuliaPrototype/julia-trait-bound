@@ -20,6 +20,7 @@
 7. [Compiling: keys and the attribute](#7-compiling-keys-and-the-attribute)
 8. [Storage](#8-storage)
 9. [Functions: `Callable`](#9-functions-callable)
+   - [9b. Streams: `IO`](#9b-streams-io)
 10. [Collections](#10-collections)
 11. [Checks and errors](#11-checks-and-errors)
 12. [Ownership, pirates, strict mode](#12-ownership-pirates-strict-mode)
@@ -162,12 +163,24 @@ A trait is written wherever a type is written:
 ### 3.4 Open and closed
 
 - **A trait is open:** members may join after their definition.
-- **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed.
+- **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed, but `Callable` (§9) and `IO` (§9b), which are traits.
 - A closed abstract type may be a member of a trait (`@implement Indexable{T} AbstractVector{T} where {T}`); then every subtype of it is a member.
 - Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply unchanged.
-- **Sealed traits,** whose members all join with their definition or in the member's own package, may rely on non-membership too: Optional ([PE-19](../record/performance-explorations.md)).
+- **A trait closed after load** relies on non-membership too, once the answer is settled. Its author opts in with `@closed_after_load` in the body:
 
-**Status:** Implemented on `unified` 62016706d0 (W-98); a later membership finds compiled code right by guards (`unified` 79b948420e, W-112); sealed traits Optional (PE-19).
+  ```julia
+  @trait Shape begin
+      @closed_after_load
+      area(s::Shape)::Float64
+  end
+  ```
+
+  - Only the trait's owner or the type's may declare a membership (§12.1). Once both have finished loading, "`S` is not a `Shape`" is final: compiled code may rely on it, with no guard, and `isa` and `<:` fold.
+  - A membership declared after that, from the prompt, by `eval` or by Revise, invalidates the code that relied on its absence, as a late method definition does.
+  - While a declarer loads, its answers are not settled: code compiled then, its package image's included, keeps its guards. A type or trait of `Main` is never settled.
+  - Without `@closed_after_load`, a trait stays open, and a membership invalidates nothing ([facts §10](facts.md#10-memberships)).
+
+**Status:** Implemented on `unified` 62016706d0 (W-98); a later membership finds compiled code right by guards (`unified` 79b948420e, W-112). Closed after load: Planned (W-129; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)). Opt-in: the user (2026-11-09, "Finality should be opt in."). Opted in per trait, and the spelling `@closed_after_load`: mine (2026-11-09).
 
 ### 3.5 Values
 
@@ -656,7 +669,7 @@ For each trait argument of a call, the first that applies, strongest first:
 3. **The library's default:**
    - at the argument: `@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`;
    - for the module: the scope's option `dynamic` (§13) gives `Dynamic` to every trait argument of its methods.
-4. **The trait's default** (§4.6): `@default_dynamic` or `@default_compiled`. With several traits at one argument (an intersection), it applies where their defaults agree; where they disagree, step 5 decides. **`@default_dynamic` does not apply to a value whose type Julia itself or the trait's own package defines, with every type among its parameters:** those types are few and fixed, so code per type for them is bounded. A type of theirs that carries another package's type in a parameter, at any depth, is not: `FunctionDynamics{typeof(swing!)}`, a library's record of a user's function, and `Base.Fix1{typeof(f), Int}` take the trait's default. A value parameter (a number, a symbol) is the type's own.
+4. **The trait's default** (§4.6): `@default_dynamic` or `@default_compiled`. With several traits at one argument (an intersection), it applies where their defaults agree; where they disagree, step 5 decides. **`@default_dynamic` does not apply to a value whose type Julia itself or the trait's own package defines, with every type among its parameters:** those types are few and fixed, so code per type for them is bounded. A type of theirs that carries another package's type in a parameter, at any depth, is not: `FunctionDynamics{typeof(swing!)}`, a library's record of a user's function, and `Base.Fix1{typeof(f), Int}` take the trait's default. A value parameter (a number, a symbol) is the type's own. **The exception does not apply to `IO`** (§9b): Julia's own streams are compiled once too, so that one compiled method serves the REPL's stream, a file and a buffer alike.
 5. **Otherwise, the scope's fallback:**
    - in a trait module (§13), **what the caller knows:** a caller compiled with the value's type passes `Compiled`; a call made when the program runs, from code that does not know the type (the prompt, a `Vector{Any}`'s item), passes `Dynamic`;
    - elsewhere, **`Compiled`,** Julia's rule for an abstract type.
@@ -826,6 +839,28 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **Passing `f` on to a higher-order function,** `map(f, xs)`, is a call of another function with it, so the method is open at `f` (§7.3): `colmap` above is refused under `bounded`. How a fully bounded method passes a function on: Open ([open issue 165](../open-issues.md#2-design)).
 
 **Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-61, C-62; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
+
+---
+
+## 9b. Streams: `IO`
+
+```julia
+report(io::IO, t::ColTable) = for c in columns(t); println(io, name(c), ": ", mean(c)); end
+report(stdout, t)                         # compiled once: one method serves every stream
+report(IOBuffer(), t)                     # the same code
+@specialize emit(io::IO, bytes) = for b in bytes; write(io, b); end    # a byte per call: per stream type
+```
+
+**`IO` is Base's trait of streams, compiled once by default.**
+- **Its members are Julia's streams and every `struct S <: IO`,** as in Julia; `@implement IO S` declares one too. Every existing subtype is a member: each operation has Base's method at `::IO` as its default.
+- **Its default is `Dynamic`:** a method typed `io::IO`, Base's or a plain package's, is compiled once, whatever the stream: the REPL's, a file's, a buffer. So a package image's workload at an `IOBuffer` covers every stream. Julia's own streams take the default too (§7.5, step 4).
+- **The operations,** with Base's methods as their defaults: `write(io, ::UInt8)::Integer`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)::Integer`, `read(io, ::Type{UInt8})::UInt8`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `eof(io)::Bool`, `isopen(io)::Bool`, `close(io)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)::Bool`. A result not declared is `Any`.
+- **`Dynamic{IO}(io)` is an `IO`:** plain code typed `io::IO` takes it. It forwards the operations, so an `IOContext`'s properties (`:compact`, `:limit`, `:color`) reach `show` through it.
+- **In code compiled once,** an operation on the stream branches over `IO`'s first members, `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint`, with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)).
+- **A loop that writes one byte or a short string per call** declares `@specialize` at its stream: through the split, each such call costs about 4 ns more than code compiled for the stream's type ([evidence §2](../design/evidence.md#2-run-time), E-328).
+- **`IO` is closed after load** (§3.4): "`String` is not an `IO`" is final once Base has loaded, a package's type once its package has loaded. So `x isa IO` folds, and a call of `print`, `write` or `show` at a value that is not a stream carries no guard.
+
+**Status:** Planned (W-129; [open issue 164](../open-issues.md#closed-items) (d)). The user (2026-11-09): "The real point here is that Base should support and default to Dynamic{IO} right?"; on step 4's exception, the operations and the split's candidates: "Everything else is approved." The operations' declared results, the candidates' order, and `IO` closed after load: mine (2026-11-09).
 
 ---
 
@@ -1098,7 +1133,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
-| sealed traits | Optional (PE-19) | §3.4 |
+| a trait closed after load (`@closed_after_load`) | Planned (W-129) | §3.4 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
@@ -1121,6 +1156,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
 | storage typed by a trait; struct parameters | Implemented (Julia's, with TraitWorld e7ff8e2) | §8 |
 | `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
+| `IO` a trait of Base's, compiled once by default, closed after load; `Dynamic{IO}` an `IO` | Planned (W-129) | §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-96–T-98 | §12 |

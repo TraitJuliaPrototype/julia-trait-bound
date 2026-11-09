@@ -112,7 +112,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Open and closed
 
-- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply unchanged. Sealed traits are Optional.
+- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply unchanged. A trait whose author opts in with `@closed_after_load` is **closed after load**: a type's non-membership is final once the trait's and the type's packages have loaded.
 - **Origin:** Scala's and Kotlin's sealed types are closed sets; Rust's traits are open to impls in the trait's or the type's crate.
 - **Defined in:** [traits §3.4](reference/traits.md#34-open-and-closed); [facts §10](reference/facts.md#10-memberships).
 

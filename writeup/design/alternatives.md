@@ -445,3 +445,15 @@ Choices made while building W-101 (2026-11-07), each recorded in [the decision l
 - **The mark as a flag beside a valid world range.** Replaced by a lowered `max_world` with the flag: every cache that checks worlds misses a marked CodeInstance with no change of its own (dispatch, `invoke`, `cfunction`, the slots).
 - **Revalidation only where code is about to run** (dispatch, `invoke`, a `cfunction`, a slot's miss). Not taken: a caller invalidated above a marked callee infers it again, and the mark is lost; inference's cache miss revalidates too ([compiler §3.3](../reference/compiler.md#33-the-code-slot)).
 - **A slot at every static call during the compiler's own bootstrap.** Not taken: the call targets of the compiler compiling itself need not be cached, so a slot's miss could find no code; that code binds every call (C-67).
+
+## Open issue 164 and finality: options not taken
+
+[Open issue 164](../open-issues.md#closed-items) (a stream's type that plain code specializes on) and the flagged item "A membership invalidates nothing" (proposal (d), [the review of 2026-11-08](../reviews/2026-11-08-issue-158-guarantee.md)), decided by the user on 2026-11-09.
+
+- **The port erases with Julia's own eraser** (164 (a)): DataFrames' `show` passes the stream on as `IOContext{IO}`. Measured (E-323): the step 0.081 s against 0.175 s. Not taken: it builds the port around a gap in the design, and the eraser without the split costs 4.2–5.3× on code that writes a byte or a short string per call (E-328). The user chose `IO` as Base's trait, compiled once by default ([traits §9b](../reference/traits.md#9b-streams-io)).
+- **A workload at the REPL's stream** (164 (b)): covers the REPL only.
+- **A trait that models a plain abstract type and names its eraser** (164 (c)): not needed where the plain abstract type can be the trait itself.
+- **`IO`'s default kept for Julia's own streams by traits §7.5's exception:** then the REPL's stream, Julia's own, would be compiled per type and the image's workload would not cover it. The exception does not apply to `IO`.
+- **Finality by ownership for every trait** (proposal (d) as reviewed): a negative final once its declarers have loaded, for every trait. Not taken: the user (2026-11-09): "Finality should be opt in." Every trait keeps "a membership invalidates nothing" unless its author declares it closed after load ([traits §3.4](../reference/traits.md#34-open-and-closed)).
+- **Sealed membership** ([PE-19](../record/performance-explorations.md)): a negative final where every membership is declared with the member's definition or in its own package. Replaced by closed after load, which restricts no declarer and settles the answer by time.
+

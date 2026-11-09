@@ -253,7 +253,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks-unified`, branch 
 5. **A function applied per row is open on purpose** where it asks for its result type: `@open function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks-unified/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
 6. **Mixed columns in one vector:** `DataFrame`'s `columns::Vector{Column}` holds each vector itself; the kernels over it (`joinkeys`, `_group_rows!`) take `Vector{Column}`.
 7. **Upstream's tests decide** (A6). The forks pass their upstream suites but for four known failures in DataFrames (E-315): three `@inferred` tests see `Any` through run-time sites in facts code ([open issue 157](../open-issues.md#2-design)), and one in Tables' integration.
-8. **What plain code specializes on stays a type no attribute erases:** DataFrames' `show` compiles PrettyTables' code per stream type ([open issue 164](../open-issues.md#2-design)).
+8. **A stream's type, which plain code specializes on:** DataFrames' `show` compiles PrettyTables' code per stream type on today's build. With `IO` as Base's trait, compiled once by default, one compiled `show` serves every stream ([traits §9b](../reference/traits.md#9b-streams-io), Planned).
 
 ### B2. Differential equations
 
