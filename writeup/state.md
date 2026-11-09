@@ -7,7 +7,7 @@ For core developers. The design is the four [references](reference/README.md), e
 ## 1. Where the project stands
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
-- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 427760d9e9.
+- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101. Latest: `unified` 23022b0ec7.
 - **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 6b342e9.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** [the plan to reach Python's speed](plans/2026-11-08-python-speed.md) (W-123 to W-127). Stage 1's gate (loading) and stage 3's (the goal's task within Python + 1 s) are met; stages 2 and 4 (first calls) are under way (§5).
@@ -23,7 +23,7 @@ By the compiler reference's sections:
 - **The code slot** ([§3.3](reference/compiler.md#33-the-code-slot)): a call that holds only a result edge goes through a slot; a callee recompiled to an equal result keeps its callers; a miss with no code to make gets a dispatching entry.
 - **Images and hooks** ([§9](reference/compiler.md#9-images-and-the-machine-code-cache), [§10](reference/compiler.md#10-hooks-for-the-library)): an image keeps and activates its memberships; the member hook, the definition, module-end, deletion and fully-typed hooks.
 
-The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–66.
+The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–69.
 
 ## 3. The library
 
@@ -39,11 +39,11 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 | 1 | TraitReport, trait form | its summary and PNG equal the plain form's on three datasets; forms (t) and (pt) agree | (t), (pt): `unified` e9b9261808, TraitWorld 24a5fcd (E-307) |
 | 2 | the forks of Tables, CSV, DataFrames, with CSV's reader and DataFrames' module compiled by facts | the session's digests equal upstream's at 26 steps (E-308); Tables' suite passes; CSV's passes in full, 330,545 (E-302); DataFrames' failed 7 (E-305): `tables.jl:86` (open issue 158's second case) passes since C-36 (E-315); `Tables.subset` (`tables.jl:326`), reached after it, and 3 `@inferred` see `Any`: run-time sites in facts code (open issue 157 (a)) | digests: `unified` 24c8d4db60, forks 27d4baa; suites: `unified` d04256a442 (CSV), e9b9261808 (DataFrames); DataFrames' four files: 523214899f (E-315) |
 | 3 | TraitDifferentialEquations | every package loads; its suite passes, 32 testsets, none broken | `unified` e9b9261808, TDE fcee973, TraitWorld 24a5fcd (E-307) |
-| 3 | NetworkDynamics (with Graphs' port, GraphMakie's over MakieCompat) | its test subset and its workload's 32 digests give the earlier build's results; a batch keeps its model with the trait's default, and the kernel types the model by the trait | subset: `unified` 427760d9e9 (E-320); digests: `unified` 523214899f, NetworkDynamics 7e8997d, TraitWorld 6b342e9 (E-314) |
+| 3 | NetworkDynamics (with Graphs' port, GraphMakie's over MakieCompat) | its test subset and its workload's 32 digests give the earlier build's results; a batch keeps its model with the trait's default, and the kernel types the model by the trait | subset: `unified` 23022b0ec7 (E-324); digests: `unified` 523214899f, NetworkDynamics 7e8997d, TraitWorld 6b342e9 (E-314) |
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [158](open-issues.md#2-design) (a guarded call at a type with no method takes the trait's declared result) and [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
-The tests of the build itself (2026-11-09, the battery `w320` on `unified` 427760d9e9 with TraitWorld c20f9f4, `experiments/unification/stack/logs/`, E-320): the gates 52 of 52; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline`, `Compiler/inference` and `precompile`; the 21 acceptance cases; TraitWorld's suite; both workloads.
+The tests of the build itself (2026-11-09, the battery `w324` on `unified` 23022b0ec7 with TraitWorld 1745fc6, `experiments/unification/stack/logs/`, E-324): the gates 52 of 52; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline`, `Compiler/inference` and `precompile`; the 21 acceptance cases; TraitWorld's suite; both workloads.
 
 ## 5. Not yet established
 
@@ -73,9 +73,9 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-09)
 
-- **Julia:** `julia-unified` `unified` 427760d9e9. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 6b342e9. The earlier library: `TraitWorld` `main` 33dd55e.
-- **The ports on the unified build:** TraitTables `unified` d964a98, TraitCSV 90e7330, TraitMakie 499af5d, TraitReport a4bcf33, forks 27d4baa, TraitDifferentialEquations fcee973, NetworkDynamics `unified` 7e8997d, Graphs dbcb7c70 and GraphMakie `unified` (in `ndport`, 5ae8421). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
+- **Julia:** `julia-unified` `unified` 23022b0ec7. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 1745fc6. The earlier library: `TraitWorld` `main` 33dd55e.
+- **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie 6c5b99d, TraitReport a4bcf33, forks 4824b4b, TraitDifferentialEquations 52a45b6, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target

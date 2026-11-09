@@ -348,7 +348,7 @@ A membership that would give a member a second instance of a set, differing in a
 - **The runtime knows a set's inputs:** the library writes them once at the declaration, before the set has a member (`jl_set_input_params(X, mask)`, a bit for each of the first eight parameters, on the set's `TypeName`; images keep it).
 - The check asks the member against the set at the new instance's input values, its other parameters free. A redeclaration ends only the entry at the same input values.
 
-**Status:** Implemented on `unified` 62016706d0 for a concrete member, a set's inputs on `unified` 350c5b1c59 (gate `n10_inputs`), an image's membership at activation on 07c0bee2a2 (gate `n12_image_instances`); for a pattern, C-27.
+**Status:** Implemented on `unified` 62016706d0 for a concrete member, a set's inputs on `unified` 350c5b1c59 (gate `n10_inputs`), an image's membership at activation on 07c0bee2a2 (gate `n12_image_instances`); a pattern, against the entries at the set and at the sets that join it, on edc2653e43 (gate `n10_inputs`, E-321).
 
 ### 4.7 Three layers
 
@@ -393,8 +393,9 @@ Core.All{X, Y}
 ### 4.10 Type values
 
 A type value is a member of a set only by an entry whose pattern is `Type{S}`. Such an entry is kept on `S`'s `TypeName`, marked as being for the type value, not on `Type`'s. `jl_isa`'s branch for a type value and `intersect` consult such entries. An entry for `S` answers `S <: X`, never `S isa X`.
+- A kind of type object (`DataType`, `UnionAll`, `Union`) meets a set that takes a type value, by its own entry or by one of a set that joins it. So a call at an argument typed by a kind finds the set's method. Before the set takes a type value, such a call is guarded ([§5.6](#56-guards-and-cells)): the kind's cell holds once the set takes one.
 
-**Status:** Implemented on `unified` 62016706d0.
+**Status:** Implemented on `unified` 62016706d0; the kinds on f14be868df, 0c9e44cb3d (gate `m1_typevalue_isa`, E-321).
 
 ### 4.11 Inference's world
 
@@ -439,8 +440,9 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 - **At an abstract query,** a method at a set matches at their intersection `All{X, T}` (§4.7). A closed method that covers the query is more specific (§5.2), so the method at the set is dropped from the matches, as any method a covering more specific one hides.
 - At a query at a set, a method at an abstract type matches likewise.
 - A concrete query that is not a member meets no method at the set.
+- **A match through `Callable`** (at a method whose signature names it) carries the worlds of the member's call methods, at the argument positions where the signature names `Callable` (§7.4): a method's definition or deletion changes no other match's worlds.
 
-**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81 and d04256a442, E-300, E-301).
+**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81 and d04256a442, E-300, E-301). A match through `Callable` on c8ef0e581e, 1daebeab81, 23022b0ec7 (E-324).
 
 ### 5.4 The ambiguity report at a membership
 
@@ -665,7 +667,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 
 This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
 
-**Status:** Implemented on `unified` 7195706721, 5f0a8ffd50 (W-113): `Core.Callable` an open set from Core's build, compiled once by default; a concrete callable type a member by its methods visible in the query world, read by subtyping as choices beside its entries, a question that reaches itself answering no within the query; a method's definition opens Callable's cells, its deletion lowers the dispatch cache entries that went through Callable; a match through Callable holds an edge to the member's dispatch at `A`; a call through a value known as `Callable{A, S}` infers `S`, asserted. Gate `n8_callable`. With C-61 to C-63; the arguments checked against `A` (§7.4) on 1d493ca959 and c248dbfd8c. Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267). An abstract type a member only by an entry: mine (2026-11-07).
+**Status:** Implemented on `unified` 7195706721, 5f0a8ffd50 (W-113): `Core.Callable` an open set from Core's build, compiled once by default; a concrete callable type a member by its methods visible in the query world, read by subtyping as choices beside its entries, a question that reaches itself answering no within the query; a method's definition opens Callable's cells, its deletion lowers the dispatch cache entries that went through Callable; a match through Callable holds an edge to the member's dispatch at `A`; a call through a value known as `Callable{A, S}` infers `S`, asserted. Gate `n8_callable`. A match's worlds bounded by the member's methods on c8ef0e581e, 1daebeab81, 23022b0ec7 (at the positions where the method's signature names `Callable`, §5.3; E-324). With C-61, C-62; the arguments checked against `A` (§7.4) on 1d493ca959 and c248dbfd8c. Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267). An abstract type a member only by an entry: mine (2026-11-07).
 
 ---
 
@@ -812,10 +814,10 @@ Each applies to all code.
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-51, C-52; cells W-112 | §3.1, §3.2 |
 | the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
-| one instance per member | Implemented (`unified` 62016706d0) for a concrete member; C-27 | §4.6 |
+| one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
 | three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51 | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
-| type values as members | Implemented (`unified` 62016706d0) | §4.10 |
+| type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9, a pattern member 264b7f959f); strict mode's error W-114 | §5.4 |
 | dispatch caches lowered at a membership | Implemented (`unified` 29035cab11; no code invalidated 79b948420e) | §5.5 |
@@ -828,7 +830,7 @@ Each applies to all code.
 | a declared result on `Method`; the operation's flag; lowering's record of `f(…)::RT` | Implemented (`unified` e70675a606, 0ba6317994) | §6.8 |
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
-| `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61 to C-63; the arguments checked against `A` on 1d493ca959 | §7.4 |
+| `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61, C-62; the arguments checked against `A` on 1d493ca959 | §7.4 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
@@ -853,7 +855,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-24 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.1](#41-sets)); gate `m1_audit_probes` (P6) | — | — |
 | C-25 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.3](#43-worlds)); gate `m1_audit_probes` | — | — |
 | C-26 | — | *Retired* (2026-11-06): fixed on `unified` 62016706d0 ([§4.5](#45-subtyping)); gates `m1_audit_probes` (P8), `m1_parametric_set` | — | — |
-| C-27 | [§4.6](#46-one-instance-per-member) | A membership that would give a member a second instance of a set is refused, for a pattern too, by intersecting it with each pattern that already reaches the set. | Checked exactly for a concrete member only; a pattern's second instance is accepted. | `src/datatype.c` (`jl_declare_membership`) |
+| C-27 | — | *Retired* (2026-11-09): a pattern is checked against the entries at the set and at the sets that join it, on `unified` edc2653e43 ([§4.6](#46-one-instance-per-member)); gate `n10_inputs`; E-321 | — | — |
 | C-28 | — | *Retired* (2026-11-06): the query world is the task's, restored by exception handlers, on `unified` 48864e547d ([§4.11](#411-inferences-world)); gate `m2_query_world_task` | — | — |
 | C-29 | — | *Retired* (2026-11-09): a pattern member is asked at the call types both methods reach, and the warning names the joint signature, on `unified` 264b7f959f ([§5.4](#54-the-ambiguity-report-at-a-membership)); gate `m2_ambiguity_arity`; E-320 | — | — |
 | C-30 | [§10.4](#104-the-member-hook) | The runtime keeps the member hook's answer per (member type, set) on the member's `TypeName`, a failure included. | The library keeps it, in a table of its own (`TraitWorld._CHECKED`); the runtime calls the hook at every dispatch miss of such a call, and lowers the cache entries a failed check left. | `src/gf.c` (`member_hook_at_dispatch`); TraitWorld `src/implement.jl` |
@@ -889,14 +891,14 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-60 | — | *Retired* (2026-11-08): a call of a value known as `Callable{A, S}` checks its arguments against `A` where inference cannot prove them, and raises `MethodError` where it proves them outside, on `unified` 1d493ca959 and c248dbfd8c ([§7.4](#74-callables-call)); gate `n14_callable_args`; E-297 | — | — |
 | C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
 | C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-never-fold-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
-| C-63 | [§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries) | A match through `Callable` carries the world range of the member's methods it rests on. | Its world range is not bounded by them: a task in a world before the member's method existed can reach a dispatch cache entry made later. | `src/gf.c` (`ml_matches`), `src/subtype.c` |
+| C-63 | — | *Retired* (2026-11-09): a match through `Callable` is bounded by the member's methods' worlds at the positions where the signature names it, on `unified` c8ef0e581e, 1daebeab81, 23022b0ec7 ([§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n8_callable`; E-324 | — | — |
 | C-64 | [§3.3](#33-the-code-slot) | Reflection shows the code that runs. | `code_llvm` and `code_native` compile a CodeInstance of their own, with no record of result edges: they show each call bound by address, where the code that runs calls through a slot. | `Compiler/src/typeinfer.jl` (`slot_result_edges`: only for cached CodeInstances) |
 | C-65 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A loaded image's caller of a callee that the session changed before the load is marked and revalidated, as a caller in the session is. | Validation at load does not mark: such a caller is dropped and compiled again. | `base/staticdata.jl` (`verify_method_graph`) |
 | C-66 | [§3.3](#33-the-code-slot) | A cycle of marked CodeInstances is revalidated as one. | Revalidation goes depth first; a CodeInstance met again on its own path fails, and the cycle's CodeInstances are compiled again. | `src/gf.c` (`revalidate_code_instance`) |
 | C-67 | [§3.3](#33-the-code-slot), [facts §6.4](facts.md#64-the-compilers-own-code) | Every static call with only a result edge goes through a slot. | The compiler's own code, compiled while it bootstraps itself, binds every call: its call targets need not be cached then. Its callers are invalidated as before. | `Compiler/src/typeinfer.jl` (`slot_result_edges`, `bootstrapping_compiler`) |
 | C-68 | — | *Retired* (2026-11-08): the slot's entry where no code can be made, on `unified` 49ab4294b6 ([§3.3](#33-the-code-slot)); gate `slot_cascade.jl` | — | — |
 | C-69 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A marked caller is kept through an image written before its revalidation. | The image writer writes a marked caller as invalid (its lowered `max_world`): the image drops it. | `src/staticdata.c`; [the review](../reviews/2026-11-07-implementation-day.md) L3 |
-| C-70 | [§4.10](#410-type-values) | A kind of type object (`DataType`, `UnionAll`, `Union`) meets a set at which a type value is a member (an entry for `Type{S}`). | The intersection of a kind with a set reads the kind's own entries, which are none: it is `Union{}`, so a call at an argument typed by a kind finds no method at the set. For `Callable`, which takes a type by its constructors, the kinds meet it (`unified` 9dab7b6983). | `src/subtype.c` (`intersect_membership`, `obviously_disjoint`) |
+| C-70 | — | *Retired* (2026-11-09): a kind meets a set that takes a type value, on `unified` f14be868df, 0c9e44cb3d ([§4.10](#410-type-values)); gate `m1_typevalue_isa`; E-321 | — | — |
 | C-71 | — | *Retired* (2026-11-08): a member that fails its check at dispatch lowers the cache entries made for it while the check ran, on `unified` 07c0bee2a2 ([§10.4](#104-the-member-hook)); TraitWorld's test F10b; E-296 | — | — |
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-lowers-dispatch-caches)); gate `m2_parametric_replay`; E-292 | — | — |
 | C-73 | — | *Retired* (2026-11-08): a method at an open set reaches, at its insertion, the callers whose pruned arm its set could shadow, on `unified` 07c0bee2a2 ([§5.6](#56-guards-and-cells)); gate `n11_late_shadow`; E-296 | — | — |

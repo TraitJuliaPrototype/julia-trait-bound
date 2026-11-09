@@ -240,6 +240,15 @@ Deferred by the user (s25), to take up when wanted:
    - *Proposal (mine):* the same rule for `once`. A `where` variable the body uses (lowering knows where a static parameter occurs) makes the method open at the argument: compiled per type whatever the attribute. One used only as a bound takes the attribute, as an argument typed by the set. A `Dynamic` value at an open argument is then a function barrier, as `Compiled` at an unknown type is (§6.3).
    - *What it changes:* C-54 narrows to the variables the body uses, which is the intended state under the proposal. Worth measuring on the ports first: a port's helpers written `where {C <: X}` would compile once where they compile per type now.
 
+164. **A value's type that plain code specializes on: no attribute erases it there** (found 2026-11-09 with E-318's traced session, the forks' `show` step at a REPL).
+   - *The case:* DataFrames' `show(io, df)` passes the stream to PrettyTables, plain code compiled per stream type. At a REPL the stream is `IOContext{REPL.LimitIO{TTYTerminal}}`, a type the image's workload (an `IOBuffer`) did not see, so the step compiles DataFrames' keyword body and PrettyTables' code there: 0.12 s of the step's 0.18 s (E-318). Each new stream type (a file's, a notebook's) compiles them again.
+   - *The rule that leaves it open:* the attribute chooses a compilation signature only at an argument typed by a set ([compiler §6.2](reference/compiler.md#62-compilation-signatures)); `IO` is a plain abstract type. `Dynamic{X}` erases a value's type, but it is a member of `X` only ([traits §7.7](reference/traits.md#77-dynamicx)), not an `IO`, so plain code typed `io::IO` cannot take it.
+   - *Proposals:*
+     - (a) The port erases with the plain type's own eraser, where Julia has one: for streams `IOContext{IO}`, one type for every stream. One compiled `show` then serves every stream, and the image's workload covers it. E-323 measures it.
+     - (b) A workload at the REPL's stream, in an extension of the port on REPL. It covers the REPL only.
+     - (c) In the design: a trait that models a plain abstract type names that type's eraser, and `Dynamic{X}` of such a trait is the eraser's value (for streams, `IOContext{IO}`), so the attribute `Dynamic` erases into plain code too.
+   - *Recommendation (mine):* (a) where the plain type has an eraser, if E-323 shows the step's compile gone at no cost to the display; (c) only if the ports meet the case at a type without one.
+
 ## 3. TraitWorld (the prototype)
 
 State: [state §6.1](state.md#today).
