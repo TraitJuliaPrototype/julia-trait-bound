@@ -73,6 +73,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Open issue 161: a type is its own package's only with its parameters** (proposal (a), mine): `@default_dynamic` applies to a library's own type that carries a user's type, such as NetworkDynamics' `FunctionDynamics{typeof(f)}` (traits §7.5, compiler §6.3; [decisions](record/decisions.md) §9; E-310).
 - **Lowering's record of `f(…)::RT` covers a type at the definition only** (C-36, mine): constants, a module's constant bindings, literals and the method's static parameters; an `RT` computed from the arguments records none ([compiler §6.8](reference/compiler.md#68-a-declared-result-on-method); [decisions](record/decisions.md) §9).
 - **Open issue 162: a parameter that passes a trait's value on is typed by its trait, and a package's tests check that `detect_unused_casts` is empty** (proposals (b) and (c), mine; [traits §7.6](reference/traits.md#76-casts); NetworkDynamics' port does (b)).
+- **Open issue 163: a `where` variable bounded by a set and used by the body makes the method open at the argument, for `once` as for keys** (proposal, mine; not built: [compiler C-54](reference/compiler.md#deviations) is today's state, every such argument compiled per type).
 
 Waiting for evidence, not for the user:
 
@@ -232,6 +233,12 @@ Deferred by the user (s25), to take up when wanted:
      - (b) **The idiom:** a parameter that passes a trait's value on is typed by the trait, as a Rust generic names its bound to keep static dispatch. What the port does (NetworkDynamics 7e8997d). No new rule.
      - (c) **Make the silent case loud:** a package's tests check that `detect_unused_casts(mod)` is empty, as they check `detect_ambiguities`, so a cast at an untyped parameter fails a test. The ports' tests run it: TraitDifferentialEquations, TraitMakie, TraitTables, TraitCSV, the forks of Tables, CSV and DataFrames, NetworkDynamics' quality tests and ndport's subset; none has a cast without effect (E-320).
    - *Recommendation:* (b) with (c), mine: no hidden key, and the trap becomes a test failure. (a) only if the ports show the idiom is too much to ask.
+
+163. **A `where` variable bounded by a set, used by the body: compiled once or per type?** (found 2026-11-09 with compiler C-54's remainder.)
+   - *The case:* `f(x::C) where {C <: X}` takes the attribute at `x` as an argument typed by `X` does ([compiler §6.2](reference/compiler.md#62-compilation-signatures)). Compiled once, at the erased `X`, the static parameter `C` would be `X` in the body, so `f(x::C) where {C <: X} = C` would return `X`, not the value's type. Today every such argument is compiled per type (C-54).
+   - *The rule that leaves it open:* §6.2 says that a method whose body uses a static parameter the key does not fix is open at that argument, for keys; it says nothing for `once`.
+   - *Proposal (mine):* the same rule for `once`. A `where` variable the body uses (lowering knows where a static parameter occurs) makes the method open at the argument: compiled per type whatever the attribute. One used only as a bound takes the attribute, as an argument typed by the set. A `Dynamic` value at an open argument is then a function barrier, as `Compiled` at an unknown type is (§6.3).
+   - *What it changes:* C-54 narrows to the variables the body uses, which is the intended state under the proposal. Worth measuring on the ports first: a port's helpers written `where {C <: X}` would compile once where they compile per type now.
 
 ## 3. TraitWorld (the prototype)
 
