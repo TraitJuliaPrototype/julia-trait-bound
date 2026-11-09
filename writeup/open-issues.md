@@ -1,6 +1,6 @@
 # Open issues
 
-Everything known to be open, as of 2026-10-27: the design, the prototype, the runtime and measurements, and the documents. The current design is the [references](reference/README.md), with the rationale in [`design.md`](design.md); the decisions, with their origins, are in [`record/decisions.md`](record/decisions.md). The current measurements are `design/evidence.md`; what Julia gained is `design/julia-changes.md`.
+Everything known to be open: the design, the prototype, the runtime and measurements, and the documents. The current design is the [references](reference/README.md), with the rationale in [`design.md`](design.md); the decisions, with their origins, are in [`record/decisions.md`](record/decisions.md). The current measurements are `design/evidence.md`; what Julia gained is `design/julia-changes.md`.
 
 Only open items are listed in sections 1–6. Items keep their numbers, so that references such as "§1.10" stay valid; the gaps are closed items, which are listed at the end, under [Closed items](#closed-items), with how and where they were closed. Commits are in the repository named (julia-1.13, TraitWorld, a demonstrator).
 
@@ -45,6 +45,9 @@ It recommends revisiting: facts-only scope (2026-10-27), the environment-keyed c
   - *What it changes:* `show` at the REPL receives `IOContext{IO}`, not `IOContext{LimitIO{TTYTerminal}}`: a method that dispatches on the REPL's stream type no longer sees it. Its properties (`:limit`, `:color`, `:displaysize`) and the stream's interface pass through.
   - *Proposals:* (a) adopt it, with Base's `TextDisplay` erasing too, and the ports' display entries back to plain code with the workload line; (b) adopt it, with a convention that makes a package's display workload run at the erased type without the line (a helper in Base, `Base.precompile_display(x)`, that displays at `IOContext{IO}(IOBuffer())`); (c) keep erasing at each port's entries (E-337).
   - *Recommendation (mine):* (a), then (b) if more than the forks need the line: the erasure moves to the one place every display passes, and a port's code stays plain.
+
+- **A closed type's declared results convert only where inference splits** ([open issue 171](#2-design); [facts §13.1](reference/facts.md#131-the-product-setting); [the documentation review](reviews/2026-11-09-documentation-consistency.md), H4). Through a value typed `IO`, a stream's `UInt` count returns as an `Int`, and a result that does not convert raises; through a value typed `Any`, or under the interpreter, the stream's own result returns. The declared counts (`write` and `unsafe_write` `::Int`) and the conversion (168 (a)) are mine.
+  - *Recommendation (mine):* no declared result for the counts at `IO` (171 (a)), measured first; at sets, the conversion moved into the member (171 (c)).
 
 Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
 - **The library on the unified build is TraitWorld on an orphan branch `unified`** ([decisions](record/decisions.md) §9).
@@ -312,6 +315,17 @@ Deferred by the user (s25), to take up when wanted:
    - *Measured* (E-338): with the REPL's display erasing, DataFrames' keyword defaults read the erased stream, and the `get` target is gone; the `show` step compiles 44.4 ms, a candidate's invalidated target 7.0 ms of it.
    - *Recommendation (mine):* (a), the design's own rule (C-39); the invalidated candidate's target with open issue 167.
 
+171. **At a value typed by a closed type with a contract, a result's type depends on what inference knows** (found 2026-11-09 by [the documentation review](reviews/2026-11-09-documentation-consistency.md), H4, and the main session's probe).
+   - *The case* (`unified` b05ae361e0; `experiments/unification/audit/probe_result_by_inference.jl`): `struct S <: IO end` with `Base.write(::S, ::UInt8) = UInt(7)`. `write(v[1], 0x01)` returns an `Int64` for `v::Vector{IO}` and a `UInt64` for `v::Vector{Any}`; under `--compile=min` both return a `UInt64`. A stream whose `write` returns a `String` raises a `MethodError` through `Vector{IO}` and returns the string through `Vector{Any}`. On vanilla Julia every call returns what the method returns.
+   - *The pattern:* a rule applied only where inference applies it makes a result depend on inference. The conversion lives in the split, and inference makes the split; dispatch, the interpreter and a call at `Any` never convert. The same rule at a set has the same consequence for a member whose result is outside the declaration (168: members by their declared supertype); not probed at a set.
+   - *The rules:* [traits §7.9](reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait) and [compiler §7.2](reference/compiler.md#72-the-split) (the call converts; 168 (a), mine, E-333); [compiler §7.1](reference/compiler.md#71-the-rule) (the rule at a closed type with a contract, in either policy). Against [facts §2.1](reference/facts.md#21-g1-identical-or-error) (G1: the same result, or raises) and [§13.1](reference/facts.md#131-the-product-setting) (plain code keeps Julia's behaviour), which state the exception as Open.
+   - *Counted* (the declared-result report, `experiments/unification/audit/declared_results.jl`, issue 168): the members outside `IO`'s declarations are Base's `Filesystem.File` and Core's `stdout` and `stderr` (`UInt` counts), REPL's `LimitIO` and CSV's test stream `PartitionSink`. Every other result through `IO` is the declared type already, so the conversion changes nothing there.
+   - *Proposals:*
+     - (a) **Declared results only where every method gives them:** at `IO`, `write` and `unsafe_write` declare no result (`Any`), as vanilla infers at `::IO`; the split keeps its branches, and no result changes. The cost: code that sums counts at a value typed `IO` infers `Any` there, as on vanilla. To measure first with E-328's workloads and the forks' `show` step.
+     - (b) **Base's own counts made `Int`** (`Filesystem.File`, Core's streams, `LimitIO`), as Julia documents `write`'s count, and the call asserting instead of converting: Base's streams give the same result in every mode; a user's stream outside the declaration still raises through `IO` only.
+     - (c) **The conversion in the member, not at the call:** a method serving an operation with a declared result returns the converted result wherever it is called, as a return annotation on the method. The same result through dispatch, the interpreter and the split; a plain method's result changes where nothing uses traits.
+   - *Recommendation (mine):* (a) at `IO`, measured before it is built; at sets, (c) with [traits §5.10](reference/traits.md#510-checks)'s check, so that a declared result is a property of the member, not of the call site.
+
 ## 3. TraitWorld (the prototype)
 
 State: [state §6.1](state.md#today).
@@ -341,6 +355,8 @@ Choices whose repercussions are unclear either way, where experience with large-
 ---
 
 ## Closed items
+
+A closed item cites the sections and anchors of its day; the references may have renumbered them since.
 
 Closed, decided or superseded items, under their numbers, with how and where each was closed. The designs they concern are explained in [`design/alternatives.md`](design/alternatives.md).
 

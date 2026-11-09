@@ -1,6 +1,6 @@
 # The changes to Julia, as built
 
-The inventory of the [compiler reference](../reference/compiler.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2, with branch `split-table` on top) adds, as of 2026-10-28, with commits, files and upstream status. For core developers. Where this chapter and the reference disagree on what is intended, the reference wins; this chapter wins on what is built.
+The inventory of the [compiler reference](../reference/compiler.md): what the patched Julia (`julia-1.13/`, branch `trait-world-1.13`, on v1.13.2, with branch `split-table` on top) adds, as of 2026-10-28, with commits, files and upstream status; §7, the build on branch `unified` (`julia-unified/`), is current (its head: [state.md §6.1](../state.md#today)). For core developers. Where this chapter and the reference disagree on what is intended, the reference wins; this chapter wins on what is built.
 
 Size (00dcc9994c): 65 commits on v1.13.2 (with build scripts and the dispatch profiler), 43 files, about 2,460 lines added. The largest file is `Compiler/src/facts.jl` (580 lines), which holds the facts mode's rules.
 
@@ -113,10 +113,10 @@ Numbering of [`../explorations/julia-support.md`](../explorations/julia-support.
 
 ## 7. The unified build (branch `unified`)
 
-The build of [the references](../reference/README.md) for traits as abstract types, in the stages W-98 to W-114 ([the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06).
+The build of [the references](../reference/README.md) for traits as abstract types, in the stages W-98 to W-114 ([the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted 2026-11-06) and the work items after them (W-101, W-123, W-128, W-129).
 
 - **Branch** `unified` of the julia repository; worktree `julia-unified/` in the workspace. On v1.13.2 (`45b6d15e34`), with no rebase on 1.14 planned ([decisions](../record/decisions.md) §5, 2026-11-06).
-- **A stack of self-contained commits** (W-19; [decisions](../record/decisions.md) §8, 2026-11-06): first the changes useful without traits, one commit each, each building on v1.13.2 with only the commits below it; then each stage's commits. A stage's rework replaces its commits instead of adding fixes on top; the branch is force-pushed (no one else uses the remote).
+- **A stack of self-contained commits** (W-19; [decisions](../record/decisions.md) §8, 2026-11-06): first the changes useful without traits, one commit each, each building on v1.13.2 with only the commits below it; then each stage's commits. A stage's rework replaces its commits instead of adding fixes on top; the branch is force-pushed (no one else uses the remote). W-129 is the exception while its stage is measured: its rows below are fixes on top of each other, and their fold into self-contained commits is W-129's last step ([the work queue](../record/todo.md)).
 - **The control:** vanilla v1.13.2, worktree `julia-vanilla/` (detached at `45b6d15e34`), built on the same host for E-262's comparisons.
 - **Building:** `tools-local/build.sh julia-unified` (the rule for cores by load, stage times in the log; [setup](../setup.md#on-a-shared-host)).
 - **Its deviations** are rows of the references' Deviations tables naming branch `unified`. Its gates and acceptance cases are in `experiments/unification/`.

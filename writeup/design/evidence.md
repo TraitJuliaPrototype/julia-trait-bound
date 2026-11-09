@@ -1,6 +1,6 @@
 # The evidence: what is measured, and what is not
 
-A chapter of the [rationale](../design.md): the measurements behind the design, for core developers, as of 2026-10-28.
+A chapter of the [rationale](../design.md): the measurements behind the design, for core developers. Each number names its experiment and build; the current builds are in [state.md §6.1](../state.md#today).
 
 **The builds.**
 - **The measurement round of 2026-10-20:** julia-1.13 3b8085c222 (branch `trait-world-1.13`), TraitWorld bed3782. Every number in this chapter is from it unless its row names another build.

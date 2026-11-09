@@ -1,6 +1,6 @@
 # Lowering: the reference
 
-**Draft** (W-105; [the folder's README](README.md)). This page defines what the trait library's macros expand to on Julia's interfaces ([`compiler.md`](compiler.md)), within the facts mode's contract ([`facts.md`](facts.md)). It decides nothing the other three references decide; where it seems to, they win.
+**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines what the trait library's macros expand to on Julia's interfaces ([`compiler.md`](compiler.md)), within the facts mode's contract ([`facts.md`](facts.md)). It decides nothing the other three references decide; where it seems to, they win.
 
 The language puts most of the work in Julia: a trait is an abstract type, a membership is an entry of the type system, a method at a trait is a Julia method, code per key is a compilation signature. What remains for the library is to declare, to check, and to report.
 
@@ -36,7 +36,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 | `@trait_module` | module option bits | before the module's first method |
 | `Dynamic{X}`, `keep`, casts | a struct of `Core` with the library's memberships and methods; a compiler-resolved call; a form of the call | — |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait`, `@implement`, a pattern's members, a method at a trait and `Dynamic{X}` (L-51); `@trait_module`, `keep` and casts W-111.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait`, `@implement`, a pattern's members, a method at a trait and `Dynamic{X}` (L-51); `@trait_module`, `keep` and casts in TraitWorld `unified` bb78d02 with `unified` e692e57ab7 (W-111; §6, §7).
 
 ---
 
@@ -68,7 +68,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 with W-109. A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 on `unified` e70675a606 with TraitWorld e9a63f7 (W-109). A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary).
 
 ---
 
@@ -110,7 +110,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-this-draft)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-these-references)).
 
 ---
 
@@ -120,7 +120,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `@nospecialize t::X` and `@specialize t::X` set the method's attribute bits at the argument ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)). They are Julia's macros.
 - **Per-method options:** `@bounded f(…) = …`, `@open f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: W-109 (`@bounded`, `@open`), W-100 (`@facts`).
+**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: `@bounded` and `@open` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
 
 ---
 
@@ -229,7 +229,7 @@ end
 ## 12. Compiling ahead
 
 While a package that declares `@implement X S` is precompiled:
-- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, fully bounded there, and concrete other arguments, a compile request at `S`'s key;
+- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, fully bounded there, and concrete other arguments, a compile request at `S`'s type (at its key once keys are built);
 - for a method with `Dynamic` trait arguments, at the erased keys;
 - the targets of the table of a call's targets for `S` ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 
@@ -278,7 +278,7 @@ While a package that declares `@implement X S` is precompiled:
 
 ## 15. Deviations
 
-The library on the unified build: TraitWorld `unified` e7ff8e2 (the first slice, W-106).
+The library on the unified build: TraitWorld `unified` (its head: [state.md §6.1](../state.md#today)).
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|

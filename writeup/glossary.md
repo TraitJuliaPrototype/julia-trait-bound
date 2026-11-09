@@ -15,12 +15,14 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Boundary method](#boundary-method) ·
 [`bounded` and `@open`](#fully-bounded-and-open) ·
 [`Callable`](#callable) ·
+[Candidates](#split) ·
 [Cast](#cast) ·
 [Cell](#guard-and-cell) ·
 [Code slot](#code-slot) ·
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
 [Contract](#trait) ·
+[Contract of a closed type](#open-and-closed) ·
 [Declared field](#declared-field) ·
 [Declared result](#declared-result) ·
 [Default](#default) ·
@@ -29,6 +31,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Edge](#edge) ·
 [Entry](#membership-and-entry) ·
 [Erased key](#key) ·
+[Eraser `IOContext{IO}`](#eraser-iocontextio) ·
 [Fact and fact signature](#fact-and-fact-signature) ·
 [Facts policy](#policy-facts-and-plain) ·
 [Family](#family) ·
@@ -112,9 +115,9 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Open and closed
 
-- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply unchanged. A trait whose author opts in with `@closed_after_load` is **closed after load**: a type's non-membership is final once the trait's and the type's packages have loaded.
+- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply. A closed abstract type may declare a **contract**: operations with declared results, and the split's candidates; at a value typed by it, the operations split as at a trait. Base's `IO` declares one. A trait whose author opts in with `@closed_after_load` is **closed after load**: a type's non-membership is final once the trait's and the type's packages have loaded.
 - **Origin:** Scala's and Kotlin's sealed types are closed sets; Rust's traits are open to impls in the trait's or the type's crate.
-- **Defined in:** [traits §3.4](reference/traits.md#34-open-and-closed); [facts §10](reference/facts.md#10-memberships).
+- **Defined in:** [traits §3.4](reference/traits.md#34-open-and-closed); [facts §10](reference/facts.md#10-memberships); a closed type's contract: [compiler §7.1](reference/compiler.md#71-the-rule).
 
 ### Intersection `All{X, Y}`
 
@@ -239,9 +242,15 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Split
 
-- **Here:** an operation called on a value the code knows only by its trait. The compiled code tests the value's type against the trait's members, up to four, calls each one's method directly, and calls through a table for the rest. Its result has the declared type.
+- **Here:** an operation called on a value the code knows only by its trait, or by a closed type with a contract. The compiled code tests the value's type against the **candidates** (the trait's first four members; a closed type's declared ones), calls each one's method directly, and calls through a table for the rest. Its result is the declared result: a member's result is converted to it.
 - **Origin:** Julia's union splitting, which tests a value against each member of a small `Union`. Rust and Swift call through a witness or vtable instead.
 - **Defined in:** [traits §7.9](reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait); [compiler §7.2](reference/compiler.md#72-the-split), [§7.3](reference/compiler.md#73-the-table-of-a-calls-targets).
+
+### Eraser `IOContext{IO}`
+
+- **Here:** `IOContext{IO}(io)` holds any stream as an `IO`, so code typed `io::IO` that receives it is compiled once for every stream. Its operations on the stream it holds split over `IO`'s candidates; the stream's properties (`:limit`, `:color`) pass through. An author erases at a display entry where large code serves many streams, by `@nospecialize(io::IO)` and `IOContext{IO}(io)`.
+- **Origin:** the project's term. Julia's `IOContext{IO_t}` with its parameter at the abstract type; Rust's `&mut dyn Write` erases a writer the same way.
+- **Defined in:** [traits §9b](reference/traits.md#9b-streams-io); [compiler §7.5](reference/compiler.md#75-io).
 
 ### `Callable`
 

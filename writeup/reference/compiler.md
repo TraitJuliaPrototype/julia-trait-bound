@@ -1,10 +1,10 @@
 # Compiler and runtime: the reference
 
-**Draft** (W-105; [the folder's README](README.md)). This page defines what Julia's compiler and runtime provide to the design: each interface, what it means, and its rules. It describes the interfaces as designed. The status line of each section says how far it is built.
+**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines what Julia's compiler and runtime provide to the design: each interface, what it means, and its rules. It describes the interfaces as designed. The status line of each section says how far it is built.
 
 - Why each interface is needed, and what compiled code may assume: [`facts.md`](facts.md).
 - How the language uses them: [`traits.md`](traits.md) for what a user sees, [`lowering.md`](lowering.md) for what the library's macros emit.
-- The build is branch `unified` of the julia repository, on v1.13.2 (the worktree `julia-unified/`), in the stages W-98 to W-114 ([the work queue](../record/todo.md); [the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted). The inventory of its changes: [`../design/julia-changes.md`](../design/julia-changes.md).
+- The build is branch `unified` of the julia repository, on v1.13.2 (the worktree `julia-unified/`), in the stages W-98 to W-114 ([the work plan](../plans/2026-11-06-work-plan-under-the-draft-reference.md), adopted) and the work items after them, W-101, W-123, W-128 and W-129 ([the work queue](../record/todo.md)). The inventory of its changes: [`../design/julia-changes.md`](../design/julia-changes.md).
 - Terms:
   - a **set** is an abstract type whose members may join after their definition: a trait;
   - a **membership** makes a type, a family, an abstract type or a set a member of a set;
@@ -286,7 +286,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - Every other abstract type is closed, Base's and Core's included.
 - **`never_member`:** a bit on Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures and the memory types. A membership of one is refused.
 - A set's declared supertype is `Any` or a set. A closed abstract type is never a member of a closed abstract type through a set.
-- **A set's `TypeName` carries its contract,** written once by the library at the declaration and saved with it in images ([lowering §2](lowering.md#2-trait)):
+- **A set's `TypeName` carries its contract,** written once by the library at the declaration and saved with it in images ([lowering §2](lowering.md#2-trait)). The same slot holds a closed abstract type's contract, the list of its operations' methods that `jl_declare_contract` writes (§7.1). A set's contract holds:
   - the operations, each with the trait's method that carries its declared result (§6.8);
   - the declared fields, with their types and whether read-only;
   - each parameter's definition;
@@ -597,7 +597,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 ### 6.9 Casts and `keep`
 
 - **Lowering turns a call with cast arguments,** `f(compiled_for(x), y)` or `f(with_dynamic(x))`, into `Core.attributed_call(bits, f, args…)`, a builtin that dispatches as the call with those attribute bits. Inference resolves it statically where it can. A cast anywhere else is a lowering error. A cast of a `Dynamic{X}` to `Compiled` passes the held object.
-- **The front end reserves the names** `compiled_for` and `with_dynamic` as it reserves `ccall`: in a call's arguments they are the casts whatever the scope binds, and a local variable or a definition of either name is a lowering error.
+- **The front end reserves the names** `compiled_for` and `with_dynamic` as it reserves `ccall`: in a call's arguments they are the casts whatever the scope binds, and a local variable or a definition of either name is a lowering error. **Open** ([open issue 160](../open-issues.md#2-design); mine: recognized by their binding); the reservation is what is built.
 - **A cast at an argument the selected method does not type by a set** has no effect. Inference records each such cast it finds; `detect_unused_casts(mod)` lists them.
 - `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits, and a table of its latest calls, keyed by the bits and the function's and arguments' types and read without a lock, so that a call whose arguments are no types makes no tuple type.
 - **`Core.Dynamic{X}`** is an ordinary struct of `Core`, with no rule of subtyping: its memberships are declared by the library ([lowering §7](lowering.md#7-dynamicx-keep-casts)). `Core` defines it so that `keep` can make one.
@@ -846,7 +846,7 @@ Each applies to all code.
 | the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; closed after load `unified` bf447db25e, with C-76, C-77; an intersection no type is in, final at a set closed after load, `unified` 1906196731 (E-334) | §4.7, §4.8 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; closed after load `unified` bf447db25e, with C-76, C-77; an intersection no type is in, final at a set closed after load, `unified` 1906196731 (E-334), with C-79 | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
@@ -860,9 +860,9 @@ Each applies to all code.
 | the definition-time check and the classification | Implemented (TraitWorld `unified` 59134ef), with C-40, C-41 | §6.7 |
 | a declared result on `Method`; the operation's flag; lowering's record of `f(…)::RT` | Implemented (`unified` e70675a606, 0ba6317994) | §6.8 |
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
-| operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
+| operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39, C-81 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61, C-62; the arguments checked against `A` on 1d493ca959 | §7.4 |
-| A closed abstract type with a contract; `IO`'s contract, its candidates, the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §7.1, §7.5 |
+| A closed abstract type with a contract; `IO`'s contract, its candidates, the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0), with C-81; a closed type's converted results Open ([open issue 171](../open-issues.md#2-design)) | §7.1, §7.5 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
@@ -873,7 +873,7 @@ Each applies to all code.
 
 ## Deviations
 
-Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispatch with C-18 29035cab11; stage 2, W-99: 0d529d33a9, 48864e547d, 88daaca7fe; W-106: the member hook ec4f9a8714; W-107: intersections 8a9144928e; W-108: images and hooks 28c401eb0c; W-109: b752d6bfbb, f7a14de82f, e70675a606, 50da8d8ee2; W-100, the facts mode, from branch `w100`: 3363088725 to cb7f55bd35; W-111, the attribute: d0270568cc, e692e57ab7, 1f6d1e45d7; W-112, guards: 9f60cc350b, 79b948420e; W-113, `Callable`: 7195706721, 5f0a8ffd50; W-114, the surface: e81cd49a67, 5f2373b2d5, 0ce5b7f752; W-101, the code slot: 7500630036; W-104, the ports: 51a143a2f6, 67ba8105fb, fb0c7ba75a, and the slot's hardening f90d152208 after [the review of the day](../reviews/2026-11-07-implementation-day.md), 9dab7b6983, the slot's last resort 49ab4294b6, a set's inputs 350c5b1c59; W-123: the walk aa997b2180, the check's interpreter 98fcbdfbba). IDs are shared with the record's other references and never reused.
+The build's heads: [state.md §6.1](../state.md#today); its commits, stage by stage: [julia-changes §7.1](../design/julia-changes.md#71-the-stack). IDs are shared with the record's other references and never reused.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|

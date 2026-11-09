@@ -1,6 +1,6 @@
 # The references: Julia with traits in its type system
 
-**The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A section whose choice still waits for the user says **Proposed** in its status line.
+**The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A choice an agent made says "mine" with its date in its section's status line and is listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) for the user to confirm; a choice that waits for the user before it is in force is **Open**.
 
 The four references define the intended shape of the design. Each one also records, separately, where the implementation deviates from it.
 
@@ -21,9 +21,10 @@ The four references define the intended shape of the design. Each one also recor
 5. a one-line status:
    - **Implemented:** on branch `unified` of the julia repository (the worktree `julia-unified/`, on v1.13.2), or in the trait library built on it;
    - **Planned:** decided, not built. A guarantee the design commits to is Planned, however late the stage that delivers it;
-   - **Proposed:** proposed, waiting for the user's decision (listed below);
    - **Optional:** a mechanism built when a measurement or a later decision asks for it. User code may not rely on what it would give until it is Planned;
    - **Open:** not decided, linking [`../open-issues.md`](../open-issues.md).
+
+   A work item alone ("W-109") is not a status: each part of a status line says Implemented with its commit, Planned, Optional or Open. The build's heads are in [`../state.md` §6.1](../state.md#today), not copied here.
 
 **Guarantees and their mechanisms.** A guarantee is a promise to user code: what is accepted or refused, which method runs, what compiled code may assume, what a membership or a load does to compiled code. It is stated in `traits.md` or `facts.md`. The mechanism that delivers it is in `compiler.md`. A guarantee the design commits to is Planned with the stage that delivers it, however late. Optional is kept for mechanisms whose gain user code cannot build on, or whose guarantee is not yet committed.
 
@@ -68,7 +69,7 @@ Every choice beyond the decision log's is listed here, with who made it. The ana
 | P-20 | `bounded` on by default in trait modules, with switches: `@open f(…) = …` marks a method open on purpose, `@trait_module bounded = false` a module; storing a trait argument at a struct parameter or in a closure makes a method open; a constructor that sets a parameter bounded by a trait is never refused. | the user (the default with a switch); `@open`, the idioms and the constructors, mine | [traits §7.3](traits.md#73-fully-bounded-methods), [§13](traits.md#13-scopes-trait-modules) |
 | P-21 | Normal forms of `Union` and `All` read declared supertypes only, so a type expression gives the same type in every world. | mine | [compiler §4.9](compiler.md#49-intersections) |
 | P-22 | At an intersection: the key is the tuple of the components' keys; the split's candidates are the first component's that are members of every component; disagreeing trait defaults leave the attribute to the scope's fallback; a closed component makes it closed against an open set. | mine | [traits §3.6](traits.md#36-intersections), [compiler §4.9](compiler.md#49-intersections) |
-| P-23 | The cast names are reserved as `ccall` is; a cast at a plain argument has no effect and `detect_unused_casts` lists it. | mine | [traits §7.6](traits.md#76-casts), [compiler §6.9](compiler.md#69-casts-and-keep) |
+| P-23 | The cast names are reserved as `ccall` is; a cast at a plain argument has no effect and `detect_unused_casts` lists it. The reservation Open: [open issue 160](../open-issues.md#2-design) proposes recognizing the names by their binding. | mine | [traits §7.6](traits.md#76-casts), [compiler §6.9](compiler.md#69-casts-and-keep) |
 | P-24 | Attribute bits travel only through `Core.attributed_call`; a plain dynamic call and Julia's caches carry none. | mine | [compiler §6.3](compiler.md#63-the-attribute-at-a-call) |
 | P-25 | The trait's methods reach a key's parts through `Core.trait_receiver` and `Core.trait_field`. | mine | [compiler §6.5](compiler.md#65-the-calling-convention) |
 | P-26 | A module-end hook of Julia's. | mine | [compiler §10.1](compiler.md#101-definition-and-image-hooks) |
@@ -81,6 +82,6 @@ Every choice beyond the decision log's is listed here, with who made it. The ana
 
 ## State of the build
 
-- What is built is on branch `unified`, a stack of self-contained commits on v1.13.2 ([julia-changes §7.1](../design/julia-changes.md#71-the-stack)), with TraitWorld `unified`: the changes useful without traits (compiler §11); the type system's sets, memberships and intersections (§4); dispatch at sets (§5.1–§5.5); guards and cells (§5.6, W-112); images and hooks (§9, §10.1); the facts mode (§1–§3, W-100); the attribute, casts and `keep` (§6.2, §6.3, §6.9, W-111); operations on a value typed by its trait, the split and its table (§6.8, §7.1–§7.3, W-109); the world-checked caches (§8.1, §8.2); `Callable` (§7.4, W-113); fully typed mode and the hooks for strict mode (§2.7, §10.2, W-114); the code slot (§3.3, W-101); a set's inputs (§4.6). Latest: `unified` 350c5b1c59. Each section's status line says what is built and its deviations; what is not is Planned or Optional, by stage in [the work queue](../record/todo.md).
-- The trait library on the unified build: TraitWorld `unified` e967ca0 (its deviations: traits' and lowering's Deviations tables).
+- What is built is on branch `unified`, a stack of self-contained commits on v1.13.2 ([julia-changes §7.1](../design/julia-changes.md#71-the-stack)), with TraitWorld `unified`: the changes useful without traits (compiler §11); the type system's sets, memberships and intersections (§4); dispatch at sets (§5.1–§5.5); guards and cells (§5.6, W-112); images and hooks (§9, §10.1); the facts mode (§1–§3, W-100); the attribute, casts and `keep` (§6.2, §6.3, §6.9, W-111); operations on a value typed by its trait, the split and its table (§6.8, §7.1–§7.3, W-109); the world-checked caches (§8.1, §8.2); `Callable` (§7.4, W-113); fully typed mode and the hooks for strict mode (§2.7, §10.2, W-114); the code slot (§3.3, W-101); a set's inputs (§4.6); sets closed after load and a closed type's contract, `IO`'s (§4.8, §7.1, §7.5, W-129). The heads: [`../state.md` §6.1](../state.md#today). Each section's status line says what is built and its deviations; what is not is Planned or Optional, by stage in [the work queue](../record/todo.md).
+- The trait library on the unified build: TraitWorld `unified` (its deviations: traits' and lowering's Deviations tables).
 - The deviations of the branch are in [compiler.md](compiler.md#deviations).

@@ -1,6 +1,6 @@
 # The facts mode: the reference
 
-**Draft** (W-105; [the folder's README](README.md)). This page defines the facts mode: the contract between compiled code and the method table. It says what code compiled by facts may assume about other code, what it records, which code is compiled by facts, and what the two guarantees promise. It describes the mode as designed. The status line of each section says how far it is built.
+**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines the facts mode: the contract between compiled code and the method table. It says what code compiled by facts may assume about other code, what it records, which code is compiled by facts, and what the two guarantees promise. It describes the mode as designed. The status line of each section says how far it is built.
 
 - The trait language: [`traits.md`](traits.md).
 - The Julia interfaces this page relies on: [`compiler.md`](compiler.md).
@@ -87,7 +87,7 @@
 > **G1.** A call in code compiled by facts computes what the same call computes in plainly compiled code, in the same world, with the same effects, or raises.
 
 - "The same world" is the caller's world. A task in an older world sees that world's methods and memberships.
-- "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)).
+- "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)). Such an operation's result is converted to its declared result first, as a return annotation converts ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)); the same holds at a value typed by a closed type with a contract, in plain code too (§13.1). **Open** ([open issue 171](../open-issues.md#2-design)): the conversion is made where inference makes the split, so the result's type depends on what inference knows.
 - A method that strict mode refuses does not exist for plain code either.
 - The attribute of a trait argument ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)) changes speed, never a result: both attributes run the same methods.
 
@@ -105,7 +105,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; guards cover the calls a membership could change (compiler §5.6, `unified` 79b948420e). The acceptance suite (`experiments/unification/test/acceptance/`): 20 of 21 cases pass in the product setting and under the test bed (E-277); one waits for `@enforce_fully_typed` (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; guards cover the calls a membership could change (compiler §5.6, `unified` 79b948420e). The acceptance suite (`experiments/unification/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
 
 ### 2.2 G2: stable caches
 
@@ -145,7 +145,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The compiled code is the same in both tiers. Strict mode acts only when a method is defined or an image's methods are activated.
 - By default a winning pirate is followed, as plain Julia follows it: the code with the broken fact is compiled again, once.
 
-**Status:** Planned (W-114).
+**Status:** Implemented: strict mode in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [traits §12.3](traits.md#123-strict-mode)), with traits T-96, T-97, T-98.
 
 ---
 
@@ -305,7 +305,7 @@ The rule applies to every method, Base's included. A frame without run-time site
 
 ## 9. Operations on a value typed by its trait
 
-An operation called on a value the code knows only by its trait ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)) is a call on a value of an open set of types ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)).
+An operation called on a value the code knows only by its trait ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)) is a call on a value of an open set of types ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)). A value typed by a closed abstract type with a contract takes the same rule at the contract's operations, with the type's declared candidates ([compiler §7.1](compiler.md#71-the-rule)).
 
 - **Candidates.** The trait's first four members, in declaration order, read without an edge.
 - **Inference:**
@@ -313,13 +313,13 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
   - each branch is a fact, with its edge;
   - the call branches on the value's type over the candidates, with direct calls that may inline;
   - the last branch, the **fallback**, is a run-time site for any other type. It calls the call's target for the value's type through a table keyed by the type, in the caller's world, and records no edge.
-- **The result** is the operation's declared result, asserted on every branch that is not known to give it. A result of another type raises a `TypeError`. The declaration is the contract each member was checked against; the assertion catches a member checked only at its first use, or one whose method was redefined.
+- **The result** is the operation's declared result. A member's result is converted to it, as a return annotation `f(…)::R` converts, and asserted on every branch not known to give it; a result that does not convert raises ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [§11](traits.md#11-checks-and-errors)). The declaration is the contract each member was checked against; the conversion and the assertion catch a member checked only at its first use, a member by its declared supertype ([open issue 168](../open-issues.md#2-design)), or one whose method was redefined.
 - **A later member** reaches the fallback and invalidates nothing. Code compiled after its declaration may branch on it.
 - **Code compiled once for a trait argument** records no edge to the set of members. A member loaded after it was compiled discards none of it.
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Planned (W-109).
+**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), the conversion on 0c836f3ef6, with compiler C-38, C-39, C-81.
 
 ---
 
@@ -369,7 +369,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **Effects.** The refused method does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
 
-**Status:** Planned (W-114).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook.
 
 ### 11.3 Strict mode's errors at their sources
 
@@ -386,7 +386,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
-**Status:** Planned (W-114).
+**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for three rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97); an ambiguity at a membership is the runtime's warning (T-98).
 
 ---
 
@@ -418,7 +418,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 ### 13.1 The product setting
 
 - Facts methods are compiled by facts: the methods of modules that declare `facts`, and methods marked always facts.
-- Plain code keeps all of Julia's behaviour: its inference, its speed, its invalidation.
+- Plain code keeps all of Julia's behaviour: its inference, its speed, its invalidation. One exception: at a value typed by a closed abstract type with a contract (Base's `IO`), a call of one of its operations is inferred as the declared result and compiled as the split, in plain code too, and the member's result is converted to the declared result ([compiler §7.1](compiler.md#71-the-rule)). A stream whose `write` returns a `UInt` returns an `Int` through a value typed `IO`, and one whose result does not convert raises there. **Open** ([open issue 171](../open-issues.md#2-design)): where inference does not see the type (a value typed `Any`, the interpreter), the call returns the member's own result.
 - G1 and G2 hold for code compiled by facts.
 
 **Status:** Implemented on `unified` (W-100).
@@ -439,7 +439,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Planned (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100; [compiler §2.6](compiler.md#26---trim)), with compiler C-53; not run here, since no trimmed binary is built in this workspace. `verify_main`: TraitWorld (W-114).
 
 ---
 
@@ -448,7 +448,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - **The speed of code that is not fully typed.** A run-time site costs a dynamic dispatch, and its result is `Any`; Julia's heuristics for type-unstable code are gone there. The design tolerates such a slowdown where rewriting the code with traits recovers it. Fully typed code pays nothing.
 - **Protection for plain code** in the product setting.
 - **"Never invalidated"** outside the strict tier, and within it only with the exceptions of §2.2.
-- **Identical values decided by inference** (§2.1).
+- **Identical values decided by inference** (§2.1), and at a closed type with a contract the type of an operation's converted result (§13.1, [open issue 171](../open-issues.md#2-design)).
 - **Threads:** untested.
 
 ---
@@ -457,7 +457,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 | Item | Status | Where |
 |---|---|---|
-| G1, identical or error | Implemented (`unified`, W-100); 20 of 21 acceptance cases in both settings (E-277) | §2.1 |
+| G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277); a closed type's converted results Open ([open issue 171](../open-issues.md#2-design)) | §2.1 |
 | G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); guards (W-112) | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
@@ -465,12 +465,12 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | result edges and the code slot | Implemented (`unified`, W-101), with compiler C-64 to C-67 | §4.3, §6.3 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
-| operations on a value typed by its trait: the split | Planned (W-109) | §9 |
+| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109), with compiler C-38, C-39, C-81 | §9 |
 | memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59; traits closed after load `unified` bf447db25e | §10 |
-| pirates followed; strict mode and its errors at their sources | Planned (W-114) | §11 |
+| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96 to T-98 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
-| product setting, test bed, `--trim` | Implemented (`unified`, W-100), with compiler C-53; strict mode W-114 | §13 |
+| product setting, test bed, `--trim` | Implemented (`unified`, W-100), with compiler C-53; strict mode TraitWorld 7adcc94 (W-114) | §13 |
 | standard libraries as owners | Open | §1 |
 
 ---

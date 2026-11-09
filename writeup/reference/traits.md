@@ -1,13 +1,13 @@
 # Traits: the reference
 
-**Draft** (W-105; [the folder's README](README.md)). This page defines the trait language: what a trait is, how a type joins one, how methods at traits dispatch and are compiled, what is checked, and which errors a user sees. It describes the language as designed. The status line of each section says how far it is built.
+**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines the trait language: what a trait is, how a type joins one, how methods at traits dispatch and are compiled, what is checked, and which errors a user sees. It describes the language as designed. The status line of each section says how far it is built.
 
 - What compiled code may assume: [`facts.md`](facts.md).
 - The Julia interfaces the language rests on: [`compiler.md`](compiler.md).
 - What the library's macros expand to: [`lowering.md`](lowering.md).
 - Terms are defined where they first matter; the [glossary](../glossary.md) links here.
 
-**Status labels:** Implemented, Planned, Proposed, Optional, Open, as [the README](README.md#conventions-for-every-reference) defines them.
+**Status labels:** Implemented, Planned, Optional, Open, and "mine" for a choice an agent made, as [the README](README.md#conventions-for-every-reference) defines them.
 
 ## Contents
 
@@ -166,7 +166,7 @@ A trait is written wherever a type is written:
 - **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed, but `Callable` (§9), which is a trait.
 - A closed abstract type may be a member of a trait (`@implement Indexable{T} AbstractVector{T} where {T}`); then every subtype of it is a member.
 - **A closed abstract type may declare a contract:** operations with declared results, and the split's candidates. Its members stay Julia's; nothing joins later, so no answer about it waits. At a value typed by it, an operation's call has its declared result and branches over the candidates (§7.9), as at a trait. Otherwise Julia's rules apply: code typed by it is compiled per type. Base's `IO` declares one (§9b).
-- Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply unchanged.
+- Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply, but for its contract's operations (above).
 - **A trait closed after load** relies on non-membership too, once the answer is settled. Its author opts in with `@closed_after_load` in the body:
 
   ```julia
@@ -246,7 +246,7 @@ end
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result's assertion at a call through the trait: W-109.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result converted and asserted at a call through the trait: Implemented (§7.9).
 
 ### 4.2 Defaults
 
@@ -525,7 +525,7 @@ describe(x) = "something else"
 - Any method in any module may name a trait in its signature. It is a method of its generic function, dispatched by Julia.
 - Its body may do with the argument what any body may do with an abstract-typed argument. What the body does decides how the method is compiled (§7.3), never what it means.
 
-**Status:** Implemented in Julia's dispatch on `unified` 29035cab11 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled (§7.3): W-109.
+**Status:** Implemented in Julia's dispatch on `unified` 29035cab11 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled: §7.3's status.
 
 ### 6.2 Specificity
 
@@ -693,7 +693,7 @@ solve(compiled_for(MyModel()), u0)            # Compiled at this call: the calle
 
 - **`compiled_for(x)` and `with_dynamic(x)` are written as an argument of the call they decide:** `paint(io, compiled_for(m))`. They decide that argument at that call, over every default and over what the value carries.
 - Anywhere else they are refused when the code is lowered: a cast is a statement about a call.
-- **The names are reserved,** as `ccall` is: in a call's arguments they are always the casts, and a local variable or a function of either name is refused when the code is lowered.
+- **The names are reserved,** as `ccall` is: in a call's arguments they are always the casts, and a local variable or a function of either name is refused when the code is lowered. **Open** ([open issue 160](../open-issues.md#2-design); mine: the names recognized by their binding, not reserved); the reservation is what is built.
 - **On a `Dynamic{X}`,** `compiled_for(d)` passes the object it holds, `Compiled`; `with_dynamic(d)` passes `d`.
 - **At an argument that the selected method does not type by a trait,** a cast has no effect, as a call-site `@inline` that cannot inline has none. `detect_unused_casts(mod)` lists such casts where the compiler knows the method a call selects; a package's tests check that it is empty, as they check `detect_ambiguities`. So a parameter that passes a trait's value on is typed by the trait, as a Rust generic names its bound: through an untyped parameter neither a cast nor a carried `Compiled` passes (§7.5 step 2).
 - **A plain function that stores its argument** (a front end typed `@nospecialize(f)`) passes no cast on. The caller keeps its choice by what it passes: the value itself is compiled per type where the struct records its type, a `Dynamic{X}` once (§8.2).
@@ -859,7 +859,7 @@ end
 - **Its members are Julia's streams and every `struct S <: IO`,** as in Julia. Code typed `io::IO` is compiled per stream type, as in Julia.
 - **The contract's operations,** each Base's method at `::IO`, with its declared result: `write(io, ::UInt8)::Int`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)::Int`, `read(io, ::Type{UInt8})::UInt8`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)::Bool`. A result not declared is `Any`. `eof`, `isopen` and `close` have no method at `::IO` and are not operations.
 - **The split's candidates:** `IOBuffer`, `IOStream`, `TTY`, `PipeEndpoint`.
-- **At a value typed `IO`** (a field typed `IO`, an element of a `Vector{IO}`, an argument declared `@nospecialize`), an operation's call has its declared result and branches over the candidates with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)). A stream whose count is another integer type keeps working: the call converts it to `Int`.
+- **At a value typed `IO`** (a field typed `IO`, an element of a `Vector{IO}`, an argument declared `@nospecialize`), an operation's call has its declared result and branches over the candidates with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)). A stream whose count is another integer type keeps working: the call converts it to `Int`. So a caller through `IO` sees an `Int` where the stream's own method returns, say, a `UInt`, and a result that does not convert raises there. Where inference does not see `IO` (a value typed `Any`, the interpreter), the call returns the stream's own result: **Open** ([open issue 171](../open-issues.md#2-design)).
 - **The erased stream is `IOContext{IO}`:** `IOContext{IO}(io)` and `IOContext{IO}(io, key => value, …)` hold any stream as an `IO`. It is an `IO`, so code typed `io::IO` takes it. It forwards every stream function, as any `IOContext` does, and its operations on the stream it holds branch over the candidates. An `IOContext`'s properties (`:compact`, `:limit`, `:color`) reach `show` through it. `IOContext(io, …)` keeps the stream's type, for code per type.
 - **Erasing is the author's choice,** where large code serves many streams (§7.10): a display entry declares `@nospecialize(io::IO)` and passes `IOContext{IO}(io)` on, so one compiled body serves the REPL's stream, a file and a buffer, and a package image's workload at an `IOBuffer` covers them all. Small code that writes a byte or a short string per call stays per type.
 
@@ -1105,7 +1105,7 @@ Two guarantees, asked for separately.
 
 ## 16. Compiling ahead, closed programs
 
-- **While a package that declares `@implement X T` is precompiled,** the code that `T` needs is compiled into that package's image. That covers every method at `X` and its supertraits with one trait argument, fully bounded there, at `T`'s key, where the other arguments are concrete. Their checks run then; a failing check fails the build.
+- **While a package that declares `@implement X T` is precompiled,** the code that `T` needs is compiled into that package's image. That covers every method at `X` and its supertraits with one trait argument, fully bounded there, at `T`'s type (at its key once keys are built, §7.2), where the other arguments are concrete. Their checks run then; a failing check fails the build.
 - A key that some member already has compiles nothing new.
 - A method with several trait arguments is compiled at its first call. Arguments whose attribute is `Dynamic` have a known key, the erased one, so such methods are compiled ahead too.
 - Compiling ahead adds no method, so it invalidates nothing.
@@ -1174,7 +1174,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 
 ## 19. Deviations
 
-The library on the unified build is TraitWorld `unified`; the lowering's deviations are [lowering.md's](lowering.md#15-deviations), the type system's and dispatch's [compiler.md's](compiler.md#deviations). The rows below are where the library falls short of this reference's guarantees.
+The library on the unified build is TraitWorld `unified` (its head: [state.md §6.1](../state.md#today)); the lowering's deviations are [lowering.md's](lowering.md#15-deviations), the type system's and dispatch's [compiler.md's](compiler.md#deviations). The rows below are where the library falls short of this reference's guarantees.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
