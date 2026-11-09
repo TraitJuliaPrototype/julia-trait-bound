@@ -1,6 +1,6 @@
 # Reaching Python's speed on the goal's task
 
-Status: **adopted** (2026-11-08; the user: "Go for the plan."), with stage 4 restricted to broad workloads (below). Not normative. Written in the main session (no subagents on the shared host). The stages are W-123 to W-127 in [the work queue](../record/todo.md).
+Status: **superseded** (2026-11-09, the user: "Okay the speed plan goals were too ambitious. We hereby retire all strict speed gain gates we have been working under. We still care about speed but there is no concrete goal to try to achieve, and we are more interested in principled holistic/broad gains enabled by facts and traits rather than in patching details here and there."); adopted 2026-11-08 (the user: "Go for the plan."), with stage 4 restricted to broad workloads (below). Not normative. Written in the main session (no subagents on the shared host). The stages are W-123 to W-127 in [the work queue](../record/todo.md).
 
 **The goal.**
 - The user (2026-11-07): "The overarching performance goal is Makie + DataFrames first workload as fast as Python equivalent."
