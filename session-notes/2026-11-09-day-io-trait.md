@@ -150,3 +150,13 @@ The user, while E-330 ran: "When we see failures like this, also think about pri
   - restated: W-17, calls through a trait against plain calls on the unified build.
 - The plan rewritten as the current order; the order of 2026-10-29 moved to `record/design-history.md` with its text. traits §4.1's "asserted" made "converted and asserted" (missed by the documentation review's H3).
 - Open now: W-104, W-121, W-124 to W-129, W-17, W-119; waiting: W-19, W-110, W-120, W-127.
+
+## 17. The performance review's findings
+
+- The review (`writeup/reviews/2026-11-09-performance-day.md`, Fable): 3 high, 6 medium, 2 low. Checked in the main session: H2's probe reproduced on the head (`f(MyS(), 1)` raises `MethodError`, `g(MyS())` compiled at `Callable` returns `:callable`); M2's `write` step read in the logs (0.505 s on the head, 0.121–0.157 s in every `b-display` arm).
+- What was done with each:
+  - H1 (the goal's task misses its gate on the head, +0.15 s in the imports against E-326): `state.md` lines 3, 13, the §5 table and bullet; evidence §3; E-337's row; W-125's status and the queue's plan. The cause (M1) not yet profiled: next, `audit/profile_load.jl` on the head.
+  - H2 (dispatch's drop of an unmet match unsound at `Callable`, unguarded at open sets): compiler §5.4 rewritten (the match stays at an open set; `Callable` read by its methods), C-82, open issue 172 (keep, or a guarded drop), the decision row replaced (the old one superseded), alternatives, julia-changes row 74, open issues §1; the probe adopted (`experiments/unification/audit/probe_unmet_callable.jl`). Not built yet: W-129's left list.
+  - H3 (rows committed with their outcome; logs naming the previous commit): the registry's conventions (commit the row before the run; a session's baseline; a criterion crossed by its margin ends the line of work; a census before a Base-wide change), notes on E-334 to E-336; `e289/run.sh` prints the binary's own commit.
+  - M2 (B-display's `write` step): E-338's row, evidence, open issues §1's item, PE-25, W-126.
+  - M3: the conventions above. M4: open issue 173 (extension memberships late at a set closed after load); E-327 on the head before 167's rule, E-334's walk skipped, in W-129's left list. M5: two flagged items in open issues §1 (the attribute at the method's declared type; the firewall's pointer). M6: E-338's row notes its reasoning. L1: open issue 171. L2: E-337's (t) without Python, at stage 1's edge, in its row.
