@@ -45,6 +45,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 | `@open f(…) = …` | a method that uses its trait argument beyond the contract on purpose, such as an adapter that stores it | [§7.3](../reference/traits.md#73-fully-bounded-methods) |
 | `compiled_for(x)`, `with_dynamic(x)` at a call; `@specialize`, `@nospecialize` at a trait argument | the attribute: code compiled per type, or once | [§7.5](../reference/traits.md#75-what-decides), [§7.6](../reference/traits.md#76-casts) |
 | `Dynamic{X}(x)`, `keep(x)`, `unwrap(d)` | a value kept beyond the call, with its attribute | [§7.7](../reference/traits.md#77-dynamicx), [§7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute) |
+| `@nospecialize(io::IO)` at a display entry, `IOContext{IO}(io)` passed on | a stream erased: one compiled display for every stream type | [§9b](../reference/traits.md#9b-streams-io) |
 | `field::X`, `Vector{X}`; `struct S{F <: X}; f::F; end` | storage typed by a trait; a struct parameter that records the attribute | [§8](../reference/traits.md#8-storage) |
 | `f::Callable{Tuple{Float64}, Float64}` | a function argument at a declared signature | [§9](../reference/traits.md#9-functions-callable) |
 | `Iterable{T}`, `Indexable{T}`, `retain!` | Base's concepts as traits, for a user's container | [§10](../reference/traits.md#10-collections) |
@@ -62,6 +63,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 - **A cast in a call with keyword arguments or a splatted argument is not lowered** ([lowering L-56](../reference/lowering.md#15-deviations)). Cast at a positional call.
 - **The classification is not kept:** a later definition of a function that a method passes its trait argument to does not classify the method again ([compiler C-41](../reference/compiler.md#deviations)). Run `check_definitions(M)` in the tests.
 - **A vararg of members is compiled per tuple of types,** not per tuple of keys, until keys are built ([traits §6.6](../reference/traits.md#66-keywords-defaults-varargs), Optional).
+- **The erased stream's operations do not yet branch over Julia's common streams** ([traits §9b](../reference/traits.md#9b-streams-io), Planned). Today `IOContext{IO}(io)` is Julia's own: it keeps the stream's properties and unwraps an `IOContext`, and each operation on the stream it holds dispatches when it runs: formatted output 1.1–2.0×, a byte or a short string per call 4.2–5.3× (E-328). `IOContext{IO}(io, key => value, …)` is Planned too.
 
 ---
 
@@ -201,6 +203,20 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
 - **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks-unified/DataFrames/src/dataframe/dataframe.jl:181`). Each item is the member's own value. An operation on it calls the member's method directly for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
 - **What the caller passes:** at the prompt values are `Dynamic`; in a function that knows their types, `Compiled` ([§7.5](../reference/traits.md#75-what-decides), step 5). Test a `Compiled` path from inside a function, or with `compiled_for`.
 
+**A value of a plain abstract type, which plain code specializes on.** A stream is the common case: `show(io, x)` hands `io` to code compiled per stream type, and at a REPL the stream is a type no workload at an `IOBuffer` sees ([traits §9b](../reference/traits.md#9b-streams-io)).
+- **Erase at the entry where large code serves many value types.** The rule is §7.10's: `Dynamic` suits large code with many members behind it; `Compiled` suits kernels. A display entry (a table's `show`) is the large code. It declares `@nospecialize(io::IO)` and passes the stream on erased:
+
+  ```julia
+  function Base.show(@nospecialize(io::IO), t::Table)   # traits §9b: one compiled body for every stream
+      render(IOContext{IO}(io), t)
+  end
+  ```
+  Below the entry the stream is one type, so the body and everything it calls is compiled once, and a package image's workload at an `IOBuffer` covers the REPL's stream, a file's and a notebook's. Above it, code that knows its stream keeps Julia's code per type.
+- **Use the type's own eraser, never a box of the port's.** `Dynamic{X}` is a member of its trait only ([§7.7](../reference/traits.md#77-dynamicx)): it is not an `IO`, so code typed `io::IO` refuses it. Base's `IOContext{IO}` is an `IO`; it forwards the whole stream interface, a terminal's size and colour included, and carries the context's properties (`:limit`, `:compact`). A wrapper written in a port forwards the operations its author thought of and takes the default for the rest: `displaysize` from the environment, not the terminal.
+- **Small per-call kernels stay per type.** Below an erased entry each operation on the stream branches over Julia's four common streams, about 4 ns ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)). Formatted output does far more work per operation, so it pays within 20 % (`print` of numbers 0.85–1.19×, a table's display 0.92–0.99×); a byte or a short string per call pays 1.6–2.2× (E-328). So the erasure sits at the display entry, not at `string(…)`, `sprint` or a `print` of short strings, and a loop that writes a byte per call is reached from code that knows its stream.
+- **The workload displays at the erased type, by the path the REPL takes.** A package image holds what its workload ran: one `show(IOBuffer(), MIME"text/plain"(), x)` through the erased entry is the REPL's display, a file's and a notebook's. Without the erasure a workload at an `IOBuffer` covers an `IOBuffer` only.
+- **What the erasure fixes, and what it leaves.** It removes the port's own code compiled per stream type: DataFrames' `show` step 0.081 s against 0.175 s (E-323). What a step still compiles after it is outside the port: the REPL's own path at its stream (about 30 ms) and Base's code at the cells' types (about 50 ms). Credit the right part, as in 0.1.
+
 ### 0.5 What to keep plain
 
 - Bookkeeping, macros, printing, options parsing, `getproperty` sugar.
@@ -221,6 +237,10 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
   - `JULIA_DISPATCH_PROFILE=1`: dynamic calls per callee, lookup path and call site ([compiler §11](../reference/compiler.md#11-changes-useful-without-traits));
   - `verify_main`: what a program reaches ([traits §16](../reference/traits.md#16-compiling-ahead-closed-programs)).
 - **Time a step twice in one session:** the second time separates run time from compiling. Say how many runs.
+- **A control at the same load.** On a shared machine a session's time moves 2–3× with the load. A number compared across builds is run beside its control: the unchanged build's form of the same session, interleaved, at the same load (E-329, E-330, E-336). Say the load (`/proc/loadavg`) and the number of runs. A number without a control at its load compares with nothing.
+- **Measure the step the change was made for, on every build that carries it.** A fix that moves the goal's task can leave that step where it was.
+- **A compile at a type the workload never saw** names one of two things: a broad case missing from the workload, or a value type that plain code specializes on, which an entry erases (0.4). `--trace-compile` tells which.
+- **An erased entry's own checks:** the digests equal; the display's run time after its first call within 10 % (E-323: +9 % on a 10⁴-row frame); the step's compiles traced, since what still compiles names what still carries the stream's type.
 
 ---
 
@@ -237,6 +257,8 @@ One line per rule; the evidence is in part B, the rule's home in the references.
 - **A7. A kernel reads a value through its trait's operations; heavy library code runs over gathered values** (B1).
 - **A8. Store a trait argument with `keep`; type a parameter that passes it on by its trait** ([§7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute), [§7.6](../reference/traits.md#76-casts); B2, B4).
 - **A9. Take user types `Dynamic` where a large library stands behind; open the hot loop with a cast** ([§7.5](../reference/traits.md#75-what-decides); B2, B4).
+- **A10. Erase a value plain code specializes on at the entry where large code serves many value types; kernels stay per type** ([§7.10](../reference/traits.md#710-costs-and-choosing), [§9b](../reference/traits.md#9b-streams-io); 0.4, B1).
+- **A11. A plain abstract type's value is erased by that type's own eraser,** `IOContext{IO}` for a stream, never by a box of the port's ([§9b](../reference/traits.md#9b-streams-io), [§7.7](../reference/traits.md#77-dynamicx); 0.4, B1).
 
 ---
 
@@ -253,7 +275,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks-unified`, branch 
 5. **A function applied per row is open on purpose** where it asks for its result type: `@open function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks-unified/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
 6. **Mixed columns in one vector:** `DataFrame`'s `columns::Vector{Column}` holds each vector itself; the kernels over it (`joinkeys`, `_group_rows!`) take `Vector{Column}`.
 7. **Upstream's tests decide** (A6). The forks pass their upstream suites but for four known failures in DataFrames (E-315): three `@inferred` tests see `Any` through run-time sites in facts code ([open issue 157](../open-issues.md#2-design)), and one in Tables' integration.
-8. **A stream's type, which plain code specializes on:** DataFrames' `show` compiles PrettyTables' code per stream type on today's build. With `IO` as Base's trait, compiled once by default, one compiled `show` serves every stream ([traits §9b](../reference/traits.md#9b-streams-io), Planned).
+8. **A stream's type, which plain code specializes on:** DataFrames' `show(io, df)` hands the stream to PrettyTables, plain code compiled per stream type, and at a REPL the stream is `IOContext{REPL.LimitIO{TTYTerminal}}`, which no workload at an `IOBuffer` sees. The two display entries erase it: `show(@nospecialize(io::IO), df; kwargs...)` and `show(@nospecialize(io::IO), ::MIME"text/plain", df)` pass `IOContext{IO}(io)` on, and the workload displays once at `IOBuffer()` by the MIME entry, the path the REPL takes (0.4). One compiled display then serves every stream: the `show` step 0.081 s against 0.175 s, the display's run time within 10 %, the digests equal, the suite as before (E-323, measured on the forks' branch `e323`, which builds the eraser from `IOContext`'s own constructor; [traits §9b](../reference/traits.md#9b-streams-io), Planned: the eraser's branches over the common streams). What the step still compiles is outside the port: the REPL's own path at its stream and Base's code at the cells' types.
 
 ### B2. Differential equations
 
