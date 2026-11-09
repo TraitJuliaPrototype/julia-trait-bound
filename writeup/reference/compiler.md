@@ -160,10 +160,11 @@ Expr(:meta, :facts_always)     # always compiled by facts
   - the runtime's own entries reach with the setting's default: plain in the product setting, facts under the test bed. They are the C API (`jl_call`, `jl_apply` from C), task entry, finalizers, `@cfunction` pointers, a module's `__init__`, staging a generated function, and a compile request (`precompile`, the compile queues).
   - A top-level thunk's policy is its module's: facts for flag 1, plain for flag 2, the setting's default otherwise.
 - **A CodeInstance records its policy** in its flags. A lookup asks for the policy the code is wanted in; a CodeInstance of the other policy never stands in.
+- **Code inferred anew by a queue that compiles** (the JIT's, an image's native compile) is inferred under its own policy: a MethodInstance under its method's, as the queue reaches it; a CodeInstance whose source is gone or that is no longer valid, under the policy it records. Never under the policy of the interpreter that runs the queue.
 - So a neutral method in the product setting has plain code only, whoever calls it. A method that takes the policy of the code reaching it has up to one CodeInstance per policy.
 - Under `--trim` every method is plain (§2.6).
 
-**Status:** Implemented on `unified` 10c7e1c2cf and c44a447f2c (W-100): the policy bit in a CodeInstance's flags, set from the policy it is compiled in and kept in images; the lookups of Julia's own owner take only a CodeInstance of the policy wanted; the policy of the code that reaches a method, through inference and the engine's reservations; gate `f6_reach_policy`. With C-49. Under `--trim`: Planned.
+**Status:** Implemented on `unified` 10c7e1c2cf and c44a447f2c (W-100): the policy bit in a CodeInstance's flags, set from the policy it is compiled in and kept in images; the lookups of Julia's own owner take only a CodeInstance of the policy wanted; the policy of the code that reaches a method, through inference and the engine's reservations; gate `f6_reach_policy`. Code inferred anew by the image's queue and the JIT's under its own policy: `unified` dde5f9f5dc, gate `n15_image_policy`. With C-49. Under `--trim`: Planned.
 
 ### 2.4 Calls between policies
 
@@ -516,14 +517,14 @@ A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7
      - a value of type `Dynamic{X}` is `Dynamic`;
      - a value read from a field whose declared type is a struct parameter bounded by a set: inference tracks the attribute the parameter records, `Dynamic` for a `Dynamic{X}`, else `Compiled`;
   3. the method's attribute bits at the argument, from `@nospecialize` (`Dynamic`) and `@specialize` (`Compiled`) at an argument typed by a set, saved with the method as its `nospecialize` bits are; then the module's option;
-  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define;
+  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define, with every type among its parameters, recursively (a value parameter is the type's own);
   5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
 - **A static call** resolves the bits in the caller's inference and invokes the instance.
 - **A dynamic call with bits from 1 or 2** is a call of `Core.attributed_call` (§6.9): a cast written at the call, or a run-time site that passes on a trait argument of an instance compiled per key or once (codegen emits it there). It selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method.
 - **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
 - **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111): a static call's bits resolved in the caller's inference, a dynamic call's at the method by the runtime, `Core.attributed_call` from casts and from a run-time site that passes on a trait argument of code compiled once; an argument `Compiled` whose type the caller does not know makes the call dispatch on it when it runs, a function barrier; gate `n6_attribute`. With C-54, C-55, C-57. The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6).
+**Status:** Implemented on `unified` e692e57ab7 (W-111): a static call's bits resolved in the caller's inference, a dynamic call's at the method by the runtime, `Core.attributed_call` from casts and from a run-time site that passes on a trait argument of code compiled once; an argument `Compiled` whose type the caller does not know makes the call dispatch on it when it runs, a function barrier; gate `n6_attribute`. With C-54, C-55, C-57. The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6). Step 4's exception taking the type's parameters: `unified` 7fb94ae02b, gate `n6_attribute`; mine (2026-11-08, [open issue 161](../open-issues.md#2-design)).
 
 ### 6.4 Calls from code compiled per key
 
@@ -572,22 +573,22 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 
 ### 6.8 A declared result on `Method`
 
-- Lowering records `f(…)::RT` as the method's declared result. Inference may read it as an upper bound, since the body asserts it.
+- Lowering records `f(…)::RT` as the method's declared result, where `RT` is a type when the method is defined: built from constant globals, a module's constant bindings (`M.T`), literals and the method's static parameters (`Vector{T}`, `Union{Int, Nothing}`, `Vector{<:Real}`, `DataFrames.DataFrame`). An `RT` computed from the arguments (`::typeof(x)`) or read from a global that is not constant records none. The record does not claim to cover every member. Inference may read it as an upper bound, since the body asserts it.
 - **The trait's method for an operation** carries the operation's declared result, with a flag that it covers every member: each member's serving method is checked to infer within it ([traits §5.10](traits.md#510-checks)). §7 relies on the flag.
 
-**Status:** The trait's method's declared result and its flag implemented on `unified` e70675a606, set by the library (TraitWorld `unified` e9a63f7); lowering's record of `f(…)::RT`: C-36.
+**Status:** The trait's method's declared result and its flag implemented on `unified` e70675a606, set by the library (TraitWorld `unified` e9a63f7); lowering's record of `f(…)::RT` on `unified` 0ba6317994 and 523214899f (a module's binding) (lowering's `declared_result` meta, evaluated by `jl_method_set_source`), gate `n16_declared_result`. Read by a guarded call's join (§5.6) and as a raise-only method's `Union{}`; the operation's rule (§7.1) reads only a result with the flag. The record's scope (a type at the definition) is mine (2026-11-09).
 
 ### 6.9 Casts and `keep`
 
 - **Lowering turns a call with cast arguments,** `f(compiled_for(x), y)` or `f(with_dynamic(x))`, into `Core.attributed_call(bits, f, args…)`, a builtin that dispatches as the call with those attribute bits. Inference resolves it statically where it can. A cast anywhere else is a lowering error. A cast of a `Dynamic{X}` to `Compiled` passes the held object.
 - **The front end reserves the names** `compiled_for` and `with_dynamic` as it reserves `ccall`: in a call's arguments they are the casts whatever the scope binds, and a local variable or a definition of either name is a lowering error.
 - **A cast at an argument the selected method does not type by a set** has no effect. Inference records each such cast it finds; `detect_unused_casts(mod)` lists them.
-- `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits.
+- `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits, and a table of its latest calls, keyed by the bits and the function's and arguments' types and read without a lock, so that a call whose arguments are no types makes no tuple type.
 - **`Core.Dynamic{X}`** is an ordinary struct of `Core`, with no rule of subtyping: its memberships are declared by the library ([lowering §7](lowering.md#7-dynamicx-keep-casts)). `Core` defines it so that `keep` can make one.
 - **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. An `x` that is itself a `Dynamic` gives its object held anew, as `Dynamic{X}(d)` does: never a `Dynamic` of a `Dynamic`. Where the code is not compiled, it is resolved at the method's default attribute.
 - Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111): the casts lowered to `Core.attributed_call` and reserved, the builtin with its cache, `Core.Dynamic`, `keep` resolved by inference, a `Dynamic` held anew on `unified` ef93ff7844 (mine, 2026-11-08); `detect_unused_casts` in the library (TraitWorld `unified` bb78d02). With C-56 and lowering L-56. Mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` e692e57ab7 (W-111): the casts lowered to `Core.attributed_call` and reserved, the builtin with its cache, `Core.Dynamic`, `keep` resolved by inference, a `Dynamic` held anew on `unified` ef93ff7844 (mine, 2026-11-08); the table of latest calls on `unified` b61e326170 (E-313: 43 ns a call against 109 ns, a dynamic call 17 ns; mine, 2026-11-09); `detect_unused_casts` in the library (TraitWorld `unified` bb78d02). With C-56 and lowering L-56. Mine (2026-11-06). Reserved names, `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -824,7 +825,7 @@ Each applies to all code.
 | calls from code compiled per key | Optional (W-110) | §6.4 |
 | the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
 | the definition-time check and the classification | Implemented (TraitWorld `unified` 59134ef), with C-40, C-41 | §6.7 |
-| a declared result on `Method`; the operation's flag | Implemented (`unified` e70675a606), with C-36 | §6.8 |
+| a declared result on `Method`; the operation's flag; lowering's record of `f(…)::RT` | Implemented (`unified` e70675a606, 0ba6317994) | §6.8 |
 | casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39 | §7.1–§7.3 |
 | `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61 to C-63; the arguments checked against `A` on 1d493ca959 | §7.4 |
@@ -861,7 +862,7 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-33 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.7](#47-three-layers), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n2_open_abstract` | — | — |
 | C-34 | — | *Retired* (2026-11-07): fixed on `unified` 8a9144928e ([§4.9](#49-intersections)); gate `n2_all_form` | — | — |
 | C-35 | — | *Retired* (2026-11-08): an image's membership that would give its member a second instance of a set is refused at activation, with a warning, on `unified` 07c0bee2a2 ([§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache)); gate `n12_image_instances`; E-296 | — | — |
-| C-36 | [§6.8](#68-a-declared-result-on-method) | Lowering records `f(…)::RT` as the method's declared result. | Only the library sets one, on a trait's method for an operation, through `jl_method_set_declared_result`; lowering records none. So a guarded call whose shadow is a method at a set joins `Any` ([open issue 158](../open-issues.md#2-design), the DataFrames fork's `test/tables.jl:86`). | `src/gf.c`; TraitWorld `src/runtime.jl` (`_set_declared!`) |
+| C-36 | — | *Retired* (2026-11-09): lowering records `f(…)::RT` on `unified` 0ba6317994 ([§6.8](#68-a-declared-result-on-method)); gate `n16_declared_result` | — | — |
 | C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
 | C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
@@ -899,4 +900,4 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-71 | — | *Retired* (2026-11-08): a member that fails its check at dispatch lowers the cache entries made for it while the check ran, on `unified` 07c0bee2a2 ([§10.4](#104-the-member-hook)); TraitWorld's test F10b; E-296 | — | — |
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-lowers-dispatch-caches)); gate `m2_parametric_replay`; E-292 | — | — |
 | C-73 | — | *Retired* (2026-11-08): a method at an open set reaches, at its insertion, the callers whose pruned arm its set could shadow, on `unified` 07c0bee2a2 ([§5.6](#56-guards-and-cells)); gate `n11_late_shadow`; E-296 | — | — |
-| C-74 | [§2.3](#23-one-codeinstance-per-methodinstance-and-policy) | A method in a module of flag 1 is compiled by facts whatever reaches it, a task's entry included. | CSV's task closures (`_taskforeach`'s, methods of the module `CSV` with flag 1, `jl_method_policy` facts) come from its image as plain CodeInstances (flags without `JL_CI_FLAGS_FACTS`), compiled while its workload ran them as tasks; CSV's other instances from the same image are facts. The cause is not found (E-308). | `src/gf.c` (`mi_policy`, the task's entry), `src/staticdata.c` |
+| C-74 | — | *Retired* (2026-11-09): code a compile queue infers anew is inferred under its method's policy on `unified` dde5f9f5dc ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `n15_image_policy`, E-311 | — | — |

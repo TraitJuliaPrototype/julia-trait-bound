@@ -655,7 +655,7 @@ For each trait argument of a call, the first that applies, strongest first:
 3. **The library's default:**
    - at the argument: `@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`;
    - for the module: the scope's option `dynamic` (§13) gives `Dynamic` to every trait argument of its methods.
-4. **The trait's default** (§4.6): `@default_dynamic` or `@default_compiled`. With several traits at one argument (an intersection), it applies where their defaults agree; where they disagree, step 5 decides. **`@default_dynamic` does not apply to a value whose type Julia itself or the trait's own package defines:** those types are few and fixed, so code per type for them is bounded.
+4. **The trait's default** (§4.6): `@default_dynamic` or `@default_compiled`. With several traits at one argument (an intersection), it applies where their defaults agree; where they disagree, step 5 decides. **`@default_dynamic` does not apply to a value whose type Julia itself or the trait's own package defines, with every type among its parameters:** those types are few and fixed, so code per type for them is bounded. A type of theirs that carries another package's type in a parameter, at any depth, is not: `FunctionDynamics{typeof(swing!)}`, a library's record of a user's function, and `Base.Fix1{typeof(f), Int}` take the trait's default. A value parameter (a number, a symbol) is the type's own.
 5. **Otherwise, the scope's fallback:**
    - in a trait module (§13), **what the caller knows:** a caller compiled with the value's type passes `Compiled`; a call made when the program runs, from code that does not know the type (the prompt, a `Vector{Any}`'s item), passes `Dynamic`;
    - elsewhere, **`Compiled`,** Julia's rule for an abstract type.
@@ -672,7 +672,7 @@ solve(m::Model, u0) = …                       # Dynamic for a user's model: th
 solve(compiled_for(MyModel()), u0)            # Compiled at this call: the caller's cast
 ```
 
-**Status:** Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111), with compiler C-55; gate `n6_attribute`, TraitWorld's test `the attribute`. The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
+**Status:** Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111), with compiler C-55; gate `n6_attribute`, TraitWorld's test `the attribute`. Step 4's exception with the type's parameters: `unified` 7fb94ae02b; mine (2026-11-08, [open issue 161](../open-issues.md#2-design)). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override". The fallback by scope: the user (2026-11-06, "falling back to first seen is better for trait modules, falling back to compiled is better for plain Julia").
 
 ### 7.6 Casts
 
@@ -680,11 +680,11 @@ solve(compiled_for(MyModel()), u0)            # Compiled at this call: the calle
 - Anywhere else they are refused when the code is lowered: a cast is a statement about a call.
 - **The names are reserved,** as `ccall` is: in a call's arguments they are always the casts, and a local variable or a function of either name is refused when the code is lowered.
 - **On a `Dynamic{X}`,** `compiled_for(d)` passes the object it holds, `Compiled`; `with_dynamic(d)` passes `d`.
-- **At an argument that the selected method does not type by a trait,** a cast has no effect, as a call-site `@inline` that cannot inline has none. `detect_unused_casts(mod)` lists such casts where the compiler knows the method a call selects.
+- **At an argument that the selected method does not type by a trait,** a cast has no effect, as a call-site `@inline` that cannot inline has none. `detect_unused_casts(mod)` lists such casts where the compiler knows the method a call selects; a package's tests check that it is empty, as they check `detect_ambiguities`. So a parameter that passes a trait's value on is typed by the trait, as a Rust generic names its bound: through an untyped parameter neither a cast nor a carried `Compiled` passes (§7.5 step 2).
 - **A plain function that stores its argument** (a front end typed `@nospecialize(f)`) passes no cast on. The caller keeps its choice by what it passes: the value itself is compiled per type where the struct records its type, a `Dynamic{X}` once (§8.2).
 - Julia's call-site `@inline` is the precedent: a statement about one call, written at the call.
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111), but in a call with keyword arguments or a splat (lowering L-56); `detect_unused_casts` in TraitWorld `unified` bb78d02. Mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` e692e57ab7 (W-111), but in a call with keyword arguments or a splat (lowering L-56); `detect_unused_casts` in TraitWorld `unified` bb78d02. Mine (2026-11-06). Reserved names, unused casts listed: mine (2026-11-06, the reviews of the draft). The typed parameter and the check: mine (2026-11-09, [open issue 162](../open-issues.md#2-design)).
 
 ### 7.7 `Dynamic{X}`
 
@@ -816,7 +816,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **`S` takes no part in which method is chosen.** Between two methods that differ only in `S`, the one with the more specific `S` is taken, and its check may fail. `Callable{A}`, with `S` left open, checks nothing on return.
 - **A `where` variable that appears only in `S` is not bound by a call,** as Julia's `detect_unbound_args` reports. Code that needs the result type computes it as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)). Such a method is open at `f` (§7.3): under `bounded` it is written `@open`.
 - **Where the code knows the function by its own type** (a struct parameter `F`), the call is the function's own call.
-- **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled` (§7.5).
+- **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled`, unless its type carries another package's type, as `Base.Fix1{typeof(f), Int}` does (§7.5).
 - **Several signatures** are an intersection: a call picks the signature its argument types match.
 - **Argument types may follow other arguments:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`.
 - `Callable` without parameters takes any function, kept before its signature is known.

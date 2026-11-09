@@ -285,7 +285,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 - `code_typed`, `infer_return_type`, `verify_main` and the definition-time check see that code.
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world.
 
-**Status:** Implemented on `unified` (W-100): `code_typed` and `infer_return_type` show the code of the method's policy; the definition-time check is the library's (compiler C-40).
+**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check is the library's (compiler C-40).
 
 ---
 
@@ -477,8 +477,9 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 ## 16. Deviations
 
-Nothing of this page is built on the unified build yet; nothing is recorded.
+Where the unified build falls short of this page.
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
 | F-1 to F-23 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/facts.md` | — | — |
+| F-24 | [§7.2](#72-reflection) | `infer_return_type` and the definition-time check see the code of the method's policy. | `code_typed` and `Base.infer_return_type` infer with the default interpreter (`_default_interp`, plain): a facts method's top frame is inferred plainly, its callees under their own policy. TraitWorld's membership check reads it, so a member is checked by a mix of the two ([open issue 157](../open-issues.md#2-design)). Inferring it under the method's policy makes TraitMakie's `MappedColors` fail its check at `rgba`, a function barrier whose result facts types `Any` (157's case; found 2026-11-08 by E-311). The plain frame is not kept as the method's code (`unified` 50261bb4c7: `typeinf_type` infers it uncached; gate `n15_image_policy`). | `Compiler/src/reflection_interface.jl` (`_default_interp`), `base/reflection.jl`; TraitWorld `src/check.jl` |
