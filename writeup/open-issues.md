@@ -40,6 +40,12 @@ It recommends revisiting: facts-only scope (2026-10-27), the environment-keyed c
   - *Measured* (E-310 (b), E-314): NetworkDynamics' steady state 436–475 ms with its batch call's cast at an untyped parameter, 228–257 ms with the parameter typed by the trait.
   - *Proposals:* the idiom (type the parameter by its trait) with a package's tests checking that no cast is without effect (162 (b), (c)), or the attribute through untyped parameters (162 (a)).
 
+- **Whether the REPL's display erases the stream** (the user, 2026-11-09: "Measure the B-display arm"; [the plan](plans/2026-11-09-io-alternatives.md) §7 question 3; E-338, `unified` branch `b-display`). REPL's `show_limited` passes `IOContext{IO}` to `show`, so every value's display at the REPL runs at one stream type.
+  - *Measured* (E-338): with DataFrames' code unchanged and one workload line, `show(IOContext{IO}(IOBuffer()), MIME"text/plain"(), df)`, the forks' `show` step 0.087 s, as fast as DataFrames' own erasing entries (0.065–0.115 s, E-337) and against 0.205–0.211 s; without the line 0.159–0.198 s. The output equal; REPL's suite as on vanilla.
+  - *What it changes:* `show` at the REPL receives `IOContext{IO}`, not `IOContext{LimitIO{TTYTerminal}}`: a method that dispatches on the REPL's stream type no longer sees it. Its properties (`:limit`, `:color`, `:displaysize`) and the stream's interface pass through.
+  - *Proposals:* (a) adopt it, with Base's `TextDisplay` erasing too, and the ports' display entries back to plain code with the workload line; (b) adopt it, with a convention that makes a package's display workload run at the erased type without the line (a helper in Base, `Base.precompile_display(x)`, that displays at `IOContext{IO}(IOBuffer())`); (c) keep erasing at each port's entries (E-337).
+  - *Recommendation (mine):* (a), then (b) if more than the forks need the line: the erasure moves to the one place every display passes, and a port's code stays plain.
+
 Choices marked mine since the references' adoption (2026-11-06), for the user to confirm:
 - **The library on the unified build is TraitWorld on an orphan branch `unified`** ([decisions](record/decisions.md) §9).
 - **The trait's method types only its receiver** (and arguments that bind parameters), so a member's own method wins (lowering §2; [decisions](record/decisions.md) §9).
@@ -303,6 +309,7 @@ Deferred by the user (s25), to take up when wanted:
      - (a) **C-39 for a closed type's subtypes:** the image of the package that defines a subtype of a type with a contract (REPL's `LimitIO`) holds the targets of the contract's operations at the concrete types its workload makes.
      - (b) **An erasing entry reads the stream through the eraser:** it erases first and reads `:limit` from `IOContext{IO}(io)`, whose `get` reads its own properties and splits nothing. A port's idiom; `show`'s keyword defaults make it awkward.
      - (c) **The target for a type whose method's instance is in an image is a dispatching thunk,** compiled once per call signature: past the candidates the call dispatches in the caller's world, a dynamic call in place of a compile.
+   - *Measured* (E-338): with the REPL's display erasing, DataFrames' keyword defaults read the erased stream, and the `get` target is gone; the `show` step compiles 44.4 ms, a candidate's invalidated target 7.0 ms of it.
    - *Recommendation (mine):* (a), the design's own rule (C-39); the invalidated candidate's target with open issue 167.
 
 ## 3. TraitWorld (the prototype)
