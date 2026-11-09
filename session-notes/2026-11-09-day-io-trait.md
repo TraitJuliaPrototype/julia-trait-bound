@@ -33,3 +33,14 @@ The user: "Finality should be opt in. Everything else is approved."
 - Recorded in the references (traits §3.4, §7.5, §9b; facts §2.2, §10; compiler §4.8, §6.3, §7.5), decisions §9 (two rows the user's, two mine), open issue 164 closed, the flagged item's proposal (d) decided opt-in, 158's second case noted, W-129 queued, PE-19 returned to the queue as W-129, the alternatives not taken in `design/alternatives.md`.
 - Mine, for the user to confirm (open issues §1): opted in per trait, spelled `@closed_after_load`; the final negative as an edge on the pair's cell; `IO` closed after load; `IO`'s declared results; the candidates' order `IOBuffer`, `IOStream`, `TTY`, `PipeEndpoint`.
 - Read "Everything else is approved" as the other two decisions listed for 164 (d) (step 4's exception not applied to `IO`; `IO`'s contract with `IOBuffer` among the candidates) and the recommendation (d) itself, with (a) not merged.
+
+## 6. W-129 (a): traits closed after load, built
+
+The user: "Start".
+
+- `unified` bf447db25e: the set's bit `closed_after_load`; a module's `loaded` mark (Base's loader in `run_package_callbacks`; Core, Base and the system image's other modules in `Base.__init__`; a submodule through its parents; Main never); `jl_membership_final`; final cells (`isfinal`, `backedges`) opened by a membership, which invalidates their dependents after the cells' lock; `jl_call_shadows` leaves out the guard at a final pair; `isa_tfunc` and `subtype_tfunc` fold the negative and record the cells; `store_backedges` adds the CodeInstance to a final cell's backedges; a package image drops them and validation re-adds them, the system image keeps them, pruned.
+- TraitWorld-unified 9a45c36: `@closed_after_load` in a trait's body.
+- Deviations recorded: C-76 (the declarers' joint owners not consulted), C-77 (the fold only at `isa`, `<:` and the guard; `tmeet`, `typesubtract`, `Conditional` refinement and the lattice's meets still refuse).
+- Gate `n18_closed_after_load` (in a session; package images in both load orders). Faults on the way: the folded `isa` is cached as an `InterConditional` with `thentype` `Union{}`, not `false` (the gate accepts both); a child process's `using` order.
+- E-329: the battery `w329` passes (gates 54 of 54); TDE's suite passes; precompile refuses nothing. The sessions were 2–3× E-326's, first with one run and then with a warm-up and 3; the load was 26–30 of 128 against 2.5 for E-326. The unchanged early build's form (f) at the same load was slowed by the same factor (6.3–7.2 s against 2.5 s). So the 5 % criterion is not resolved; the sessions are measured again with part (b), at low load.
+- Noted for part (b): the system image's membership cells are not put in the cell table at start (only package images' cells, through `fixup_objs`), so a membership would not open a guard or a final cell compiled into the system image. `IO`'s final cells in Base need that.

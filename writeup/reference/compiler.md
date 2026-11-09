@@ -370,7 +370,7 @@ Questions about open sets are answered in three layers:
   - **Where both declarers have loaded,** the pair's negative is final: inference folds it, and a call whose shadow is a method at that set carries no guard (§5.6).
   - **Code that relied on a final negative records it** as an edge on the pair's cell. A membership declared later invalidates that code, as a method definition invalidates its callers. An image's code with such an edge is checked when the image is validated.
 
-**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. Closed after load: Planned (W-129); opt-in: the user (2026-11-09, "Finality should be opt in."); the bit per set and the edge on the cell: mine (2026-11-09).
+**Status:** Implemented on `unified` 62016706d0 for the negative folds; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. Closed after load: Implemented on `unified` bf447db25e (W-129 (a)), with C-76, C-77; gate `n18_closed_after_load`, E-329. Opt-in: the user (2026-11-09, "Finality should be opt in."); the bit per set and the edge on the cell: mine (2026-11-09).
 
 ### 4.9 Intersections
 
@@ -832,7 +832,7 @@ Each applies to all code.
 | the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
-| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; closed after load Planned (W-129) | §4.7, §4.8 |
+| three layers; negatives never fold; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; closed after load `unified` bf447db25e, with C-76, C-77 | §4.7, §4.8 |
 | intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
@@ -922,3 +922,5 @@ Branch `unified` at 5f0a8ffd50 (stage 1, W-98: the type system 62016706d0, dispa
 | C-73 | — | *Retired* (2026-11-08): a method at an open set reaches, at its insertion, the callers whose pruned arm its set could shadow, on `unified` 07c0bee2a2 ([§5.6](#56-guards-and-cells)); gate `n11_late_shadow`; E-296 | — | — |
 | C-74 | — | *Retired* (2026-11-09): code a compile queue infers anew is inferred under its method's policy on `unified` dde5f9f5dc ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `n15_image_policy`, E-311 | — | — |
 | C-75 | — | *Retired* (2026-11-09): the edge instance made for a constant-propagated result carries the G2 bit, on `unified` 427760d9e9 ([§3.2](#32-g2-as-a-predicate)); gate `f4_g2_bit`; E-320 | — | — |
+| C-76 | [§4.8](#48-negatives-never-fold-positives-through-entries) | The declarers of a pair are the set's owner and the type's owner, with their joint owners. | The set's module and the module of every `TypeName` in the type, each loaded with the package it is nested in; joint owners are not consulted. A joint owner that loads after the owners declares late, and its membership invalidates. | `src/datatype.c` (`jl_membership_final`, `type_declarers_loaded`) |
+| C-77 | [§4.8](#48-negatives-never-fold-positives-through-entries) | Where both declarers have loaded, inference folds the pair's negative. | It folds at `isa` and `<:` (`isa_tfunc`, `subtype_tfunc`) and leaves out the guard (`jl_call_shadows`), in a frame that records the final cell. `tmeet`, `isa_condition`, `typesubtract` and the constants' and conditionals' meets still refuse it. | `Compiler/src/typeutils.jl` (`negative_fold_blocked`), `tfuncs.jl`, `abstractinterpretation.jl` (`call_shadows`) |

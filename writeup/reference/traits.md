@@ -176,11 +176,11 @@ A trait is written wherever a type is written:
   ```
 
   - Only the trait's owner or the type's may declare a membership (§12.1). Once both have finished loading, "`S` is not a `Shape`" is final: compiled code may rely on it, with no guard, and `isa` and `<:` fold.
-  - A membership declared after that, from the prompt, by `eval` or by Revise, invalidates the code that relied on its absence, as a late method definition does.
+  - A membership declared after that, from the prompt, by `eval`, by Revise or by a package extension that loads after its parent, invalidates the code that relied on its absence, as a late method definition does.
   - While a declarer loads, its answers are not settled: code compiled then, its package image's included, keeps its guards. A type or trait of `Main` is never settled.
   - Without `@closed_after_load`, a trait stays open, and a membership invalidates nothing ([facts §10](facts.md#10-memberships)).
 
-**Status:** Implemented on `unified` 62016706d0 (W-98); a later membership finds compiled code right by guards (`unified` 79b948420e, W-112). Closed after load: Planned (W-129; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)). Opt-in: the user (2026-11-09, "Finality should be opt in."). Opted in per trait, and the spelling `@closed_after_load`: mine (2026-11-09).
+**Status:** Implemented on `unified` 62016706d0 (W-98); a later membership finds compiled code right by guards (`unified` 79b948420e, W-112). Closed after load: Implemented on `unified` bf447db25e and TraitWorld `unified` 9a45c36 (W-129 (a); [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)), with compiler C-76, C-77; gate `n18_closed_after_load`, E-329. Opt-in: the user (2026-11-09, "Finality should be opt in."). Opted in per trait, and the spelling `@closed_after_load`: mine (2026-11-09).
 
 ### 3.5 Values
 
@@ -1133,7 +1133,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
-| a trait closed after load (`@closed_after_load`) | Planned (W-129) | §3.4 |
+| a trait closed after load (`@closed_after_load`) | Implemented (`unified` bf447db25e, TraitWorld 9a45c36), with C-76, C-77 | §3.4 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
