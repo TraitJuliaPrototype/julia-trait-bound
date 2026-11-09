@@ -96,6 +96,7 @@ tools-local/build.sh julia-vanilla
 ```
 
 - Copy `julia-1.13/deps/srccache/` into each new tree first to save the downloads.
+- `tools-local/build.sh` rebuilds the system image where a runtime source (`src/`) is newer than it: Julia's make rebuilds the image only for a change in `base/`, yet the runtime's rules shape what Base's build compiles. `KEEP_IMAGE=1` keeps the image.
 - Its gates and acceptance cases: `experiments/unification/`.
 
 ## Paths
