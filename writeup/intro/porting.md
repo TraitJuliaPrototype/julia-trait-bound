@@ -61,7 +61,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 - **An argument typed by a bare `where` variable bounded by a trait** (`x::C`, `C <: X`) is compiled per type whatever its attribute ([compiler C-54](../reference/compiler.md#deviations); [open issue 163](../open-issues.md#2-design)).
 - **A cast in a call with keyword arguments or a splatted argument is not lowered** ([lowering L-56](../reference/lowering.md#15-deviations)). Cast at a positional call.
 - **The classification is not kept:** a later definition of a function that a method passes its trait argument to does not classify the method again ([compiler C-41](../reference/compiler.md#deviations)). Run `check_definitions(M)` in the tests.
-- **Keywords typed by a trait, and varargs of members,** are Planned ([traits §6.6](../reference/traits.md#66-keywords-defaults-varargs)).
+- **A vararg of members is compiled per tuple of types,** not per tuple of keys, until keys are built ([traits §6.6](../reference/traits.md#66-keywords-defaults-varargs), Optional).
 
 ---
 

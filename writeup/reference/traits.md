@@ -557,7 +557,7 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
 - As in Julia. A positional default makes two methods; a keyword typed by a trait raises `TypeError` for a value that is not a member; there is no dispatch on keywords.
 - **A vararg of members,** `ts::ColTable...`: elements may be different members; code is compiled per tuple of keys (§7.2).
 
-**Status:** Planned.
+**Status:** Implemented as Julia's: a positional default's two methods, a keyword typed by a trait (`TypeError` for a value that is no member) and a vararg of different members run in `experiments/docs-examples/tutorial.jl` (§9 there; TraitWorld c9f701e, where under `bounded` the default's short method waits for the method it calls, §7.3). Compiled per tuple of keys: with keys, Optional (W-110); per tuple of types until then.
 
 ### 6.7 Constructors
 
@@ -633,7 +633,7 @@ colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the c
 @open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; per trait argument, with declared fields written, a constructor's store into a field typed by the trait and an `@open` function's uses its own, in 401c7b4; the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; per trait argument, with declared fields written, a constructor's store into a field typed by the trait and an `@open` function's uses its own, in 401c7b4; a method that calls what is not yet defined classified again at its definition and at the module's end, in c9f701e (C-41); the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
@@ -1112,6 +1112,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; images L-55); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
+| keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`); per tuple of keys with keys, Optional | §6.6 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
 | fully bounded and open methods | Implemented (TraitWorld 59134ef, bb78d02; W-109, W-111) | §7.3 |
 | the attribute and what decides it | Implemented (`unified` e692e57ab7, W-111) | §7.4, §7.5 |
