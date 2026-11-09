@@ -75,6 +75,7 @@ Choices marked mine since the references' adoption (2026-11-06), for the user to
 - **Lowering's record of `f(…)::RT` covers a type at the definition only** (C-36, mine): constants, a module's constant bindings, literals and the method's static parameters; an `RT` computed from the arguments records none ([compiler §6.8](reference/compiler.md#68-a-declared-result-on-method); [decisions](record/decisions.md) §9).
 - **Open issue 162: a parameter that passes a trait's value on is typed by its trait, and a package's tests check that `detect_unused_casts` is empty** (proposals (b) and (c), mine; [traits §7.6](reference/traits.md#76-casts); NetworkDynamics' port does (b)).
 - **Open issue 163: a `where` variable bounded by a set and used by the body makes the method open at the argument, for `once` as for keys** (proposal, mine; not built: [compiler C-54](reference/compiler.md#deviations) is today's state, every such argument compiled per type).
+- **Open issue 164: a value's type that plain code specializes on** (recommendation (a), mine: the port erases with the plain type's eraser, `IOContext{IO}` for DataFrames' `show`; measured by E-323 on the forks' branch `e323`, not merged).
 
 Waiting for evidence, not for the user:
 
@@ -245,10 +246,10 @@ Deferred by the user (s25), to take up when wanted:
    - *The case:* DataFrames' `show(io, df)` passes the stream to PrettyTables, plain code compiled per stream type. At a REPL the stream is `IOContext{REPL.LimitIO{TTYTerminal}}`, a type the image's workload (an `IOBuffer`) did not see, so the step compiles DataFrames' keyword body and PrettyTables' code there: 0.12 s of the step's 0.18 s (E-318). Each new stream type (a file's, a notebook's) compiles them again.
    - *The rule that leaves it open:* the attribute chooses a compilation signature only at an argument typed by a set ([compiler §6.2](reference/compiler.md#62-compilation-signatures)); `IO` is a plain abstract type. `Dynamic{X}` erases a value's type, but it is a member of `X` only ([traits §7.7](reference/traits.md#77-dynamicx)), not an `IO`, so plain code typed `io::IO` cannot take it.
    - *Proposals:*
-     - (a) The port erases with the plain type's own eraser, where Julia has one: for streams `IOContext{IO}`, one type for every stream. One compiled `show` then serves every stream, and the image's workload covers it. E-323 measures it.
+     - (a) The port erases with the plain type's own eraser, where Julia has one: for streams `IOContext{IO}`, one type for every stream. One compiled `show` then serves every stream, and the image's workload covers it. *Measured* (E-323, the forks' branch `e323`): the step 0.081 s against 0.175 s; a display after its first call within 9 % (0.25 ms at most); what the step still compiles is the REPL's display path at its stream (about 30 ms) and Base's code at the cells' types (about 50 ms).
      - (b) A workload at the REPL's stream, in an extension of the port on REPL. It covers the REPL only.
      - (c) In the design: a trait that models a plain abstract type names that type's eraser, and `Dynamic{X}` of such a trait is the eraser's value (for streams, `IOContext{IO}`), so the attribute `Dynamic` erases into plain code too.
-   - *Recommendation (mine):* (a) where the plain type has an eraser, if E-323 shows the step's compile gone at no cost to the display; (c) only if the ports meet the case at a type without one.
+   - *Recommendation (mine):* (a) where the plain type has an eraser: E-323 shows the step's own compile gone at no measurable cost to the display. Not adopted in the forks until the user decides, since it builds the port around the gap. (c) only if the ports meet the case at a type without one.
 
 ## 3. TraitWorld (the prototype)
 
