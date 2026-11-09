@@ -615,8 +615,9 @@ A method is **fully bounded** at a trait argument when its body reaches the argu
 - a function of `Self` that one of the trait's equations names, called on it: `eltype(t)` where the trait defines `T = eltype(Self)` (its value is the key's).
 
 Wrapping it as `Dynamic{X}(t)` or `keep(t)` (§7.7, §7.8) stores it in a slot typed by the trait, so it keeps a method fully bounded.
+What a use of the wrapped value beyond the contract makes the method (`sum(keep(t))`), and whether a closure that captures the argument keeps the method fully bounded where its body is: Open ([open issue 165](../open-issues.md#2-design)).
 
-Any other use makes the method **open** at that argument: `typeof(t)`, `isa` against another trait, a call of another function with it, a field the trait does not declare, `like(t, …)` (§6.5). Two common idioms are open:
+Any other use makes the method **open** at that argument: `typeof(t)`, `isa` against another trait, a call of another function with it, a field the trait does not declare, `like(t, …)` and `withfields(t; …)` (§6.5). Two common idioms are open:
 - **storing it in a struct whose parameter takes its type:** `Problem{typeof(k)}(k, u0)`, or a constructor that sets a parameter bounded by the trait (`CellVector(c)`, §8.2). The struct's type names the member's type, which the key does not fix;
 - **capturing it in a closure:** the closure's field takes its type.
 
@@ -822,6 +823,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - `Callable` without parameters takes any function, kept before its signature is known.
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
+- **Passing `f` on to a higher-order function,** `map(f, xs)`, is a call of another function with it, so the method is open at `f` (§7.3): `colmap` above is refused under `bounded`. How a fully bounded method passes a function on: Open ([open issue 165](../open-issues.md#2-design)).
 
 **Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-61, C-62; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
