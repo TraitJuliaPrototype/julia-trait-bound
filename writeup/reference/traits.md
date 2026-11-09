@@ -244,7 +244,7 @@ end
 
 **What is checked.**
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
-- At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
+- At a call on a value whose type the code knows only as the trait: the result is converted to the declared type and asserted (§7.9).
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result converted and asserted at a call through the trait: Implemented (§7.9).
 

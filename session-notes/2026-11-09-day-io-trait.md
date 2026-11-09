@@ -138,3 +138,15 @@ The user, while E-330 ran: "When we see failures like this, also think about pri
   - M1 (heads copied into the references): the copies replaced by links to `state.md` §6.1. M2 (bare W-items as statuses): the five lines, and the README's convention. M4 (160): traits §7.6, compiler §6.9 and P-23 mark it Open. M5: `lowering.md`'s anchor; the other citations link into the attic and resolve there; the closed items' numbering noted at their heading; the checker adopted with a link rule (`experiments/docs-checks/`). M6: the glossary's contract of a closed type, candidates, eraser.
   - M3 (W-129's commits not folded) and L4 (comments naming C-18): W-129's last step, recorded in its row and in julia-changes §7.1's rule.
   - L1 (Draft): Adopted, and the README's "Proposed" replaced by the "mine" convention; L2, L3, L5, L6, L7, L8: fixed.
+
+## 16. The work queue's clean-up
+
+- The user: "What open work remains right now in the Todo?", then "Do a clean up pass." About 25 rows of the earlier build (julia-1.13 with TraitWorld `main`) still read queued or in progress, and the queue's plan was the order of 2026-10-29.
+- Each row checked against the current references and code (TraitWorld `unified` has no second spelling and none of the earlier library's tools; C-9, F-13, T-79 are the earlier references' rows):
+  - done: W-9, W-14, W-22, W-27 (traits in the type system: the unified build), W-29 (as `All{X, Y}`), W-67, W-77, W-83, W-85, W-86 (the receiver at any position, traits §4.1), W-106;
+  - merged: W-7 into W-121, W-124, W-126; W-11 into W-22 and PE-5; W-35 into W-104; W-66 and W-74 (3) into W-120; W-82 and the rest of W-88 into the unified build's stages;
+  - moved: W-57 to PE-29 (Base is plain in the product setting), W-73 to PE-9, W-75 to PE-30 (strict mode's load, not measured on the unified build);
+  - dropped: W-68, W-72, the rest of W-80, T-79;
+  - restated: W-17, calls through a trait against plain calls on the unified build.
+- The plan rewritten as the current order; the order of 2026-10-29 moved to `record/design-history.md` with its text. traits §4.1's "asserted" made "converted and asserted" (missed by the documentation review's H3).
+- Open now: W-104, W-121, W-124 to W-129, W-17, W-119; waiting: W-19, W-110, W-120, W-127.
