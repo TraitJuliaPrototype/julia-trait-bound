@@ -72,6 +72,12 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
   - a table with columns of new cell types, summarized, sorted and plotted: 518–544 ms, the plain twin 565–573 ms. With a column of a new struct type: 148–151 ms against 166–177 ms. A solve with a new right-hand side 55–57 ms; with a new parameter struct 191–202 ms. None ends an instance.
   - an edit of a method called through a cast (TraitTables' `summarize`) ends no instance, where the plain twin's edit ends its callers; the work after it 116–118 ms against 124–127 ms. An edit of a method called directly (ODECore's `save_step!`) ends its 16 callers; the work after it 306–314 ms.
   - evaluating the edited method at a trait takes 2.82 s the first time in a session and 0.40–0.42 s after, against 82–94 ms and 8–9 ms in the plain twin: the definition-time check (GT-12).
+- **What a member costs** (E-360; packages that each add one member to a demonstrator's trait, counted in a fresh session after the library is loaded; `unified` 36b653bb3b, TraitWorld-unified 048c44e, TraitDifferentialEquations-unified 6658c65, TraitTables-unified 160639e, TraitReport-unified a4bcf33; the product setting, strict mode off, one thread; a build pass and 2 passes with the same counts, load 7.6–8.9 of 128 cores; idiomatic trait code against a plain twin, none for the problem):
+  - a declaration alone brings no instance, in the trait form and the plain twin;
+  - a column struct joining TraitTables' `Column`, with a table of it at two cell types summarized, sorted and cut in its image: 42 instances (17 by facts) and 96.8 kB of image over the declaration. The plain twin, an `AbstractVector` subtype: 146 instances, 123 of them Base's methods for the type, and 240.0 kB;
+  - a parameter struct for TraitDifferentialEquations' problem, with a solve by Tsit5: 65 instances (26 by facts) and 124.7 kB. Rodas5 beside it adds 3 instances and 14 kB;
+  - the instances that do not name the member (14 for the column, 34 for the problem) are the workload's own calls into Base, but for one of TraitTables' methods at `Vector{Float64}`. No image carries the library's generic code again;
+  - no load ends an instance; each takes 3.2–6.2 ms.
 - With the display of the results (first / after the loads / loads first): plain 4.30–4.31 / 5.45–5.53 / 6.11–6.15 s; the one line 1.97–1.99 / 1.82–1.84 / 2.53–2.55 s; the forks 0.21 / 2.36–2.38 / 2.51–2.52 s.
 
 **Load protection in the product setting for a wrapped package** (E-153; NetworkDynamics 1.3.0 wrapped whole in `@trait_module`, with Static.jl's promotion fixed; the workload of evidence §3 in order B: CairoMakie, GraphMakie and Observables, 186 packages with their extensions, loaded after the first simulation; one run each; julia-1.13 6d480d0753, TraitWorld e9f4bfe; `ndport/logs/p3-orderB/`):
@@ -448,7 +454,6 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
   - the first calls slower in the demonstrators on the run of 2026-10-27 ([W-7](../record/todo.md)).
 - **Reruns:** TraitReport's form (t) under loads (like for like with the previous prototype's form (t)); the raytrace rows of §2 on a current build; the rest of Base's test suite under the facts mode (43 groups run, E-42).
 - **Untested:** strict mode under `all`; edits by Revise (traits T-81; an edit by `eval` is tested, `TraitWorld/test/redefine.jl`); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames (`--trim=safe`).
-- **The "explosion" of compiled code** per type is structural (32 specializations against 1 in a small experiment), unmeasured on a real library.
 
 ## Summary: what the evidence shows, and what it does not
 
@@ -483,4 +488,4 @@ The measurements, with builds, baselines and run counts, are in [`evidence.md`](
 - A second residue is diagnosed: TraitReport's work after StatsBase or Distributions (344–417 ms against 41 ms). StatsBase loads SparseArrays, a standard library, whose `vcat` for Base's `Number` and `Vector` wins at a fact signature inside `CSV._parse`. The design counts the standard libraries as Julia's own code (§1), so this is a stakeholder's change: not a pirate, not refused by strict mode (`TraitWorld/src/strict.jl:125`). Whether standard libraries should be separate owners is open (`open-issues.md` §1.19).
 - TraitDifferentialEquations' first gradient with loads (92–96 against 81 ms), and the first calls slower on the run of 2026-10-27 (W-7); TraitReport's trait plot + PNG (96–98 ms, 60 ms on the build of 2026-10-19). TraitMakie's rows are timed inside `@elapsed`, which leaves out each call's own compilation (E-146): to measure again whole.
 - Reruns: TraitReport form (t) under loads; the raytrace rows on a current build; the rest of Base's tests under the facts mode.
-- Strict mode under `all`; edits by Revise (T-81); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames; the volume of the "explosion" of compiled code on a real library.
+- Strict mode under `all`; edits by Revise (T-81); composition beyond libraries of a few hundred lines; binaries of TraitDifferentialEquations with ForwardDiff, and of CSV and DataFrames.

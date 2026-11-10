@@ -88,7 +88,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 ### 6.3 The order of work
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
-1. The guarantee's controls on the unified build (W-134; G-1).
+1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee).
 2. Binaries on the unified build (W-135; G-6).
 3. Error messages compared with plain Julia's (W-136; G-5).
 4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
