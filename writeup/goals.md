@@ -24,7 +24,7 @@ So the axes, each with its claim:
 | G-4 Downsides | Limited to none: what the design costs code that uses no trait, and code that does, is small and stated. |
 | G-5 Error messages | Better than plain Julia's: an error names the contract and the place it is broken. |
 | G-6 AOT | A better experience compiling ahead: a build can list what trait code calls. |
-| G-7 Transition | A clean, doable path for the ecosystem, with clear porting guidelines. |
+| G-7 Transition | A clean, doable path for the ecosystem to migrate, with clear porting guidelines. An ambition for the path, not a rule that code needs no rewrite. |
 | G-8 Simplicity | Traits are abstract types: one mechanism, easy to teach. |
 
 **Speed work is stopped** (the user's words above). No work item pursues speed. Speed is measured only as a control: that a change brings no regression (G-2), and what a rule costs (G-4). A slowdown found is recorded as a tension (§3), not fixed at the case.
@@ -39,7 +39,7 @@ So the axes, each with its claim:
 | G-4 Downsides | **Stated in parts, not as a whole.** | The costs measured are in [evidence §4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build) and the flagged entries ([open issues](open-issues.md) §1). | No one account of what a user of plain Julia pays once the library is loaded, and what trait code pays. The deviations tables are long. | W-134 (its plain-code control), W-138 |
 | G-5 Error messages | **No evidence.** | The mechanisms are built: a member's check raises at the use (E-350, E-352), strict mode reports a pirate, an ambiguity and a broken membership (E-349, E-353), fully typed mode explains (traits §14). | No comparison of the messages with plain Julia's for the same mistakes. The evidence has no section. | W-136 |
 | G-6 AOT | **The weakest axis.** | One trimmed TraitMakie binary of 4.07 MB, on the previous prototype ([evidence §4](design/evidence.md#4-builds-and-binaries)). | Nothing on the unified build. No binary of TraitDifferentialEquations, CSV or DataFrames. | W-135 |
-| G-7 Transition | **Partly shown.** | Three ecosystems ported, with upstream's results ([state §4](state.md#4-the-ports-w-104)). [`intro/porting.md`](intro/porting.md). Upstream code gains from facts with no rewrite (the earlier build). | The no-rewrite step is not measured on the unified build. The ports' questions (open issues 157 to 162) are open. The guideline is not checked against the ports as they are now. | W-104, W-134, W-137, W-19 |
+| G-7 Transition | **Partly shown.** | Three ecosystems ported, with upstream's results ([state §4](state.md#4-the-ports-w-104)). [`intro/porting.md`](intro/porting.md). A first step on the path, measured on the earlier build: a package's code compiled by facts as it is. | The path's steps are not laid out in order, each with what it costs and gains. Its first step is not measured on the unified build. The ports' questions (open issues 157 to 162) are open. The guideline is not checked against the ports as they are now. | W-104, W-134, W-137, W-19 |
 | G-8 Simplicity | **Plausible, untested.** | The four references and `intro/` describe one mechanism. | No reader from outside. The intro's examples are not checked on the head. | W-137 |
 
 ## 3. Tensions between the goals

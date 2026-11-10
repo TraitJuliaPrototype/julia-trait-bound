@@ -31,6 +31,14 @@ Documents only; nothing was built or run. The assessment was made in the main se
 - AOT binaries (W-135) taken up though the user deferred AOT in session 25: the user's goals name the AOT experience; the annotations A to E stay deferred.
 - The existing proposed experiments were re-pointed, not replaced: each run gets a new row.
 
+## Addendum: the user's correction
+
+On the report's line that "the no-rewrite step is not measured on the unified build":
+
+> "There is no "no rewrite" rule, just a clear migration path ambition."
+
+`goals.md` (G-7's claim and row) and the work queue (W-134 (c), W-137) say so: compiling a package's code by facts as it is, is a first step on the path, not a claim.
+
 ## Handover
 
 - Next: W-134. Register its experiments first.
