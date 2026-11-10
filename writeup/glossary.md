@@ -115,7 +115,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Open and closed
 
-- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply. A closed abstract type may declare a **contract**: operations with declared results, and the split's candidates; at a value typed by it, the operations split as at a trait. Base's `IO` declares one. A trait whose author opts in with `@closed_after_load` is **closed after load**: a type's non-membership is final once the trait's and the type's packages have loaded.
+- **Here:** a trait is open: members may join after their definition. An abstract type is closed: it has members only through `struct S <: A`. Compiled code relies on a membership that holds, never on one that does not, for an open trait; for a closed type Julia's rules apply. A closed abstract type may declare a **contract**: its operations and the split's candidates, with no result promised; at a value typed by it, the operations split as at a trait. Base's `IO` declares one. A trait whose author opts in with `@closed_after_load` is **closed after load**: a type's non-membership is final once the trait's and the type's packages have loaded.
 - **Origin:** Scala's and Kotlin's sealed types are closed sets; Rust's traits are open to impls in the trait's or the type's crate.
 - **Defined in:** [traits §3.4](reference/traits.md#34-open-and-closed); [facts §10](reference/facts.md#10-memberships); a closed type's contract: [compiler §7.1](reference/compiler.md#71-the-rule).
 
@@ -242,7 +242,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Split
 
-- **Here:** an operation called on a value the code knows only by its trait, or by a closed type with a contract. The compiled code tests the value's type against the **candidates** (the trait's first four members; a closed type's declared ones), calls each one's method directly, and calls through a table for the rest. Its result is the declared result: a member's result is converted to it.
+- **Here:** an operation called on a value the code knows only by its trait, or by a closed type with a contract. The compiled code tests the value's type against the **candidates** (the trait's first four members; a closed type's declared ones), calls each one's method directly, and calls through a table for the rest. Its result is the declared result, asserted (a closed type's: `Any`).
 - **Origin:** Julia's union splitting, which tests a value against each member of a small `Union`. Rust and Swift call through a witness or vtable instead.
 - **Defined in:** [traits §7.9](reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait); [compiler §7.2](reference/compiler.md#72-the-split), [§7.3](reference/compiler.md#73-the-table-of-a-calls-targets).
 

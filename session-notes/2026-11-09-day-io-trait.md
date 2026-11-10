@@ -168,3 +168,14 @@ The user, while E-330 ran: "When we see failures like this, also think about pri
 - B-display built (E-339): `unified` 8c4b93f867 (REPL's `show_limited` and `TextDisplay`), forks ddc20f6 (DataFrames plain, one workload line). Checks pass; the forks' session 2.58–2.90 s.
 - Tonight's list, from the census of the deviation rows: unsound are C-82 (dispatch's lookup) and open issue 171 (a converted result depends on inference); the other rows are speed, messages or checks. Plans written and sent to Fable reviews: `plans/2026-11-09-c82-unmet-match-lookup.md`, `plans/2026-11-09-171-declared-results-without-conversion.md`, `plans/2026-11-09-c57-c81-small-deviations.md` (C-57: G2 at the call's signature after E-336; C-81: a closed type's candidates in its contract).
 - Left out, with the reason: C-78 (the report would walk method tables under the world counter's lock), F-24 (open issue 157's design question), C-49 (an edge case of a module option set late), T-98, L-52, C-31 (checks, larger).
+
+## 19. The night: three fixes built (E-340), C-82 next
+
+- The reviews (all "build with changes"):
+  - 171's found a crash on the head: constant propagation reached a member's method where regular inference took the declared result through `IO`, and `handle1` kept the narrower type with the constant-propagated code ("Unreachable reached"); fixed at the rule in `handle1`. It also found `Base._SplitTarget` converting.
+  - C-57/C-81's found that a contract written on another image's type is lost silently: refused now.
+  - C-82's found four more sites without cells (the cells moved to `MethodLookupResult`), the vararg tail judged unmet, and the lone match not dropped.
+- Built: `unified` ef1233e79e (171 and `handle1`), 0ee9e4f8a6 (C-57), 18bbbf0841 (C-81). E-340: every check passes but `n20`'s C-82 case; the goal's task 1.77–1.81 s. The cost of `Any` at `IO`: `write(io, ::Char)` through the eraser 4.99× the type known (1.85× before); flagged in open issues §1.
+- New gates: `n22_declared_assert` (fails on 8c4b93f867, passes after), `n23_contract_image`; `n19`, `n21` extended.
+- The unmet-pair census (`audit/unmet_open_pairs.jl`): no pair in the goal's environment, so C-82's drop at open sets bought nothing there.
+- C-82 committed (999777ab77), building as E-341.

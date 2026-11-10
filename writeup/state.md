@@ -22,10 +22,10 @@ By the compiler reference's sections:
 - **Operations on a value known by its trait** ([§7](reference/compiler.md#7-operations-on-a-value-typed-by-its-trait)): the declared result, a split over the first members, a table past them; `Callable` by the function's own methods.
 - **The code slot** ([§3.3](reference/compiler.md#33-the-code-slot)): a call that holds only a result edge goes through a slot; a callee recompiled to an equal result keeps its callers; a miss with no code to make gets a dispatching entry.
 - **Sets closed after load** ([§4.8](reference/compiler.md#48-negatives-never-fold-positives-through-entries)): a set's opt-in; a module's mark once its package has loaded; a final negative leaves out the guard and folds `isa`, recorded on a final cell whose opening by a late membership invalidates (W-129 (a); C-76, C-77).
-- **`IO`'s contract** ([§7.5](reference/compiler.md#75-io); [traits §9b](reference/traits.md#9b-streams-io)): `IO` is Julia's closed abstract type, and Base's methods typed `io::IO` are compiled per stream type; its contract's operations have declared results and split over `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint` at a value typed `IO`; the eraser `IOContext{IO}`; the forks' DataFrames erases at its display entries (W-129 (c), E-337). The split's targets at a stream past the candidates are compiled at the first call (open issue 170).
+- **`IO`'s contract** ([§7.5](reference/compiler.md#75-io); [traits §9b](reference/traits.md#9b-streams-io)): `IO` is Julia's closed abstract type, and Base's methods typed `io::IO` are compiled per stream type; its contract's operations split over `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint` at a value typed `IO`, their results `Any` and nothing converted (open issue 171, E-340), the candidates kept with the contract by any image (C-81); the eraser `IOContext{IO}`; the REPL's display and `TextDisplay` erase the stream (E-339). The split's targets at a stream past the candidates are compiled at the first call (open issue 170).
 - **Images and hooks** ([§9](reference/compiler.md#9-images-and-the-machine-code-cache), [§10](reference/compiler.md#10-hooks-for-the-library)): an image keeps and activates its memberships; the member hook, the definition, module-end, deletion and fully-typed hooks.
 
-The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–81.
+The inventory, one row per commit: [julia-changes](design/julia-changes.md), rows 1–84.
 
 ## 3. The library
 

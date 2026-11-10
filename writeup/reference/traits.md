@@ -165,8 +165,8 @@ A trait is written wherever a type is written:
 - **A trait is open:** members may join after their definition.
 - **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed, but `Callable` (§9), which is a trait.
 - A closed abstract type may be a member of a trait (`@implement Indexable{T} AbstractVector{T} where {T}`); then every subtype of it is a member.
-- **A closed abstract type may declare a contract:** operations with declared results, and the split's candidates. Its members stay Julia's; nothing joins later, so no answer about it waits. At a value typed by it, an operation's call has its declared result and branches over the candidates (§7.9), as at a trait. Otherwise Julia's rules apply: code typed by it is compiled per type. Base's `IO` declares one (§9b).
-- Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply, but for its contract's operations (above).
+- **A closed abstract type may declare a contract:** its operations and the split's candidates, named once, in the image that defines the type. Its members stay Julia's and no check reaches them, so the contract promises no result: an operation's result is `Any`, Julia's own answer at such a receiver. At a value typed by it, an operation's call branches over the candidates (§7.9) and returns what the member's method returns. Otherwise Julia's rules apply: code typed by it is compiled per type. Base's `IO` declares one (§9b).
+- Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply; its contract's operations only branch (above).
 - **A trait closed after load** relies on non-membership too, once the answer is settled. Its author opts in with `@closed_after_load` in the body:
 
   ```julia
@@ -244,9 +244,9 @@ end
 
 **What is checked.**
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
-- At a call on a value whose type the code knows only as the trait: the result is converted to the declared type and asserted (§7.9).
+- At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result converted and asserted at a call through the trait: Implemented (§7.9).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result asserted at a call through the trait: Implemented (§7.9).
 
 ### 4.2 Defaults
 
@@ -738,12 +738,12 @@ Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct'
 ### 7.9 Operations on a value the code knows only by its trait
 
 Where the code holds a value at the trait's type (code compiled once, a field or element typed by the trait, an operation's result declared with the trait):
-- **an operation's result is its declared result,** so the code after the call is typed. A member's result is converted to it, as a return annotation `f(…)::R` converts, and asserted: a result that does not convert raises. A member checked at its membership (§5.10) returns it already, and the conversion costs nothing;
+- **an operation's result is its declared result,** so the code after the call is typed. It is asserted, never converted: a member's result of another type raises a `TypeError`, as facts §2.1's "or raises" allows. A member checked at its membership (§5.10) returns it already, so the assertion only catches a member that escaped its check (a serving method redefined after it). A dynamic call of the same operation, and the interpreter, return the member's own result;
 - **the call branches on the first four members declared** of the trait, each a direct call that may be inlined. Any other member is called through a table keyed by its type: one lookup and one indirect call, whatever the number of members. The order is the declarations': a trait's package declares its common members first. At an intersection, the branches take the first component's members that are members of every component;
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
 
-**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109. The conversion on `unified` 0c836f3ef6 (found by Base's own streams, whose `unsafe_write` returned a `UInt`, and a stream of CSV's tests; E-333): mine (2026-11-09).
+**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109. Asserted, never converted, on `unified` ef1233e79e (open issue 171, gate `n22_declared_assert`, E-340): mine (2026-11-10).
 
 ### 7.10 Costs, and choosing
 
@@ -857,9 +857,9 @@ end
 
 **`IO` is Julia's closed abstract type, with a contract** (§3.4).
 - **Its members are Julia's streams and every `struct S <: IO`,** as in Julia. Code typed `io::IO` is compiled per stream type, as in Julia.
-- **The contract's operations,** each Base's method at `::IO`, with its declared result: `write(io, ::UInt8)::Int`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)::Int`, `read(io, ::Type{UInt8})::UInt8`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)::Bool`. A result not declared is `Any`. `eof`, `isopen` and `close` have no method at `::IO` and are not operations.
+- **The contract's operations,** each Base's method at `::IO`: `write(io, ::UInt8)`, `unsafe_write(io, ::Ptr{UInt8}, ::UInt)`, `read(io, ::Type{UInt8})`, `unsafe_read(io, ::Ptr{UInt8}, ::UInt)`, `flush(io)`, `lock(io)`, `unlock(io)`, `get(io, key, default)`, `haskey(io, key)`. Each result is `Any` (§3.4). `eof`, `isopen` and `close` have no method at `::IO` and are not operations.
 - **The split's candidates:** `IOBuffer`, `IOStream`, `TTY`, `PipeEndpoint`.
-- **At a value typed `IO`** (a field typed `IO`, an element of a `Vector{IO}`, an argument declared `@nospecialize`), an operation's call has its declared result and branches over the candidates with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)). A stream whose count is another integer type keeps working: the call converts it to `Int`. So a caller through `IO` sees an `Int` where the stream's own method returns, say, a `UInt`, and a result that does not convert raises there. Where inference does not see `IO` (a value typed `Any`, the interpreter), the call returns the stream's own result: **Open** ([open issue 171](../open-issues.md#2-design)).
+- **At a value typed `IO`** (a field typed `IO`, an element of a `Vector{IO}`, an argument declared `@nospecialize`), an operation's call branches over the candidates with direct calls, and goes through the table past them (§7.9; [compiler §7.5](compiler.md#75-io)). It returns what the stream's own method returns, as a dynamic call and the interpreter do: Core's streams and `Filesystem.File` return a `UInt` count, `IOBuffer` an `Int`.
 - **The erased stream is `IOContext{IO}`:** `IOContext{IO}(io)` and `IOContext{IO}(io, key => value, …)` hold any stream as an `IO`. It is an `IO`, so code typed `io::IO` takes it. It forwards every stream function, as any `IOContext` does, and its operations on the stream it holds branch over the candidates. An `IOContext`'s properties (`:compact`, `:limit`, `:color`) reach `show` through it. `IOContext(io, …)` keeps the stream's type, for code per type.
 - **The display erases the stream:** the REPL's display (`show_limited`) and Base's `TextDisplay` pass `IOContext{IO}(io)` to `show`, so every value's display at the REPL or a text display runs at one stream type. A package's display methods stay plain code, and its image's workload covers that display by displaying once at `IOContext{IO}(IOBuffer())`. A method of `show` there sees `IOContext{IO}`, not the REPL's stream type; the stream's properties (`:limit`, `:color`, `:displaysize`) pass through.
 - **Erasing elsewhere is the author's choice,** where large code serves many streams outside a display (§7.10): the entry declares `@nospecialize(io::IO)` and passes `IOContext{IO}(io)` on, so one compiled body serves every stream, and a workload at the erased type covers them all. Small code that writes a byte or a short string per call stays per type.
@@ -945,7 +945,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode an error |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
-| a call through the trait | an operation's result against its declared type, after the conversion (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a result that does not convert) |
+| a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership is a warning under strict mode too (T-98).
@@ -975,7 +975,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method and the code compiled by facts it would change |
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
-| `TypeError` | an operation's result that is not its declared type after the conversion (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
+| `TypeError` | an operation's result that is not its declared type (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
 | `AbstractTypeError` | code under `@enforce_fully_typed` whose result is of an abstract type that is not a trait (§14) | the result's type and its root cause |
 
