@@ -1,6 +1,6 @@
 # Plan: strict mode refuses a membership that makes methods ambiguous (traits T-98)
 
-Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-t98.md)); acted on in `unified` 0bb8f38830 with TraitWorld 960b99e, E-343 (registered). The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-t98.md)); built in `unified` 0bb8f38830 with TraitWorld 960b99e, E-343. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The deviation
 

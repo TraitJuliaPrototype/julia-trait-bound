@@ -386,7 +386,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
-**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for three rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97); an ambiguity at a membership is the runtime's warning (T-98).
+**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for three rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97); an ambiguity at an image's membership activated at load is the runtime's warning (T-98); at a declaration it is refused (`unified` 0bb8f38830, E-343).
 
 ---
 

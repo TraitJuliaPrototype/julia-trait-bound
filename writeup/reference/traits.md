@@ -551,9 +551,9 @@ describe(x) = "something else"
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
-- **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3). A method that dominates every common member suppresses the report.
+- **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3): the membership raises `ImplementError` and does not exist. A method that dominates every common member suppresses the report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode with W-114.
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode on `unified` 0bb8f38830 with TraitWorld 960b99e (E-343); at an image's activation: T-98.
 
 ### 6.4 The fallback
 
@@ -956,13 +956,13 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a method's definition | a method that would take a call a default or the forwarding serves at a member (§5.11); one that would serve a member's checked call with a result outside the declared one, or make the operation ambiguous at the member (§5.10); a pirate in a scope that refuses them (§12.2); an open method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
 | an image's load | an image's method that the rules of a method's definition (§5.10, §5.11) refuse | a warning; the method is left inactive |
 | a method's definition, strict mode | a pirate that would win at a fact of code compiled by facts (§12.3) | `PirateError` |
-| a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode an error |
+| a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode `ImplementError`, and the membership does not exist |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership is a warning under strict mode too (T-98).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership an error under strict mode on `unified` 0bb8f38830 (E-343); at an image's activation a warning (T-98).
 
 ### 11.2 Definition checking
 
@@ -984,7 +984,7 @@ Each message names the trait, the type, and the declared signature where one is 
 
 | Error | Raised for | The message names |
 |---|---|---|
-| `ImplementError` | a membership that fails its check; a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
+| `ImplementError` | a membership that fails its check, or that strict mode refuses for an ambiguity (§6.3); a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
 | `OwnershipError` | a membership or method by a package that owns none of what it names | the method or membership, its owners, and who may declare it |
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method and the code compiled by facts it would change |
@@ -1041,9 +1041,9 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - A method belongs to the module it is evaluated in.
 - A pirate loaded before the code it changes is reported when that code's image loads.
 - A package extension's method that wins at a fact without naming its triggers' types is followed, as its parent's change, with a warning.
-- An ambiguity at a membership (§6.3) is an error.
+- An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). With T-96, T-97, T-98.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). With T-96, T-97, T-98.
 
 ---
 
@@ -1177,7 +1177,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
-| ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-96–T-98 | §12 |
+| ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343), with T-96–T-98 | §12 |
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options | Implemented (TraitWorld bb78d02, W-111) | §13 |
 | concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-100, T-101 | §14 |
@@ -1196,7 +1196,7 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-1 to T-95 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/traits.md` | — | — |
 | T-96 | [§12.3](#123-strict-mode) | Strict mode refuses a binding redefined from another module, through its hook ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)). | No such hook exists: a binding redefined from another module is followed. | `julia-unified` (no hook); TraitWorld `src/strict.jl` |
 | T-97 | [§12.3](#123-strict-mode) | A package extension's method that wins at a fact without naming its triggers' types is followed, with a warning. | It is followed without the warning. | TraitWorld `src/strict.jl` |
-| T-98 | [§12.3](#123-strict-mode) | Under strict mode, an ambiguity at a membership is an error. | It is the runtime's warning, as without strict mode. | `julia-unified` `src/gf.c` (the ambiguity report) |
+| T-98 | [§12.3](#123-strict-mode) | Under strict mode, an image's membership activated at load that meets an ambiguity with code loaded earlier is reported as strict mode reports a pirate loaded earlier. | It is the runtime's warning at activation, as without strict mode; strict mode's report after a load does not name it. | `julia-unified` `src/datatype.c` (`jl_memberships_activated`), TraitWorld `src/strict.jl` (`_strict_at_load!`) |
 | T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases (the work plan's M8). | The hints are tested on the library's own cases (`test/hints.jl`); the SciML cases need the port (W-104). | TraitWorld `test/hints.jl` |
 | T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for a call that cannot be resolved in the code or in anything it calls. | The compiler's check sees run-time sites in the code and in callees compiled by facts; one in plain code it calls (Base's, in the product setting) is reported by `fully_typed`, not raised. | `julia-unified` `Compiler/src/facts.jl` (`fully_typed_fault`) |
 | T-101 | [§14](#14-concreteness-and-fully-typed-mode) | Concreteness, like fully typed mode, can be declared for a module before `@trait_module`. | Concreteness is declared per trait and per method only. | TraitWorld `src/fullytyped.jl` |

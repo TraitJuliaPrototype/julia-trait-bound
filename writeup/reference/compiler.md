@@ -316,12 +316,14 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 ### 4.3 Worlds
 
 - A membership is declared as a method is inserted: under the world counter's lock, the entry gets `min_world = counter + 1`, is published, and the counter advances.
+- **Strict mode's check** runs between the entry's publication and the advance: the ambiguity report (§5.4) is asked for its findings in the entry's world. Under the lock nothing else can enter that world, so it is asked before the counter reaches it. On a finding the entry is **retired before it begins** (`max_world = counter`): live in no world, never removed from its lists, which readers walk without a lock. A redeclaration's old entries are in force again, the counter does not advance, and the declaration throws. The set's candidates and the image's list of memberships take the entry only once the check passes.
+- A type whose only entry is retired keeps a non-empty list: the presence tests that read the list's length stay conservative.
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **Memberships only grow.** A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
 - **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one. They are the one kind that can end.
 
-**Status:** Implemented on `unified` 62016706d0.
+**Status:** Implemented on `unified` 62016706d0; strict mode's check and the retired entry on `unified` 0bb8f38830 (E-343).
 
 ### 4.4 Transitivity
 
@@ -455,7 +457,9 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 
 ### 5.4 The ambiguity report at a membership
 
-At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, or at one of the member's declared supertypes, with no method more specific for the member, a warning names the pair and the joint method's signature: the two signatures' intersection, where the two meet as `All{X, Y}` (§4.9). Strict mode makes it an error. A method that dominates every common member suppresses it.
+At `jl_declare_membership`, for each function with a method at the new set and a method at another set the member is in, or at one of the member's declared supertypes, with no method more specific for the member, a warning names the pair and the joint method's signature: the two signatures' intersection, where the two meet as `All{X, Y}` (§4.9). Strict mode makes it an error: the report's findings refuse the membership (§4.3). A method that dominates every common member suppresses it.
+- The search reads the method table, never a dispatch cache, since a cache entry made before the membership may still answer for the call types; it asks the entry's world, which strict mode's check asks before the counter reaches it.
+- It counts only the sets of entries live in the entry's world: a retired entry, or an image's entry refused at activation, is no set of the member.
 - The question is asked at the methods' own arity: each method's signature with the member in place of its set, the two intersected. An empty intersection is no ambiguity.
 - At those call types the two methods are ambiguous as `Base.isambiguous` decides: both match, neither is more specific, and no matching method more specific than both covers the types.
 - One warning per function and pair of sets.
@@ -464,13 +468,13 @@ At `jl_declare_membership`, for each function with a method at the new set and a
 - **Dispatch's lookup at a final pair:** where every unmet argument's pair is final (§4.8), the lookup drops the match met only there, also one that would win, at any number of matches, before the matches are sorted and their ambiguity computed, and returns the pairs' final cells (`jl_matching_methods_cells`). Inference carries them on the lookup's result and records them with the call, so a membership that meets the intersection invalidates the caller.
 - **Julia's ambiguity reflection** (`Base.isambiguous`, `detect_ambiguities`) asks the same question in the query's world: an argument met only as an unmet intersection has no value there, as an argument met only as `Union{}` has none. So two methods at a set and at a type no member of it relates (`describe(::AbstractString)` and `describe(::ColTable)`) are not reported until a membership makes them meet, and then by this report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107), a pattern member at the call types both methods reach 264b7f959f (gate `m2_ambiguity_arity`, E-320). Strict mode's error with strict mode (W-114). The reflection in the query's world on `unified` b133374e9d (`has_unmet_intersection`, `base/reflection.jl`; E-330); an intersection unmet by the world's entries on `unified` 43c222c751 (gate `n20_unmet_lookup`, E-331); dispatch's lookup keeping the match at an open set and dropping it at a final pair with its cells, on `unified` 999777ab77 (gate `n20_unmet_lookup`, E-341): mine (2026-11-09, [the performance review](../reviews/2026-11-09-performance-day.md) H2; [the plan](../plans/2026-11-09-c82-unmet-match-lookup.md)). The report at a member's declared supertype: C-78.
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, the joint method at `All{X, Y}` 8a9144928e (W-107), a pattern member at the call types both methods reach 264b7f959f (gate `m2_ambiguity_arity`, E-320). Strict mode's error with strict mode (W-114). The reflection in the query's world on `unified` b133374e9d (`has_unmet_intersection`, `base/reflection.jl`; E-330); an intersection unmet by the world's entries on `unified` 43c222c751 (gate `n20_unmet_lookup`, E-331); dispatch's lookup keeping the match at an open set and dropping it at a final pair with its cells, on `unified` 999777ab77 (gate `n20_unmet_lookup`, E-341): mine (2026-11-09, [the performance review](../reviews/2026-11-09-performance-day.md) H2; [the plan](../plans/2026-11-09-c82-unmet-match-lookup.md)). The report at a member's declared supertype: C-78. Strict mode's refusal, the search without caches and the live entries only on `unified` 0bb8f38830 (gate `m2_ambiguity_called_before`, E-343).
 
 ### 5.5 A membership lowers dispatch caches
 
-A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
+A membership lowers the `max_world` of each leaf-cache and typemap-cache entry whose selected method changes at the new member, so the next call looks up again. A selection that becomes ambiguous changes too. The walk replays a method at the new set whose own entry is live in the table: the replayed method is the one that now applies, not one that matched before the membership. It invalidates no CodeInstance: compiled calls it could change carry guards (§5.6).
 
-**Status:** Implemented on `unified` 29035cab11; that the walk invalidates no code, on `unified` 79b948420e (W-112): a compiled call a membership could change carries its guard (§5.6); the walk's cost in proportion to the replayed method's own function, the member substituted at a parametric set, on `unified` aa997b2180 (W-123). Gates `m2_dispatch_worlds`, `m2_stale_caller`, `n7_guards`, `m2_parametric_replay`.
+**Status:** Implemented on `unified` 29035cab11; that the walk invalidates no code, on `unified` 79b948420e (W-112): a compiled call a membership could change carries its guard (§5.6); the walk's cost in proportion to the replayed method's own function, the member substituted at a parametric set, on `unified` aa997b2180 (W-123). Gates `m2_dispatch_worlds`, `m2_stale_caller`, `n7_guards`, `m2_parametric_replay`; a selection made ambiguous at a member called before, on `unified` 0bb8f38830 (gate `m2_ambiguity_called_before`, E-343).
 
 ### 5.6 Guards and cells
 
@@ -787,8 +791,9 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **A deletion hook,** called at method deletion; it may refuse.
 - **A hook for a binding redefined from another module,** at its source.
 - **A report per image:** the edges that failed validation, with the winning method.
+- **Strict mode's check at a membership** (§4.3): `jl_set_strict_memberships(on)`, set by the library's strict mode.
 
-**Status:** The deletion hook implemented on `unified` 5f2373b2d5 (`jl_set_method_deletion_hook`, W-114). The report per image is the library's, from validation's log (TraitWorld 7adcc94). The hook for a binding redefined from another module: Planned ([traits T-96](traits.md#19-deviations)).
+**Status:** The deletion hook implemented on `unified` 5f2373b2d5 (`jl_set_method_deletion_hook`, W-114). The report per image is the library's, from validation's log (TraitWorld 7adcc94). The hook for a binding redefined from another module: Planned ([traits T-96](traits.md#19-deviations)). The flag for a membership on `unified` 0bb8f38830 (E-343).
 
 ### 10.3 Field-offset intrinsics
 
