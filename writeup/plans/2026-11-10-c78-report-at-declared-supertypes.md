@@ -1,6 +1,6 @@
 # Plan: the ambiguity report covers a method at a member's declared supertype (compiler C-78)
 
-Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-c78.md)); its M1 built in `unified` 2ee5569252 (E-346); the search itself queued as W-132. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **done** (2026-11-10; adopted with [the review](../reviews/2026-11-10-plan-review-c78.md)'s changes; its M1 built in `unified` 2ee5569252 (E-346), the search in 53d28eea68 (W-132, E-347); a tie with a method at `Any` reported like any other). The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The deviation
 
