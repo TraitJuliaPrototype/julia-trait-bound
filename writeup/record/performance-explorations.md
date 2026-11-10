@@ -8,6 +8,8 @@ Performance work that the rule for performance work does not take up now. Each e
 - Slowdowns where trait or facts code should conceptually be as fast as plain code, or faster, stay in the queue as worth investigating.
 - Tweaks that give minor speedups at a considerable increase in complexity are not pursued.
 
+**Speed work is stopped** (the user, 2026-11-10: "I want to stop pursuing speed for now. We have gained enough to be satisfied."). No entry returns to the queue until it resumes; the paused items W-121 and W-129 are in [the work queue](todo.md). The entries are input to the synthesis ([the goals](../goals.md) §4).
+
 **How to use it:**
 - Each entry has an ID, `PE-n`, stable and never reused.
 - An entry returns to the queue as a W-item when its trigger is met. Its row then says so, with the W-item, and stays.

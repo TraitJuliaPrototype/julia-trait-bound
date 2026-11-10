@@ -1,6 +1,6 @@
 # The references: Julia with traits in its type system
 
-**The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A choice an agent made says "mine" with its date in its section's status line and is listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) for the user to confirm; a choice that waits for the user before it is in force is **Open**.
+**The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A choice an agent made says "mine" with its date in its section's status line and is listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis ([the goals](../goals.md) §4); a choice that waits for the user before it is in force is **Open**.
 
 The four references define the intended shape of the design. Each one also records, separately, where the implementation deviates from it.
 

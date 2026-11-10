@@ -8,11 +8,10 @@ This page is for Julia programmers. It says what the measurements show, each aga
 - **The baselines:**
   - **Python:** the same task with pandas 3.0.6 and matplotlib 3.11.2 (Python 3.12.10), on the same host.
   - **Plain twins:** the same code written without traits (PlainTables), on the same build.
-- The project's target is a fresh process within Python's time plus 1 s ([the plan](../plans/2026-11-08-python-speed.md)).
 
 ## In short
 
-- **Four sessions a user would run, each in a fresh process,** within Python + 1 s or near it:
+- **Four sessions a user would run, each in a fresh process,** beside Python's time for the same task:
 
   | Session | Julia, unified build | Python |
   |---|---|---|
@@ -43,7 +42,7 @@ TraitReport's form (f): the CSV and DataFrames ports read a file into a `DataFra
 Python takes 0.63–0.65 s, of it 0.47–0.50 s importing pandas and matplotlib (E-289).
 
 What this shows:
-- The task is within Python + 1 s.
+- The task takes about 1 s longer than Python's.
 - Most of the time is the imports: loading the ports' package images and activating their memberships.
 
 ### TraitReport (t): the project's own reader and table library

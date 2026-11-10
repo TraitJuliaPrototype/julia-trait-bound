@@ -1,16 +1,16 @@
 # The state of the prototype (2026-11-09)
 
-Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. Against Python, in a fresh process (§5): the goal's task (DataFrames + Makie) 1.76–1.80 s against 0.63–0.65 s, the ODE session (setting D) 1.96–1.98 s against 1.43–1.46 s, TraitReport's trait form 0.79–0.83 s against 0.63–0.65 s, the forks' REPL session 2.95–3.56 s against pandas' 0.69–0.75 s. No speed target directs the work: performance work seeks principled, broad gains that facts and traits enable.
+Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. Against Python, in a fresh process (§5): the goal's task (DataFrames + Makie) 1.76–1.80 s against 0.63–0.65 s, the ODE session (setting D) 1.96–1.98 s against 1.43–1.46 s, TraitReport's trait form 0.79–0.83 s against 0.63–0.65 s, the forks' REPL session 2.95–3.56 s against pandas' 0.69–0.75 s. The goals and where each stands: [`goals.md`](goals.md). Speed work is stopped; the claim is no regression where types are known.
 
 For core developers. The design is the four [references](reference/README.md), each with a Deviations table; this page summarizes what is built. The changes to Julia are the [compiler reference](reference/compiler.md), with the inventory in [`design/julia-changes.md`](design/julia-changes.md); the measurements are in [`design/evidence.md`](design/evidence.md). The earlier build (julia-1.13 with TraitWorld `main`) still runs, and most numbers in the evidence are its; its state on 2026-10-29 is [a dated snapshot](../attic/writeup/state-2026-10-29.md).
 
 ## 1. Where the project stands
 
-- **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then wait for the user's confirmation ([open issues](open-issues.md) §1).
+- **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then stand, as input to the synthesis ([the goals](goals.md) §4; [open issues](open-issues.md) §1).
 - **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` b05ae361e0.
 - **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 4443d2c.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
-- **Performance:** no speed target (the user, 2026-11-09, retiring the gates of [the plan to reach Python's speed](plans/2026-11-08-python-speed.md)); principled, broad gains that facts and traits enable ([decisions](record/decisions.md) §5). The numbers are in §5.
+- **Performance:** speed work is stopped; the claim is no regression where types are known, and full speed by opting in ([the goals](goals.md) G-2; [decisions](record/decisions.md) §5). The numbers are in §5.
 
 ## 2. What the unified build changes in Julia
 
@@ -87,15 +87,19 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 ### 6.3 The order of work
 
-The work queue, with every agreed item, its source and status, is [`record/todo.md`](record/todo.md). The order:
-1. **The ports** (W-104): every port runs; NetworkDynamics' session is measured against the evidence (E-314).
-2. **Performance work without a target** (the user, 2026-11-09: "Okay the speed plan goals were too ambitious. We hereby retire all strict speed gain gates we have been working under. We still care about speed but there is no concrete goal to try to achieve, and we are more interested in principled holistic/broad gains enabled by facts and traits rather than in patching details here and there."): principled, broad gains that facts and traits enable, where the profiling campaign (W-121) shows the time goes; workloads only at broad typical cases. The plan of 2026-11-08's stages are done (W-123) or dropped (W-124 to W-127).
-3. **The deviations that matter for correctness** (W-128), beside it. Fixed on 2026-11-10, each after a plan and its Fable review: a declared result asserted (open issue 171), G2 at a call's signature (C-57) and a closed type's candidates (C-81), E-340; dispatch's lookup at an unmet intersection (C-82), E-341; a member's check kept while it is a member (traits §5.10), E-342, from an image too (W-130), E-344, with every activated entry in its set's index (C-83); strict mode's refusal at a membership (T-98 narrowed) and a dispatch cache a new ambiguity changes, E-343; a member by its definition declares its entry, its parameters from the definition, an abstract member's subtypes checked (W-131, C-85), E-345; the ambiguity report asks each method a membership makes applicable against the method table at the member (W-132, C-78), E-347. Fixed the same day, decided by the agent without a plan's review: activation ends an older entry (C-84), E-348; strict mode's report of an ambiguity at an image's activation (T-98), E-349; a member by its definition used before its `@implement` raises at a use dispatched at run time (L-52 narrowed), E-350. Built the same day under the user's "Implement 1. 2. and 3. But no plan and review required.": the member hook in the compile queue (C-31 narrowed, L-52 retired), E-352; strict inference of an image's memberships at load (W-133), E-353; the libraries' pairs of trait methods with no joint method (open issue 174), E-354.
-4. **Traits closed after load, then `IO`'s contract** (W-129; decided 2026-11-09, open issue 164): the principled fix for the forks' `show` step at a REPL. (a) built (`unified` bf447db25e, E-329); (b) built (`unified` b133374e9d, d554855579; E-330: far slower, flagged); the lookup (E-331, 43c222c751), `Int` counts converted (E-333) and the firewall at splits (E-332, 0c836f3ef6, 7bd8b6e512): per call near vanilla's but for `show` and wrappers; the unmet intersection a final negative (E-334, 1906196731, open issue 169 closed) a set's methods listed at the set's position (E-335, 45fa624462) and backedges that keep the call's signature (E-336, 53ec4356bf): the goal's task 3.5 s against the control's 2.5 s. (c) `IO` a closed abstract type with a contract, the eraser `IOContext{IO}`, erasing the author's choice (the user, 2026-11-09: "Go with the Fable plans recommendations"; [the Fable plan](plans/2026-11-09-io-alternatives.md) §4.2): built (`unified` b05ae361e0, forks a8fe1b5; E-337): the goal's task 1.8 s against the control's 2.5 s, the forks' `show` step 0.08–0.11 s against 0.20–0.22 s; next: 170 (the split's targets at the REPL's streams), 167's rule. The REPL's display erasing (E-338): adopted (the user, 2026-11-09: "That said, b-display is adopted."), with Base's `TextDisplay` erasing too and the forks' DataFrames back to plain code with one workload line: built (`unified` 8c4b93f867, forks ddc20f6; E-339: the forks' session 2.58–2.90 s, its `show` step 0.050 s).
-5. Queued: W-119 (the slot's share in the ports), W-17 (calls through a trait against plain calls, restated for the unified build). Open, taken up later (the user, 2026-11-09: "Keep W-19 open, keep W-120 open."): the upstream proposals (W-19), the machine-code cache across sessions (W-120, with W-66's store). Waiting: keys (W-110). W-115 to W-118 are done: the glossary, `design.md`, `intro/` and the open issues teach and track the current references.
+The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
+1. The guarantee's controls on the unified build (W-134; G-1).
+2. Binaries on the unified build (W-135; G-6).
+3. Error messages compared with plain Julia's (W-136; G-5).
+4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
+5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8).
+6. Calls through a trait against plain calls, once, as a control (W-17; G-2).
+7. Unsound rules, beside every step (W-128).
+8. The upstream proposals (W-19).
+9. The synthesis (W-138).
 
-**Performance work** follows the rule of 2026-10-27 ([decisions](record/decisions.md) §5): principled architectural improvements, and bugs with an impact of 20 % or more or slowdowns where trait code should be as fast as plain code, without a significant increase in complexity.
+Speed work is stopped: W-121 and what is left of W-129 are paused. Open, to revisit: the machine-code cache across sessions (W-120). Waiting: keys (W-110).
 
-Waiting for the user: the choices marked mine ([open issues](open-issues.md) §1), among them the recommendations of open issues 158 and 159; upstream proposals (W-19).
+Nothing waits for the user. The choices marked mine and the flagged tensions are input to the synthesis ([open issues](open-issues.md) §1).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.

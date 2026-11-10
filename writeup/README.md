@@ -20,6 +20,7 @@ The design, written for three audiences: programmers, core developers, and agent
 - [`reference/lowering.md`](reference/lowering.md): how the trait language is realized on them.
 
 Explaining, measuring, comparing (not normative):
+- [`goals.md`](goals.md): the goals, and where each stands.
 - [`state.md`](state.md): the state of the prototype in one page.
 - [`design.md`](design.md): the rationale: the problem, the argument, what is not claimed.
 - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.

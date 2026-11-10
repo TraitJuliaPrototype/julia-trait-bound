@@ -349,7 +349,6 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 
 ### 4. Sessions within reach of Python
 
-The project's target is a session within Python's time plus 1 s ([the plan](../plans/2026-11-08-python-speed.md)).
 - The data report, reading a CSV file into a `DataFrame`, summarizing it and plotting a histogram, in a fresh process: 1.59–1.63 s, against Python with pandas and matplotlib at 0.63–0.65 s (E-289).
 - An ODE solve with a plot (TraitDifferentialEquations and TraitMakie): 2.00–2.04 s, against the same task in Python at 1.43–1.46 s (E-230, measured on another machine).
 - The data report with the project's own reader and table library: 0.74–0.78 s, against the same Python app's 0.63–0.65 s (E-289).
