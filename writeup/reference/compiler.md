@@ -309,7 +309,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 - A `TypeName`'s list of entries is replaced copy-on-write; readers take no lock.
 - `jl_declare_membership(member, set_instance, declarer, by, receiver)` declares one. The library checks ownership and the contract first ([traits §5.10](traits.md#510-checks)).
 - **A pattern's variable bounded by a `Union` of types** (`I where {I <: Base.BitInteger}`) is declared as one entry per type of the union.
-- **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type. It needs no entry. The library's `@implement X S`, which the language requires after it, records `S`'s receiver on `S`'s `TypeName`, with its world, as an entry would ([lowering §3](lowering.md#3-implement)).
+- **`struct S <: X`** with a set `X` makes `X` the declared supertype of `S`, as for any abstract type: subtyping answers `S <: X` by the chain. The library's `@implement X S`, which the language requires after it, declares an entry like any membership's, recording the receiver ([lowering §3](lowering.md#3-implement)). It changes no subtype answer; the readers of the entry lists see the membership: images, the member hook (§10.4), the ambiguity report (§5.4), the candidates (§7.2).
 
 **Status:** Implemented on `unified` 62016706d0, but for a pattern variable bounded by a `Union`, which the library declares per type (W-106).
 
@@ -819,11 +819,12 @@ void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothin
 - **The runtime calls it at the member's first use,** where no answer is kept for (member type, set):
   - at dispatch, before the instance lookup, and at a split's table miss or `keep`;
   - in the compile queue, before a CodeInstance that relies on the member is published. A failing check compiles that use as the `ImplementError`.
+- It is called for an argument whose chain carries an entry: a member by its definition (`abstract type A <: X end`) is reached through its `@implement`'s entry.
 - **Inference never calls it,** and no runtime lock is held while it runs. It runs in the latest world. A per-(member type, set) state marks a check in progress; a check that reaches its own member again raises.
 - The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
 - **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Implemented on `unified` ec4f9a8714 at dispatch, with C-30 and C-31; a failed check lowers the entries made while it ran on 07c0bee2a2; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` ec4f9a8714 at dispatch, with C-30 and C-31; an abstract member's subtypes reached through its entry with TraitWorld e8554d9 (C-85, E-345); a failed check lowers the entries made while it ran on 07c0bee2a2; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -952,3 +953,4 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-82 | — | *Retired* (2026-11-10): dispatch's lookup keeps an unmet match at an open set and drops it at a final pair with its cells, `Callable` and a `Vararg` tail met, on `unified` 999777ab77 ([§5.4](#54-the-ambiguity-report-at-a-membership)); gate `n20_unmet_lookup` | — | — |
 | C-83 | — | *Retired* (2026-11-10): every entry an image activates is in its set's index, also one on the image's own type, on `unified` e42047dba2 ([§9](#9-images-and-the-machine-code-cache)); gate `n12_image_instances` | — | — |
 | C-84 | [§4.6](#46-one-instance-per-member), [§9](#9-images-and-the-machine-code-cache) | A membership activated from an image ends an older entry in force for the same member, set and inputs, as a declaration does. | Activation ends none: two images can leave two entries in force for one member (a joint owner's redeclaration in a later image). The library takes the latest. | `src/datatype.c` (`jl_activate_memberships`) |
+| C-85 | — | *Retired* (2026-11-10): an abstract member by its definition (`abstract type A <: X end`) has its `@implement`'s entry, so the member hook runs for its subtypes (it runs where an argument's chain carries an entry), TraitWorld e8554d9 ([§10.4](#104-the-member-hook)); TraitWorld test `declared.jl`, gate `stack/recheck_packages.jl` case 7 | — | — |

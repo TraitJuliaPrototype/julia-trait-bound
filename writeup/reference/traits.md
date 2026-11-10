@@ -350,12 +350,12 @@ perimeter(c::Circle) = 2π * c.r
 ```
 
 - `struct S <: X` makes the trait `X` the supertype of `S`, as for any abstract type: `S <: X` holds from the definition.
-- **The membership is declared by `@implement X S`,** in the same module, after `S`'s methods. It checks the contract (§5.10) and fixes the key. A membership is always declared, and checked where it is declared.
+- **The membership is declared by `@implement X S`,** in the same module, after `S`'s methods. It checks the contract (§5.10) and fixes the key. A membership is always declared, and checked where it is declared: like any membership, it is kept in the package's image and seen by the ambiguity report (§6.3).
 - **A use of `S` through `X` before the `@implement`** (a call that needs `S`'s key) raises `ImplementError` naming the missing declaration. The `@implement` then replaces that failure. A module that ends with a `struct S <: X` and no `@implement X S` is refused at its end.
-- `struct S <: X{Float32, 1}` states parameters; the `@implement` may repeat them.
+- `struct S <: X{Float32, 1}` states parameters: the parameters come from the definition. The `@implement` may repeat them; a stated value, or a field's type, that differs is refused.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal").
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
 
 ### 5.3 One line
 
@@ -498,7 +498,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - The declared result is read from the trait's contract when the method is defined.
 - A membership loaded from a package's image keeps its check too: the records of the check are made again from the image's membership, without inference. They are the check the image's build made: a method already in the session when the image loads is not judged by them.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: lowering L-55. A method that takes any receiver refused, and the rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; for a membership loaded from a package's image, TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). A `struct S <: X` member loaded from an image has no membership entry and keeps no check in the session: W-131. Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: lowering L-55. A method that takes any receiver refused, and the rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; for a membership loaded from a package's image, TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). A member by its definition, from an image too: TraitWorld e8554d9 (W-131, E-345). Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take.
 
 ### 5.11 Overrides and redeclaration
 
@@ -506,7 +506,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - **A forwarding member's methods are fixed at its membership, like the defaults:** a later method that would take a call one of them serves at the member is refused the same way (§5.5).
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image, TraitWorld 6871ea9 (E-344), but a `struct S <: X` member's (W-131). A redeclaration's new entry on `unified` 62016706d0. The forwarding's methods, members checked at their first use, and the call a method would take (it applies there and no method in force beats it): TraitWorld `unified` 5b3c427, mine (2026-11-10).
+**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image, TraitWorld 6871ea9 (E-344). A redeclaration's new entry on `unified` 62016706d0. The forwarding's methods, members checked at their first use, and the call a method would take (it applies there and no method in force beats it): TraitWorld `unified` 5b3c427, mine (2026-11-10).
 
 ### 5.12 Types that only convert
 
@@ -552,7 +552,7 @@ describe(x) = "something else"
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
-- **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3): the membership raises `ImplementError` and does not exist. A method that dominates every common member suppresses the report.
+- **Reported earlier, at a membership:** where a membership makes a type a member of two traits, and a function has methods at both with no more specific method for the type, a warning names the function, the two methods and the joint method to define (`f(::All{ColTable, RowTable})`). Under strict mode it is an error (§12.3): the membership raises `ImplementError` and does not exist. A member by its definition (`struct S <: X`) whose `@implement X S` is refused stays `X`'s subtype by the definition: its module is refused at its end, naming the refusal; the joint method is the fix. A method that dominates every common member suppresses the report.
 
 **Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode on `unified` 0bb8f38830 with TraitWorld 960b99e (E-343); at an image's activation: T-98.
 
@@ -752,7 +752,7 @@ Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct'
 ### 7.9 Operations on a value the code knows only by its trait
 
 Where the code holds a value at the trait's type (code compiled once, a field or element typed by the trait, an operation's result declared with the trait):
-- **an operation's result is its declared result,** so the code after the call is typed. It is asserted, never converted: a member's result of another type raises a `TypeError`, as facts §2.1's "or raises" allows. A member checked at its membership (§5.10) returns it already, and keeps its check while it is a member, so the assertion only catches what the check does not reach: a result at an abstract further argument, a `struct S <: X` member loaded from a package's image (W-131), a method already in the session when an image's membership loads, and inference's own limits. A dynamic call of the same operation, and the interpreter, return the member's own result;
+- **an operation's result is its declared result,** so the code after the call is typed. It is asserted, never converted: a member's result of another type raises a `TypeError`, as facts §2.1's "or raises" allows. A member checked at its membership (§5.10) returns it already, and keeps its check while it is a member, so the assertion only catches what the check does not reach: a result at an abstract further argument, a method already in the session when an image's membership loads, and inference's own limits. A dynamic call of the same operation, and the interpreter, return the member's own result;
 - **the call branches on the first four members declared** of the trait, each a direct call that may be inlined. Any other member is called through a table keyed by its type: one lookup and one indirect call, whatever the number of members. The order is the declarations': a trait's package declares its common members first. At an intersection, the branches take the first component's members that are members of every component;
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.

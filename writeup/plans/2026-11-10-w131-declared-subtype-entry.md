@@ -1,6 +1,6 @@
 # Plan: a `struct S <: X` member keeps its check from an image (W-131)
 
-Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-w131.md)); acted on in TraitWorld `unified` e8554d9, E-345. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-w131.md)); built in TraitWorld `unified` e8554d9, E-345. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The gap
 
