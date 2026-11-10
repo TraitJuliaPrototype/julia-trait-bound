@@ -485,14 +485,27 @@ end
 
 Not everything is caught: a conversion that fails at run time is not proved by the check.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: lowering L-55. A method that takes any receiver refused, and the rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07).
+**While it is a member.** A member's check holds while it is a member. A method defined after the check is refused when it is defined (`ImplementError`), and does not exist, where at a call the check inferred it would:
+- serve the call with a result that infers outside the declared result;
+- or make the operation ambiguous at the member.
+- A method whose result infers within the declared result is accepted.
+- The new method itself is inferred at the call, before it exists. A call it makes to its own function sees the methods in force, so a self-recursive method's recursion is inferred at the method it replaces.
+- The message names the member, the operation, the trait, the declared and the inferred result, and the two fixes: return within the declared result, or do not define the method at this member.
+- An operation whose result the check did not infer (an abstract further argument) has nothing to keep: each call through the trait asserts the result (§7.9).
+- A serving method deleted leaves the member without one until a method serves it again; its calls raise `MethodError`. The method that serves it again is checked against the member's check, not against the state after the deletion.
+- A package image's method that the rule refuses is left inactive when the image loads, with a warning. A package that defines one after its own `@implement` fails to precompile.
+- A trait redeclared as a new type has no members of its own: the old type's members keep no check.
+- The declared result is read from the trait's contract when the method is defined.
+
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; images keeping the answers: lowering L-55. A method that takes any receiver refused, and the rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; a concrete membership loaded from a package's image keeps no check in the session (lowering L-55). Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take.
 
 ### 5.11 Overrides and redeclaration
 
-- **Which operations defaults serve for a member is fixed at its membership.** A later method of such an operation for the member is refused when it is defined (`ImplementError`). The message names the fix: define the method before the membership, or in its block. A package image that brings such a method is refused when it loads.
+- **Which operations defaults serve for a member is fixed at its membership.** A later method that would take a call a default serves at the member is refused when it is defined (`ImplementError`). The message names the fix: define the method before the membership, or in its block. A package image's such method is left inactive when it loads, with a warning.
+- **A forwarding member's methods are fixed at its membership, like the defaults:** a later method that would take a call one of them serves at the member is refused the same way (§5.5).
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image: lowering L-55. A redeclaration's new entry on `unified` 62016706d0.
+**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image: lowering L-55. A redeclaration's new entry on `unified` 62016706d0. The forwarding's methods, members checked at their first use, and the call a method would take (it applies there and no method in force beats it): TraitWorld `unified` 5b3c427, mine (2026-11-10).
 
 ### 5.12 Types that only convert
 
@@ -738,7 +751,7 @@ Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct'
 ### 7.9 Operations on a value the code knows only by its trait
 
 Where the code holds a value at the trait's type (code compiled once, a field or element typed by the trait, an operation's result declared with the trait):
-- **an operation's result is its declared result,** so the code after the call is typed. It is asserted, never converted: a member's result of another type raises a `TypeError`, as facts §2.1's "or raises" allows. A member checked at its membership (§5.10) returns it already, so the assertion only catches a member that escaped its check (a serving method redefined after it). A dynamic call of the same operation, and the interpreter, return the member's own result;
+- **an operation's result is its declared result,** so the code after the call is typed. It is asserted, never converted: a member's result of another type raises a `TypeError`, as facts §2.1's "or raises" allows. A member checked at its membership (§5.10) returns it already, and keeps its check while it is a member, so the assertion only catches what the check does not reach: a result at an abstract further argument, a concrete membership loaded from a package's image (lowering L-55), a membership declared below the library, and inference's own limits. A dynamic call of the same operation, and the interpreter, return the member's own result;
 - **the call branches on the first four members declared** of the trait, each a direct call that may be inlined. Any other member is called through a table keyed by its type: one lookup and one indirect call, whatever the number of members. The order is the declarations': a trait's package declares its common members first. At an intersection, the branches take the first component's members that are members of every component;
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
@@ -940,7 +953,8 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | `@implement` for one type | ownership, completeness, results, fields, parameters, concreteness, supertraits (§5.10) | `ImplementError`; ownership `OwnershipError` |
 | a member's first use (a family's, an abstract type's or a trait's member) | as at `@implement` | `ImplementError`, at that use and every later one |
 | a use before, or a module's end | a `struct S <: X` without `@implement X S` | `ImplementError` |
-| a method's definition | an override of an operation a default serves (§5.11); a pirate in a scope that refuses them (§12.2); an open method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
+| a method's definition | a method that would take a call a default or the forwarding serves at a member (§5.11); one that would serve a member's checked call with a result outside the declared one, or make the operation ambiguous at the member (§5.10); a pirate in a scope that refuses them (§12.2); an open method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
+| an image's load | an image's method that the rules of a method's definition (§5.10, §5.11) refuse | a warning; the method is left inactive |
 | a method's definition, strict mode | a pirate that would win at a fact of code compiled by facts (§12.3) | `PirateError` |
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode an error |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
@@ -948,7 +962,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership is a warning under strict mode too (T-98).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership is a warning under strict mode too (T-98).
 
 ### 11.2 Definition checking
 
@@ -970,7 +984,7 @@ Each message names the trait, the type, and the declared signature where one is 
 
 | Error | Raised for | The message names |
 |---|---|---|
-| `ImplementError` | a membership that fails its check | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance |
+| `ImplementError` | a membership that fails its check; a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
 | `OwnershipError` | a membership or method by a package that owns none of what it names | the method or membership, its owners, and who may declare it |
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method and the code compiled by facts it would change |

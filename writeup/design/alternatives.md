@@ -466,3 +466,9 @@ Choices made while building W-101 (2026-11-07), each recorded in [the decision l
 - **Finality by ownership for every trait** (proposal (d) as reviewed): a negative final once its declarers have loaded, for every trait. Not taken: the user (2026-11-09): "Finality should be opt in." Every trait keeps "a membership invalidates nothing" unless its author declares it closed after load ([traits §3.4](../reference/traits.md#34-open-and-closed)).
 - **Sealed membership** ([PE-19](../record/performance-explorations.md)): a negative final where every membership is declared with the member's definition or in its own package. Replaced by closed after load, which restricts no declarer and settles the answer by time.
 
+- **A member's check kept by other means** ([traits §5.10](../reference/traits.md#510-checks); [the plan](../plans/2026-11-10-recheck-at-redefinition.md) §4, [its review](../reviews/2026-11-10-plan-review-recheck.md); mine, 2026-11-10). Not taken:
+  - *Invalidate the member's check and check again at its next use:* the next call through the trait raises `ImplementError` in place of `TypeError`. The same failure, later, away from the definition that caused it.
+  - *Warn only:* the call through the trait still raises later.
+  - *The assertion alone* (traits §7.9): a contract checked once does not keep holding.
+  - *Infer the call after the method is inserted, and delete a refused method:* cannot run in the image hook (an image's methods are not in the table there) nor while a package is precompiled (no deletion then); it spends two worlds and the old method's compiled code on every refusal. Inferring the new method itself before it is inserted has none of these costs.
+  - *A result inside the declared one as the only test:* inference answers `Union{}` for an ambiguous call and for a call with no method, so a method that made the operation ambiguous at the member would pass. The ambiguity is refused first.
