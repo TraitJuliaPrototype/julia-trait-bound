@@ -179,3 +179,15 @@ The user, while E-330 ran: "When we see failures like this, also think about pri
 - New gates: `n22_declared_assert` (fails on 8c4b93f867, passes after), `n23_contract_image`; `n19`, `n21` extended.
 - The unmet-pair census (`audit/unmet_open_pairs.jl`): no pair in the goal's environment, so C-82's drop at open sets bought nothing there.
 - C-82 committed (999777ab77), building as E-341.
+
+## 20. The night: C-82 done (E-341); a member's check kept (E-342)
+
+- E-341 (`unified` 999777ab77): every check passes, the battery w341 included (gates 27 of 27 and 32 of 32, Base's eight test files, 21 acceptance cases, TraitWorld, both workloads); the forks' digests and the REPL transcript; TDE's suite. The census: no pair at an open set in the goal's, the forks' or the ODE port's environment, so open issue 172 closed with (a), no guarded drop. C-82 retired.
+- Two more plans written and sent to Fable reviews, from the deviations left: the re-check at a serving method's definition (171's review M4/M5: the assertion is the backstop, the check the invariant) and T-98 (strict mode's ambiguity at a membership).
+- The re-check's review (`writeup/reviews/2026-11-10-plan-review-recheck.md`): build with changes. The main one: refuse before the method is inserted, by inferring the new method itself (`Compiler.typeinf_frame`, not cached), since the after-hook with a deletion cannot run in the image hook nor while a package is precompiled. Also: `Union{}` passes `rt <: declared` for an ambiguous call, so an ambiguity is refused first; forwarding members unguarded; the first-use path recorded neither defaults nor results; coverage of images stated honestly (L-55, W-130).
+- Built in TraitWorld 5b3c427, in a scratch worktree while E-341's battery ran on `TraitWorld-unified`. Found on the way:
+  - a redeclared `@trait` makes a new type (Julia's binding replaced), so the review's M3 case (a contract changed in place) does not arise from a redeclaration; the old type's records are void instead;
+  - the image hook ran strict mode's walk through `_definition_hook(m, false)`: a winning pirate in an image threw `PirateError` out of the load, and the invalidation log was started for every image method and never stopped. The image hook now runs only the membership's checks.
+  - A scratch run of TraitWorld must use its own depot (`JULIA_DEPOT_PATH=<scratch>:…`): a second checkout of the same package precompiles into the shared depot's cache directory, which keeps a bounded number of files per package.
+- E-342: TraitWorld's suite with `test/recheck.jl` (ten sets), `stack/recheck_packages.jl` (an image's method left inactive; a package failing to precompile; the uncovered image case accepted), both workloads, the forks' checks, TDE's suite: all pass; no port met a refusal.
+- A pattern found while recording: my scripts that write an experiment's outcome split a registered row (`| where | | |`) into five cells, not six, and wrote E-339's and E-340's outcome into the status cell, losing the where cell. Both rows repaired; E-329 to E-331 had an extra empty cell. The outcome scripts now assert the five-cell shape of a registered row.
