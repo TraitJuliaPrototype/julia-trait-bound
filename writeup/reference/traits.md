@@ -338,7 +338,7 @@ All forms share these rules:
 - It is checked against the contract (§5.10).
 - **It invalidates no compiled code:** a call that the new membership could change is guarded ([facts §10](facts.md#10-memberships)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, but as lowering L-52 says.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
 ### 5.2 With the type's definition
 
@@ -355,7 +355,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters: the parameters come from the definition. The `@implement` may repeat them; a stated value, or a field's type, that differs is refused.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it raised at a use dispatched at run time in TraitWorld 0aff625 with `unified` 352b916899 (E-350), mine (2026-11-10); a use compiled with the type known: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it raised at a use dispatched at run time in TraitWorld 0aff625 with `unified` 352b916899 (E-350), mine (2026-11-10); a use compiled with the type known on `unified` fcdfd0da36 (E-352; the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
 
 ### 5.3 One line
 
@@ -442,7 +442,7 @@ end
 - **The family's variables are in scope in its block's methods,** as their static parameters: `@implement Holds{T} Box{T} where {T} begin elt(h) = T end`. Rust's generic `impl<T>` scopes them the same way.
 - **Where an equation defines a parameter** (`T = eltype(Self)`), the family states it as a type expression of its variables: `@implement Iterable{T} Wrapped{T} where {T}`. Each member's check compares the equation's value with it. A family whose instance cannot be written so is refused, naming the parameter. Rust writes an associated type in a generic `impl` the same way.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use at dispatch (compiler C-31); a variable bounded by a `Union` declared per type in dd72b10; the variables in the block's methods in 401c7b4, mine (2026-11-08).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use, at dispatch and before compiled code runs (`unified` fcdfd0da36, E-352; compiler C-31); a variable bounded by a `Union` declared per type in dd72b10; the variables in the block's methods in 401c7b4, mine (2026-11-08).
 
 ### 5.9 Abstract types and traits as members
 
@@ -1045,7 +1045,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 - A method loaded before an image that breaks the check of one of the image's memberships (§5.10) is reported when the image loads, as a pirate loaded earlier is: the membership's checked calls are inferred again at its load.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The checked calls of an image's membership inferred again at its load: Planned (W-133). With T-96, T-97.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The checked calls of an image's membership inferred again at its load, reported at error level and kept (`TraitWorld._LOAD_MEMBERSHIPS`) in TraitWorld 048c44e (gate `stack/strict_load_membership.jl`, E-353): mine (2026-11-10). With T-96, T-97.
 
 ---
 
@@ -1159,11 +1159,11 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
 | declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
 | `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
-| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end; 0aff625: the use before it, at dispatch); a compiled use before it L-52 | §5.2 |
+| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end; 0aff625 with `unified` fcdfd0da36: the use before it) | §5.2 |
 | one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
 | forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
-| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714), at dispatch (C-31); kept while a member, also from an image (TraitWorld 6871ea9, E-344); pattern answers in images L-55 | §5.10 |
+| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714, fcdfd0da36: at dispatch and before compiled code runs; C-31); kept while a member, also from an image (TraitWorld 6871ea9, E-344); pattern answers in images L-55 | §5.10 |
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |

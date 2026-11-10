@@ -101,7 +101,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52 (the use before the declaration raised at dispatch in 0aff625, E-350); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), the use before the declaration raised in 0aff625 (E-350), in compiled code with `unified` fcdfd0da36 (E-352); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -114,7 +114,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; an abstract member by its definition through its entry in e8554d9 (E-345); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-these-references)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch and in the compile queue ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; an abstract member by its definition through its entry in e8554d9 (E-345); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-these-references)).
 
 ---
 
@@ -290,7 +290,7 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 |---|---|---|---|---|
 | L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
 | L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
-| L-52 | [§3](#3-implement) | A use of `S` through `X` before `struct S <: X`'s `@implement` raises `ImplementError`. | Raised at a use that dispatch resolves at run time (TraitWorld 0aff625 with `unified` 352b916899, E-350). A call compiled with `S` known reaches `X`'s method without the member hook ([compiler C-31](compiler.md#deviations)), and the dispatch cache it fills serves a later dynamic use too. | `src/implement.jl` (`_undeclared_by_definition`); `julia-unified` `src/gf.c` (`member_hook_at_dispatch`) |
+| L-52 | — | *Retired* (2026-11-10): the use raises at dispatch and in compiled code ([§3](#3-implement); TraitWorld 0aff625, 048c44e with `unified` fcdfd0da36; `test/declared.jl`, E-350, E-352). What remains is the hook's: [compiler C-31](compiler.md#deviations) | — | — |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members of patterns checked while it was built, with the methods each check relied on; the records of §3, step 7, come back from the image's memberships. | The library keeps the pattern members' answers per session (`_CHECKED`): a member of a pattern is checked again at its first use in each session. | `src/implement.jl` |
