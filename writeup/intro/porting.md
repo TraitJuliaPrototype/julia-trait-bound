@@ -220,8 +220,9 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
 ### 0.5 What to keep plain
 
 - Bookkeeping, macros, printing, options parsing, `getproperty` sugar.
-- **Front ends and rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is open, marked `@open` in a trait module.
+- **Rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is open, marked `@open` in a trait module.
 - Abstract type hierarchies that are right as they are.
+- **Not the front end.** A package's entry functions (`solve`, `read`) belong to a trait module, as the code under them does. A front end compiled plainly is lost to unrelated loads as any plain code is, and it is the first thing each call runs.
 - Code that is not type-stable gets slower when compiled by facts. Keep it out of the facts mode where trait code does not call it, or make it fully typed.
 
 ### 0.6 How to check
