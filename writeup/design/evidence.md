@@ -68,6 +68,10 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
   - no member's load ends an instance of the twenty-one packages, in any order; the plain twin loses 9 (the core's generic functions at the second to fourth member).
   - the counts do not depend on the order: 160 own instances at the end, all facts code.
   - after a load the work compiles no own instance. It compiles one pointer in Base per operation and member, 8.3–8.6 ms at each member, not growing with the number loaded, and again in each session (GT-7). The plain twin compiles 18–39 ms at each of the first four members and 6.8–7.2 ms after.
+- **At the REPL: a new type, a new closure, an edit** (E-359; the demonstrators' images as above; a warm-up and 2 runs, load 5–12 of 128 cores):
+  - a table with columns of new cell types, summarized, sorted and plotted: 518–544 ms, the plain twin 565–573 ms. With a column of a new struct type: 148–151 ms against 166–177 ms. A solve with a new right-hand side 55–57 ms; with a new parameter struct 191–202 ms. None ends an instance.
+  - an edit of a method called through a cast (TraitTables' `summarize`) ends no instance, where the plain twin's edit ends its callers; the work after it 116–118 ms against 124–127 ms. An edit of a method called directly (ODECore's `save_step!`) ends its 16 callers; the work after it 306–314 ms.
+  - evaluating the edited method at a trait takes 2.82 s the first time in a session and 0.40–0.42 s after, against 82–94 ms and 8–9 ms in the plain twin: the definition-time check (GT-12).
 - With the display of the results (first / after the loads / loads first): plain 4.30–4.31 / 5.45–5.53 / 6.11–6.15 s; the one line 1.97–1.99 / 1.82–1.84 / 2.53–2.55 s; the forks 0.21 / 2.36–2.38 / 2.51–2.52 s.
 
 **Load protection in the product setting for a wrapped package** (E-153; NetworkDynamics 1.3.0 wrapped whole in `@trait_module`, with Static.jl's promotion fixed; the workload of evidence §3 in order B: CairoMakie, GraphMakie and Observables, 186 packages with their extensions, loaded after the first simulation; one run each; julia-1.13 6d480d0753, TraitWorld e9f4bfe; `ndport/logs/p3-orderB/`):
