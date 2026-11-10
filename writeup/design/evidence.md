@@ -66,6 +66,8 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 - **Before** (an earlier build, before parts B–D, `--pkgimages=no`): geometric mean 1.016, 1.064 without `scalar`; tails up to about 80×.
 - **The quick subset** (148 benchmarks, chosen to include the tails): geometric mean 1.710 (`quick.log`); 1.641 on the run of 2026-10-27. It is a selection of tails and controls, not the facts mode's cost.
 
+**A member's check kept while it is a member** (E-342, TraitWorld 5b3c427 on `unified` 999777ab77; [traits §5.10](../reference/traits.md#510-checks)): the re-check's gates pass (`TraitWorld-unified/test/recheck.jl`, `experiments/unification/stack/recheck_packages.jl`, with the image case lowering L-55 leaves uncovered asserted as accepted); TraitWorld's suite, both workloads, the forks' checks and TraitDifferentialEquations' suite pass, so no port defines a serving method that breaks its member's check.
+
 ## 2. Run time
 
 Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the round.
