@@ -7,9 +7,12 @@ permissions:
   contents: read
   pages: write
   id-token: write
+# One deployment at a time. A run waiting in the group is replaced by a newer push, but a running one is
+# never cancelled: a deploy cancelled mid-way leaves its Pages deployment pending, and the next run's deploy
+# then waits on it until it times out ("Timeout reached, aborting!").
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
