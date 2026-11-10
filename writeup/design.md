@@ -168,7 +168,7 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 ## 4. What is not claimed
 
 - No change to results beyond values that Julia decides by inference, such as the element type of an empty `map` ([facts §2.1](reference/facts.md#21-g1-identical-or-error)).
-- "Never invalidated" is strict mode's tier, for code compiled by facts; strict mode is built, with the deviations T-96 to T-98 ([facts §2.3](reference/facts.md#23-two-tiers), [traits §12.3](reference/traits.md#123-strict-mode)).
+- "Never invalidated" is strict mode's tier, for code compiled by facts; strict mode is built, with the deviations T-96 and T-97 ([facts §2.3](reference/facts.md#23-two-tiers), [traits §12.3](reference/traits.md#123-strict-mode)).
 - No "compiled once for any type": code compiled once at a trait (`Dynamic`) still calls each member's own methods, each compiled for its type, once, in its own image.
 - No claim that traits protect code from loads: the facts mode does, for any code it compiles. Traits make it cheap.
 - No claim that code calling into plain Julia at abstract types is as fast as in plain Julia: that is where the facts rule costs, and where traits are the remedy.

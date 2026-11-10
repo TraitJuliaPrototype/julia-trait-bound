@@ -101,7 +101,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52 (the use before the declaration raised at dispatch in 0aff625, E-350); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -225,7 +225,7 @@ end
 - the members checked while it was built, with the methods each check relied on;
 - code compiled ahead.
 
-**The records of §3, step 7, for an image's memberships** are made again in the loading session from the runtime's list of the memberships images activated ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)), before a definition or an image's methods are checked: for each in force at a concrete member of a set with a contract, the member's old records forgotten first. The membership and the contract are the record; the library's dictionaries are a cache of them. Where two entries are in force for one member and set, the latest holds (compiler C-84).
+**The records of §3, step 7, for an image's memberships** are made again in the loading session from the runtime's list of the memberships images activated ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)), before a definition or an image's methods are checked: for each in force at a concrete member of a set with a contract, the member's old records forgotten first. The membership and the contract are the record; the library's dictionaries are a cache of them.
 
 **Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342); made again from an image's memberships: TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). The pattern members' answers in images: L-55. `bounded` and the classification in TraitWorld bb78d02 (W-109, W-111); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379.
 
@@ -290,7 +290,7 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 |---|---|---|---|---|
 | L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
 | L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
-| L-52 | [§3](#3-implement) | A use of `S` through `X` before `struct S <: X`'s `@implement` raises `ImplementError`. | It is not caught: the type is `X`'s subtype by its definition, and nothing marks the missing declaration until the module's end. | `src/implement.jl` (`_implement_one!`) |
+| L-52 | [§3](#3-implement) | A use of `S` through `X` before `struct S <: X`'s `@implement` raises `ImplementError`. | Raised at a use that dispatch resolves at run time (TraitWorld 0aff625 with `unified` 352b916899, E-350). A call compiled with `S` known reaches `X`'s method without the member hook ([compiler C-31](compiler.md#deviations)), and the dispatch cache it fills serves a later dynamic use too. | `src/implement.jl` (`_undeclared_by_definition`); `julia-unified` `src/gf.c` (`member_hook_at_dispatch`) |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members of patterns checked while it was built, with the methods each check relied on; the records of §3, step 7, come back from the image's memberships. | The library keeps the pattern members' answers per session (`_CHECKED`): a member of a pattern is checked again at its first use in each session. | `src/implement.jl` |

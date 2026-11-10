@@ -355,7 +355,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters: the parameters come from the definition. The `@implement` may repeat them; a stated value, or a field's type, that differs is refused.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it raised at a use dispatched at run time in TraitWorld 0aff625 with `unified` 352b916899 (E-350), mine (2026-11-10); a use compiled with the type known: lowering L-52 (the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
 
 ### 5.3 One line
 
@@ -554,7 +554,7 @@ describe(x) = "something else"
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
 - **Reported earlier, at a membership:** where a membership makes a method apply to a type, and another method of the function is tied with it there with no more specific method for the type, a warning names the function, the methods and the joint method to define (`f(::All{ColTable, RowTable})`). The other method may be at a second trait of the type, at a trait or abstract type the type is under by its definition, or at `Any` with a narrower type at another argument. Under strict mode it is an error (§12.3): the membership that creates the ambiguity raises `ImplementError` and does not exist; a later membership, a redeclaration among them, is not refused for an ambiguity it did not create. For a member by its definition (`struct S <: X`), `X`'s methods apply by the definition, so a second trait's `@implement Y S` is the membership that creates the ambiguity, whether it comes before or after `@implement X S`. A method that dominates every common member suppresses the report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode on `unified` 0bb8f38830 with TraitWorld 960b99e (E-343), for the membership that creates the ambiguity on `unified` 2ee5569252 (E-346); a tie with a method at a declared supertype, a superset or `Any` on `unified` 53d28eea68 with TraitWorld 9383843 (`test/declared.jl`, E-347); at an image's activation: T-98.
+**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode on `unified` 0bb8f38830 with TraitWorld 960b99e (E-343), for the membership that creates the ambiguity on `unified` 2ee5569252 (E-346); a tie with a method at a declared supertype, a superset or `Any` on `unified` 53d28eea68 with TraitWorld 9383843 (`test/declared.jl`, E-347); at an image's activation reported after the load on `unified` 9f8d7d7c48 with TraitWorld 0aff625 (E-349, [§12.3](#123-strict-mode)).
 
 ### 6.4 The fallback
 
@@ -963,7 +963,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership an error under strict mode on `unified` 0bb8f38830 (E-343); at an image's activation a warning (T-98).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership an error under strict mode on `unified` 0bb8f38830 (E-343); at an image's activation reported at error level after the load on 9f8d7d7c48 with TraitWorld 0aff625 (E-349).
 
 ### 11.2 Definition checking
 
@@ -1045,7 +1045,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 - A method loaded before an image that breaks the check of one of the image's memberships (§5.10) is reported when the image loads, as a pirate loaded earlier is: the membership's checked calls are inferred again at its load.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). The checked calls of an image's membership inferred again at its load: Planned (W-133). With T-96, T-97, T-98.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The checked calls of an image's membership inferred again at its load: Planned (W-133). With T-96, T-97.
 
 ---
 
@@ -1159,7 +1159,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
 | declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
 | `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
-| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end); the use before L-52 | §5.2 |
+| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end; 0aff625: the use before it, at dispatch); a compiled use before it L-52 | §5.2 |
 | one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
 | forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
@@ -1179,7 +1179,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94) | §11 |
-| ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343), with T-96–T-98 | §12 |
+| ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343, and reported at an image's activation, E-349), with T-96, T-97 | §12 |
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options | Implemented (TraitWorld bb78d02, W-111) | §13 |
 | concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-100, T-101 | §14 |
@@ -1198,7 +1198,7 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-1 to T-95 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/traits.md` | — | — |
 | T-96 | [§12.3](#123-strict-mode) | Strict mode refuses a binding redefined from another module, through its hook ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)). | No such hook exists: a binding redefined from another module is followed. | `julia-unified` (no hook); TraitWorld `src/strict.jl` |
 | T-97 | [§12.3](#123-strict-mode) | A package extension's method that wins at a fact without naming its triggers' types is followed, with a warning. | It is followed without the warning. | TraitWorld `src/strict.jl` |
-| T-98 | [§12.3](#123-strict-mode) | Under strict mode, an image's membership activated at load that meets an ambiguity with code loaded earlier is reported as strict mode reports a pirate loaded earlier. | It is the runtime's warning at activation, as without strict mode; strict mode's report after a load does not name it. | `julia-unified` `src/datatype.c` (`jl_memberships_activated`), TraitWorld `src/strict.jl` (`_strict_at_load!`) |
+| T-98 | — | *Retired* (2026-11-10): under strict mode an ambiguity at an image's membership activated at load is reported after the load, at error level, in TraitWorld 0aff625 with `unified` 9f8d7d7c48 ([§12.3](#123-strict-mode), [compiler §9](compiler.md#9-images-and-the-machine-code-cache)); gate `stack/strict_activation.jl` (E-349) | — | — |
 | T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases (the work plan's M8). | The hints are tested on the library's own cases (`test/hints.jl`); the SciML cases need the port (W-104). | TraitWorld `test/hints.jl` |
 | T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for a call that cannot be resolved in the code or in anything it calls. | The compiler's check sees run-time sites in the code and in callees compiled by facts; one in plain code it calls (Base's, in the product setting) is reported by `fully_typed`, not raised. | `julia-unified` `Compiler/src/facts.jl` (`fully_typed_fault`) |
 | T-101 | [§14](#14-concreteness-and-fully-typed-mode) | Concreteness, like fully typed mode, can be declared for a module before `@trait_module`. | Concreteness is declared per trait and per method only. | TraitWorld `src/fullytyped.jl` |

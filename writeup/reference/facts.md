@@ -145,7 +145,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The compiled code is the same in both tiers. Strict mode acts only when a method is defined or an image's methods are activated.
 - By default a winning pirate is followed, as plain Julia follows it: the code with the broken fact is compiled again, once.
 
-**Status:** Implemented: strict mode in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [traits §12.3](traits.md#123-strict-mode)), with traits T-96, T-97, T-98.
+**Status:** Implemented: strict mode in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [traits §12.3](traits.md#123-strict-mode)), with traits T-96, T-97.
 
 ---
 
@@ -386,7 +386,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
-**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for three rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97); an ambiguity at an image's membership activated at load is the runtime's warning (T-98); at a declaration it is refused (`unified` 0bb8f38830, E-343).
+**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for two rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97). An ambiguity at a membership is refused at a declaration (`unified` 0bb8f38830, E-343) and reported after the load at an image's activation (`unified` 9f8d7d7c48, TraitWorld 0aff625, E-349).
 
 ---
 
@@ -467,7 +467,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39 | §9 |
 | memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59; traits closed after load `unified` bf447db25e | §10 |
-| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96 to T-98 | §11 |
+| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Implemented (`unified`, W-100), with compiler C-53; strict mode TraitWorld 7adcc94 (W-114) | §13 |
