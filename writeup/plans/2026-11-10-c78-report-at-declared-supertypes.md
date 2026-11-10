@@ -1,6 +1,6 @@
 # Plan: the ambiguity report covers a method at a member's declared supertype (compiler C-78)
 
-Status: **proposal** (2026-11-10, night), for a Fable review before it is built. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-c78.md)); its M1 built in `unified` 2ee5569252 (E-346); the search itself queued as W-132. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The deviation
 
@@ -39,3 +39,12 @@ The report today pairs methods at two sets. The principled question is narrower 
 ## 6. Records
 
 - compiler §5.4 (the search), C-78 retired; traits §6.3; julia-changes; the decision log, mine; open issues §1 (the order rule's item closed or narrowed).
+
+## 7. After the review
+
+[The review](../reviews/2026-11-10-plan-review-c78.md): build with the changes listed, not as written.
+- **Built tonight, M1:** the report names the ambiguities a membership creates. A pair whose methods both applied at the call types in the world before the entry is not reported; strict mode had refused an unrelated membership of an already ambiguous member, and a redeclaration. `unified` 2ee5569252, gate `m2_ambiguity_predates`, TraitWorld's `strict_membership.jl` flipped (d107c36); E-346.
+- **H2, recorded:** the plan's gate and the C-78 row's example (`f(::A)` against `f(::X)` at `S <: A`) are no ambiguity: a closed type is more specific than a set. C-78's row names the four real cases the review verified (a tie across positions, a pattern entry on the declared supertype, a superset's method, a joint method at `All{X, Y}` with a third set).
+- **Queued as W-132, with the review's changes:** H1 (a match counts only where it covers the member through no set the member is not in, else BaseTraits' own memberships are findings and strict mode refuses TraitWorld's precompile), H3 (substitute at `All{X, Y}`, a union, a variable's bound), M3 (one finding per method at the set, with the joint of every tied match), M4's gates, L2 (the pairwise test, not `ml_matches`' ambiguity flag), L3, L4.
+- **M2, for the user:** a tie with a method at `Any` (open issues §1).
+
