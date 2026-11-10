@@ -833,7 +833,7 @@ This section shows the layout of a package; it is taken from the demonstrators a
   ```
 - **Compiling ahead.** While a package that declares `@implement X T` is precompiled, the methods at `X` that `T` reaches are compiled into its image, and the checks run. A failing check fails the build.
 - **Extensions declare memberships,** never methods of the library's internal functions. TraitCSV supports InlineStrings' `String15` in an extension that declares one membership of `Vector{String15}`. Loading InlineStrings then discards none of the reader's compiled code.
-- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`.
+- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time.
 
 Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-programs).
 

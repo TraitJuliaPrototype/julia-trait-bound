@@ -1129,11 +1129,17 @@ Two guarantees, asked for separately.
 - **Closed programs:** `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program can reach, for `juliac --trim`:
   - a function passed at a `Callable` adds one target at its signature;
   - code compiled once lists every declared member as a target of its operations;
+  - a `compiled_for` call on a value known only by its trait lists the callee at every declared member, and the method instance the cast runs there;
   - a `like` result lists the member's rebuilding;
   - each set of supplied keywords is a signature.
+- **The report:**
+  - `targets`: every signature the program reaches;
+  - `entrypoints`: the targets that no call in the code names (the members', the casts' and the `Callable`s'). A build is told these: `add_entrypoints(report)`, called while `juliac` builds, registers them;
+  - `holes`: the run-time sites, the calls a trimmed binary cannot resolve;
+  - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 and e81cd49a67 (W-114): compiling ahead, gate `ahead_two_packages.jl`; `verify_main`, tests `verify.jl`, without `like`'s rebuilding (T-102). No trimmed binary is built here ([compiler §2.6](compiler.md#26---trim)).
+**Status:** Implemented in TraitWorld `unified` 05991fc with `unified` 5f2373b2d5 and e81cd49a67 (W-114, W-135): compiling ahead, gate `ahead_two_packages.jl`; `verify_main`, tests `verify.jl`, without `like`'s rebuilding (T-102) and with T-107 and T-108. The casts' targets, the entry points and the bound: mine (2026-11-10). Trimmed binaries: E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
 
 ---
 
@@ -1184,7 +1190,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | scopes: `@trait_module` and its options | Implemented (TraitWorld bb78d02, W-111) | §13 |
 | concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114), with T-100, T-101 | §14 |
 | printing | Implemented; keys' printing Optional (W-110) | §15 |
-| compiling ahead, `verify_main` | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5, e81cd49a67; W-114), with T-102 | §16 |
+| compiling ahead, `verify_main` | Implemented (TraitWorld 05991fc, `unified` 5f2373b2d5, e81cd49a67; W-114, W-135), with T-102, T-107, T-108 | §16 |
 | named implementations | Planned (deferred) | §17 |
 
 ---
@@ -1207,3 +1213,5 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-104 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises at every run of a fault. | The check is in the method's code compiled by facts. A plain caller that inlines the method, or propagates constants into it (compiler C-45), runs it without the check. The warning's once-only flag is written into the code's literal. | `Compiler/src/optimize.jl`, `base/experimental.jl`; [the review](../reviews/2026-11-07-implementation-day.md) M7 |
 | T-105 | [§3.2](#32-parameters) | An input is never left open where an operation's result needs it: a method whose `where` variable or stated value does not fix it is refused at its definition. | Not checked: such a trait's method is accepted, and the call's result names the open input. | TraitWorld `src/trait.jl` (`_trait_method`) |
 | T-106 | — | *Retired* (2026-11-09): `IO`'s contract is Base's, on a closed type ([§9b](#9b-streams-io)) | — | — |
+| T-107 | [§16](#16-compiling-ahead-closed-programs) | The report's holes are the calls that a trimmed build leaves to run time. | It lists calls in Base that the build resolves (15 of a table program's 20). It misses a hole below a call it takes as resolved: Base's `repeat(::Char, ::Int)`, a JLL's `__init__`. | TraitWorld `src/fullytyped.jl`; E-361 |
+| T-108 | [§16](#16-compiling-ahead-closed-programs) | `add_entrypoints(report)` gives a cast's instance to the build through Julia's interface for entry points. | Julia's `Base.Experimental.entrypoint` takes a signature, which names the instance compiled once. The instance at a member is pushed into the compiler's internal list `Base.Compiler._entrypoint_mis`. | TraitWorld `src/fullytyped.jl` (`add_entrypoints`) |

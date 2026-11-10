@@ -192,9 +192,12 @@ Expr(:meta, :facts_always)     # always compiled by facts
 
 ### 2.6 `--trim`
 
-A trimmed build has no facts policy: every method is inferred plainly, and the image writes no facts flags. A binary is a closed world ([facts §13.3](facts.md#133-trimmed-binaries)).
+A trimmed build has no facts policy. A binary is a closed world ([facts §13.3](facts.md#133-trimmed-binaries)).
+- Every method is inferred plainly.
+- The image marks every module as never compiled by facts (§2.1's `never`). The binary's runtime, which does not know that its image was trimmed, then finds every method plain.
+- Every static call binds its callee's address. No call goes through a code slot (§3.3): a slot keeps no callee in the image, and a binary has no compiler to fill it.
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100): under `--trim` every method and top-level thunk is plain, so every CodeInstance is; not run here, since no trimmed binary is built in this workspace. With C-53.
+**Status:** Implemented on `unified` cb7f55bd35 (W-100), bb2031f820 (the modules' mark) and 564a2288e2 (no code slot; mine, 2026-11-10): under `--trim` every method and top-level thunk is plain, so every CodeInstance is. Trimmed binaries of the demonstrators are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
 
 ### 2.7 Fully typed mode
 
@@ -251,7 +254,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
 
 ### 3.3 The code slot
 
-- **A static call that holds only a result edge to its callee** loads its target through a slot. Every other call binds the callee's address.
+- **A static call that holds only a result edge to its callee** loads its target through a slot. Every other call binds the callee's address. A trimmed build has no slots (§2.6).
   - The record lists these callees with the CodeInstance (§3.1).
   - A callee qualifies when every call of it in the code is emitted as an `:invoke` typed by its result, and no statement inlines it, evaluates it concretely or propagates constants into it.
   - The callee's CodeInstance is Julia's own and in its MethodInstance's cache.
@@ -853,7 +856,7 @@ Each applies to all code.
 | Interface | Status | Section |
 |---|---|---|
 | the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47 | §1 |
-| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50, C-53; no method of Base a boundary (E-279) | §2 |
+| the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-51, C-52; cells W-112 | §3.1, §3.2 |
 | the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
@@ -926,7 +929,7 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-50 | [§2.4](#24-calls-between-policies) | The operation of `modifyfield!`, `modifyglobal!` and `memoryrefmodify!`, and a builtin that calls a function, reached by a dynamic call, dispatch with the policy of the code that calls them. | They reach with the setting's default; so does an ABI converter's generic call. | `src/builtins.c` (`jl_apply_reach`), `src/datatype.c`, `src/codegen.cpp` (`emit_abi_dispatcher`) |
 | C-51 | [§4.8](#48-negatives-never-fold-positives-through-entries), [§3.1](#31-the-record) | A positive answer through an entry folds, with the code's worlds from the entry's and the entry in its record. | It folds at `isa`, `<:` and a dispatch match in the frame being inferred. `typeassert`'s nothrow, `typesubtract`, the optimizer's own `isa` queries and the semi-concrete pass leave such an answer unfolded. | `Compiler/src/typeutils.jl` (`positive_fold_blocked`), `Compiler/src/tfuncs.jl` |
 | C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | Result edges are listed apart, on the CodeInstance's analysis results (W-101); a code edge names its callee's CodeInstance; no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. The rest comes with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
-| C-53 | [§2.6](#26---trim) | A trimmed image writes no facts flags. | It keeps the module's and the methods' flags; nothing reads them under `--trim`, and its CodeInstances are all plain. | `src/staticdata.c` |
+| C-53 | — | *Retired* (2026-11-10): a trimmed image marks every module as never compiled by facts, `unified` bb2031f820 ([§2.6](#26---trim); E-361) | — | — |
 | C-54 | [§6.2](#62-compilation-signatures), [§6.3](#63-the-attribute-at-a-call) | At each argument whose declared type is a set, or a parameter bounded by one, the attribute chooses the compilation signature. | An argument typed by a `where` variable bounded by a set (`x::C` with `C <: X`) is compiled for the value's type whatever its attribute; where the body uses `C`, what the intended state is: [open issue 163](../open-issues.md#2-design). A set whose type names the method's variables (`X{T}`) takes its attribute, compiled once at its instance with the variables' values (`unified` 1d493ca959, c248dbfd8c, ef93ff7844; gate `n13_attribute_free_vars`; TDE's three checks pass, E-298). | `src/gf.c` (`is_trait_arg_type`) |
 | C-55 | [§6.3](#63-the-attribute-at-a-call) | A set's default does not apply to a value whose type Julia's own modules define. | Julia's own modules are `Core` and `Base`: a standard library's type takes the set's default as a package's type would. A module of a script (under `Main`) counts as a package of its own. | `src/gf.c` (`type_is_own`, `module_package`) |
 | C-56 | [§6.9](#69-casts-and-keep) | Where the code is not compiled, `keep(x)` is resolved at the method's default attribute. | It is `x`. | `base/boot.jl` (`Core.keep`) |

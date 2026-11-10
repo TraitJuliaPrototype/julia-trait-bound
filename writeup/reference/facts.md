@@ -439,7 +439,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100; [compiler §2.6](compiler.md#26---trim)), with compiler C-53; not run here, since no trimmed binary is built in this workspace. `verify_main`: TraitWorld (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114).
 
 ---
 
@@ -470,7 +470,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
-| product setting, test bed, `--trim` | Implemented (`unified`, W-100), with compiler C-53; strict mode TraitWorld 7adcc94 (W-114) | §13 |
+| product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |
 | standard libraries as owners | Open | §1 |
 
 ---

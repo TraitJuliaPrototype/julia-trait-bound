@@ -409,7 +409,11 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
 
 ## 4. Builds and binaries
 
-- A trimmed TraitMakie binary: 4.07 MB (previous prototype, under the package policy, `--trim=unsafe-warn`). Not rebuilt on the current compiler.
+- **Trimmed binaries of the demonstrators, beside their plain twins** (E-361; `unified` 564a2288e2 and vanilla v1.13.2 45b6d15e34, TraitWorld 05991fc, TraitTables 160639e, TraitCSV 92c46d0, TraitMakie c9e294b, TraitDifferentialEquations 6658c65; product, strict mode off; one build each, load 2–3 of 128 cores; idiomatic trait code and plain twins):
+  - *Under `--trim=safe`* no library program builds. The verifier's errors: a table read and summarized 8 (with `verify_main`'s entry points 9), its plain twin 10 on the unified build and 12 on vanilla; an ODE solved 122, with a gradient through ForwardDiff 160, the plain twin 14 on vanilla; a plot 34 (with entry points 48), its plain twin 86 and 88. Hello builds (1,837,424 bytes). A JLL alone has 6 on both.
+  - *Under `--trim=unsafe-warn`* every program builds (trait form 2.8–5.0 MB, plain twins 2.1–4.3 MB), and none of a library runs to its end: each stops at its first call dispatched at run time, the plain twins at theirs. Hello and the JLL alone run, with the session's output.
+  - *`verify_main`* walks the table program in 2.8 s (1165 targets, 16 entry points, 20 run-time sites) and the plot in 3.2 s (1081, 24, 44). With its entry points the table binary gets past the members' operations and the cast, and stops at a site the report lists.
+  - The cause in the trait form is GT-13 ([open issues](../open-issues.md) §1).
 - The system image with the two inliner changes: 200.0 MB against 199.2 MB without them (the build of 2026-10-19).
 - **The unified build's membership machinery and plain Julia** (E-262; branch `unified` c3f0b4bc11 against vanilla v1.13.2 `45b6d15e34`, both built on the shared host 2026-11-06; plain code only, no open set declared; one run each, load 5–14): Base's `subtype`, `core`, `ambiguous` and `worlds` test files pass on both, in 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s (2–6 % slower); `detect_ambiguities(Base)` finds 0 on both. Building `Base.Compiler` took 295 against 289 s. Not yet a gate's control: one run each, and the branch is unaudited code under rework (W-98).
 

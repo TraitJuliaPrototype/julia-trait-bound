@@ -76,9 +76,9 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-10)
 
-- **Julia:** `julia-unified` `unified` 36b653bb3b. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 048c44e, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
-- **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie 6c5b99d, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations 52a45b6, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
+- **Julia:** `julia-unified` `unified` 564a2288e2. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 05991fc, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations 6658c65, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
@@ -89,7 +89,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee).
-2. Binaries on the unified build (W-135; G-6).
+2. Binaries on the unified build (W-135; G-6): the table, the ODE and the plot measured, [evidence §4](design/evidence.md#4-builds-and-binaries); upstream CSV with DataFrames and TraitReport's plot are left.
 3. Error messages compared with plain Julia's (W-136; G-5).
 4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
 5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8).
