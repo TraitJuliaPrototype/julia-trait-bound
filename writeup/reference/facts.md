@@ -313,7 +313,7 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
   - each branch is a fact, with its edge;
   - the call branches on the value's type over the candidates, with direct calls that may inline;
   - the last branch, the **fallback**, is a run-time site for any other type. It calls the call's target for the value's type through a table keyed by the type, in the caller's world, and records no edge.
-- **The result** is the operation's declared result, asserted on every branch not known to give it and never converted: a result of another type raises a `TypeError` ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [§11](traits.md#11-checks-and-errors)). The declaration is the contract each member was checked against, and a member keeps its check while it is a member ([traits §5.10](traits.md#510-checks)); the assertion catches what the check does not reach: a result at an abstract further argument, a concrete membership loaded from a package's image ([lowering L-55](lowering.md#deviations)), a membership declared below the library, and inference's own limits.
+- **The result** is the operation's declared result, asserted on every branch not known to give it and never converted: a result of another type raises a `TypeError` ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [§11](traits.md#11-checks-and-errors)). The declaration is the contract each member was checked against, and a member keeps its check while it is a member ([traits §5.10](traits.md#510-checks)); the assertion catches what the check does not reach: a result at an abstract further argument, a `struct S <: X` member loaded from a package's image, a method already in the session when an image's membership loads, and inference's own limits.
 - **A later member** reaches the fallback and invalidates nothing. Code compiled after its declaration may branch on it.
 - **Code compiled once for a trait argument** records no edge to the set of members. A member loaded after it was compiled discards none of it.
 
@@ -409,7 +409,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). Cells with the guards (W-112); the check records: lowering L-55; the store paused.
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). Cells with the guards (W-112); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
 
 ---
 

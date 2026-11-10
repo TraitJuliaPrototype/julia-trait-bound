@@ -92,6 +92,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
    - a fixed call for each call a default serves at `S`, and for each forwarding method of step 6, made once every trait of the declaration has its forwarding methods;
    - a checked result for each call whose result the check inferred within the declared result: the trait, the contract, the operation, the call, the parameters and the receiver type.
    - A redeclaration forgets the member's records for the trait before its block is defined. A member checked at its first use (§4) gets the same records then.
+   - One walk makes them, without inference: the same records at `@implement`, at a first use, and for a membership an image activated (§11).
 8. **While the package is precompiled:** compiling ahead (§12).
 
 `@implement (X, Y) S …` repeats steps 3 to 8 per trait, with step 2 once.
@@ -100,7 +101,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **A family variable bounded by a `Union`** (`@implement BoundedText I where {I <: Base.BitInteger}`) declares one membership per type of the union.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, per session (L-55); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), with L-52; ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)).
 
 ---
 
@@ -222,10 +223,11 @@ end
 - its traits' contracts, with their `TypeName`s;
 - its memberships, in the image's list ([compiler §9](compiler.md#9-images-and-the-machine-code-cache));
 - the members checked while it was built, with the methods each check relied on;
-- the records of §3, step 7;
 - code compiled ahead.
 
-**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342). The checks' records and the records of step 7 in images: L-55. `bounded` and the classification in TraitWorld bb78d02 (W-109, W-111); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379.
+**The records of §3, step 7, for an image's memberships** are made again in the loading session from the runtime's list of the memberships images activated ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)), before a definition or an image's methods are checked: for each in force at a concrete member of a set with a contract, the member's old records forgotten first. The membership and the contract are the record; the library's dictionaries are a cache of them. Where two entries are in force for one member and set, the latest holds (compiler C-84).
+
+**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342); made again from an image's memberships: TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). The pattern members' answers in images: L-55. `bounded` and the classification in TraitWorld bb78d02 (W-109, W-111); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379.
 
 ---
 
@@ -291,7 +293,7 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-52 | [§3](#3-implement) | `struct S <: X` records the receiver on `S`'s `TypeName`; a use of `S` through `X` before the `@implement` raises `ImplementError`. | The `@implement` checks and declares nothing in the runtime: the receiver is not recorded (keys, Optional), and a use before the `@implement` is not caught. | `src/implement.jl` (`_implement_one!`) |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
-| L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members checked while it was built, with the methods each check relied on, and the records of §3, step 7. | The library keeps both per session (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`): an image keeps none. A member of a pattern is checked again at its first use in each session. At a member whose membership was loaded from an image, a method that overrides a default or a forwarding method, or serves a checked call with a result outside the declared one, is not refused (gate `stack/recheck_packages.jl`, case 3, asserts it accepted). The fix: rebuild the records at a package's load from the image's memberships (the runtime's entries hold the member, the instance and `by`), W-130. | `src/implement.jl` |
+| L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members of patterns checked while it was built, with the methods each check relied on; the records of §3, step 7, come back from the image's memberships. | The library keeps the pattern members' answers per session (`_CHECKED`): a member of a pattern is checked again at its first use in each session. A `struct S <: X` member has no membership entry, so its image's check is not kept (gate `stack/recheck_packages.jl`, case 5, asserts it accepted; W-131). | `src/implement.jl` |
 | L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`; a local variable or a definition of either name is refused. | A cast in a call with keyword arguments or a splatted argument is refused ("not supported yet"); an argument named `compiled_for` or `with_dynamic` is not refused. | `src/julia-syntax.scm` (`lower-cast-call`, `check-not-cast-name`) |
 | L-57 | [§8](#8-like-and-withfields) | A type without a positional constructor that takes every field in order is refused with a hint naming the constructor needed. | Julia's `MethodError`, without the hint. | TraitWorld `src/like.jl` |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |

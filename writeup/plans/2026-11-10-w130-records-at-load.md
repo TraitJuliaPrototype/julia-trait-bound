@@ -1,6 +1,6 @@
 # Plan: a membership loaded from an image keeps its check (W-130, lowering L-55)
 
-Status: **proposal** (2026-11-10, night), for a Fable review before it is built. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
+Status: **adopted with the review's changes** (2026-11-10; [the review](../reviews/2026-11-10-plan-review-w130.md)); built in `unified` e42047dba2 with TraitWorld 6871ea9, E-344. The user (2026-11-09): "For tonight, Focus on fixing unsound rules and deviations. For each come up with a plan, have a Fable agent review it, and act on the review."
 
 ## 1. The gap
 
@@ -50,3 +50,17 @@ The membership and the contract are the record; the session's dictionaries are a
 ## 7. Records
 
 - traits §5.10's status (coverage), §5.11's; lowering L-55 (the records half retired or narrowed to the pattern members' answers), §11's "What a package image keeps"; compiler §10.1 or §9 (the activated list); julia-changes; the decision log, mine; W-130 done; open issue 168's recommendation.
+
+## 8. After the review
+
+[The review](../reviews/2026-11-10-plan-review-w130.md): build, with its changes. What was done (`unified` e42047dba2, TraitWorld 6871ea9):
+- **H1:** activation indexes every entry it puts in force and appends it to the session's list, whether or not it is on its home TypeName already. The missing index was a runtime fault of its own: compiler C-83, retired by the same commit; gate `n12_image_instances` gains the second-instance case through an image's own-type entry.
+- **H2:** a `struct S <: X` member has no entry: stated in traits §5.10's status and L-55's narrowed row, asserted as uncovered in the gate (case 5), W-131 for the fix.
+- **H3:** the gate's case 3 asserts TE's failure to precompile; case 4 adds a session redefinition at an image's member (outside refused, within accepted) and an image's forwarding member.
+- **M1:** one walk without inference (`_records_at`) makes the records at `@implement`, at a first use and for an activated membership; `check_member` collects nothing.
+- **M2:** the records of a membership are forgotten before they are made again; the cursor is reset at `__init__`; a failure of the sync warns and refuses nothing; the gate's case 6 counts BitVector's records after a second sync.
+- **M3:** compiler C-84 (activation ends no older entry); the library takes the latest entry in force.
+- **M4:** the limit stated in traits §5.10; strict mode's full check at load left for the user (open issues §1).
+- **M5:** the list is an svec replaced copy-on-write with release and acquire, rooted in both collectors, never written into an image.
+- **L1:** the forwarders' fixed calls come from their signatures (`_fwd_sigs`), so `_fwd` is not recorded. **L2:** the reasons in `alternatives.md`. **L4:** the records listed (traits §5.10, §5.11, §7.9, the status index; facts §9 and its status; lowering §3, §11, L-55; compiler §9, §10.1, C-83, C-84; open issue 168, open issues §1; W-130, W-131; julia-changes; the decision log). **L6:** the sync skips patterns, sets without a contract, refused and ended entries.
+

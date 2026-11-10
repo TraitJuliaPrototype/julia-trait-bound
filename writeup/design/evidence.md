@@ -70,6 +70,8 @@ A chapter of the [rationale](../design.md): the measurements behind the design, 
 
 **Strict mode refuses a membership that makes methods ambiguous; a membership lowers a cache a new ambiguity changes** (E-343, `unified` 0bb8f38830 with TraitWorld 960b99e; [traits §6.3](../reference/traits.md#63-ambiguity), [compiler §5.5](../reference/compiler.md#55-a-membership-lowers-dispatch-caches)): a member called before its second membership raises at the ambiguous call after it, dynamically and compiled (gate `m2_ambiguity_called_before`); on 999777ab77 both calls kept the old method. Under strict mode the membership is refused and changes nothing.
 
+**A membership loaded from an image keeps its check** (E-344, `unified` e42047dba2 with TraitWorld 6871ea9; [traits §5.10](../reference/traits.md#510-checks), [lowering §11](../reference/lowering.md#11-checks-errors-and-what-images-keep)): a package's method at another package's member outside the declared result fails its precompile; a session's is refused (`experiments/unification/stack/recheck_packages.jl`). The goal's environment loads with its 122 activated memberships' records made (180 checked results, 10 fixed calls) and no method refused; the records of all of them take 2.6–3.2 ms once compiled.
+
 ## 2. Run time
 
 Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the round.
