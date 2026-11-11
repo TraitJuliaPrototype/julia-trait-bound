@@ -500,3 +500,13 @@ Choices made while building W-101 (2026-11-07), each recorded in [the decision l
   - *A method at a trait invalidates, at its insertion, the callers at types that could join* (C-73): not kept; the membership reaches them when the type joins.
   - *The walk as a plain insertion at the member:* it ended every caller at `Any` and every instance of a method at `Vector{X}` with each new member (19 instances in one order of E-358). Not kept: a membership adds no method, so what matched before stays valid.
   - *`Callable`: a table of the function types asked about, and a walk at each method's definition:* not kept; an image's code would not have been in the table. The call holds an edge to the function's dispatch instead ([compiler §7.4](../reference/compiler.md#74-callables-call)).
+
+## The `where` variable, kept values and the abstract result: options not taken (2026-11-11)
+
+Decided by the user on principled choices set against Rust, Swift and Mojo.
+
+- **A `where` variable the body uses makes the method open at the argument** (compiled per type whatever the attribute; Rust's and Mojo's rule, the proposal of open issue 163). Not taken: it overrides the attribute the caller chose. Swift's rule is taken: the variable is the value's type under either attribute, read at run time in code compiled once.
+- **`keep`'s `Dynamic{X}` stored in a slot typed by the trait** (what was built). Replaced: the same lines stored a box at the prompt and the object in compiled code, so `isa`, `==` and `hash` on the stored item answered differently (open issue 175; `experiments/docs-examples/keep_at_prompt.jl`).
+- **A box that is transparent to questions about its object** (`isa`, `==`, `hash`, dispatch at the object's other traits; Swift's `any`). Not taken: `x isa T` is `typeof(x) <: T` in Julia, and a box that answers for its content breaks that.
+- **Storage typed by the trait as the only erased storage** (the attribute lost there). Not taken alone: a caller's choice of `Compiled` or `Dynamic` should carry through a library's mixed storage. `Kept{X}`, one concrete type with the attribute beside the object, carries it; it is the kept form of 2026-10-21 (the user then: "One concrete type"), as a declared storage type.
+- **A result of an abstract type that is not a trait as a fault of fully typed code** (`AbstractTypeError` in the mode; mine, 2026-11-07). Replaced: fully typed code is exactly the code that compiles ahead, and a build compiles such code. The type is a fault where it is used, at the caller's call.

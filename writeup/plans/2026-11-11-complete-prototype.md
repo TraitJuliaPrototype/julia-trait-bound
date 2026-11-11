@@ -83,3 +83,8 @@ After the synthesis: the upstream patches (W-19), since the synthesis may change
 ## What is retired
 
 The speed work, for good (the user, above). W-121 and what is left of W-129 are retired. [The performance explorations log](../record/performance-explorations.md) is closed: an archive, read for inspiration in phase 6 and later. Performance work is phase 6 alone, under its rule.
+
+## Addendum, 2026-11-11 (night): bin A's decisions
+
+- **Made** (the user: "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later."): the `where` variable is the value's type under either attribute (W-148); the storage's type decides what is stored, with `Kept{X}` (W-149); an abstract result is no fault (W-142).
+- **W-141** (the user: "It is a conceptual simplification so I heavily lean towards adopting it. But I want to be sure the trade offs are manageable. So make a plan that builds it, but keep attention to managing and flagging where it might make problems."): built step by step under [its build plan](2026-11-11-membership-as-method-build.md), each step with a check that can stop it and a place where its problems are flagged.

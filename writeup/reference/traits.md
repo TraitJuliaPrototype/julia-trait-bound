@@ -662,6 +662,8 @@ At each call, each trait argument has an **attribute**:
 
 Both run the same methods and give the same results, or raise the same error.
 
+**A `where` variable bounded by a trait is the value's type, whatever the attribute:** in `f(x::C) where {C <: X}`, `C` is `typeof(x)` in the body. Code compiled for the type knows `C` when it is compiled. Code compiled once reads it from the value when it runs, so what it does with `C` is decided then.
+
 **Status:** Implemented on `unified` e692e57ab7 (W-111; [compiler §6.2](compiler.md#62-compilation-signatures), [§6.3](compiler.md#63-the-attribute-at-a-call)), but at an argument typed by a `where` variable (compiler C-54).
 
 ### 7.5 What decides
@@ -670,7 +672,7 @@ For each trait argument of a call, the first that applies, strongest first:
 1. **A cast at the call** (§7.6): the caller's override.
 2. **An attribute the value carries:**
    - an argument inside code compiled for it keeps its attribute when that code passes it on: code per key passes `Compiled`, code compiled once passes `Dynamic`;
-   - a `Dynamic{X}` is `Dynamic` (§7.7);
+   - a `Dynamic{X}` is `Dynamic` (§7.7); a `Kept{X}` is what it records (§7.8);
    - a value read from a field whose declared type is a struct parameter bounded by a trait carries what the parameter records: `Compiled` when the parameter is the value's own type, `Dynamic` when it is a `Dynamic{X}` (§8.2).
 3. **The library's default:**
    - at the argument: `@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`;
@@ -721,7 +723,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - `unwrap(d)` is the held object.
 - **It is a member of `X` and `X`'s supertraits only,** not of the other traits its object belongs to. To pass it where another trait is required, unwrap it, or keep it as `Dynamic{All{X, Y}}`, a member of both.
 - **A `Dynamic{Callable{A, S}}` is called at `A` only.** To call its function at another signature, wrap it again, `Dynamic{Callable{B, S}}(unwrap(d))`, or keep it as `Dynamic{All{Callable{A, S}, Callable{B, S}}}` where both signatures are known when it is stored.
-- **It keeps the attribute through storage:** a `Vector{Dynamic{Shape}}`, a field of type `Dynamic{Shape}` or `Shape`.
+- **It keeps the attribute through storage typed by it:** a `Vector{Dynamic{Shape}}`, a field of type `Dynamic{Shape}`. Storage typed by the trait itself holds its object (§8.1).
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
@@ -736,9 +738,25 @@ struct Problem{F <: Callable{RHSSig, Nothing}}; f::F; u0::Vector{Float64}; end
 Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, u0))
 ```
 
+**What is stored is decided by the storage's type, never by the caller's attribute.** So the same lines give the same answers at the prompt and in compiled code.
+- **A struct parameter bounded by the trait** takes `keep`'s value; the parameter records the attribute in the struct's type (§8.2).
+- **Storage typed `Kept{X}`** holds any member with its attribute, in one type:
+
+  ```julia
+  struct Scene; shapes::Vector{Kept{Shape}}; end
+  add!(sc::Scene, s::Shape) = (push!(sc.shapes, keep(s)); sc)
+  total(sc::Scene) = sum(area, sc.shapes)       # each item passed on with the attribute it was kept with
+  ```
+
+  - `Kept{X}` is one concrete type that holds a member of `X` and an attribute. Assignment converts: a member is held as `Compiled`, a `Dynamic{X}` as `Dynamic` with its object. `Kept{X}(x)` does the same.
+  - It is a member of `X` and of `X`'s supertraits only, as `Dynamic{X}` is (§7.7), with the same rule for `X`'s parameters. Its operations dispatch on the held object.
+  - Passed on, it carries its attribute (§7.5, step 2): held as `Dynamic`, it runs code compiled once; held as `Compiled`, the call runs the code compiled for the object's type, chosen when the call runs.
+  - `unwrap(k)` is the held object. A question about the object is asked of `unwrap(k)`: `k`'s own type is the same under either attribute.
+- **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds the object, read back plain (§8.1).
+
 Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06).
+**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Planned (W-149), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as a member of `X` that converts on assignment: mine (2026-11-11).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -774,17 +792,17 @@ Where the code holds a value at the trait's type (code compiled once, a field or
 ```julia
 mutable struct State
     const u::Vector{Float64}
-    model::Model                     # any member, or a Dynamic{Model}
+    model::Model                     # any member
     hooks::Vector{Hook}
 end
 ```
 
-- A field, element or `Ref` typed by a trait holds any member, boxed, as one typed by an abstract type does. It holds a `Dynamic{X}` too, which is a member.
-- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
-- **A value read back is what was stored:** a member, or a `Dynamic{X}`. A member read back is plain (§7.5); a `Dynamic{X}` stays `Dynamic`.
+- A field, element or `Ref` typed by a trait holds any member, boxed, as one typed by an abstract type does.
+- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member, and the held object for a `Dynamic{X}` or a `Kept{X}`: such storage holds the object itself. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
+- **A value read back is the member,** plain (§7.5). Storage that hands an attribute on is typed by a struct parameter (§8.2) or `Kept{X}` (§7.8).
 - An operation on a value read back follows §7.9.
 
-**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members.
+**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. The object stored for a `Dynamic{X}`: Planned (W-149), with T-111.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -983,7 +1001,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
 | `TypeError` | an operation's result that is not its declared type (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
-| `AbstractTypeError` | code under `@enforce_fully_typed` whose result is of an abstract type that is not a trait (§14) | the result's type and its root cause |
+| `AbstractTypeError` | a method under `@enforce_concrete_only result` whose result is not concrete (§14) | the result's type and its root cause |
 
 **The form of a message.**
 - A signature prints as a call, `tag(::Named)`. The compiler's tuple type, `Tuple{typeof(tag), Named}`, appears in no message.
@@ -1100,15 +1118,16 @@ Two guarantees, asked for separately.
 - **Per method:** `@enforce_concrete_only names…` before a method refuses a call where a named part is not concrete; `@warn_on_abstract` warns once per method and type. The names are the method's `where` variables that traits fix, and trait arguments, each standing for its `Self`. For a `Compiled` value the answer is decided where the call is compiled; for a `Dynamic` one, `Self` is not checked.
 
 **Fully typed code** is a property of a method at the signature it runs at: every call in it, and in what it calls, has known argument types. Such code pays nothing for the facts mode.
-- `@warn_not_fully_typed` warns at a method's first run at a signature; `@enforce_fully_typed` raises there, at every run: `NotFullyTypedError` where the code has a call it cannot resolve when compiled, in it or in what it calls; else `AbstractTypeError` where its result is of an abstract type that is not a trait. A method in either mode is compiled by facts. Fully typed code pays nothing for either.
+- `@warn_not_fully_typed` warns at a method's first run at a signature; `@enforce_fully_typed` raises there, at every run, `NotFullyTypedError`: the code has a call it cannot resolve when compiled, in it or in what it calls. A method in either mode is compiled by facts. Fully typed code pays nothing for either.
 - `fully_typed(f, argtypes)` reports the calls that are not, with their root cause through any number of layers, in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). `isfullytyped(report)` answers yes or no.
 - **Operations on a value the code knows only by its trait count as declared,** not as faults (§7.9).
+- **A result of an abstract type is no fault.** A type is a fault where it is used: a call on such a result is a call the caller cannot resolve, and the report of the caller names the result as its root cause. A method that wants a concrete result asks for it: `@enforce_concrete_only result` before the method raises `AbstractTypeError` at a signature whose result is not concrete.
 - **Fully typed code is exactly the code that compiles ahead** (§16). A method that is fully typed at a signature builds in a closed build from that signature, with no call left to run time. A method that is not is refused by the build, at the calls `fully_typed` reports. So the check in a session answers for the build, and the build's report is `fully_typed`'s.
 - **An argument the scope's fallback made `Dynamic`** (§7.5, the last step) is reported, not counted as declared: `detect_dynamic_fallbacks(mod)` lists each such argument per method, with its line, beside `detect_unused_casts` (§7.6).
 
 **They differ.** Concrete parts do not make code fully typed (a `Vector{Any}` argument, an abstract declared result can each leave a call unresolved). Fully typed code is checked at the signatures it ran at; concrete parts are promised for every member.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [compiler §2.7](compiler.md#27-fully-typed-mode)); tests `fullytyped.jl`, acceptance case `AC_16`, gate `n9_fully_typed`. With T-100, T-101. Fully typed as exactly what compiles ahead: Planned (W-142), with T-109. The modes' check in the compiler and the abstract result as `AbstractTypeError`'s case: mine (2026-11-07). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. The report of the fallback's arguments: mine (2026-11-06, [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md) M9), adopted with the work plan by the user.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [compiler §2.7](compiler.md#27-fully-typed-mode)); tests `fullytyped.jl`, acceptance case `AC_16`, gate `n9_fully_typed`. With T-100, T-101. Fully typed as exactly what compiles ahead: Planned (W-142), with T-109. The abstract result as no fault, and `@enforce_concrete_only result`: Planned (W-142), with T-110; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". The name `result`: mine (2026-11-11). The modes' check in the compiler: mine (2026-11-07). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. The report of the fallback's arguments: mine (2026-11-06, [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md) M9), adopted with the work plan by the user.
 
 ---
 
@@ -1235,4 +1254,6 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-106 | — | *Retired* (2026-11-09): `IO`'s contract is Base's, on a closed type ([§9b](#9b-streams-io)) | — | — |
 | T-107 | [§16](#16-compiling-ahead-closed-programs) | The report's holes are the calls that a trimmed build leaves to run time. | It lists calls in Base that the build resolves (15 of a table program's 20). It misses a hole below a call it takes as resolved: Base's `repeat(::Char, ::Int)`, a JLL's `__init__`. | TraitWorld `src/fullytyped.jl`; E-361 |
 | T-108 | [§16](#16-compiling-ahead-closed-programs) | `add_entrypoints(report)` gives a cast's instance to the build through Julia's interface for entry points. | Julia's `Base.Experimental.entrypoint` takes a signature, which names the instance compiled once. The instance at a member is pushed into the compiler's internal list `Base.Compiler._entrypoint_mis`. | TraitWorld `src/fullytyped.jl` (`add_entrypoints`) |
-| T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles. | The check and the build are two walks with two rule sets. Fully typed, yet refused by a build: a set with a member at an abstract type (compiler C-86); a call with more than 64 members to branch over; a hole inside plain code that the check takes as resolved (Base's `repeat(::Char, ::Int)`, a JLL's `__init__`). Built, yet not fully typed: a result of an abstract type that is not a trait (`AbstractTypeError`); the calls in Base that the session's rules leave to run time and the build resolves (T-107). The build's `BuildError` carries the build's own report. | TraitWorld `src/fullytyped.jl`, `src/build.jl`; E-361, E-364; W-142 |
+| T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles. | The check and the build are two walks with two rule sets. Fully typed, yet refused by a build: a set with a member at an abstract type (compiler C-86); a call with more than 64 members to branch over; a hole inside plain code that the check takes as resolved (Base's `repeat(::Char, ::Int)`, a JLL's `__init__`). Built, yet not fully typed: the calls in Base that the session's rules leave to run time and the build resolves (T-107). The build's `BuildError` carries the build's own report. | TraitWorld `src/fullytyped.jl`, `src/build.jl`; E-361, E-364; W-142 |
+| T-110 | [§14](#14-concreteness-and-fully-typed-mode) | A result of an abstract type is no fault of fully typed code; `@enforce_concrete_only result` asks for a concrete result. | Fully typed mode raises `AbstractTypeError` for a result of an abstract type that is not a trait; `@enforce_concrete_only` takes no `result`. | `Compiler/src/typeinfer.jl` (the mode's fault), TraitWorld `src/fullytyped.jl`; W-142 |
+| T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | Storage typed by the trait holds the object; `Kept{X}` holds a member with its attribute. | No `Kept{X}`. Storage typed by the trait holds a `Dynamic{X}` as it is, so `keep`'s box shows there ([the case](../open-issues.md#closed-items), issue 175). | TraitWorld `src/dynamic.jl`; W-149 |

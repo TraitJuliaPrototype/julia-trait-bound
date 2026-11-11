@@ -235,7 +235,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `keep`
 
-- **Here:** `keep(x)` stores a trait argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{X}` where it is `Dynamic`. A field or container then hands the attribute on.
+- **Here:** `keep(x)` is a trait argument with the attribute it has in the current code: itself where it is `Compiled`, a `Dynamic{X}` where it is `Dynamic`. What is stored is decided by the storage's type: a struct parameter records the attribute, `Kept{X}` holds the member with its attribute in one type, and storage typed by the trait holds the object.
 - **Origin:** the project's term.
 - **Defined in:** [traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute); [compiler §6.9](reference/compiler.md#69-casts-and-keep).
 
@@ -460,7 +460,7 @@ These appear in documents before 2026-11-06, in the record ([`record/INDEX.md`](
 | receiver type, receiver | part of the [key](#key) | 2026-11-06 |
 | trait object, view, held view | the member's own value, passed unwrapped ([traits §3.5](reference/traits.md#35-values)) | 2026-11-06 |
 | entry and worker (of a bounded function) | gone: one method, compiled per type, per key or once. "Entry" now means a [membership entry](#membership-and-entry) | 2026-11-06 |
-| kept value: `Compiled{X}`, `Kept{X}` | a member's own value, a field typed by the trait, [`keep`](#keep) | 2026-11-06 |
+| kept value: `Compiled{X}` | a member's own value, [`keep`](#keep) | 2026-11-06 |
 | trait cast, of the trait world, first seen through a trait | [casts](#cast) and the [attribute](#compiled-and-dynamic)'s order; `first_seen` is a module's fallback ([compiler §6.3](reference/compiler.md#63-the-attribute-at-a-call)) | 2026-11-06 |
 | bundle, tuple of traits | an [intersection](#intersection-allx-y), named by a `const` | 2026-11-06 |
 | associated type | a trait's [parameter](#parameters-and-input-parameters) | 2026-11-06 |
