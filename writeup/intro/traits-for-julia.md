@@ -423,7 +423,7 @@ Most of the time is Julia's start and the loading of package images.
 
 ### What is not done yet
 
-- **Ahead-of-time binaries:** `verify_main` lists what a program reaches through trait code, but no demonstrator builds as a trimmed binary (`juliac --trim`) yet.
+- **Ahead-of-time binaries:** a build (`juliac --trim`) has every member of a trait, so it compiles generic code for them, as Rust does. A small program builds and runs; no demonstrator builds as a trimmed binary yet.
 - **Threads:** not tested.
 - **Revise and redefinition:** changing a membership in a running session needs a restart.
 - **Keys:** sharing one compiled copy among members that the trait sees alike (a type that forwards to a field, say) is Optional, not built ([traits §7.2](../reference/traits.md#72-the-key)).

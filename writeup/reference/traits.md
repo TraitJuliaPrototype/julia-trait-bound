@@ -1134,6 +1134,10 @@ Two guarantees, asked for separately.
 - A key that some member already has compiles nothing new.
 - A method with several trait arguments is compiled at its first call. Arguments whose attribute is `Dynamic` have a known key, the erased one, so such methods are compiled ahead too.
 - Compiling ahead adds no method, so it invalidates nothing.
+- **A closed build compiles generic code for the members it has,** as Rust and Mojo do with a trait bound. A session keeps the set of members open, so a method at a trait is compiled once and reaches a member through a call that is resolved when it runs (§7.9). A build under `juliac --trim` has every member:
+  - a call whose caller knows the member's type runs the code compiled for that type, as in a session;
+  - an operation on a value known only by its trait (an item of a `Vector{Shape}`, a `Dynamic{Shape}`) branches over every member, each branch a direct call. Past the members it raises `MethodError`;
+  - so a program whose calls outside the traits are typed builds without a call left to run time, and its binary has no compiler in it.
 - **Closed programs:** `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program can reach, for `juliac --trim`:
   - a function passed at a `Callable` adds one target at its signature;
   - code compiled once lists every declared member as a target of its operations;
@@ -1147,7 +1151,7 @@ Two guarantees, asked for separately.
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented in TraitWorld `unified` 05991fc with `unified` 5f2373b2d5 and e81cd49a67 (W-114, W-135): compiling ahead, gate `ahead_two_packages.jl`; `verify_main`, tests `verify.jl`, without `like`'s rebuilding (T-102) and with T-107 and T-108. The casts' targets, the entry points and the bound: mine (2026-11-10). Trimmed binaries: E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
+**Status:** A closed build compiling generic code for its members: Implemented on `unified` 97861c6b31 ([compiler §7.6](compiler.md#76-a-closed-build); W-139, E-364), for a set whose members are all declared at concrete types. The rest: Implemented in TraitWorld `unified` 05991fc with `unified` 5f2373b2d5 and e81cd49a67 (W-114, W-135): compiling ahead, gate `ahead_two_packages.jl`; `verify_main`, tests `verify.jl`, without `like`'s rebuilding (T-102) and with T-107 and T-108. The casts' targets, the entry points and the bound: mine (2026-11-10). Trimmed binaries: E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
 
 ---
 

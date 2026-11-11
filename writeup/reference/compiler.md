@@ -196,6 +196,7 @@ A trimmed build has no facts policy. A binary is a closed world ([facts §13.3](
 - Every method is inferred plainly.
 - The image marks every module as never compiled by facts (§2.1's `never`). The binary's runtime, which does not know that its image was trimmed, then finds every method plain.
 - Every static call binds its callee's address. No call goes through a code slot (§3.3): a slot keeps no callee in the image, and a binary has no compiler to fill it.
+- An operation's call on a value known only by its trait is compiled for the members the build has ([§7.6](#76-a-closed-build)).
 
 **Status:** Implemented on `unified` cb7f55bd35 (W-100), bb2031f820 (the modules' mark) and 564a2288e2 (no code slot; mine, 2026-11-10): under `--trim` every method and top-level thunk is plain, so every CodeInstance is. Trimmed binaries of the demonstrators are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
 
@@ -708,6 +709,24 @@ This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own.
 - **The eraser `IOContext{IO}`** holds its stream in a field typed `IO`, so its forwarders' calls of the operations split. Base defines `IOContext{IO}(io)` and `IOContext{IO}(io, key => value, …)`; for an `IOContext`, the new context merges its properties, as `IOContext(io, …)` does.
 
 **Status:** Implemented on `unified` b05ae361e0 (W-129 (c); `base/iotrait.jl`, `jl_declare_contract`; gates `n19_io_trait`, E-337); each result `Any`, nothing converted, on ef1233e79e, the candidates in the contract on 18bbbf0841 (open issue 171, C-81; gates `n19_io_trait`, `n23_contract_image`; E-340). The user (2026-11-09: "Go with the Fable plans recommendations"; [the plan](../plans/2026-11-09-io-alternatives.md) §4.2). The candidates' order: mine (2026-11-09); no result promised: mine (2026-11-10). Targets at a stream past the candidates compiled at the first call: open issue 170.
+
+---
+
+### 7.6 A closed build
+
+A build under `--trim` is closed: the members of every set are those the build has. Nothing joins later, so nothing can be invalidated, and the rules that keep a session's code valid through later memberships have no purpose there. A closed build does what Rust and Mojo do with a trait bound ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+
+- **`closed_build()`** is true under `--trim`.
+- **The split is over every member** (§7.2), where the set's members can be listed: its candidates are all the set's concrete members that are of the receiver's type, not the first four. With them the box `Dynamic{X}`, which the set's own method opens.
+- **A set's members can be listed** (`jl_set_enumerable(X)`) where every membership entry in force names a concrete type. A member of a pattern, of an abstract type or of a subset joins the candidates at its first use (§7.2), which a build cannot wait for: at such a set the split is a session's, its last branch the dynamic call, which the verifier refuses.
+- **Each branch is a direct call** of the member's method, or its body inlined. No pointer, no table (§7.3).
+- **Past the branches the call raises** the `MethodError`. No call is left to dispatch when the program runs.
+- **A split over more than 64 members is not made.** The call stays dynamic, and the build's verifier refuses it.
+- **Memberships are asked in the world the build compiles for.** The build's driver runs in the compiler's own world, where no membership of the program exists; it sets the membership query world as `jl_type_infer` does for a session.
+- **Code inferred before every member was declared is inferred again.** While the build loads its program, an instance whose inference met an operation's call at a set, or a call left to dispatch on a trait argument, is noted. When the build compiles, each noted instance is invalidated, with its callers, and inferred with every member. A method at a set checked at its definition ([§6.7](#67-the-definition-time-check)) is such an instance: it was inferred with no member.
+- **The verifier refuses `Core.attributed_call`** left in the code: it is a call that dispatches when it runs.
+
+**Status:** Implemented on `unified` 97861c6b31 (W-139; E-364: a loop over a `Vector{Shape}` and a `Dynamic{Shape}` field build under `--trim=safe` and run, where the plain twin with an abstract type is refused). The rule: the user (2026-11-11). The box as a member, the bound of 64, the second inference, the listing of a set's members and the verifier's refusal of an attributed call: mine (2026-11-11). Not built: a split at a set with pattern members; a split by a table past a few members (each branch is an `isa` test, in declaration order).
 
 ---
 

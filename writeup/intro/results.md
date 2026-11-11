@@ -28,7 +28,7 @@ This page is for Julia programmers. It says what the measurements show, each aga
 - **A new member, a new type, a new closure compile little, and discard nothing.** Twenty packages that each add a member to one trait discard none of each other's code, in any load order. A member's package image holds 0.29× the compiled instances of a plain twin's.
 - **The costs are stated below:** no faster steady state is claimed; first-run sessions take 1.2–4.5× Python's time; code that uses no trait is up to 8–18 % slower on small repeated operations; an edit of a method at a trait takes 0.4 s.
 - **Mistakes are reported where they are made.** Of thirteen mistakes made against one small library, written with traits and in plain Julia, the trait form reports five at the line that makes them, where plain Julia reports at a later call inside the library, or not at all.
-- **Not shown yet:** better messages for failures inside a user's own function at run time, a trait program as a trimmed binary, the speed of trait calls on the current build.
+- **Not shown yet:** better messages for failures inside a user's own function at run time, a library-sized trait program as a trimmed binary, the speed of trait calls on the current build.
 
 ## Unrelated packages loaded after the work
 
@@ -131,7 +131,7 @@ Julia is slower than Python on every row. Where the time goes, by step, on the b
 ## What is not shown yet
 
 - **Better messages for failures at run time inside a user's own function.** On three classic failures of a differential equation solver, the trait port's messages are shorter than the upstream package's (0.08 to 0.66 of the bytes) and no shorter than those of the same small solver written without traits: no contract is broken, so no check reports earlier (E-363). The comparison for mistakes against a contract is E-362; the pages [`traits-for-julia.md`](traits-for-julia.md) and [`traits-by-example.md`](traits-by-example.md) show the messages.
-- **Ahead-of-time binaries:** no demonstrator builds as a trimmed binary, written with traits or as its plain twin (E-361).
+- **Ahead-of-time binaries of a library's size.** A small trait program builds as a trimmed binary (`juliac --trim`) and runs, 2.5 MB with no compiler in it, also where it loops over a `Vector` of a trait; the same loop over an abstract type is refused in plain Julia (E-364). No demonstrator builds yet, written with traits or as its plain twin (E-361).
 - **Run time on the current build:** a call on a value known only by its trait, `Callable` calls, mixed collections, the ODE solver's time per step. The evidence has them on the earlier build.
 - **Strict mode** on a stack of ports.
 - **Threads; Revise.**

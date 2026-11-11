@@ -125,7 +125,7 @@ How they depend on each other:
 - **Stable code makes declared needs worth having:** code compiled per member's type is cached in the image of the package that compiled it and not discarded by an unrelated load, so the copies are compiled once, not once per session.
 - **Compiling ahead follows from declared needs:** dispatch through trait code goes to declared targets that a build can list ([traits §16](reference/traits.md#16-compiling-ahead-closed-programs)).
 
-The first two are measured. The last two are arguments whose evidence is thin: what images keep, and a trait program in a trimmed binary, are the weak axes of [the goals](goals.md#2-where-each-axis-stands) (G-3, G-6).
+The first two are measured. The last two are arguments whose evidence is thin: what images keep, and a trait program of a library's size in a trimmed binary, are the weak axes of [the goals](goals.md#2-where-each-axis-stands) (G-3, G-6).
 
 **What G2's scope costs.** G2 covers code compiled by facts, not the plain code it calls ([facts §2.2](reference/facts.md#22-g2-stable-caches)). With one CodeInstance per MethodInstance and policy, facts code holds code edges into plain callees, and when a load invalidates such a callee, the caller is compiled again unless its callee's result is unchanged: the **code slot** then keeps the caller ([compiler §3.3](reference/compiler.md#33-the-code-slot)). Base is plain code in the product setting, so the plain callees include Base's. Measured ([evidence §1](design/evidence.md#1-the-guarantee), [§4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)):
 - on the unified build, every instance that upstream CSV and DataFrames compiled by facts lose to nine unrelated loads, and every one the ports of them lose, is reached through a plain callee in Base that a load's method invalidates. The ports lose 1.0 % of their instances, and these are the reader's entry chain: their work after the loads takes 0.96–0.98 s against 0.063 s before (E-355). A flagged tension between the goals ([open issues](open-issues.md) §1, GT-8);
@@ -205,7 +205,7 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 - No claim of better steady-state speed. The claim is no regression against plain Julia where types are known, and code per type where a caller opts in with `compiled_for(x)` ([the goals](goals.md), G-2).
 - No claim that code that uses no trait pays nothing: memberships are consulted in subtyping and method matching ([evidence §4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build); [open issues](open-issues.md) §1, GT-9, GT-11).
 - No claim that traits protect code from loads: the facts mode does, for the code it compiles, and not for the plain code that code builds on (§2.6). Traits make it cheap.
-- No trait program in a trimmed binary yet: none of the demonstrators builds under `--trim=safe` ([evidence §4](design/evidence.md#4-builds-and-binaries), E-361).
+- No trait program of a library's size in a trimmed binary: a small one builds and runs, with values known only by their trait (E-364), and none of the demonstrators builds under `--trim=safe` ([evidence §4](design/evidence.md#4-builds-and-binaries), E-361).
 - No claim that code calling into plain Julia at abstract types is as fast as in plain Julia: that is where the facts rule costs, and where traits are the remedy.
 - No numbers for TraitWorld on stock Julia: the design needs the patched build. Stock numbers appear only as baselines, and say so.
 - No threads, no Revise.

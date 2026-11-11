@@ -414,6 +414,13 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
   - *Under `--trim=unsafe-warn`* every program builds (trait form 2.8–5.3 MB, plain twins 2.1–4.4 MB, upstream CSV with DataFrames 6.8–7.7 MB), and none of a library runs to its end: each stops at its first call dispatched at run time, the plain twins at theirs. Hello and the JLL alone run, with the session's output.
   - *`verify_main`* walks the table program in 2.8 s (1165 targets, 16 entry points, 20 run-time sites) the plot in 3.2 s (1081, 24, 44) and the report in 4.1 s (1548, 40, 63). With its entry points the table binary gets past the members' operations and the cast, and stops at a site the report lists.
   - The cause in the trait form is GT-13 ([open issues](../open-issues.md) §1).
+- **A small trait program as a trimmed binary** (E-364; `unified` 97861c6b31 and vanilla v1.13.2 45b6d15e34, TraitWorld 99c4934; `--trim=safe`; one build each, load 6 to 13 of 128 cores; idiomatic trait code and plain twins). A trait `Shape` with two members and generic code over it:
+  - *Every call at a concrete member:* builds and runs with the session's output. 2,479,552 bytes; the plain twin 1,942,688 on the unified build and 1,845,008 on vanilla.
+  - *A loop over a `Vector{Shape}`:* builds and runs, 2,550,896 bytes. The plain twin, a `Vector` of an abstract type, is refused with 2 errors on both builds.
+  - *A field `Dynamic{Shape}`:* builds and runs, 2,540,800 bytes.
+  - The binaries link `libjulia` and `libjulia-internal`, not `libjulia-codegen` or `libLLVM`.
+  - Before the closed build ([compiler §7.6](../reference/compiler.md#76-a-closed-build); `unified` dd3f6d839b): the loop was refused with 8 errors, and the `Dynamic` program built and failed when run.
+  - *The demonstrators on the closed build:* still refused. Table 10 errors, ODE 120 (158 with a gradient), plot 46: values typed `Any` passed to methods at traits, sets with pattern members, and plain Julia's own holes.
 - The system image with the two inliner changes: 200.0 MB against 199.2 MB without them (the build of 2026-10-19).
 - **The unified build's membership machinery and plain Julia** (E-262; branch `unified` c3f0b4bc11 against vanilla v1.13.2 `45b6d15e34`, both built on the shared host 2026-11-06; plain code only, no open set declared; one run each, load 5–14): Base's `subtype`, `core`, `ambiguous` and `worlds` test files pass on both, in 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s (2–6 % slower); `detect_ambiguities(Base)` finds 0 on both. Building `Base.Compiler` took 295 against 289 s. Not yet a gate's control: one run each, and the branch is unaudited code under rework (W-98).
 

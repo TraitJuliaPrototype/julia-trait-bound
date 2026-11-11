@@ -436,6 +436,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 - **A `--trim` build has no facts policy.** It compiles every method plainly.
 - **Why:** a binary is a closed world. Nothing loads later, so there is no cache to protect.
+- **For the same reason its sets are closed:** an operation on a value known only by its trait is compiled for the members the build has ([compiler §7.6](compiler.md#76-a-closed-build)).
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
