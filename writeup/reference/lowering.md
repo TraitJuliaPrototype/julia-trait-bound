@@ -220,7 +220,7 @@ end
 **What a package image keeps:**
 - its traits' contracts, with their `TypeName`s;
 - its memberships, in the image's list ([compiler §9](compiler.md#9-images-and-the-machine-code-cache));
-- the members checked while it was built, with the methods each check relied on;
+- the members of patterns checked while it was built: the pairs (member type, trait) whose check passed. A session that loads the image does not check them again; their records (§3, step 7) are made again from the list, without inference, as a membership's are;
 - code compiled ahead.
 
 **The records of §3, step 7, for an image's memberships** are made again in the loading session from the runtime's list of the memberships images activated ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)), before a definition or an image's methods are checked: for each in force at a concrete member of a set with a contract, the member's old records forgotten first. The membership and the contract are the record; the library's dictionaries are a cache of them.
@@ -291,7 +291,7 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-52 | — | *Retired* (2026-11-10): the use raises at dispatch and in compiled code ([§3](#3-implement); TraitWorld 0aff625, 048c44e with `unified` fcdfd0da36; `test/declared.jl`, E-350, E-352). What remains is the hook's: [compiler C-31](compiler.md#deviations) | — | — |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
-| L-55 | [§11](#11-checks-errors-and-what-images-keep) | A package image keeps the members of patterns checked while it was built, with the methods each check relied on; the records of §3, step 7, come back from the image's memberships. | The library keeps the pattern members' answers per session (`_CHECKED`): a member of a pattern is checked again at its first use in each session. | `src/implement.jl` |
+| L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
 | L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`; a local variable or a definition of either name is refused. | A cast in a call with keyword arguments or a splatted argument is refused ("not supported yet"); an argument named `compiled_for` or `with_dynamic` is not refused. | `src/julia-syntax.scm` (`lower-cast-call`, `check-not-cast-name`) |
 | L-57 | [§8](#8-like-and-withfields) | A type without a positional constructor that takes every field in order is refused with a hint naming the constructor needed. | Julia's `MethodError`, without the hint. | TraitWorld `src/like.jl` |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |

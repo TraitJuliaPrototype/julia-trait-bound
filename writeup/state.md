@@ -76,8 +76,8 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-10)
 
-- **Julia:** `julia-unified` `unified` 5d8da002fa. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 4718b6e, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **Julia:** `julia-unified` `unified` b1c0b50f4c. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 347176a, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations 6658c65, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
@@ -89,9 +89,9 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee), on builds before W-140. A membership invalidates as a method does (W-140): built, checked by the gates and small cases; its rounds wait for the conceptually complete state.
-2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built for a small program. Next on this axis: a set with a member at an abstract type (C-86), the report before a build (traits T-107), the demonstrators typed.
+2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built; a family's members by use; TraitTables' table program builds trimmed and runs (E-364). Next on this axis: the report before a build (traits T-107), the ODE port's and the plot's programs.
 3. Error messages compared with plain Julia's (W-136; G-5): measured on a small library and on SciML's error cases, [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias).
-4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
+4. What images keep (L-55; G-3): built, an image keeps its member checks. Left under W-128: C-30's rest and C-54 (G-1).
 5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): W-137 is done ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)).
 6. Calls through a trait against plain calls, once, as a control (W-17; G-2).
 7. Unsound rules, beside every step (W-128).

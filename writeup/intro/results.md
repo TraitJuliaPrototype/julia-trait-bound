@@ -131,7 +131,7 @@ Julia is slower than Python on every row. Where the time goes, by step, on the b
 ## What is not shown yet
 
 - **Better messages for failures at run time inside a user's own function.** On three classic failures of a differential equation solver, the trait port's messages are shorter than the upstream package's (0.08 to 0.66 of the bytes) and no shorter than those of the same small solver written without traits: no contract is broken, so no check reports earlier (E-363). The comparison for mistakes against a contract is E-362; the pages [`traits-for-julia.md`](traits-for-julia.md) and [`traits-by-example.md`](traits-by-example.md) show the messages.
-- **Ahead-of-time binaries of a library's size.** A small trait program builds as a trimmed binary (`juliac --trim`) and runs, 2.5 MB with no compiler in it, also where it loops over a `Vector` of a trait; the same loop over an abstract type is refused in plain Julia (E-364). No demonstrator builds yet, written with traits or as its plain twin (E-361).
+- **Ahead-of-time binaries of a library's size.** A small trait program builds as a trimmed binary (`juliac --trim`) and runs, 2.5 MB with no compiler in it, also where it loops over a `Vector` of a trait; the same loop over an abstract type is refused in plain Julia (E-364). One demonstrator's program builds this way too: a CSV read with a summary, 3.1 MB, with the session's output (E-364). The ODE port's and the plot's programs do not build yet, written with traits or as their plain twins (E-361).
 - **Run time on the current build:** a call on a value known only by its trait, `Callable` calls, mixed collections, the ODE solver's time per step. The evidence has them on the earlier build.
 - **Strict mode** on a stack of ports.
 - **Threads; Revise.**
