@@ -386,7 +386,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Fully typed and fully typed mode
 
-- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. **Fully typed mode** is a check, per function or module, that raises where a call's argument types are not known.
+- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. Fully typed code is exactly the code that compiles ahead in a closed build ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). **Fully typed mode** is a check, per function or module, that raises where a call's argument types are not known.
 - **Origin:** the project's terms; Julia's `@inferred` and JET check related properties after the fact.
 - **Defined in:** [facts §1](reference/facts.md#term-fully-typed); [traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode); [compiler §2.7](reference/compiler.md#27-fully-typed-mode).
 

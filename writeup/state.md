@@ -83,13 +83,13 @@ The deviations of the implementation from the design are listed per reference: [
 
 ### 6.2 The target
 
-The design of the references, built on Julia as a stack of self-contained commits, proposed upstream where they are useful without traits (W-19), with TraitWorld as a package. Keys (Optional) come late; the machine-code cache (W-120) is decided after the profiling campaign.
+The design of the references, built on Julia as a stack of self-contained commits, proposed upstream where they are useful without traits (W-19), with TraitWorld as a package. Keys (Optional) are purely a performance optimization and deferred (PE-33); the machine-code cache across sessions (W-120) is being revisited.
 
 ### 6.3 The order of work
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee), on builds before W-140. A membership invalidates as a method does (W-140): built, checked by the gates and small cases; its rounds wait for the conceptually complete state.
-2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built; a family's members by use; TraitTables' table program builds trimmed and runs (E-364). Next on this axis: the report before a build (traits T-107), the ODE port's and the plot's programs.
+2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built; a family's members by use; TraitTables' table program builds trimmed and runs (E-364). Next on this axis: fully typed as exactly what compiles ahead (W-142; traits T-109, T-107), then the ODE port's and the plot's programs.
 3. Error messages compared with plain Julia's (W-136; G-5): measured on a small library and on SciML's error cases, [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias).
 4. What images keep (L-55; G-3): built, an image keeps its member checks. Left under W-128: C-30's rest and C-54 (G-1).
 5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): W-137 is done ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)).
@@ -98,7 +98,7 @@ The work builds toward [the goals](goals.md), the weakest axes first. The work q
 8. The upstream proposals (W-19).
 9. The synthesis (W-138).
 
-Speed work is stopped: W-121 and what is left of W-129 are paused. Open, to revisit: the machine-code cache across sessions (W-120). Waiting: keys (W-110).
+Speed work is stopped: W-121 and what is left of W-129 are paused. Next to revisit, with a proposal first: the machine-code cache across sessions (W-120; G-3). Deferred: keys (W-110), purely a performance optimization.
 
 Nothing waits for the user. The choices marked mine and the flagged tensions are input to the synthesis ([open issues](open-issues.md) §1).
 
