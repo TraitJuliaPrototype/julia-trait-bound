@@ -419,6 +419,7 @@ Under loads (form (b), a trait module calling upstream CSV.jl and DataFrames, ag
   - *A loop over a `Vector{Shape}`:* builds and runs, 2,550,896 bytes. The plain twin, a `Vector` of an abstract type, is refused with 2 errors on both builds.
   - *A field `Dynamic{Shape}`:* builds and runs, 2,540,800 bytes.
   - The binaries link `libjulia` and `libjulia-internal`, not `libjulia-codegen` or `libLLVM`.
+  - *`make_executable` and `make_library`* (TraitWorld 19862aa): from a session, an executable of the loop program, 2,543,792 bytes, and a shared library exporting `total_area(::Cint)::Cdouble`, 2,392,456 bytes, called from a C program. A program with a call on a value typed `Any` is refused with `BuildError`, naming 6 calls.
   - Before the closed build ([compiler §7.6](../reference/compiler.md#76-a-closed-build); `unified` dd3f6d839b): the loop was refused with 8 errors, and the `Dynamic` program built and failed when run.
   - *The demonstrators on the closed build:* still refused. Table 10 errors, ODE 120 (158 with a gradient), plot 46: values typed `Any` passed to methods at traits, sets with pattern members, and plain Julia's own holes.
 - The system image with the two inliner changes: 200.0 MB against 199.2 MB without them (the build of 2026-10-19).
