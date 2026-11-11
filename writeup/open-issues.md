@@ -8,6 +8,8 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 
 ## 1. Decisions waiting for the user
 
+**A membership is a method (W-141; [the proposal](plans/2026-11-11-membership-as-method.md), 2026-11-11),** written at the user's word ("I want this as a proposal. The biggest pro is conceptual simplicity."). To decide: (1) whether the definition becomes the intended design; (2) whether its first step (edges only) runs before the AOT line is finished or after; (3) strict mode's rule for a third-party membership: every one refused (today, mine) or a pirate method's rule. The work continues on the AOT line meanwhile (the user, the same message).
+
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 
 **The machine-code cache's review (W-120; [the review](reviews/2026-11-07-machine-code-cache-design.md), 2026-11-07), to revisit later** (the user, 2026-11-07: "Let's revisit this later. Do no regret work now. Building the ports is definitely sensible"): it finds that no cache reaches the goal alone (a perfect one leaves the DataFrames session at 5.5–6× pandas, E-234), while TraitReport's small cores already match pandas and matplotlib (E-233). It proposes, in place of the order the user accepted:
