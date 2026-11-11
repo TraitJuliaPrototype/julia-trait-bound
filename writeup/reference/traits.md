@@ -166,22 +166,13 @@ A trait is written wherever a type is written:
 - **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed, but `Callable` (§9), which is a trait.
 - A closed abstract type may be a member of a trait (`@implement Indexable{T} AbstractVector{T} where {T}`); then every subtype of it is a member.
 - **A closed abstract type may declare a contract:** its operations and the split's candidates, named once, in the image that defines the type. Its members stay Julia's and no check reaches them, so the contract promises no result: an operation's result is `Any`, Julia's own answer at such a receiver. At a value typed by it, an operation's call branches over the candidates (§7.9) and returns what the member's method returns. Otherwise Julia's rules apply: code typed by it is compiled per type. Base's `IO` declares one (§9b).
-- Compiled code relies on a membership that holds, never on one that does not, for an open trait: a later membership must find the code right (§6.2, [facts §10](facts.md#10-memberships)). For a closed type, Julia's rules apply; its contract's operations only branch (above).
-- **A trait closed after load** relies on non-membership too, once the answer is settled. Its author opts in with `@closed_after_load` in the body:
+- **Compiled code may rely on a non-membership.** Only the trait's owner or the type's may declare a membership without piracy (§12.1), so "`S` is not a `Shape`" is theirs to change. `isa` and `<:` fold, and a call selects its method without a guard. The code records the pair it relied on.
+  - A membership of that pair declared later invalidates the code that relied on its absence, as a method definition invalidates its callers: by an owner (a package extension that loads late, a declaration at the prompt, Revise), or by a pirate (§12.2).
+  - A new type that joins invalidates nothing: no earlier code asked about it.
+  - A membership that holds is relied on through its entry, from the entry's world ([facts §10](facts.md#10-memberships)).
+- For a closed type, Julia's rules apply; its contract's operations only branch (above).
 
-  ```julia
-  @trait Shape begin
-      @closed_after_load
-      area(s::Shape)::Float64
-  end
-  ```
-
-  - Only the trait's owner or the type's may declare a membership (§12.1). Once both have finished loading, "`S` is not a `Shape`" is final: compiled code may rely on it, with no guard, and `isa` and `<:` fold.
-  - A membership declared after that, from the prompt, by `eval`, by Revise or by a package extension that loads after its parent, invalidates the code that relied on its absence, as a late method definition does.
-  - While a declarer loads, its answers are not settled: code compiled then, its package image's included, keeps its guards. A type or trait of `Main` is never settled.
-  - Without `@closed_after_load`, a trait stays open, and a membership invalidates nothing ([facts §10](facts.md#10-memberships)).
-
-**Status:** Implemented on `unified` 62016706d0 (W-98); a later membership finds compiled code right by guards (`unified` 79b948420e, W-112). Closed after load: Implemented on `unified` bf447db25e and TraitWorld `unified` 9a45c36 (W-129 (a); [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)), with compiler C-76, C-77; gate `n18_closed_after_load`, E-329. Opt-in: the user (2026-11-09, "Finality should be opt in."). Opted in per trait, and the spelling `@closed_after_load`: mine (2026-11-09).
+**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on, with its edge: Implemented on `unified` bf447db25e (the mechanism; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)) and 80aa919bed for every trait (W-140, stage 1; gate `n18_closed_after_load`), where the pair's declarers have finished loading; code compiled while a declarer loads, and a pair with a type or trait of `Main`, keep a guard (compiler C-88). The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
 
 ### 3.5 Values
 
@@ -1023,7 +1014,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 
 - A package **owns** the functions and types it defines, traits included. Julia (Core, Base, the standard libraries) is one owner. A package extension counts as its parent.
 - **At the prompt,** `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
-- **A membership is declared by the trait's owner or the type's owner.** A third package may not (`OwnershipError`).
+- **A membership is declared by the trait's owner or the type's owner.** A membership by a package that owns neither is a pirate's (§12.2).
 - A membership for a foreign trait and a foreign type belongs in the trait owner's package extension. **A membership in a package extension names each of the extension's triggers** (each owns the trait or a type the declaration names); otherwise whether a type is a member would depend on which packages happen to be loaded. It is refused with `ImplementError`.
 - **An operation that is an existing function** (`Base.size`) may be served by methods in a block only for types the declaring package owns. Otherwise declare the type's existing methods: `@implement Sized Vector{Float32}`.
 - **Joint owners:** a package may name packages that own its functions and types with it (`@joint_owners DiffEqBase OrdinaryDiffEqCore`, at the top level of its own module). They are owners wherever the declaring package is one: memberships, pirates, strict mode's stakeholders. Not symmetric, not transitive; a joint owner's extension is a joint owner too. A joint owner's change is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
@@ -1032,11 +1023,12 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 
 ### 12.2 Pirates
 
+- **A membership of a trait you do not own, for a type you do not own, is a pirate's too.** It is followed, with a warning that names the owners, and the code that relied on its absence is compiled again. Under strict mode it is refused (`OwnershipError`). At the prompt, `@implement` of a package's trait for a package's type is such a membership.
 - A **pirate** is a method of a function you do not own, for types you do not own: Julia's type piracy. A trait you own is a type you own; a `Union` with your own type or a lower-bounded type variable is no way around it.
 - **A scope that declares `no_pirates`** refuses one at its definition (`OwnershipError`).
 - Elsewhere a pirate is followed, as in Julia; code compiled by facts that it changes is compiled again once ([facts §11](facts.md#11-pirates-and-strict-mode)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); refused under strict mode whether or not compiled code relied on its absence, and with `OwnershipError`: mine (2026-11-11).
 
 ### 12.3 Strict mode
 
@@ -1050,6 +1042,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - A method belongs to the module it is evaluated in.
 - A pirate loaded before the code it changes is reported when that code's image loads.
 - A package extension's method that wins at a fact without naming its triggers' types is followed, as its parent's change, with a warning.
+- A membership by neither the trait's owner nor the type's (§12.2) is refused, with `OwnershipError`.
 - An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 - A method loaded before an image that breaks the check of one of the image's memberships (§5.10) is reported when the image loads, as a pirate loaded earlier is: the membership's checked calls are inferred again at its load.
 
@@ -1183,7 +1176,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
-| a trait closed after load (`@closed_after_load`) | Implemented (`unified` bf447db25e, TraitWorld 9a45c36), with C-76, C-77 | §3.4 |
+| a non-membership relied on, with its edge; a pirate's membership | Implemented (`unified` bf447db25e, 80aa919bed; TraitWorld dbfb488), with C-76, C-77, C-88 | §3.4, §12.2 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |

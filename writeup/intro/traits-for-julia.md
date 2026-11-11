@@ -345,7 +345,7 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
   - the package that owns the function, or one of the types, changes it: an edit, an upgrade, one of its package extensions;
   - a pirate whose method wins at that call.
 - So an unrelated package's load does not discard the code, in any load order, with one limit: code compiled this way still builds on the plain functions it calls, Base's among them. When a load invalidates one of those, its callers are compiled again.
-- A membership discards no compiled code: compiled code never relies on a type's not being a member.
+- A new type that joins a trait discards no compiled code. An existing type that joins later discards only the code that relied on its not being a member; only the trait's owner or the type's owner declares a membership, and anyone else's is piracy.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
 - A few exceptions remain in both settings, listed in [the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 

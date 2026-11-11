@@ -58,7 +58,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 
 | ID | The tension | Between | Entry |
 |---|---|---|---|
-| GT-1 | "A membership invalidates nothing", with negatives that never fold | G-1 against G-2 and G-4 | open issues §1, flagged |
+| GT-1 | "A membership invalidates nothing", with negatives that never fold. Decided 2026-11-11: a membership invalidates as a method does (W-140) | G-1 against G-2 and G-4 | open issues §1, flagged; [facts §10](reference/facts.md#10-memberships) |
 | GT-2 | Strict mode infers an image's memberships at its load | G-5 against G-4 (load time) | open issues §1, flagged |
 | GT-3 | "The compiler is compiled plainly", and Base in the product setting | G-4 and G-7 against G-1 | open issues §1, flagged |
 | GT-4 | A cast decides only at an argument typed by a trait | G-8 against G-2 | open issues §1, flagged; open issue 162 |

@@ -488,3 +488,9 @@ Choices made while building W-101 (2026-11-07), each recorded in [the decision l
   - *The receiver recorded on `S`'s `TypeName`* (lowering §3 as it stood): a second kind of membership record beside the entry, with its own slot and image field, read by every reader of entries.
   - *A module-owned list of the package's members by definition,* written by the macro into a global the image keeps: a library-side shadow of the runtime's entries, and the ambiguity report and strict mode still miss the form.
   - *No entry, the form uncovered:* its image's check is not kept, an abstract member's subtypes are never checked, and the report misses it.
+
+## A membership invalidates nothing (replaced 2026-11-11)
+
+- **What it was:** a committed guarantee (the user, 2026-11-06): no membership ever ends compiled code. Kept by never relying on a non-membership at an open trait: a guard on every call a later membership could change, its result joined with the shadowing method's, and no fold of a negative `isa`. A trait's author could opt out per trait (`@closed_after_load`, 2026-11-09).
+- **Why replaced** (the user, 2026-11-11): only the trait's owner or the type's can declare a membership without piracy, so a later membership is a stakeholder's change or a pirate's, which G2 allows to invalidate. The guarantee's price was paid by code that uses no trait (GT-1, GT-9, GT-11; open issue 158's `@inferred` failures).
+- **What replaced it:** a membership invalidates the code that relied on its absence, as a method definition does ([facts §10](../reference/facts.md#10-memberships), [traits §3.4](../reference/traits.md#34-open-and-closed)); a membership by neither owner is a pirate's ([traits §12.2](../reference/traits.md#122-pirates)). [The proposal](../plans/2026-11-11-membership-piracy.md).
