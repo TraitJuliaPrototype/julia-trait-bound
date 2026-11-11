@@ -53,6 +53,8 @@ Tensions it should close or shrink: GT-1 (closed), GT-9 and GT-11 (to measure). 
 
 ## What to measure, before and after
 
+**Deferred** (the user, 2026-11-11: "Small measurements are fine. Larger measurement campaigns that take more than a few minutes should be avoided until we have reached a conceptually complete state of the prototype."). While the stages are built, each is checked by the gates, the library's tests and small cases of minutes: one composition order of E-358 with a few packages, one plain step, open issue 158's two cases. The rounds listed below wait for the conceptually complete state.
+
 Each on the same build but for the change, a registry row first.
 - Composition: E-358's twenty packages in five load orders. Expected: no instance ended, as today.
 - The plain session: E-356. Expected: DataFrames' repeated steps closer to vanilla's (GT-9); fewer than 197 plain instances ended by the library's load (GT-11).

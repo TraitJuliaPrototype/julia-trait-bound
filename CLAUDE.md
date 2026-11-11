@@ -99,4 +99,8 @@ Everything worth remembering is kept in the project's notes and guidance: this f
 
 **No excessive benchmarking.** Run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
 
+**No measurement campaigns until the prototype is conceptually complete** (2026-11-11, the user: "Small measurements are fine. Larger measurement campaigns that take more than a few minutes should be avoided until we have reached a conceptually complete state of the prototype."). While the design is still being built (W-139, W-140):
+- a change is checked by the gates, the library's tests and one or two small cases that take minutes;
+- a round over the ports, the unrelated loads, the sessions or every demonstrator's build waits. Its registry row says "to measure at the conceptually complete state", and the work queue lists what waits.
+
 The machine is shared. Jobs niced; full builds under a memory guard; above half load, one Julia job at a time and full builds alone. Details and the push pattern: `writeup/record/INDEX.md` ("Standing constraints") and `session-notes/00-environment-and-workflow.md`.
