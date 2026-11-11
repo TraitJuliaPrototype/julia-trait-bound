@@ -1,6 +1,6 @@
 # A membership by neither owner is piracy; a membership invalidates as a method does
 
-**Status:** proposal (2026-11-11, written in the main session; W-140). To build after W-139's closed build. Not normative: the references change when it is built.
+**Status:** proposal (2026-11-11, written in the main session; W-140), with its implementation planned in three stages (the same day, at the user's word: "If builds are long you can plan W140 in the meantime."). To build after W-139. Not normative: the references change when it is built.
 
 ## The user's words
 
@@ -69,6 +69,38 @@ Each on the same build but for the change, a registry row first.
 2. Julia: every open set takes the path of a set closed after load, from its declaration; the shadow query and the guard removed; a method at a set invalidates at members only. The library: `@closed_after_load` removed; a third-party membership declared with a warning by default, refused under strict mode.
 3. The gates and the library's tests; then the measurements after.
 4. The references (facts §2.2, §10; traits §3.4, §6.2, §12.1 to §12.3; compiler §4.8, §5.5, §5.6), the decision log, the goals' tensions, `intro/`.
+
+## The implementation, in three stages
+
+Planned 2026-11-11 from the code as it is (`unified` 97861c6b31, TraitWorld 19862aa). The mechanism is already there for a trait closed after load; the stages widen it, measure, and only then delete. Each stage is one build of Julia and one round of the measurements above.
+
+**Where the rule lives today.**
+- `jl_membership_final(S, X)` (`src/datatype.c`): "S is not an X" is final where `X`'s `TypeName` has the bit `closed_after_load` and the declarers (the module of `X`, the module of every `TypeName` in `S`) have finished loading (`module_loaded`).
+- Inference folds a final negative and records the pair's final cell as an edge (`jl_membership_final_cell`, `…_add_backedge`); a membership declared later invalidates through the cell.
+- Where the negative is not final: the shadow query (`jl_call_shadows`, `jl_could_join`), the guard (`GuardedCallInfo`, the inliner's guarded split) and the widened result.
+- The library: `@closed_after_load` in `@trait` (`jl_set_closed_after_load`); `OwnershipError` for a membership by neither owner (`ownership.jl:228`).
+
+**Stage 1: every trait is closed after load; a third-party membership is a pirate's.** Small, and it keeps every guard for code compiled while a declarer loads.
+- Julia: `jl_set_open_set` sets `closed_after_load` (one line). `Callable` and the other core sets keep their own rule.
+- The library: `@closed_after_load` accepted and ignored, with a note. A membership by neither owner: declared, with a warning that names the owners (default); `PirateError` under strict mode. The prompt (`Main`) is such a declarer for a package's trait and a package's type.
+- Checks: the gate `n18_closed_after_load` run for a trait without the option; the `m2_*` gates that pin a guard after both declarers have loaded are re-pinned (19 files to read; those that declare trait and type in `Main` keep their guards, since `Main` is never loaded); TraitWorld's suite (`ownership.jl`, `strict.jl`).
+- Measure: everything in "What to measure". This stage alone answers whether composition and the unrelated loads hold, and what the plain session gains (GT-9).
+
+**Stage 2: fold while a declarer loads, too.** Choice (a) of this proposal.
+- Julia: `jl_membership_final` drops the condition on `module_loaded`, for open sets. Then no pair is "not final": the shadow query finds nothing to guard.
+- A method at a set, at its insertion, invalidates the callers at types that are members (the dispatch edge they hold), no longer those with a pruned arm at a type that could join (`jl_could_join`'s use at insertion).
+- Measure: the library's load at a REPL (GT-1's 3,600 log entries; GT-11's 197 instances), a package that declares a membership after its own code used the pair (its precompile recompiles, once), the image validation of an edge on a final cell.
+- **Would stop here:** a package's precompile that loops (code and membership invalidating each other); images whose final-cell edges fail validation in a common load order.
+
+**Stage 3: delete what no path reaches.** Only after stage 2's measurements hold.
+- Julia: the shadow query and `jl_could_join` (13 uses in C, 2 in the compiler), `GuardedCallInfo` and the guarded split (9 uses in the compiler), the guard's cell fast path, `module_loaded` for memberships, the `closed_after_load` bit and `any_closed_after_load` (the system image's second pass in `base/sysimg.jl` stays, for Core and Base's own negatives).
+- The library: `@closed_after_load`, `GuardedCallInfo` in the fully typed walk (4 uses), the mark `serves_no_member` if nothing reads it.
+- The gates that pin guards and cells (`m2_*`) are rewritten as gates of the new rule or retired, each by its ID.
+- The references, the decision log, the tensions' index and `intro/`, in the commit that removes the code.
+
+**Order of the measurements and their rows.** One registry row per stage (the baseline is the build before stage 1): E-n for stage 1, a second for stage 2. Stage 3 changes no behaviour and has the gates as its check.
+
+**What is not in it.** The table of a call's targets and its pointer (GT-7), a membership's world (GT-14), the closed build (compiler §7.6), keys.
 
 ## Risks
 
