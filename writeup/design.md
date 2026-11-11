@@ -2,7 +2,7 @@
 
 This is a design for traits in Julia, written for Julia's core developers. It is built as a patched Julia 1.13 (the unified build) and a package, TraitWorld, and measured on demonstrators and ports: an ODE solver and the SciML port, a plotting library, a data report with its own CSV reader and table library, ports of CSV.jl and DataFrames.jl, and NetworkDynamics.
 
-This page is the rationale: the problem, the argument for the design's shape, and what is not claimed. The design itself, precisely, is in the four [references](reference/README.md): [traits](reference/traits.md), [the facts mode](reference/facts.md), [the compiler and runtime](reference/compiler.md) and [lowering](reference/lowering.md). They are the source of truth: where this page disagrees with them, they win. The numbers are in [the evidence](design/evidence.md), each with its build and its experiment (`E-n` in the [registry](record/experiments.md)). Designs that were tried and dropped are in [Alternatives considered](design/alternatives.md); the terms are in the [glossary](glossary.md).
+This page is the rationale: the problem, the argument for the design's shape, and what is not claimed. What the project sets out to show, axis by axis, and how far each claim is supported today is [the goals](goals.md); §2.7 says which step of the argument carries which goal. The design itself, precisely, is in the four [references](reference/README.md): [traits](reference/traits.md), [the facts mode](reference/facts.md), [the compiler and runtime](reference/compiler.md) and [lowering](reference/lowering.md). They are the source of truth: where this page disagrees with them, they win. The numbers are in [the evidence](design/evidence.md), each with its build and its experiment (`E-n` in the [registry](record/experiments.md)). Designs that were tried and dropped are in [Alternatives considered](design/alternatives.md); the terms are in the [glossary](glossary.md).
 
 ## 1. The problem
 
@@ -66,6 +66,7 @@ Most code is not fully typed. Where inference ran at an abstract signature, any 
 
 **The facts rule:** compiled code depends on the method table only through facts. A call that is not at a fact signature is a **run-time site**: it dispatches at run time, as plain Julia's dynamic dispatch does, and records nothing that a later method could break ([facts §5](reference/facts.md#5-run-time-sites)). Nothing is skipped: a fact is invalidated exactly when a definition changes dispatch at its signature. So code **compiled by facts** is invalidated only as step 1 says, fully typed or not, and step 2's refusal gives it the guarantee, **G2, stable caches** ([facts §2.2](reference/facts.md#22-g2-stable-caches)).
 - Verified: four definitions by owners that invalidate on 1.13.2 (an owned method at an abstract call, a new subtype under union splitting, a `return_type`-dependent `map`, a new type at a kind) invalidate nothing under the rule ([evidence §1](design/evidence.md#1-the-guarantee)).
+- Measured on packages as they are written, on the unified build: upstream CSV and DataFrames, compiled by facts by one line per module, lose 0.4 % of their compiled instances to nine unrelated loads, against 9.2 % compiled plainly, with equal results (E-355; [evidence §1](design/evidence.md#1-the-guarantee)). What is still lost is §2.6's subject.
 - **Which code.** Each method has a **policy**: facts, plain, or its caller's ([facts §6](reference/facts.md#6-which-code-is-compiled-how)). A **trait module**, a module declared `@trait_module`, compiles its methods by facts, whoever calls them; its code is **trait code**, all other code **plain code** ([traits §13](reference/traits.md#13-scopes-trait-modules)). In the **product setting** everything else keeps all of Julia's behaviour. The test bed **`all`** compiles every method but the compiler's by facts, to test the rule on code as it is written today ([facts §13](reference/facts.md#13-the-settings)).
 - **One CodeInstance per MethodInstance and policy** ([compiler §2.3](reference/compiler.md#23-one-codeinstance-per-methodinstance-and-policy)): a method reached from both kinds of code has a copy of each, in the same cache. Whether a CodeInstance meets G2 is a bit on it, computed from what it recorded ([compiler §3.2](reference/compiler.md#32-g2-as-a-predicate)); a package image keeps code that a session reaches only dynamically where the bit is set ([compiler §9](reference/compiler.md#9-images-and-the-machine-code-cache)).
 - **Strict mode's scope is code compiled by facts:** it refuses a pirate that would win at one of its facts ([facts §11.2](reference/facts.md#112-strict-mode)). So in strict mode such code is never invalidated except by a stakeholder's change: step 2's guarantee, carried by the facts rule to code that is not fully typed.
@@ -74,8 +75,8 @@ Most code is not fully typed. Where inference ran at an abstract signature, any 
 **The cost sits exactly where code is not fully typed.**
 - For fully typed code, inference by facts *is* plain inference: the same calls, edges and code.
 - Elsewhere, the rule removes Julia's heuristics for type-unstable code: speculation over the methods that match today, a result type from the one method that matches today, inlining and compile-time evaluation at abstract calls. Such a call's result is `Any`, which spreads into the code after it.
-- Under `all`, Julia's BaseBenchmarks run at a geometric mean of 1.037 against plain; the tails, up to 27.8×, are on containers of `Any`, abstract element types and small unions ([evidence §1](design/evidence.md#1-the-guarantee)).
-- On a whole session with upstream packages only, `all` saves the recompilation that loads cause and pays per round of work in Makie's containers of `Any`; a plotting session comes out ahead for the first few dozen rounds ([evidence §3](design/evidence.md#3-first-calls-and-sessions); E-140).
+- Under `all`, on the julia-1.13 build, Julia's BaseBenchmarks run at a geometric mean of 1.037 against plain; the tails, up to 27.8×, are on containers of `Any`, abstract element types and small unions ([evidence §1](design/evidence.md#1-the-guarantee)).
+- On a whole session with upstream packages only (the julia-1.13 build), `all` saves the recompilation that loads cause and pays per round of work in Makie's containers of `Any`; a plotting session comes out ahead for the first few dozen rounds ([evidence §3](design/evidence.md#3-first-calls-and-sessions); E-140).
 
 ### 2.4 Step 4: traits say what code needs, which makes the facts rule cheap
 
@@ -112,21 +113,24 @@ Step 2 is a switch. The default session leaves it off: a winning pirate is follo
   - order independence: by default the set of methods is order-independent, and only when code compiles depends on order. In strict mode compiled code's validity is order-independent, but the set of methods depends on order (a pirate defined after the code is refused, one defined before it is selected); a lint, `verify_main`, reports a fact of code compiled by facts that selects a pirate defined before it, and restores the symmetry ([facts §11.3](reference/facts.md#113-strict-modes-errors-at-their-sources)).
 - **Why it may be presented as a later, separate choice:** strict mode changes nothing at run time; G1 and the measurements do not depend on it; both tiers are stated; the exceptions of §2.2 are listed wherever the guarantee is claimed.
 
-### 2.6 How the two goals interact
+### 2.6 How the two parts depend on each other
 
-- **Goal 1:** composable caching of compiled code, and AOT: compiled code never invalidated unless code it depends on changes (steps 1–3).
-- **Goal 2:** code says what it needs, and compiled code serves every type that provides it (step 4).
+The argument has two parts:
+- **Stable code** (steps 1–3): compiled code is never invalidated unless code it depends on changes. It is what composable caching and compiling ahead need.
+- **Declared needs** (step 4): code says what it needs, and compiled code serves every type that provides it.
 
 How they depend on each other:
-- **Goal 2 makes goal 1 cheap:** fully typed code pays nothing for the facts rule, and declared results and memberships recover what the rule takes from code that is heterogeneous on purpose.
-- **The facts rule makes goal 1 unconditional:** code that is not fully typed keeps the guarantee, with run-time sites instead of fragile edges, and pays in speed only there.
-- **Goal 1 makes goal 2 worth having:** code compiled per member's type is cached in the image of the package that compiled it and never discarded by an unrelated load, so the copies are compiled once, not once per session.
-- **AOT follows from goal 2:** dispatch through trait code goes to declared targets that a build can list ([traits §16](reference/traits.md#16-compiling-ahead-closed-programs)).
+- **Declared needs make stable code cheap:** fully typed code pays nothing for the facts rule, and declared results and memberships give back what the rule takes from code that is heterogeneous on purpose.
+- **The facts rule makes stable code unconditional:** code that is not fully typed keeps the guarantee, with run-time sites instead of fragile edges, and pays in speed only there.
+- **Stable code makes declared needs worth having:** code compiled per member's type is cached in the image of the package that compiled it and not discarded by an unrelated load, so the copies are compiled once, not once per session.
+- **Compiling ahead follows from declared needs:** dispatch through trait code goes to declared targets that a build can list ([traits §16](reference/traits.md#16-compiling-ahead-closed-programs)).
 
-**What G2's scope costs.** G2 covers code compiled by facts, not the plain code it calls ([facts §2.2](reference/facts.md#22-g2-stable-caches)). With one CodeInstance per MethodInstance and policy, facts code holds code edges into plain callees, and when a load invalidates such a callee, the caller is compiled again unless its callee's result is unchanged: the **code slot** then keeps the caller ([compiler §3.3](reference/compiler.md#33-the-code-slot)). Measured ([evidence §4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)):
-- the slot keeps about a quarter of the code loads invalidate (E-261, [evidence §1](design/evidence.md#1-the-guarantee));
-- a session of loads pays 0.2–0.3 s with the slot, 0.7–1.0 s without it (E-265);
-- an image that keeps plain code satisfying G2 keeps 50–92 % of the compile time its facts copies of Base held (E-266).
+The first two are measured. The last two are arguments whose evidence is thin: what images keep, and a trait program in a trimmed binary, are the weak axes of [the goals](goals.md#2-where-each-axis-stands) (G-3, G-6).
+
+**What G2's scope costs.** G2 covers code compiled by facts, not the plain code it calls ([facts §2.2](reference/facts.md#22-g2-stable-caches)). With one CodeInstance per MethodInstance and policy, facts code holds code edges into plain callees, and when a load invalidates such a callee, the caller is compiled again unless its callee's result is unchanged: the **code slot** then keeps the caller ([compiler §3.3](reference/compiler.md#33-the-code-slot)). Base is plain code in the product setting, so the plain callees include Base's. Measured ([evidence §1](design/evidence.md#1-the-guarantee), [§4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)):
+- on the unified build, every instance that upstream CSV and DataFrames compiled by facts lose to nine unrelated loads, and every one the ports of them lose, is reached through a plain callee in Base that a load's method invalidates. The ports lose 1.0 % of their instances, and these are the reader's entry chain: their work after the loads takes 0.96–0.98 s against 0.063 s before (E-355). A flagged tension between the goals ([open issues](open-issues.md) §1, GT-8);
+- idiomatic trait code that does not rest on such callees loses nothing: the demonstrators' images lose no instance of a trait package to the same loads (E-357);
+- on the julia-1.13 build, estimated for the unified rule: the slot keeps about a quarter of the code loads invalidate (E-261); a session of loads pays 0.2–0.3 s with the slot, 0.7–1.0 s without it (E-265); an image that keeps plain code satisfying G2 keeps 50–92 % of the compile time its facts copies of Base held (E-266).
 
 | Code | Guarantee | Cost of the facts rule |
 |---|---|---|
@@ -134,6 +138,34 @@ How they depend on each other:
 | trait code at members' types, type-stable | as above; concreteness enforceable per trait | none |
 | trait code at declared abstract positions (`Dynamic{X}`, `Callable`) | G2: never invalidated by an unrelated load | a dispatch or indirect call per use, result type declared; the split |
 | plain code that is not fully typed | only under the test bed `all` | Julia's heuristics lost at its run-time sites: the tails of §2.3 |
+
+### 2.7 The argument and the goals
+
+[The goals](goals.md) name eight axes. Steps 1–4 argue for the first three and the sixth. The others follow from the same two rules, and from one choice of step 4: a trait is an abstract type.
+
+| Axis | What carries it |
+|---|---|
+| G-1 Recompilation | steps 1–3: compiled code depends on the method table only through facts; a membership changes no fact (§2.2). Step 4: code compiled once at a declared abstract position |
+| G-2 Run-time speed | step 4: code compiled per member's type is fully typed, and for fully typed code inference by facts is plain inference (§2.3). A caller opts into code per type with a cast, `compiled_for(x)` |
+| G-3 Caching | §2.6: stable code is worth keeping in images |
+| G-4 Downsides | the table of §2.6 says where the facts rule costs. What the membership machinery costs code that uses no trait is measured, not argued ([evidence §4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build)) |
+| G-5 Error messages | below |
+| G-6 Compiling ahead | §2.6: dispatch through trait code goes to declared targets |
+| G-7 Transition | below |
+| G-8 Simplicity | below |
+
+**Errors where the mistake is written (G-5).** Problem 2 says that nothing checks what an abstract type promises. A contract is checked on both sides, each at the place the code is written:
+- a membership when it is declared: an operation that is missing, or whose result is wider than declared, is an error at `@implement`, before any value reaches the library ([traits §5](reference/traits.md#5-joining-a-trait), [§11.1](reference/traits.md#111-when-checks-run));
+- a method at a trait when it is defined: a use of the argument outside the contract is an error at the method, before any member exists ([traits §11.2](reference/traits.md#112-definition-checking)).
+
+An error names the trait and the operation ([traits §11.3](reference/traits.md#113-errors-and-their-messages)). A trait or a method can require concrete parts and fully typed code ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)), which turns a silent performance cliff into a report.
+
+**A path, not a rewrite (G-7).** Three properties let a package migrate in steps, each of which leaves it running ([the porting guideline](intro/porting.md)):
+- the facts rule applies to any code, so a package is compiled by facts as it is, by one line per module (step 3; E-355);
+- a trait is an abstract type and dispatch is Julia's, with a type's own supertypes ranked before a trait ([traits §6.2](reference/traits.md#62-specificity)), so methods at traits stand beside the existing methods, a function at a time;
+- trait code calls any Julia code, and plain code calls trait code as it calls any function, so no package waits for another.
+
+**One mechanism (G-8).** A trait is an abstract type with two additions, open membership and a contract (§2.4). Subtyping, dispatch, `isa`, `where`, unions and method specificity are Julia's and apply to traits as to types. What is new to learn is the contract, the membership, and the attribute.
 
 ## 3. The design in brief
 
@@ -170,7 +202,10 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 - No change to results beyond values that Julia decides by inference, such as the element type of an empty `map` ([facts §2.1](reference/facts.md#21-g1-identical-or-error)).
 - "Never invalidated" is strict mode's tier, for code compiled by facts; strict mode is built, with the deviations T-96 and T-97 ([facts §2.3](reference/facts.md#23-two-tiers), [traits §12.3](reference/traits.md#123-strict-mode)).
 - No "compiled once for any type": code compiled once at a trait (`Dynamic`) still calls each member's own methods, each compiled for its type, once, in its own image.
-- No claim that traits protect code from loads: the facts mode does, for any code it compiles. Traits make it cheap.
+- No claim of better steady-state speed. The claim is no regression against plain Julia where types are known, and code per type where a caller opts in with `compiled_for(x)` ([the goals](goals.md), G-2).
+- No claim that code that uses no trait pays nothing: memberships are consulted in subtyping and method matching ([evidence §4c](design/evidence.md#4c-the-unifications-trade-offs-measured-on-todays-build); [open issues](open-issues.md) §1, GT-9, GT-11).
+- No claim that traits protect code from loads: the facts mode does, for the code it compiles, and not for the plain code that code builds on (§2.6). Traits make it cheap.
+- No trait program in a trimmed binary yet: none of the demonstrators builds under `--trim=safe` ([evidence §4](design/evidence.md#4-builds-and-binaries), E-361).
 - No claim that code calling into plain Julia at abstract types is as fast as in plain Julia: that is where the facts rule costs, and where traits are the remedy.
 - No numbers for TraitWorld on stock Julia: the design needs the patched build. Stock numbers appear only as baselines, and say so.
 - No threads, no Revise.

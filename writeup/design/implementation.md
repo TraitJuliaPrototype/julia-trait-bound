@@ -36,7 +36,7 @@ The [glossary](../glossary.md), with links to the precise definitions: [facts: T
 
 ### 3.6 How the two goals interact
 
-[The rationale §2.6](../design.md#26-how-the-two-goals-interact).
+[The rationale §2.6](../design.md#26-how-the-two-parts-depend-on-each-other).
 
 ## 4. Traits: saying what code needs
 

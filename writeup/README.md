@@ -39,4 +39,4 @@ The annex for agents: every review, exploration, plan, findings section and sess
 
 - **Terms** as in [`glossary.md`](glossary.md) and the references (trait, implementation, receiver type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
 - **Writing:** short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon; documents for programmers avoid the core developers' terms.
-- The machine is shared: one Julia job at a time, at `nice -n 19`; full builds alone, under a memory guard.
+- The machine is shared. Its rules (cores by load, jobs niced, full builds under a memory guard) are the record's standing constraints: [`record/INDEX.md`](record/INDEX.md).

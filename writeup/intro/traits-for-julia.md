@@ -9,12 +9,14 @@ This page is for Julia users and package authors. It covers:
 
 It assumes you know Julia. It does not assume you have read the design. The precise rules are in the [references](../reference/README.md), written for Julia's core developers. The terms, with their origins in other languages, are in [`../glossary.md`](../glossary.md). The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
 
-**Status, 2026-11-09.** This is a research prototype:
+**Status, 2026-11-11.** This is a research prototype:
 - a patched build of Julia 1.13 (the unified build, `julia-unified/` in this workspace), in which traits are part of Julia's types;
 - a package, TraitWorld (branch `unified`), with the macros and the checks;
 - demonstrators and ports: an ODE solver and a port of SciML's front end, a plotting library, a data report with its own CSV reader and table library, ports of CSV.jl, DataFrames.jl and NetworkDynamics.jl.
 
 Nothing is registered. Nothing is upstream. The worked example below runs as `experiments/docs-examples/intro.jl`.
+
+What the project sets out to show, and how far each claim is supported today, is in [the goals](../goals.md).
 
 ## The problems
 
@@ -120,9 +122,9 @@ colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
 What decides, strongest first ([traits §7.5](../reference/traits.md#75-what-decides)):
 1. a cast at the call: `colmean(compiled_for(m), 1)` or `colmean(with_dynamic(m), 1)`;
 2. an attribute the value carries: a `Dynamic{ColTable}` is `Dynamic`, and an argument passed on keeps its attribute;
-3. the library's choice for the argument (`@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`) or for its module;
+3. the library's choice for the argument (`@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`) or for its module (the option `dynamic`);
 4. the trait's default, `@default_dynamic` or `@default_compiled` in its body;
-5. otherwise, in a trait module, what the caller knows: a caller that knows the value's type passes `Compiled`; the prompt, or an item of a `Vector{Any}`, passes `Dynamic`.
+5. otherwise, for a method of a trait module, what the caller knows: a caller that knows the value's type passes `Compiled`; the prompt, or an item of a `Vector{Any}`, passes `Dynamic`. For a method outside a trait module: `Compiled`, as Julia compiles a method at an abstract type.
 
 ### A trait module
 
@@ -268,6 +270,8 @@ means(s, 1)                # [1.5, 1.5]
 ### What happens
 
 - **At the prompt** the values are `Dynamic`: the prompt knows no types, so each method runs its code compiled once, at the trait, and each operation dispatches when it runs. The results are the same as below.
+  - So a timing at the prompt, `@time colmean(m, 1)`, times the code compiled once. To time the code compiled for `Measurements`, call from a function, or cast: `colmean(compiled_for(m), 1)`.
+  - `keep` at the prompt stores a `Dynamic{ColTable}` that holds the value; from a function that knows the type it stores the value itself. Code that reads the shelf through `ColTable` sees no difference. Code that asks more of an item (its type, another trait) does ([open issue 175](../open-issues.md#2-design)).
 - **In a function that knows the types** (a script's functions, a package, or `colmean(compiled_for(m), 1)` at the prompt) the values are `Compiled`: `colmean` is compiled for `Measurements`, and again for `Ramp`, as plain Julia compiles a method per type. `meandiff(m, r, 1)` is compiled for this pair of types.
 - **The shelf** holds a `Measurements` and a `Ramp` in one vector typed by the trait. `means` is compiled once; the call `colmean(t, i)` on an item tests the item's type against `ColTable`'s members and calls each one's code directly.
 - **`colmap`** is compiled once for the signature `Float64 -> Float64`, not once per closure.
@@ -315,7 +319,7 @@ TraitUseError: colsum is declared bounded, and is open:
 
 ## What you get
 
-The numbers on this page are from the unified build `unified` 23022b0ec7 with TraitWorld 1745fc6 on the shared host, a warm-up and 3 runs (E-324). [`results.md`](results.md) and [the evidence](../design/evidence.md) have them with their baselines.
+The numbers on this page are measured on the unified build, on a shared host. [`results.md`](results.md) gives each with its build, its baseline and its experiment, and [the evidence](../design/evidence.md) has the full tables.
 
 ### 1. Compiled code that loading other packages does not discard
 
@@ -325,10 +329,15 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 - So compiled code depends only on calls whose types are all known. Only two kinds of change can alter one of those:
   - the package that owns the function, or one of the types, changes it: an edit, an upgrade, one of its package extensions;
   - a pirate whose method wins at that call.
-- So an unrelated package's load cannot discard the code, in any load order.
+- So an unrelated package's load does not discard the code, in any load order, with one limit: code compiled this way still builds on the plain functions it calls, Base's among them. When a load invalidates one of those, its callers are compiled again.
 - A membership discards no compiled code: compiled code never relies on a type's not being a member.
 - By default a pirate is followed, and the code it changes is compiled again. With strict mode on, the pirate is refused. Then compiled code is discarded only when code it depends on changes.
 - A few exceptions remain in both settings, listed in [the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
+
+Measured, with nine unrelated packages loaded after the work ([`results.md`](results.md)):
+- CSV.jl and DataFrames as they are, compiled in the facts mode by one added line per module: 0.4 % of their compiled code is discarded, against 9.2 % in plain Julia. The same work afterwards takes 0.48–0.66 s against 4.2 s.
+- Small libraries written with traits (a reader, a table, a plot): none of their compiled code is discarded, and the work afterwards takes 30 ms, as before the loads. The same libraries written without traits take 0.48 s.
+- The ports of CSV.jl and DataFrames lose 1.0 %, and it is their entry functions, through functions of Base: the limit above.
 
 **This protection comes from the compiler's facts mode, and it works for any code.** What traits add:
 - **The mode costs type-stable trait code nothing.** A method at a trait is compiled for the member's type. If its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. Plain code that is not type-stable gets slower in this mode (see "What it costs").
@@ -347,13 +356,27 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 - A type that joins later works at once, through the table, and discards no compiled code.
 - `Callable{Tuple{Float64}, Float64}` says "a function from `Float64` to `Float64`", and checks it. A new closure compiles nothing in the library.
 
-### 4. Sessions within reach of Python
+### 4. A new type, a new closure, a new member: little to compile
 
-- The data report, reading a CSV file into a `DataFrame`, summarizing it and plotting a histogram, in a fresh process: 1.59–1.63 s, against Python with pandas and matplotlib at 0.63–0.65 s (E-289).
-- An ODE solve with a plot (TraitDifferentialEquations and TraitMakie): 2.00–2.04 s, against the same task in Python at 1.43–1.46 s (E-230, measured on another machine).
-- The data report with the project's own reader and table library: 0.74–0.78 s, against the same Python app's 0.63–0.65 s (E-289).
+- A package that adds a member to a library's trait, with the library's work on it: its package image holds 0.29× the compiled code of the same package written without traits. The library's generic code is not compiled again for the member.
+- Twenty packages that each add a member to one trait discard none of each other's code, in any load order.
+- A new right-hand side for the ODE solver: 0.05 s for the second model. The solver is not compiled again.
 
 ## What it costs
+
+### No faster steady state
+
+- The claim is no regression: trait code whose types are known runs as plain Julia's does, and a caller opts into code compiled per type with `compiled_for(x)`. It is measured on the earlier build, not yet on this one ([`results.md`](results.md#what-it-costs)).
+- The project does not claim that trait code runs faster than well-written plain Julia.
+
+### First-run sessions are still slower than Python's
+
+Whole sessions in a fresh process, start to exit ([`results.md`](results.md)):
+- reading a CSV file into a `DataFrame`, summarizing it and plotting a histogram: 1.8 s, against 0.63–0.65 s for Python with pandas and matplotlib;
+- the same report with the project's own small reader and table library: 0.8 s;
+- an ODE solve with a plot, then a second model: 2.0 s, against 1.4 s for the same task in Python.
+
+Most of the time is Julia's start and the loading of package images.
 
 ### It needs a patched Julia
 
@@ -368,10 +391,15 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 - The rule the project follows: a slowdown is acceptable when rewriting the code with traits recovers it.
 - To find such code, `fully_typed(f, (ArgType1, ArgType2))` reports the calls in `f`, and in what it calls, whose argument types are not known; `@warn_not_fully_typed` and `@enforce_fully_typed` check it when the code runs ([traits §14](../reference/traits.md#14-concreteness-and-fully-typed-mode)).
 
-### Imports and memberships take a little longer
+### Loading, editing, and code that uses no trait
 
-- A membership is checked when it is declared, and a package's memberships are activated when its image loads.
-- Loading TraitWorld and the packages that use it is most of each session's time above; [`results.md`](results.md) breaks it down.
+- **Loading:** a membership is checked when it is declared, and a package's memberships are activated when its image loads. Loading TraitWorld and the packages that use it is most of each session's time above.
+- **A member that joins after its caller was compiled** is reached through a table. Each session makes the table's entry on the first call: about 9 ms per operation and member.
+- **Editing a method at a trait** runs its check again: 0.4 s per edit, and 2.8 s for the first edit in a session.
+- **Code that uses no trait** runs on the same patched Julia, where dispatch and subtyping also look at memberships. Measured on DataFrames without traits: its first run is not slower, and repeated small operations are 8–18 % slower than on stock Julia.
+- **Load TraitWorld first.** Loaded after plain code has been compiled, the library's methods on Base's functions (`length`, `iterate`) discard some of that code: 197 compiled instances and 0.25 s in the measured session.
+
+[`results.md`](results.md) has each number with its measurement.
 
 ### Not "compiled once for any type"
 
@@ -380,6 +408,7 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 
 ### What is not done yet
 
+- **Ahead-of-time binaries:** `verify_main` lists what a program reaches through trait code, but no demonstrator builds as a trimmed binary (`juliac --trim`) yet.
 - **Threads:** not tested.
 - **Revise and redefinition:** changing a membership in a running session needs a restart.
 - **Keys:** sharing one compiled copy among members that the trait sees alike (a type that forwards to a field, say) is Optional, not built ([traits §7.2](../reference/traits.md#72-the-key)).

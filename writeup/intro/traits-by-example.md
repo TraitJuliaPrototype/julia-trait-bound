@@ -165,7 +165,7 @@ Anything else makes it *open* at that argument: passing it to an ordinary functi
 2. **An attribute the value carries:** an argument keeps its attribute when the code passes it on, and a `Dynamic{Shape}` (§12) is `Dynamic`.
 3. **The library's choice:** `@specialize s::Shape` or `@nospecialize s::Shape` at an argument, or the module's option `dynamic`.
 4. **The trait's default:** `@default_dynamic` or `@default_compiled` in its body.
-5. **Otherwise, what the caller knows:** a caller compiled with the value's type passes `Compiled`. The prompt, or an item of a `Vector{Any}`, passes `Dynamic`. So the calls above, typed at the prompt, run the code compiled once.
+5. **Otherwise, for a method of a trait module, what the caller knows:** a caller compiled with the value's type passes `Compiled`. The prompt, or an item of a `Vector{Any}`, passes `Dynamic`. So the calls above, typed at the prompt, run the code compiled once. For a method outside a trait module the argument is `Compiled`, as Julia compiles a method at an abstract type.
 
 ```julia
 circle_ratio(c::Circle) = ratio(c)    # in a function: Compiled, compiled for Circle
@@ -431,7 +431,8 @@ unwrap(d)                         # Circle(2.0)
 
 - A `Vector{Shape}` holds members of any type. Each is stored as itself, or as a `Dynamic{Shape}`.
 - **`Dynamic{X}`** holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits). Code that receives it runs the code compiled once, at the trait. `Dynamic{Shape}(42)` raises a `TypeError`.
-- **`keep(s)`** stores an argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{Shape}` where it is `Dynamic`. At the prompt the argument is `Dynamic`; with `compiled_for` it is `Compiled`.
+- **`keep(s)`** stores an argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{Shape}` where it is `Dynamic`. At the prompt the argument is `Dynamic`; with `compiled_for`, or called from a function that knows the type, it is `Compiled`.
+- **Read a kept item through its trait.** A `Dynamic{Shape}` is a `Shape` and nothing else: `sc.shapes[1] isa Scalable` is false for the circle added at the prompt, and `sc.shapes[1] == Circle(1.0)` is false; `unwrap` gives the circle back. So code that asks more of an item than `Shape` gets different answers for an item added at the prompt and one added from a function ([open issue 175](../open-issues.md#2-design)).
 - `totalarea` is compiled once, whatever the scene holds. `area(s)` on an item tests its type against `Shape`'s members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type, so the loop stays typed.
 - A shape type declared later works at once, and discards no compiled code.
 
@@ -563,7 +564,7 @@ transform(x -> 1, [1.0])                        # TypeError: the result is an In
 transform(uppercase, [1.0])                     # MethodError: uppercase has no method at Float64
 ```
 
-- A function is a member of `Callable{A, S}` where it has a method for a call at `A`. Its own methods decide it; nothing is declared.
+- A function is a member of `Callable{A, S}` where it has a method for a call at `A`. Its own methods decide it; nothing is declared. Unlike the memberships of §3, `Callable`'s are not declared.
 - `S` is checked on return.
 - **`Compiled` or `Dynamic`, chosen for speed, never for results** ([§4](#4-methods-at-a-trait)):
   - `Dynamic`, `Callable`'s default: the library is compiled once per signature. A new closure compiles nothing in the library.
@@ -833,7 +834,7 @@ This section shows the layout of a package; it is taken from the demonstrators a
   ```
 - **Compiling ahead.** While a package that declares `@implement X T` is precompiled, the methods at `X` that `T` reaches are compiled into its image, and the checks run. A failing check fails the build.
 - **Extensions declare memberships,** never methods of the library's internal functions. TraitCSV supports InlineStrings' `String15` in an extension that declares one membership of `Vector{String15}`. Loading InlineStrings then discards none of the reader's compiled code.
-- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time.
+- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time. No demonstrator builds as a trimmed binary yet: the build refuses a call on a value known only by its trait ([results](results.md#what-is-not-shown-yet)).
 
 Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-programs).
 

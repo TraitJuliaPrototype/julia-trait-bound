@@ -1,6 +1,6 @@
 # Porting to traits: a guideline
 
-**Status, 2026-11-09.** The current design ([the references](../reference/README.md)). The examples are quoted from the ports on the unified build, each run by its package's suite:
+**Status, 2026-11-11.** The current design ([the references](../reference/README.md)). The examples are quoted from the ports on the unified build, each run by its package's suite; each quote is checked against the port's file (`experiments/docs-checks/check_quotes.py`):
 - the forks of Tables, CSV and DataFrames (`forks-unified`, branch `unified`);
 - TraitDifferentialEquations (`TraitDifferentialEquations-unified`);
 - TraitMakie (`TraitMakie-unified`);
@@ -68,13 +68,21 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 
 ## Part 0. The method
 
-**The first steps, in order:**
-1. Baselines: the upstream packages unchanged, on the unified build, with a workload a user would run and digests of its results.
-2. The package compiled by facts, unchanged (0.1).
-3. The traits written down (0.2).
-4. The seams, a function at a time (0.3), with results equal to upstream's at every step.
-5. The attribute chosen per position (0.4).
-6. Each step checked (0.6), and what it buys recorded.
+**The path, in order.** Each step leaves a package that runs, with upstream's results. A package may stop after any step. What each step gains and costs is measured on the ports ([the evidence](../design/evidence.md) has the builds and the run counts); the commit is the port's that shows the step.
+
+| Step | What changes in the package | What it gains | What it costs today |
+|---|---|---|---|
+| 1. Baselines | nothing: upstream on the unified build, a workload a user would run, digests of its results | the yardstick for every later step (0.6) | — |
+| 2. Compiled by facts, as it is (0.1) | one line per module | **Most of the protection against loads.** Upstream CSV and DataFrames with their five dependencies: nine unrelated packages loaded afterwards end 0.4 % of their compiled instances, against 9.2 % plain; the work after the loads takes 0.48–0.66 s against 4.18–4.20 s, its first run 0.67–0.70 s against 3.03–3.06 s (E-355). Shown by forks `2306541` (CSV), `3939802` (DataFrames) | code that is not type-stable is slower at its run-time sites; a test that asserts an inferred type through one sees `Any` ([open issue 157](../open-issues.md#2-design)) |
+| 3. The traits written down (0.2), the seams ported a function at a time (0.3) | the functions users extend become operations; generic code becomes methods at traits; extensions become memberships | Checked memberships and definitions: a mistake is an error where it is written. A new member ends no compiled code, in any load order (E-358). A member's package image holds the member's own code, not the library's again: 0.29× the instances of a plain twin's (E-360). Shown by forks `90b653a`, `30f77b3` | the entry functions are still lost to unrelated loads through the plain code of Base they call: the forks' work after the loads takes 0.96–0.98 s against 0.063 s first ([open issues](../open-issues.md#1-decisions-waiting-for-the-user) §1, GT-8). A method at a trait is checked again at each edit: 0.4 s, 2.8 s the first time in a session (GT-12) |
+| 4. The attribute per position (0.4) | a default per trait, `keep` at a store, a cast at the hot loop | A new user type compiles its own code, not the library: NetworkDynamics' new equations 0.57 s against 6.6 s with the models stored as themselves (E-309, E-327); a second ODE model 0.05 s (E-324). Shown by NetworkDynamics `4e5f5a2`, `c9339fd` | code compiled once dispatches each operation when it runs; a hot loop left `Dynamic` by mistake ran at half speed until its kernel was typed by the trait (E-314; [open issue 162](../open-issues.md#2-design)) |
+| 5. Pirates moved, strict mode (0.1) | each pirate moved to an owner; `no_pirates` on; the environment run under strict mode | the guarantee as a property of the environment, not a measurement ([the rationale §2.5](../design.md#25-the-default-following-pirates-and-what-it-gives-up)) | strict mode infers an image's memberships at its load (GT-2) |
+
+**What a port does not do.** Each is a tension recorded for the design, not a problem for a port to solve ([the goals §3](../goals.md#3-tensions-between-the-goals)):
+- **It does not turn a type the whole ecosystem specializes on into a trait to cure one slow step** (GT-10). A trait laid over such a type moves every caller. Where one entry compiles too much, it erases with the type's own eraser (0.4, A11).
+- **It does not rewrite code to avoid the functions of Base that a load can invalidate** (GT-8). The tool `experiments/unification/w134/cause.jl` lists them for an environment; the list is evidence for the design.
+- **It does not load TraitWorld late.** A package that uses the library loads it first; loaded after plain work, the library's methods on Base's functions end plain code compiled before it (GT-11).
+- **It does not design around a rule** (the note at the top of this page).
 
 ### 0.1 Compiling an unchanged package by facts
 
@@ -83,7 +91,8 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 - **What it costs:** nothing for fully typed code. At a run-time site plain Julia infers from the methods that match today; the facts mode does not. After one run-time site, a call on its `Any` result is one too. Code over `Vector{Any}` gets slower ([evidence §1](../design/evidence.md#1-the-guarantee)).
 - **How:** `@trait_module bounded = false no_pirates = false` in the package's module, before its first method. Its code is compiled by facts; nothing else changes.
   - DataFrames' fork does this for its whole module (`forks-unified/DataFrames/src/DataFrames.jl:139`), CSV's for its own (`forks-unified/CSV/src/CSV.jl:21`).
-  - What it buys there: plain packages loaded after CSV invalidated 752 of the forks' and TraitMakie's image instances while the reader was plain code; compiled by facts, the reader's image code stays valid, and the goal's read takes 0.03 s against 0.27 s (E-302).
+  - What it buys: the path's step 2 above (E-355). In the forks, plain packages loaded after CSV invalidated 752 of the forks' and TraitMakie's image instances while the reader was plain code; compiled by facts, the reader's image code stays valid, and the goal's read takes 0.03 s against 0.27 s (E-302).
+  - **What it does not cover:** code compiled by facts keeps a dependency on each plain function it calls and builds on, Base's included. When a load invalidates such a function, its callers compiled by facts are compiled again ([facts §2.2](../reference/facts.md#22-g2-stable-caches), the scope).
 - **Credit the right part.** The protection against loads is the facts mode's, for any code it compiles. Traits add checked memberships, code that says what it needs, and the choice between code compiled per type and code compiled once ([the rationale](../design.md)).
 - **Submodules inherit the options.** The submodule that holds the trait code declares `@trait_module` again, every option on: DataFrames' `ColumnKernels` (`forks-unified/DataFrames/src/other/kernels.jl:15`), CSV's `ColumnParsers` (`forks-unified/CSV/src/ColumnParsers.jl:18`).
 - **A package extension is a module of its own:** plain unless it declares `@trait_module`. One that only declares memberships needs none.
@@ -136,13 +145,13 @@ A trait names what generic code needs from a value, not how a type stores it.
 
   ```julia
   @trait IntegratorView{U, T, P} <: (HasProperty{:ps, ParameterView{P}}, HasSystem, ValueProvider{U, P}, IndexProvider{Symbol}) begin
-      @const u::U                        # TraitDifferentialEquations-unified/lib/ODECore/src/core.jl:97
+      @const u::U                        # TraitDifferentialEquations-unified/lib/ODECore/src/core.jl:98
       ...
   ```
 - **An informal interface becomes a trait over its existing functions.** Declare the operations with qualified names, and let the existing types join by their existing methods. A block of methods for an existing function serves only types the declaring package owns ([traits §12.1](../reference/traits.md#121-who-may-declare-a-membership)).
 - **How each type joins:**
   - by its own methods, in a block or after them;
-  - by forwarding to a field that holds the data: `@implement Positions Live{Matrix{Float64}} by val` (`TraitMakie-unified/src/TraitMakie.jl:229`);
+  - by forwarding to a field that holds the data: `@implement Positions Live{Matrix{Float64}} by val` (`TraitMakie-unified/src/TraitMakie.jl:232`);
   - as a family, or as an abstract type: `@implement Positions AbstractVector{P} where {P <: AbstractVector{<:Real}}` (`TraitMakie-unified/src/PlotCore.jl:51`).
 - **Extension is by membership, never by overloading the entry.** The owner writes the entry (`solve`, `DataFrame(x)`) once. A package that adds a member declares the membership, in an extension that names its triggers ([§12.1](../reference/traits.md#121-who-may-declare-a-membership)):
 
@@ -185,14 +194,14 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
 
   ```julia
   _run_batch!(dispatchT(batch), compiled_for(batch.model), batches, k, args)              # …/coreloop.jl:147
-  _run_batch!(::Type{VertexModel}, m::VertexDynamics, batches, k, args) = run_vertex_batch!(m, batches, k, args)   # :154
+  @inline _run_batch!(::Type{VertexModel}, m::VertexDynamics, batches, k, args) = run_vertex_batch!(m, batches, k, args)   # :154
   ```
   The batch's kernel is compiled per model. With `m` untyped the cast had no effect: the steady state took 436–475 ms against 228–257 ms (E-314; open issue 162).
 - **A stored user function:** a constructor with a `Callable` argument at the declared signature, whose variables come from the other arguments, and `keep`:
 
   ```julia
   @open function ODEProblem(f::Callable{RHSSig{P,T},Nothing}, u0::AbstractVector{T}, tspan, p::P;
-                      @nospecialize(callback = nothing)) where {T,P}     # …/ODECore/src/frontend.jl:62
+                      @nospecialize(callback = nothing)) where {T,P}     # …/ODECore/src/frontend.jl:63
       k = keep(f)
       ...
   ```
@@ -287,7 +296,7 @@ TraitDifferentialEquations (`TraitDifferentialEquations-unified`): a solver core
 3. **Callbacks see the integrator as `Dynamic{IntegratorView{…}}`:** a new callback compiles its own function only.
 4. **Properties of the contract are supertraits:** `HasProperty{:ps, ParameterView{P}}` (0.2).
 5. **A record that holds a function before its signature is known** (`ODEFunction`, a callback's functions) holds it plain, and the library's default decides when the function is entered ([open issue 159](../open-issues.md#2-design)).
-6. Measured: setting D (load, solve, plot, then a second model) 2.00–2.04 s; the second model 0.05 s, so a new right-hand side compiles no solver (E-324; [results](results.md#setting-d-an-ode-solve-and-a-plot)).
+6. Measured: setting D (load, solve, plot, then a second model) 2.00–2.04 s; the second model 0.05 s, so a new right-hand side compiles no solver (E-324; [results](results.md#sessions-against-python)).
 
 ### B3. Plotting and the report
 

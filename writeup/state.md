@@ -92,7 +92,7 @@ The work builds toward [the goals](goals.md), the weakest axes first. The work q
 2. Binaries on the unified build (W-135; G-6): the table, the ODE and the plot measured, [evidence §4](design/evidence.md#4-builds-and-binaries); upstream CSV with DataFrames and TraitReport's plot are left.
 3. Error messages compared with plain Julia's (W-136; G-5).
 4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
-5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8).
+5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): the intro's examples, the path and the rationale are checked ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)); the guide's part B is left.
 6. Calls through a trait against plain calls, once, as a control (W-17; G-2).
 7. Unsound rules, beside every step (W-128).
 8. The upstream proposals (W-19).
