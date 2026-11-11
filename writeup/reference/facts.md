@@ -335,7 +335,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)) and 80aa919bed (W-140, stage 1: every trait's non-memberships relied on once the pair's declarers have loaded), with compiler C-58, C-59, C-88. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
+**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)) and 1b2f0a9e1e (W-140, stages 1 and 2: every trait's non-memberships relied on; for a concrete type wherever they hold, for an abstract type once the pair's declarers have loaded), with compiler C-58, C-59, C-88. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
 
 ---
 
