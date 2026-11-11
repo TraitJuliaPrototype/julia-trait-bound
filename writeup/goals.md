@@ -33,7 +33,7 @@ So the axes, each with its claim:
 | G-7 Transition | A clean, doable path for the ecosystem to migrate, with clear porting guidelines. An ambition for the path, not a rule that code needs no rewrite. |
 | G-8 Simplicity | Traits are abstract types: one mechanism, easy to teach. |
 
-**Speed work is stopped** (the user's words above). No work item pursues speed. Speed is measured only as a control: that a change brings no regression (G-2), and what a rule costs (G-4). A slowdown found is recorded as a tension (§3), not fixed at the case.
+**The speed work is retired** (the user, 2026-11-11; [decisions](record/decisions.md) §5). No work item pursues speed; performance work is one phase after the measurement round, for fixes that add little code (W-146). Speed is measured only as a control: that a change brings no regression (G-2), and what a rule costs (G-4). A slowdown found is recorded as a tension (§3), not fixed at the case.
 
 ## 2. Where each axis stands
 
@@ -79,4 +79,4 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 The evidence, the tensions and the agent's choices are collected for one synthesis, from which the design is iterated (W-138). Until then:
 - **A choice the agent makes while building stands as recorded:** in the reference, and in the decision log marked "mine". It does not wait for the user's review (the user, 2026-11-10: "I don't want to review all decisions made by you.").
 - **Open issues §1 lists these choices as input to the synthesis.** Only a question that the work cannot continue without is put to the user.
-- **The order of work follows the weakest axes** ([the work queue](record/todo.md), "The plan").
+- **The order of work is the schedule to the synthesis** ([the schedule](plans/2026-11-11-complete-prototype.md); [the work queue](record/todo.md), "The plan"): the prototype completed, then measured, then the ports' lessons checked, then the synthesis.

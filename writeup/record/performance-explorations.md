@@ -1,5 +1,7 @@
 # Further performance explorations
 
+**Closed: an archive** (the user (2026-11-11): "The speed work and performance things that are on hold probably should all be retired permanently."; "I would clarify that we retire the speed items, but of course we can later look into the attic to get inspiration for other things that could be done."). The speed work is retired. No entry is added and none returns to the queue by itself. The entries are read for inspiration by the low-hanging performance work after the measurement round (W-146; [the schedule](../plans/2026-11-11-complete-prototype.md)) and by the synthesis.
+
 Performance work that the rule for performance work does not take up now. Each entry says what it is, what was measured, why it is not pursued, and what would make it worth pursuing. The performance work that is pursued is in the work queue ([`todo.md`](todo.md)). Begun 2026-10-27 by the clean-up (W-65; the user: "We should keep a "further performance explorations" log separately").
 
 **The rule** (the user, 2026-10-27; in full in [`decisions.md`](decisions.md) §5):
@@ -8,7 +10,7 @@ Performance work that the rule for performance work does not take up now. Each e
 - Slowdowns where trait or facts code should conceptually be as fast as plain code, or faster, stay in the queue as worth investigating.
 - Tweaks that give minor speedups at a considerable increase in complexity are not pursued.
 
-**Speed work is stopped** (the user, 2026-11-10: "I want to stop pursuing speed for now. We have gained enough to be satisfied."). No entry returns to the queue until it resumes; the paused items W-121 and W-129 are in [the work queue](todo.md). The entries are input to the synthesis ([the goals](../goals.md) §4).
+**Speed work is stopped** (the user, 2026-11-10: "I want to stop pursuing speed for now. We have gained enough to be satisfied."). W-121 and W-129 are retired ([the work queue](todo.md)). The entries are input to the synthesis ([the goals](../goals.md) §4).
 
 **How to use it:**
 - Each entry has an ID, `PE-n`, stable and never reused.

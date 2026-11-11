@@ -87,18 +87,17 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 ### 6.3 The order of work
 
-The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
-1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee), on builds before W-140. A membership invalidates as a method does (W-140): built, checked by the gates and small cases; its rounds wait for the conceptually complete state.
-2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built; a family's members by use; TraitTables' table program builds trimmed and runs (E-364). Next on this axis: fully typed as exactly what compiles ahead (W-142; traits T-109, T-107), then the ODE port's and the plot's programs.
-3. Error messages compared with plain Julia's (W-136; G-5): measured on a small library and on SciML's error cases, [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias).
-4. What images keep (L-55; G-3): built, an image keeps its member checks. Left under W-128: C-30's rest and C-54 (G-1).
-5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): W-137 is done ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)).
-6. Calls through a trait against plain calls, once, as a control (W-17; G-2).
-7. Unsound rules, beside every step (W-128).
-8. The upstream proposals (W-19).
-9. The synthesis (W-138).
+The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
+1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done but for the user's decisions, the membership as a method (W-141) first.
+2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128).
+3. The cache across sessions, bounded (W-120; G-3).
+4. The ports brought to the head (W-104).
+5. Freeze, then the measurement round (W-145).
+6. Low-hanging performance work (W-146).
+7. The ports' lessons and tensions, checked (W-147).
+8. The synthesis (W-138); then the upstream patches (W-19).
 
-Speed work is stopped: W-121 and what is left of W-129 are paused. Next to revisit, with a proposal first: the machine-code cache across sessions (W-120; G-3). Deferred: keys (W-110), purely a performance optimization.
+The prototype is conceptually complete when bin A is empty and the cache is built or stopped. The speed work is retired; its log is an archive. Deferred: keys (W-110), purely a performance optimization.
 
 Nothing waits for the user. The choices marked mine and the flagged tensions are input to the synthesis ([open issues](open-issues.md) §1).
 
