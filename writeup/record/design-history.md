@@ -11,6 +11,14 @@ Process history that the current documents for core developers leave out: where 
 - **`design/performance.md`** was `notes/5-performance.md`, the report of session 29's performance phase. The Fable review of the phase (`../reviews/2026-10-19-performance-phase.md`) corrected three of its four themes as first written: theme 1 left out the costs of the choices; theme 2 called the inliner habits harmless in plain Julia (review A1 showed otherwise); theme 3 presented a workaround as the mechanism (review D3). The note also observed that `design.md` §6 had claimed "the compiler's own code stays plain" before the code did it.
 - **The Julia pieces** have been numbered 1–17 since session 23 (`../explorations/julia-support.md`).
 - **Session 28 had no session note;** its decisions were reconstructed in session note 29.
+- **2026-11-11, the introduction, the rationale and the evidence brought to the goals of 2026-11-10** (W-137; the user: "Look at the documentation next, especially the introduction material and the high level rationale and arguments.", then "Do that too"; [the review](../reviews/2026-11-11-intro-and-rationale.md) with its addendum; design repository 5aaf50b, 9625baf).
+  - `design.md`: linked to [the goals](../goals.md); E-355 at step 3; §2.6 was "How the two goals interact" and became "How the two parts depend on each other", with GT-8; §2.7, "The argument and the goals", is new, with the arguments for G-5, G-7 and G-8; §4 gained "no claim of better steady-state speed".
+  - `intro/traits-for-julia.md`: the guarantee's limit beside the claim; the costs a user meets; the worked example moved before the parts of the language; the sessions against Python moved from "What you get" to "What it costs".
+  - `intro/results.md`: rewritten by claim, from E-355 to E-360 and E-337. Before, it led with four sessions against Python on E-324's build.
+  - `intro/porting.md`: the path in five steps with gains, costs and the ports' commits; its quotes and part B checked against the ports' heads.
+  - `intro/traits-by-example.md`: the kept item of §12, with open issue 175.
+  - `design/evidence.md`: its summary, which followed the argument's four steps on the earlier build, became a map from the goals' axes to the chapter's sections; the earlier build's results keep a section of their own.
+  - `intro/`'s examples run on the head (TraitWorld 05991fc): 18, 85 and 5 pass.
 
 ## The language of `Compiled` and `Dynamic` (2026-10-20)
 
