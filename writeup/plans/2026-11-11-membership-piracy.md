@@ -1,6 +1,6 @@
 # A membership by neither owner is piracy; a membership invalidates as a method does
 
-**Status:** adopted by the user's word ("Write a proposal and implement it after the current line of work has concluded."); stage 1 built 2026-11-11 (`unified` 80aa919bed, TraitWorld dbfb488), stages 2 and 3 open. Written as a proposal (2026-11-11, written in the main session; W-140), with its implementation planned in three stages (the same day, at the user's word: "If builds are long you can plan W140 in the meantime."). To build after W-139. Not normative: the references change when it is built.
+**Status:** adopted by the user's word ("Write a proposal and implement it after the current line of work has concluded."); stage 1 built 2026-11-11 (`unified` 80aa919bed, TraitWorld dbfb488); stage 2 built the same day for concrete types (`unified` 1b2f0a9e1e); the rest of stage 2 and stage 3 are open, for the two reasons compiler C-88 names. Written as a proposal (2026-11-11, written in the main session; W-140), with its implementation planned in three stages (the same day, at the user's word: "If builds are long you can plan W140 in the meantime."). To build after W-139. Not normative: the references change when it is built.
 
 ## The user's words
 

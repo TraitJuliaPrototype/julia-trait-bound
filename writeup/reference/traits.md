@@ -172,7 +172,7 @@ A trait is written wherever a type is written:
   - A membership that holds is relied on through its entry, from the entry's world ([facts §10](facts.md#10-memberships)).
 - For a closed type, Julia's rules apply; its contract's operations only branch (above).
 
-**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on, with its edge: Implemented on `unified` bf447db25e (the mechanism; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)) and 80aa919bed for every trait (W-140, stage 1; gate `n18_closed_after_load`), where the pair's declarers have finished loading; code compiled while a declarer loads, and a pair with a type or trait of `Main`, keep a guard (compiler C-88). The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
+**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on, with its edge: Implemented on `unified` bf447db25e (the mechanism; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)) 80aa919bed and 1b2f0a9e1e for every trait and every concrete type (W-140, stages 1 and 2; gates `n18_closed_after_load`, `n7_guards`, `n16_declared_result`); an abstract type against a trait keeps a guard while a declarer loads and in `Main` (compiler C-88). The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
 
 ### 3.5 Values
 
