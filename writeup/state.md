@@ -15,13 +15,13 @@ For core developers. The design is the four [references](reference/README.md), e
 ## 2. What the unified build changes in Julia
 
 By the compiler reference's sections:
-- **Memberships in the type system** ([§4](reference/compiler.md#4-sets-and-memberships)): a trait is an open abstract type; `jl_declare_membership` publishes an entry in a new world; subtyping, intersection and the type cache read the entries; negatives never fold; intersections `All{X, Y, …}`; a set's inputs (C-32 retired).
-- **Dispatch at traits** ([§5](reference/compiler.md#5-dispatch)): specificity with a closed type above a trait; the ambiguity report at a membership; guards on membership cells, so a membership invalidates no code.
+- **Memberships in the type system** ([§4](reference/compiler.md#4-sets-and-memberships)): a trait is an open abstract type; `jl_declare_membership` publishes an entry in a new world; subtyping, intersection and the type cache read the entries; negatives fold with an edge on the pair's cell; intersections `All{X, Y, …}`; a set's inputs (C-32 retired).
+- **Dispatch at traits** ([§5](reference/compiler.md#5-dispatch)): specificity with a closed type above a trait; the ambiguity report at a membership; a membership replays the trait's methods at its member and invalidates the callers whose selection changes, as a method does (W-140).
 - **The facts mode** ([§1](reference/compiler.md#1-the-facts-inference), [§2](reference/compiler.md#2-the-policy-per-method)): a trait module's calls are inferred only at fact signatures, with run-time sites elsewhere; one CodeInstance per method and policy; images keep code by the G2 bit.
 - **The attribute** ([§6](reference/compiler.md#6-keys-and-the-attribute)): a trait argument compiled for the value's type or once, decided by a cast, the value, the method or module, the trait's default or the scope; `Core.Dynamic`, `keep`, the casts.
 - **Operations on a value known by its trait** ([§7](reference/compiler.md#7-operations-on-a-value-typed-by-its-trait)): the declared result, a split over the first members, a table past them; `Callable` by the function's own methods.
 - **The code slot** ([§3.3](reference/compiler.md#33-the-code-slot)): a call that holds only a result edge goes through a slot; a callee recompiled to an equal result keeps its callers; a miss with no code to make gets a dispatching entry.
-- **Sets closed after load** ([§4.8](reference/compiler.md#48-negatives-never-fold-positives-through-entries)): a set's opt-in; a module's mark once its package has loaded; a final negative leaves out the guard and folds `isa`, recorded on a final cell whose opening by a late membership invalidates (W-129 (a); C-76, C-77).
+- **Non-memberships relied on** ([§4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries)): at every trait, wherever the code is compiled; `isa` folds, recorded on the pair's cell, whose opening by a later membership invalidates (W-129 (a), W-140; C-77, C-79, C-88).
 - **`IO`'s contract** ([§7.5](reference/compiler.md#75-io); [traits §9b](reference/traits.md#9b-streams-io)): `IO` is Julia's closed abstract type, and Base's methods typed `io::IO` are compiled per stream type; its contract's operations split over `IOBuffer`, `IOStream`, `TTY` and `PipeEndpoint` at a value typed `IO`, their results `Any` and nothing converted (open issue 171, E-340), the candidates kept with the contract by any image (C-81); the eraser `IOContext{IO}`; the REPL's display and `TextDisplay` erase the stream (E-339). The split's targets at a stream past the candidates are compiled at the first call (open issue 170).
 - **Images and hooks** ([§9](reference/compiler.md#9-images-and-the-machine-code-cache), [§10](reference/compiler.md#10-hooks-for-the-library)): an image keeps and activates its memberships; the member hook, the definition, module-end, deletion and fully-typed hooks.
 
@@ -76,8 +76,8 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-10)
 
-- **Julia:** `julia-unified` `unified` 1b2f0a9e1e. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` dbfb488, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **Julia:** `julia-unified` `unified` a19d937eaa. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 4718b6e, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` 160639e, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations 6658c65, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
@@ -88,8 +88,8 @@ The design of the references, built on Julia as a stack of self-contained commit
 ### 6.3 The order of work
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
-1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee).
-2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). Next on this axis: `make_executable` and `make_library` (W-139).
+1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee), on builds before W-140. A membership invalidates as a method does (W-140): built, checked by the gates and small cases; its rounds wait for the conceptually complete state.
+2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). `make_executable` and `make_library` (W-139): built for a small program. Next on this axis: a set with a member at an abstract type (C-86), the report before a build (traits T-107), the demonstrators typed.
 3. Error messages compared with plain Julia's (W-136; G-5): measured on a small library and on SciML's error cases, [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias).
 4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
 5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): W-137 is done ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)).

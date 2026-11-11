@@ -15,7 +15,7 @@
 - Two guarantees follow:
   - **G1, identical or error:** code compiled by facts computes what plainly compiled code computes, in the same world, or raises.
   - **G2, stable caches:** no load of an unrelated package invalidates code compiled by facts. Only a stakeholder's change or a winning pirate can.
-- **Memberships invalidate nothing:** compiled code never relies on a type not being a member of a trait, and a call a later membership could change is guarded. A trait's author may opt out for that trait by closing it after load (§10).
+- **A membership invalidates as a method definition does:** the code that relied on its absence, and no other. It is a stakeholder's declaration, or a pirate's (§10).
 - **Each method has a policy:** facts, plain, or its caller's. One CodeInstance per MethodInstance and policy.
   - Methods of modules that declare `facts` (trait modules among them) are compiled by facts, whoever calls them.
   - The compiler is compiled plainly, whoever calls it.
@@ -94,7 +94,7 @@
 **Why it holds.** Every valid CodeInstance has all its facts true in the current method table:
 - compilation records only true facts;
 - a definition changes dispatch only where it wins, and Julia invalidates exactly the code with a fact there;
-- a membership changes no fact it could break: no code relies on a non-membership, and guards cover the calls a membership could change (§10);
+- a membership changes dispatch only at its member, and invalidates exactly the code with a fact there or a folded negative of the pair (§10);
 - a package image's code is used only if its facts hold at load (§12);
 - a run-time site records nothing and dispatches as plain Julia does;
 - no asserted effect applies over a run-time site (§8).
@@ -105,7 +105,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; guards cover the calls a membership could change (compiler §5.6, `unified` 79b948420e). The acceptance suite (`experiments/unification/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; a membership invalidates the code it changes ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), `unified` a19d937eaa). The acceptance suite (`experiments/unification/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
 
 ### 2.2 G2: stable caches
 
@@ -123,17 +123,17 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - plain inference's answers behind `return_type` (§7), which change exactly when plain Julia's do.
 
 **Exceptions**, named wherever G2 is claimed:
-- **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension, a redeclared membership, a membership declared late at a trait closed after load (§10).
+- **A stakeholder's change:** an edit, Revise, an upgrade, a stakeholder's package extension, a redeclared membership, a membership of a type and a trait that compiled code asked about (§10).
 - **A stakeholder's extension activated by an unrelated package,** whose method applies at a fact without naming its triggers' types: followed, as the stakeholder's change; in strict mode with a warning.
 - **A binding redefined from another module** (`Core.eval(Other, …)`): refused at its source in strict mode (§11.3).
 - **The standard libraries count as Julia's own code.** A standard library's method that wins at a fact is a stakeholder's change.
 - **A method on a closure's type defined outside the closure's module.** The fact form "a closure's call at kinds" (§3) rests on the assumption that no other module does this.
 
 **What invalidates nothing:**
-- a new membership (§10), but one declared late at a trait closed after load;
+- a new type that joins a trait (§10): no earlier code asked about it;
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates nothing: the guards (`unified` 79b948420e, W-112).
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates as a method does: `unified` a19d937eaa (W-140).
 
 ### 2.3 Two tiers
 
@@ -155,14 +155,14 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 | Form | Example | Why only a stakeholder or a pirate can change it |
 |---|---|---|
-| **A dispatch tuple:** concrete types, not kinds; `Type{T}` with `T` known | `f(::Int, ::Float64)` | Lemma O. A membership changes no fact here: a method at a trait the type joins later is guarded (§10). |
+| **A dispatch tuple:** concrete types, not kinds; `Type{T}` with `T` known | `f(::Int, ::Float64)` | Lemma O. A membership of one of its types changes dispatch there and invalidates through the fact's edge, as a method does; it is a stakeholder's or a pirate's (§10). |
 | **Its union splits,** where Julia's union splitting splits | `g(::Union{Int, Nothing})` | Each split is a dispatch tuple, with an edge per split. |
 | **Unions of concrete elements in tuple arguments,** split by the same cost | `h(::Tuple{Union{Int, Missing}, Float64})` | A tuple of concrete or union elements holds exactly the values of its splits. |
 | **A closure's call at kinds** | `map(T -> sizeof(T), types)` with `types::Vector{DataType}` | Only the closure's own module adds methods to a closure's type: an assumption, not Lemma O. Julia invalidates the edge, so G1 holds; G2 rests on the assumption. |
 | **A concrete `Vararg` tail** | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners: one edge for the family. |
 | **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | A definition changes the resolution only if its own signature contains the declared one: its definer is a stakeholder of it, or a pirate. |
 | **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
-| **A keyed argument passed on,** where one method is selected for every member with that key, guarded | `g(t)` with `t` keyed for `ColTable` | A method of `g` defined later invalidates through the edge at the key; a later member with that key that another method of `g` would take lowers the guard's cell ([compiler §6.4](compiler.md#64-calls-from-code-compiled-per-key)). |
+| **A keyed argument passed on,** where one method is selected for every member with that key | `g(t)` with `t` keyed for `ColTable` | A method of `g` defined later invalidates through the edge at the key; so does a later member with that key that another method of `g` would take ([compiler §6.4](compiler.md#64-calls-from-code-compiled-per-key)). |
 
 **Which unions split** is Julia's cost model exactly: the union lengths multiplied, the largest counted as 2, a split where the cost is at most `max_union_splitting` (4 by default).
 
@@ -328,14 +328,14 @@ So the split takes the place of the speculation the facts mode removes (§4.2), 
 A membership makes a type a member of a trait from a world on ([traits §3.1](traits.md#31-membership)). What compiled code may assume about memberships:
 - **A positive membership may be relied on,** with the CodeInstance's world range starting no earlier than the membership's.
 - **A negative one may be relied on, with an edge.** Code that folds "`S` is not a member of `X`", in inference or in dispatch, records the pair. A membership of that pair declared later invalidates it. A closed abstract type and a type that is never a member need no edge: their answer is final ([traits §3.4](traits.md#34-open-and-closed)).
-- **A call selects its method without a guard,** on the same edge.
-- **So a membership invalidates the code that relied on its absence, and no other,** as a method definition invalidates its callers ([compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)). A new type that joins invalidates nothing: no earlier code asked about it. Code compiled once at a trait reaches a later member through its table and relies on no absence ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
+- **A call selects its method without a guard.** It holds its ordinary dispatch edge. A membership replays the trait's methods at the new member and invalidates the callers whose selection changes ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does)).
+- **So a membership invalidates the code that relied on its absence, and no other,** as a method definition invalidates its callers ([compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries)). A new type that joins invalidates nothing: no earlier code asked about it, and a call at a wider signature matched the trait's methods already. Code compiled once at a trait reaches a later member through its table and relies on no absence ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 - **G1 holds in the caller's world:** a task in a world before the membership sees the type as a non-member; one after it, as a member.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)): followed by default, refused under strict mode.
-- **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers its insertion changes.
-- **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
+- **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
+- **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one, or on its absence, holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Implemented on `unified` 79b948420e (W-112; [compiler §5.5](compiler.md#55-a-membership-lowers-dispatch-caches), [§5.6](compiler.md#56-guards-and-cells)) and 1b2f0a9e1e (W-140, stages 1 and 2: every trait's non-memberships relied on; for a concrete type wherever they hold, for an abstract type once the pair's declarers have loaded), with compiler C-58, C-59, C-88. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
+**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-cells)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
 
 ---
 
@@ -409,7 +409,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). Cells with the guards (W-112); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). A folded negative's cell (W-129, W-140); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
 
 ---
 
@@ -459,7 +459,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | Item | Status | Where |
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
-| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); guards (W-112) | §2.2 |
+| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); a membership's invalidation (W-140) | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
@@ -467,7 +467,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39 | §9 |
-| memberships invalidate nothing; guards | Implemented (`unified` 79b948420e, W-112), with compiler C-58, C-59; traits closed after load `unified` bf447db25e | §10 |
+| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |

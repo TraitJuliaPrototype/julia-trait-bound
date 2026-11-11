@@ -17,7 +17,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [`Callable`](#callable) ·
 [Candidates](#split) ·
 [Cast](#cast) ·
-[Cell](#guard-and-cell) ·
+[Cell](#cell) ·
 [Code slot](#code-slot) ·
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
@@ -40,7 +40,6 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
 [G2: stable caches, the G2 bit](#g2-stable-caches-and-the-g2-bit) ·
-[Guard](#guard-and-cell) ·
 [Hints](#hints) ·
 [Input parameter](#parameters-and-input-parameters) ·
 [Instance (one per member)](#parameters-and-input-parameters) ·
@@ -403,11 +402,11 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** the project's.
 - **Defined in:** [facts §2.2](reference/facts.md#22-g2-stable-caches); the bit: [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate).
 
-### Guard and cell
+### Cell
 
-- **Here:** compiled code that relies on a set's not having a member yet (a call whose method a later membership could change) holds a **guard**: it tests a **cell** (`Core.MembershipCell`) for the member and the set, and takes the dynamic call once the cell opens. So a membership invalidates no compiled code.
-- **Origin:** the project's terms. Julia's binding partitions play the same role for global bindings.
-- **Defined in:** [compiler §5.6](reference/compiler.md#56-guards-and-cells); the guarantee: [facts §10](reference/facts.md#10-memberships).
+- **Here:** compiled code that folded "`S` is not a member of `X`" (an `isa`, a `<:`, a method match dropped at an intersection no type is in) records the pair's **cell** (`Core.MembershipCell`). The membership that makes the pair hold opens the cell and invalidates that code. A call needs no cell: a membership replays the trait's methods at the new member and invalidates the callers whose selection changes.
+- **Origin:** the project's term. Julia's binding partitions play the same role for global bindings.
+- **Defined in:** [compiler §5.6](reference/compiler.md#56-cells), [§4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries); the rule: [facts §10](reference/facts.md#10-memberships).
 
 ### Code slot
 

@@ -166,13 +166,13 @@ A trait is written wherever a type is written:
 - **An abstract type is closed:** `abstract type A end` has members only through `struct S <: A`. Base's and Core's abstract types are closed, but `Callable` (§9), which is a trait.
 - A closed abstract type may be a member of a trait (`@implement Indexable{T} AbstractVector{T} where {T}`); then every subtype of it is a member.
 - **A closed abstract type may declare a contract:** its operations and the split's candidates, named once, in the image that defines the type. Its members stay Julia's and no check reaches them, so the contract promises no result: an operation's result is `Any`, Julia's own answer at such a receiver. At a value typed by it, an operation's call branches over the candidates (§7.9) and returns what the member's method returns. Otherwise Julia's rules apply: code typed by it is compiled per type. Base's `IO` declares one (§9b).
-- **Compiled code may rely on a non-membership.** Only the trait's owner or the type's may declare a membership without piracy (§12.1), so "`S` is not a `Shape`" is theirs to change. `isa` and `<:` fold, and a call selects its method without a guard. The code records the pair it relied on.
+- **Compiled code may rely on a non-membership.** Only the trait's owner or the type's may declare a membership without piracy (§12.1), so "`S` is not a `Shape`" is theirs to change. `isa` and `<:` fold, and a call selects its method without a guard. The code records what it relied on: the pair for a fold, its dispatch edge for a call.
   - A membership of that pair declared later invalidates the code that relied on its absence, as a method definition invalidates its callers: by an owner (a package extension that loads late, a declaration at the prompt, Revise), or by a pirate (§12.2).
   - A new type that joins invalidates nothing: no earlier code asked about it.
   - A membership that holds is relied on through its entry, from the entry's world ([facts §10](facts.md#10-memberships)).
 - For a closed type, Julia's rules apply; its contract's operations only branch (above).
 
-**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on, with its edge: Implemented on `unified` bf447db25e (the mechanism; [compiler §4.8](compiler.md#48-negatives-never-fold-positives-through-entries)) 80aa919bed and 1b2f0a9e1e for every trait and every concrete type (W-140, stages 1 and 2; gates `n18_closed_after_load`, `n7_guards`, `n16_declared_result`); an abstract type against a trait keeps a guard while a declarer loads and in `Main` (compiler C-88). The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
+**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on: Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does); gates `n18_closed_after_load`, `n7_guards`, `n16_declared_result`, `n25_image_before_set_method`), with compiler C-88. The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
 
 ### 3.5 Values
 
@@ -327,7 +327,7 @@ All forms share these rules:
 - **A membership is declared, never inferred** from the methods that happen to exist.
 - It may come after the type's definition, in another package, by a stakeholder (§12.1).
 - It is checked against the contract (§5.10).
-- **It invalidates no compiled code:** a call that the new membership could change is guarded ([facts §10](facts.md#10-memberships)).
+- **It invalidates as a method definition does:** the compiled code that relied on its absence, and no other. A new type that joins invalidates nothing ([facts §10](facts.md#10-memberships)).
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2.
 
@@ -390,7 +390,7 @@ end
 - **A forwarding member has a method of its own for each required operation,** defined with the membership: it calls the operation on the field. An operation with a default is served by the trait's method, which calls it on the field. Every caller reaches them, as for a default (§4.2).
 - A trait that requires a concrete `Self` (§14) refuses a forwarding field of an abstract type.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06). The member's own methods for required operations: TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08), so that the trait's method for a required operation is no shadow ([compiler §5.6](compiler.md#56-guards-and-cells)).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06). The member's own methods for required operations: TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08).
 
 ### 5.6 Several traits at once
 

@@ -1,6 +1,6 @@
 # A membership by neither owner is piracy; a membership invalidates as a method does
 
-**Status:** adopted by the user's word ("Write a proposal and implement it after the current line of work has concluded."); stage 1 built 2026-11-11 (`unified` 80aa919bed, TraitWorld dbfb488); stage 2 built the same day for concrete types (`unified` 1b2f0a9e1e); the rest of stage 2 and stage 3 are open, for the two reasons compiler C-88 names. Written as a proposal (2026-11-11, written in the main session; W-140), with its implementation planned in three stages (the same day, at the user's word: "If builds are long you can plan W140 in the meantime."). To build after W-139. Not normative: the references change when it is built.
+**Status:** done but for its measurements (2026-11-11; `unified` a19d937eaa, TraitWorld 4718b6e; the references hold the rule: [facts §10](../reference/facts.md#10-memberships), [compiler §4.8](../reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](../reference/compiler.md#55-a-membership-invalidates-as-a-method-does)). Adopted by the user's word ("Write a proposal and implement it after the current line of work has concluded."). **Where the build departs from this plan:** a call records no pair; the membership's walk, which existed for the dispatch caches, invalidates the callers (the plan's row "The call records the pairs its choice rests on"), because a recorded pair cannot reach code compiled before the trait's method existed, in an image above all. The measurements of each stage were not run (the user, the same day: no campaigns until the prototype is conceptually complete); the work queue lists them (W-140). Not normative.
 
 ## The user's words
 
@@ -30,7 +30,7 @@ What a user can still rely on:
 
 ## What it removes
 
-The mechanism exists already, for one kind of trait: a trait closed after load ([traits §3.4](../reference/traits.md#34-open-and-closed), [compiler §4.8](../reference/compiler.md#48-negatives-never-fold-positives-through-entries)) folds its negatives, records the pair's cell as an edge, and is invalidated by a late membership. The proposal makes that the rule for every trait.
+The mechanism exists already, for one kind of trait: a trait closed after load ([traits §3.4](../reference/traits.md#34-open-and-closed), [compiler §4.8](../reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries)) folds its negatives, records the pair's cell as an edge, and is invalidated by a late membership. The proposal makes that the rule for every trait.
 
 | Today | With the rule |
 |---|---|

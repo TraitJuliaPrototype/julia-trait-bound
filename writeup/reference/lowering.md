@@ -51,8 +51,6 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
   - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`. At a required operation only `Dynamic{X}` reaches this: every other forwarding member has a method of its own (§3, step 6);
   - for a member that a default serves, the default's body;
   - otherwise unreachable: such a member was refused at its check.
-
-  A required operation's method carries `Expr(:meta, :serves_no_member)` ([compiler §5.6](compiler.md#56-guards-and-cells)): the only member it serves, `Dynamic{X}`, joins at the declaration, so at a type that joins later it raises, and it is no shadow.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
   - the operations, each with its trait's method;
   - the declared fields, with their types and whether `@const`;
