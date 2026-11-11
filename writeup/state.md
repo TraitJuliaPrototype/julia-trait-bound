@@ -89,7 +89,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work builds toward [the goals](goals.md), the weakest axes first. The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The order:
 1. The guarantee's controls on the unified build (W-134; G-1): measured, [evidence §1](design/evidence.md#1-the-guarantee).
-2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries).
+2. Binaries on the unified build (W-135; G-6): measured, [evidence §4](design/evidence.md#4-builds-and-binaries). Next on this axis: `make_executable` and `make_library` (W-139).
 3. Error messages compared with plain Julia's (W-136; G-5): measured on a small library and on SciML's error cases, [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias).
 4. What images keep (L-55, C-30; G-3) and C-54 (G-1), under W-128.
 5. The ports against upstream, the guideline and the intro checked against the head (W-104, W-137; G-7, G-8): W-137 is done ([the review of 2026-11-11](reviews/2026-11-11-intro-and-rationale.md)).
