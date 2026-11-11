@@ -477,7 +477,23 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 - **Refused, where plain Julia runs correctly:** the `Int` for a declared `Float64`.
 - **The form of the trait messages,** counted over the 16 trait runs: signatures printed as tuple types 12 on TraitWorld 05991fc, 0 now; the library's own frames above the user's line 25, now 24.
 
-The scripts, every message in full and the first run: `experiments/unification/w136/`. Not measured: a port's messages (a solver's integrator type in a `MethodError`; the gate for those cases is traits T-99).
+The scripts, every message in full and the first run: `experiments/unification/w136/`.
+
+**SciML's three error cases: upstream, the port, and the port's plain twin** (E-363; `unified` dd3f6d839b, vanilla v1.13.2 45b6d15e34, TraitWorld 99c4934, TraitDifferentialEquations 5e342f7; upstream OrdinaryDiffEqTsit5 2.1.4, OrdinaryDiffEqRosenbrock 2.7.4, SciMLBase 3.55.0 on vanilla; one run each, load 8 of 128 cores; idiomatic trait code against upstream and against a plain twin). The cases are E-5's: a right-hand side that reads parameters never given, a `Float64` cache under a gradient, the same cache under Rodas5's Jacobian. The message in full, with its stack trace: lines / bytes / frames / longest line.
+
+| Case | Upstream | The port (traits) | The port's plain twin (PlainODE) |
+|---|---|---|---|
+| Parameters never passed | 72 / 10,725 / 28 / 3,903 | 35 / 3,706 / 16 / 415 | 33 / 2,606 / 15 / 272 |
+| A `Float64` cache under a gradient | 106 / 14,380 / 45 / 5,688 | 83 / 9,471 / 35 / 715 | 87 / 8,079 / 37 / 758 |
+| The same cache under Rodas5 | 81 / 89,806 / 22 / 33,983 | 81 / 7,410 / 34 / 689 | 71 / 4,448 / 29 / 227 |
+
+- **Against upstream the port is shorter:** 0.35, 0.66 and 0.08 of the bytes, and a longest line of 415 to 715 characters against 3,903 to 33,983. As the REPL limits the types: 2,706, 5,271 and 5,012 bytes against 5,631, 7,076 and 4,631.
+- **Against its plain twin the port is not better:** the same errors at the same place, and 1.42, 1.17 and 1.67 times the bytes. What is shorter than upstream is what a small library with an erased right-hand side gives, with traits or with FunctionWrappers.
+- **None of the three is a mistake against a contract:** each is raised at run time in the user's own function, under the solver, and no check sees it before. The gains of E-362 do not reach them.
+- **Upstream says more in two of them:** SciML's hand-written explanations (12 and 36 lines, with the fixes), where the port gives the bare `MethodError`.
+- The earlier rounds: E-5 (upstream, Julia 1.12.2: 71, 101 and 81 lines) and E-90 (the package prototype: 27 lines and 12 frames for the first case).
+
+The scripts and every message in full: `experiments/unification/w136/sciml/`.
 
 ## 5. Not shown
 
@@ -501,7 +517,7 @@ What is not shown on each axis today is the weakest point of its row in [the goa
 | G-2 Run-time speed | [§2](#2-run-time), on the earlier build; nothing on the unified build |
 | G-3 Caching | [§1](#1-the-guarantee): what a member's image holds (E-360); [§3](#3-first-calls-and-sessions): what the ports' images keep through loads (E-302) |
 | G-4 Downsides | [§4c](#4c-the-unifications-trade-offs-measured-on-todays-build): a plain session on the unified build (E-356) and the unification's trade-offs; [§1](#1-the-guarantee): the cost of the facts rule on plain code |
-| G-5 Error messages | [§4d](#4d-error-messages-against-plain-julias): thirteen mistakes in a small library, in both forms (E-362) |
+| G-5 Error messages | [§4d](#4d-error-messages-against-plain-julias): thirteen mistakes in a small library, in both forms (E-362); SciML's three error cases on upstream, the port and its plain twin (E-363) |
 | G-6 Compiling ahead | [§4](#4-builds-and-binaries) (E-361) |
 | G-7 Transition | [§1](#1-the-guarantee): a package compiled by facts as it is (E-355); [§3](#3-first-calls-and-sessions): the ports' sessions; [§4b](#4b-the-ports-code-under-the-draft-reference): censuses of the ports' code |
 | G-8 Simplicity | no section: nothing is measured |

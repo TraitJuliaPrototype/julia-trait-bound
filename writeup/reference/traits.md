@@ -1011,7 +1011,9 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **a call at an operation's function outside its declared signature:** the declared signature, "`col` is declared `col(t::ColTable, i::Int)::Vector{Float64}`";
 - **an ambiguity between two traits:** the joint method to define, `f(::All{ColTable, RowTable})`.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114), as hints on Julia's `MethodError`; the ambiguity's joint method is Julia's own message on `unified` (`f(::All{X, Y})`), so the library adds none. The SciML error cases' gate: T-99.
+**No hint at an operation that is another owner's function.** `Indexable` declares Base's `getindex` as its operation. A failed call of `getindex` says nothing of `Indexable`, so the trait's own method for it gives no hint. A method at the trait of the caller's own function keeps its hints.
+
+**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114), as hints on Julia's `MethodError`; the ambiguity's joint method is Julia's own message on `unified` (`f(::All{X, Y})`), so the library adds none. No hint at another owner's function: TraitWorld 99c4934, mine (2026-11-11; E-363). The SciML error cases' gate: T-99.
 
 ---
 
@@ -1211,7 +1213,7 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-96 | [§12.3](#123-strict-mode) | Strict mode refuses a binding redefined from another module, through its hook ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)). | No such hook exists: a binding redefined from another module is followed. | `julia-unified` (no hook); TraitWorld `src/strict.jl` |
 | T-97 | [§12.3](#123-strict-mode) | A package extension's method that wins at a fact without naming its triggers' types is followed, with a warning. | It is followed without the warning. | TraitWorld `src/strict.jl` |
 | T-98 | — | *Retired* (2026-11-10): under strict mode an ambiguity at an image's membership activated at load is reported after the load, at error level, in TraitWorld 0aff625 with `unified` 9f8d7d7c48 ([§12.3](#123-strict-mode), [compiler §9](compiler.md#9-images-and-the-machine-code-cache)); gate `stack/strict_activation.jl` (E-349) | — | — |
-| T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases (the work plan's M8). | The hints are tested on the library's own cases (`test/hints.jl`); the SciML cases need the port (W-104). | TraitWorld `test/hints.jl` |
+| T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases (the work plan's M8). | The hints are tested on the library's own cases (`test/hints.jl`, `test/messages.jl`). The SciML cases run on the port (E-363) and reach no hint: each is a run-time failure in the user's function, not a call of a method at a trait. They are a measurement, not a gate. | TraitWorld `test/hints.jl`; `experiments/unification/w136/sciml/` |
 | T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for a call that cannot be resolved in the code or in anything it calls. | The compiler's check sees run-time sites in the code and in callees compiled by facts; one in plain code it calls (Base's, in the product setting) is reported by `fully_typed`, not raised. | `julia-unified` `Compiler/src/facts.jl` (`fully_typed_fault`) |
 | T-101 | [§14](#14-concreteness-and-fully-typed-mode) | Concreteness, like fully typed mode, can be declared for a module before `@trait_module`. | Concreteness is declared per trait and per method only. | TraitWorld `src/fullytyped.jl` |
 | T-102 | [§16](#16-compiling-ahead-closed-programs) | `verify_main` lists a `like` result's rebuilding among the targets. | It lists the calls the code resolves, `Callable`s' functions and operations' members; `like`'s rebuilding only where the code calls it. | TraitWorld `src/fullytyped.jl` (`verify_main`) |
