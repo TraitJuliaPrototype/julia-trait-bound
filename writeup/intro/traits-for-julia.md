@@ -187,7 +187,7 @@ The `@implement` line raises an `ImplementError`, which names the operation, the
 
 ```
 ImplementError: Counts cannot be a member of ColTable
-  - col's method at Counts infers its result as Vector{Int64}, wider than the declared Vector{Float64}
+  - col's method at Counts infers its result as Vector{Int64}, outside the declared Vector{Float64}
 ```
 
 The error comes at the declaration, before any `Counts` value is passed to the library, and `Counts` is no member.

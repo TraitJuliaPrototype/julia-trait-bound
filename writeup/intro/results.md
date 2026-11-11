@@ -27,7 +27,8 @@ This page is for Julia programmers. It says what the measurements show, each aga
 
 - **A new member, a new type, a new closure compile little, and discard nothing.** Twenty packages that each add a member to one trait discard none of each other's code, in any load order. A member's package image holds 0.29× the compiled instances of a plain twin's.
 - **The costs are stated below:** no faster steady state is claimed; first-run sessions take 1.2–4.5× Python's time; code that uses no trait is up to 8–18 % slower on small repeated operations; an edit of a method at a trait takes 0.4 s.
-- **Not shown yet:** error messages compared with plain Julia's, a trait program as a trimmed binary, the speed of trait calls on the current build.
+- **Mistakes are reported where they are made.** Of thirteen mistakes made against one small library, written with traits and in plain Julia, the trait form reports five at the line that makes them, where plain Julia reports at a later call inside the library, or not at all.
+- **Not shown yet:** error messages in a large port, a trait program as a trimmed binary, the speed of trait calls on the current build.
 
 ## Unrelated packages loaded after the work
 
@@ -129,7 +130,7 @@ Julia is slower than Python on every row. Where the time goes, by step, on the b
 
 ## What is not shown yet
 
-- **Error messages** compared with plain Julia's for the same mistakes. The pages [`traits-for-julia.md`](traits-for-julia.md) and [`traits-by-example.md`](traits-by-example.md) show the messages; no comparison is measured.
+- **Error messages in a large port,** where plain Julia's are longest. The comparison is measured on a small library (E-362); the pages [`traits-for-julia.md`](traits-for-julia.md) and [`traits-by-example.md`](traits-by-example.md) show the messages.
 - **Ahead-of-time binaries:** no demonstrator builds as a trimmed binary, written with traits or as its plain twin (E-361).
 - **Run time on the current build:** a call on a value known only by its trait, `Callable` calls, mixed collections, the ODE solver's time per step. The evidence has them on the earlier build.
 - **Strict mode** on a stack of ports.

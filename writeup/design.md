@@ -158,7 +158,7 @@ The first two are measured. The last two are arguments whose evidence is thin: w
 - a membership when it is declared: an operation that is missing, or whose result is wider than declared, is an error at `@implement`, before any value reaches the library ([traits §5](reference/traits.md#5-joining-a-trait), [§11.1](reference/traits.md#111-when-checks-run));
 - a method at a trait when it is defined: a use of the argument outside the contract is an error at the method, before any member exists ([traits §11.2](reference/traits.md#112-definition-checking)).
 
-An error names the trait and the operation ([traits §11.3](reference/traits.md#113-errors-and-their-messages)). A trait or a method can require concrete parts and fully typed code ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)), which turns a silent performance cliff into a report.
+An error names the trait and the operation ([traits §11.3](reference/traits.md#113-errors-and-their-messages)). Measured on a small library, against the same mistakes in plain Julia: [evidence §4d](design/evidence.md#4d-error-messages-against-plain-julias). A trait or a method can require concrete parts and fully typed code ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)), which turns a silent performance cliff into a report.
 
 **A path, not a rewrite (G-7).** Three properties let a package migrate in steps, each of which leaves it running ([the porting guideline](intro/porting.md)):
 - the facts rule applies to any code, so a package is compiled by facts as it is, by one line per module (step 3; E-355);

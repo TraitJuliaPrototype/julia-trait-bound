@@ -449,6 +449,36 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
   - **Load:** `using TraitWorld` takes 2.11 s with the slot against 3.52 s without (one run each): a callee behind a slot is compiled at its first call, while a bound call has the JIT compile its callees with the caller. This is most of the workloads' difference above.
 - **`Callable` by a memoized method-table query inside subtyping:** 1.4 µs for the first query per closure type, 75 ns repeated, 18 ns for a memo hit, against an entry's 80–96 ns (E-256). In an emulation, its rule for a question that reaches itself gave answers that depended on the order of questions (E-267, `experiments/unification/x6/`).
 
+## 4d. Error messages against plain Julia's
+
+**The same mistakes in trait code and in plain Julia** (E-362; `unified` dd3f6d839b, vanilla v1.13.2 45b6d15e34, TraitWorld 158d000; product, strict mode off but where named; each case a script in a fresh process, one run, load 7 of 128 cores; idiomatic trait code against a plain twin). One small library (`Shape` with `area`, `perimeter` and a default `label`, and generic code over it) is written as a trait module and as an abstract type with documented generic functions. Thirteen mistakes are made against each.
+
+| The mistake | Trait form: raised at; lines, bytes | Plain Julia: raised at; lines, bytes |
+|---|---|---|
+| A type joins without an operation | the `@implement`; 2, 128 | the first call, in the library, two frames below the user's line; 2, 167 |
+| An operation returns `Int`, declared `Float64` | the `@implement`; 2, 153 | no message; the program runs |
+| An operation returns a `Symbol`, declared `String` | the `@implement`; 2, 154 | the first call, in the library: `uppercasefirst(::Symbol)`; 10, 455 |
+| A value that is no member, at a library function | the call; 7, 426, with a hint | the call; 6, 312 |
+| An operation called outside its declared signature | the call; 9, 579, with a hint | the call; 6, 350 |
+| A type under two interfaces, a method at each | a warning at the second `@implement`, an error at the call; under strict mode an error at the `@implement`; 3, 330 | cannot be written; one method wins silently |
+| Two methods that tie for two members | a warning at the `@implement`, the same error at the call; 10, 435 | the call; 10, 435 |
+| A pirate on a function the library calls | no message, the library's output changes; under strict mode the definition; 3, 484 | no message, the library's output changes |
+| A later method breaks the contract on one branch | the method's definition; 5, 488 | a later call, in Base's `round`, three frames below the user's line; 11, 585 |
+| The type never joined | the call; 7, 392, with a hint | the call; 6, 311 |
+| `struct S <: X` without its `@implement` | the first use; 2, 140 | no such mistake |
+| A type joins inside a running function, which stores a value of it | the store: "Cannot `convert` … may be too new"; 6, 285 | runs |
+| The library's author reads a field the contract does not give | the library's method definition; 2, 175 | a user's call, in the library: "type Circle has no field `mass`"; 1, 84 |
+
+- **Earlier, at the line that makes the mistake:** five of the thirteen (a missing operation, both wrong results, the later method, the library's own use), against a later call or no message. Two more by a warning at the membership, an error under strict mode.
+- **What the message names:** the trait form's names the trait, the type, the operation and its declared signature. Where plain Julia reports at a call, the error is raised in the library or in Base under it, and names the function that failed there (`uppercasefirst`, `round`), not the operation the user got wrong.
+- **The same, with a hint:** a value that is no member, and a type that never joined.
+- **Worse in the trait form:** an operation called outside its declared signature. The hint gives the declared signature, but Julia's sentence for a thrown `MethodError` stands before it, and the user's own method is the second candidate ([open issue 177](../open-issues.md#2-design)).
+- **Only in the trait form:** a member by its definition used before its `@implement`, whose message names the line to write; and a membership too new for running code, whose message is Julia's for a method too new (GT-14).
+- **Refused, where plain Julia runs correctly:** the `Int` for a declared `Float64`.
+- **The form of the trait messages,** counted over the 16 trait runs: signatures printed as tuple types 12 on TraitWorld 05991fc, 0 now; the library's own frames above the user's line 25, now 24.
+
+The scripts, every message in full and the first run: `experiments/unification/w136/`. Not measured: a port's messages (a solver's integrator type in a `MethodError`; the gate for those cases is traits T-99).
+
 ## 5. Not shown
 
 What is not shown on each axis today is the weakest point of its row in [the goals](../goals.md#2-where-each-axis-stands). The items below are open diagnoses and reruns of rows of this chapter, on the earlier build.
@@ -471,7 +501,7 @@ What is not shown on each axis today is the weakest point of its row in [the goa
 | G-2 Run-time speed | [§2](#2-run-time), on the earlier build; nothing on the unified build |
 | G-3 Caching | [§1](#1-the-guarantee): what a member's image holds (E-360); [§3](#3-first-calls-and-sessions): what the ports' images keep through loads (E-302) |
 | G-4 Downsides | [§4c](#4c-the-unifications-trade-offs-measured-on-todays-build): a plain session on the unified build (E-356) and the unification's trade-offs; [§1](#1-the-guarantee): the cost of the facts rule on plain code |
-| G-5 Error messages | no section: nothing is measured. The checks' own tests are rows of [§1](#1-the-guarantee) |
+| G-5 Error messages | [§4d](#4d-error-messages-against-plain-julias): thirteen mistakes in a small library, in both forms (E-362) |
 | G-6 Compiling ahead | [§4](#4-builds-and-binaries) (E-361) |
 | G-7 Transition | [§1](#1-the-guarantee): a package compiled by facts as it is (E-355); [§3](#3-first-calls-and-sessions): the ports' sessions; [§4b](#4b-the-ports-code-under-the-draft-reference): censuses of the ports' code |
 | G-8 Simplicity | no section: nothing is measured |

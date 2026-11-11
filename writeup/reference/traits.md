@@ -473,7 +473,7 @@ end
 **What.**
 - **Who:** the declaring package owns the trait or the type (§12.1).
 - **Completeness:** every operation is served at the member; every declared field exists with the declared type. A method that takes any receiver (a function's untyped fallback, `show(io::IO, x)`) does not serve: the trait's method, more specific at the receiver, would hide it, so the member defines the operation at its own type ([open issue 150](../open-issues.md#2-design)).
-- **Results:** each serving method's result infers to a subtype of the declared result. A result that infers wider is refused; the fix is the member's inference (a concrete field type, a type parameter), not an assertion. Where a further argument is declared abstract (an iteration state, `x::AbstractVector{T}`), a method that meets the declared signature serves and its result is not inferred there: each call through the trait asserts it (§7.9).
+- **Results:** each serving method's result infers to a subtype of the declared result. A result that infers wider than the declared one, or outside it, is refused; the fix is the member's inference (a concrete field type, a type parameter), not an assertion. Where a further argument is declared abstract (an iteration state, `x::AbstractVector{T}`), a method that meets the declared signature serves and its result is not inferred there: each call through the trait asserts it (§7.9).
 - **Fields:** §4.3.
 - **Parameters:** fields define them consistently; equations agree with stated values; values within their bounds; one instance per member (§3.2).
 - **Supertraits:** §4.5.
@@ -985,7 +985,7 @@ Each message names the trait, the type, and the declared signature where one is 
 
 | Error | Raised for | The message names |
 |---|---|---|
-| `ImplementError` | a membership that fails its check, or that strict mode refuses for an ambiguity (§6.3); a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
+| `ImplementError` | a membership that fails its check, or that strict mode refuses for an ambiguity (§6.3); a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider than the declared one or outside it, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
 | `OwnershipError` | a membership or method by a package that owns none of what it names | the method or membership, its owners, and who may declare it |
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method and the code compiled by facts it would change |
@@ -994,7 +994,13 @@ Each message names the trait, the type, and the declared signature where one is 
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
 | `AbstractTypeError` | code under `@enforce_fully_typed` whose result is of an abstract type that is not a trait (§14) | the result's type and its root cause |
 
-**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError`, `PirateError`, `NotFullyTypedError` and `AbstractTypeError` in 7adcc94 (W-114). A concrete part refused at a call (§14) raises `TraitUseError`: mine (2026-11-07).
+**The form of a message.**
+- A signature prints as a call, `tag(::Named)`. The compiler's tuple type, `Tuple{typeof(tag), Named}`, appears in no message.
+- A method refused at its definition is headed as a refused method. It says that the type stays a member, and gives the fix last.
+- A use outside the contract names what is used: a field by its name.
+- The code a declaration makes lies at the declaration: the place of a candidate and a stack frame name the user's `@trait`, not the library's source.
+
+**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError`, `PirateError`, `NotFullyTypedError` and `AbstractTypeError` in 7adcc94 (W-114). A concrete part refused at a call (§14) raises `TraitUseError`: mine (2026-11-07). The form of a message: TraitWorld 6a8ee7f and 158d000 with `unified` dd3f6d839b (`test/messages.jl`; E-362), mine (2026-11-11); the messages against plain Julia's for the same mistakes: [evidence §4d](../design/evidence.md#4d-error-messages-against-plain-julias). The library's own frames above the user's line, and Julia's sentence for a thrown `MethodError` at an operation called outside its declared signature: [open issue 177](../open-issues.md#2-design).
 
 ### 11.4 Hints
 
