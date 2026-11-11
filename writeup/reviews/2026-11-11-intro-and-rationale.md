@@ -116,3 +116,17 @@ Done in the main session (no subagents on the shared host). It is the review par
 - **The pages credit the right part:** load protection is the facts mode's, for any code; traits make it cheap. E-355's "one line" is the strongest single number for that sentence, and is now on the pages.
 - **The tutorial** covers the language in the reference's order with one running library, and marks what is Planned.
 - **Links and section citations** in `intro/`, `design.md`, `goals.md` and `state.md` resolve.
+
+## Addendum, 2026-11-11: the proposals carried out
+
+The user, on the list of what was left: "Do that too".
+
+- **P1, done.** `intro/traits-for-julia.md`: "What you write" is now five lines; the worked example follows it; the rules of each part come after, as "The parts, one by one". "What happens" defines `Compiled` and `Dynamic` in two sentences, since the example now precedes them.
+- **P2, done, in a narrower form.** `design/evidence.md`'s summary is a table from each axis to the sections that hold its numbers, and it leaves the standing to `goals.md` §2. The sections are not renumbered: "evidence §1" to "§4c" are cited across the documents.
+  - The old summary was not only a copy. Eight of its numbers were in no row of the body (among them the motivation's CSV read of 2.5 s against 0.19 s, which `design.md` §1 cites, and the run of 2026-10-27's rows for a new problem type and a new closure). So its lists are kept as a section of their own, "The earlier build's rounds: what they showed", under their builds. Its bullet on E-355 is dropped, since §1 has it; its list of what is not shown is dropped, since §5 and §1 have each item.
+  - §5 says first that what is not shown today, by axis, is the goals' weakest points.
+- **Part B of the porting guide, read against the ports' heads** (forks ddc20f6, TraitDifferentialEquations 6658c65, TraitMakie c9e294b, TraitReport a4bcf33, NetworkDynamics d8c9c49, TraitWorld 05991fc). Checked by `git grep` in each port: the 22 traits part B names and their modules; the kernels over `Vector{Column}`; `byrow`'s `promote_op`; the extensions' memberships; the workload's display at `IOContext{IO}(IOBuffer())`; `fromsource`; the right-hand side partially evaluated; `FunctionDynamics{typeof(f), …}`; the library's tools and macros that "The language in one screen" names; the deviations C-41, C-54 and L-56 and the open issues 157 to 165 it cites, all still open.
+  - One sentence was wrong: CSV's InlineStrings extension "declares memberships only". It declares memberships, has helper functions of its own, and adds no method to CSV's functions. Corrected.
+  - Not checked: the numbers of part B against new runs. They name their experiments.
+- **P3, left:** the motivation's numbers (769 signatures on Julia 1.12; the 3,553 characters) on 1.13 need a run on stock Julia. With the synthesis.
+- W-137 is done.

@@ -11,7 +11,7 @@ Julia compiles a method for the concrete types of its arguments and caches the r
 **Problem 1: compiled code does not stay valid.**
 - Compiled code depends on the method table: on which methods match at the signatures inference used. Where inference ran at an abstract signature, that is every method that matches there, so any package that adds a method for its own type changes the answer, and the code is discarded (invalidated). A package that defines `Base.show(io, ::MyType)` invalidates every caller compiled at a `show(::IO, ::Any)`-shaped signature, though it touches nothing foreign.
 - Loading CairoMakie on Julia 1.12 discards code at 769 signatures, none concrete ([findings §1](design-findings.md#1-measurements-behind-the-motivation)).
-- A package's own extension can discard its code: with DataFrames loaded, CSV's first read takes 2.5 s instead of 0.19 s, because DataFrames loads InlineStrings, which activates CSV's extension ([evidence](design/evidence.md#summary-what-the-evidence-shows-and-what-it-does-not)).
+- A package's own extension can discard its code: with DataFrames loaded, CSV's first read takes 2.5 s instead of 0.19 s, because DataFrames loads InlineStrings, which activates CSV's extension ([evidence](design/evidence.md#the-earlier-builds-rounds-what-they-showed)).
 - Package images, Julia's caches of compiled code per package, cannot help: their code is discarded the same way. Without stable caches, neither composable caching across packages nor ahead-of-time compilation (AOT) is reliable.
 
 **Problem 2: code cannot say what it needs.**

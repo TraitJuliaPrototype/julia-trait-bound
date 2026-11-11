@@ -2,9 +2,10 @@
 
 This page is for Julia users and package authors. It covers:
 - the problems the design addresses;
-- what you write;
-- what you get;
+- what you write, in brief;
 - one worked example;
+- the parts of the language, one by one;
+- what you get;
 - what it costs, and what is not done yet.
 
 It assumes you know Julia. It does not assume you have read the design. The precise rules are in the [references](../reference/README.md), written for Julia's core developers. The terms, with their origins in other languages, are in [`../glossary.md`](../glossary.md). The measurements are in [`results.md`](results.md). Porting an existing package is in [`porting.md`](porting.md).
@@ -62,120 +63,13 @@ A real case: in SciML, a callback's type is part of the integrator's type. So a 
 
 TraitWorld provides a few macros. Everything else is Julia: a trait is an abstract type.
 
-### A trait
+- **`@trait`** declares a trait: what a library needs from a value, as operations with argument and result types.
+- **`@implement`** declares that a type is a member of a trait. The declaration is checked where it is written.
+- **A method whose argument is typed by a trait** accepts a value of every member type.
+- **`@trait_module`** marks a library's module. Its methods at traits are checked when they are defined, and its code is compiled so that loading other packages does not discard it.
+- **`Callable{A, S}`** types a function argument by its signature. **A field or element typed by a trait,** with `keep`, holds values of mixed member types.
 
-A trait says what a library needs from a value: operations with declared argument and result types.
-
-```julia
-@trait ColTable begin
-    ncols(t::ColTable)::Int
-    col(t::ColTable, i::Int)::Vector{Float64}
-end
-```
-
-A trait can also declare stored fields with types (writable unless marked `@const`), defaults written in terms of the other operations, and type parameters ([traits §4](../reference/traits.md#4-declaring-a-trait)):
-
-```julia
-@trait Integrator{U, P} begin
-    u::U                 # the state
-    @const p::P          # the parameters, read-only
-    t::Float64
-end
-```
-
-A trait is an abstract type, with two additions:
-- **A type joins it after its own definition,** by a declared *membership*. The type's definition need not name the trait; the package that owns the type, or the one that owns the trait, declares the membership later.
-- **Joining is checked.** The membership must provide the trait's operations and fields, with their types.
-
-Everything else is as for an abstract type:
-- `T <: ColTable` asks whether `T` is a member; `x isa ColTable` asks it of a value.
-- A type can be a member of several traits.
-- `@trait B <: A` makes `A` a supertrait: every member of `B` is a member of `A`.
-- In dispatch, a type's own supertypes rank before a trait, so a library can adopt traits one function at a time ([traits §6.2](../reference/traits.md#62-specificity)).
-
-### A membership: your type joins a trait
-
-You declare that a type is a member with `@implement`. TraitWorld checks the declaration when you write it: every operation must exist, with the declared result type.
-
-There are two ways to serve the operations:
-- **Your type has a field that is already a member.** `@implement ColTable Measurements by data` forwards the trait to the field `data`. Forwarding is always written with `by`.
-- **Your type serves the operations itself.** Define the methods, then declare the membership.
-
-Who may declare a membership: the package that owns the trait, or the package that owns the type ([traits §12.1](../reference/traits.md#121-who-may-declare-a-membership)).
-
-### A method at a trait
-
-A method whose argument is typed by a trait is an ordinary method:
-
-```julia
-colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
-```
-
-- It accepts a value of any member type. The value is passed as itself: inside, `t` is your `Measurements`.
-- A method that reaches `t` only through the trait (its operations and fields, or passing it to another argument typed by the trait) is *fully bounded*. One that does anything else with `t` is *open*. Library code in a trait module may only be fully bounded, unless a method is marked `@open` ([traits §7.3](../reference/traits.md#73-fully-bounded-methods)).
-- On ordinary values, such as the column `col` returns, it calls any Julia code.
-
-**`Compiled` or `Dynamic`.** Each trait argument at each call has one of two *attributes*. The results are the same; only the speed differs ([traits §7.4](../reference/traits.md#74-the-attribute-compiled-and-dynamic)).
-- `Compiled`: the code compiled for the value's type runs, as plain Julia compiles per type.
-- `Dynamic`: code compiled once, at the trait, runs. Each operation on the value dispatches when it runs, and its result has the declared type.
-
-What decides, strongest first ([traits §7.5](../reference/traits.md#75-what-decides)):
-1. a cast at the call: `colmean(compiled_for(m), 1)` or `colmean(with_dynamic(m), 1)`;
-2. an attribute the value carries: a `Dynamic{ColTable}` is `Dynamic`, and an argument passed on keeps its attribute;
-3. the library's choice for the argument (`@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`) or for its module (the option `dynamic`);
-4. the trait's default, `@default_dynamic` or `@default_compiled` in its body;
-5. otherwise, for a method of a trait module, what the caller knows: a caller that knows the value's type passes `Compiled`; the prompt, or an item of a `Vector{Any}`, passes `Dynamic`. For a method outside a trait module: `Compiled`, as Julia compiles a method at an abstract type.
-
-### A trait module
-
-Library code that uses traits declares `@trait_module` in its module, before the module's first method ([traits §13](../reference/traits.md#13-scopes-trait-modules)):
-
-```julia
-module Columns
-using TraitWorld
-@trait_module
-...
-end
-```
-
-A trait module:
-- is compiled in the patched compiler's facts mode (see "What you get", point 1);
-- refuses an open method at a trait (`TraitUseError`);
-- refuses piracy of its own (below).
-
-Its statements are Julia's; nothing is rewritten. Code outside trait modules calls its methods as it calls any function, and a trait module can call any Julia code: Base, CSV.jl, Cairo, ForwardDiff.
-
-### `Dynamic{X}` and `keep`
-
-For a mixed collection, or a field whose value can change type, type the field or element by the trait: `tables::Vector{ColTable}` holds the members' own values.
-- `Dynamic{X}(x)` holds a member of `X` and is itself a member of `X`. Code that receives it runs the code compiled once, at the trait. `unwrap(d)` gives the object back ([traits §7.7](../reference/traits.md#77-dynamicx)).
-- `keep(x)` stores a trait argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{X}` where it is `Dynamic` ([traits §7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute)).
-- An operation on a value the code knows only by its trait tests the value's type against the trait's members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type ([traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
-
-### `Callable`: a function with a declared signature
-
-```julia
-function colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int)
-    c = col(t, i)
-    out = similar(c)
-    for k in eachindex(c)
-        out[k] = f(c[k])
-    end
-    return out
-end
-```
-
-- `f` may be any function or closure with a method for a `Float64` argument. The library calls it as `f(x)`.
-- The library calls `f` itself. Passing it on to Base's `map` is a use outside `Callable`'s contract, which a trait module refuses; how a library passes a function on is [open issue 165](../open-issues.md#2-design).
-- Every call is checked: a result that is not a `Float64` raises a `TypeError`.
-- `Callable`'s default attribute is `Dynamic`: the library is compiled once for the signature, not once per function. A function Julia defines, or one of the library's own package, is `Compiled` ([traits §9](../reference/traits.md#9-functions-callable)).
-- A caller casts with `compiled_for(f)` to have the library compiled for this function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this.
-
-### Piracy and strict mode
-
-- *Type piracy* is defining a method of a function you do not own, for types you do not own. An example from the project's tests: a package defines `+` for ForwardDiff's `Dual` numbers. It owns neither `+` (Base's) nor `Dual` (ForwardDiff's).
-- By default, a pirate's method is followed, as in plain Julia. Code that the pirate changes is compiled again, once.
-- **Strict mode** refuses another package's method, on a function and for types that package does not own, when the method would change code compiled by facts ([traits §12.3](../reference/traits.md#123-strict-mode)). It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
+The worked example uses each of these. [The parts, one by one](#the-parts-one-by-one) then gives each with its rules.
 
 ## A worked example: a library and its user
 
@@ -269,6 +163,8 @@ means(s, 1)                # [1.5, 1.5]
 
 ### What happens
 
+Each trait argument at each call is `Compiled` or `Dynamic`. `Compiled` runs the code compiled for the value's type. `Dynamic` runs code compiled once, for the trait, in which each operation on the value dispatches when it runs. [`Compiled` or `Dynamic`](#a-method-at-a-trait) below says what decides.
+
 - **At the prompt** the values are `Dynamic`: the prompt knows no types, so each method runs its code compiled once, at the trait, and each operation dispatches when it runs. The results are the same as below.
   - So a timing at the prompt, `@time colmean(m, 1)`, times the code compiled once. To time the code compiled for `Measurements`, call from a function, or cast: `colmean(compiled_for(m), 1)`.
   - `keep` at the prompt stores a `Dynamic{ColTable}` that holds the value; from a function that knows the type it stores the value itself. Code that reads the shelf through `ColTable` sees no difference. Code that asks more of an item (its type, another trait) does ([open issue 175](../open-issues.md#2-design)).
@@ -316,6 +212,125 @@ TraitUseError: colsum is declared bounded, and is open:
 ```
 
 **A value of no member type.** `colmean(42, 1)` raises a `MethodError`, as plain Julia would.
+
+## The parts, one by one
+
+What the example used, each with its rules.
+
+### A trait
+
+A trait says what a library needs from a value: operations with declared argument and result types.
+
+```julia
+@trait ColTable begin
+    ncols(t::ColTable)::Int
+    col(t::ColTable, i::Int)::Vector{Float64}
+end
+```
+
+A trait can also declare stored fields with types (writable unless marked `@const`), defaults written in terms of the other operations, and type parameters ([traits §4](../reference/traits.md#4-declaring-a-trait)):
+
+```julia
+@trait Integrator{U, P} begin
+    u::U                 # the state
+    @const p::P          # the parameters, read-only
+    t::Float64
+end
+```
+
+A trait is an abstract type, with two additions:
+- **A type joins it after its own definition,** by a declared *membership*. The type's definition need not name the trait; the package that owns the type, or the one that owns the trait, declares the membership later.
+- **Joining is checked.** The membership must provide the trait's operations and fields, with their types.
+
+Everything else is as for an abstract type:
+- `T <: ColTable` asks whether `T` is a member; `x isa ColTable` asks it of a value.
+- A type can be a member of several traits.
+- `@trait B <: A` makes `A` a supertrait: every member of `B` is a member of `A`.
+- In dispatch, a type's own supertypes rank before a trait, so a library can adopt traits one function at a time ([traits §6.2](../reference/traits.md#62-specificity)).
+
+### A membership: your type joins a trait
+
+You declare that a type is a member with `@implement`. TraitWorld checks the declaration when you write it: every operation must exist, with the declared result type.
+
+There are two ways to serve the operations:
+- **Your type has a field that is already a member.** `@implement ColTable Measurements by data` forwards the trait to the field `data`. Forwarding is always written with `by`.
+- **Your type serves the operations itself.** Define the methods, then declare the membership.
+
+Who may declare a membership: the package that owns the trait, or the package that owns the type ([traits §12.1](../reference/traits.md#121-who-may-declare-a-membership)).
+
+### A method at a trait
+
+A method whose argument is typed by a trait is an ordinary method:
+
+```julia
+colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
+```
+
+- It accepts a value of any member type. The value is passed as itself: inside, `t` is your `Measurements`.
+- A method that reaches `t` only through the trait (its operations and fields, or passing it to another argument typed by the trait) is *fully bounded*. One that does anything else with `t` is *open*. Library code in a trait module may only be fully bounded, unless a method is marked `@open` ([traits §7.3](../reference/traits.md#73-fully-bounded-methods)).
+- On ordinary values, such as the column `col` returns, it calls any Julia code.
+
+**`Compiled` or `Dynamic`.** Each trait argument at each call has one of two *attributes*. The results are the same; only the speed differs ([traits §7.4](../reference/traits.md#74-the-attribute-compiled-and-dynamic)).
+- `Compiled`: the code compiled for the value's type runs, as plain Julia compiles per type.
+- `Dynamic`: code compiled once, at the trait, runs. Each operation on the value dispatches when it runs, and its result has the declared type.
+
+What decides, strongest first ([traits §7.5](../reference/traits.md#75-what-decides)):
+1. a cast at the call: `colmean(compiled_for(m), 1)` or `colmean(with_dynamic(m), 1)`;
+2. an attribute the value carries: a `Dynamic{ColTable}` is `Dynamic`, and an argument passed on keeps its attribute;
+3. the library's choice for the argument (`@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`) or for its module (the option `dynamic`);
+4. the trait's default, `@default_dynamic` or `@default_compiled` in its body;
+5. otherwise, for a method of a trait module, what the caller knows: a caller that knows the value's type passes `Compiled`; the prompt, or an item of a `Vector{Any}`, passes `Dynamic`. For a method outside a trait module: `Compiled`, as Julia compiles a method at an abstract type.
+
+### A trait module
+
+Library code that uses traits declares `@trait_module` in its module, before the module's first method ([traits §13](../reference/traits.md#13-scopes-trait-modules)):
+
+```julia
+module Columns
+using TraitWorld
+@trait_module
+...
+end
+```
+
+A trait module:
+- is compiled in the patched compiler's facts mode ([What you get](#what-you-get), point 1);
+- refuses an open method at a trait (`TraitUseError`);
+- refuses piracy of its own (below).
+
+Its statements are Julia's; nothing is rewritten. Code outside trait modules calls its methods as it calls any function, and a trait module can call any Julia code: Base, CSV.jl, Cairo, ForwardDiff.
+
+### `Dynamic{X}` and `keep`
+
+For a mixed collection, or a field whose value can change type, type the field or element by the trait: `tables::Vector{ColTable}` holds the members' own values.
+- `Dynamic{X}(x)` holds a member of `X` and is itself a member of `X`. Code that receives it runs the code compiled once, at the trait. `unwrap(d)` gives the object back ([traits §7.7](../reference/traits.md#77-dynamicx)).
+- `keep(x)` stores a trait argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{X}` where it is `Dynamic` ([traits §7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute)).
+- An operation on a value the code knows only by its trait tests the value's type against the trait's members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type ([traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
+
+### `Callable`: a function with a declared signature
+
+```julia
+function colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int)
+    c = col(t, i)
+    out = similar(c)
+    for k in eachindex(c)
+        out[k] = f(c[k])
+    end
+    return out
+end
+```
+
+- `f` may be any function or closure with a method for a `Float64` argument. The library calls it as `f(x)`.
+- The library calls `f` itself. Passing it on to Base's `map` is a use outside `Callable`'s contract, which a trait module refuses; how a library passes a function on is [open issue 165](../open-issues.md#2-design).
+- Every call is checked: a result that is not a `Float64` raises a `TypeError`.
+- `Callable`'s default attribute is `Dynamic`: the library is compiled once for the signature, not once per function. A function Julia defines, or one of the library's own package, is `Compiled` ([traits §9](../reference/traits.md#9-functions-callable)).
+- A caller casts with `compiled_for(f)` to have the library compiled for this function, at plain Julia's speed, with the signature still checked. An ODE right-hand side wants this.
+
+### Piracy and strict mode
+
+- *Type piracy* is defining a method of a function you do not own, for types you do not own. An example from the project's tests: a package defines `+` for ForwardDiff's `Dual` numbers. It owns neither `+` (Base's) nor `Dual` (ForwardDiff's).
+- By default, a pirate's method is followed, as in plain Julia. Code that the pirate changes is compiled again, once.
+- **Strict mode** refuses another package's method, on a function and for types that package does not own, when the method would change code compiled by facts ([traits §12.3](../reference/traits.md#123-strict-mode)). It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
 
 ## What you get
 

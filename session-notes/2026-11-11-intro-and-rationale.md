@@ -25,7 +25,16 @@ Read as the review part of W-137, ahead of the plan's order (W-135's rest and W-
 - Nothing was measured anew. The results page's session totals are E-337's, its steps E-324's, each named.
 - The reference's sentence "Both run the same methods and give the same results" (traits §7.4) stands until open issue 175 is decided; the tutorial teaches the exception.
 
+## Then: "Do that too"
+
+The user, on the list of what was left: "Do that too".
+
+- The introduction reordered: the worked example before the parts.
+- The evidence's summary replaced by a map from the axes to its sections. The old summary held eight numbers that no row of the body had, so its lists stay as a section of the earlier build's results (mine).
+- The guide's part B read against the ports' heads: one sentence corrected.
+- W-137 done. The review has an addendum.
+
 ## Left
 
-- W-137: the guide's part B read against the ports' heads. The review's proposals P1 (the introduction's order), P2 (the evidence by axis, its summary replaced by `goals.md` §2), P3 (the motivation's numbers on 1.13).
-- The plan's order otherwise unchanged: W-135's rest, W-136, then W-128's image items.
+- The motivation's numbers on Julia 1.13 (the review's P3): with the synthesis.
+- The plan's order: W-135's rest, W-136, then W-128's image items.
