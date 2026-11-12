@@ -88,3 +88,14 @@ The speed work, for good (the user, above). W-121 and what is left of W-129 are 
 
 - **Made** (the user: "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later."): the `where` variable is the value's type under either attribute (W-148); the storage's type decides what is stored, with `Kept{X}` (W-149); an abstract result is no fault (W-142).
 - **W-141** (the user: "It is a conceptual simplification so I heavily lean towards adopting it. But I want to be sure the trade offs are manageable. So make a plan that builds it, but keep attention to managing and flagging where it might make problems."): built step by step under [its build plan](2026-11-11-membership-as-method-build.md), each step with a check that can stop it and a place where its problems are flagged.
+
+## Addendum, 2026-11-12: bin A after the night
+
+| Entry | State |
+|---|---|
+| W-141 | built through stage 2 (compiler C-89; E-367); waits for the user's decision; what it left is open issue 180 |
+| The `where` variable (W-148; C-54) | done; C-54 retired |
+| Kept values (W-149) | `Kept{X}` built in the library; the teaching stores without `keep`. Left: T-111 (a report of a `keep` into storage typed by the trait; the ODE port's six sites) |
+| The abstract result (W-142 (3)) | done; T-110 retired. It showed that gate `n9`'s plain-callee case had passed through it (T-100) |
+| The Base surface (W-143 (1)) | the tool is written and run (E-368) |
+| The rest of bin A | open: W-142 (1), (2), (4), (5); W-128's rows |
