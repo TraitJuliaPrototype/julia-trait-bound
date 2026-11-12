@@ -752,11 +752,11 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
   - It is a form of storage, not a member of `X`: its type is the same under either attribute, so a question asked of it has one answer.
   - `unwrap(k)` is the held object. `k[]` is the value with its attribute: the object where it was kept `Compiled`, a `Dynamic{X}` where `Dynamic`.
   - `kept_call(f, k, args…)` calls `f(unwrap(k), args…)` under the kept attribute: `Dynamic` runs code compiled once; `Compiled` runs the code compiled for the object's type, chosen when the call runs.
-- **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds what is assigned, read back plain (§8.1). **`keep` is not for this storage.** A trait argument assigned there without `keep` is the object, whoever calls; `keep` would store a box at one caller and the object at another. Assigning a `Kept{X}` there stores its object.
+- **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds what is assigned, read back plain (§8.1). **`keep` is not for this storage.** A trait argument assigned there without `keep` is the object, whoever calls; `keep` would store a box at one caller and the object at another. A `Kept{X}` is not assigned there: `unwrap(k)` is.
 
 Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Planned (W-149), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
+**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Implemented in TraitWorld `unified` 4a1dc03 (W-149; test `kept.jl`, `experiments/unification/w149/`), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -798,12 +798,12 @@ end
 ```
 
 - A field, element or `Ref` typed by a trait holds any member, boxed, as one typed by an abstract type does. It holds a `Dynamic{X}` too, which is a member.
-- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member, and the held object for a `Kept{X}`. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
+- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
 - **A value read back is what was stored:** a member, or a `Dynamic{X}`. A member read back is plain (§7.5); a `Dynamic{X}` stays `Dynamic`.
 - **A trait argument is assigned here as it is, without `keep`** (§7.8): the storage then holds the object whoever calls. Storage that hands an attribute on is typed by a struct parameter (§8.2) or `Kept{X}`.
 - An operation on a value read back follows §7.9.
 
-**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. A `Kept{X}` stored as its object: Planned (W-149), with T-111.
+**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. With T-111.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -1257,4 +1257,4 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-108 | [§16](#16-compiling-ahead-closed-programs) | `add_entrypoints(report)` gives a cast's instance to the build through Julia's interface for entry points. | Julia's `Base.Experimental.entrypoint` takes a signature, which names the instance compiled once. The instance at a member is pushed into the compiler's internal list `Base.Compiler._entrypoint_mis`. | TraitWorld `src/fullytyped.jl` (`add_entrypoints`) |
 | T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles. | The check and the build are two walks with two rule sets. Fully typed, yet refused by a build: a set with a member at an abstract type (compiler C-86); a call with more than 64 members to branch over; a hole inside plain code that the check takes as resolved (Base's `repeat(::Char, ::Int)`, a JLL's `__init__`). Built, yet not fully typed: the calls in Base that the session's rules leave to run time and the build resolves (T-107). The build's `BuildError` carries the build's own report. | TraitWorld `src/fullytyped.jl`, `src/build.jl`; E-361, E-364; W-142 |
 | T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
-| T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | `Kept{X}` holds a member with its attribute; `keep` is not used into storage typed by the trait. | No `Kept{X}`. Nothing reports a `keep` whose value goes into storage typed by the trait ([the case](../open-issues.md#closed-items), issue 175). | TraitWorld `src/dynamic.jl`; W-149 |
+| T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | `keep` is not used into storage typed by the trait. | Nothing reports a `keep` whose value goes into such storage. TraitDifferentialEquations keeps its callbacks so at six sites. | TraitDifferentialEquations `lib/ODECore/src/core.jl:634`; W-149, W-104 |

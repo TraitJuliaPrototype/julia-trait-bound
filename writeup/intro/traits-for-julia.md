@@ -67,7 +67,7 @@ TraitWorld provides a few macros. Everything else is Julia: a trait is an abstra
 - **`@implement`** declares that a type is a member of a trait. The declaration is checked where it is written.
 - **A method whose argument is typed by a trait** accepts a value of every member type.
 - **`@trait_module`** marks a library's module. Its methods at traits are checked when they are defined, and its code is compiled so that loading other packages does not discard it.
-- **`Callable{A, S}`** types a function argument by its signature. **A field or element typed by a trait,** with `keep`, holds values of mixed member types.
+- **`Callable{A, S}`** types a function argument by its signature. **A field or element typed by a trait** holds values of mixed member types.
 
 The worked example uses each of these. [The parts, one by one](#the-parts-one-by-one) then gives each with its rules.
 
@@ -113,7 +113,7 @@ struct Shelf
     tables::Vector{ColTable}
 end
 shelf() = Shelf(ColTable[])
-add!(s::Shelf, t::ColTable) = (push!(s.tables, keep(t)); s)
+add!(s::Shelf, t::ColTable) = (push!(s.tables, t); s)
 function means(s::Shelf, i::Int)
     out = Float64[]
     for t in s.tables
@@ -167,7 +167,7 @@ Each trait argument at each call is `Compiled` or `Dynamic`. `Compiled` runs the
 
 - **At the prompt** the values are `Dynamic`: the prompt knows no types, so each method runs its code compiled once, at the trait, and each operation dispatches when it runs. The results are the same as below.
   - So a timing at the prompt, `@time colmean(m, 1)`, times the code compiled once. To time the code compiled for `Measurements`, call from a function, or cast: `colmean(compiled_for(m), 1)`.
-  - `keep` at the prompt stores a `Dynamic{ColTable}` that holds the value; from a function that knows the type it stores the value itself. Code that reads the shelf through `ColTable` sees no difference. Code that asks more of an item (its type, another trait) does ([open issue 175](../open-issues.md#2-design)).
+  - The shelf holds each table itself, added at the prompt or from compiled code. A library that wants each item's attribute carried types its storage `Kept{ColTable}` ([traits §7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute)).
 - **In a function that knows the types** (a script's functions, a package, or `colmean(compiled_for(m), 1)` at the prompt) the values are `Compiled`: `colmean` is compiled for `Measurements`, and again for `Ramp`, as plain Julia compiles a method per type. `meandiff(m, r, 1)` is compiled for this pair of types.
 - **The shelf** holds a `Measurements` and a `Ramp` in one vector typed by the trait. `means` is compiled once; the call `colmean(t, i)` on an item tests the item's type against `ColTable`'s members and calls each one's code directly.
 - **`colmap`** is compiled once for the signature `Float64 -> Float64`, not once per closure.
@@ -304,7 +304,7 @@ Its statements are Julia's; nothing is rewritten. Code outside trait modules cal
 
 For a mixed collection, or a field whose value can change type, type the field or element by the trait: `tables::Vector{ColTable}` holds the members' own values.
 - `Dynamic{X}(x)` holds a member of `X` and is itself a member of `X`. Code that receives it runs the code compiled once, at the trait. `unwrap(d)` gives the object back ([traits §7.7](../reference/traits.md#77-dynamicx)).
-- `keep(x)` stores a trait argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{X}` where it is `Dynamic` ([traits §7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute)).
+- `keep(x)` is a trait argument with the attribute it has in the current code: itself where it is `Compiled`, a `Dynamic{X}` where it is `Dynamic`. It is stored in a struct parameter or a `Kept{X}` slot, which hand the attribute on; storage typed by the trait takes the value without it ([traits §7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute)).
 - An operation on a value the code knows only by its trait tests the value's type against the trait's members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type ([traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
 
 ### `Callable`: a function with a declared signature

@@ -495,7 +495,7 @@ See the table above.
 ### Entry and worker
 See the table above.
 ### Kept value: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`
-See [`Dynamic{X}`](#dynamicx) and [`keep`](#keep).
+See [`Dynamic{X}`](#dynamicx) and [`keep`](#keep). `Kept{X}` is storage that holds a member of `X` with its attribute, in one concrete type ([traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute)).
 ### Trait cast
 See [cast](#cast).
 ### Of the trait world

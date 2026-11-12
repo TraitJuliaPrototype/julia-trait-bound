@@ -404,7 +404,7 @@ struct Scene
     shapes::Vector{Shape}
 end
 Scene() = Scene(Shape[])
-add!(sc::Scene, s::Shape) = (push!(sc.shapes, keep(s)); sc)
+add!(sc::Scene, s::Shape) = (push!(sc.shapes, s); sc)
 function totalarea(sc::Scene)
     a = 0.0
     for s in sc.shapes
@@ -418,9 +418,8 @@ end
 sc = Scene()
 add!(sc, Circle(1.0)); add!(sc, Rect(2.0, 3.0)); add!(sc, Tile("door", Rect(1.0, 2.0)))
 totalarea(sc)                     # 11.141592653589793
-sc.shapes[1]                      # a Dynamic{Shape} holding the Circle: added at the prompt
-add!(sc, compiled_for(Circle(1.0)))
-sc.shapes[4]                      # the Circle itself: the cast is kept
+sc.shapes[1]                      # Circle(1.0): the scene holds the shape itself
+sc.shapes[1] isa Scalable         # true, whoever added it
 
 d = Dynamic{Shape}(Circle(2.0))
 d isa Shape                       # true
@@ -429,10 +428,21 @@ ratio(d)                          # 1.0
 unwrap(d)                         # Circle(2.0)
 ```
 
-- A `Vector{Shape}` holds members of any type. Each is stored as itself, or as a `Dynamic{Shape}`.
+- A `Vector{Shape}` holds members of any type. A shape passed to `add!` is stored as itself, at the prompt and from compiled code alike.
 - **`Dynamic{X}`** holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits). Code that receives it runs the code compiled once, at the trait. `Dynamic{Shape}(42)` raises a `TypeError`.
-- **`keep(s)`** stores an argument with the attribute it has in the current code: as itself where it is `Compiled`, as a `Dynamic{Shape}` where it is `Dynamic`. At the prompt the argument is `Dynamic`; with `compiled_for`, or called from a function that knows the type, it is `Compiled`.
-- **Read a kept item through its trait.** A `Dynamic{Shape}` is a `Shape` and nothing else: `sc.shapes[1] isa Scalable` is false for the circle added at the prompt, and `sc.shapes[1] == Circle(1.0)` is false; `unwrap` gives the circle back. So code that asks more of an item than `Shape` gets different answers for an item added at the prompt and one added from a function ([open issue 175](../open-issues.md#2-design)).
+- **A library that wants each item's attribute carried** types its storage `Kept{Shape}`:
+
+  ```julia
+  ks = Kept{Shape}[]
+  push!(ks, Dynamic{Shape}(Circle(1.0))); push!(ks, Circle(1.0))
+  typeof(ks[1]) === typeof(ks[2])   # true: one type, the attribute beside the object
+  isdynamic(ks[1])                  # true
+  kept_call(area, ks[1])            # 3.141592653589793, by the code compiled once
+  kept_call(area, ks[2])            # the same, by the code compiled for Circle
+  unwrap(ks[1])                     # Circle(1.0)
+  ```
+
+  A method stores its argument there with `push!(ks, keep(s))`: **`keep(s)`** is the argument with the attribute it has in the current code. `keep` is for a `Kept` slot or a struct parameter (§14), not for storage typed by the trait: there it would store a box at one caller and the shape at another.
 - `totalarea` is compiled once, whatever the scene holds. `area(s)` on an item tests its type against `Shape`'s members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type, so the loop stays typed.
 - A shape type declared later works at once, and discards no compiled code.
 
