@@ -235,7 +235,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `keep`
 
-- **Here:** `keep(x)` is a trait argument with the attribute it has in the current code: itself where it is `Compiled`, a `Dynamic{X}` where it is `Dynamic`. What is stored is decided by the storage's type: a struct parameter records the attribute, `Kept{X}` holds the member with its attribute in one type, and storage typed by the trait holds the object.
+- **Here:** `keep(x)` is a trait argument with the attribute it has in the current code: itself where it is `Compiled`, a `Dynamic{X}` where it is `Dynamic`. It is for storage that hands the attribute on: a struct parameter, which records it, or `Kept{X}`, which holds the member with its attribute in one type. Into storage typed by the trait, a value is assigned without it.
 - **Origin:** the project's term.
 - **Defined in:** [traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute); [compiler §6.9](reference/compiler.md#69-casts-and-keep).
 

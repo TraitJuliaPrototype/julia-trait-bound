@@ -216,7 +216,7 @@ Base.Experimental.@compiler_options fully_typed=enforce   # every method of the 
 - **Fully typed code has no check** and pays nothing.
 - **The fault is the closed build's refusal** (§7.6): code without a fault at a signature is what a closed build compiles from that signature with no call left to run time, and no other code. Both read one rule: a run-time site is a call that neither the caller's types nor the members resolve.
 
-**Status:** Implemented on `unified` 5f2373b2d5 (W-114): the flag and the option, the policy, the check after optimization, the hook; gate `n9_fully_typed`. The library's report and errors: [lowering §14](lowering.md#14-fully-typed-mode-concrete-parts-closed-programs). Where the mode lives (the compiler finds the fault, the library explains it): mine (2026-11-07). The fault as exactly the closed build's refusal, and the result's type as no fault: Planned (W-142; traits T-109, T-110).
+**Status:** Implemented on `unified` 5f2373b2d5 (W-114): the flag and the option, the policy, the check after optimization, the hook; gate `n9_fully_typed`. The library's report and errors: [lowering §14](lowering.md#14-fully-typed-mode-concrete-parts-closed-programs). Where the mode lives (the compiler finds the fault, the library explains it): mine (2026-11-07). The result's type as no fault: `unified` 22db66e23c. The fault as exactly the closed build's refusal: Planned (W-142; traits T-109).
 
 ---
 

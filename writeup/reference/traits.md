@@ -672,7 +672,7 @@ For each trait argument of a call, the first that applies, strongest first:
 1. **A cast at the call** (§7.6): the caller's override.
 2. **An attribute the value carries:**
    - an argument inside code compiled for it keeps its attribute when that code passes it on: code per key passes `Compiled`, code compiled once passes `Dynamic`;
-   - a `Dynamic{X}` is `Dynamic` (§7.7); a `Kept{X}` is what it records (§7.8);
+   - a `Dynamic{X}` is `Dynamic` (§7.7);
    - a value read from a field whose declared type is a struct parameter bounded by a trait carries what the parameter records: `Compiled` when the parameter is the value's own type, `Dynamic` when it is a `Dynamic{X}` (§8.2).
 3. **The library's default:**
    - at the argument: `@nospecialize t::X` gives `Dynamic`, `@specialize t::X` gives `Compiled`;
@@ -723,7 +723,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - `unwrap(d)` is the held object.
 - **It is a member of `X` and `X`'s supertraits only,** not of the other traits its object belongs to. To pass it where another trait is required, unwrap it, or keep it as `Dynamic{All{X, Y}}`, a member of both.
 - **A `Dynamic{Callable{A, S}}` is called at `A` only.** To call its function at another signature, wrap it again, `Dynamic{Callable{B, S}}(unwrap(d))`, or keep it as `Dynamic{All{Callable{A, S}, Callable{B, S}}}` where both signatures are known when it is stored.
-- **It keeps the attribute through storage typed by it:** a `Vector{Dynamic{Shape}}`, a field of type `Dynamic{Shape}`. Storage typed by the trait itself holds its object (§8.1).
+- **It keeps the attribute through storage:** a `Vector{Dynamic{Shape}}`, a field of type `Dynamic{Shape}` or `Shape`.
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
@@ -744,19 +744,19 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
 
   ```julia
   struct Scene; shapes::Vector{Kept{Shape}}; end
-  add!(sc::Scene, s::Shape) = (push!(sc.shapes, keep(s)); sc)
-  total(sc::Scene) = sum(area, sc.shapes)       # each item passed on with the attribute it was kept with
+  add!(sc::Scene, s::Shape) = (push!(sc.shapes, keep(s)); sc)       # converts to Kept{Shape}
+  total(sc::Scene) = sum(k -> kept_call(area, k), sc.shapes)        # each with the attribute it was kept with
   ```
 
-  - `Kept{X}` is one concrete type that holds a member of `X` and an attribute. Assignment converts: a member is held as `Compiled`, a `Dynamic{X}` as `Dynamic` with its object. `Kept{X}(x)` does the same.
-  - It is a member of `X` and of `X`'s supertraits only, as `Dynamic{X}` is (§7.7), with the same rule for `X`'s parameters. Its operations dispatch on the held object.
-  - Passed on, it carries its attribute (§7.5, step 2): held as `Dynamic`, it runs code compiled once; held as `Compiled`, the call runs the code compiled for the object's type, chosen when the call runs.
-  - `unwrap(k)` is the held object. A question about the object is asked of `unwrap(k)`: `k`'s own type is the same under either attribute.
-- **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds the object, read back plain (§8.1).
+  - `Kept{X}` is one concrete type that holds a member of `X` and an attribute. Assignment converts: a member is held as `Compiled`, a `Dynamic{X}` as `Dynamic` with its object. `Kept{X}(x)` does the same. `X` is a trait with its parameters, as for `Dynamic{X}` (§7.7).
+  - It is a form of storage, not a member of `X`: its type is the same under either attribute, so a question asked of it has one answer.
+  - `unwrap(k)` is the held object. `k[]` is the value with its attribute: the object where it was kept `Compiled`, a `Dynamic{X}` where `Dynamic`.
+  - `kept_call(f, k, args…)` calls `f(unwrap(k), args…)` under the kept attribute: `Dynamic` runs code compiled once; `Compiled` runs the code compiled for the object's type, chosen when the call runs.
+- **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds what is assigned, read back plain (§8.1). **`keep` is not for this storage.** A trait argument assigned there without `keep` is the object, whoever calls; `keep` would store a box at one caller and the object at another. Assigning a `Kept{X}` there stores its object.
 
 Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Planned (W-149), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as a member of `X` that converts on assignment: mine (2026-11-11).
+**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Planned (W-149), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -792,17 +792,18 @@ Where the code holds a value at the trait's type (code compiled once, a field or
 ```julia
 mutable struct State
     const u::Vector{Float64}
-    model::Model                     # any member
+    model::Model                     # any member, or a Dynamic{Model}
     hooks::Vector{Hook}
 end
 ```
 
-- A field, element or `Ref` typed by a trait holds any member, boxed, as one typed by an abstract type does.
-- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member, and the held object for a `Dynamic{X}` or a `Kept{X}`: such storage holds the object itself. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
-- **A value read back is the member,** plain (§7.5). Storage that hands an attribute on is typed by a struct parameter (§8.2) or `Kept{X}` (§7.8).
+- A field, element or `Ref` typed by a trait holds any member, boxed, as one typed by an abstract type does. It holds a `Dynamic{X}` too, which is a member.
+- **Assignment converts as Julia's does:** `convert(X, x)`, which is `x` for a member, and the held object for a `Kept{X}`. A library that translates values defines `Base.convert(::Type{ColorSpec}, s::Symbol) = named_colour(s)`.
+- **A value read back is what was stored:** a member, or a `Dynamic{X}`. A member read back is plain (§7.5); a `Dynamic{X}` stays `Dynamic`.
+- **A trait argument is assigned here as it is, without `keep`** (§7.8): the storage then holds the object whoever calls. Storage that hands an attribute on is typed by a struct parameter (§8.2) or `Kept{X}`.
 - An operation on a value read back follows §7.9.
 
-**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. The object stored for a `Dynamic{X}`: Planned (W-149), with T-111.
+**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. A `Kept{X}` stored as its object: Planned (W-149), with T-111.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -1127,7 +1128,7 @@ Two guarantees, asked for separately.
 
 **They differ.** Concrete parts do not make code fully typed (a `Vector{Any}` argument, an abstract declared result can each leave a call unresolved). Fully typed code is checked at the signatures it ran at; concrete parts are promised for every member.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [compiler §2.7](compiler.md#27-fully-typed-mode)); tests `fullytyped.jl`, acceptance case `AC_16`, gate `n9_fully_typed`. With T-100, T-101. Fully typed as exactly what compiles ahead: Planned (W-142), with T-109. The abstract result as no fault, and `@enforce_concrete_only result`: Planned (W-142), with T-110; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". The name `result`: mine (2026-11-11). The modes' check in the compiler: mine (2026-11-07). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. The report of the fallback's arguments: mine (2026-11-06, [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md) M9), adopted with the work plan by the user.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [compiler §2.7](compiler.md#27-fully-typed-mode)); tests `fullytyped.jl`, acceptance case `AC_16`, gate `n9_fully_typed`. With T-100, T-101. Fully typed as exactly what compiles ahead: Planned (W-142), with T-109. The abstract result as no fault, and `@enforce_concrete_only result`: Implemented on `unified` 22db66e23c with TraitWorld `unified` d804c78 (W-142; gate `n9_fully_typed`, test `fullytyped.jl`); the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". The name `result`: mine (2026-11-11). The modes' check in the compiler: mine (2026-11-07). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. The report of the fallback's arguments: mine (2026-11-06, [the trade-offs review](../reviews/2026-11-06-unification-tradeoffs.md) M9), adopted with the work plan by the user.
 
 ---
 
@@ -1255,5 +1256,5 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-107 | [§16](#16-compiling-ahead-closed-programs) | The report's holes are the calls that a trimmed build leaves to run time. | It lists calls in Base that the build resolves (15 of a table program's 20). It misses a hole below a call it takes as resolved: Base's `repeat(::Char, ::Int)`, a JLL's `__init__`. | TraitWorld `src/fullytyped.jl`; E-361 |
 | T-108 | [§16](#16-compiling-ahead-closed-programs) | `add_entrypoints(report)` gives a cast's instance to the build through Julia's interface for entry points. | Julia's `Base.Experimental.entrypoint` takes a signature, which names the instance compiled once. The instance at a member is pushed into the compiler's internal list `Base.Compiler._entrypoint_mis`. | TraitWorld `src/fullytyped.jl` (`add_entrypoints`) |
 | T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles. | The check and the build are two walks with two rule sets. Fully typed, yet refused by a build: a set with a member at an abstract type (compiler C-86); a call with more than 64 members to branch over; a hole inside plain code that the check takes as resolved (Base's `repeat(::Char, ::Int)`, a JLL's `__init__`). Built, yet not fully typed: the calls in Base that the session's rules leave to run time and the build resolves (T-107). The build's `BuildError` carries the build's own report. | TraitWorld `src/fullytyped.jl`, `src/build.jl`; E-361, E-364; W-142 |
-| T-110 | [§14](#14-concreteness-and-fully-typed-mode) | A result of an abstract type is no fault of fully typed code; `@enforce_concrete_only result` asks for a concrete result. | Fully typed mode raises `AbstractTypeError` for a result of an abstract type that is not a trait; `@enforce_concrete_only` takes no `result`. | `Compiler/src/typeinfer.jl` (the mode's fault), TraitWorld `src/fullytyped.jl`; W-142 |
-| T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | Storage typed by the trait holds the object; `Kept{X}` holds a member with its attribute. | No `Kept{X}`. Storage typed by the trait holds a `Dynamic{X}` as it is, so `keep`'s box shows there ([the case](../open-issues.md#closed-items), issue 175). | TraitWorld `src/dynamic.jl`; W-149 |
+| T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
+| T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | `Kept{X}` holds a member with its attribute; `keep` is not used into storage typed by the trait. | No `Kept{X}`. Nothing reports a `keep` whose value goes into storage typed by the trait ([the case](../open-issues.md#closed-items), issue 175). | TraitWorld `src/dynamic.jl`; W-149 |
