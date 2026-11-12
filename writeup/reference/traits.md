@@ -636,28 +636,28 @@ A method is **fully bounded** at a trait argument when its body reaches the argu
 Wrapping it as `Dynamic{X}(t)` or `keep(t)` (§7.7, §7.8) stores it in a slot typed by the trait, so it keeps a method fully bounded.
 What a use of the wrapped value beyond the contract makes the method (`sum(keep(t))`), and whether a closure that captures the argument keeps the method fully bounded where its body is: Open ([open issue 165](../open-issues.md#2-design)).
 
-Any other use makes the method **open** at that argument: `typeof(t)`, `isa` against another trait, a call of another function with it, a field the trait does not declare, `like(t, …)` and `withfields(t; …)` (§6.5). Two common idioms are open:
+Any other use makes the method **unbounded** at that argument: `typeof(t)`, `isa` against another trait, a call of another function with it, a field the trait does not declare, `like(t, …)` and `withfields(t; …)` (§6.5). Two common idioms are open:
 - **storing it in a struct whose parameter takes its type:** `Problem{typeof(k)}(k, u0)`, or a constructor that sets a parameter bounded by the trait (`CellVector(c)`, §8.2). The struct's type names the member's type, which the key does not fix;
 - **capturing it in a closure:** the closure's field takes its type.
 
-- A fully bounded method is compiled per key at that argument where keys are built (§7.2, Optional), per type until then. An open one is compiled per type, or once where the attribute is `Dynamic` (§7.4), its uses beyond the contract then dispatched when they run.
+- A fully bounded method is compiled per key at that argument where keys are built (§7.2, Optional), per type until then. An unbounded one is compiled per type, or once where the attribute is `Dynamic` (§7.4), its uses beyond the contract then dispatched when they run.
 - The compiler classifies each method where it is defined, or at the end of its module or its first call where it calls functions not yet defined. The classification follows the unannotated functions it reaches: a later definition of one classifies the method again.
-- **A scope that declares `bounded`** (§13) refuses an open method at a trait argument with `TraitUseError`, naming the use and its line.
-- **`@open f(…) = …` marks a method open on purpose:** `bounded` does not refuse it. A library's adapters, which store their argument with its type, are written so; its kernels stay fully bounded.
-- **A constructor of a struct whose parameter is bounded by a trait,** where it sets that parameter from its argument, is open by design (§8.2) and never refused: Julia's default constructor, and a library's own. The parameter records the value's type.
+- **A scope that declares `bounded`** (§13) refuses an unbounded method at a trait argument with `TraitUseError`, naming the use and its line.
+- **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapters, which store their argument with its type, are written so; its kernels stay fully bounded.
+- **A constructor of a struct whose parameter is bounded by a trait,** where it sets that parameter from its argument, is unbounded by design (§8.2) and never refused: Julia's default constructor, and a library's own. The parameter records the value's type.
 
 ```julia
 colmean(t::ColTable, i::Int) = sum(col(t, i)) / length(col(t, i))   # fully bounded: per key
 colsum(t::ColTable) = sum(t)                    # open: `sum(t)` is not in the contract; per type
-@open wrap(t::ColTable) = Wrapped(t)            # open on purpose: Wrapped{typeof(t)}; accepted under `bounded`
+@unbounded wrap(t::ColTable) = Wrapped(t)            # unbounded on purpose: Wrapped{typeof(t)}; accepted under `bounded`
 ```
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@open`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an open method where it is defined; per trait argument, with declared fields written, a constructor's store into a field typed by the trait and an `@open` function's uses its own, in 401c7b4; a method that calls what is not yet defined classified again at its definition and at the module's end, in c9f701e (C-41); the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@open`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef ([compiler §6.7](compiler.md#67-the-definition-time-check), C-40, C-41); `@unbounded`, and `bounded` per method (`@bounded`); a module's `bounded` with `@trait_module` (TraitWorld `unified` bb78d02, W-111), refusing an unbounded method where it is defined; per trait argument, with declared fields written, a constructor's store into a field typed by the trait and an `@unbounded` function's uses its own, in 401c7b4; a method that calls what is not yet defined classified again at its definition and at the module's end, in c9f701e (C-41); the compilation per key: Optional (W-110). The user, 2026-11-06, Q2 (a). Equations' functions as part of the contract: mine (2026-11-06; open issue 137). `@unbounded`, and the open idioms named: mine (2026-11-06, [the prototypes' review](../reviews/2026-11-06-unified-reference-prototypes.md) H2). Constructors that set a bounded parameter never refused: mine (2026-11-06, E-264).
 
 ### 7.4 The attribute: `Compiled` and `Dynamic`
 
 At each call, each trait argument has an **attribute**:
-- **`Compiled`:** the code compiled for the value's key (per type for an open method) runs for it. A call whose caller does not know the value's type dispatches on it once, then runs that code: a function barrier.
+- **`Compiled`:** the code compiled for the value's key (per type for an unbounded method) runs for it. A call whose caller does not know the value's type dispatches on it once, then runs that code: a function barrier.
 - **`Dynamic`:** the code compiled once runs for it. Each operation on it dispatches when it runs, and its result has the declared type, so the code after it is typed (§7.9).
 
 Both run the same methods and give the same results, or raise the same error.
@@ -754,7 +754,7 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
   - `kept_call(f, k, args…)` calls `f(unwrap(k), args…)` under the kept attribute: `Dynamic` runs code compiled once; `Compiled` runs the code compiled for the object's type, chosen when the call runs.
 - **Storage typed by the trait itself** (`Vector{Shape}`, a field `::Shape`) holds what is assigned, read back plain (§8.1). **`keep` is not for this storage.** A trait argument assigned there without `keep` is the object, whoever calls; `keep` would store a box at one caller and the object at another. A `Kept{X}` is not assigned there: `unwrap(k)` is.
 
-Elsewhere `keep(x)` is `x`. Such a constructor is open at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
+Elsewhere `keep(x)` is `x`. Such a constructor is unbounded at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
 **Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Implemented in TraitWorld `unified` 4a1dc03 (W-149; test `kept.jl`, `experiments/unification/w149/`), with T-111; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
 
@@ -822,7 +822,7 @@ ODEProblem(Dynamic{Callable{RHSSig{P, T}, Nothing}}(lorenz!), u0, tspan, p)   # 
 - **The parameter records the attribute:** the value's own type is `Compiled`, so code over the struct is compiled per type of the value; a `Dynamic{X}` is `Dynamic`, so code over the struct is compiled once. A value read from the field carries that attribute (§7.5).
 - A library that wants its trait's default at construction writes a constructor with a trait argument and `keep` (§7.8).
 - **A parameter named only in a bound** is matched through the membership, as a `where` clause matches: in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, the constructor `CellVector(c::C) where {T, C <: Column{T}} = CellVector{T, C}(c)` reads `T` from the column's membership.
-- **A constructor that sets the parameter from its trait argument is open there** (§7.3): the struct's type names the member's type. It is open by design, so `bounded` does not refuse it, Julia's default constructor included.
+- **A constructor that sets the parameter from its trait argument is unbounded there** (§7.3): the struct's type names the member's type. It is unbounded by design, so `bounded` does not refuse it, Julia's default constructor included.
 
 **Status:** Implemented: Julia's bound and default constructor, with TraitWorld `unified` e7ff8e2's members.
 
@@ -853,7 +853,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - **So dispatch picks by the arguments' signature:** `apply(uppercase)` takes the second method above, since `uppercase` has a method at `String` and none at `Int`.
 - **`S` is checked on return.** A call through a value the code knows as a `Callable{A, S}` (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted: `TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`. Where it is compiled once, the call goes through a pointer that follows the caller's world.
 - **`S` takes no part in which method is chosen.** Between two methods that differ only in `S`, the one with the more specific `S` is taken, and its check may fail. `Callable{A}`, with `S` left open, checks nothing on return.
-- **A `where` variable that appears only in `S` is not bound by a call,** as Julia's `detect_unbound_args` reports. Code that needs the result type computes it as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)). Such a method is open at `f` (§7.3): under `bounded` it is written `@open`.
+- **A `where` variable that appears only in `S` is not bound by a call,** as Julia's `detect_unbound_args` reports. Code that needs the result type computes it as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)). Such a method is unbounded at `f` (§7.3): under `bounded` it is written `@unbounded`.
 - **Where the code knows the function by its own type** (a struct parameter `F`), the call is the function's own call.
 - **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled`, unless its type carries another package's type, as `Base.Fix1{typeof(f), Int}` does (§7.5).
 - **Several signatures** are an intersection: a call picks the signature its argument types match.
@@ -861,7 +861,7 @@ colmap(abs2, m, 1)                        # Compiled: a function Julia defines
 - `Callable` without parameters takes any function, kept before its signature is known.
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
-- **Passing `f` on to a higher-order function,** `map(f, xs)`, is a call of another function with it, so the method is open at `f` (§7.3): `colmap` above is refused under `bounded`. How a fully bounded method passes a function on: Open ([open issue 165](../open-issues.md#2-design)).
+- **Passing `f` on to a higher-order function,** `map(f, xs)`, is a call of another function with it, so the method is unbounded at `f` (§7.3): `colmap` above is refused under `bounded`. How a fully bounded method passes a function on: Open ([open issue 165](../open-issues.md#2-design)).
 
 **Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-61, C-62; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
 
@@ -921,7 +921,7 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 - **Positions start at the member's `firstindex`:** a vector with offset axes is an `Indexable`.
 - **The operations use Base's and LinearAlgebra's functions** (`length`, `iterate`, `getindex`, `ldiv!`) where a member's own methods serve them and no untyped method of the function would be hidden (§5.10). `LinearOp`'s `apply!` is BaseTraits' own: a method of `mul!` at the trait would hide `mul!`'s untyped fallback for every matrix (E-281). A member with its own `mul!` joins with a block: `apply!(y, A, x) = mul!(y, A, x)`. A matrix-free member defines `eltype`.
 - **`BoundedText` is a constant per type where the width is fixed** (machine integers, `Bool`, the IEEE floats, characters, dates, `Rational` and `Complex` of those) and a value's own bound otherwise (a `BigInt`, a string's code units, a `Symbol`'s bytes; four bytes a character for a string other than `String`). `textbound(T)` lets a writer size a column without visiting its cells.
-- `asvector(x::Indexable{T})` is the collection as a read-only `AbstractVector{T}` for plain code, positions `1:length(x)`, without a copy, each read's bounds checked by the member: `IndexableVector{T, C}`. It is an open method (§7.3).
+- `asvector(x::Indexable{T})` is the collection as a read-only `AbstractVector{T}` for plain code, positions `1:length(x)`, without a copy, each read's bounds checked by the member: `IndexableVector{T, C}`. It is an unbounded method (§7.3).
 - `HasLength` is not `Base.HasLength`, the value of `Base.IteratorSize`.
 - A module that uses BaseTraits and another module exporting the same name gets Julia's usual ambiguity of names.
 
@@ -964,7 +964,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | `@implement` for one type | ownership, completeness, results, fields, parameters, concreteness, supertraits (§5.10) | `ImplementError`; ownership `OwnershipError` |
 | a member's first use (a family's, an abstract type's or a trait's member) | as at `@implement` | `ImplementError`, at that use and every later one |
 | a use before, or a module's end | a `struct S <: X` without `@implement X S` | `ImplementError` |
-| a method's definition | a method that would take a call a default or the forwarding serves at a member (§5.11); one that would serve a member's checked call with a result outside the declared one, or make the operation ambiguous at the member (§5.10); a pirate in a scope that refuses them (§12.2); an open method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
+| a method's definition | a method that would take a call a default or the forwarding serves at a member (§5.11); one that would serve a member's checked call with a result outside the declared one, or make the operation ambiguous at the member (§5.10); a pirate in a scope that refuses them (§12.2); an unbounded method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
 | an image's load | an image's method that the rules of a method's definition (§5.10, §5.11) refuse | a warning; the method is left inactive |
 | a method's definition, strict mode | a pirate that would win at a fact of code compiled by facts (§12.3) | `PirateError` |
 | a membership, strict mode | a pirate's membership that would change code compiled by facts (§12.3) | `PirateError` |
@@ -984,7 +984,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 - It reports each use outside the contract, not only the first: inference continues past an unresolved use at `Any`.
 
 ```julia
-spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable: open
+spread(t::ColTable) = size(t)    # `size` is not an operation of ColTable: unbounded
 leak(t::ColTable) = typeof(t)    # open: the code depends on the type
 ```
 
@@ -998,7 +998,7 @@ Each message names the trait, the type, and the declared signature where one is 
 |---|---|---|
 | `ImplementError` | a membership that fails its check, or that strict mode refuses for an ambiguity (§6.3); a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider than the declared one or outside it, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
 | `OwnershipError` | a method, or a membership, by a package that owns none of what it names, in a scope that declares `no_pirates`; a block's method for a foreign function and type | the method or membership, its owners, and who may declare it |
-| `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
+| `TraitUseError` | an unbounded method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method, or the pirate's membership, and the code compiled by facts it would change |
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
 | `TypeError` | an operation's result that is not its declared type (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
@@ -1085,12 +1085,12 @@ end
 
 - **`@trait_module`, before the module's first method,** declares options for every method of the module, its submodules included:
   - **`facts`:** its methods are compiled by facts ([facts §6](facts.md#6-which-code-is-compiled-how));
-  - **`bounded`:** an open method at a trait argument is refused (§7.3);
+  - **`bounded`:** an unbounded method at a trait argument is refused (§7.3);
   - **`no_pirates`:** a pirate is refused (§12.2);
   - **`dynamic`:** the library's default for every trait argument of its methods is `Dynamic` (§7.5). Off unless written;
   - **`first_seen`:** where nothing else decides, a trait argument's attribute is what the caller knows (§7.5, step 5).
 - All but `dynamic` are on unless written otherwise (`@trait_module bounded = false`).
-- A method may set an option for itself: `@bounded f(…) = …`, `@facts f(…) = …`; `@open f(…) = …` exempts it from `bounded` (§7.3).
+- A method may set an option for itself: `@bounded f(…) = …`, `@facts f(…) = …`; `@unbounded f(…) = …` exempts it from `bounded` (§7.3).
 - The module's statements are Julia's; nothing is rewritten. Revise and other tools that read a module by its statements see an ordinary module.
 - At the module's end, methods whose classification waited for later definitions are classified (§7.3).
 - Concreteness and fully typed mode (§14) take the same places: before `@trait_module`, for the module; before a method, for it.
@@ -1218,7 +1218,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`); per tuple of keys with keys, Optional | §6.6 |
 | keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
-| fully bounded and open methods | Implemented (TraitWorld 59134ef, bb78d02; W-109, W-111) | §7.3 |
+| fully bounded and unbounded methods | Implemented (TraitWorld 59134ef, bb78d02; W-109, W-111) | §7.3 |
 | the attribute and what decides it | Implemented (`unified` e692e57ab7, W-111) | §7.4, §7.5 |
 | casts at the call | Implemented (`unified` e692e57ab7, W-111), with L-56 | §7.6 |
 | `Dynamic{X}`, `keep` | Implemented (`unified` e692e57ab7, W-111) | §7.7, §7.8 |

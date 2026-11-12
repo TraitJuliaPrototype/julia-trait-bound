@@ -120,9 +120,9 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 - **A method at a trait is defined by Julia** with nothing around it. The compiler classifies it per trait argument ([compiler §6.7](compiler.md#67-the-definition-time-check)) and compiles it per key, per type or once.
 - `@nospecialize t::X` and `@specialize t::X` set the method's attribute bits at the argument ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)). They are Julia's macros.
-- **Per-method options:** `@bounded f(…) = …`, `@open f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
+- **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: `@bounded` and `@open` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
+**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: `@bounded` and `@unbounded` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
 
 ---
 
@@ -194,7 +194,7 @@ end
 - Base's types join by memberships of Base's abstract types, declared in BaseTraits, which owns the traits: `@implement Indexable{T} AbstractVector{T} where {T}`, `@implement Keyed{K, V} AbstractDict{K, V} where {K, V}`. A view joins where its parent does: `@implement MutableIndexable{T} SubArray{T, 1, P} where {T, P <: MutableIndexable{T}}`. LinearAlgebra and Dates are dependencies of the library, so their types' memberships hold in every load order.
 - `Solvable`'s operation is LinearAlgebra's `ldiv!`; each factorization that solves, and each matrix type `factorize` returns, joins by its own `ldiv!`. `LinearOp`'s operation is BaseTraits' `apply!`; `AbstractMatrix` joins with the block `apply!(y, A, x) = mul!(y, A, x)`.
 - `textbound(T::Type)` is a method of `textbound` beside the operation: `nothing` by default, a constant for the types of fixed width.
-- `@open asvector(x::Indexable{T})` builds `IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` with linear indexing whose `getindex` calls `Indexable`'s operations with the member's own bounds checks.
+- `@unbounded asvector(x::Indexable{T})` builds `IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` with linear indexing whose `getindex` calls `Indexable`'s operations with the member's own bounds checks.
 - `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`. A member's own `getproperty` serves it; on a value typed by the trait, the compiler's rule for operations gives `x.N` the declared type `R` ([compiler §7.1](compiler.md#71-the-rule)).
 - `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable{T}}`.
 
@@ -209,7 +209,7 @@ end
 | `@trait` | the body's form | the macro |
 | `@implement` | ownership; the checks of §3 | the expansion's top-level code |
 | a member's first use | the checks of §3, for that member | the member hook (§4) |
-| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; a method that would take a fixed call, or make a checked call's operation ambiguous at the member, or serve it with a result outside the declared one, inferred before the method exists (the records of §3, step 7); an open method not marked `@open` in a `bounded` module (the compiler's classification) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
+| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; a method that would take a fixed call, or make a checked call's operation ambiguous at the member, or serve it with a result outside the declared one, inferred before the method exists (the records of §3, step 7); an unbounded method not marked `@unbounded` in a `bounded` module (the compiler's classification) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | a module's end | the classification of methods that waited; a `struct S <: X` without its `@implement` | the module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | an image's activation | the methods the records refuse and, in strict mode, winning pirates, left inactive with a warning | the image hook |
 | a membership | the ambiguity report | the runtime ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)) |

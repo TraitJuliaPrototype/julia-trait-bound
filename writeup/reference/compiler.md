@@ -124,7 +124,7 @@ Base.Experimental.@compiler_options facts=true
 - `facts=true` makes every method of the module compiled by facts, unless the method says otherwise. It emits `Expr(:meta, :facts, 1)` at the module's top level.
 - The module flag (`jl_module_t.facts`): 0 plain, 1 facts, 2 never by facts (the compiler's own modules). A submodule takes its parent's flag when created. The flag is saved with the module in images.
 - **Four more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
-  - `bounded=true`: an open method at a trait argument is refused (§6.7);
+  - `bounded=true`: an unbounded method at a trait argument is refused (§6.7);
   - `no_pirates=true`: a pirate is refused by the library's definition hook;
   - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3);
   - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
@@ -526,14 +526,14 @@ Core.TraitKey{X, R, F}
 
 At each argument whose declared type is a set, or a parameter bounded by one, a method's compilation signature is one of:
 - **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes. Optional with keys: until they are built, such an argument is compiled per type;
-- **per type:** the member's type, where the method is open at the argument and the attribute is `Compiled`;
+- **per type:** the member's type, where the method is unbounded at the argument and the attribute is `Compiled`;
 - **once:** the erased key `X{p…}`, where the attribute is `Dynamic`.
 
 A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7](traits.md#77-dynamicx)).
 
 - So one (method, argument tuple) has up to two compilation signatures per trait argument, chosen per call (§6.3): up to 2ⁿ for n trait arguments, each compiled only where a call asks for it.
 - Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
-- **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is open at that argument.
+- **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is unbounded at that argument.
 - **A `where` variable bounded by a set** (`x::C` with `C <: X`) takes the attribute as an argument typed by the set does. In an instance compiled once for the argument, the variable is not known when the code is compiled: the body reads it from the value when it runs, as a method of Julia's that is not specialized on an argument does. It is the value's type under either attribute ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)).
 
 **Status:** Implemented on `unified` e692e57ab7 (W-111) per type and once, chosen per call by the attribute (§6.3). Inference infers a call at the instance that runs: the set's type at an argument compiled once. A dynamic call's instance compiled once by an attribute is cached with the call's own types. Per key: Optional (W-110). A `where` variable bounded by a set, compiled once with the variable read when the code runs: `unified` f6ad3008b4 (W-148; gate `n30_where_variable`).
@@ -595,12 +595,12 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 ### 6.7 The definition-time check
 
 - **One inference of a method at the erased signature** of each set argument, under a check flag of the native interpreter. There, operations of the set and its supertraits resolve to their declared results (§6.8), declared fields to their declared types, and calls passing the argument to a method at the set or a supertrait to that method.
-- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or open. The classification is kept with edges to the unannotated functions it followed, so a later definition of one classifies the method again.
-- **Under the `bounded` option** of the method's module or the method itself, an open argument raises `TraitUseError` listing every recorded use, at the method's definition or at the definition that opens it. A method marked `@open` (`Expr(:meta, :bounded, false)`) is exempt, and so is a constructor of a struct whose parameter is bounded by a set where it sets that parameter, Julia's default constructor included ([traits §8.2](traits.md#82-a-struct-parameter-bounded-by-a-trait)).
+- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or unbounded. The classification is kept with edges to the unannotated functions it followed, so a later definition of one classifies the method again.
+- **Under the `bounded` option** of the method's module or the method itself, an unbounded argument raises `TraitUseError` listing every recorded use, at the method's definition or at the definition that opens it. A method marked `@unbounded` (`Expr(:meta, :bounded, false)`) is exempt, and so is a constructor of a struct whose parameter is bounded by a set where it sets that parameter, Julia's default constructor included ([traits §8.2](traits.md#82-a-struct-parameter-bounded-by-a-trait)).
 - Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
 - **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; its interpreter the compiler's own on `unified` 98fcbdfbba with TraitWorld 0ac3364 (W-123), so loading the library invalidates none of the compiler's code; `bounded` per method (`@bounded`) and `@open` there; the module's `bounded` option with `@trait_module` (TraitWorld `unified` bb78d02, W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@open`: mine (2026-11-06, the reviews of the draft).
+**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; its interpreter the compiler's own on `unified` 98fcbdfbba with TraitWorld 0ac3364 (W-123), so loading the library invalidates none of the compiler's code; `bounded` per method (`@bounded`) and `@unbounded` there; the module's `bounded` option with `@trait_module` (TraitWorld `unified` bb78d02, W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@unbounded`: mine (2026-11-06, the reviews of the draft).
 
 ### 6.8 A declared result on `Method`
 

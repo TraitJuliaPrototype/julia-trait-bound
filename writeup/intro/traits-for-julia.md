@@ -204,10 +204,10 @@ colmap(x -> 1, m, 1)      # TypeError: in typeassert, expected Float64, got a va
 colsum(t::ColTable) = sum(t)      # meant: sum(col(t, 1))
 ```
 
-`ColTable` does not declare `sum`, so the method is open at `t`. In a trait module that is a `TraitUseError` where the method is defined. It names the use outside the contract and its line, before any user type exists:
+`ColTable` does not declare `sum`, so the method is unbounded at `t`. In a trait module that is a `TraitUseError` where the method is defined. It names the use outside the contract and its line, before any user type exists:
 
 ```
-TraitUseError: colsum is declared bounded, and is open:
+TraitUseError: colsum is declared bounded, and is unbounded:
   sum(ColTable) at line 112 is not in the contract of ColTable
 ```
 
@@ -267,7 +267,7 @@ colmean(t::ColTable, i::Int) = (c = col(t, i); sum(c) / length(c))
 ```
 
 - It accepts a value of any member type. The value is passed as itself: inside, `t` is your `Measurements`.
-- A method that reaches `t` only through the trait (its operations and fields, or passing it to another argument typed by the trait) is *fully bounded*. One that does anything else with `t` is *open*. Library code in a trait module may only be fully bounded, unless a method is marked `@open` ([traits §7.3](../reference/traits.md#73-fully-bounded-methods)).
+- A method that reaches `t` only through the trait (its operations and fields, or passing it to another argument typed by the trait) is *fully bounded*. One that does anything else with `t` is *unbounded*. Library code in a trait module may only be fully bounded, unless a method is marked `@unbounded` ([traits §7.3](../reference/traits.md#73-fully-bounded-methods)).
 - On ordinary values, such as the column `col` returns, it calls any Julia code.
 
 **`Compiled` or `Dynamic`.** Each trait argument at each call has one of two *attributes*. The results are the same; only the speed differs ([traits §7.4](../reference/traits.md#74-the-attribute-compiled-and-dynamic)).
@@ -295,7 +295,7 @@ end
 
 A trait module:
 - is compiled in the patched compiler's facts mode ([What you get](#what-you-get), point 1);
-- refuses an open method at a trait (`TraitUseError`);
+- refuses an unbounded method at a trait (`TraitUseError`);
 - refuses piracy of its own (below).
 
 Its statements are Julia's; nothing is rewritten. Code outside trait modules calls its methods as it calls any function, and a trait module can call any Julia code: Base, CSV.jl, Cairo, ForwardDiff.
