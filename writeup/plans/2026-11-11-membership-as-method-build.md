@@ -1,6 +1,6 @@
 # A membership is a method: the build plan
 
-**Status:** adopted as a build plan (2026-11-11, the user: "make a plan that builds it"); the design itself is not adopted yet. It builds [the proposal](2026-11-11-membership-as-method.md) (W-141) in stages. Each stage has a check that can stop it, and each problem found is flagged where the synthesis reads it. Written in the main session. Not normative: the references change when the user adopts the design.
+**Status:** done (2026-11-12): built through stage 2; stage 1 is kept as the implementation, stage 2 is removed, stage 3 is not taken (the last addendum). Adopted as a build plan (2026-11-11, the user: "make a plan that builds it"). It builds [the proposal](2026-11-11-membership-as-method.md) (W-141) in stages. Each stage has a check that can stop it, and each problem found is flagged where the synthesis reads it. Written in the main session. Not normative: the references change when the user adopts the design.
 
 ## The user's words
 
@@ -62,3 +62,10 @@ The findings table, with each trade-off's row filled; the stage reached; and a r
 - **Stage 3:** begun: the definition hook sees a hand-written membership's method. The library's rule is not removed.
 - **New trade-offs** beside R1 to R10: R11 (two memberships that apply are no ambiguity), R12 (a refused entry keeps its method), R13 (an overlapping membership drops the dispatch cache), R14 (a hand-written membership is not checked), R15 (the code is not smaller yet).
 - The findings: `experiments/unification/w141/README.md`; open issue 180.
+
+## Addendum, 2026-11-12: decided
+
+The user: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest." So the design is not adopted as a definition, and the stages end here (`unified` 8b4fde6e84):
+- **Stage 1** is kept: [compiler §5.6](../reference/compiler.md#56-the-memberships-method-and-the-edges).
+- **Stage 2** is removed: a program defines no method of `Core.implements`. The runtime adds its method after the checks, and a membership refused at an image's load takes its method out of force.
+- **Stage 3** is not taken. Strict mode's rule for a third party's membership is in open issues §1.

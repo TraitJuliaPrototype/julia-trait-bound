@@ -1,6 +1,6 @@
 # A membership is a method
 
-**Status:** proposal (2026-11-11, written in the main session; W-141). Not built, not adopted. Not normative: the references change when it is adopted. It follows W-140 ([the proposal](2026-11-11-membership-piracy.md), built), which made a membership *behave* as a method does. This one makes it *be* one.
+**Status:** not adopted as the definition; its mechanism is kept (2026-11-12, the user: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest."; the last addendum). Written as a proposal (2026-11-11, in the main session; W-141). Not normative: the references change when it is adopted. It follows W-140 ([the proposal](2026-11-11-membership-piracy.md), built), which made a membership *behave* as a method does. This one makes it *be* one.
 
 ## The user's words
 
@@ -116,3 +116,12 @@ Built through stage 2 ([the build plan](2026-11-11-membership-as-method-build.md
 - **"Can I take one back: as a method, delete it."** Deleting the method does not reach the code that called a trait's method at the member. It is refused until the walk runs for a removal.
 
 Open issue 180 holds the rest.
+
+## Addendum, 2026-11-12: decided
+
+The user: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest." Then, to the proposal that follows from it: "I want that."
+
+- **The definition is not adopted.** A membership behaves as a method does; the references say so rule by rule and keep the membership's own rules.
+- **The mechanism of step 1 is kept** as the implementation of the edges: [compiler §5.6](../reference/compiler.md#56-the-memberships-method-and-the-edges).
+- **Step 2 is not taken:** a program defines no method of `Core.implements`; the method is not the only record.
+- The options not taken, with reasons: [alternatives](../design/alternatives.md#a-membership-as-a-method-options-not-taken-2026-11-12). What is left: open issue 180.

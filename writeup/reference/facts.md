@@ -66,7 +66,7 @@
   - a *result edge*, a callee's result it used as a type;
   - a *code edge*, a callee's code it inlined, propagated constants into, or evaluated;
   - a *binding edge*, a global binding it reads;
-  - a *membership cell* or *positive membership* (§10).
+  - an *absence edge* or *positive membership* (§10).
 
   Julia invalidates a CodeInstance when an edge breaks, and its callers through their edges to it.
 - <a id="term-run-time-site"></a>**Run-time site:** a call in code compiled by facts that records no edge (§5).
@@ -335,7 +335,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one, or on its absence, holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-cells)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
+**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
 
 ---
 
@@ -402,14 +402,14 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 **When it stays valid.**
 - **At load, the image's memberships are activated before its code is validated,** with the loading session's worlds.
-- A CodeInstance is used if all its facts hold in the loading session, its memberships and cells validate, and its code edges' callees are the same. Otherwise it is discarded, and compiled again when needed.
+- A CodeInstance is used if all its facts hold in the loading session, its membership edges validate, and its code edges' callees are the same. Otherwise it is discarded, and compiled again when needed.
 - A fact breaks only by a stakeholder's change or a winning pirate loaded earlier, so which code is kept depends on the method table, not on the order of unrelated loads.
 
 **A store across sessions** (paused): code compiled by facts may come from a cache of machine code kept across sessions and environments. A stored entry is used when its edges verify in the session by Julia's own validation of loaded code, and its content is the same: the lowered code of its method and of each method its code edges name, the layouts it reads, the values it embeds. Its world range comes from that validation. The record of [compiler §3.1](compiler.md#31-the-record) is kept complete for it.
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). A folded negative's cell (W-129, W-140); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
 
 ---
 

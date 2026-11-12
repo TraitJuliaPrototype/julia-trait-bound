@@ -31,7 +31,7 @@ So the axes, each with its claim:
 | G-5 Error messages | Better than plain Julia's: an error names the contract and the place it is broken. |
 | G-6 AOT | A better experience compiling ahead: trait bounds handle generics as in languages compiled ahead (Rust, Mojo). A build lists what trait code calls and compiles it for the members it has; **Fully typed code is exactly the code that compiles ahead:** a program builds where its `main` is fully typed, and nowhere else, so one check in a session answers for the build. `make_executable` and `make_library` write a small binary of fully typed code, from a `main` defined at the prompt too. |
 | G-7 Transition | A clean, doable path for the ecosystem to migrate, with clear porting guidelines. An ambition for the path, not a rule that code needs no rewrite. |
-| G-8 Simplicity A membership as a method of one Core function is built through stage 2 and not adopted: the definition gets shorter, the implementation not yet (compiler C-89, open issue 180). | Traits are abstract types: one mechanism, easy to teach. |
+| G-8 Simplicity A membership behaves as a method does (worlds, invalidation, ownership, images); its edges are the method table's own ([compiler §5.6](reference/compiler.md#56-the-memberships-method-and-the-edges), open issue 180). | Traits are abstract types: one mechanism, easy to teach. |
 
 **The speed work is retired** (the user, 2026-11-11; [decisions](record/decisions.md) §5). No work item pursues speed; performance work is one phase after the measurement round, for fixes that add little code (W-146). Speed is measured only as a control: that a change brings no regression (G-2), and what a rule costs (G-4). A slowdown found is recorded as a tension (§3), not fixed at the case.
 

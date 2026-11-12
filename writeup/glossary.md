@@ -9,6 +9,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ## Index
 
+[Absence edge](#absence-edge) ·
 [`All{X, Y}`](#intersection-allx-y) ·
 [Attribute: `Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`BaseTraits`](#basetraits) ·
@@ -17,7 +18,6 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [`Callable`](#callable) ·
 [Candidates](#split) ·
 [Cast](#cast) ·
-[Cell](#cell) ·
 [Code slot](#code-slot) ·
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
@@ -353,7 +353,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Edge
 
-- **Here:** a dependency a CodeInstance records: a dispatch edge (a fact), a result edge (a callee's result used as a type), a code edge (a callee's code inlined or evaluated), a binding edge, a membership cell. Julia invalidates a CodeInstance when an edge breaks.
+- **Here:** a dependency a CodeInstance records: a dispatch edge (a fact), a result edge (a callee's result used as a type), a code edge (a callee's code inlined or evaluated), a binding edge, an absence edge. Julia invalidates a CodeInstance when an edge breaks.
 - **Origin:** Julia's own term: the backedges between CodeInstances that invalidation follows.
 - **Defined in:** [facts §1](reference/facts.md#term-edge); the record: [compiler §3.1](reference/compiler.md#31-the-record).
 
@@ -402,11 +402,11 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** the project's.
 - **Defined in:** [facts §2.2](reference/facts.md#22-g2-stable-caches); the bit: [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate).
 
-### Cell
+### Absence edge
 
-- **Here:** compiled code that folded "`S` is not a member of `X`" (an `isa`, a `<:`, a method match dropped at an intersection no type is in) records the pair's **cell** (`Core.MembershipCell`). The membership that makes the pair hold opens the cell and invalidates that code. A call needs no cell: a membership replays the trait's methods at the new member and invalidates the callers whose selection changes.
-- **Origin:** the project's term. Julia's binding partitions play the same role for global bindings.
-- **Defined in:** [compiler §5.6](reference/compiler.md#56-cells), [§4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries); the rule: [facts §10](reference/facts.md#10-memberships).
+- **Here:** compiled code that folded "`S` is not a member of `X`" (an `isa`, a `<:`, a method match dropped at an intersection no type is in) records an **absence edge**: the pair's signature at the runtime's function `Core.implements`, with no method. Each membership has a method of that function, and the method that meets the signature invalidates that code. A call needs no absence edge: a membership replays the trait's methods at the new member and invalidates the callers whose selection changes.
+- **Origin:** the project's term. Julia records the same edge for a call that found no method.
+- **Defined in:** [compiler §5.6](reference/compiler.md#56-the-memberships-method-and-the-edges), [§4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries); the rule: [facts §10](reference/facts.md#10-memberships).
 
 ### Code slot
 

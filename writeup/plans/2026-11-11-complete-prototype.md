@@ -99,3 +99,7 @@ The speed work, for good (the user, above). W-121 and what is left of W-129 are 
 | The abstract result (W-142 (3)) | done; T-110 retired. It showed that gate `n9`'s plain-callee case had passed through it (T-100) |
 | The Base surface (W-143 (1)) | the tool is written and run (E-368) |
 | The rest of bin A | open: W-142 (1), (2), (4), (5); W-128's rows |
+
+## Addendum, 2026-11-12: W-141 decided
+
+The user: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest." W-141 leaves bin A: a membership behaves as a method does, its method of the runtime's function is the implementation of the edges (compiler §5.6), and the method as the only record is not built. To bin B: open issue 180 (a), (c), (d), (f), (j), and strict mode's rule for a third party's membership (open issues §1). Bin A now holds W-142, W-143's tool and W-128.

@@ -93,3 +93,19 @@ And two kinds of member have no method: a member by its definition (`struct S <:
 - The four rules, the size of the code, R12's note: open issue 180 (e) reworded, 180 (i).
 - A1: open issue 180 (j); `w141/README.md` R17; `probe_valuesig.jl`.
 - The verdict: open issues §1, the W-141 item. The decision's row in the log is written with the references (step 3), as the rule for decisions asks.
+
+## Addendum, 2026-11-12: the premise changed, and the verdict with it
+
+The user, on the review: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest." Then: "I want that."
+
+The verdict above ("adopt the definition") is superseded. With that premise:
+- **Nothing is adopted as a definition.** "Behaves as a method" is what the references say already (W-140).
+- **Stage 2 is removed** (the method written by a program). H1, M2 and L1 go with it; the runtime's own declaration adds its method after the checks.
+- **The method as the only record is not built** (§6, step 4): it was justified by the definition.
+- **A1 is no design question:** the signature is internal. It stays as a fix if abstract members come to cost (open issue 180 (j)).
+- **Stage 1 is kept over cells, by a thin margin:** about 70 lines fewer, no edge kind, image format or validation branch of its own, and which negatives a membership ends rests on Julia's type intersection. In sessions the two cost the same.
+- **§2's four rules and §5's strict-mode choice stand.** A membership refused at an image's load now takes its method out of force.
+
+Done: `unified` 8b4fde6e84; compiler §5.6, C-89 retired; the decision log §4; open issue 180 rewritten, (b), (e), (g), (h), (i) closed; `design/alternatives.md`.
+
+**Found on the way:** `design/alternatives.md` had been cut from 512 lines to 3 by commit 6f75a0b (2026-11-12). It is restored from the commit before, with the three entries added since.
