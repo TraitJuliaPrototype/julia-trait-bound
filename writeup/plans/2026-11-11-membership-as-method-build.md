@@ -53,3 +53,12 @@
 ## What the user gets in the morning
 
 The findings table, with each trade-off's row filled; the stage reached; and a recommendation to adopt, to adopt with named deviations, or not to.
+
+## Addendum, 2026-11-12: where it stands
+
+- **Stage 0:** done. It changed the signature: `Type{S}`, not `Type{<:S}`.
+- **Stage 1:** done (`unified` 90fb8ff97a). No stop: the loads cost nothing measurable; the abstract pair has a sound edge.
+- **Stage 2:** done in part (`unified` 5d036a41db, e56bfae2fa). Built: a method written by a program declares the membership; the positive's edge; the cells' type removed. Not built: the library's `@implement` lowering to the method; the image's list removed; taking a membership back (R10, refused).
+- **Stage 3:** begun: the definition hook sees a hand-written membership's method. The library's rule is not removed.
+- **New trade-offs** beside R1 to R10: R11 (two memberships that apply are no ambiguity), R12 (a refused entry keeps its method), R13 (an overlapping membership drops the dispatch cache), R14 (a hand-written membership is not checked), R15 (the code is not smaller yet).
+- The findings: `experiments/unification/w141/README.md`; open issue 180.

@@ -88,7 +88,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 ### 6.3 The order of work
 
 The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
-1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done but for the user's decisions, the membership as a method (W-141) first.
+1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is built through stage 2 and waits for the user's decision (compiler C-89, open issue 180).
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128).
 3. The cache across sessions, bounded (W-120; G-3).
 4. The ports brought to the head (W-104).

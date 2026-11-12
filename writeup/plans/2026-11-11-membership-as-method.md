@@ -107,3 +107,12 @@ The attribute and `Dynamic`, the split and its table, keys, the closed build, co
 1. Whether to adopt the definition as the intended design (the references then mark the present entries as a deviation).
 2. Whether step 1 runs as an experiment before the AOT line is finished, or after.
 3. Choice (c), strict mode's rule for a third-party membership.
+
+## Addendum, 2026-11-12: what the build corrected
+
+Built through stage 2 ([the build plan](2026-11-11-membership-as-method-build.md), E-367). Three statements above do not hold as written:
+- **The signature.** The method is at `(Type{X}, Type{S})`. `Type{<:S}` is for an abstract member only: for a concrete member it makes insertion grow with the trait's members.
+- **"Two declarations that both apply: method ambiguity."** A member of two subtraits is in their supertrait twice, with no conflict. `S <: X` holds where a method applies; the method is never called.
+- **"Can I take one back: as a method, delete it."** Deleting the method does not reach the code that called a trait's method at the member. It is refused until the walk runs for a removal.
+
+Open issue 180 holds the rest.
