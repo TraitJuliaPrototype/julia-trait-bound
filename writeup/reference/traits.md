@@ -967,6 +967,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a method's definition | a method that would take a call a default or the forwarding serves at a member (§5.11); one that would serve a member's checked call with a result outside the declared one, or make the operation ambiguous at the member (§5.10); a pirate in a scope that refuses them (§12.2); an open method in a scope that declares `bounded` (§7.3) | `ImplementError`, `OwnershipError`, `TraitUseError` |
 | an image's load | an image's method that the rules of a method's definition (§5.10, §5.11) refuse | a warning; the method is left inactive |
 | a method's definition, strict mode | a pirate that would win at a fact of code compiled by facts (§12.3) | `PirateError` |
+| a membership, strict mode | a pirate's membership that would change code compiled by facts (§12.3) | `PirateError` |
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode `ImplementError`, and the membership does not exist |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
@@ -996,9 +997,9 @@ Each message names the trait, the type, and the declared signature where one is 
 | Error | Raised for | The message names |
 |---|---|---|
 | `ImplementError` | a membership that fails its check, or that strict mode refuses for an ambiguity (§6.3); a method that would break a member's check (§5.10, §5.11) | each missing operation with its declared signature at the type, and the type's methods of that function that do not cover it, with the argument that differs; each result that infers wider than the declared one or outside it, with both types; each field missing, mistyped or not writable; each parameter that disagrees, with its source; an override; the path that gives a second instance. For a method refused at its definition (§5.10, §5.11): the method, the member, the operation, the declared and the inferred result or the method it would be ambiguous with, and the fixes |
-| `OwnershipError` | a membership or method by a package that owns none of what it names | the method or membership, its owners, and who may declare it |
+| `OwnershipError` | a method, or a membership, by a package that owns none of what it names, in a scope that declares `no_pirates`; a block's method for a foreign function and type | the method or membership, its owners, and who may declare it |
 | `TraitUseError` | an open method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
-| `PirateError` | strict mode | the method and the code compiled by facts it would change |
+| `PirateError` | strict mode | the method, or the pirate's membership, and the code compiled by facts it would change |
 | `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
 | `TypeError` | an operation's result that is not its declared type (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
@@ -1042,12 +1043,12 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 
 ### 12.2 Pirates
 
-- **A membership of a trait you do not own, for a type you do not own, is a pirate's too.** It is followed, with a warning that names the owners, and the code that relied on its absence is compiled again. Under strict mode it is refused (`OwnershipError`). At the prompt, `@implement` of a package's trait for a package's type is such a membership.
+- **A membership of a trait you do not own, for a type you do not own, is a pirate's too, and behaves as a pirate's method.** It is followed, with a warning that names the owners, and the code that relied on its absence is compiled again. A scope that declares `no_pirates` refuses it (`OwnershipError`). Under strict mode it is refused where it would change code compiled by facts (§12.3). At the prompt, `@implement` of a package's trait for a package's type is such a membership.
 - A **pirate** is a method of a function you do not own, for types you do not own: Julia's type piracy. A trait you own is a type you own; a `Union` with your own type or a lower-bounded type variable is no way around it.
 - **A scope that declares `no_pirates`** refuses one at its definition (`OwnershipError`).
 - Elsewhere a pirate is followed, as in Julia; code compiled by facts that it changes is compiled again once ([facts §11](facts.md#11-pirates-and-strict-mode)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); refused under strict mode whether or not compiled code relied on its absence, and with `OwnershipError`: mine (2026-11-11).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); by the method's rule, in a `no_pirates` scope and under strict mode: TraitWorld a2ca7be with `unified` 7fee959383 (`test/ownership.jl`, `test/strict.jl`): the user (2026-11-12; [decisions](../record/decisions.md) §4).
 
 ### 12.3 Strict mode
 
@@ -1061,11 +1062,13 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - A method belongs to the module it is evaluated in.
 - A pirate loaded before the code it changes is reported when that code's image loads.
 - A package extension's method that wins at a fact without naming its triggers' types is followed, as its parent's change, with a warning.
-- A membership by neither the trait's owner nor the type's (§12.2) is refused, with `OwnershipError`.
+- **A pirate's membership (§12.2) is refused where it would change code compiled by facts,** with `PirateError`, naming the membership and the code. That is where such code folded that the type is no member, or calls a function at the type where a method at the trait would be selected. The membership then does not exist.
+  - One that changes no such code is accepted, with the warning.
+  - In a package image it is refused at the image's load, with a report at error level.
 - An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 - A method loaded before an image that breaks the check of one of the image's memberships (§5.10) is reported when the image loads, as a pirate loaded earlier is: the membership's checked calls are inferred again at its load.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The checked calls of an image's membership inferred again at its load, reported at error level and kept (`TraitWorld._LOAD_MEMBERSHIPS`) in TraitWorld 048c44e (gate `stack/strict_load_membership.jl`, E-353): mine (2026-11-10). With T-96, T-97.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The checked calls of an image's membership inferred again at its load, reported at error level and kept (`TraitWorld._LOAD_MEMBERSHIPS`) in TraitWorld 048c44e (gate `stack/strict_load_membership.jl`, E-353): mine (2026-11-10). A pirate's membership by the method's rule: TraitWorld a2ca7be with `unified` 7fee959383 (`test/strict.jl`; gate `stack/strict_pirate_membership.jl`): the user (2026-11-12). With T-96, T-97, T-112.
 
 ---
 
@@ -1199,7 +1202,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
 | a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
 | a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
-| a non-membership relied on, with its edge; a pirate's membership | Implemented (`unified` bf447db25e, 80aa919bed; TraitWorld dbfb488), with C-76, C-77, C-88 | §3.4, §12.2 |
+| a non-membership relied on, with its edge; a pirate's membership | Implemented (`unified` bf447db25e, 80aa919bed, 7fee959383; TraitWorld dbfb488, a2ca7be), with C-76, C-77, C-88, T-112 | §3.4, §12.2 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
@@ -1258,3 +1261,4 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles. | The check and the build are two walks with two rule sets; six of thirteen small programs differ (`experiments/unification/w142/`). (1) Built, yet not fully typed: a value known only by its trait, or typed `Any`, passed to a method at the trait: the build branches over the members, the check applies the session's rule and reports a run-time site (four programs). (2) Fully typed, yet refused: a hole inside plain code that the check takes as resolved (Base's `repeat(::Char, ::Int)`; T-107, T-100); a trait with more than 64 members (compiler C-87). The build's `BuildError` carries the build's own report. | TraitWorld `src/fullytyped.jl`, `src/build.jl`; `experiments/unification/w142/agree.sh`; E-361, E-364; W-142 |
 | T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
 | T-111 | [§7.8](#78-keeping-an-argument-with-its-attribute), [§8.1](#81-fields-and-containers-typed-by-a-trait) | `keep` is not used into storage typed by the trait. | Nothing reports a `keep` whose value goes into such storage. TraitDifferentialEquations keeps its callbacks so at six sites. | TraitDifferentialEquations `lib/ODECore/src/core.jl:634`; W-149, W-104 |
+| T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is reported at error level and kept (`TraitWorld._STRICT_MISSES`), and the membership stays: a membership is not taken back (open issue 180 (c)). At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |

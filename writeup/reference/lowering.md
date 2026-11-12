@@ -253,12 +253,17 @@ While a package that declares `@implement X S` is precompiled:
   - from each, the callers' backedges, transitively, through the plain code that code compiled by facts rests on, to code compiled by facts.
 
   It refuses a pirate that wins there (`PirateError`). After the definition, validation's log is checked: a hit the walk missed deletes the method and raises.
-- **At an image's activation,** the image hook does the same for the image's methods.
+- **At a pirate's membership** ([traits §12.2](traits.md#122-pirates)), before it is declared, the library finds the facts it would change:
+  - the absence edges its method would meet ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)), from the method table's backedges;
+  - for each method at the trait or a trait it joins, the facts that method would win at, by the walk above, at the method's signature with the member in the trait's place ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
+
+  It refuses a membership that changes one (`PirateError`). After the declaration the log is checked as after a definition.
+- **At an image's activation,** the image hook does the same for the image's methods and memberships. A refused membership's method stays inactive, and the runtime refuses its entry ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)).
 - **At a membership** (`@implement`, a trait's supertraits, `Dynamic{X}`'s membership), the runtime refuses one that makes methods ambiguous ([compiler §4.3](compiler.md#43-worlds)); the library raises `ImplementError`.
 - **After an image's load,** the report of edges that failed validation names a pirate loaded earlier.
 - **Deletions and bindings redefined from other modules** are refused through their hooks ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the walk before the definition and the log after it, the image hook, the report after a load from validation's log, the deletion hook; bindings redefined from other modules: [traits T-96](traits.md#19-deviations). The refusal at a membership: `unified` 0bb8f38830 with TraitWorld 960b99e (E-343).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the walk before the definition and the log after it, the image hook, the report after a load from validation's log, the deletion hook; bindings redefined from other modules: [traits T-96](traits.md#19-deviations). The refusal at a membership: `unified` 0bb8f38830 with TraitWorld 960b99e (E-343). A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations).
 
 ---
 

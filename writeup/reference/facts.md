@@ -331,7 +331,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **A call selects its method without a guard.** It holds its ordinary dispatch edge. A membership replays the trait's methods at the new member and invalidates the callers whose selection changes ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does)).
 - **So a membership invalidates the code that relied on its absence, and no other,** as a method definition invalidates its callers ([compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries)). A new type that joins invalidates nothing: no earlier code asked about it, and a call at a wider signature matched the trait's methods already. Code compiled once at a trait reaches a later member through its table and relies on no absence ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 - **G1 holds in the caller's world:** a task in a world before the membership sees the type as a non-member; one after it, as a member.
-- **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)): followed by default, refused under strict mode.
+- **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)), and behaves as a pirate's method: followed by default, refused under strict mode where it would change code compiled by facts (§11.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one, or on its absence, holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
@@ -355,21 +355,21 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 ### 11.2 Strict mode
 
 **Rule.** A definition is refused if all three hold:
-1. **It is a pirate.** An extension counts as its parent. Methods of Julia's own code are not checked.
-2. **It would win at a fact of code compiled by facts,** or of plain code such code rests on: `return_type`'s plain answers, the compiler's code, and Julia's plain code the compiler calls.
+1. **It is a pirate:** a pirate's method, or a membership by neither the trait's owner nor the type's. An extension counts as its parent. Methods of Julia's own code are not checked.
+2. **It would win at a fact of code compiled by facts,** or of plain code such code rests on (for a membership: the answer that the type is no member, or a call at the type where a method at the trait would be selected): `return_type`'s plain answers, the compiler's code, and Julia's plain code the compiler calls.
 3. **Its package is no stakeholder of that signature,** joint owners counted as owners.
 
-**When.** Before the method becomes visible: at a definition, and for a package image's methods before they are activated (a refused method stays inactive; the load reports the `PirateError`).
+**When.** Before the method or the membership becomes visible: at a definition or a declaration, and for a package image's methods and memberships before they are activated (a refused one stays inactive; the load reports the `PirateError`).
 
-**How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each, the callers' backedges, transitively, through the plain code of rule 2, to code compiled by facts. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)).
+**How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each, the callers' backedges, transitively, through the plain code of rule 2, to code compiled by facts. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
 
 **The property it secures:** code compiled by facts is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
 
-**Not refused:** a pirate that wins nowhere in code compiled by facts; any stakeholder's method; a membership.
+**Not refused:** a pirate that wins nowhere in code compiled by facts; any stakeholder's method or membership.
 
-**Effects.** The refused method does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
+**Effects.** The refused method or membership does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook. A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations).
 
 ### 11.3 Strict mode's errors at their sources
 
@@ -383,6 +383,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | a binding redefined from another module that code compiled by facts reads | refused at the redefinition |
 | a deletion of a method that code compiled by facts depends on | refused at the deletion |
 | a membership that makes methods at two traits ambiguous for a type | refused at the membership |
+| a pirate's membership that would change code compiled by facts | refused at the declaration; in a package image, at the load |
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
