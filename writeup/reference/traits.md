@@ -664,7 +664,7 @@ Both run the same methods and give the same results, or raise the same error.
 
 **A `where` variable bounded by a trait is the value's type, whatever the attribute:** in `f(x::C) where {C <: X}`, `C` is `typeof(x)` in the body. Code compiled for the type knows `C` when it is compiled. Code compiled once reads it from the value when it runs, so what it does with `C` is decided then.
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111; [compiler §6.2](compiler.md#62-compilation-signatures), [§6.3](compiler.md#63-the-attribute-at-a-call)), but at an argument typed by a `where` variable (compiler C-54).
+**Status:** Implemented on `unified` e692e57ab7 (W-111; [compiler §6.2](compiler.md#62-compilation-signatures), [§6.3](compiler.md#63-the-attribute-at-a-call)); an argument typed by a `where` variable on `unified` f6ad3008b4 (W-148; gate `n30_where_variable`).
 
 ### 7.5 What decides
 
