@@ -51,3 +51,19 @@ The order follows the weakest axes first ([the goals](../goals.md) §2).
 
 The user: "Please stop and report back after the Ports are up." Parts 1 and 2 are done (E-374, E-375). Parts 3 to 7 were stopped before any measurement; their rows (E-376 to E-386) are registered, not run. The freeze is lifted: the ODE port's front end was reworked on the user's word, with two changes of the compiler (E-387; `unified` 21c9b33e39). The round resumes on a new freeze, when the user says so; the tag `round-2026-11` marks the commits parts 1 and 2 ran on.
 
+## Addendum, 2026-11-14: resumed on a second freeze
+
+The user: "Then continue the measurement round." The frozen build, tag `round-2026-11-b` in every repository:
+
+| Repository | Commit |
+|---|---|
+| `julia-unified` (`unified`) | 21c9b33e39 |
+| `julia-vanilla` | 45b6d15e34 |
+| `TraitWorld-unified` | 2072e75 |
+| `TraitTables-unified`, `TraitCSV-unified`, `TraitMakie-unified`, `TraitReport-unified` | c339175, 92c46d0, c862914, a4bcf33 |
+| `TraitDifferentialEquations-unified` | b730628 (the front end typed, E-387) |
+| `forks-unified` | 439bae7 |
+| `ndport` | ef6fe3d; the clones' `unified`: NetworkDynamics 6310040, Graphs dbcb7c70, GraphMakie 498be7c |
+
+Parts 1 and 2 are run again on it, since the compiler changed (the logs' second runs); parts 3 to 7 follow, then part 8.
+
