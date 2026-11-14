@@ -43,3 +43,10 @@ Started from [`2026-11-12-pickup-binA.md`](2026-11-12-pickup-binA.md). The manda
 - Later in the night: `julia-unified` 23e1dd3feb (a cast with keywords), a0602148ca (`Callable`'s check), add2f921c9 (the absence edge; the closures); TraitWorld 12b8b31.
 - The branches `binA-wip` are left as they were, as a record of the work in progress.
 - The local branches `unified` of `julia-unified` and `main` of the design repository are stale and diverged from their remotes. The work is on `unified-w141` (pushed to `origin/unified`) and `w141-record` (pushed to `origin/main`).
+
+## 2026-11-14, the morning: the cache is stopped
+
+The user, on the question whether a function of package A on a type of package B is the session's code and whether it is cached: the two sessions of E-372 do not exercise it (answered; the proposal's addendum). Then: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment. Please continue with the rest of the work as planned in the order we planned."
+
+- Recorded: decisions §5, W-120 stopped, W-145's workloads, the goals G-3, the schedule's addendum, open issues §1 (the cache's block closed).
+- Next: bin A's rest, then phase 4.

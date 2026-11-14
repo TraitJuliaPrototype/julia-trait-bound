@@ -83,14 +83,14 @@ The deviations of the implementation from the design are listed per reference: [
 
 ### 6.2 The target
 
-The design of the references, built on Julia as a stack of self-contained commits, proposed upstream where they are useful without traits (W-19), with TraitWorld as a package. Keys (Optional) are purely a performance optimization and deferred (PE-33); the machine-code cache across sessions (W-120) is being revisited.
+The design of the references, built on Julia as a stack of self-contained commits, proposed upstream where they are useful without traits (W-19), with TraitWorld as a package. Keys (Optional) are purely a performance optimization and deferred (PE-33); the machine-code cache across sessions (W-120) is not built now, and is judged from the measurement round.
 
 ### 6.3 The order of work
 
 The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
 1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is decided: a membership behaves as a method does, and its method of the runtime's function is the implementation of its edges (compiler §5.6, open issue 180).
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109).
-3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. [The proposal](plans/2026-11-14-cache-across-sessions.md), which recommends stopping the cache, waits for the user.
+3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](plans/2026-11-14-cache-across-sessions.md), with its addendum).
 4. The ports brought to the head (W-104).
 5. Freeze, then the measurement round (W-145).
 6. Low-hanging performance work (W-146).

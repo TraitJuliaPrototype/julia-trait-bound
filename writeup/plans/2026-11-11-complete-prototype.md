@@ -129,3 +129,7 @@ The user: "Conceptual parsimony for the user only requires implementation to beh
 
 Taken while bin A is not empty (mine): the first step is a measurement that no open row of bin A changes, and the mandate's stopping point is its numbers. E-372: on the table and the ODE sessions no library code is left for a cache to hold. [The cache's proposal](2026-11-14-cache-across-sessions.md) is written for the user and recommends stopping the cache. Nothing of the cache is built.
 
+## Addendum, 2026-11-14: the cache is stopped
+
+The user: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment. Please continue with the rest of the work as planned in the order we planned." Phase 3 ends: the cache is stopped. The prototype is conceptually complete when bin A is empty. The measurement round (W-145) carries the workloads that would exercise a cache across sessions ([the proposal's addendum](2026-11-14-cache-across-sessions.md)). Next in the order: bin A's rest, then phase 4.
+

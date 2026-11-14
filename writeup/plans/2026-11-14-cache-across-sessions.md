@@ -1,6 +1,6 @@
 # The cache across sessions: the question again, with phase 3's first numbers
 
-**Status:** proposal, for the user (W-120; [the schedule](2026-11-11-complete-prototype.md), phase 3). Nothing is built. The user (2026-11-11): "We should probably revisit the cross session cache now." The mandate (2026-11-12): "keep going until the numbers of phase 3 are in. When they are in only get back to me if they actually indicate a trade off."
+**Status:** decided (2026-11-14, the user: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment. Please continue with the rest of the work as planned in the order we planned."): the cache is not built now; the measurement round (W-145) carries the workloads that would exercise it. As written it was a proposal, for the user (W-120; [the schedule](2026-11-11-complete-prototype.md), phase 3). Nothing is built. The user (2026-11-11): "We should probably revisit the cross session cache now." The mandate (2026-11-12): "keep going until the numbers of phase 3 are in. When they are in only get back to me if they actually indicate a trade off."
 
 Written by the main session (2026-11-14). Not normative.
 
@@ -48,3 +48,26 @@ Two sessions on the head (`unified` add2f921c9), each a fresh process: TraitCSV 
 **What would change this:** a port in phase 4 whose session compiles library code that no image can hold by any rule: a composition of two packages' types that neither package's image, nor an extension's, can compile. The class "composition" of `classify_trace.py` counts it. It is 0 on both sessions now. The forks (CSV, DataFrames) and TraitMakie are the ones to watch: their sessions are not on the head.
 
 **The trade-off for the user:** (a) leaves the session's own code to be compiled in every session, 0.08 to 0.36 s here, as plain Julia does. (b) removes it for unchanged scripts at the cost of a build step a user must run. The numbers do not decide between them; they do say that (c) is not needed for what these two ports do.
+
+## Addendum, 2026-11-14: what the two sessions do not show
+
+Asked by the user: is a function of package A called on a type of package B counted as the session's code, and is it ever cached? It is the class "composition", 0 on both sessions. But the sessions do not exercise it:
+- in both, a third package depends on both sides and compiles the combination in its own workload (TraitCSV on TraitTables; the ODE umbrella on ODECore, TraitRodas and ForwardDiff);
+- the trace gives a compile's time to the instance at its root, so a combination inferred or inlined under `main` is counted as the session's own. `main` alone is 244 ms of the ODE session, not broken down.
+
+What is cached today, by how A and B are related:
+
+| Case | Cached |
+|---|---|
+| B declares `@implement X T` for A's trait | in B's image: A's methods at `X` with one trait argument, fully bounded, compiled for `T` ([traits §16](../reference/traits.md#16-compiling-ahead-closed-programs)) |
+| A's method runs compiled once | A's image holds the instance; the pointer to each of B's operations is made in every session, about 9 ms per operation and member (E-358, GT-7) |
+| a third package calls `A.f(::B.T)` in its workload | in that package's image, where the record satisfies G2 |
+| only the session combines them | not cached: compiled in every session |
+
+So the measurement round needs, for this question (W-145):
+1. a workload of two independent trait packages first combined in `Main`: a method of A at a trait of A, a type of B, the membership declared by B, by a third package, and in the session;
+2. the same in plain Julia (two packages, a function of one on a type of the other), as the baseline;
+3. each compile's time split into the root's own inference and codegen and what it infers below it, so that code under `main` is attributed to the package whose method it is;
+4. the classes of `classify_trace.py` with "composition" split by which of the four cases above it is;
+5. the second session of the same unchanged script, which is what a cache of the session's own code would serve.
+
