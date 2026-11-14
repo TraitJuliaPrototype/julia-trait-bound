@@ -71,3 +71,17 @@ So the measurement round needs, for this question (W-145):
 4. the classes of `classify_trace.py` with "composition" split by which of the four cases above it is;
 5. the second session of the same unchanged script, which is what a cache of the session's own code would serve.
 
+## Addendum, 2026-11-14: the round's workloads
+
+The workloads asked for are run (E-375; [evidence §3](../design/evidence.md#3-first-calls-and-sessions); `experiments/unification/w145/cache/`). What a cache across sessions would serve, on two independent packages first combined in a session:
+
+| What a session compiles | Plain Julia | Trait, compiled for the type | Trait, compiled once | An image can hold it |
+|---|---|---|---|---|
+| the library's algorithms at the other package's type, the membership declared in a package | 130 to 135 ms | 0 | 0 | yes: plain Julia needs a workload that names the combination; the trait form needs none |
+| the same, the membership declared in the session | 134 ms | 152 ms | 0 | no, where compiled for the type |
+| the pointers to the member's operations | — | — | 18 ms | only with a workload |
+| the session's membership check | — | 139 to 144 ms | 139 to 144 ms | no |
+| the session's own `main`, and Julia's methods at its signatures | about 155 ms | about 155 ms | about 155 ms | no |
+
+So the judgment the numbers allow: a cache across sessions is a cache of the session's own code, with or without traits. The traits' own share is small and has cheaper remedies: the check's code in TraitWorld's image (phase 6's list), and a membership moved from the session into a package.
+
