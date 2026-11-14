@@ -1,6 +1,6 @@
 # The measurement round (phase 5, W-145): what is run, on what, in which order
 
-**Status:** adopted (2026-11-14), mine, under the user's schedule (2026-11-11: "Then thoroughly measure it") and words on the cache (2026-11-14: "The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment."). Written in the main session. Not normative: each run has a row in [the registry](../record/experiments.md), written before the run; the numbers go to [the evidence](../design/evidence.md).
+**Status:** done (2026-11-14; adopted the same day), mine, under the user's schedule (2026-11-11: "Then thoroughly measure it") and words on the cache (2026-11-14: "The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment."). Written in the main session. Not normative: each run has a row in [the registry](../record/experiments.md), written before the run; the numbers go to [the evidence](../design/evidence.md).
 
 ## The frozen build
 
@@ -67,3 +67,6 @@ The user: "Then continue the measurement round." The frozen build, tag `round-20
 
 Parts 1 and 2 are run again on it, since the compiler changed (the logs' second runs); parts 3 to 7 follow, then part 8.
 
+## Addendum, 2026-11-14: done
+
+Parts 1 to 8 are done on the second freeze (E-374 to E-386). The numbers: [the evidence](../design/evidence.md) §1 to §4; each tension's cost: §4c. The losses are phase 6's list (W-146 in [the work queue](../record/todo.md)). The freeze ends with the round.

@@ -100,8 +100,8 @@ The work follows [the schedule to the synthesis](plans/2026-11-11-complete-proto
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109). Bin A is empty: the prototype is conceptually complete.
 3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](plans/2026-11-14-cache-across-sessions.md), with its addendum).
 4. The ports brought to the head (W-104). Done (E-373): every suite passes or has its known failures; §4.
-5. Freeze, then the measurement round (W-145).
-6. Low-hanging performance work (W-146).
+5. Freeze, then the measurement round (W-145). Done (E-374 to E-386) on `unified` 21c9b33e39, tag `round-2026-11-b`: [evidence](design/evidence.md) §1 to §4, each tension's cost in §4c.
+6. Low-hanging performance work (W-146): the round's losses, first the membership walk's conservative path at a port's load (compiler C-88 (c)) and the trait packages' load times.
 7. The ports' lessons and tensions, checked (W-147).
 8. The synthesis (W-138); then the upstream patches (W-19).
 

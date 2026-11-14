@@ -515,6 +515,33 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
   - **Load:** `using TraitWorld` takes 2.11 s with the slot against 3.52 s without (one run each): a callee behind a slot is compiled at its first call, while a bound call has the JIT compile its callees with the caller. This is most of the workloads' difference above.
 - **`Callable` by a memoized method-table query inside subtyping:** 1.4 µs for the first query per closure type, 75 ns repeated, 18 ns for a memo hit, against an entry's 80–96 ns (E-256). In an emulation, its rule for a question that reaches itself gave answers that depended on the order of questions (E-267, `experiments/unification/x6/`).
 
+### Each tension's cost on the round's second freeze (W-145, part 8)
+
+`unified` 21c9b33e39, TraitWorld 2072e75 (tag `round-2026-11-b`); vanilla 45b6d15e34; product setting, strict mode off; the runs and loads as in each experiment's row. The tensions: [goals §3](../goals.md), [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user).
+
+| Tension | The rule | Its cost on the frozen build | Experiment |
+|---|---|---|---|
+| GT-1 | a membership invalidates as a method does | no load time; 14 to 29 instances ended at the demonstrators' loads, 0 in twenty member packages; **1,069 at the forks' load by the conservative path: the first `describe` 0.80 s against 0.14 s** | E-378, E-382 |
+| GT-2 | strict mode infers an image's memberships at its load | TraitTables with TraitCSV: 248–250 ms against 180–181 ms | E-382 |
+| GT-3 | the compiler and Base are compiled plainly | 605 instances of the compiler in the log of upstream's load, 122 on vanilla; upstream's session 14.1–14.4 s against 13.5–13.6 s | E-382, E-386 |
+| GT-4 | a cast decides only at an argument typed by a trait | not measured apart: NetworkDynamics' workload 44.5–44.7 s with its kernel typed, digests identical | E-386 |
+| GT-5 | a closed type's contract promises no result | not measured in the round; the entry's numbers are of E-340 |  |
+| GT-6 | the attribute resolves at the method's declared type | a `Dynamic` default at a known type 8.3 ns; with `compiled_for` 2.38 ns, the plain twin's | E-374 |
+| GT-7 | the firewall's pointer | 18 ms a session for a member's two operations; the second run 0.6 ms against 0.1 ms | E-375 |
+| GT-8 | G2 covers less on the unified build | the forks lose 0.9 % of their own image instances to nine loads (plain 9.0 %); their work after the loads 2.28–2.29 s against 0.53 s first | E-376 |
+| GT-9 | the membership machinery costs plain code | first work 3.01–3.02 s against vanilla's 3.28–3.29 s; repeated work's median 0.19–0.20 ms against 0.17–0.18 ms | E-381 |
+| GT-10 | an isolated slowdown in an existing ecosystem | not measurable here: `IO` is no set on this build |  |
+| GT-11 | a method at an open set on Base's functions | the library loaded late ends 209 of 122,403 plain instances; the work after it 271–300 ms | E-381 |
+| GT-12 | the definition-time check at each edit | 2.64 s the first edit, 0.45 s the second; plain 88 ms and 9 ms | E-379 |
+| GT-13 | a closed build and code compiled once | table 0 errors; ODE 50, with a gradient 88; plot 6; report 6; the ODE binary runs under `unsafe-warn` | E-383 |
+| GT-14 | a membership is seen from its world | the message unchanged | E-385 |
+| GT-15 | a family's members in a closed build | the table program builds and runs, 3.11 MB | E-383 |
+| GT-16 | fully typed mode raises where a build refuses | not timed in the round; the check and the build agree on 17 of 18 programs | E-384 |
+| GT-17 | fully typed is wider than no run-time site | the one program of 18 that differs (`bb_invokelatest`) | E-384 |
+| GT-18 | a membership changes type equality inside a parameter | not measurable here: the exact rule is not built (compiler C-88 (e)) |  |
+
+The largest: GT-1's conservative path at a port's load, GT-12's first edit, GT-8's work after unrelated loads at a port. GT-1's is a deviation of the implementation (C-88 (c)), not the rule's cost.
+
 ## 4d. Error messages against plain Julia's
 
 **The same mistakes in trait code and in plain Julia** (E-362; `unified` dd3f6d839b, vanilla v1.13.2 45b6d15e34, TraitWorld 158d000; product, strict mode off but where named; each case a script in a fresh process, one run, load 7 of 128 cores; idiomatic trait code against a plain twin). One small library (`Shape` with `area`, `perimeter` and a default `label`, and generic code over it) is written as a trait module and as an abstract type with documented generic functions. Thirteen mistakes are made against each.

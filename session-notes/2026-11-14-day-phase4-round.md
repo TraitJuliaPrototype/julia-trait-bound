@@ -42,3 +42,15 @@ The user: "Rework the front end of ODE. Could the old front end become a thin co
 - **Numbers:** the ODE session 1.25 → 1.33 s; the build's errors on the ODE program 122 → 50, none in the front end. Open issue 183 closed; open issue 184 holds what is left (the core's callbacks first).
 - The battery passes on 21c9b33e39 (label `fe`; its TraitWorld run failed on an interim edit of the library and passes on 2072e75).
 - The round's freeze is lifted (the plan's addendum); E-376 to E-386 are registered, not run.
+
+## The round resumed and done (E-374 to E-386)
+
+The user: "Then continue the measurement round." A second freeze (tag `round-2026-11-b`, `unified` 21c9b33e39); parts 1 and 2 run again with the same numbers, then parts 3 to 8.
+
+- **Holds:** the demonstrators' trait packages lose no instance to nine unrelated loads, twenty member packages or a prompt's definitions (E-376 to E-380); plain code pays what it paid (E-381); the table program builds and runs, the ODE program counts 50 errors and runs under `unsafe-warn` (E-383); the messages are unchanged (E-385); NetworkDynamics' digests are identical (E-386).
+- **The round's finding:** the membership walk's conservative path (compiler C-88 (c)) ends 1,069 instances at the forks' load (Base 749, DataFrames 240, Statistics 80). The first `describe` costs 0.80 s against 0.14 s without the walk (`experiments/unification/w145/loads/walk_work.jl`). It explains the forks' slower first work and session.
+- **A loss without a cause yet:** the trait packages' loads cost about twice what they did on `unified` b05ae361e0 (TraitReport's imports 0.71–0.77 s against 0.37–0.41 s; setting D's load 0.94–0.96 s against 0.54 s). Not the walk's time.
+- **Mistakes of the harness, corrected:** `load.jl` counted code instances where the log holds method instances; `w136`'s summary read the run's own output file; the first run of the forks' and upstream's REPL sessions included a precompile (runs 2 and 3 count).
+- Each tension's cost: evidence §4c. Phase 6's list: W-146, seven items.
+- **Next:** phase 6 (W-146), first the two losses above; then W-147 and W-138.
+
