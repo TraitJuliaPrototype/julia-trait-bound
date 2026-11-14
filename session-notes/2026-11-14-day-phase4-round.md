@@ -67,3 +67,14 @@ The user: "As measurement also do profiling on where exactly time is spent. Then
 - **Left of phase 6's list,** for the synthesis: the casts at a call, a membership declared in a session, the typed front end's callers at an edit.
 - **Next:** phase 7 (W-147): each port's questions and each tension read against the head and the round's numbers; open issue 184; the question of a loose front end as a shim.
 
+## Phase 7 and the synthesis (E-392, E-393)
+
+The user: "After that the synthesis report?"; then: "Go up to and including the synthesis report. Leave W-19 for the next session."
+
+- **Phase 7 (W-147).** The goals' standings assessed again (`writeup/goals.md` §2, rewritten); the tensions' entries and the state page brought to the head. E-376's session again on the head (E-392): GT-8 stands, and is two instances of the forks' reader, ended through Base's plain code by FilePathsBase's `open` and SparseArrays' `vcat`. The suites as in E-373. Open issue 185: a typed front end with the loose one as a shim (the user's question of the afternoon), recommended and not built.
+- **The code slot's control (E-393):** with its marks off the same instances are lost but one, and no time. The synthesis asks for one more control, a session of edits, before it is retired.
+- **A census for the synthesis:** the ports write 12 casts, 5 traits with a `Dynamic` default, `Dynamic{X}` 94 times, and no module option for the attribute. The stack on Julia: 138 commits, about 12,000 lines.
+- **The synthesis (W-138):** `writeup/plans/2026-11-14-synthesis.md`, a proposal. Three things to revisit at the root (Base's surface, the attribute, the checks' cost), two mechanisms to weigh for removal, seven decisions for the user.
+- **Found on the way:** the goals' table had the round's sentences appended to the wrong column; `@closed_after_load` was still listed among the choices in force though W-140 removed it.
+- **Next session:** the user's decisions on the synthesis's §7; the upstream patches (W-19).
+

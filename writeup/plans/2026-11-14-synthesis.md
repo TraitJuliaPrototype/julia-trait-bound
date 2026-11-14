@@ -15,7 +15,7 @@ The user (2026-11-10): "The goal is not for me to review this bit by bit but to 
   1. **Base's surface.** Every large loss that is left sits where trait code meets Base's plain code (§3.1). The design treats Base as given. The next iteration should treat a part of Base as the design's own object.
   2. **What decides a trait argument's attribute.** It is the least simple part of the design, the source of most of the ports' questions, and it now has one rule for a session and another for a build (§3.2).
   3. **What a check costs, and when it runs.** A check at each definition costs half a second at each edit, and three kinds of check have three cost models (§3.3).
-- **Two mechanisms should be weighed for removal** (§3.6): the code slot, which E-393 finds keeps nothing in the round's largest case, and the module and scope options of the attribute, which no port uses.
+- **Two mechanisms should be weighed for removal** (§3.6): the code slot, whose marks keep one instance and no time in the three cases measured for it (E-393), and the module and scope options of the attribute, which no port uses.
 - **Not shown, and not to be claimed:** better steady-state speed; a cache across sessions; that the design is easy to teach (no reader from outside); better messages for a port's run-time failures.
 - **The questions for the user are in §7:** seven decisions, each with a recommendation.
 
@@ -42,7 +42,7 @@ The eighteen tensions, the ports' questions and the choices marked mine fall int
 
 - **What is measured.**
   - The forks' 2.2 s after unrelated loads is two reader instances (`CSV.read`'s body and `CSV._parse`, 0.49 and 0.40 s to compile again). They are facts code. They end because Base's plain code between them and `open`, and a call of `vcat`, is ended: by FilePathsBase's method of `open` at its own path type, and by SparseArrays' `vcat` at Base's types (E-392).
-  - Upstream compiled by facts as it is loses nothing that costs: its own code does not go through those callees.
+  - Upstream compiled by facts as it is loses 14 instances and no time: its work after the loads is faster than its first.
   - Inference on plain code costs 1.5 times vanilla's. What is left after E-389 is the compiler's static calls made through the runtime (GT-3).
   - Loaded after plain work, the library ends 209 of 122,403 plain instances, through its methods at open sets on `length`, `iterate` and `haskey` (GT-11).
   - A build fails in a hole of Base that the user cannot fix; the build script replaces 28 methods of Base to get past some (open issues 179, 181).
@@ -115,7 +115,9 @@ The eighteen tensions, the ports' questions and the choices marked mine fall int
 
 - **The code slot** ([compiler §3.3](../reference/compiler.md#33-the-code-slot)). It keeps a caller whose callee is compiled again to an equal result.
   - *Its cost:* a slot per call site, marks and revalidation in the runtime, result edges in the compiler; 8.5 % on an image build's test, 15 % more machine code in TraitWorld's image (E-283); and the defect of E-389 came from it.
-  - *Its benefit, measured for this synthesis* (E-393): see the addendum below.
+  - *Its benefit, measured for this synthesis* (E-393): with the marks off in the session, upstream by facts loses the same 14 own image instances and one more of the work's; the forks lose 49 where they lost 48; the ODE session is the same. The work after the loads is no slower without the marks (1.52–1.61 s against 1.71–1.73 s; 2.15–2.18 s against 2.22–2.25 s).
+  - *What that does not cover:* a session with edits (Revise's redefinitions to an equal result), which is what the slot was designed for and no workload of the round does; and the slots stay in the images in this control.
+  - *Proposal:* measure a session of edits with and without the marks. If it shows nothing either, retire the slot: one mechanism less in the compiler, the runtime and code generation, and one less in the stack proposed upstream.
 - **The attribute's module and scope options** (§3.2 (a)): no port uses them.
 - **The member's own forwarding methods** (§3.4 (d)).
 
@@ -170,10 +172,6 @@ Each has a recommendation. None blocks the upstream patches (W-19), which stand 
 2. **The attribute's rules** (§3.2): remove the module and scope options; a cast without effect is the check's error; build `Dynamic{Callable}` and `keep(f)` in `Callable`'s contract. *Recommended: yes to all three.*
 3. **A build compiles for the type, a session once** (§3.2 (b); E-387). *Recommended: confirm.*
 4. **The definition-time check keeps its results** (§3.3 (a)). *Recommended: yes; it is the largest cost an interactive user meets.*
-5. **The code slot** (§3.6): keep or retire, by E-393. *Recommendation in the addendum.*
+5. **The code slot** (§3.6): its marks keep nothing that shows at unrelated loads (E-393). *Recommended: one more control, a session of edits; retire it if that shows nothing either.*
 6. **A membership taken back** (§3.4 (c)), so that Revise works on memberships. *Recommended: yes, before any reader from outside.*
 7. **The next demonstrators:** the ODE program without callbacks through a build (§3.5), and a reader from outside for `intro/` (G-8). *Recommended: both, before more ports.*
-
-## Addendum: the code slot's benefit (E-393)
-
-To be filled from the run.

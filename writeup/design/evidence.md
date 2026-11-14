@@ -154,6 +154,20 @@ The same build and setting. Earlier numbers: `unified` b05ae361e0 (E-337, 2026-1
   - NetworkDynamics' workload: 44.5–44.7 s (45.9–46.0 s, E-314), its digests identical.
   - **So the trait packages' sessions cost what they did on b05ae361e0; the forks' session costs a second more,** by the walk's conservative path, and the report over the forks 0.1 s more at its imports. On phase 6's list.
 
+### On the head, after phase 6 (W-147; E-392, E-393)
+
+`unified` 7b374f39ce, TraitWorld e11c7cc, forks 439bae7; product setting, strict mode off, one thread; a warm-up and 2 fresh processes; load 1 to 3.6 of 128. E-376's session again: upstream CSV and DataFrames and the forks, their work with its display, nine unrelated loads.
+
+| | first work | after the loads | with the loads first | own image instances lost |
+|---|---|---|---|---|
+| upstream, plain | 4.13–4.26 s | 5.17–5.29 s | 5.76–5.82 s | 424 of 4,693 (9.0 %) |
+| upstream, by facts (one line per module) | 1.88–1.89 s | 1.71–1.73 s | 2.39–2.41 s | 14 of 3,490 (0.4 %) |
+| the forks | 0.18–0.19 s | 2.22–2.25 s | 2.33–2.34 s | 48 of 4,799 (1.0 %) |
+
+- **The forks' loss is two instances** (GT-8): without the display, the work after the loads takes 0.92 s, of it `CSV.read`'s body 0.49 s and `CSV._parse` 0.40 s compiled again. They are ended through Base's plain code under `open(f, …)` by FilePathsBase's method of `open` at its own path type, and by SparseArrays' `vcat` at Base's types.
+- **The code slot's marks keep one instance in each case and no time** (E-393): with `JULIA_CODE_SLOT=0` in the session, upstream by facts loses 14 and takes 1.52–1.61 s after the loads; the forks lose 49 and take 2.15–2.18 s; the ODE session through the loads is the same with the marks and without (13 of 4,806; 74–75 ms).
+- **The ports' suites** pass as in E-373: DataFrames' four files with an `@inferred` at `Any` fail (open issue 157 (a)).
+
 ### Where a session's time goes (W-145, part 9; E-388)
 
 The same build and setting; one thread; each phase profiled at 0.5 ms in one process after a warm-up, the shares applied to an unprofiled run's times; load 0.3 to 1.3 of 128. Every sample goes to one class by its stack (`experiments/unification/w145/profile/`).

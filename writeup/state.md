@@ -49,6 +49,7 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 - NetworkDynamics' subset gives the results of 2026-11-08.
 - The ports follow the current rules: `@unbounded`; the casts' names imported; no `keep` into storage typed by a trait (`detect_kept_storage`, checked in the suites of TraitDifferentialEquations and TraitMakie).
 - Found: a result annotation at a trait was inferred as `Any` (fixed at its rule, compiler §4.8).
+- **On `unified` 7b374f39ce with TraitWorld e11c7cc** (E-392): the same suites give the same results.
 - **The ODE port's front end is typed** (E-387; TraitDifferentialEquations 0483ac0 on `unified` 21c9b33e39): `ODEProblem`, `solve` and `init` return types their callers know, and the attribute decides what is compiled once. The suite passes; the session costs 6 % more. Its program does not build yet: 50 errors where there were 122, in the solver core's callbacks, Rodas5 and a sort ([open issue 184](open-issues.md#2-design)).
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
@@ -99,11 +100,11 @@ The work follows [the schedule to the synthesis](plans/2026-11-11-complete-proto
 4. The ports brought to the head (W-104). Done (E-373): every suite passes or has its known failures; §4.
 5. Freeze, then the measurement round (W-145). Done (E-374 to E-386) on `unified` 21c9b33e39, tag `round-2026-11-b`: [evidence](design/evidence.md) §1 to §4, each tension's cost in §4c.
 6. Low-hanging performance work (W-146). Done on `unified` 7b374f39ce, TraitWorld e11c7cc (E-389 to E-391): an instance's code compiled once per result; the membership walk's substitution below a position's top; the definition-time check in inference's world.
-7. The ports' lessons and tensions, checked (W-147).
-8. The synthesis (W-138); then the upstream patches (W-19).
+7. The ports' lessons and tensions, checked (W-147). Done (E-392, E-393): the standings in [the goals](goals.md) §2.
+8. The synthesis (W-138): written, [a proposal](plans/2026-11-14-synthesis.md) with seven decisions for the user. Then the upstream patches (W-19).
 
 The speed work is retired; its log is an archive. Deferred: keys (W-110), purely a performance optimization.
 
-Nothing waits for the user. The choices marked mine and the flagged tensions are input to the synthesis ([open issues](open-issues.md) §1).
+The synthesis waits for the user: its seven decisions ([§7](plans/2026-11-14-synthesis.md#7-decisions-for-the-user)).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.
