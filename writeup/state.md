@@ -1,14 +1,14 @@
-# The state of the prototype (2026-11-09)
+# The state of the prototype (2026-11-14)
 
-Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. Against Python, in a fresh process (§5): the goal's task (DataFrames + Makie) 1.76–1.80 s against 0.63–0.65 s, the ODE session (setting D) 1.96–1.98 s against 1.43–1.46 s, TraitReport's trait form 0.79–0.83 s against 0.63–0.65 s, the forks' REPL session 2.95–3.56 s against pandas' 0.69–0.75 s. The goals and where each stands: [`goals.md`](goals.md). Speed work is stopped; the claim is no regression where types are known.
+Traits are abstract types on Julia's unified build: memberships live in the type system, dispatch picks methods at traits, and the ports run on it with upstream's results. Against Python, in a fresh process (§5): the goal's task (DataFrames + Makie) 1.77–1.83 s against 0.63–0.65 s, the ODE session (setting D) 1.89–1.91 s against 1.43–1.46 s, TraitReport's trait form 0.78–0.80 s against 0.63–0.65 s, the forks' REPL session 2.61–2.62 s against pandas' 0.69–0.75 s. The goals and where each stands: [`goals.md`](goals.md). Speed work is stopped; the claim is no regression where types are known.
 
 For core developers. The design is the four [references](reference/README.md), each with a Deviations table; this page summarizes what is built. The changes to Julia are the [compiler reference](reference/compiler.md), with the inventory in [`design/julia-changes.md`](design/julia-changes.md); the measurements are in [`design/evidence.md`](design/evidence.md). The earlier build (julia-1.13 with TraitWorld `main`) still runs, and most numbers in the evidence are its; its state on 2026-10-29 is [a dated snapshot](../attic/writeup/state-2026-10-29.md).
 
 ## 1. Where the project stands
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then stand, as input to the synthesis ([the goals](goals.md) §4; [open issues](open-issues.md) §1).
-- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` b05ae361e0.
-- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, 4443d2c.
+- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` 7b374f39ce.
+- **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, e11c7cc.
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** speed work is stopped; the claim is no regression where types are known, and full speed by opting in ([the goals](goals.md) G-2; [decisions](record/decisions.md) §5). The numbers are in §5.
 
@@ -59,22 +59,19 @@ The tests of the build itself (2026-11-09, the battery `w337` on `unified` b05ae
 
 The deviations of the implementation from the design are listed per reference: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). Beyond them:
 
-- **The unified build against the earlier build, on the same host** (E-289, 2026-11-08; [evidence §3](design/evidence.md#3-first-calls-and-sessions)):
+- **The sessions against Python, on the same host** ([evidence §3](design/evidence.md#3-first-calls-and-sessions); fresh processes after a warm-up; Python's numbers of E-289 and E-230):
 
-  | Session | Python | Earlier build | Unified build |
-  |---|---|---|---|
-  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 2.46–2.49 s | 27.1–27.4 s; 7.62–7.75 s (E-292); 4.98–5.11 s (E-295); 3.62–3.70 s (E-296); 3.37–3.45 s (E-298); 2.37–2.40 s (E-300); 2.21–2.28 s (E-301); 1.91–1.95 s (E-302: the forks' CSV by facts); 1.81–1.83 s (E-303); 1.56–1.61 s (E-305: DataFrames by facts); 1.54–1.61 s (E-307); 1.60–1.65 s (E-316); 1.59–1.63 s (E-324); 1.62–1.63 s (E-326: TraitWorld by facts); **1.76–1.80 s** (E-337: the imports +0.15 s, not explained, PE-31) |
-  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 5.06–5.07 s | 38.0–38.5 s; 6.48–6.51 s (E-292); 9.86–10.42 s (E-296: §5.6's pruned arms at a REPL); 4.76–5.17 s (E-298); 4.08–4.44 s (E-300); 3.98–4.42 s (E-301); 3.89–4.04 s (E-302); 3.67–3.70 s (E-303); 3.82–4.01 s (E-305); 3.75–3.98 s (E-307); 3.11–3.24 s (E-308); 3.25–3.53 s (E-313, the harness's `TERM=dumb`); 3.00–3.28 s (E-316); 3.01–3.34 s (E-324); 2.85–3.14 s (E-326); **2.95–3.56 s** (E-337); 2.56–2.68 s on branch `b-display` (E-338) |
-  | TDE + TraitMakie, setting D | 1.43–1.46 s (E-230) | 1.34–1.35 s (E-242) | 11.59–11.77 s; 9.19–9.28 s (E-295); 6.35–6.56 s (E-296); 3.42 s (E-298); 2.82–2.84 s (E-300); 2.75–2.82 s (E-301); 2.52–2.54 s (E-303); 2.04–2.05 s (E-307); 1.98–2.01 s (E-316); 2.00–2.04 s (E-324); 2.00–2.01 s (E-326); **1.96–1.98 s** (E-337) |
-  | TraitReport (t) | 0.63–0.65 s (the goal's Python app, E-289) | 0.63 s (E-233) | 3.18–3.20 s (E-286); 0.99–1.04 s (E-292); 1.02–1.07 s (E-296); 0.97–0.99 s (E-298); 0.89–0.91 s (E-300); 0.775–0.821 s (E-301); 0.73–0.76 s (E-303); 0.72–0.75 s (E-307); 0.75–0.78 s (E-316); 0.74–0.78 s (E-324); 0.73–0.78 s (E-326); **0.79–0.83 s** (E-337) |
-  | NetworkDynamics' new equations (`changed` b–e) | — | 1.10 s (E-250) | 9.0 s (W-104); 6.6–6.7 s (E-309); 0.59–0.62 s (E-310 (a)); 0.59–0.66 s (E-314); **0.57 s** (E-327) |
-  | NetworkDynamics' steady state (`again` d) | — | 776–780 ms (E-250) | 189–230 ms (E-309); 182–213 ms (E-310 (a)); 451–475 ms (E-310 (b)); 228–257 ms (E-314); 224–240 ms (E-324); **237–241 ms** (E-327) |
+  | Session | Python | The unified build |
+  |---|---|---|
+  | the goal's task, DataFrames + Makie (TraitReport's form (f)) | 0.63–0.65 s | 1.77–1.83 s (E-390) |
+  | the forks' DataFrames session at a REPL | 0.69–0.75 s | 2.61–2.62 s (E-390) |
+  | TDE + TraitMakie, setting D | 1.43–1.46 s | 1.89–1.91 s (E-389) |
+  | TraitReport (t) | 0.63–0.65 s | 0.78–0.80 s (E-389) |
+  | NetworkDynamics' workload, five passes | — | 43.4–43.7 s, the earlier build's digests (E-389) |
 
-  - **With `IO`'s contract on the closed type** (`unified` b05ae361e0, E-337, load 5.9–7.2, the early build's forms interleaved as the control): the goal's task 1.76–1.80 s against 2.46–2.57 s; the forks' session 2.95–3.56 s against 5.19–5.58 s, its `show` step 0.081–0.110 s against 0.204–0.217 s; E-328's workloads on an `IOBuffer` vanilla's within the runs' noise ([evidence](design/evidence.md)). Against the build of the morning (E-326, 1.62–1.63 s) the goal's task is 0.15 s slower, all of it in the imports ([PE-31](record/performance-explorations.md)); the extra time is not code compiled at load (the same 28 compiles; [the performance review](reviews/2026-11-09-performance-day.md) H1, M1).
-  - **Loading:** the dispatch walk at activation (C-72) and the library's interpreter invalidating the compiler (C-40) are fixed (W-123, E-292). What remains is compiling at load: plain packages' methods invalidate ten times as much of the compiler's own code as on vanilla (2,049 against 193 instances for upstream CSV and DataFrames), through untyped narrowings in the stack's own compiler code: fixed (28d2334164, E-295: 195 instances against vanilla's 193). TraitWorld's load hooks invalidated by plain packages: fixed in the library (e6eaa85, E-296). At a REPL, TraitWorld's methods at sets for required operations invalidated the system image's code with a pruned `Nothing` arm (compiler §5.6; E-296); open issue 158 (a) makes them no shadow (B2 and TraitWorld c4f9f99): the forks' session 4.8–5.2 s (E-298). Validation's walk of the memberships at each match is gone (89b3bcff81, E-300: the goal's task 2.4 s); what the loads still spend is Julia's own validation, scaled by the images' size, and image restore.
-  - **The imports:** the goal's task 0.98–1.03 s against Python's 0.47 s (E-307), the forks' session 0.86–0.96 s (E-308). What the loads spend is Julia's validation of the images' edges and image restore (E-303, E-304).
-  - **After the imports:** the goal's read, summary and plot 0.27 s against the earlier build's 0.36 s and Python's 0.08 s (E-307); the forks' steps 1.55 s against 2.80 s and pandas' 0.41 s (E-308). What the forks' steps still compile: DataFrames' `show` at the REPL's stream; CSV's task closures come from its image (E-311). Slower than the earlier build: setting D's first solve 0.34 s against 0.19 s (E-307). Faster: NetworkDynamics' new equations 0.59–0.66 s against 1.1 s, its steady state 228–257 ms against 776–780 ms (E-314). Setting D's second model 0.05–0.06 s, as on the earlier build.
-  - **The REPL in a capable terminal** (`TERM=screen`, `xterm-256color`): the first line after `using` compiles the hint code again, 0.6 s on either build, because DataStrings' `print(io::IO, ::DataString)` invalidates it at load (E-313, [PE-25](record/performance-explorations.md)). The session harnesses fix `TERM=dumb`.
+  - **Where a session's time goes** (E-388): a load is the images' validation and restore; after it, code generation and inference. The membership machinery is below a tenth of every phase.
+  - **The imports** are the larger part of each session: 1.22–1.27 s of the goal's task, 0.37–0.39 s of TraitReport (t).
+  - **The REPL in a capable terminal** (`TERM=screen`, `xterm-256color`): the first line after `using` compiles the hint code again, 0.6 s, because DataStrings' `print(io::IO, ::DataString)` invalidates it at load (E-313, [PE-25](record/performance-explorations.md)). The session harnesses fix `TERM=dumb`.
   - **The floor** (E-291): a bare Julia process takes 0.15–0.18 s on every build, Python 0.02 s.
 - **An argument typed by a set, or by a `where` variable bounded by one** (`x::C`, `C <: X`), takes its attribute; the variable is the value's type under either (W-148). One typed by a set that names the method's variables (`X{T}`) is compiled once at its instance: TraitDifferentialEquations' `ODEProblem(f, …)` compiles the solver once per state type (E-298).
 - **Keys** are Optional, built late (W-110).
@@ -84,9 +81,9 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-14)
 
-- **Julia:** `julia-unified` `unified` 42681be784. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 12b8b31, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
-- **The ports on the unified build:** TraitTables `unified` c339175, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations cecf2c3, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
+- **Julia:** `julia-unified` `unified` 7b374f39ce. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` e11c7cc, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **The ports on the unified build:** TraitTables `unified` c339175, TraitCSV 92c46d0, TraitMakie c862914, TraitReport a4bcf33, forks 439bae7, TraitDifferentialEquations b730628, NetworkDynamics `unified` 6310040, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
 ### 6.2 The target
