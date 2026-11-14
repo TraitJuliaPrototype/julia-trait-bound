@@ -757,7 +757,7 @@ Problem(f::Callable{RHSSig, Nothing}, u0) = (k = keep(f); Problem{typeof(k)}(k, 
 
 Elsewhere `keep(x)` is `x`. Such a constructor is unbounded at `f`, since the struct's parameter takes the type of `k`; as a constructor that sets a parameter bounded by the trait, `bounded` does not refuse it (§7.3).
 
-**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Implemented in TraitWorld `unified` 4a1dc03 (W-149; test `kept.jl`, `experiments/unification/w149/`); `detect_kept_storage` in TraitWorld `unified` 12b8b31; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
+**Status:** `keep`: Implemented on `unified` e692e57ab7 (W-111), with compiler C-56. Mine (2026-11-06). The storage's type deciding, and `Kept{X}`: Implemented in TraitWorld `unified` 4a1dc03 (W-149; test `kept.jl`, `experiments/unification/w149/`); `detect_kept_storage` in TraitWorld `unified` baadf9f; the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". `Kept{X}` as storage that converts on assignment and is no member, `k[]` and `kept_call`: mine (2026-11-12). Syntax for a call that passes a kept value on: later (the user).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -804,7 +804,7 @@ end
 - **A trait argument is assigned here as it is, without `keep`** (§7.8): the storage then holds the object whoever calls. Storage that hands an attribute on is typed by a struct parameter (§8.2) or `Kept{X}`.
 - An operation on a value read back follows §7.9.
 
-**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members. With T-111.
+**Status:** Implemented: Julia's storage, with TraitWorld `unified` e7ff8e2's members.
 
 ### 8.2 A struct parameter bounded by a trait
 
