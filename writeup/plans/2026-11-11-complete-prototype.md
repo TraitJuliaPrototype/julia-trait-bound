@@ -151,3 +151,7 @@ Bin A's rest, sorted by the bins' rule (mine; [decisions](../record/decisions.md
 
 The prototype is conceptually complete. Next: phase 4, the ports brought to the head (W-104).
 
+## Addendum, 2026-11-14: phase 4 done
+
+Every demonstrator's suite ran on the head (E-373; [state §4](../state.md#4-the-ports-w-104)): all pass or have their known failures, and the ports follow the current rules. Found and fixed at its rule: a result annotation at a trait was inferred as `Any` (compiler §4.8). Found for phase 7: open issue 183. Next: phase 5, the freeze and [the measurement round](2026-11-14-measurement-round.md).
+

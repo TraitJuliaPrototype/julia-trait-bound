@@ -43,6 +43,13 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 | 3 | TraitDifferentialEquations | every package loads; its suite passes, 32 testsets, none broken | `unified` e9b9261808, TDE fcee973, TraitWorld 24a5fcd (E-307) |
 | 3 | NetworkDynamics (with Graphs' port, GraphMakie's over MakieCompat) | its test subset and its workload's 32 digests give the earlier build's results; a batch keeps its model with the trait's default, and the kernel types the model by the trait | subset: `unified` 23022b0ec7 (E-324); digests: `unified` 523214899f, NetworkDynamics 7e8997d, TraitWorld 6b342e9 (E-314) |
 
+**On the head** (2026-11-14, E-373; `unified` 86deee2f98, TraitWorld baadf9f; `experiments/unification/w104/`): every demonstrator's suite ran, one at a time.
+- TraitTables, TraitCSV, TraitMakie and TraitDifferentialEquations pass; TraitReport's two forms agree on three datasets.
+- The forks: the session's digests equal upstream's at 26 steps and the REPL session's 20 marks print; Tables' and CSV's upstream suites pass (CSV 330,546); DataFrames' has the 4 errors of open issue 157 (a), as before.
+- NetworkDynamics' subset gives the results of 2026-11-08.
+- The ports follow the current rules: `@unbounded`; the casts' names imported; no `keep` into storage typed by a trait (`detect_kept_storage`, checked in the suites of TraitDifferentialEquations and TraitMakie).
+- Found: a result annotation at a trait was inferred as `Any` (fixed at its rule, compiler §4.8); the ODE port's front end is kept from inference by hand, so its program is not fully typed ([open issue 183](open-issues.md#2-design)).
+
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
 The tests of the build itself (2026-11-09, the battery `w337` on `unified` b05ae361e0 with TraitWorld 4443d2c, `experiments/unification/stack/logs/`, E-337): the gates 57 of 57; Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `Compiler/inline` and `Compiler/inference`; `precompile` 457 of 457; the 21 acceptance cases; TraitWorld's suite; both workloads.
@@ -91,7 +98,7 @@ The work follows [the schedule to the synthesis](plans/2026-11-11-complete-proto
 1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is decided: a membership behaves as a method does, and its method of the runtime's function is the implementation of its edges (compiler §5.6, open issue 180).
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109). Bin A is empty: the prototype is conceptually complete.
 3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](plans/2026-11-14-cache-across-sessions.md), with its addendum).
-4. The ports brought to the head (W-104).
+4. The ports brought to the head (W-104). Done (E-373): every suite passes or has its known failures; §4.
 5. Freeze, then the measurement round (W-145).
 6. Low-hanging performance work (W-146).
 7. The ports' lessons and tensions, checked (W-147).
