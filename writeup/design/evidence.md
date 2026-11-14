@@ -140,7 +140,8 @@ The same build and setting. Earlier numbers: `unified` b05ae361e0 (E-337, 2026-1
 - **What a load costs and ends, with the membership walk and without** (E-382; a warm-up and 3 fresh processes per mode; the log's instances by the module of their method).
   - *The time of `using`:* TraitWorld 69–70 ms; TraitTables with TraitCSV 180–181 ms (248–250 ms under strict mode, GT-2); the ODE port 306–309 ms; TraitMakie 254–263 ms; the forks' CSV and DataFrames 1.08–1.33 s; upstream's compiled by facts 0.58 s, plainly 0.73 s, on vanilla 0.61–0.62 s; NetworkDynamics 1.76–1.82 s. With the walk not invalidating, each is the same within the runs' range.
   - *What the walk ends:* nothing at TraitWorld's, TraitTables', TraitCSV's and TraitMakie's loads beyond 14 instances of Base; 23 at the ODE port's; 29 at NetworkDynamics'. **At the forks' load 1,069 instances: Base 749, DataFrames 240, Statistics 80,** through the walk's conservative path (1,116 events; compiler C-88 (c)).
-  - *What that costs the work* (`walk_work.jl`, 3 processes per mode): the first `describe` of a small table takes 0.80 s with the walk and 0.14 s without; 0.37 s of it is code compiled again. It is the forks' slower first work of E-376 and the `describe` step of the forks' session below.
+  - *On `unified` 8fccf1e182* (E-390): the walk substitutes the member where a type declares its parameter's bound, and no method takes the conservative path at the forks' load. The load ends 1,228 instances (the control without the walk 1,220); the first `describe` takes 0.12 s with the walk and without; the forks' REPL session 2.61–2.62 s.
+  - *What that cost the work on the freeze* (`walk_work.jl`, 3 processes per mode): the first `describe` of a small table takes 0.80 s with the walk and 0.14 s without; 0.37 s of it is code compiled again. It is the forks' slower first work of E-376 and the `describe` step of the forks' session below.
   - *The compiler's own instances* (GT-3): loading upstream CSV and DataFrames logs 605 instances of the compiler on the unified build and 122 on vanilla; the ODE port's load 485, NetworkDynamics' 641.
 - **The builds** (E-383, E-384; `--trim=safe`, one build each). The table program: 0 errors, 3,111,576 bytes, runs and prints the session's output; its plain twin 6 errors (12 on vanilla). The ODE program: 50 errors (122 before the front end was typed), with a gradient 88 (160); its plain twin 14. Under `--trim=unsafe-warn` the ODE program's binary (4.3 MB) runs and prints the session's output. The plot: 6 errors (the plain twin 86, 88 on vanilla). The report: 6 (92, 98). Upstream CSV with DataFrames: 844 on the unified build, 768 on vanilla. The eight small trait programs build and run (2.5 to 2.6 MB); the plain loop over an abstract type is refused on both Julias. The session's check and the build agree on 17 of 18 programs, as before (`bb_invokelatest`).
 - **The messages** (E-385): the fifteen trait runs and the plain runs give the messages of E-370, line for line but for line numbers. SciML's three cases in the port: 2,415, 5,109 and 4,946 bytes with limited types (2,706, 5,271 and 5,012 on 2026-11-11); the plain twin's 2,497, 5,694 and 4,198.
@@ -166,7 +167,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 | the same edit again | 0.44 s | the check inferring |
 | the first solve (Lorenz, Tsit5) | 0.18 s | code generation 57 %, inference 28 %, code compiled while inferring 13 % |
 | the first stiff solve (Robertson, Rodas5) | 0.14 s | code generation 37 %, code compiled while inferring 35 %, inference 26 % |
-| the forks' first `describe` | 0.80 s | code generation 0.64 s, inference 0.12 s: code the load ended (compiler C-88 (c)) |
+| the forks' first `describe` | 0.80 s | code generation 0.64 s, inference 0.12 s: code the load ended (compiler C-88 (c)); 0.12 s on `unified` 8fccf1e182 (E-390) |
 | upstream's eight steps, plain, on the unified build | 10.3 s | code generation 6.23 s, inference 3.57 s, code compiled while inferring 0.49 s (on `unified` 9c6c9270f3: 9.9 s, inference 3.12 s) |
 | the same on vanilla | 10.2 s | code generation 7.56 s, inference 2.08 s, code compiled while inferring 0.46 s |
 | NetworkDynamics' workload | 44.0 s | code generation 58 %, inference 26 %, code compiled while inferring 6 %, the work 4 %, the loads 6 % |
@@ -544,7 +545,7 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 
 | Tension | The rule | Its cost on the frozen build | Experiment |
 |---|---|---|---|
-| GT-1 | a membership invalidates as a method does | no load time; 14 to 29 instances ended at the demonstrators' loads, 0 in twenty member packages; **1,069 at the forks' load by the conservative path: the first `describe` 0.80 s against 0.14 s** | E-378, E-382 |
+| GT-1 | a membership invalidates as a method does | no load time; 14 to 29 instances ended at the demonstrators' loads, 0 in twenty member packages; **1,069 at the forks' load by the conservative path: the first `describe` 0.80 s against 0.14 s** (on `unified` 8fccf1e182: 8 instances, 0.12 s; E-390) | E-378, E-382 |
 | GT-2 | strict mode infers an image's memberships at its load | TraitTables with TraitCSV: 248–250 ms against 180–181 ms | E-382 |
 | GT-3 | the compiler and Base are compiled plainly | 605 instances of the compiler in the log of upstream's load, 122 on vanilla; upstream's session 14.1–14.4 s against 13.5–13.6 s | E-382, E-386 |
 | GT-4 | a cast decides only at an argument typed by a trait | not measured apart: NetworkDynamics' workload 44.5–44.7 s with its kernel typed, digests identical | E-386 |
@@ -563,7 +564,7 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 | GT-17 | fully typed is wider than no run-time site | the one program of 18 that differs (`bb_invokelatest`) | E-384 |
 | GT-18 | a membership changes type equality inside a parameter | not measurable here: the exact rule is not built (compiler C-88 (e)) |  |
 
-The largest: GT-1's conservative path at a port's load, GT-12's first edit, GT-8's work after unrelated loads at a port. GT-1's is a deviation of the implementation (C-88 (c)), not the rule's cost.
+The largest: GT-1's conservative path at a port's load, GT-12's first edit, GT-8's work after unrelated loads at a port. GT-1's was a deviation of the implementation (C-88 (c)), not the rule's cost: E-390 narrows it.
 
 ## 4d. Error messages against plain Julia's
 
