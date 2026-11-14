@@ -144,14 +144,14 @@ The same build and setting. Earlier numbers: `unified` b05ae361e0 (E-337, 2026-1
   - *The compiler's own instances* (GT-3): loading upstream CSV and DataFrames logs 605 instances of the compiler on the unified build and 122 on vanilla; the ODE port's load 485, NetworkDynamics' 641.
 - **The builds** (E-383, E-384; `--trim=safe`, one build each). The table program: 0 errors, 3,111,576 bytes, runs and prints the session's output; its plain twin 6 errors (12 on vanilla). The ODE program: 50 errors (122 before the front end was typed), with a gradient 88 (160); its plain twin 14. Under `--trim=unsafe-warn` the ODE program's binary (4.3 MB) runs and prints the session's output. The plot: 6 errors (the plain twin 86, 88 on vanilla). The report: 6 (92, 98). Upstream CSV with DataFrames: 844 on the unified build, 768 on vanilla. The eight small trait programs build and run (2.5 to 2.6 MB); the plain loop over an abstract type is refused on both Julias. The session's check and the build agree on 17 of 18 programs, as before (`bb_invokelatest`).
 - **The messages** (E-385): the fifteen trait runs and the plain runs give the messages of E-370, line for line but for line numbers. SciML's three cases in the port: 2,415, 5,109 and 4,946 bytes with limited types (2,706, 5,271 and 5,012 on 2026-11-11); the plain twin's 2,497, 5,694 and 4,198.
-- **The ports' sessions** (E-386; a warm-up and 3 fresh processes, or 2 where the first wrote the images).
-  - The report's task over the forks: 1.93–1.97 s (1.76–1.80 s on b05ae361e0); the imports 1.26–1.30 s (1.17–1.20 s).
-  - The forks' REPL session: 4.00–4.06 s (2.95 s); the `describe` step 0.81 s (0.04 s): the walk, above. Upstream's session: 14.1–14.4 s on the unified build, 13.5–13.6 s on vanilla.
-  - The ODE port with TraitMakie, setting D: 2.39–2.43 s (1.96–1.98 s); the load 0.94–0.96 s (0.54–0.55 s); the first solve 0.23 s (0.27 s); the results' digest unchanged.
-  - TraitReport's trait form: 1.18–1.25 s (0.79–0.83 s); the imports 0.71–0.77 s (0.37–0.41 s).
+- **The ports' sessions** (E-386; a warm-up and 3 fresh processes, or 2 where the first wrote the images). A process that follows another environment's run reads its images slowly (TraitReport's imports 0.67 s, then 0.39 s): each batch has a warm-up of its own.
+  - The report's task over the forks: 1.88–1.97 s (1.76–1.80 s on b05ae361e0); the imports 1.26–1.31 s (1.17–1.20 s); two rounds of 3.
+  - The forks' REPL session: 4.00–4.06 s (2.95 s; two rounds); the `describe` step 0.81–0.86 s (0.04 s): the walk, above. Upstream's session: 14.1–14.4 s on the unified build, 13.5–13.6 s on vanilla.
+  - The ODE port with TraitMakie, setting D: 1.95 s (1.96–1.98 s); the load 0.57–0.58 s (0.54–0.55 s); the first solve 0.22 s (0.27 s); the results' digest unchanged (run at load 0.8; `d-unified-w146.log`).
+  - TraitReport's trait form: 0.82 s (0.79–0.83 s); the imports 0.39–0.40 s (0.37–0.41 s) (run at load 0.8; `t-unified-w146.log`).
   - The table session 0.78 s, the ODE session 1.31 s (the first run 408–409 ms), as in E-387.
   - NetworkDynamics' workload: 44.5–44.7 s (45.9–46.0 s, E-314), its digests identical.
-  - **So the trait packages' loads cost about twice what they did on b05ae361e0,** and the forks' session a second more. Both are on phase 6's list; the second has its cause (the walk's conservative path), the first is not attributed.
+  - **So the trait packages' sessions cost what they did on b05ae361e0; the forks' session costs a second more,** by the walk's conservative path, and the report over the forks 0.1 s more at its imports. On phase 6's list.
 
 ## 2. Run time
 
