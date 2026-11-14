@@ -167,14 +167,15 @@ end
 
 ## 8. `like` and `withfields`
 
-- `like(t, x)` reads `t`'s membership in the trait the calling method names for `t`:
-  - served by its own methods: checks that `x` is of `t`'s type family and returns it;
-  - forwarding by a field: calls `t`'s type's positional constructor with every field of `t`, the forwarding field replaced by `x`;
-  - a `Dynamic{X}`: a `Dynamic{X}` of the rebuilt object.
-- `withfields(t; name = v, …)` calls the positional constructor with the declared fields replaced.
-- A type without a positional constructor that takes every field in order cannot be rebuilt: `ArgumentError`, naming the constructor to define.
+- `like(t, x)` calls the library's rebuilding function at `t`'s type:
+  - a member that forwards by a field has a method of its own there, defined in the declaring module by its `@implement … by f`, with the member's forwarding methods: the type's positional constructor called with every field of `t` in order, the forwarding field replaced by `x`. Where a type forwards by several fields, the first declared is the one rebuilt;
+  - any other type serves its trait by its own methods: the general method checks that `x` is of `t`'s type family and returns it;
+  - a `Dynamic{X}`: a `Dynamic{X}` of `x`.
+- `withfields(t; name = v, …)` calls the positional constructor with the named fields replaced. The call is made from `t`'s type and the names when the method is compiled.
+- Nothing is looked up when either runs. Both are fully typed where the constructor's call is, and a package's image keeps a member's rebuilding method as it keeps its forwarding methods.
+- A type without a positional constructor that takes every field in order cannot be rebuilt. The call raises Julia's `MethodError` at the constructor, with the library's hint: the constructor to define.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the error that names the constructor in 12b8b31 (`test/core.jl`), mine (2026-11-14). With traits T-102.
+**Status:** Implemented in TraitWorld `unified` 78da5cb (`test/core.jl`; stack gate `like_precompiled`): the rebuilding as a method made at the declaration, and the hint, are mine (2026-11-14).
 
 ---
 

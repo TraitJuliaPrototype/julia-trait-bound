@@ -122,7 +122,7 @@ The user: "Conceptual parsimony for the user only requires implementation to beh
 | `Callable`'s check (new) | a fault found and fixed: the check was lost where an instance knew the function (`unified` a0602148ca; compiler C-90, E-371) |
 | C-55, T-105, L-58 | out of bin A, to B (mine): C-55 waits for open issue 19; T-105 and L-58 are a missing refusal and a hint, no answer is wrong |
 | C-56, T-99 | out of bin A, to C (mine): accepted for the prototype |
-| C-30 (rest), C-31; C-45, C-49, C-50; C-41, F-24; T-96; C-86, C-87; C-88 (c) to (e), open issue 178; T-102; C-90 | open |
+| C-30 (rest), C-31; C-45, C-49, C-50; C-41, F-24; T-96; C-86, C-87; C-88 (c) to (e), open issue 178; C-90 | open |
 | T-100, T-104 | recorded as a tension between the goals, GT-16 (open issues §1): to the synthesis |
 
 ## Addendum, 2026-11-14: phase 3's first step
