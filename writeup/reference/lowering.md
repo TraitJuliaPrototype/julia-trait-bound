@@ -172,9 +172,9 @@ end
   - forwarding by a field: calls `t`'s type's positional constructor with every field of `t`, the forwarding field replaced by `x`;
   - a `Dynamic{X}`: a `Dynamic{X}` of the rebuilt object.
 - `withfields(t; name = v, …)` calls the positional constructor with the declared fields replaced.
-- A type without a positional constructor that takes every field in order cannot be rebuilt: `MethodError`, with a hint naming the constructor needed.
+- A type without a positional constructor that takes every field in order cannot be rebuilt: `ArgumentError`, naming the constructor to define.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, without the hint (L-57).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; the error that names the constructor in 12b8b31 (`test/core.jl`), mine (2026-11-14). With traits T-102.
 
 ---
 
@@ -215,7 +215,7 @@ end
 | a membership | the ambiguity report | the runtime ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)) |
 | a `MethodError` at a method at a trait | the hints of [traits §11.4](traits.md#114-hints) | `Base.Experimental.register_error_hint` |
 
-**Errors** are the library's types `ImplementError`, `OwnershipError`, `TraitUseError` and `PirateError`, each with the message of [traits §11.3](traits.md#113-errors-and-their-messages). `MethodError` and `TypeError` are Julia's.
+**Errors** are the library's types `ImplementError`, `OwnershipError`, `TraitUseError`, `OperationError` and `PirateError`, each with the message of [traits §11.3](traits.md#113-errors-and-their-messages). `MethodError` and `TypeError` are Julia's.
 
 **What a package image keeps:**
 - its traits' contracts, with their `TypeName`s;
@@ -300,6 +300,6 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
-| L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`. | A cast in a call with keyword arguments or a splatted argument, or past the call's 32nd argument, is left as the call of its name, which raises. | `src/julia-syntax.scm` (`lower-cast-call`) |
-| L-57 | [§8](#8-like-and-withfields) | A type without a positional constructor that takes every field in order is refused with a hint naming the constructor needed. | Julia's `MethodError`, without the hint. | TraitWorld `src/like.jl` |
+| L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`. | A cast in a call with a splatted argument, a cast as a keyword's value, or one past the call's 32nd argument (the 30th with keywords), is left as the call of its name, which raises. | `src/julia-syntax.scm` (`lower-cast-call`) |
+| L-57 | — | *Retired* (2026-11-14): the error names the constructor to define ([§8](#8-like-and-withfields)); `test/core.jl` | — | — |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |

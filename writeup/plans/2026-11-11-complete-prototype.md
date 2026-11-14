@@ -109,7 +109,6 @@ The user: "Conceptual parsimony for the user only requires implementation to beh
 | Entry | State |
 |---|---|
 | W-142; T-109, T-107, T-100 | built (`unified` 381cc8b953, TraitWorld 78a78af; E-369): the check is the build's own, 17 of 18 programs agree. T-107 retired; T-109 narrowed to what the build script changes in Base that is no method (open issue 181, to bin B); T-100 stands (the modes ask the check only where the session's inference saw a site) |
-| T-104, T-102; C-86, C-87 | open |
 | Open issue 179, the holes under the demonstrators' programs | the table program has none; the ODE port's are the port's (phase 4) |
 | Open issue 2 (the deferred annotations) | closed on re-reading |
 | C-88; open issue 178 | C-88 (a) closed (gate `n26`); (b) to (e) and 178 open |
@@ -117,5 +116,10 @@ The user: "Conceptual parsimony for the user only requires implementation to beh
 | Open issue 160 | closed: the names are bound (`unified` 3f33d9e684) |
 | Open issue 176 | closed: `@unbounded` |
 | Open issue 177 | (a), (b) closed (E-370); (c), (d) to bin B. T-99, L-57, L-58 open |
-| C-30 (rest), C-31; C-45, C-49, C-50, C-56; C-41, F-24, T-105; C-55; T-96, T-97; L-56; T-111 | open |
+| L-56 | built for keyword arguments (`unified` 23e1dd3feb); a splat is left |
+| T-97, T-111, L-57 | retired (TraitWorld 12b8b31): the warning at an extension's method, `detect_kept_storage`, the error that names the constructor |
+| `Callable`'s check (new) | a fault found and fixed: the check was lost where an instance knew the function (`unified` a0602148ca; compiler C-90, E-371) |
+| C-55, T-105, L-58 | out of bin A, to B (mine): C-55 waits for open issue 19; T-105 and L-58 are a missing refusal and a hint, no answer is wrong |
+| C-56, T-99 | out of bin A, to C (mine): accepted for the prototype |
+| C-30 (rest), C-31; C-45, C-49, C-50; C-41, F-24; T-96; C-86, C-87; C-88 (b) to (e), open issue 178; T-100, T-102, T-104; C-90 | open |
 
