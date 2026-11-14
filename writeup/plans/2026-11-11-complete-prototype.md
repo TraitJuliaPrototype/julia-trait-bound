@@ -103,3 +103,19 @@ The speed work, for good (the user, above). W-121 and what is left of W-129 are 
 ## Addendum, 2026-11-12: W-141 decided
 
 The user: "Conceptual parsimony for the user only requires implementation to behave like a method. The implementation can be whatever is simplest/cleanest/fastest." W-141 leaves bin A: a membership behaves as a method does, its method of the runtime's function is the implementation of the edges (compiler §5.6), and the method as the only record is not built. To bin B: open issue 180 (a), (c), (d), (f), (j). Strict mode's rule for a third party's membership is decided and built the same day (the user: "Pirate method rule is approved."; traits §12.3, T-112). Bin A now holds W-142, W-143's tool and W-128.
+
+## Addendum, 2026-11-14: bin A after the night
+
+| Entry | State |
+|---|---|
+| W-142; T-109, T-107, T-100 | built (`unified` 381cc8b953, TraitWorld 78a78af; E-369): the check is the build's own, 17 of 18 programs agree. T-107 retired; T-109 narrowed to what the build script changes in Base that is no method (open issue 181, to bin B); T-100 stands (the modes ask the check only where the session's inference saw a site) |
+| T-104, T-102; C-86, C-87 | open |
+| Open issue 179, the holes under the demonstrators' programs | the table program has none; the ODE port's are the port's (phase 4) |
+| Open issue 2 (the deferred annotations) | closed on re-reading |
+| C-88; open issue 178 | C-88 (a) closed (gate `n26`); (b) to (e) and 178 open |
+| Open issues 167, 168, 173 | closed on re-reading; 115, 116 restated, to bin B |
+| Open issue 160 | closed: the names are bound (`unified` 3f33d9e684) |
+| Open issue 176 | closed: `@unbounded` |
+| Open issue 177 | (a), (b) closed (E-370); (c), (d) to bin B. T-99, L-57, L-58 open |
+| C-30 (rest), C-31; C-45, C-49, C-50, C-56; C-41, F-24, T-105; C-55; T-96, T-97; L-56; T-111 | open |
+

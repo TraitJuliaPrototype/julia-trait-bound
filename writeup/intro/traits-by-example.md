@@ -148,13 +148,13 @@ title(Circle(1.0))                      # "A shape of area 3.141592653589793": t
 title(Rect(2.0, 3.0))                   # "A 2.0 by 3.0 rectangle": Rect's own
 ```
 
-**Fully bounded and open.** A method that reaches its argument only through the trait is *fully bounded* there. It may:
+**Fully bounded and unbounded.** A method that reaches its argument only through the trait is *fully bounded* there. It may:
 - call the trait's operations;
 - read the trait's declared fields (§6), and write them unless they are `@const`;
 - pass the argument on to another argument typed by the trait;
 - call any Julia code on ordinary values, such as the `Float64` that `area` returns.
 
-Anything else makes it *open* at that argument: passing it to an ordinary function (`length(s)`), asking `typeof(s)`, capturing it in a closure. A trait module refuses an open method where it is defined ([§16](#16-when-something-does-not-fit)); `@open` before a method allows it.
+Anything else makes it *unbounded* at that argument: passing it to an ordinary function (`length(s)`), asking `typeof(s)`, capturing it in a closure. A trait module refuses an unbounded method where it is defined ([§16](#16-when-something-does-not-fit)); `@unbounded` before a method allows it.
 
 **What it is compiled for: `Compiled` and `Dynamic`.** Each trait argument at each call has an *attribute*. The results are the same; only the speed differs.
 - **`Compiled`:** `ratio` runs code compiled for the value's type: once for `Circle`, once for `Rect`, as plain Julia compiles per type.
@@ -366,8 +366,8 @@ In `Geometry`:
 @trait Scalable begin
     scale(s::Scalable, k::Float64)::Self
 end
-@open doubled(s::Scalable) = like(s, scale(s, 2.0))
-@open nudged(p::Placed) = withfields(p; x = p.x + 1.0)
+@unbounded doubled(s::Scalable) = like(s, scale(s, 2.0))
+@unbounded nudged(p::Placed) = withfields(p; x = p.x + 1.0)
 ```
 
 ```julia
@@ -387,7 +387,7 @@ nudged(sp)                                # a new Sprite, x = 2.0; `sp` is uncha
 - `Self` is the member's type, or the forwarding field's: `scale` on a `Tile` returns a `Rect`.
 - `like(t, x)` is a value like `t` built from `x`: `x` itself for a member that serves the trait by its own methods; for one that forwards, `t` rebuilt with the field replaced by `x`.
 - `withfields(t; …)` is `t` rebuilt with declared fields replaced.
-- A method whose result is built by `like` or `withfields` is open at that argument: its result has the member's own type, so it is compiled per type. A trait module accepts it marked `@open` ([§4](#4-methods-at-a-trait)).
+- A method whose result is built by `like` or `withfields` is unbounded at that argument: its result has the member's own type, so it is compiled per type. A trait module accepts it marked `@unbounded` ([§4](#4-methods-at-a-trait)).
 
 Rules: [reference §4.4](../reference/traits.md#44-self), [§6.5](../reference/traits.md#65-results).
 
@@ -535,7 +535,7 @@ dotp([1.0, 2.0], [3.0, 4.0])     # 11.0
 dotp([1.0], [1])                 # MethodError: T is Float64 for one and Int for the other
 ```
 
-`dotp` is a loop: a generator, `sum(sample(a, i) * sample(b, i) for i in …)`, captures `a` and `b` in a closure, which makes the method open ([§4](#4-methods-at-a-trait); [open issue 165](../open-issues.md#2-design)).
+`dotp` is a loop: a generator, `sum(sample(a, i) * sample(b, i) for i in …)`, captures `a` and `b` in a closure, which makes the method unbounded ([§4](#4-methods-at-a-trait); [open issue 165](../open-issues.md#2-design)).
 
 Rules: [reference §3.2](../reference/traits.md#32-parameters), [§5.7, §5.8](../reference/traits.md#57-stating-parameters).
 
@@ -581,7 +581,7 @@ transform(uppercase, [1.0])                     # MethodError: uppercase has no 
   - `Compiled`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this. `sumby` asks for it with `@specialize`.
   - A function Julia defines, such as `abs2`, or one of the library's own package, is `Compiled`.
 - A cast by the caller, `compiled_for(f)` or `with_dynamic(f)`, always wins.
-- The library calls `f` itself, as `transform` does. Passing `f` on to Base's `map` is a use outside the contract, so the method is open ([open issue 165](../open-issues.md#2-design)).
+- The library calls `f` itself, as `transform` does. Passing `f` on to Base's `map` is a use outside the contract, so the method is unbounded ([open issue 165](../open-issues.md#2-design)).
 
 **Storing a function.** A field typed by `Callable` holds any member:
 
@@ -712,7 +712,7 @@ outline(s::Shape) = length(s)          # meant: perimeter(s)
 end
 ```
 
-`outline` is open at `s`: `length` is not an operation of `Shape`. The trait module refuses it with a `TraitUseError` that names the line and the use. The check runs against `Shape` alone, before any member type exists.
+`outline` is unbounded at `s`: `length` is not an operation of `Shape`. The trait module refuses it with a `TraitUseError` that names the line and the use. The check runs against `Shape` alone, before any member type exists.
 
 **A pirate in a trait module.** A trait module may not define a method of a function it does not own for types it does not own:
 
@@ -777,7 +777,7 @@ firstsample([1.5, 2.0])          # 1.5
 firstsample(Real[1.5, 2.0])      # TraitUseError: `T` is Real, which is not concrete
 ```
 
-`fully_typed` reports the calls whose argument types are not known, with their root cause:
+`fully_typed` reports the calls that neither the types nor the traits' members resolve, with their root cause. Code with none is exactly the code that `make_executable` builds into a binary:
 
 ```julia
 isfullytyped(fully_typed(Geometry.totalarea, (Geometry.Scene,)))             # true

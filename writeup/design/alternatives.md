@@ -296,6 +296,7 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 | representation, projection | key: code compiled for what the bound can see | s22 |
 | layering, trait wrappers, calls upward, sealing | the facts rule: trait code may call any Julia code | s23–s29 |
 | the trait world and ordinary code, as worlds | trait code and plain code, compiled by facts or plainly | s29 |
+| open method, `@open` (a method that uses its argument beyond the contract) | unbounded method, `@unbounded`; *open* is kept for traits and types, where it says who may join | 2026-11-12 (open issue 176) |
 
 The verb stays: a type still *conforms to* a trait, and the query is still `conforms(T, X)`. The glossary's [retired terms](../glossary.md#retired-terms).
 
@@ -525,3 +526,23 @@ The proposal: [`plans/2026-11-11-membership-as-method.md`](../plans/2026-11-11-m
 - **One function per trait** in place of one function for all. Not needed while sessions fold few negatives; it is the fix if the one list of absence edges shows (open issue 180 (a)).
 - **The member as an argument type,** `(::Type{X}, ::S)`, in place of `Type{S}` and `Type{<:S}`. Not tried in the runtime. On plain functions 2,000 abstract members insert at 0.52 to 0.57 ms each, where `Type{<:A}` grows to 12.5 ms each (`w141/probe_valuesig.jl`). The fix if abstract members of one trait come to cost each other (open issue 180 (j)).
 - **Under strict mode every membership by neither owner refused,** whether or not compiled code relied on its absence (mine, 2026-11-11; W-140). Replaced: the user (2026-11-12): "Pirate method rule is approved. That was the point of \"behaves as a method\"." A pirate's membership is refused where it would change code compiled by facts, as a pirate's method is ([traits §12.3](../reference/traits.md#123-strict-mode)).
+
+## Bin A: options not taken (2026-11-12 to 2026-11-14)
+
+Choices made while building bin A of [the schedule](../plans/2026-11-11-complete-prototype.md), each recorded in [the decision log](../record/decisions.md) as mine and listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis.
+
+**The fully typed check (W-142; [compiler §2.7](../reference/compiler.md#27-fully-typed-mode))**
+- **A second walk in the library with the closed build's rules written again.** The library's walk of the session's inference was the check. Six of thirteen small programs differed from the build, in three patterns (`experiments/unification/w142/`): the session leaves to run time what a build resolves by the members; the walk took a call inside Base as resolved where the build found a hole; the build has a limit the walk had not. Two rule sets drift. Not taken: the check is the build's own code run in the session. The walk is kept for what the build does not give, the root cause in the user's code.
+- **The check in a child process:** a real build with the output thrown away. Exact by construction. Not taken: it checks only what a build's process can load (a file's `main`, a package's function), not a function at a signature in a running session; it takes a process start and the loads; and the modes' check in compiled code cannot wait for it.
+- **The check ignoring calls inside Base.** The first check of TraitTables' table program listed 25 calls inside Base's `show` that the build does not have, because the build script replaces that method. Skipping calls below Base would agree there and hide Base's real holes ([open issue 179](../open-issues.md#2-design)). Not taken: the check reads the build script's replacements into an overlay method table, one list read by both ([open issue 181](../open-issues.md#2-design)).
+- **Defining the build's replacements in the session,** for the check's world only, and deleting them after. Not taken: replacing `show(::IO, ::Type)` invalidates the session's compiled code, twice.
+
+**The casts' names (open issue 160; [compiler §6.9](../reference/compiler.md#69-casts-and-keep))**
+- **Reserved names,** as `ccall`: in a call's arguments they are the casts whatever the scope binds, and a definition or a local of either name is a lowering error. Replaced: a reserved word breaks plain code that uses the name. The ODE port's plain twin, which defines `compiled_for`, did not load.
+- **Macro forms,** `@compiled_for(x)` and `@with_dynamic(x)` at the argument. Not taken: lowering can test the binding where the call runs, so the spelling at the call stays a plain call's.
+
+**Errors (open issue 177; [traits §11.3](../reference/traits.md#113-errors-and-their-messages))**
+- **The trait's method throwing a `MethodError` by hand** for a member's call outside the declared signature. Replaced by `OperationError`: Julia prints "This error has been manually thrown" for a thrown `MethodError`, and lists the trait's own method as the first candidate.
+- **The trait's method leaving such a call to dispatch,** so that Julia raises its own `MethodError`. Not taken: the trait's method leaves a further argument untyped on purpose ([lowering §2](../reference/lowering.md#2-trait)), so it takes the call.
+- **A check's error with its backtrace cut at the library's entry.** Not taken: a backtrace that is edited hides frames a library's author needs. The error is returned to the code at the user's line (the macro's own code, the runtime at a definition) and raised there.
+

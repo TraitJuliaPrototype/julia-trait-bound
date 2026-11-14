@@ -14,7 +14,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Attribute: `Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`BaseTraits`](#basetraits) ·
 [Boundary method](#boundary-method) ·
-[`bounded` and `@open`](#fully-bounded-and-open) ·
+[`bounded` and `@unbounded`](#fully-bounded-and-unbounded) ·
 [`Callable`](#callable) ·
 [Candidates](#split) ·
 [Cast](#cast) ·
@@ -36,7 +36,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Facts policy](#policy-facts-and-plain) ·
 [Family](#family) ·
 [Forwarding (`by`)](#forwarding-by) ·
-[Fully bounded and open](#fully-bounded-and-open) ·
+[Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
 [G2: stable caches, the G2 bit](#g2-stable-caches-and-the-g2-bit) ·
@@ -206,9 +206,9 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** the project's term. Go 1.18 compiles one generic instance per "GC shape"; .NET shares generic code among reference types. Julia compiles per concrete argument type.
 - **Defined in:** [traits §7.2](reference/traits.md#72-the-key); [compiler §6.1](reference/compiler.md#61-the-key-as-a-type).
 
-### Fully bounded and open
+### Fully bounded and unbounded
 
-- **Here:** a method is **fully bounded** at a trait argument when its body reaches the argument only through the contract: operations, declared fields, passing it on to an argument typed by the trait. Any other use makes it **open** there (`typeof(t)`, a call of another function with it, a closure that captures it). A scope that declares `bounded` refuses an open method with `TraitUseError`; `@open` marks one open on purpose.
+- **Here:** a method is **fully bounded** at a trait argument when its body reaches the argument only through the contract: operations, declared fields, passing it on to an argument typed by the trait. Any other use makes it **unbounded** there (`typeof(t)`, a call of another function with it, a closure that captures it). A scope that declares `bounded` refuses an unbounded method with `TraitUseError`; `@unbounded` marks one unbounded on purpose.
 - **Origin:** Rust and Swift check generic code against its bounds wherever it is written ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)). Julia checks nothing of the kind; a method at an abstract type may do anything with its argument.
 - **Defined in:** [traits §7.3](reference/traits.md#73-fully-bounded-methods); the check: [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
@@ -223,7 +223,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Cast
 
-- **Here:** `compiled_for(x)` or `with_dynamic(x)` written at a call's argument: the caller chooses the attribute there. A cast decides only at an argument typed by a trait.
+- **Here:** `compiled_for(x)` or `with_dynamic(x)` written at a call's argument: the caller chooses the attribute there. A cast decides only at an argument typed by a trait. The names are functions the library exports, not reserved words: where a scope binds either name to something else, the call is that thing's.
 - **Origin:** the project's term. Closest in Rust: choosing `&dyn Trait` or a generic at the call by the value passed.
 - **Defined in:** [traits §7.6](reference/traits.md#76-casts); [compiler §6.9](reference/compiler.md#69-casts-and-keep).
 
@@ -259,7 +259,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `like` and `withfields`
 
-- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. A method that uses them is open at that argument.
+- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. A method that uses them is unbounded at that argument.
 - **Origin:** the project's terms; Base's `similar` is the closest Julia idiom.
 - **Defined in:** [traits §6.5](reference/traits.md#65-results); [lowering §8](reference/lowering.md#8-like-and-withfields).
 
@@ -287,7 +287,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Definition checking
 
-- **Here:** the check of a method at a trait where it is defined: one inference at the trait that records each use of the argument beyond the contract. It classifies the method as [fully bounded or open](#fully-bounded-and-open), and `bounded` refuses an open one.
+- **Here:** the check of a method at a trait where it is defined: one inference at the trait that records each use of the argument beyond the contract. It classifies the method as [fully bounded or unbounded](#fully-bounded-and-unbounded), and `bounded` refuses an open one.
 - **Origin:** Rust and Swift type-check generic code against its bounds; C++20 concepts check only at instantiation.
 - **Defined in:** [traits §11.2](reference/traits.md#112-definition-checking); [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
@@ -328,7 +328,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Trait module
 
-- **Here:** a module declared `@trait_module`: its methods are compiled by facts, it refuses open methods at traits (`bounded`) and pirates of its own. Its code is **trait code**; code compiled under Julia's own rules is **plain code**.
+- **Here:** a module declared `@trait_module`: its methods are compiled by facts, it refuses unbounded methods at traits (`bounded`) and pirates of its own. Its code is **trait code**; code compiled under Julia's own rules is **plain code**.
 - **Origin:** the project's term, on Julia's per-module compiler options (`Base.Experimental.@compiler_options`), which exist for settings such as `optimize` and `infer`.
 - **Defined in:** [traits §13](reference/traits.md#13-scopes-trait-modules); the module option: [compiler §2.1](reference/compiler.md#21-the-module-option).
 
@@ -386,7 +386,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Fully typed and fully typed mode
 
-- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. Fully typed code is exactly the code that compiles ahead in a closed build ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). **Fully typed mode** is a check, per function or module, that raises where a call's argument types are not known.
+- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. Fully typed code is exactly the code that compiles ahead in a closed build ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). `fully_typed(f, argtypes)` reports the calls that are not: it is the closed build's own check, run in the session. **Fully typed mode** is a check, per function or module, that raises where a build would refuse a call.
 - **Origin:** the project's terms; Julia's `@inferred` and JET check related properties after the fact.
 - **Defined in:** [facts §1](reference/facts.md#term-fully-typed); [traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode); [compiler §2.7](reference/compiler.md#27-fully-typed-mode).
 
@@ -453,10 +453,11 @@ These appear in documents before 2026-11-06, in the record ([`record/INDEX.md`](
 
 | Old term | Now | Changed |
 |---|---|---|
+| open method, `@open` | [unbounded](#fully-bounded-and-unbounded) method, `@unbounded` | 2026-11-12 |
 | implementation, conformance (the noun) | [membership](#membership-and-entry), declared by `@implement` | 2026-11-06 (conformance: 2026-10-19) |
 | conforms to, `conforms(T, X)` | `T <: X`: a [member](#membership-and-entry) | 2026-11-06 |
 | generic implementation | [pattern member](#pattern-member) | 2026-11-06 |
-| bound, bounded function | a [method at a trait](#method-at-a-trait); fully bounded is a [classification](#fully-bounded-and-open) | 2026-11-06 |
+| bound, bounded function | a [method at a trait](#method-at-a-trait); fully bounded is a [classification](#fully-bounded-and-unbounded) | 2026-11-06 |
 | receiver type, receiver | part of the [key](#key) | 2026-11-06 |
 | trait object, view, held view | the member's own value, passed unwrapped ([traits §3.5](reference/traits.md#35-values)) | 2026-11-06 |
 | entry and worker (of a bounded function) | gone: one method, compiled per type, per key or once. "Entry" now means a [membership entry](#membership-and-entry) | 2026-11-06 |

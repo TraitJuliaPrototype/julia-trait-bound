@@ -50,7 +50,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2): Base's `haskey(d::AbstractDict, k)` for `Keyed`'s `haskey(d, k::K)`. A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
   - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`. At a required operation only `Dynamic{X}` reaches this: every other forwarding member has a method of its own (§3, step 6);
   - for a member that a default serves, the default's body;
-  - otherwise unreachable: such a member was refused at its check.
+  - otherwise `OperationError` ([traits §11.3](traits.md#113-errors-and-their-messages)). A member's check has passed for the declared signature, so the call that arrives here is outside it: a further argument of another type than declared, where the trait's method leaves that argument untyped.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
   - the operations, each with its trait's method;
   - the declared fields, with their types and whether `@const`;
@@ -66,7 +66,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 on `unified` e70675a606 with TraitWorld e9a63f7 (W-109). A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 on `unified` e70675a606 with TraitWorld e9a63f7 (W-109). A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary). `OperationError`: TraitWorld 399f389, mine (2026-11-12).
 
 ---
 
@@ -120,9 +120,9 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 - **A method at a trait is defined by Julia** with nothing around it. The compiler classifies it per trait argument ([compiler §6.7](compiler.md#67-the-definition-time-check)) and compiles it per key, per type or once.
 - `@nospecialize t::X` and `@specialize t::X` set the method's attribute bits at the argument ([compiler §6.3](compiler.md#63-the-attribute-at-a-call)). They are Julia's macros.
-- **Per-method options:** `@bounded f(…) = …`, `@open f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
+- **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: `@bounded` and `@open` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
+**Status:** A method at a trait: Julia's, implemented. The per-method options with what reads them: `@bounded` and `@unbounded` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
 
 ---
 
@@ -159,7 +159,7 @@ end
 - `unwrap(d) = getfield(d, :object)`; `==`, `isequal` and `hash` by the objects' `===`; `show` prints `Dynamic{Shape}(Circle(1.0))`.
 - **`Dynamic` of a value that is already a `Dynamic`** holds its object.
 - **`keep(x)`** is `Core.keep`, resolved by the compiler ([compiler §6.9](compiler.md#69-casts-and-keep)).
-- **Casts** `compiled_for` and `with_dynamic` are `Core.compiled_for` and `Core.with_dynamic`, names Julia's front end reserves as it reserves `ccall`, recognized in a call's arguments and lowered to `Core.attributed_call` ([compiler §6.9](compiler.md#69-casts-and-keep)). The library re-exports them and defines `detect_unused_casts(mod)`.
+- **Casts** `compiled_for` and `with_dynamic` are `Core.compiled_for` and `Core.with_dynamic`. Julia's front end recognizes the bare names in a call's arguments and lowers the call to `Core.attributed_call` where the name is bound to the cast, and to the ordinary call where it is bound to anything else ([compiler §6.9](compiler.md#69-casts-and-keep)). The library re-exports them and defines `detect_unused_casts(mod)`.
 
 **Status:** Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111), with L-56 and compiler C-56.
 
@@ -194,7 +194,7 @@ end
 - Base's types join by memberships of Base's abstract types, declared in BaseTraits, which owns the traits: `@implement Indexable{T} AbstractVector{T} where {T}`, `@implement Keyed{K, V} AbstractDict{K, V} where {K, V}`. A view joins where its parent does: `@implement MutableIndexable{T} SubArray{T, 1, P} where {T, P <: MutableIndexable{T}}`. LinearAlgebra and Dates are dependencies of the library, so their types' memberships hold in every load order.
 - `Solvable`'s operation is LinearAlgebra's `ldiv!`; each factorization that solves, and each matrix type `factorize` returns, joins by its own `ldiv!`. `LinearOp`'s operation is BaseTraits' `apply!`; `AbstractMatrix` joins with the block `apply!(y, A, x) = mul!(y, A, x)`.
 - `textbound(T::Type)` is a method of `textbound` beside the operation: `nothing` by default, a constant for the types of fixed width.
-- `@open asvector(x::Indexable{T})` builds `IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` with linear indexing whose `getindex` calls `Indexable`'s operations with the member's own bounds checks.
+- `@unbounded asvector(x::Indexable{T})` builds `IndexableVector{T, typeof(keep(x))}(keep(x))`, a struct `<: AbstractVector{T}` with linear indexing whose `getindex` calls `Indexable`'s operations with the member's own bounds checks.
 - `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`. A member's own `getproperty` serves it; on a value typed by the trait, the compiler's rule for operations gives `x.N` the declared type `R` ([compiler §7.1](compiler.md#71-the-rule)).
 - `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable{T}}`.
 
@@ -209,7 +209,7 @@ end
 | `@trait` | the body's form | the macro |
 | `@implement` | ownership; the checks of §3 | the expansion's top-level code |
 | a member's first use | the checks of §3, for that member | the member hook (§4) |
-| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; a method that would take a fixed call, or make a checked call's operation ambiguous at the member, or serve it with a result outside the declared one, inferred before the method exists (the records of §3, step 7); an open method not marked `@open` in a `bounded` module (the compiler's classification) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
+| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; a method that would take a fixed call, or make a checked call's operation ambiguous at the member, or serve it with a result outside the declared one, inferred before the method exists (the records of §3, step 7); an unbounded method not marked `@unbounded` in a `bounded` module (the compiler's classification) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | a module's end | the classification of methods that waited; a `struct S <: X` without its `@implement` | the module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | an image's activation | the methods the records refuse and, in strict mode, winning pirates, left inactive with a warning | the image hook |
 | a membership | the ambiguity report | the runtime ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)) |
@@ -270,18 +270,21 @@ While a package that declares `@implement X S` is precompiled:
 ## 14. Fully typed mode, concrete parts, closed programs
 
 - **`@enforce_fully_typed f(…) = …`** and **`@warn_not_fully_typed`** add `Expr(:meta, :fully_typed_enforce)` or `:fully_typed_warn` to the method ([compiler §2.7](compiler.md#27-fully-typed-mode)). Before `@trait_module` they add the option `fully_typed = enforce` or `warn` to its `@compiler_options`.
-- **The hook** (`jl_set_fully_typed_hook`) receives the compiler's site: it builds `fully_typed`'s report at the instance's signature, once per instance, and raises `NotFullyTypedError` (a run-time site) or `AbstractTypeError` (an abstract result), or warns.
-- **`fully_typed(f, argtypes)`** walks the code from the signature:
-  - each signature it reaches is inferred by facts, to the IR before inlining, whatever the method's own policy;
-  - the normal path is the blocks from which a return with a value is reachable;
-  - a call is a run-time site by its call info: no info at a generic function, an unknown function value, a splat left to run time, a call in the latest world, an argument compiled for a type the caller does not know;
-  - an operation on a value known by its trait (a declared result, a split) is declared, not a site;
-  - a site's root cause is traced in the code: an argument, a field's declared type, a container's element type, a call's result through up to three callees, a variable whose type differs between paths, a global;
-  - the walk stops after 400 signatures and says so.
+- **The hook** (`jl_set_fully_typed_hook`) receives the compiler's site: it builds `fully_typed`'s report at the instance's signature, once per instance. Where the report lists a call, it raises `NotFullyTypedError` or warns; where it lists none, it does nothing.
+- **`fully_typed(f, argtypes)`** has two parts:
+  - **the calls** are the build's own check's ([compiler §2.7](compiler.md#27-fully-typed-mode)): `Compiler.closed_check` at the signature's method instance, with the build's replacements of Base as its overlay (below);
+  - **the root causes** come from a walk of the session's own inference from the signature. Each signature it reaches is inferred by facts, to the IR before inlining. A call is a run-time site there by its call info: no info at a generic function, an unknown function value, a splat left to run time, a call in the latest world, an argument compiled for a type the caller does not know. A site's root cause is traced in the code: an argument, a field's declared type, a container's element type, a call's result through up to three callees, a variable whose type differs between paths, a global. The walk stops after 400 signatures;
+  - **each call the check lists is reported at the walk's site for it:** the same call, or the nearest call above it in the check's chain of callers that the walk reported. That site is in the user's code and has the root cause. A call with no such site is reported as the build names it, with the chain of callers.
+- **The build's Base** ([traits §16](traits.md#16-compiling-ahead-closed-programs)): an overlay method table of the library (`Base.Experimental.@MethodTable`), filled once a session, at the first check, from the files beside Julia's build script (`juliac-trim-base.jl`, `juliac-trim-stdlib.jl`):
+  - each file is included into a module of its own whose `@eval` hands every statement to the library;
+  - a method's definition is evaluated in the module the file names, under `Base.Experimental.@overlay` with the library's table. It replaces nothing in the session;
+  - a definition of a function that does not exist yet is evaluated as written: it adds a function, and replaces nothing;
+  - any other statement (a binding, a setting of a function's type) is left out and listed (`build_base_report()`);
+  - nothing is read while a package is precompiled or in a build's own process.
 - **Concrete parts:** in a trait's body, `@enforce_concrete_only` and `@warn_on_abstract` name parameters and `Self` in the contract; `check_member` checks them for each contract, a supertrait's included, at a concrete member. Before a method, the macro puts a check per named part at the top of its body: a `where` variable's type, and an argument's `Self` through `keep(x)`, a constant where the call is compiled (a generated predicate); a `Dynamic` value is not checked.
-- **`verify_main(main, argtypes)`** is the same walk from `main`: its targets are the signatures the code resolves, a function passed at a `Callable{A, S}` argument at `A`, and each declared member (the set's candidates) of an operation on a value known by its trait; its holes are the run-time sites.
+- **`verify_main(main, argtypes)`** is the same walk from `main`: its targets are the signatures the code resolves, a function passed at a `Callable{A, S}` argument at `A`, and each declared member (the set's candidates) of an operation on a value known by its trait; its holes are the calls the build's check lists.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114); tests `fullytyped.jl`, `verify.jl`.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114); tests `fullytyped.jl`, `verify.jl`. The calls as the build's check's, the hook, the build's Base: TraitWorld `unified` 78a78af with `unified` 381cc8b953 (W-142; E-369), with traits T-109; mine (2026-11-12, 2026-11-14).
 
 ---
 
@@ -297,6 +300,6 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
 | L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
-| L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`; a local variable or a definition of either name is refused. | A cast in a call with keyword arguments or a splatted argument is refused ("not supported yet"); an argument named `compiled_for` or `with_dynamic` is not refused. | `src/julia-syntax.scm` (`lower-cast-call`, `check-not-cast-name`) |
+| L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`. | A cast in a call with keyword arguments or a splatted argument, or past the call's 32nd argument, is left as the call of its name, which raises. | `src/julia-syntax.scm` (`lower-cast-call`) |
 | L-57 | [§8](#8-like-and-withfields) | A type without a positional constructor that takes every field in order is refused with a hint naming the constructor needed. | Julia's `MethodError`, without the hint. | TraitWorld `src/like.jl` |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |

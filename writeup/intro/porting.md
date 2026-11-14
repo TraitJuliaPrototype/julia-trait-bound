@@ -42,7 +42,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 | `@implement X T by f` | a type joins by forwarding to its field `f` | [§5.5](../reference/traits.md#55-forwarding-with-by) |
 | `@implement X{T} S{T} where {T}`, `@implement X{T} AbstractVector{T} where {T}` | a family; an abstract type as a member | [§5.8](../reference/traits.md#58-families), [§5.9](../reference/traits.md#59-abstract-types-and-traits-as-members) |
 | `f(t::X, i::Int)`, `f(a::X{T}, b::X{T}) where {T}`, `f(t::All{X, Y})` | methods at traits | [§6](../reference/traits.md#6-methods-at-traits), [§3.6](../reference/traits.md#36-intersections) |
-| `@open f(…) = …` | a method that uses its trait argument beyond the contract on purpose, such as an adapter that stores it | [§7.3](../reference/traits.md#73-fully-bounded-methods) |
+| `@unbounded f(…) = …` | a method that uses its trait argument beyond the contract on purpose, such as an adapter that stores it | [§7.3](../reference/traits.md#73-fully-bounded-methods) |
 | `compiled_for(x)`, `with_dynamic(x)` at a call; `@specialize`, `@nospecialize` at a trait argument | the attribute: code compiled per type, or once | [§7.5](../reference/traits.md#75-what-decides), [§7.6](../reference/traits.md#76-casts) |
 | `Dynamic{X}(x)`, `keep(x)`, `unwrap(d)` | a value kept beyond the call, with its attribute | [§7.7](../reference/traits.md#77-dynamicx), [§7.8](../reference/traits.md#78-keeping-an-argument-with-its-attribute) |
 | `@nospecialize(io::IO)` at a display entry, `IOContext{IO}(io)` passed on | a stream erased: one compiled display for every stream type | [§9b](../reference/traits.md#9b-streams-io) |
@@ -56,7 +56,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 | `check_definitions(M)`, `detect_unused_casts(M)`, `detect_dynamic_fallbacks(M)` | the checks a port's tests run | [§11](../reference/traits.md#11-checks-and-errors), [§7.6](../reference/traits.md#76-casts), [§14](../reference/traits.md#14-concreteness-and-fully-typed-mode) |
 
 **Where the code or the design differs today**, the cases a port meets:
-- **A trait argument passed to a higher-order function, or captured by a generator, makes a method open** ([open issue 165](../open-issues.md#2-design)). Write a loop over the elements, which is fully bounded, or mark the method `@open`.
+- **A trait argument passed to a higher-order function, or captured by a generator, makes a method unbounded** ([open issue 165](../open-issues.md#2-design)). Write a loop over the elements, which is fully bounded, or mark the method `@unbounded`.
 - **A cast at a parameter no trait types has no effect** ([open issue 162](../open-issues.md#2-design)). Type a parameter that passes a trait's value on by its trait, and test that `detect_unused_casts(M)` is empty.
 - **A record that holds a function before its signature is known holds it plain** ([open issue 159](../open-issues.md#2-design)): the library's default decides when the function is entered.
 - **An argument typed by a bare `where` variable bounded by a trait** (`x::C`, `C <: X`) is compiled per type whatever its attribute ([compiler C-54](../reference/compiler.md#deviations); [open issue 163](../open-issues.md#2-design)).
@@ -200,12 +200,12 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
 - **A stored user function:** a constructor with a `Callable` argument at the declared signature, whose variables come from the other arguments, and `keep`:
 
   ```julia
-  @open function ODEProblem(f::Callable{RHSSig{P,T},Nothing}, u0::AbstractVector{T}, tspan, p::P;
+  @unbounded function ODEProblem(f::Callable{RHSSig{P,T},Nothing}, u0::AbstractVector{T}, tspan, p::P;
                       @nospecialize(callback = nothing)) where {T,P}     # …/ODECore/src/frontend.jl:63
       k = keep(f)
       ...
   ```
-  By default the solver is compiled once per state and parameter type; `ODEProblem(compiled_for(f), …)` compiles it for the function. The constructor is `@open`: it stores its argument with its type.
+  By default the solver is compiled once per state and parameter type; `ODEProblem(compiled_for(f), …)` compiles it for the function. The constructor is `@unbounded`: it stores its argument with its type.
 - **Keep the user's types at the surface.** A user's type that only the user's own functions read never reaches the core. TDE's problem keeps the right-hand side partially evaluated on the parameters, `(du, u, t)`, so the solver is compiled per state type whatever the parameters.
 - **Hand a callback the integrator by its trait, `Dynamic`:** `affect!(cb::Callback{U, T, P}, integ::Dynamic{IntegratorView{U, T, P}})::Nothing` (`…/ODECore/src/core.jl:122`). A new callback compiles its own function, not the solver.
 - **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks-unified/DataFrames/src/dataframe/dataframe.jl:181`). Each item is the member's own value. An operation on it calls the member's method directly for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
@@ -229,7 +229,7 @@ The attribute chooses speed, never results ([traits §7.4](../reference/traits.m
 ### 0.5 What to keep plain
 
 - Bookkeeping, macros, printing, options parsing, `getproperty` sugar.
-- **Rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is open, marked `@open` in a trait module.
+- **Rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is unbounded, marked `@unbounded` in a trait module.
 - Abstract type hierarchies that are right as they are.
 - **Not the front end.** A package's entry functions (`solve`, `read`) belong to a trait module, as the code under them does. A front end compiled plainly is lost to unrelated loads as any plain code is, and it is the first thing each call runs.
 - Code that is not type-stable gets slower when compiled by facts. Keep it out of the facts mode where trait code does not call it, or make it fully typed.
@@ -282,7 +282,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks-unified`, branch 
 2. **A kernel reads through the operations,** and heavy code runs over gathered cells: `describe` gathers into `emptycells(c, n)::Vector{T}` and runs Statistics there, compiled once per `T` (A7).
 3. **A capability is a trait of its own:** `PooledColumn` beside `Column`, joined by PooledArrays' and CategoricalArrays' vectors in Tables' extensions (A4).
 4. **A type passed as a value:** `stringtype = String15` passes a type; the reader makes `S[]` and calls `TextColumn`'s operations on it, and CSV's InlineStrings extension declares memberships, with helper functions of its own, and adds no method to CSV's functions (`forks-unified/CSV/ext/CSVInlineStringsExt.jl:87`).
-5. **A function applied per row is open on purpose** where it asks for its result type: `@open function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks-unified/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
+5. **A function applied per row is unbounded on purpose** where it asks for its result type: `@unbounded function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks-unified/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
 6. **Mixed columns in one vector:** `DataFrame`'s `columns::Vector{Column}` holds each vector itself; the kernels over it (`joinkeys`, `_group_rows!`) take `Vector{Column}`.
 7. **Upstream's tests decide** (A6). The forks pass their upstream suites but for four known failures in DataFrames (E-315): three `@inferred` tests see `Any` through run-time sites in facts code ([open issue 157](../open-issues.md#2-design)), and one in Tables' integration.
 8. **A stream's type, which plain code specializes on:** DataFrames' `show(io, df)` hands the stream to PrettyTables, plain code compiled per stream type, and at a REPL the stream was `IOContext{REPL.LimitIO{TTYTerminal}}`, which no workload at an `IOBuffer` sees. The REPL's display now erases the stream ([traits §9b](../reference/traits.md#9b-streams-io)): DataFrames' code stays as upstream's, and its workload displays once at `IOContext{IO}(IOBuffer())` (0.4). The `show` step 0.087 s against 0.16–0.20 s without the line, and the session's `write` step 0.12 s against 0.5 s, since the REPL's display of the returned path is compiled once too (E-338).
