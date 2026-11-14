@@ -30,3 +30,15 @@ Continues [`2026-11-14-night-binA.md`](2026-11-14-night-binA.md). The user's wor
 **Later the same day:** the user: "Rewrite the experiments history please." Done: the two commits after f4db3a9 are rebuilt without the depot and the generated packages (5b24871, 5abba4b; the same trees and messages) and pushed with a lease. The old head dee896e is kept locally under the tag `pre-rewrite-backup`, not pushed.
 
 **The round was stopped** on the user's word ("Please stop and report back after the Ports are up."): parts 1 and 2 are done; parts 3 to 7 (E-376 to E-386) were stopped before any measurement and their rows still say "running".
+
+## The ODE port's front end, reworked (E-387)
+
+The user: "Rework the front end of ODE. Could the old front end become a thin compatibility shim? In an extra package maybe?"
+
+- **The port** (TraitDifferentialEquations 0483ac0): `ODEProblem`, `remake`, `solve`, `init`, `solve_ode`, `init_ode` are typed; the property readers (`_system`, `_mass_matrix`, `_jac_prototype`, `_problem_callbacks`, `_names`) dispatch; the problem keeps whether its mass matrix is the identity; the type's parameters are written out where a problem is made. The suite passes; NetworkDynamics' subset is unchanged.
+- **A rule of the design was in the way, not the port:** code compiled once that passes its trait argument on (to another method, or from a keyword method to its body) is a call made when it runs, and a closed build refused it. So no port could make `ODEProblem(f, …)` at `Callable`'s default typed for a build. Changed at the rule (mine; compiler §7.6, `unified` 21c9b33e39): a closed build compiles a trait argument for its type wherever the call knows it.
+- **A fault found on the way:** a cast at a call of a parametric type's constructor was dropped in compiled callers (the same commit; gate `n6_attribute`).
+- **The report** named the session's cause for a call the build compiles: fixed (TraitWorld 2072e75).
+- **Numbers:** the ODE session 1.25 → 1.33 s; the build's errors on the ODE program 122 → 50, none in the front end. Open issue 183 closed; open issue 184 holds what is left (the core's callbacks first).
+- The battery passes on 21c9b33e39 (label `fe`; its TraitWorld run failed on an interim edit of the library and passes on 2072e75).
+- The round's freeze is lifted (the plan's addendum); E-376 to E-386 are registered, not run.

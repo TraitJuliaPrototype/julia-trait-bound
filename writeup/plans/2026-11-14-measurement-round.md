@@ -46,3 +46,8 @@ The order follows the weakest axes first ([the goals](../goals.md) §2).
 - It builds no cache across sessions and fixes no loss.
 - It does not rerun the earlier build's rounds: where a number exists only for the earlier build, the evidence says so.
 - It does not measure a port that phase 4 left failing beyond its known failures; those are listed with the round's results.
+
+## Addendum, 2026-11-14: stopped, and the freeze lifted
+
+The user: "Please stop and report back after the Ports are up." Parts 1 and 2 are done (E-374, E-375). Parts 3 to 7 were stopped before any measurement; their rows (E-376 to E-386) are registered, not run. The freeze is lifted: the ODE port's front end was reworked on the user's word, with two changes of the compiler (E-387; `unified` 21c9b33e39). The round resumes on a new freeze, when the user says so; the tag `round-2026-11` marks the commits parts 1 and 2 ran on.
+

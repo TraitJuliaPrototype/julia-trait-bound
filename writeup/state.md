@@ -48,7 +48,8 @@ Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([
 - The forks: the session's digests equal upstream's at 26 steps and the REPL session's 20 marks print; Tables' and CSV's upstream suites pass (CSV 330,546); DataFrames' has the 4 errors of open issue 157 (a), as before.
 - NetworkDynamics' subset gives the results of 2026-11-08.
 - The ports follow the current rules: `@unbounded`; the casts' names imported; no `keep` into storage typed by a trait (`detect_kept_storage`, checked in the suites of TraitDifferentialEquations and TraitMakie).
-- Found: a result annotation at a trait was inferred as `Any` (fixed at its rule, compiler §4.8); the ODE port's front end is kept from inference by hand, so its program is not fully typed ([open issue 183](open-issues.md#2-design)).
+- Found: a result annotation at a trait was inferred as `Any` (fixed at its rule, compiler §4.8).
+- **The ODE port's front end is typed** (E-387; TraitDifferentialEquations 0483ac0 on `unified` 21c9b33e39): `ODEProblem`, `solve` and `init` return types their callers know, and the attribute decides what is compiled once. The suite passes; the session costs 6 % more. Its program does not build yet: 50 errors where there were 122, in the solver core's callbacks, Rodas5 and a sort ([open issue 184](open-issues.md#2-design)).
 
 The ports found the design's open questions [157](open-issues.md#2-design) (a function barrier in facts code loses its callee's declared result), [159](open-issues.md#2-design) (a function stored before its signature is known keeps no attribute), [161](open-issues.md#2-design) (a library's own type that wraps a user's function) and [162](open-issues.md#2-design) (a cast at a parameter no trait types has no effect, silently), and fixes in the runtime and the library (W-104's row in [the work queue](record/todo.md)).
 
