@@ -76,7 +76,7 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-14)
 
-- **Julia:** `julia-unified` `unified` add2f921c9. The earlier build: `julia-1.13` 00dcc9994c.
+- **Julia:** `julia-unified` `unified` 42681be784. The earlier build: `julia-1.13` 00dcc9994c.
 - **TraitWorld:** `TraitWorld-unified` `unified` 12b8b31, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` c339175, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations cecf2c3, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).

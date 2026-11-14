@@ -22,6 +22,11 @@ Started from [`2026-11-12-pickup-binA.md`](2026-11-12-pickup-binA.md). The manda
 10. **Phase 3's first step (E-372),** taken while bin A is not empty, since no open row of it changes the measurement. The ODE session compiled its solver in every session, 538 ms, though the port's workload compiles it. The tools (`image_has.jl`, `g2_why.jl`) led to one edge: a `Callable` absence edge to every call of a `Vector`, which failed G2, so the image dropped the instance. Narrowed at the rule (compiler §7.4, C-88 (b) closed). **The ODE session: 2.75 s to 1.25 s.** The compiler's own closures over a type, 138 ms a session, boxed.
 11. **The cache's proposal** (`writeup/plans/2026-11-14-cache-across-sessions.md`), for the user: no library code is left for a cache to hold on the two sessions; it recommends stopping the cache. Nothing is built.
 
+12. **The battery, late, found a fault of the night's first commit.** Base's `Compiler/inference` test hung: a build's queue followed every instance an invoke names, and a recursion over growing types names a new one at each step. Bounded at four instances a method (`unified` 42681be784). The battery then passes: Base's eight test files, the 21 acceptance cases, both workloads. Three acceptance cases were stale and are re-judged: `AC_18`, `AC_20` to W-141's record, `AC_16` to W-142.
+13. **`AC_16` showed a tension, GT-17:** fully typed as what compiles ahead is wider than code without a run-time site in a session. A build resolves `g(v[1])` at a value typed `Any` where `g` has one method; a session dispatches it. The mode no longer raises there.
+
+**A lesson:** Base's compiler tests were not run before the first Julia commit of the night was pushed. The battery (`experiments/unification/stack/battery.sh`) belongs before a push that touches `Compiler/`; it takes about ten minutes without the hang.
+
 ## Choices, mine
 
 - The check is the build's own code run in the session; not a second walk, not a child process.
