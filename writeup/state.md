@@ -76,8 +76,8 @@ The deviations of the implementation from the design are listed per reference: [
 <a id="today"></a>
 ### 6.1 Today (2026-11-14)
 
-- **Julia:** `julia-unified` `unified` 381cc8b953. The earlier build: `julia-1.13` 00dcc9994c.
-- **TraitWorld:** `TraitWorld-unified` `unified` 78a78af, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
+- **Julia:** `julia-unified` `unified` add2f921c9. The earlier build: `julia-1.13` 00dcc9994c.
+- **TraitWorld:** `TraitWorld-unified` `unified` 12b8b31, compiled by facts (E-326). The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` c339175, TraitCSV 92c46d0, TraitMakie c9e294b, TraitReport a4bcf33, forks ddc20f6, TraitDifferentialEquations cecf2c3, NetworkDynamics `unified` d8c9c49, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`, 1e024b5). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
 
@@ -90,7 +90,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
 1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is decided: a membership behaves as a method does, and its method of the runtime's function is the implementation of its edges (compiler §5.6, open issue 180).
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109).
-3. The cache across sessions, bounded (W-120; G-3).
+3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. [The proposal](plans/2026-11-14-cache-across-sessions.md), which recommends stopping the cache, waits for the user.
 4. The ports brought to the head (W-104).
 5. Freeze, then the measurement round (W-145).
 6. Low-hanging performance work (W-146).

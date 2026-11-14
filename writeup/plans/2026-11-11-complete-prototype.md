@@ -118,8 +118,13 @@ The user: "Conceptual parsimony for the user only requires implementation to beh
 | Open issue 177 | (a), (b) closed (E-370); (c), (d) to bin B. T-99, L-57, L-58 open |
 | L-56 | built for keyword arguments (`unified` 23e1dd3feb); a splat is left |
 | T-97, T-111, L-57 | retired (TraitWorld 12b8b31): the warning at an extension's method, `detect_kept_storage`, the error that names the constructor |
+| C-88 (b) | closed (`unified` add2f921c9; E-372): the absence edge at the variables' values |
 | `Callable`'s check (new) | a fault found and fixed: the check was lost where an instance knew the function (`unified` a0602148ca; compiler C-90, E-371) |
 | C-55, T-105, L-58 | out of bin A, to B (mine): C-55 waits for open issue 19; T-105 and L-58 are a missing refusal and a hint, no answer is wrong |
 | C-56, T-99 | out of bin A, to C (mine): accepted for the prototype |
-| C-30 (rest), C-31; C-45, C-49, C-50; C-41, F-24; T-96; C-86, C-87; C-88 (b) to (e), open issue 178; T-100, T-102, T-104; C-90 | open |
+| C-30 (rest), C-31; C-45, C-49, C-50; C-41, F-24; T-96; C-86, C-87; C-88 (c) to (e), open issue 178; T-100, T-102, T-104; C-90 | open |
+
+## Addendum, 2026-11-14: phase 3's first step
+
+Taken while bin A is not empty (mine): the first step is a measurement that no open row of bin A changes, and the mandate's stopping point is its numbers. E-372: on the table and the ODE sessions no library code is left for a cache to hold. [The cache's proposal](2026-11-14-cache-across-sessions.md) is written for the user and recommends stopping the cache. Nothing of the cache is built.
 
