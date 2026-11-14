@@ -8,14 +8,15 @@ Every run of the round is on these commits. A fault found during the round is re
 
 | Repository | Branch | Commit |
 |---|---|---|
-| `julia-unified` | `unified` | the head at the freeze (the round's first row names it) |
-| `julia-vanilla` (the control: stock 1.13.2's source built the same way) | | as built |
-| `TraitWorld-unified` | `unified` | the head at the freeze |
-| TraitTables, TraitCSV, TraitMakie, TraitReport, TraitDifferentialEquations (`-unified`) | `unified` | the heads at the freeze |
-| `forks-unified` (Tables, CSV, DataFrames) | `unified` | the head at the freeze |
-| `ndport` (NetworkDynamics, Graphs, GraphMakie) | `main`; the clones' `unified` | the heads at the freeze |
+| `julia-unified` | `unified` | 86deee2f98 |
+| `julia-vanilla` (the control: v1.13.2's source built the same way) | | 45b6d15e34 |
+| `TraitWorld-unified` | `unified` | baadf9f |
+| `TraitTables-unified`, `TraitCSV-unified`, `TraitMakie-unified`, `TraitReport-unified` | `unified` | c339175, 92c46d0, c862914, a4bcf33 |
+| `TraitDifferentialEquations-unified` | `unified` | f8c6765 |
+| `forks-unified` (Tables, CSV, DataFrames) | `unified` | 439bae7 |
+| `ndport` | `main` | ef6fe3d; the clones' `unified`: NetworkDynamics 6310040, Graphs dbcb7c70, GraphMakie 498be7c |
 
-Each repository carries the tag `round-2026-11` at its frozen commit.
+Frozen 2026-11-14, after phase 4 (E-373). Each repository carries the tag `round-2026-11` at its frozen commit.
 
 ## Rules of the round
 
