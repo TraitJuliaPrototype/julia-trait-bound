@@ -167,11 +167,12 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 | the first solve (Lorenz, Tsit5) | 0.18 s | code generation 57 %, inference 28 %, code compiled while inferring 13 % |
 | the first stiff solve (Robertson, Rodas5) | 0.14 s | code generation 37 %, code compiled while inferring 35 %, inference 26 % |
 | the forks' first `describe` | 0.80 s | code generation 0.64 s, inference 0.12 s: code the load ended (compiler C-88 (c)) |
-| upstream's eight steps, plain, on the unified build | 10.3 s | code generation 6.23 s, inference 3.57 s, code compiled while inferring 0.49 s |
+| upstream's eight steps, plain, on the unified build | 10.3 s | code generation 6.23 s, inference 3.57 s, code compiled while inferring 0.49 s (on `unified` 9c6c9270f3: 9.9 s, inference 3.12 s) |
 | the same on vanilla | 10.2 s | code generation 7.56 s, inference 2.08 s, code compiled while inferring 0.46 s |
 | NetworkDynamics' workload | 44.0 s | code generation 58 %, inference 26 %, code compiled while inferring 6 %, the work 4 %, the loads 6 % |
 
-- **Inference costs plain code 1.7 times vanilla's** (GT-3). On the unified build, 20 to 30 % of inference's samples are in the runtime's lookup of an instance's compiled code at an `invoke`. In the world inference runs in, 455 of the compiler's 2,816 compiled instances have their code beyond position 4 of the chain that lookup walks (to 19), and 451 have more than one compiled CodeInstance. On vanilla the code is within position 3 and none is doubled.
+- **Inference costs plain code 1.5 times vanilla's** (GT-3; E-389, `unified` 9c6c9270f3): 3.12 s against 2.08 s on upstream's eight steps. It was 1.7 times (3.57 s) while 451 of the compiler's instances were compiled more than once in the system image and the runtime's lookup of compiled code at an `invoke` walked up to 19 entries; a compile request now takes the code of any equivalent cached entry ([compiler §3.3](../reference/compiler.md#33-the-code-slot)). The system image is 13 % smaller (215.0 MB). What is left: inference's static calls made through the runtime's `invoke`, 7 to 10 % of its samples in the call's stub.
+- **The sessions on that build** (E-389; a warm-up and 2 or 3 fresh processes, load 1 to 2.5): the forks' session 3.74–3.85 s (4.00–4.06 s before); setting D 1.89–1.91 s (1.95 s); TraitReport's trait form 0.78–0.80 s (0.82 s); the table session 0.73 s (0.78 s); the ODE session 1.24 s (1.31 s); NetworkDynamics' workload 43.4–43.7 s (45.0–45.2 s), digests identical.
 - **The first edit's 2.6 s is the check's own code, compiled in the session** (GT-12): no image holds it.
 - **The walk, the member check and the memberships' activation are below a tenth of every phase.** A session's time is the images' validation and restore at a load, and code generation and inference after it.
 

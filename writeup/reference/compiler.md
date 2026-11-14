@@ -281,6 +281,7 @@ Strict mode, the concreteness checks and the image's rule for what it keeps (§9
   - For a result edge, the callee is inferred again, and its result is compared with the one the caller used: return type, exception type, constant and effects.
   - Equal, and valid from the world of the mark on: the caller is valid again, and the edge names the callee's new CodeInstance.
   - Otherwise the mark is final, and the caller is inferred again.
+- **An instance's code is compiled once per result.** A CodeInstance that a compile request brings and the cache does not hold takes the code of an equivalent one in the cache: of the same instance, owner, policy and result type, valid in the request's world, recording the same result edges. Every entry of the instance's cache is a candidate, a compiled one first. Only where there is none is the new one cached and compiled.
 - So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
 - `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing. The system image keeps the slots it was built with.
 
