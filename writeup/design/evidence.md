@@ -153,6 +153,28 @@ The same build and setting. Earlier numbers: `unified` b05ae361e0 (E-337, 2026-1
   - NetworkDynamics' workload: 44.5–44.7 s (45.9–46.0 s, E-314), its digests identical.
   - **So the trait packages' sessions cost what they did on b05ae361e0; the forks' session costs a second more,** by the walk's conservative path, and the report over the forks 0.1 s more at its imports. On phase 6's list.
 
+### Where a session's time goes (W-145, part 9; E-388)
+
+The same build and setting; one thread; each phase profiled at 0.5 ms in one process after a warm-up, the shares applied to an unprofiled run's times; load 0.3 to 1.3 of 128. Every sample goes to one class by its stack (`experiments/unification/w145/profile/`).
+
+| Phase | Time | Where it goes |
+|---|---|---|
+| `using TraitCSV, TraitTables, TraitMakie` | 0.38 s | the images' restore 36 %, their validation 36 %, file system calls 14 %, the methods' activation 9 %, the memberships' 2 %, the walk 1 % |
+| `using TraitDifferentialEquations` | 0.33 s | validation 31 %, restore 30 %, file system calls 18 %, the methods' activation 13 %, the memberships' 6 % |
+| the forks' CSV and DataFrames loaded | 1.02 s | validation 45 %, restore 25 %, file system calls 10 %, the methods' activation 8 % |
+| an edit of `summarize`, the first | 2.57 s | the check compiling its own code 2.10 s, the check inferring 0.46 s |
+| the same edit again | 0.44 s | the check inferring |
+| the first solve (Lorenz, Tsit5) | 0.18 s | code generation 57 %, inference 28 %, code compiled while inferring 13 % |
+| the first stiff solve (Robertson, Rodas5) | 0.14 s | code generation 37 %, code compiled while inferring 35 %, inference 26 % |
+| the forks' first `describe` | 0.80 s | code generation 0.64 s, inference 0.12 s: code the load ended (compiler C-88 (c)) |
+| upstream's eight steps, plain, on the unified build | 10.3 s | code generation 6.23 s, inference 3.57 s, code compiled while inferring 0.49 s |
+| the same on vanilla | 10.2 s | code generation 7.56 s, inference 2.08 s, code compiled while inferring 0.46 s |
+| NetworkDynamics' workload | 44.0 s | code generation 58 %, inference 26 %, code compiled while inferring 6 %, the work 4 %, the loads 6 % |
+
+- **Inference costs plain code 1.7 times vanilla's** (GT-3). On the unified build, 20 to 30 % of inference's samples are in the runtime's lookup of an instance's compiled code at an `invoke`. In the world inference runs in, 455 of the compiler's 2,816 compiled instances have their code beyond position 4 of the chain that lookup walks (to 19), and 451 have more than one compiled CodeInstance. On vanilla the code is within position 3 and none is doubled.
+- **The first edit's 2.6 s is the check's own code, compiled in the session** (GT-12): no image holds it.
+- **The walk, the member check and the memberships' activation are below a tenth of every phase.** A session's time is the images' validation and restore at a load, and code generation and inference after it.
+
 ## 2. Run time
 
 Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the round.
