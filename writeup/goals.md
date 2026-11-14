@@ -74,6 +74,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-14 | A membership is seen from the world of its declaration, where a subtype is seen at once | G-1 against G-5 and G-7 | open issues §1, flagged |
 | GT-15 | A closed build has every member of a trait; a family over another owner's type has hundreds. Decided 2026-11-11: members by use; built (W-139) | G-7 against G-6 | open issues §1, flagged; [compiler §7.6](reference/compiler.md#76-a-closed-build), C-86 |
 | GT-16 | Fully typed mode raises exactly where a build refuses, or fully typed code pays nothing: the build's check takes seconds (traits T-100, T-104) | G-6 and G-5 against G-1 | open issues §1, flagged |
+| GT-18 | A membership changes which types are equal inside a parameter; following it exactly replays every method that names the set there (compiler C-88 (e)) | G-4 (the guarantee) against G-1 | open issues §1, flagged |
 | GT-17 | Fully typed, as what compiles ahead, is wider than code without a run-time site in a session: a build resolves a call at `Any` to a function with one method | G-6 against G-2 and G-8 | open issues §1, flagged |
 
 ## 4. The synthesis

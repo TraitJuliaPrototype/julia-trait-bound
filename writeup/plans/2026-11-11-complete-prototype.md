@@ -133,3 +133,21 @@ Taken while bin A is not empty (mine): the first step is a measurement that no o
 
 The user: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment. Please continue with the rest of the work as planned in the order we planned." Phase 3 ends: the cache is stopped. The prototype is conceptually complete when bin A is empty. The measurement round (W-145) carries the workloads that would exercise a cache across sessions ([the proposal's addendum](2026-11-14-cache-across-sessions.md)). Next in the order: bin A's rest, then phase 4.
 
+## Addendum, 2026-11-14: bin A is empty
+
+Bin A's rest, sorted by the bins' rule (mine; [decisions](../record/decisions.md) §8):
+
+| Entry | To | Why |
+|---|---|---|
+| T-102 | closed | `like` and `withfields` call the constructor by position (TraitWorld 78da5cb) |
+| C-88 (e) | B, as GT-18 | exact following replays every method at `Vector{X}` at every membership: a tension, priced by the round |
+| C-88 (c); open issue 178 | B | over-invalidation and what the guards' removal leaves: the round's numbers decide (W-145) |
+| C-90 | B, open issue 182 | the fix is a design direction: the check at the value, not at the name |
+| C-41; F-24 (open issue 157) | B | when the definition-time check runs again, and under which policy a member is checked: design directions |
+| C-88 (d) | C | fields nothing reads; the switch is the round's control |
+| C-30 (rest), C-31, C-45, C-49, C-50 | C | no answer of a port, a gate or the round's workloads depends on them |
+| C-86, C-87 | C | the build's limits; the check counts as the build does, so the two agree |
+| T-96; L-56's rest | C | a hook strict mode lacks; a cast with a splat raises by name |
+
+The prototype is conceptually complete. Next: phase 4, the ports brought to the head (W-104).
+

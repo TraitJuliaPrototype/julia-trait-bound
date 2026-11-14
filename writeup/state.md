@@ -89,7 +89,7 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
 1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is decided: a membership behaves as a method does, and its method of the runtime's function is the implementation of its edges (compiler §5.6, open issue 180).
-2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109).
+2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109). Bin A is empty: the prototype is conceptually complete.
 3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](plans/2026-11-14-cache-across-sessions.md), with its addendum).
 4. The ports brought to the head (W-104).
 5. Freeze, then the measurement round (W-145).
@@ -97,7 +97,7 @@ The work follows [the schedule to the synthesis](plans/2026-11-11-complete-proto
 7. The ports' lessons and tensions, checked (W-147).
 8. The synthesis (W-138); then the upstream patches (W-19).
 
-The prototype is conceptually complete when bin A is empty and the cache is built or stopped. The speed work is retired; its log is an archive. Deferred: keys (W-110), purely a performance optimization.
+The speed work is retired; its log is an archive. Deferred: keys (W-110), purely a performance optimization.
 
 Nothing waits for the user. The choices marked mine and the flagged tensions are input to the synthesis ([open issues](open-issues.md) §1).
 
