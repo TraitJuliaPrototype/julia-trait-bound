@@ -26,3 +26,7 @@ Continues [`2026-11-14-night-binA.md`](2026-11-14-night-binA.md). The user's wor
 ## A mistake to know of
 
 `experiments` commit 50d2634 holds the cache workloads' depot (48 files, 56 MB of compiled images) and the generated packages: `git add -A` took them. The next commit (fd431af) removes them from the tree and ignores them. The history still carries them; a rewrite of the pushed history was not done (a force push was refused by the session's permissions). For the user to decide.
+
+**Later the same day:** the user: "Rewrite the experiments history please." Done: the two commits after f4db3a9 are rebuilt without the depot and the generated packages (5b24871, 5abba4b; the same trees and messages) and pushed with a lease. The old head dee896e is kept locally under the tag `pre-rewrite-backup`, not pushed.
+
+**The round was stopped** on the user's word ("Please stop and report back after the Ports are up."): parts 1 and 2 are done; parts 3 to 7 (E-376 to E-386) were stopped before any measurement and their rows still say "running".
