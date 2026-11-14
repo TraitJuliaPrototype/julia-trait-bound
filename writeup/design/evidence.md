@@ -174,7 +174,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 
 - **Inference costs plain code 1.5 times vanilla's** (GT-3; E-389, `unified` 9c6c9270f3): 3.12 s against 2.08 s on upstream's eight steps. It was 1.7 times (3.57 s) while 451 of the compiler's instances were compiled more than once in the system image and the runtime's lookup of compiled code at an `invoke` walked up to 19 entries; a compile request now takes the code of any equivalent cached entry ([compiler §3.3](../reference/compiler.md#33-the-code-slot)). The system image is 13 % smaller (215.0 MB). What is left: inference's static calls made through the runtime's `invoke`, 7 to 10 % of its samples in the call's stub.
 - **The sessions on that build** (E-389; a warm-up and 2 or 3 fresh processes, load 1 to 2.5): the forks' session 3.74–3.85 s (4.00–4.06 s before); setting D 1.89–1.91 s (1.95 s); TraitReport's trait form 0.78–0.80 s (0.82 s); the table session 0.73 s (0.78 s); the ODE session 1.24 s (1.31 s); NetworkDynamics' workload 43.4–43.7 s (45.0–45.2 s), digests identical.
-- **The first edit's 2.6 s is the check's own code, compiled in the session** (GT-12): no image holds it.
+- **The first edit's 2.6 s was the check's own code, compiled in the session** (GT-12). With the check in inference's world and its entries in the system image (E-391, `unified` 7b374f39ce, TraitWorld e11c7cc): 0.64–0.67 s the first time, 0.48–0.50 s the second, which is the check's inference.
 - **The walk, the member check and the memberships' activation are below a tenth of every phase.** A session's time is the images' validation and restore at a load, and code generation and inference after it.
 
 ## 2. Run time
@@ -556,7 +556,7 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 | GT-9 | the membership machinery costs plain code | first work 3.01–3.02 s against vanilla's 3.28–3.29 s; repeated work's median 0.19–0.20 ms against 0.17–0.18 ms | E-381 |
 | GT-10 | an isolated slowdown in an existing ecosystem | not measurable here: `IO` is no set on this build |  |
 | GT-11 | a method at an open set on Base's functions | the library loaded late ends 209 of 122,403 plain instances; the work after it 271–300 ms | E-381 |
-| GT-12 | the definition-time check at each edit | 2.64 s the first edit, 0.45 s the second; plain 88 ms and 9 ms | E-379 |
+| GT-12 | the definition-time check at each edit | 2.64 s the first edit, 0.45 s the second; plain 88 ms and 9 ms (on `unified` 7b374f39ce: 0.70 s and 0.49 s; E-391) | E-379 |
 | GT-13 | a closed build and code compiled once | table 0 errors; ODE 50, with a gradient 88; plot 6; report 6; the ODE binary runs under `unsafe-warn` | E-383 |
 | GT-14 | a membership is seen from its world | the message unchanged | E-385 |
 | GT-15 | a family's members in a closed build | the table program builds and runs, 3.11 MB | E-383 |
