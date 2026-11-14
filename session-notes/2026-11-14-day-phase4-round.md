@@ -54,3 +54,16 @@ The user: "Then continue the measurement round." A second freeze (tag `round-202
 - Each tension's cost: evidence §4c. Phase 6's list: W-146, seven items.
 - **Next:** phase 6 (W-146), first the two losses above; then W-147 and W-138.
 
+## The profiles, and phase 6 (E-388 to E-391)
+
+The user: "As measurement also do profiling on where exactly time is spent. Then immediately move to phase 6".
+
+- **The profiles (E-388):** `experiments/unification/w145/profile/`: each phase of a session under the profiler, every sample given to one class by its stack. A load is the images' validation and restore; after it, code generation and inference. The walk, the member check and the memberships' activation are below a tenth of every phase. Two findings no item named: inference on plain code at 1.7 times vanilla's, and the first edit's check compiling its own code.
+- **E-389, the compiler's chains** (`unified` 9c6c9270f3): a compile request's CodeInstance took the first cached entry by ABI and refused it where its result edges differed, so each request cached and compiled a copy. Found with a diagnostic at the chain's insert and the debugger. Every entry is a candidate now. The system image 13 percent smaller; inference 1.5 times vanilla's.
+- **E-390, the walk's conservative path** (`unified` 8fccf1e182): eight methods took it at the forks' load. The walk substitutes the member under a union, in a tuple's component, in an intersection and in a type's declared bound. A first version also bound anew a variable that the signature bounds (`Box{<:X}`); that misses `Box{Union{Old, New}}`, made before the membership, and was withdrawn before any commit: the gate holds the case. The forks' session 2.6 s where it took 4.0 s.
+- **E-391, the check's world** (`unified` 7b374f39ce, TraitWorld e11c7cc): the check runs in inference's world; the bootstrap compiles its entries. A session's first edit 0.65 s where it took 2.6 s.
+- **Mistakes of the harness:** a diagnostic that printed types inside the walk's locks hung the process (twice); a recorder read from Julia replaced it. `pkill -f` with a pattern in the command's own line stopped the shell again: stop jobs by their process numbers.
+- **The size of E-390:** about 200 lines in `src/gf.c`. The rule of phase 6 is little code; it is listed in open issues §1 as the largest change of the phase.
+- **Left of phase 6's list,** for the synthesis: the casts at a call, a membership declared in a session, the typed front end's callers at an edit.
+- **Next:** phase 7 (W-147): each port's questions and each tension read against the head and the round's numbers; open issue 184; the question of a loose front end as a shim.
+
