@@ -250,6 +250,13 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 - **The check** (E-440): E-401's mistakes found at the same lines, with the same messages. An edit infers the method's instance at the box once, at its definition; the box's first call infers nothing. TraitTables' `summarize` with the library alone: 4.5–4.6 ms to define, 10.4 ms to the box's first call, against 4.1 and 10.4 with the check inferring apart.
 - **An operation on a value known only by its trait** (E-443, on 5b1900641f): a box of a member in the split's branches 5.56 ns, past the fourth member (the table's pointer) 9.14 ns, Julia's dynamic call 18.4 ns (GT-7).
 
+### The fifth wave on `next`: the merge, open issue 204, D-4, D-2 (W-161; E-496 to E-501)
+
+`next` (the julia repository) with `next-s3` merged, TraitWorld `unified` with `s3` merged, the ports' `-unified` trees, NetworkDynamics `unified` 6d311a3, forks 439bae7; product setting, strict mode off, one thread, one process per row. Scripts and logs: `experiments/unification/w161/`.
+
+- **The merge** (E-496; `next` f8c2bf5f95, TraitWorld 23717c1, TraitDifferentialEquations 6f96ded, TraitMakie d905a0b; load 4 to 9 of 128): every gate of both lines passes on the merged head. W-155's `gate_deep.jl` and W-155b's `gate_d11.jl`; W-160's `new_fold`, `stores`, `kept_own` (4 own instances and 4 callers kept, 4 reached), `mistakes`; the library's suite (93 testsets, with `test/report.jl`, `test/owner_only.jl`, `test/delete.jl`); the ODE port's (35 testsets); TraitMakie's (79 checks); NetworkDynamics' subset as before (diffusion 108 passed, 1 failed, 1 error, 24 broken; inhomogeneous 39 passed, 1 error, 12 broken); the forks' digests equal upstream's at 26 steps; Julia's `core`, `subtype`, `Compiler/inline`, `Compiler/inference`. The merge's own gate: a box made through a forwarder at a known member, an `isa` folded true and a store into storage typed by the trait each rest on the membership's method (three through a callee's code, one by an edge of its own); the membership taken back ends all four, 19 of 19 checks.
+- **A trait's parameters left open erase** (E-497; TraitWorld `unified` fb67ac1): `summarize(c::Column, name)` with two member types at `Column{Float64}` and one at `Column{Int}` has two instances, one per trait instance, each at the box; before, one instance at the trait's signature took every member as itself. 12 of 12 checks, 3 failing before. The library's suite, the ODE port's, TraitMakie's and NetworkDynamics' subset pass as on the merge.
+
 ## 2. Run time
 
 Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the round.

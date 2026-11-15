@@ -79,6 +79,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-21 | Calls that only throw keep a port's code out of the deep class through Base's plain code; a rule that took them out would change plain code (E-416: 41 % against 61 % of the forks' own instances) | G-1 against G-4 | open issues §1, flagged; open issue 194 |
 | GT-23 | An extension of another package's internal function is a pirate: owner-only functions by default (D-9). Decided 2026-11-15 (mine; E-431): the default for trait modules only, with `public` as the guideline; the path's first step changes no one's pirate status (86 methods upstream by facts would have been pirates). Built on `next-s3` e483299622 (W-155; E-458); the ODE port's step interface needs `public` (open issue 212) | G-7 against G-1 and G-2 | open issues §1, flagged; [facts §3](reference/facts.md#3-fact-signatures); E-431, E-458 |
 | GT-24 | A wrapper given at `Callable{A, S}` is checked at entry for `A`, not on return for `S` (D-2; mine): the box raises where the wrapper returns | G-5 against G-2 | open issues §1, flagged; [traits §9](reference/traits.md#9-functions-callable) |
+| GT-31 | Strict mode secures the deep class only: a pirate at Base's plain function that code compiled by facts calls changes its result, neither refused nor reported (E-385's `05_pirate`, E-498) | G-5 against G-1 | open issues §1, flagged |
 
 ## 4. The synthesis
 
