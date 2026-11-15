@@ -1041,12 +1041,12 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
 | C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
 | C-63 | — | *Retired* (2026-11-09): a match through `Callable` is bounded by the member's methods' worlds at the positions where the signature names it, on `unified` c8ef0e581e, 1daebeab81, 23022b0ec7 ([§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n8_callable`; E-324 | — | — |
-| C-64 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
-| C-65 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
-| C-66 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
-| C-67 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-64 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
+| C-65 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
+| C-66 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
+| C-67 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
 | C-68 | — | *Retired* (2026-11-08): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)) | — | — |
-| C-69 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-69 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
 | C-70 | — | *Retired* (2026-11-09): a kind meets a set that takes a type value, on `unified` f14be868df, 0c9e44cb3d ([§4.10](#410-type-values)); gate `m1_typevalue_isa`; E-321 | — | — |
 | C-71 | — | *Retired* (2026-11-08): a member that fails its check at dispatch lowers the cache entries made for it while the check ran, on `unified` 07c0bee2a2 ([§10.4](#104-the-member-hook)); TraitWorld's test F10b; E-296 | — | — |
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-invalidates-as-a-method-does)); gate `m2_parametric_replay`; E-292 | — | — |

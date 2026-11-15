@@ -83,7 +83,7 @@ The deviations of the implementation from the design are listed per reference: [
 ### 6.1 Today (2026-11-14)
 
 - **Julia:** `julia-unified` `unified` 7b374f39ce. The earlier build: `julia-1.13` 00dcc9994c.
-- **Julia, the next iteration:** `julia-next` `next` 9b6dacf5c5 (W-155: the deep class, the split's branch edge, the code slot removed); the library's strict mode by the class on TraitWorld branch `w155` e682482, to merge.
+- **Julia, the next iteration:** `julia-next` `next` 9b6dacf5c5 (W-155: the deep class, the split's branch edge, the code slot removed); the library's strict mode by the class on TraitWorld branch `w155` ca006e1, to merge.
 - **TraitWorld:** `TraitWorld-unified` `unified` 6f86b4e (W-151's prototype), compiled by facts (E-326); e11c7cc at the tag. The earlier library: `TraitWorld` `main` 33dd55e.
 - **The ports on the unified build:** TraitTables `unified` c339175, TraitCSV 92c46d0, TraitMakie c862914, TraitReport a4bcf33, forks 439bae7, TraitDifferentialEquations b730628, NetworkDynamics `unified` 6310040, Graphs dbcb7c7 and GraphMakie `unified` 498be7c (in `ndport`). On the earlier build: their branches `main` (TraitDifferentialEquations `w34`, `w96`), NetworkDynamics' port in `ndport`.
 - **Tests:** §4. **Measured:** [`evidence.md`](design/evidence.md).
