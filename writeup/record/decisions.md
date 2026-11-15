@@ -470,7 +470,9 @@ The decisions behind [the references](../reference/README.md) for traits as abst
 
 ## Pending
 
-None at present.
+| Decision | Status and origin | Where | Prototype |
+|---|---|---|---|
+| **One way to erase: values carry, by type** (P1 of [the review of 2026-11-15](../reviews/2026-11-15-conceptual-design.md), as its addendum states it): the kept forms of a member are the box `Dynamic{X}` and the wrapper that `compiled_for(x)` returns, both members; `compiled_for(x)` is a value, made in plain code and kept by storage; the wrapper is a member of every trait its object is in; a trait's `@default_dynamic` is a generated forwarding method that boxes a plain member; in a method at such a trait the argument is the kept form, not the object. It replaces the five steps of traits §7.5, the casts as statements about a call, `keep`, `Kept{X}` as a concept and the fallback by scope. | **provisionally accepted, not in force** (the user, 2026-11-15: "So provisionally I would accept P1 with the addendum."; on the view that is not the object: "1 is acceptable"; on the default for anyone who writes a method: "if Callable wants it anyway that's how it should be"; on the wrapper's reach: "I would say that we want wide reach. If a subtrait provides a higher performance specialisation we don't want to miss that."). In force once it is written into the references, after the prototype (W-151) | to change: [traits §3.5](../reference/traits.md#35-values), [§7.4 to §7.8](../reference/traits.md#74-the-attribute-compiled-and-dynamic), [§8](../reference/traits.md#8-storage), [§9](../reference/traits.md#9-functions-callable); [compiler §6.3](../reference/compiler.md#63-the-attribute-at-a-call), [§6.9](../reference/compiler.md#69-casts-and-keep), [§7.6](../reference/compiler.md#76-a-closed-build); [lowering §7](../reference/lowering.md#7-dynamicx-keep-casts). [Open issue 186](../open-issues.md#1-decisions-waiting-for-the-user) | W-151: not built |
 
 ---
 

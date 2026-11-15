@@ -350,3 +350,74 @@ Each probe is in its section. None was run. Each takes minutes and uses tools th
   - [the goals](../goals.md) §1: the row of G-8 holds, in its first cell, a sentence that belongs to its claim;
   - G-7's standing gives the first step's first work, and not its repeated work. The only number I found for code as written under the facts rule is the earlier build's (E-140: ahead for the first few dozen rounds). The first step of the path should carry its steady-state number on the head;
   - I did not find, in what I read, why upstream by facts does its first work in 1.9 s against 4.1 s plain. It is the round's headline, and its attribution belongs beside it.
+
+---
+
+## Addendum (2026-11-15, the main session): P1 corrected in discussion, and provisionally accepted
+
+Written after the review, from a discussion with the user the same day. Nothing was run for it. The user's words in full: [the session note](../../session-notes/2026-11-15-review-and-p1.md).
+
+**What was wrong in §4.1.** It let the caller's override leave the language: "a caller who wants code for the type calls past the door". That is the library's switch, which the user ruled out on 2026-10-21: "The type ODEProblem has to store the function and if compiled_for(f) is lost on storage this forces us back into the library provided switch (that already exists in SciML)." The user's case (2026-11-15): "The use case that weighs on my mind is SciML. I typically want this to be Dynamic{RHS}, and that should be the default for inexperienced Devs, but I want to be able to opt for maximum speed if I know what I am doing."
+
+**P1 as it stands now: values carry, by type.** The rule of 2026-10-21 ("Values carry. Annotations provide defaults when a plain value enters trait code. Explicit casts always win.") is kept, with the choice in the value's type and no bit beside the call.
+
+- **Two kept forms of a member of `X`,** both concrete types, both members of `X`:
+  - the box `Dynamic{X}(x)`: erased; code for it is compiled once per trait instance;
+  - the wrapper that `compiled_for(x)` returns: code for it is compiled per type of `x`, and its operations forward to `x` statically.
+- **`compiled_for(x)` is a value,** not a statement about a call. It is made in plain code, before any trait is known. Storage keeps it, a record made before the signature is known keeps it, an untyped parameter passes it.
+- **The wrapper is a member of every trait its object is a member of** (the user, 2026-11-15: "I would say that we want wide reach. If a subtrait provides a higher performance specialisation we don't want to miss that."). Each `@trait` declares the wrapper's family as a member, forwarding by its field, as it declares `Dynamic{Z}`'s today ([lowering §2](../reference/lowering.md#2-trait)).
+- **A trait's default is a generated forwarding method** (the user, 2026-11-15, on whether anyone who writes a method gets the default: "if Callable wants it anyway that's how it should be"). For a trait that declares `@default_dynamic`, a method `f(t::X, …)` is defined at the two kept forms, and one forwarder, `f(@nospecialize(t::X), …) = f(Dynamic{X}(t), …)`, takes a plain member. It is made where the method is defined, as a positional default makes a second method. Dispatch and the runtime do not change. A trait without the default takes a plain member as it is: Julia's rule.
+- **A view is not the object** (the user, 2026-11-15: "1 is acceptable"). In a method at a trait that erases by default, `typeof(t)`, `t === x` and `t isa Circle` answer for the box or the wrapper. This replaces [traits §3.5](../reference/traits.md#35-values)'s "nothing converts or wraps it" for such traits.
+
+**SciML under it.**
+
+```julia
+struct ODEProblem{T, P, F <: RHS{T, P}}; f::F; u0::Vector{T}; tspan; p::P; end
+ODEProblem(f::RHS{T, P}, u0::Vector{T}, tspan, p::P) where {T, P} =
+    ODEProblem{T, P, typeof(f)}(f, u0, tspan, p)
+
+ODEProblem(lorenz!, u0, tspan, p)                 # F = Dynamic{RHS{Float64, P}}: the default
+ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = the wrapper: code per function
+```
+
+- The default needs nothing from whoever writes a method at `RHS`.
+- The expert's spelling is today's, and the struct's parameter records the choice. No switch of the library's.
+- Open issue 159: `ODEFunction(f; jac = compiled_for(j))` stores a plain `f` and a wrapped `j`; the problem's constructor boxes `f` and leaves `j`.
+- Open issue 162: a box or a wrapper passes an untyped helper as itself.
+- A box at a second signature (the duals) is made again where the signature is known, as now (traits §7.7).
+
+**Storage.** The earlier trouble had two causes: storage that decided, and `keep` deciding by what the caller knew (open issue 175). With the choice in the type:
+
+| Storage | Holds | Read back |
+|---|---|---|
+| a struct parameter `F <: X` | the form it was given | that form, statically |
+| `Vector{X}`, a field `::X` | either form, each by its own type | a dispatch at the next call |
+| `Vector{Dynamic{X}}` | boxes; a plain member is converted when stored | static, fully typed; a wrapper's choice is erased there |
+| the user's own `Vector{Circle}` | — | a copy, a lazy view, or a library type that names it |
+
+- `Kept{X}` is no concept then; it can stay as an inline form of `Vector{X}`.
+- The last row is what remains: Julia has no borrowed reference into an array's element, so erasing a user's container without a copy needs a view type.
+- The conversion of the third row is a method of `convert` at the library's own type. To probe that it invalidates little: the method `convert(::Type{T}, ::Dynamic{<:T})` logged 7,005 entries (`experiments/unification/w149/`), and this one is not that.
+
+**What `Dynamic{X} <: X` means in Julia.**
+1. A view is not the object (above).
+2. **What varies by member is an operation.** An operation served by the member's own method is reached through both forms, a method specialized for the member's type included (the user, 2026-11-15: "if a type satisfies the trait by a specialized function that gets seen anyway"). A function outside the contract with a method at the member's own type is not reached through either form.
+3. **The box runs the methods at the trait it was erased at; the wrapper runs the most specific trait methods of its object.** The results are equal where a subtrait's method refines its supertrait's, which Julia assumes of every more specific method. Two boxes of one object at a trait and at its subtrait differ in the same way.
+4. **The wrapper can meet an ambiguity the box does not:** a function with methods at two unrelated traits of the object. It is the ambiguity the report at a membership names (traits §6.3).
+5. **Erased code can be slower by algorithm, not only by dispatch.** A box that entered through `Iterable` stays at `Iterable`'s method. A library that wants the subtrait's method under erasure writes a barrier, `total(unwrap(t))`.
+6. **The wrapper is not the object.** A method at the object's own type, of a function outside the contract, needs `unwrap(t)`: static under the wrapper, one dispatch under the box. So in trait code a specialization belongs at a subtrait or in an operation; the porting guideline should say so.
+7. **A box is under none of the member's declared supertypes.** A boxed function is no `Function`, a boxed vector no `AbstractVector`. For a closed type the eraser is a subtype of it, as `IOContext{IO}` is.
+8. **Julia converts no argument,** only what is assigned to a field or an element. Hence the forwarding method for arguments and `convert` for storage.
+9. **A box needs the trait's parameters,** so it is made where they are known.
+10. **Questions outside the contract are asked before the value is boxed** (a function's arity by reflection, for one).
+11. A member of a bits type is allocated when it is boxed, as it is today when it is passed to code compiled once.
+
+**What leaves the design,** against §4.1's list: unchanged, but `compiled_for` stays as a function that returns the wrapper, `@default_dynamic` stays as the declaration that makes the forwarders, and `keep` is not needed (a method's argument is already a kept form). `with_dynamic(x)` is `Dynamic{X}(x)` where the trait is known.
+
+**What §7 said and no longer holds.** P1 does not reverse G-2's wording: `compiled_for(x)` is the opt-in. It does not reverse "Dynamic or not as a trait and library default, that the user can override" (2026-11-06). It still replaces the fallback by scope (2026-11-06), `Kept{X}` and the `where` variable's rule (2026-11-11), and traits §3.5 for traits that erase by default.
+
+**The user's verdict (2026-11-15):** "So provisionally I would accept P1 with the addendum. Record this and then do the suggested proves to settle the other P from the review."
+
+**What was done with it.**
+- Recorded as pending in [the decision log](../record/decisions.md#pending) and as [open issue 186](../open-issues.md#1-decisions-waiting-for-the-user). It is not in a reference, so it is not in force.
+- The work: W-151 (a prototype in the library, then the references) and W-152 (the probes for P2 to P7, E-394 to E-400) in [the work queue](../record/todo.md).

@@ -1,0 +1,41 @@
+# Session note, 2026-11-15: the review of the conceptual design, and P1
+
+The main session. No subagent. Heads at the start: `julia-unified` 7b374f39ce, TraitWorld `unified` e11c7cc, the design repository `w141-record` 2f3b24d.
+
+## 1. The review
+
+The user: "Last night we finished the conceptually complete prototype. There is a synthesis report. Please review the overall conceptual design of the project thoroughly, given the learnings and tensions recorded. Come up with principled suggestions for large scale, architectural and conceptual design changes that have a chance of removing tension. Nothing is off the table. Do not run code, just write the review and suggestions."
+
+- Written by reading; no code run: [`writeup/reviews/2026-11-15-conceptual-design.md`](../writeup/reviews/2026-11-15-conceptual-design.md) (bc948ad).
+- Four roots of the recorded tensions (two compile policies, two ways to erase, two homes for a contract, two rule sets for inference) and seven proposals, P1 to P7.
+
+## 2. P1, discussed
+
+The user: "I want to discuss P1 more thoroughly. The use case that weighs on my mind is SciML. I typically want this to be Dynamic{RHS}, and that should be the default for inexperienced Devs, but I want to be able to opt for maximum speed if I know what I am doing. We previously briefly had the Dynamic only design but the other problem we encountered was putting user provided stuff into storage (Vector{T})... So the simpler choice Dynamic{T} <: T that mirrors what Rust does, is very tempting, but we need to understand its design implications first in the context of Julia."
+
+- My answer: P1 as the review had it needed the library's switch, which the user ruled out on 2026-10-21. Corrected: the choice in the value's type. `compiled_for(x)` returns a wrapper that is a member; a trait's default is a generated forwarding method; storage holds the form it is given.
+- Three questions put to the user: is a view that is not the object acceptable; who is the inexperienced developer (SciML's callers, or anyone who writes a method); how far the wrapper reaches.
+
+The user: "1 is acceptable, 2 if Callable wants it anyway that's how it should be, 3 does it matter in fully typed code?"
+
+- My answer to 3: not for speed or typing. For which method runs, in one case: a function with methods at a trait and at a subtrait of the same object. I proposed the narrow reach (the wrapper sees what the box sees).
+
+The user: "I would say that we want wide reach. If a subtrait provides a higher performance specialisation we don't want to miss that. Any reason not to?"
+
+- My answer: none strong enough; the wide reach is also the simpler mechanism (one wrapper type, made in plain code). What is accepted with it: the box runs the methods at the trait it was erased at, the wrapper the most specific trait methods; an ambiguity the box hides; the wrapper is still not the object, so a method at the object's own type needs `unwrap`.
+
+The user: "But if a type satisfies the trait by a specialized function that gets seen anyway... So provisionally I would accept P1 with the addendum. Record this and then do the suggested proves to settle the other P from the review."
+
+- Right: an operation served by the member's own method is reached through both forms. The limit holds only for a function outside the contract.
+
+## 3. Recorded
+
+- The review's addendum (P1 as it stands, the implications in Julia, the storage table).
+- [The decision log](../writeup/record/decisions.md), Pending: P1 provisionally accepted. Not in a reference: not in force.
+- [Open issue 186](../writeup/open-issues.md).
+- [The work queue](../writeup/record/todo.md): W-151 (P1: a prototype in the library, then the references), W-152 (the probes for P2 to P7).
+- [The registry](../writeup/record/experiments.md): E-394 to E-400, each before its run.
+
+## 4. The probes
+
+Their outcomes: the registry's rows, `experiments/unification/w152/README.md`, and the review's second addendum.
