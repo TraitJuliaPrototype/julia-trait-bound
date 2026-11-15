@@ -24,9 +24,10 @@ The user: "I would say that we want wide reach. If a subtrait provides a higher 
 
 - My answer: none strong enough; the wide reach is also the simpler mechanism (one wrapper type, made in plain code). What is accepted with it: the box runs the methods at the trait it was erased at, the wrapper the most specific trait methods; an ambiguity the box hides; the wrapper is still not the object, so a method at the object's own type needs `unwrap`.
 
-The user: "But if a type satisfies the trait by a specialized function that gets seen anyway... So provisionally I would accept P1 with the addendum. Record this and then do the suggested proves to settle the other P from the review."
+The user: "But if a type satisfies the trait by a specialized function that gets seen anyway... So provisionally I would accept P1 with the addendum. Record this and then do the suggested probes to settle the other P from the review."
 
 - Right: an operation served by the member's own method is reached through both forms. The limit holds only for a function outside the contract.
+- The quotation is as the user corrected it afterwards ("Probes, not proves"): the message read "the suggested proves".
 
 ## 3. Recorded
 

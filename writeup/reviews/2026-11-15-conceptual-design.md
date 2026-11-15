@@ -416,7 +416,7 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = the wrapper: code per fu
 
 **What §7 said and no longer holds.** P1 does not reverse G-2's wording: `compiled_for(x)` is the opt-in. It does not reverse "Dynamic or not as a trait and library default, that the user can override" (2026-11-06). It still replaces the fallback by scope (2026-11-06), `Kept{X}` and the `where` variable's rule (2026-11-11), and traits §3.5 for traits that erase by default.
 
-**The user's verdict (2026-11-15):** "So provisionally I would accept P1 with the addendum. Record this and then do the suggested proves to settle the other P from the review."
+**The user's verdict (2026-11-15):** "So provisionally I would accept P1 with the addendum. Record this and then do the suggested probes to settle the other P from the review."
 
 **What was done with it.**
 - Recorded as pending in [the decision log](../record/decisions.md#pending) and as [open issue 186](../open-issues.md#1-decisions-waiting-for-the-user). It is not in a reference, so it is not in force.
@@ -426,7 +426,7 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = the wrapper: code per fu
 
 ## Second addendum (2026-11-15, the main session): the probes, and what they settle
 
-Run at the user's word ("Record this and then do the suggested proves to settle the other P from the review."), as W-152. Seven probes, E-394 to E-400, on `unified` 7b374f39ce with TraitWorld e11c7cc and the forks 439bae7; each a run of seconds to two minutes; counts of one run, no times. Scripts, logs and tables: `experiments/unification/w152/README.md`. Numbers: [evidence §1](../design/evidence.md#the-reviews-probes-w-152-e-394-to-e-400).
+Run at the user's word ("Record this and then do the suggested probes to settle the other P from the review."), as W-152. Seven probes, E-394 to E-400, on `unified` 7b374f39ce with TraitWorld e11c7cc and the forks 439bae7; each a run of seconds to two minutes; counts of one run, no times. Scripts, logs and tables: `experiments/unification/w152/README.md`. Numbers: [evidence §1](../design/evidence.md#the-reviews-probes-w-152-e-394-to-e-400).
 
 | | The probe | What it found | Verdict |
 |---|---|---|---|
