@@ -13,7 +13,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [`All{X, Y}`](#intersection-allx-y) ·
 [`BaseTraits`](#basetraits) ·
 [Boundary method](#boundary-method) ·
-[`bounded` and `@unbounded`](#fully-bounded-and-unbounded) ·
+[`bounded` and `@unbounded`](#bounded-and-unbounded) ·
 [`Callable`](#callable) ·
 [Candidates](#split) ·
 [CodeInstance](#codeinstance) ·
@@ -38,7 +38,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Family](#family) ·
 [Forwarder](#erasing-by-default-and-the-forwarder) ·
 [Forwarding (`by`)](#forwarding-by) ·
-[Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
+[Bounded and unbounded](#bounded-and-unbounded) ·
 [Final and settled](#final-and-settled) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
@@ -212,11 +212,12 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** the project's term. Go 1.18 compiles one generic instance per "GC shape"; .NET shares generic code among reference types. Julia compiles per concrete argument type.
 - **Defined in:** [traits §7.2](reference/traits.md#72-the-key); [compiler §6.1](reference/compiler.md#61-the-key-as-a-type).
 
-### Fully bounded and unbounded
+### Bounded and unbounded
+<a id="fully-bounded-and-unbounded"></a>
 
-- **Here:** a method is **fully bounded** at a trait argument when its body reaches the argument only through the contract: operations, declared fields, passing it on to an argument typed by the trait. Any other use makes it **unbounded** there (`typeof(t)`, a call of another function with it, a closure that captures it). A scope that declares `bounded` refuses an unbounded method with `TraitUseError`; `@unbounded` marks one unbounded on purpose.
-- **Origin:** Rust and Swift check generic code against its bounds wherever it is written ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)). Julia checks nothing of the kind; a method at an abstract type may do anything with its argument.
-- **Defined in:** [traits §7.3](reference/traits.md#73-fully-bounded-methods); the check: [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
+- **Here:** a method is **bounded** at a trait argument when its code for the box does what it says for every member: its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws. Behind the box only the contract reaches the member, so a bounded method works erased for every member that will ever join. A scope that declares `bounded` refuses a method that is not, with `TraitUseError`; `@unbounded` marks one unbounded on purpose.
+- **Origin:** Rust and Swift check generic code against its bounds wherever it is written, at an archetype ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)); here the archetype is a real type, the box. Julia checks nothing of the kind; a method at an abstract type may do anything with its argument.
+- **Defined in:** [traits §7.3](reference/traits.md#73-bounded-methods); the check: [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
 ### Kept form
 
@@ -290,7 +291,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Definition checking
 
-- **Here:** the check of a method at a trait where it is defined: one inference at the trait that records each use of the argument beyond the contract. It classifies the method as [fully bounded or unbounded](#fully-bounded-and-unbounded), and `bounded` refuses an open one.
+- **Here:** the check of a method at a trait where it is defined: it reads the method's instance at the box, the code a box runs, for calls that find no method or only throw. It tells whether the method is [bounded](#bounded-and-unbounded), and `bounded` refuses one that is not.
 - **Origin:** Rust and Swift type-check generic code against its bounds; C++20 concepts check only at instantiation.
 - **Defined in:** [traits §11.2](reference/traits.md#112-definition-checking); [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
@@ -462,11 +463,12 @@ These appear in documents before 2026-11-06, in the record ([`record/INDEX.md`](
 
 | Old term | Now | Changed |
 |---|---|---|
-| open method, `@open` | [unbounded](#fully-bounded-and-unbounded) method, `@unbounded` | 2026-11-12 |
+| open method, `@open` | [unbounded](#bounded-and-unbounded) method, `@unbounded` | 2026-11-12 |
+| fully bounded; the classification (of a method at a trait) | [bounded](#bounded-and-unbounded): its instance at the box | 2026-11-15 |
 | implementation, conformance (the noun) | [membership](#membership-and-entry), declared by `@implement` | 2026-11-06 (conformance: 2026-10-19) |
 | conforms to, `conforms(T, X)` | `T <: X`: a [member](#membership-and-entry) | 2026-11-06 |
 | generic implementation | [pattern member](#pattern-member) | 2026-11-06 |
-| bound, bounded function | a [method at a trait](#method-at-a-trait); fully bounded is a [classification](#fully-bounded-and-unbounded) | 2026-11-06 |
+| bound, bounded function | a [method at a trait](#method-at-a-trait); bounded is [a property of it](#bounded-and-unbounded) | 2026-11-06 |
 | receiver type, receiver | part of the [key](#key) | 2026-11-06 |
 | trait object, view, held view | the member's own value, passed unwrapped ([traits §3.5](reference/traits.md#35-values)) | 2026-11-06 |
 | entry and worker (of a bounded function) | gone: one method, compiled per type, per key or once. "Entry" now means a [membership entry](#membership-and-entry) | 2026-11-06 |

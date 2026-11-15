@@ -44,6 +44,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - A pirate silent unless strict mode is on, replaced (2026-11-15)
 - Memberships only grow, replaced (2026-11-15)
 - One way to erase: the attribute, replaced (2026-11-15)
+- The classification, replaced by the instance at the box (2026-11-15)
 
 ---
 
@@ -659,3 +660,17 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *`with_dynamic(x)` kept as a function:* a box needs the trait, which a value-level function cannot know; `Dynamic{X}(x)` is written where it is known.
 
 **Terms retired:** *attribute* (of an argument at a call), *cast*, `keep`, `Kept{X}`, `kept_call`, *fallback by scope*, `first_seen`, the module option `dynamic`, `@default_compiled`.
+
+## The classification, replaced by the instance at the box (2026-11-15)
+
+- **What it was:** each method at a trait was **classified** per argument, fully bounded or unbounded, by one inference at the trait with the compiler's check interpreter (`DefinitionCheckInterpreter`, an ephemeral cache), which recorded every use of the argument outside the contract. A list of forms counted as inside: the contract's operations and fields, passing on to an argument typed by the trait, `Dynamic{X}(t)` and `keep(t)`, `===` and `isa` against the trait, an equation's function. Storing the argument at a struct parameter or capturing it in a closure made a method unbounded, and constructors that set a parameter bounded by a trait were exempt. A member's check inferred each serving method in a cache of its own, kept its answers as the library's records, and made them again at a load without inference; strict mode inferred an image's checked calls again at its load.
+- **Why replaced** (the plan's D-3, confirmed by the user's adoption of the plan, 2026-11-15; P2 of [the review](../reviews/2026-11-15-conceptual-design.md), its §3.5):
+  - Four engines asked one question (the member check, the definition-time check, strict mode at a load, the fully typed check), each an inference with its own interpreter, cache and time.
+  - The reading at the box agreed with the classification at 157 of 165 methods; the seven the classification alone reported were a stored value, an adapter, `promote_op`; both found four of five mistakes, and the fifth (`typeof(t)`) is no fault at a box (E-397).
+  - Its costs: 0.5 to 0.7 s at each edit (GT-12, E-391); strict mode's inference at a load, 67 ms of 180 ms (GT-2, E-382); a method below an operation's body that widened a result was not seen (open issue 115); a keyword method at an intersection was refused (184 (c)); `sum(keep(t))` was accepted and differed by attribute (165).
+- **What replaced it:** a method is bounded when its instance at the box makes no call, with a value at the box, that finds no method or only throws; the check reads that instance, which is the code a box runs; a member's check is its serving instances, kept with edges ([traits §7.3](../reference/traits.md#73-bounded-methods), [§5.10](../reference/traits.md#510-checks); [compiler §6.7](../reference/compiler.md#67-the-definition-time-check)).
+- **What it costs:** "bounded" is wider: `typeof(t)` and `Wrapped(t)` are bounded, since they act on the box. That is consistent: the classification's other purpose, code per key, is Optional (the keys' page).
+- **Not taken:**
+  - *Fully typed at the box as the definition, every run-time site a fault:* a call left to run time that finds a method when it runs is Julia's function barrier (E-397's `setproperty!` with a name that is no constant); the prototype's fault classes keep it (mine, 2026-11-15).
+  - *The check without the box,* reading the record of the instance compiled once at the trait: it needs the attribute (the review's §4.2, last paragraph).
+  - *A check at a method's first call* for what the box cannot see (a trait whose parameters the signature leaves open): a second engine at a second time; such a method is not read.

@@ -386,6 +386,8 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each caller in the deep class, the callers' backedges, transitively, through code in the class, to code compiled by facts. A caller outside the class ends the walk: what rests on it is outside the class too. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
 
+**The same walk for a member's check.** A member's check is its serving instances, kept with their edges ([traits §5.10](traits.md#510-checks)). A definition that would end one is found by this walk over their backedges, in every mode, and is refused where the call, inferred again with it, leaves the declared result or becomes ambiguous. So strict mode's refusal and the check's are one mechanism. At an image's load only the check instances that fail validation are inferred again. Planned (the plan's D-3, 2026-11-15), with [traits T-129](traits.md#19-deviations).
+
 **The property it secures:** code compiled by facts in the deep class is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
 
 **Not refused:** a pirate that wins nowhere in the deep class; any stakeholder's method or membership. A pirate that wins only in code outside the class is followed, as a load's method there is.

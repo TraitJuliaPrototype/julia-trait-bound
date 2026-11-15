@@ -53,7 +53,8 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **No method for an operation without a default.** It is an entry of the contract (below) and nothing else: each member serves it by a method of its own type (§3, steps 2 and 6).
 - **`Dynamic{X}`'s forwarding methods:** for each operation without a default and each arity, a method at `Dynamic{<:X}` that calls the operation on its object, `getfield(d, :object)`, a value typed by the set: an operation's call ([compiler §7.1](compiler.md#71-the-rule)). Its further arguments are untyped. An operation with a default reaches `Dynamic{X}` through the default's method, which forwards.
 - **The wrapper's forwarding methods:** the same at `Compiled{<:X}`, on `getfield(w, :object)`, whose type is the object's: a static call of the object's own method.
-- The kept forms' forwarding methods are marked `Expr(:meta, :no_forwarder)` too.
+- **The kept forms' methods of each equation's function:** for an equation `P = f(Self)`, a method of `f` at the types of `Dynamic{<:X{P…}}` and of `Compiled{<:X{P…}}` that returns the parameter's value ([traits §7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)): `eltype` of a box of `Iterable{Float64}` is `Float64`.
+- The kept forms' methods are marked `Expr(:meta, :no_forwarder)` too.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
   - the operations, each an entry: the function, the declared signature and the declared result as types, and the default's method where it has one ([compiler §4.1](compiler.md#41-sets));
   - the declared fields, with their types and whether `@const`;
@@ -79,7 +80,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 `@implement X{p…} S how` runs at the top level of the declaring module:
 1. **Ownership** (§11): the module's package owns `X` or `S`, or is a joint owner; an extension names its triggers.
 2. **The block's methods,** where there is a block: each a method of the operation's function, the receiver typed `S`, unannotated arguments typed as declared.
-3. **The checks** ([traits §5.10](traits.md#510-checks)), by plain inference of each serving method at `S` and the declared argument types, in a cache of the checks' own:
+3. **The checks** ([traits §5.10](traits.md#510-checks)), by Julia's inference of each serving method's instance at `S` and the declared argument types, cached as code is, with its edges ([compiler §6.7](compiler.md#67-the-definition-time-check)):
    - completeness;
    - results;
    - fields;
@@ -90,11 +91,11 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 5. **The receiver** ([traits §7.2](traits.md#72-the-key)): `S` where it serves an operation by its own method, the forwarding field where it forwards, none where defaults serve every operation. The runtime computes the key from it ([compiler §6.1](compiler.md#61-the-key-as-a-type)).
 6. **The membership:** `jl_declare_membership(S, X{p…}, mod, by, receiver)`, then `Expr(:latestworld)`. The runtime refuses a second instance of `X` for `S` ([compiler §4.6](compiler.md#46-one-instance-per-member)); the library then deletes the block's methods and raises `ImplementError`.
    - Before it, **forwarding's methods,** where `S` forwards by a field `f`: for each required operation of `X` and arity, a method at `S` that calls the operation on `t.f`, its further arguments untyped. They are the membership's, as its declaration is: no block's owner rule. A refusal deletes them.
-7. **The records the definition hook reads** (§11; [traits §5.10](traits.md#510-checks), [§5.11](traits.md#511-overrides-and-redeclaration)):
-   - a fixed call for each call a default serves at `S`, and for each forwarding method of step 6, made once every trait of the declaration has its forwarding methods;
-   - a checked result for each call whose result the check inferred within the declared result: the trait, the contract, the operation, the call, the parameters and the receiver type.
-   - A redeclaration forgets the member's records for the trait before its block is defined. A member checked at its first use (§4) gets the same records then.
-   - One walk makes them, without inference: the same records at `@implement`, at a first use, and for a membership an image activated (§11).
+7. **The records the definition hook reads** (§11; [traits §5.10](traits.md#510-checks), [§5.11](traits.md#511-overrides-and-redeclaration)) are the check's instances of step 3, with their edges:
+   - a call a default serves at `S`, and each forwarding method of step 6, is fixed: a definition that would end its instance is refused;
+   - a call whose result the check inferred within the declared result is checked: a definition that would end its instance is judged by inferring the call again with it.
+   - A redeclaration ends the member's instances for the trait before its block is defined. A member checked at its first use (§4) gets its instances then.
+   - An image keeps them as code; a membership an image activated has them by validation.
 8. **While the package is precompiled:** compiling ahead (§12).
 
 `@implement (X, Y) S …` repeats steps 3 to 8 per trait, with step 2 once.
@@ -111,7 +112,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **Revise.** The library's extension for Revise tells Revise which memberships an expression declared, as Revise knows which methods it defined. An `@implement` that a revised file no longer has is taken back with `delete_membership`, as a method no longer defined is deleted; one that changed is declared again (a redeclaration, [traits §5.11](traits.md#511-overrides-and-redeclaration)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), the use before the declaration raised in 0aff625 (E-350), in compiled code with `unified` fcdfd0da36 (E-352); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)). Taking a membership back, and the extension for Revise: Planned (D-13, 2026-11-15), with L-64 and [traits T-124](traits.md#19-deviations).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), the use before the declaration raised in 0aff625 (E-350), in compiled code with `unified` fcdfd0da36 (E-352); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). The check's instances as the records (steps 3, 7): Planned (D-3), with [traits T-129](traits.md#19-deviations). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)). Taking a membership back, and the extension for Revise: Planned (D-13, 2026-11-15), with L-64 and [traits T-124](traits.md#19-deviations).
 
 ---
 
@@ -130,7 +131,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 ## 5. Methods at traits
 
-- **A method at a trait is defined by Julia** with nothing around it. The compiler classifies it per trait argument ([compiler §6.7](compiler.md#67-the-definition-time-check)) and compiles it for the types it is given ([compiler §6.2](compiler.md#62-how-an-argument-is-compiled)).
+- **A method at a trait is defined by Julia** with nothing around it. The definition-time check reads its instance at the box ([compiler §6.7](compiler.md#67-the-definition-time-check)) and compiles it for the types it is given ([compiler §6.2](compiler.md#62-how-an-argument-is-compiled)).
 - **Where its trait erases by default,** Julia enters it at the kept forms and adds its forwarder where it is defined ([compiler §6.3](compiler.md#63-the-forwarders)). The library writes nothing.
 - `@nospecialize t::X` and `@specialize t::X` are Julia's, as at any argument.
 - **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
@@ -145,7 +146,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `Base.Experimental.@compiler_options facts=true bounded=true no_pirates=true`, with the options as written ([compiler §2.1](compiler.md#21-the-module-option));
 - `using` of the library's names.
 
-The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose classification waited are classified, and `struct S <: X` without its `@implement` is refused.
+The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose check waited are checked, and `struct S <: X` without its `@implement` is refused.
 
 **Status:** Implemented in TraitWorld `unified` bb78d02 (W-111); the options decided (the user, 2026-11-06, Q2 (a)); the three and no other: the plan's D-1 and D-14 (2026-11-15), with [traits T-127](traits.md#19-deviations).
 
@@ -220,8 +221,8 @@ compiled_for(x) = Compiled(x)           # the library's
 | `@trait` | the body's form | the macro |
 | `@implement` | ownership; the checks of §3 | the expansion's top-level code |
 | a member's first use | the checks of §3, for that member | the member hook (§4) |
-| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; a method that would take a fixed call, or make a checked call's operation ambiguous at the member, or serve it with a result outside the declared one, inferred before the method exists (the records of §3, step 7); an unbounded method not marked `@unbounded` in a `bounded` module (the compiler's classification) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
-| a module's end | the classification of methods that waited; a `struct S <: X` without its `@implement` | the module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
+| a method's definition, before it is visible | a pirate in a `no_pirates` module; strict mode's walk; the same walk over the check's instances (§3, step 7): a method that would end a fixed call's instance, or a checked call's, and there make the operation ambiguous at the member or serve it with a result outside the declared one, inferred before the method exists; a method that is not bounded and not marked `@unbounded`, in a `bounded` module (its instance at the box, [compiler §6.7](compiler.md#67-the-definition-time-check)) | the definition hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
+| a module's end | the check of methods that waited; a `struct S <: X` without its `@implement` | the module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | an image's activation | the methods the records refuse and, in strict mode, winning pirates, left inactive with a warning | the image hook |
 | a membership | the ambiguity report | the runtime ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)) |
 | a `MethodError` at a method at a trait, or at an operation's function | the hints of [traits §11.4](traits.md#114-hints), the declared signature read from the contract | `Base.Experimental.register_error_hint` |
@@ -231,19 +232,20 @@ compiled_for(x) = Compiled(x)           # the library's
 **What a package image keeps:**
 - its traits' contracts, with their `TypeName`s;
 - its memberships, in the image's list ([compiler §9](compiler.md#9-images-and-the-machine-code-cache));
-- the members of patterns checked while it was built: the pairs (member type, trait) whose check passed. A session that loads the image does not check them again; their records (§3, step 7) are made again from the list, without inference, as a membership's are;
+- the members of patterns checked while it was built: the pairs (member type, trait) whose check passed. A session that loads the image does not check them again;
+- the check's instances (§3, step 7), with their edges, as code;
 - code compiled ahead.
 
-**The records of §3, step 7, for an image's memberships** are made again in the loading session from the runtime's list of the memberships images activated ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)), before a definition or an image's methods are checked: for each in force at a concrete member of a set with a contract, the member's old records forgotten first. The membership and the contract are the record; the library's dictionaries are a cache of them.
+**The check's instances for an image's memberships** are validated with the image at its load. A method of the session that ends one fails its validation: that instance alone is inferred again, and a result outside the declared one is reported ([traits §12.3](traits.md#123-strict-mode)).
 
-**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342); made again from an image's memberships: TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). The pattern members' answers in images: L-55. `bounded` and the classification in TraitWorld bb78d02 (W-109, W-111); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379.
+**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342); made again from an image's memberships: TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). The pattern members' answers in images: L-55. `bounded` in TraitWorld bb78d02 (W-111), reading the instance at the box in 6f86b4e (W-151); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379. The check's instances as the records, kept and validated with an image: Planned (the plan's D-3, 2026-11-15), with [traits T-129](traits.md#19-deviations) and [compiler C-115](compiler.md#deviations).
 
 ---
 
 ## 12. Compiling ahead
 
 While a package that declares `@implement X S` is precompiled:
-- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, fully bounded there, and concrete other arguments, a compile request at `S`'s type (at its key once keys are built);
+- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, bounded there, and concrete other arguments, a compile request at `S`'s type (at its key once keys are built);
 - for a method at a trait that erases by default, nothing: its instance at the box is compiled where the method is defined, by its definition-time check, in the method's own package (§11);
 - the targets of the table of a call's targets for `S` ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 
@@ -319,3 +321,4 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-64 | [§3](#3-implement) | `delete_membership` checks, takes the membership back through the runtime and forgets the member's records; the library's extension for Revise lists the memberships an expression declared and takes back those a revised file no longer has. | No `delete_membership`, no extension for Revise: Revise re-evaluates a changed `@implement` (a redeclaration) and leaves a deleted one in force. | TraitWorld `src/implement.jl`; `Project.toml` (no `[weakdeps]` entry for Revise) |
 | L-65 | [§2](#2-trait), [§1](#1-summary) | `@trait` writes whether the trait erases by default as the contract's bit, which the method definition reads; it marks the methods it makes `Expr(:meta, :no_forwarder)`. | The library keeps it in its own `Contract` (`attribute = :dynamic`), which only its macro `@erasing` reads (`erases`), and writes no bit Julia reads; `@default_compiled` sets the compiler's attribute bit (`jl_set_default_attribute`). The trait's methods carry no mark; `@erasing` is never written at them, and the check skips them by `_is_trait_method`. | TraitWorld `src/trait.jl` (the `attribute` field, `jl_set_default_attribute`), `src/contract.jl`, `src/erasing.jl` (`erases`) |
 | L-66 | [§12](#12-compiling-ahead), [§10](#10-basetraits) | Compiling ahead asks Julia's `precompile` of the signature at `S`'s type, and nothing per member for a method that erases; `asvector` stores its argument. | `ahead.jl` asks the attribute's instance (`jl_attribute_dynamic_bits`, `jl_attributed_mi`), the set's instance where the method's attribute is `Dynamic`. BaseTraits' `asvector` stores `keep(x)`, which is `x` there. | TraitWorld `src/ahead.jl` (`ahead_requests`, the request loop), `src/BaseTraits.jl` (`asvector`) |
+| L-67 | [§2](#2-trait) | `@trait` defines, at each kept form, a method of each equation's function that returns the parameter's value. | It defines none: `eltype` of a box or a wrapper is Base's fallback, `Any` ([traits T-130](traits.md#19-deviations)). | TraitWorld `src/trait.jl` (the expansion) |
