@@ -291,7 +291,7 @@ Branch `next` of the julia repository, from the baseline (`unified` 7b374f39ce, 
 
 ### 7.3 Branch `next-s3`: the third wave
 
-Branch `next-s3` of the julia repository, from `next` 9b6dacf5c5; worktree `julia-s3/`. The plan's D-9, D-11, D-12, D-13 (W-155, continued; [the plan](../plans/2026-11-15-next-iteration.md) §6, the third wave), beside W-160's work on `next`. The rows take the stack's numbers when the two branches are merged.
+Branch `next-s3` of the julia repository, from `next` 9b6dacf5c5; worktree `julia-s3/`. The plan's D-9, D-11, D-12, D-13 (W-155, continued; [the plan](../plans/2026-11-15-next-iteration.md) §6, the third wave), beside W-160's work on `next`; then stage 5, D-8 (W-157, the fourth wave). The rows of kind *general* are useful without traits: each stands as a patch to Base of its own (W-19). The rows take the stack's numbers when the two branches are merged.
 
 | # | Commit | What | Kind | Reference |
 |---|---|---|---|---|
@@ -302,5 +302,13 @@ Branch `next-s3` of the julia repository, from `next` 9b6dacf5c5; worktree `juli
 | s3-5 | c31fce89d7 | **Open issue 189:** the membership dispatch walk roots the member's substituted signature at once; strict mode's findings at an activation (`jl_activation_ambiguities`) rooted for the stock and the MMTk collectors. | runtime | [compiler §5.5](../reference/compiler.md#55-a-membership-invalidates-as-a-method-does) |
 | s3-6 | 213c759370 | **D-13:** a membership taken back as a method is deleted (`jl_delete_membership`: the entry's `max_world`, the change's world for the ranges of matches (`jl_membership_changed`), the membership's method ended, `jl_membership_removal_walk` over the methods at the sets and the member's supersets, the candidates and member states forgotten); an image holds the memberships in force; the membership's method alone cannot be deleted. | runtime | [compiler §4.3](../reference/compiler.md#43-worlds), §5.5, §5.6, §9 |
 
-- **How it is checked** (`experiments/unification/w155b/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the row's gate, the library's suite on its branch `s3`, and the forks' session digests.
+| s3-7 | 0a07a715ca | **W-157, open issue 195 (a):** an edge that names a callee by its MethodInstance names the callee's CodeInstance where one exists when the caller finishes, of the policy the call reaches, valid in the caller's worlds (`name_callee_code` in `finish!` and `codeinst_as_edge`); the backedge is the same. | compiler | [compiler §3.2](../reference/compiler.md#32-g2-as-a-predicate) |
+| s3-8 | 6b3175dc9c | **W-157:** a call of `!==`, which inference infers at its one method's `(Any, Any)`, is matched at its own signature, which its edge keeps (a backedge by the call's signature, §3.1). | compiler | [compiler §3.1](../reference/compiler.md#31-the-record) |
+| s3-9 | 297d19aca1 | **W-157, D-8:** error paths build their exception at a concrete signature: `Core.throw_inexacterror` takes its type as `::Type{T}`, `DomainError`'s two-argument constructor its message by its type, `string_index_err` its string by its type; the three-argument `TypeError` is an inner constructor. | general | [compiler §11](../reference/compiler.md#11-changes-useful-without-traits) |
+| s3-10 | ab96564f36 | **W-157, D-8:** the type joins (`typejoin`, `typesplit`, `tailjoin`, `full_va_len`, `promote_typejoin`, `_promote_typesubtract`, `rewrap_unionall`, `unwrapva`, `supertype` of a `DataType`) read type fields with `getfield` and call each other through `invoke`, as the stack's commit 2 has the introspection roots do. | general | compiler §11 |
+| s3-11 | 396cd65a48 | **W-157, D-8:** `yieldto` sets the task's result with `setfield!`, as `schedule` does. | general | compiler §11 |
+| s3-12 | 024755ee89 | **W-157, D-8:** `Val(x)` builds its singleton with `new{x}()`, an inner constructor, not by a call of the constructor at a type computed from the value. | general | compiler §11 |
+| s3-13 | bc844be7c0 | **W-157, D-8:** `IOContext(io, key => value)` stores the property through `ImmutableDict`'s own constructor by `invoke`. | general | compiler §11 |
+
+- **How it is checked** (`experiments/unification/w155b/README.md`; for s3-7 on, `experiments/unification/w157/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the row's gate, the library's suite on its branch `s3`, and the forks' session digests. Stage 5's rows also: the census of the deep class (`w157/census.jl`), the test files of the Base files they touch, and what plain Julia pays (E-479).
 
