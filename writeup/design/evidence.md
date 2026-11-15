@@ -204,7 +204,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
   | callees outside the own modules below the own facts instances: deep and ended; not deep and ended | 0 of 26,336; 281 of 6,508 | 0 of 22,054; 109 of 5,463 |
   | own facts instances that are not deep G2 | 1,934 of 3,465 | 2,156 of 3,567 |
   | the callees without the bit themselves | 1,596 in 385 method names | 1,167 in 316 |
-  | own image instances deep G2 with calls that only throw taken as run-time sites | 2,917 | 2,215 |
+  | own image instances deep G2 with calls that only throw taken as run-time sites at every caller, plain code included | 2,917 | 2,215 |
 
   - What the own instances most often rest on: error paths with a `Type` argument (`Core.throw_inexacterror`), `DomainError(::Any, ::Any)`, type joins at `Any`, the task code under a lock, `push!(::Vector{Any}, ::Any)`.
   - **Inferred by facts all the way down** (the forks; under the test bed): of 701 callees that are not deep and that own facts code calls directly, 520 keep the plain result type, 130 get a wider one (`Any` at 70), 51 another.
@@ -576,6 +576,15 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
   - **Image builds:** Base's `precompile` test, which builds package images, takes 251.6 s with the slot against 231.8 s without (+8.5 %, one run each); `core` 69.1 against 74.6 s. TraitWorld's image holds 15 % more machine code with the slot (13.7 against 11.9 MB) and builds in 25.9 against 24.2 s.
   - **Load:** `using TraitWorld` takes 2.11 s with the slot against 3.52 s without (one run each): a callee behind a slot is compiled at its first call, while a bound call has the JIT compile its callees with the caller. This is most of the workloads' difference above.
 - **`Callable` by a memoized method-table query inside subtyping:** 1.4 µs for the first query per closure type, 75 ns repeated, 18 ns for a memo hit, against an entry's 80–96 ns (E-256). In an emulation, its rule for a question that reaches itself gave answers that depended on the order of questions (E-267, `experiments/unification/x6/`).
+
+
+### The deep class on `next` (W-155; E-416 to E-419)
+
+`next` (the julia repository, from the baseline 7b374f39ce), TraitWorld-base e11c7cc, forks 439bae7; E-392's session, order A; product setting, strict mode off, one thread, one process per row. Counts of one run each. Scripts and logs: `experiments/unification/w155/`.
+
+- **The baseline reproduced** (E-416, `next` at 7b374f39ce, load 2.8–3.7): E-395's counts again, for the forks and upstream by facts. The class by a walk over the edges is 1,367 and 1,030 own image instances with the bit as built, 1,983 (41 %) and 1,382 (40 %) where an instance with binding edges only counts as having it; 2,564 and 1,791 reached instances are such.
+- **Calls that only throw keep the class small through plain code** (E-416 (c); open issue 194, GT-21). Left without an edge from code compiled by facts only, they move the forks' own image instances in the class from 1,983 to 1,986, upstream's from 1,382 to 1,383; from every caller, plain code included, to 2,917 (61 %) and 2,215 (63 %). Code compiled by facts calls 35 and 27 throw-only callees directly; 20 and 8 of them throw by way of a further callee.
+- **An edge that names a callee by its MethodInstance alone** (E-416 (b)): 141 and 3 instances in the class by the walk hold one; none whose callee's code is now outside the class.
 
 ### Each tension's cost on the round's second freeze (W-145, part 8)
 

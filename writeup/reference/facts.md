@@ -94,7 +94,6 @@
 
 - "The same world" is the caller's world. A task in an older world sees that world's methods and memberships.
 - "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)). Such an operation's result is asserted, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)): no path returns a value plain code would not. A closed type with a contract promises no result, so its operations raise nothing new (§13.1).
-- A call that only throws has its result `Union{}` asserted (§5). It raises a `TypeError` where plain code would go on only where its callee returns after a change below the call's own signature, which leaves the call's fact unchanged.
 - A method that strict mode refuses does not exist for plain code either.
 - The attribute of a trait argument ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)) changes speed, never a result: both attributes run the same methods.
 
@@ -103,7 +102,7 @@
 - a definition changes dispatch only where it wins, and Julia invalidates exactly the code with a fact there;
 - a membership changes dispatch only at its member, and invalidates exactly the code with a fact there or a folded negative of the pair (§10);
 - a package image's code is used only if its facts hold at load (§12);
-- a run-time site records nothing and dispatches as plain Julia does; so does a call that only throws, which records its fact (§5);
+- a run-time site records nothing and dispatches as plain Julia does;
 - no asserted effect applies over a run-time site (§8).
 
 G1 depends on no declaration. A wrong performance setting can make code slow, never wrong.
@@ -231,15 +230,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Caches at run-time sites** remember what dispatch decided, for the worlds where that holds, and are checked against the caller's world. They never decide which method runs ([compiler §8](compiler.md#8-world-checked-caches-at-dynamic-boundaries)).
 - A run-time site costs a dynamic dispatch, as in plain Julia.
 
-<a id="a-call-that-only-throws"></a>**A call that only throws.** In code compiled by facts, a call at a fact signature with one method, whose result is `Union{}` (the callee raises on every path), is dispatched when it runs, as a run-time site is.
-- It holds its fact: a definition at the call's signature invalidates the caller, as at any fact.
-- It holds no edge to the callee's code. So the callee's own invalidation does not reach the caller, and the callee does not count for the caller's class (§2.2).
-- Its result stays `Union{}`, with the callee's exception type and effects: no type is lost, and the code after it is unreachable.
-- Its result is asserted: a call that returns raises a `TypeError` at the site.
-
-**Why G1 holds.** The call is dispatched when it runs, in the caller's world. So the method that runs is the method plain code runs, and while it throws, it raises what plain code raises. A definition that changes which method runs invalidates the caller through its fact. Only a change below the call's own signature can make the callee return: the site then raises (§2.1).
-
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)). A call that only throws: compiler C-92.
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)).
 
 ---
 
@@ -495,7 +486,6 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class as built: compiler C-91 | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
-| a call that only throws, dispatched when it runs | compiler C-92 | §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |

@@ -558,7 +558,7 @@ Choices made while building bin A of [the schedule](../plans/2026-11-11-complete
 
 ## G2's predicate and the code slot: options not taken (2026-11-15)
 
-The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) §2; [the review of 2026-11-15](../reviews/2026-11-15-conceptual-design.md) §4.3, §4.7 (e) and its second addendum). The rules now: [facts §2.2](../reference/facts.md#22-g2-stable-caches), [§5](../reference/facts.md#a-call-that-only-throws); [compiler §3.2](../reference/compiler.md#32-g2-as-a-predicate), [§3.3](../reference/compiler.md#33-one-compiled-code-per-result).
+The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) §2; [the review of 2026-11-15](../reviews/2026-11-15-conceptual-design.md) §4.3, §4.7 (e) and its second addendum). The rules now: [facts §2.2](../reference/facts.md#22-g2-stable-caches); [compiler §3.2](../reference/compiler.md#32-g2-as-a-predicate), [§3.3](../reference/compiler.md#33-one-compiled-code-per-result).
 
 **G2's predicate**
 - **The G2 bit one level deep:** every dispatch edge at a fact signature, every inlined callee's own bit, result edges anywhere; G2 claimed for all code compiled by facts, with the exception of a facts caller's edges into plain code. Replaced by the deep class: the bit did not tell which code unrelated loads end. Of the forks' 49 instances the nine loads ended, 40 carried it, and no instance of the deep class was ended (E-395). It also missed instances that rest on bindings alone (open issue 187).
@@ -566,10 +566,14 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **A callee named by its MethodInstance alone counted in the class** (E-395's walk followed CodeInstance edges only). Not taken: such an edge holds a backedge, so the callee's invalidation reaches the caller from whatever code the callee gets (E-416 (b)).
 - **The demand rule** (the review's P3, second part): a request from code compiled by facts asks for a deep-G2 callee, and a callee outside the class is inferred again by the facts rule for that caller. Not taken now: more than half of a port's facts instances rest on such a callee, through 1,596 callees in 385 method names; inferred by facts all the way down, a fifth of 701 direct callees get a wider result (E-395). Looked at again after Base's surface (the plan's stage 5), by its gate's share.
 
-**A call that only throws**
-- **As a run-time site with no edge** (the plan's wording of D-6). Not taken: a stakeholder's definition at the call's signature that makes the call return (a throwing stub edited into an implementation) would not reach the caller, compiled against `Union{}`. The call holds its fact; only its edge to the callee goes.
-- **As a run-time site with the result `Any`.** Not taken: the code after the call becomes reachable, and a value merged with it loses its type: `x < 0 ? throw_inexacterror(…) : reinterpret(UInt, x)` is `Any`.
-- **Applied to plain code too.** Not taken: plain code keeps Julia's behaviour in the product setting ([facts §13.1](../reference/facts.md#131-the-product-setting)), and the assertion would add a way for plain code to raise.
+**A call that only throws** (the plan's D-6; the review's second addendum)
+- **Dispatched when it runs, from code compiled by facts:** a call at a fact signature with one method whose result is `Union{}` emitted as a dynamic call, its result kept and asserted, holding its fact and no edge to the callee. Not taken (mine, 2026-11-15; [open issue 194](../open-issues.md#2-design)):
+  - its reach: the forks' own image instances in the class go from 1,983 to 1,986 of 4,799, upstream by facts from 1,382 to 1,383 (E-416 (c)). E-395's 61 % and 63 % took the rule at plain callers in Base too;
+  - its edge: a method-table edge at the call's signature is not reached by a redefinition of the callee at the same signature (Julia invalidates a replaced method through its instances' backedges), and an edge to the instance carries the callee's own invalidation too;
+  - its residue: where a change below the callee makes it return, the site raises a `TypeError` where plain code goes on.
+- **The same with no edge at all** (the plan's wording, "a run-time site"). Not taken: a stakeholder's edit of the callee that makes it return would never reach the caller.
+- **The same with the result `Any`.** Not taken: the code after the call becomes reachable, and a value merged with it loses its type: `x < 0 ? throw_inexacterror(…) : reinterpret(UInt, x)` is `Any`.
+- **The same in code of either policy:** open, [open issue 194](../open-issues.md#2-design) (b), GT-21.
 
 **The code slot** (W-101, built 2026-11-07; [the section above](#w-101-the-code-slot-options-not-taken))
 - **What it was:** a static call that held only a result edge to its callee loaded its target through a slot of its own, checked against the task's world. When the callee was invalidated through its own edges, such a caller was marked, not invalidated, and revalidated at its next lookup where the callee's new result was equal. The compiler listed the result edges apart (`ResultEdges`); `JULIA_CODE_SLOT=0` turned it off.
