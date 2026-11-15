@@ -78,6 +78,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-19 | A plain member at a method of a trait that erases by default is boxed at each call (D-1's forwarder): 25.4 ns against the attribute's 7.3 (E-402); a box held 7.1; NetworkDynamics' workload not worse (E-403). The rest is codegen's run-time member test at the box's field (E-407: 9.5 ns where codegen decides it). Decided 2026-11-15: code generation decides the positive ([compiler §4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), C-110; W-160) | G-2 against G-8 | open issues §1, flagged |
 | GT-21 | Calls that only throw keep a port's code out of the deep class through Base's plain code; a rule that took them out would change plain code (E-416: 41 % against 61 % of the forks' own instances) | G-1 against G-4 | open issues §1, flagged; open issue 194 |
 | GT-23 | An extension of another package's internal function is a pirate: owner-only functions by default (D-9) | G-7 against G-1 and G-2 | open issues §1, flagged; [facts §3](reference/facts.md#3-fact-signatures); E-431 |
+| GT-24 | A wrapper given at `Callable{A, S}` is checked at entry for `A`, not on return for `S` (D-2; mine): the box raises where the wrapper returns | G-5 against G-2 | open issues §1, flagged; [traits §9](reference/traits.md#9-functions-callable) |
 
 ## 4. The synthesis
 
