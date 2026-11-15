@@ -355,7 +355,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
 - **`Callable`'s memberships** are entries, as any trait's: every function is a member of every `Callable{A, S}` ([compiler §7.4](compiler.md#74-callables-call)). A function's signature is checked where it is boxed, and its result on return from the box, in plain code and code compiled by facts alike. A method definition begins or ends no membership.
 
-**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: Planned (the plan's D-13, 2026-11-15), with [compiler C-106](compiler.md#deviations).
+**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: `next-s3` 213c759370 with TraitWorld `s3` 9e0e3f4 (the plan's D-13, 2026-11-15; E-459).
 
 ---
 
@@ -492,7 +492,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
-| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: Planned (D-13, compiler C-106) | §10 |
+| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: `next-s3` 213c759370 (D-13, E-459) | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: TraitWorld `s3` 2770c10, `next-s3` 5d2ec7ff85 (D-12, E-457) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
