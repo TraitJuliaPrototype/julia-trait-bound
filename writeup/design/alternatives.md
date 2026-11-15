@@ -41,6 +41,8 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - A required operation as the trait's method, replaced (2026-11-15)
 - A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
 - A membership that adds a type equality, replaced (2026-11-15)
+- A pirate silent unless strict mode is on, replaced (2026-11-15)
+- Memberships only grow, replaced (2026-11-15)
 
 ---
 
@@ -612,3 +614,23 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *(a) Keep the walk and state the limit:* a known unsound case left standing in the reference.
   - *(b) Replay every method that names the set as an invariant parameter* at each membership: common in trait code (`Vector{X}`, `Dict{K, X}`), at a cost per membership not measured.
   - *(c) Refuse a membership where a type `Union{X, S}` exists as a parameter's value:* it makes a membership's acceptance depend on which types a session happened to build.
+
+## A pirate silent unless strict mode is on, replaced (2026-11-15)
+
+- **What it was:** outside strict mode a winning pirate was followed silently, as in plain Julia; the code it ended was compiled again, and nobody learned of it (open issue 177 (c); [design §2.5](../design.md#25-the-default-following-pirates-and-what-it-gives-up), "who learns").
+- **Why replaced** (the plan's D-12, confirmed by the user's adoption of the plan, 2026-11-15; P7 (d) of [the review](../reviews/2026-11-15-conceptual-design.md)): the invalidation that ends the code holds the method and the code already, so telling costs nothing where nothing ends. Deep-G2 code is ended by nothing but a stakeholder's change or a pirate (E-395: no deep-G2 instance ended by nine unrelated loads), so a report there names exactly the pirates that cost such code.
+- **What replaced it:** three tiers: reported by default, refused in strict mode, silent only by choice ([traits §12.2](../reference/traits.md#122-pirates)).
+- **Not taken:**
+  - *Strict mode on by default:* it refuses at a definition, so a session's order of loads decides which package fails, and an image's load reports rather than refuses (traits §12.3); GT-2 prices its check at a load.
+  - *A report of every pirate by the letter:* 821 of 55,532 package methods in E-399's session are pirates by the letter, and most end nothing.
+
+## Memberships only grow, replaced (2026-11-15)
+
+- **What it was:** a membership, once declared, was never withdrawn; it could be redeclared. A positive answer folded through its entry with no backedge of its own.
+- **Why replaced** (the plan's D-13, confirmed by the user's adoption of the plan, 2026-11-15; the synthesis' decision 6, "the one item here a daily user would miss"): Revise could not work on memberships (open issue 180 (c)), and strict mode's miss at a pirate's membership could only be reported, not undone (traits T-112). Since a membership invalidates as a method does (2026-11-11) and has a method of its own that its folded positives rest on (2026-11-12), taking it back needs only what a method's deletion has.
+- **What replaced it:** `delete_membership(X, S)`, which behaves as a method's deletion ([traits §5.13](../reference/traits.md#513-taking-a-membership-back), [compiler §4.3](../reference/compiler.md#43-worlds), [§5.5](../reference/compiler.md#55-a-membership-invalidates-as-a-method-does)).
+- **Not taken** (mine, 2026-11-15):
+  - *The entry removed from its lists:* readers walk them without a lock, and a task in an older world needs the entry; it ends by its `max_world`, as a redeclared entry does.
+  - *Refused while compiled code relies on it,* outside strict mode: Revise's case is exactly code that relied on the membership; a method's deletion is followed, so the membership's is.
+  - *Values stored before converted or checked again* (an item of a `Vector{Shape}` whose type left `Shape`): Julia checks no stored value against a later change; each call on it dispatches by its type, so G1 holds.
+  - *Re-declaration at an empty contract* as the way to withdraw: a membership with no operations is still a membership, and the subtype answer stays.

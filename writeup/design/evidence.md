@@ -213,7 +213,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 - **The definition-time check against the method read at the box** (E-397; GT-12). `classify(m)` and the method inferred at its signature with `Dynamic{X}` in each trait argument's place give the same verdict at 157 of 165 methods of the library, the demonstrators, the ODE packages and the forks. The check reports and the box is clean at 7 (a value stored with its type, a front end's adapter, `promote_op`; six marked `@unbounded`); the box flags and the check passes at 1 (a field's name that is no constant). In a control of five uses outside the contract, both find four; `typeof(t)` is no fault at a box.
 - **`Callable` in the ports** (E-398). 63 methods name it, 20 type an argument by it. No two methods are told apart by a `Callable`'s argument signature where the other arguments are open to one call. Seven pairs set a `Callable` method beside an untyped one, a fallback for a function with no method at the signature: `ODEProblem`'s front end, `TraitIndexing.Getter`, `Tables.byrow`.
 - **What a load validates, by deep G2** (E-399; after E-325). The forks' CSV and DataFrames after the nine loads bring 7,367 instances from images: deep G2 50.3 % of them, 21.6 % of their edges, 50 of 392 calls checked by signature. The trait demonstrators: 1,608 instances, 63.6 %, 31.8 %, 10 of 52. Pirates by the letter among the session's 55,532 package methods: 821.
-- **GT-18's case on the head** (E-400; compiler C-88 (e)). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
+- **GT-18's case on the head** (E-400; compiler C-104). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
 
 ## 2. Run time
 
@@ -609,7 +609,7 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 | GT-15 | a family's members in a closed build | the table program builds and runs, 3.11 MB | E-383 |
 | GT-16 | fully typed mode raises where a build refuses | not timed in the round; the check and the build agree on 17 of 18 programs | E-384 |
 | GT-17 | fully typed is wider than no run-time site | the one program of 18 that differs (`bb_invokelatest`) | E-384 |
-| GT-18 | a membership changes type equality inside a parameter | not measurable here: the exact rule is not built (compiler C-88 (e)) |  |
+| GT-18 | a membership changes type equality inside a parameter | not measurable here: the rule, no type equality from a membership (D-11), is not built (compiler C-104) |  |
 
 The largest: GT-1's conservative path at a port's load, GT-12's first edit, GT-8's work after unrelated loads at a port. GT-1's was a deviation of the implementation (C-88 (c)), not the rule's cost: E-390 narrows it.
 
