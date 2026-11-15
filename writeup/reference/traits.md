@@ -698,7 +698,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 - **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapter that hands its argument to plain code is written so.
 - With keys, an optional extension (§7.2), a bounded method would share its code per key.
 
-**Status:** Planned (the plan's D-3, 2026-11-15, confirmed by the user's adoption of the plan; [decisions](../record/decisions.md) §2). Built in TraitWorld `unified` 6f86b4e (W-151; `src/atbox.jl`; E-401, E-406: E-397's mistakes found at their lines, no fault in the ports' 249 methods), with [compiler C-115](compiler.md#deviations): the instance is inferred apart, at stand-ins, and dropped at a load; an equation's function at the box: T-130. The fault classes, the stand-ins and what is not read: mine (2026-11-15, the prototype's). `bounded` on in trait modules with a switch: the user (2026-11-06, Q2 (a)); `@unbounded`: mine (2026-11-06).
+**Status:** Implemented (the plan's D-3, 2026-11-15, confirmed by the user's adoption of the plan; [decisions](../record/decisions.md) §2): TraitWorld `unified` 6f86b4e (W-151; `src/atbox.jl`; E-401, E-406: E-397's mistakes found at their lines, no fault in the ports' 249 methods); the instance read from Julia's cache and kept at a load (TraitWorld 9c0912b, `next` 75a7f1795b; W-160, E-440, E-444), with [compiler C-115](compiler.md#deviations) (read apart where a box's call runs the attribute's instance); an equation's function at the box: T-130. The fault classes, the stand-ins and what is not read: mine (2026-11-15, the prototype's). `bounded` on in trait modules with a switch: the user (2026-11-06, Q2 (a)); `@unbounded`: mine (2026-11-06).
 
 ### 7.4 The two kept forms: the box and the wrapper
 <a id="74-the-attribute-compiled-and-dynamic"></a>
@@ -1086,7 +1086,7 @@ spread(t::ColTable) = size(t)    # size(::Dynamic{ColTable}) has no method: not 
 leak(t::ColTable) = typeof(t)    # bounded: the box's type
 ```
 
-**Status:** Planned (the plan's D-3, 2026-11-15; [decisions](../record/decisions.md) §2). Built in TraitWorld `unified` 6f86b4e (W-151; `check_definitions` and the `bounded` refusal read the box), with [compiler C-115](compiler.md#deviations); the failure at the definition in a trait module, and so while a package is precompiled (TraitWorld `unified` bb78d02, W-111).
+**Status:** Implemented (the plan's D-3, 2026-11-15; [decisions](../record/decisions.md) §2): TraitWorld `unified` 6f86b4e (W-151; `check_definitions` and the `bounded` refusal read the box); an edit infers the instance at the box once, at its definition (TraitWorld 9c0912b, W-160, E-440), with [compiler C-115](compiler.md#deviations); the failure at the definition in a trait module, and so while a package is precompiled (TraitWorld `unified` bb78d02, W-111).
 
 ### 11.3 Errors and their messages
 
@@ -1333,7 +1333,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `like`, `withfields`: the library's conveniences | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`) | §6.6 |
 | keys and shared code: an optional extension | Optional, built late (W-110; open issue 147) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
-| bounded methods: the instance at the box, read where a method is defined | Planned (D-3); built in TraitWorld 6f86b4e (W-151), with compiler C-115, T-130; `bounded` and `@unbounded` TraitWorld bb78d02 (W-111) | §7.3, §11.2 |
+| bounded methods: the instance at the box, read where a method is defined | Implemented (D-3; TraitWorld 6f86b4e, W-151; read from Julia's cache, 9c0912b, W-160), with compiler C-115, T-130; `bounded` and `@unbounded` TraitWorld bb78d02 (W-111) | §7.3, §11.2 |
 | the two kept forms, the box and the wrapper; the value's type decides | Planned (D-1); built in TraitWorld 5e2ef71 to 6f86b4e (W-151), with T-126, T-127, compiler C-112, C-113 | §7.4–§7.6 |
 | `Dynamic{X}`, the box | Implemented (`unified` e692e57ab7, W-111; TraitWorld 5a9d19d; its test decided where the code is compiled, `next` 5b1900641f, W-160), with compiler C-113 | §7.7 |
 | erasing by default: the forwarder made where a method is defined | Implemented (`next` 8b1ec88a56, TraitWorld `unified` 21ae901; W-160), with T-125, compiler C-111 | §4.6, §7.8 |

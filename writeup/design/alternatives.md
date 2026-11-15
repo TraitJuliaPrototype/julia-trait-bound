@@ -660,6 +660,12 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *`@default_dynamic` as a hook on every method definition, in the library* (the prototype's note): the definition hook cannot narrow a method, and a method cannot be redefined while an image is built. Julia's method definition makes the forwarder instead ([compiler §6.3](../reference/compiler.md#63-the-forwarders)).
   - *A forwarder compiled per member type with a fast path in the library for a member by its definition* (`:new` where the declared supertype chain holds the trait, E-407): it serves one form of membership, where the compiler's decision serves all.
   - *`with_dynamic(x)` kept as a function:* a box needs the trait, which a value-level function cannot know; `Dynamic{X}(x)` is written where it is known.
+  - *In building the compiler's part (W-160, mine; [evidence §1](evidence.md#one-way-to-erase-the-compilers-part-w-160-e-436-to-e-444)):*
+    - a bit of the runtime that marks a trait's default, read by `jl_method_def`: the library owns the contract, so the runtime asks it (the expansion hook), as it asks at a member's first use;
+    - the statement's "cannot throw" flag as the carrier of inference's proof to code generation: a store's flag covers its bounds check too, so a store into a `Vector{Shape}` kept its run-time membership test (88 ns, E-441);
+    - the forwarder's box made by a library function: in code compiled by facts a call with an argument typed by the set is a run-time site, 670 ns a call; the box is made by `new` in the forwarder's body;
+    - the membership walk's conservative path at a bound the signature sets (the kept forms): each membership ended every instance of the methods at the kept forms, the check's among them (E-439: 14 entries at the ODE port's load); the replay at the method's own signature keeps them (E-444);
+    - the check reading the instance a box's call runs whatever its signature: on `next` that is the attribute's instance at the trait for a trait without the default, whose code hides an undeclared field read (the library's `test/attribute.jl`); such a method is read apart.
 
 **Terms retired:** *attribute* (of an argument at a call), *cast*, `keep`, `Kept{X}`, `kept_call`, *fallback by scope*, `first_seen`, the module option `dynamic`, `@default_compiled`.
 
