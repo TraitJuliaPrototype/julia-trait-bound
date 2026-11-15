@@ -14,7 +14,7 @@
 - **Nothing is skipped:** a CodeInstance is invalidated exactly when a definition changes dispatch at one of its facts, or something else it recorded changes.
 - Two guarantees follow:
   - **G1, identical or error:** code compiled by facts computes what plainly compiled code computes, in the same world, or raises.
-  - **G2, stable caches:** no load of an unrelated package invalidates code compiled by facts. Only a stakeholder's change or a winning pirate can.
+  - **G2, stable caches:** no load of an unrelated package invalidates code compiled by facts that is deep G2: code that rests on facts, bindings and memberships at any depth. Only a stakeholder's change or a winning pirate can.
 - **A membership invalidates as a method definition does:** the code that relied on its absence, and no other. It is a stakeholder's declaration, or a pirate's (§10).
 - **Each method has a policy:** facts, plain, or its caller's. One CodeInstance per MethodInstance and policy.
   - Methods of modules that declare `facts` (trait modules among them) are compiled by facts, whoever calls them.
@@ -73,6 +73,7 @@
   - an *absence edge* or *positive membership* (§10).
 
   Julia invalidates a CodeInstance when an edge breaks, and its callers through their edges to it.
+- <a id="term-deep-g2"></a>**Deep G2:** a CodeInstance is deep G2 when every dispatch edge of its record is at a fact signature and every callee among its edges is deep G2 ([compiler §3.2](compiler.md#32-g2-as-a-predicate)). Its code rests on facts, bindings and memberships only, at any depth. The class of such CodeInstances is the *deep class*.
 - <a id="term-run-time-site"></a>**Run-time site:** a call in code compiled by facts that records no edge (§5).
 - <a id="term-final"></a>**Final:** an answer no later definition can change (§3, "What is final"). A call is **settled** where only a stakeholder or a pirate can change its dispatch, or nothing can.
 - <a id="term-fully-typed"></a>**Fully typed,** in a setting: code in which every call, and every call in the code compiled into it, transitively, is settled in that setting (§3). **Fully typed in a session:** every such call is at a fact signature. **Fully typed when closed:** a closed build resolves every such call ([traits §14](traits.md#14-concreteness-and-fully-typed-mode)).
@@ -93,6 +94,7 @@
 
 - "The same world" is the caller's world. A task in an older world sees that world's methods and memberships.
 - "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)). Such an operation's result is asserted, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)): no path returns a value plain code would not. A closed type with a contract promises no result, so its operations raise nothing new (§13.1).
+- A call that only throws has its result `Union{}` asserted (§5). It raises a `TypeError` where plain code would go on only where its callee returns after a change below the call's own signature, which leaves the call's fact unchanged.
 - A method that strict mode refuses does not exist for plain code either.
 - The attribute of a trait argument ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)) changes speed, never a result: both attributes run the same methods.
 
@@ -101,7 +103,7 @@
 - a definition changes dispatch only where it wins, and Julia invalidates exactly the code with a fact there;
 - a membership changes dispatch only at its member, and invalidates exactly the code with a fact there or a folded negative of the pair (§10);
 - a package image's code is used only if its facts hold at load (§12);
-- a run-time site records nothing and dispatches as plain Julia does;
+- a run-time site records nothing and dispatches as plain Julia does; so does a call that only throws, which records its fact (§5);
 - no asserted effect applies over a run-time site (§8).
 
 G1 depends on no declaration. A wrong performance setting can make code slow, never wrong.
@@ -114,17 +116,17 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 ### 2.2 G2: stable caches
 
-> **G2.** A CodeInstance compiled by facts is invalidated only by a definition that changes dispatch at one of its facts, a redefinition of a binding it reads, a change of a callee's code it holds a code edge to, a change of a callee's result it holds a result edge to, or a membership of a pair whose absence it relied on. By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there; such a membership is declared by an owner of the trait or of the type, or is a pirate's (§10). A load that brings neither invalidates none of it, in any order.
+> **G2.** A CodeInstance compiled by facts that is deep G2 is invalidated only by a definition that changes dispatch at one of its facts or at a fact of a callee among its edges, at any depth; a redefinition of a binding that it or such a callee reads; or a membership of a pair whose absence it or such a callee relied on. By Lemma O, such a definition is a stakeholder's, or a pirate's that wins there; such a membership is declared by an owner of the trait or of the type, or is a pirate's (§10). A load that brings neither invalidates none of it, in any order.
 
 **Why it holds.**
-- Code compiled by facts holds only facts, bindings, and edges to callees as edges to the method table (§4).
+- A CodeInstance is invalidated when an edge of its record breaks, and when a callee among its edges is invalidated.
+- In the deep class every record, at any depth, holds only facts, bindings, memberships, and edges to callees in the class (§1, [compiler §3.2](compiler.md#32-g2-as-a-predicate)). So an invalidation reaches such code only through a fact, a binding or a membership.
 - By Lemma O, a definition that changes a fact is a stakeholder's or a pirate's; by Lemma D, a pirate that does not win changes nothing.
 - A membership invalidates only code that relied on its absence (§10). Its declarer owns the trait or the type, and is a stakeholder of that code, or is a pirate.
-- **A plain callee recompiled to an equal result** keeps a caller that holds only a result edge to it: the code slot revalidates the caller ([compiler §3.3](compiler.md#33-the-code-slot)).
 
-**Scope.** G2 covers code compiled by facts, as recorded per CodeInstance by the predicate of [compiler §3.2](compiler.md#32-g2-as-a-predicate). It does not cover:
-- plain code in the product setting;
-- a facts caller's code edges into plain code: when such plain code changes, the caller is compiled again;
+**Scope.** G2 covers code compiled by facts that is deep G2, as each CodeInstance records it ([compiler §3.2](compiler.md#32-g2-as-a-predicate)). It does not cover:
+- plain code in the product setting. Plain code in the class is stable by the same reasoning; G2 claims it as what code compiled by facts rests on;
+- code compiled by facts that rests on a callee outside the class, at any depth (a plain callee of Base that commits across a call at an abstract type): it is compiled again when that callee is. The share of a package's code compiled by facts that is in the class measures the reach of G2 ([evidence §1](../design/evidence.md#1-the-guarantee));
 - plain inference's answers behind `return_type` (§7), which change exactly when plain Julia's do.
 
 **Exceptions**, named wherever G2 is claimed:
@@ -138,11 +140,11 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new type that joins a trait (§10): no earlier code asked about it;
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); G2 as a predicate on every CodeInstance (compiler §3.2), satisfied by 99.8–99.9 % of the facts code under the test bed (E-278). A caller kept over a callee's equal result: the code slot (`unified`, W-101; compiler §3.3, gate `slot_cascade.jl`). A membership invalidates as a method does: `unified` a19d937eaa (W-140).
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); a membership invalidates as a method does: `unified` a19d937eaa (W-140). The deep class as the bit each CodeInstance records: compiler C-91; strict mode's walk by the class: F-25.
 
 ### 2.3 Two tiers
 
-| Tier | Code compiled by facts is invalidated only by | Kind of property |
+| Tier | Code compiled by facts in the deep class is invalidated only by | Kind of property |
 |---|---|---|
 | **Strict** (strict mode on) | a stakeholder's change | holds in every environment that loads without a `PirateError`, with the exceptions of §2.2 |
 | **Default** | a stakeholder's change, or a pirate that wins at one of its facts | measured per environment |
@@ -205,7 +207,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The caller records the fact as an edge, one per top-level split. "No method" and "ambiguous" are facts too.
 - Inlining, constant propagation, concrete and semi-concrete evaluation work as in plain Julia, on the callee's effects as inferred; asserted effects are limited by §8.
 - A global binding the code reads is an edge.
-- The callee's code is compiled under its own policy (§6), with a result edge or a code edge (§6.3).
+- The callee's code is compiled under its own policy (§6); the caller holds an edge to it (§6.3).
 
 ### 4.2 At a run-time site
 
@@ -216,10 +218,9 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 ### 4.3 Edges and invalidation
 
-- **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a CodeInstance it holds a code edge to is invalidated, or one it holds a result edge to changes its result. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
-- **A result edge** to a callee recompiled to an equal result is revalidated, not broken ([compiler §3.3](compiler.md#33-the-code-slot)).
+- **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a membership ends an absence it relied on, or a CodeInstance it holds an edge to is invalidated. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
 
-**Status:** Implemented on `unified` (W-100) for facts, binding edges, code edges as CodeInstance edges and positive memberships (compiler §3.1, with C-52); result edges and their revalidation with the code slot (W-101; compiler §3.3, with C-64 to C-67).
+**Status:** Implemented on `unified` (W-100) for facts, binding edges, edges to callees as CodeInstance edges and positive memberships (compiler §3.1, with C-52). A caller kept over a callee's equal result: compiler C-93.
 
 ---
 
@@ -230,7 +231,15 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Caches at run-time sites** remember what dispatch decided, for the worlds where that holds, and are checked against the caller's world. They never decide which method runs ([compiler §8](compiler.md#8-world-checked-caches-at-dynamic-boundaries)).
 - A run-time site costs a dynamic dispatch, as in plain Julia.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)).
+<a id="a-call-that-only-throws"></a>**A call that only throws.** In code compiled by facts, a call at a fact signature with one method, whose result is `Union{}` (the callee raises on every path), is dispatched when it runs, as a run-time site is.
+- It holds its fact: a definition at the call's signature invalidates the caller, as at any fact.
+- It holds no edge to the callee's code. So the callee's own invalidation does not reach the caller, and the callee does not count for the caller's class (§2.2).
+- Its result stays `Union{}`, with the callee's exception type and effects: no type is lost, and the code after it is unreachable.
+- Its result is asserted: a call that returns raises a `TypeError` at the site.
+
+**Why G1 holds.** The call is dispatched when it runs, in the caller's world. So the method that runs is the method plain code runs, and while it throws, it raises what plain code raises. A definition that changes which method runs invalidates the caller through its fact. Only a change below the call's own signature can make the callee return: the site then raises (§2.1).
+
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)). A call that only throws: compiler C-92.
 
 ---
 
@@ -267,7 +276,7 @@ The kind follows from the method and its module alone.
 ### 6.3 Calls between policies
 
 - **By inference.** A callee of another policy is inferred under its own policy, in an inference of its own. The caller uses its result type and effects, and holds:
-  - a **result edge** where it emits the call and uses its result as a type. The callee's recompilation to an equal result keeps the caller (§4.3);
+  - a **result edge** where it emits the call and uses its result as a type;
   - a **code edge** where it inlines the callee, propagates constants into it or evaluates it at compile time.
 - **Constant propagation from plain code into code compiled by facts** infers the callee again for the constants by the facts rules, in a call stack of its own. The result stays the caller's; the caller's edges are that inference's, facts on the path the constants take.
 - **Concrete and semi-concrete evaluation** from plain code into a facts callee use the callee's effects as facts inferred them, with a code edge; not where the callee holds a run-time site.
@@ -378,29 +387,29 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **Rule.** A definition is refused if all three hold:
 1. **It is a pirate:** a pirate's method, or a membership by neither the trait's owner nor the type's. An extension counts as its parent. Methods of Julia's own code are not checked.
-2. **It would win at a fact of code compiled by facts,** or of plain code such code rests on (for a membership: the answer that the type is no member, or a call at the type where a method at the trait would be selected): `return_type`'s plain answers, the compiler's code, and Julia's plain code the compiler calls.
+2. **It would win at a fact of code in the deep class** (§2.2) that code compiled by facts is or rests on (for a membership: the answer that the type is no member, or a call at the type where a method at the trait would be selected): the code compiled by facts, the plain callees in the class below it, `return_type`'s plain answers.
 3. **Its package is no stakeholder of that signature,** joint owners counted as owners.
 
 **When.** Before the method or the membership becomes visible: at a definition or a declaration, and for a package image's methods and memberships before they are activated (a refused one stays inactive; the load reports the `PirateError`).
 
-**How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each, the callers' backedges, transitively, through the plain code of rule 2, to code compiled by facts. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
+**How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each caller in the deep class, the callers' backedges, transitively, through code in the class, to code compiled by facts. A caller outside the class ends the walk: what rests on it is outside the class too. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
 
-**The property it secures:** code compiled by facts is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
+**The property it secures:** code compiled by facts in the deep class is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
 
-**Not refused:** a pirate that wins nowhere in code compiled by facts; any stakeholder's method or membership.
+**Not refused:** a pirate that wins nowhere in the deep class; any stakeholder's method or membership. A pirate that wins only in code outside the class is followed, as a load's method there is.
 
 **Effects.** The refused method or membership does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook. A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook. A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations). The walk by the deep class: F-25.
 
 ### 11.3 Strict mode's errors at their sources
 
-In strict mode, code compiled by facts, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or a warning:
+In strict mode, code compiled by facts in the deep class, in a session and in package images, is invalidated only by edits to code it depends on. Every other invalidating event is an error at its source, or a warning:
 
 | Source | In strict mode |
 |---|---|
 | a pirate loaded before a package image whose facts it breaks | reported at the image's load, naming the pirate, the code and the fact; the code is compiled again with the pirate |
-| a pirate that wins inside plain code that code compiled by facts rests on | refused at the definition |
+| a pirate that wins inside plain code in the deep class that code compiled by facts rests on | refused at the definition |
 | a package extension's winning method at a fact whose signature names none of its triggers' types | followed, as its parent's change, with a warning naming the method and the code it affects |
 | a binding redefined from another module that code compiled by facts reads | refused at the redefinition |
 | a deletion of a method that code compiled by facts depends on | refused at the deletion |
@@ -426,13 +435,14 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 **When it stays valid.**
 - **At load, the image's memberships are activated before its code is validated,** with the loading session's worlds.
 - A CodeInstance is used if all its facts hold in the loading session, its membership edges validate, and its code edges' callees are the same. Otherwise it is discarded, and compiled again when needed.
-- A fact breaks only by a stakeholder's change or a winning pirate loaded earlier, so which code is kept depends on the method table, not on the order of unrelated loads.
+- A fact breaks only by a stakeholder's change or a winning pirate loaded earlier. So which code in the deep class is kept depends on the method table, not on the order of unrelated loads.
+- **Code a session reaches only by a dynamic call** (another package's method, compiled for the image's code) is kept where it is deep G2, of either policy ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Code outside the class could be ended by an unrelated load, and is compiled where a session needs it.
 
 **A store across sessions** (paused): code compiled by facts may come from a cache of machine code kept across sessions and environments. A stored entry is used when its edges verify in the session by Julia's own validation of loaded code, and its content is the same: the lowered code of its method and of each method its code edges name, the layouts it reads, the values it embeds. Its world range comes from that validation. The record of [compiler §3.1](compiler.md#31-the-record) is kept complete for it.
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). The keep rule by the deep class: compiler C-91. A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
 
 ---
 
@@ -472,6 +482,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 - **The speed of code that is not fully typed.** A run-time site costs a dynamic dispatch, and its result is `Any`; Julia's heuristics for type-unstable code are gone there. The design tolerates such a slowdown where rewriting the code with traits recovers it. Fully typed code pays nothing.
 - **Protection for plain code** in the product setting.
 - **"Never invalidated"** outside the strict tier, and within it only with the exceptions of §2.2.
+- **Stable caches for code outside the deep class** (§2.2): code compiled by facts that rests on a callee outside the class is compiled again when that callee is.
 - **Identical values decided by inference** (§2.1).
 - **Threads:** untested.
 
@@ -482,16 +493,16 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | Item | Status | Where |
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
-| G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); a membership's invalidation (W-140) | §2.2 |
+| G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class as built: compiler C-91 | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
+| a call that only throws, dispatched when it runs | compiler C-92 | §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
-| result edges and the code slot | Implemented (`unified`, W-101), with compiler C-64 to C-67 | §4.3, §6.3 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
 | a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
-| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97; a pirate reported by default where it ends deep-G2 code: Planned (D-12; traits T-123, compiler C-105) | §11 |
+| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: Planned (D-12; traits T-123, compiler C-105) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |
@@ -507,3 +518,4 @@ Where the unified build falls short of this page.
 |---|---|---|---|---|
 | F-1 to F-23 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/facts.md` | — | — |
 | F-24 | [§7.2](#72-reflection) | `infer_return_type` and the definition-time check see the code of the method's policy. | `code_typed` and `Base.infer_return_type` infer with the default interpreter (`_default_interp`, plain): a facts method's top frame is inferred plainly, its callees under their own policy. TraitWorld's membership check reads it, so a member is checked by a mix of the two ([open issue 157](../open-issues.md#2-design)). Inferring it under the method's policy makes TraitMakie's `MappedColors` fail its check at `rgba`, a function barrier whose result facts types `Any` (157's case; found 2026-11-08 by E-311). The plain frame is not kept as the method's code (`unified` 50261bb4c7: `typeinf_type` infers it uncached; gate `n15_image_policy`). | `Compiler/src/reflection_interface.jl` (`_default_interp`), `base/reflection.jl`; TraitWorld `src/check.jl` |
+| F-25 | [§11.2](#112-strict-mode) | The walk follows callers in the deep class only, and refuses a pirate that would win at a fact of code in the class. | The walk follows every caller through plain code to code compiled by facts, in or out of the class. | TraitWorld `src/strict.jl` (`_winning_fact`, `_facts_dependent`) |
