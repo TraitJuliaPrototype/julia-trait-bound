@@ -507,6 +507,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |
+| what is final; a call settled; fully typed in a setting (a session, a closed build); a trimmed build as the facts rule with everything final | Implemented as the build's rules ([compiler §7.6](compiler.md#76-a-closed-build)), stated as one input: mine (2026-11-15; D-10); Planned: compiler C-102, C-103 and the report's two lists (traits T-122) | §1, §3, §13.3 |
 | standard libraries as owners | Open | §1 |
 
 ---
