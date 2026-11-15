@@ -38,6 +38,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Level 2 of unification: options not taken
 - The unified build: options not taken
 - A required operation as the trait's method, replaced (2026-11-15)
+- A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
 
 ---
 
@@ -566,3 +567,10 @@ Choices made while building bin A of [the schedule](../plans/2026-11-11-complete
 - **Not taken:**
   - *The trait's method kept, with a mark that it serves no member* (open issue 158 (a), built on `unified` 40401f67d8): its insertion still met every call at a plain abstract type that a member's subtype could reach (E-394).
   - *BaseTraits' operations as functions of its own* (GT-11's proposal (b)): a member's own `length` and `iterate` would no longer serve them.
+
+## A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
+
+- **What it was:** three mechanisms side by side: facts in a session, plain inference, and a closed build's list of rules of its own (compiler §7.6: the attribute's defaults turned, the split over every member, a cast that branches, `Core.attributed_call` refused, code inferred again in rounds). "Fully typed" meant what a closed build compiles, wider than code with no run-time site in a session, and the narrower sense had no word (GT-17).
+- **Why replaced** (the plan's D-10, mine, 2026-11-15; P5 (a) of [the review](../reviews/2026-11-15-conceptual-design.md)): the three differ in one input, which calls count as settled. Listed as rules, each case was found and added on its own: a program with no member left an operation unresolved (open issue 184 (a)), `invokelatest` needed the build script's rebinding (181 (b)).
+- **What replaced it:** what is final is the one input ([facts §3](../reference/facts.md#3-fact-signatures)); the closed rules follow from it ([compiler §7.6](../reference/compiler.md#76-a-closed-build)); a trimmed build is the facts rule with everything final ([facts §13.3](../reference/facts.md#133-trimmed-binaries)); fully typed has the setting as its parameter ([traits §14](../reference/traits.md#14-concreteness-and-fully-typed-mode)).
+- **Not taken:** GT-17's proposal (b), a closed build that refuses what a session leaves to run time: one notion, but plain programs that build today under `--trim` would be refused.

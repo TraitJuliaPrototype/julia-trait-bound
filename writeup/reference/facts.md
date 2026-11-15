@@ -74,7 +74,8 @@
 
   Julia invalidates a CodeInstance when an edge breaks, and its callers through their edges to it.
 - <a id="term-run-time-site"></a>**Run-time site:** a call in code compiled by facts that records no edge (§5).
-- <a id="term-fully-typed"></a>**Fully typed:** code in which every call is at a fact signature, and every call in the code compiled into it, transitively.
+- <a id="term-final"></a>**Final:** an answer no later definition can change (§3, "What is final"). A call is **settled** where only a stakeholder or a pirate can change its dispatch, or nothing can.
+- <a id="term-fully-typed"></a>**Fully typed,** in a setting: code in which every call, and every call in the code compiled into it, transitively, is settled in that setting (§3). **Fully typed in a session:** every such call is at a fact signature. **Fully typed when closed:** a closed build resolves every such call ([traits §14](traits.md#14-concreteness-and-fully-typed-mode)).
 - **Policy:** whether a method's code is compiled by facts or plainly (§6). *Facts:* the rules of this page. *Plain:* Julia's own inference.
 - **Code compiled by facts:** CodeInstances of the facts policy.
 - **Kinds of methods:** facts, boundary, plain and neutral methods (§6.1).
@@ -155,6 +156,12 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 ## 3. Fact signatures
 
+**What is final.** A call is inferred across where its dispatch is **settled:** only a stakeholder or a pirate can change it, or nothing can. Which calls are settled follows from one input, what is **final**: an answer no later definition can change.
+- **In a session,** what is final is what Julia fixes: a closed abstract type's members, and the types that are never members. Every other answer may change by a later definition. So a settled call is one that only a stakeholder or a pirate can change: a call at a fact signature (the criterion below), an owner-only function's at any signature.
+- **In a closed build,** every set's members and every function's methods are final: nothing is defined after the build. So every call whose targets the build can list is settled, and a closed build's rules follow ([compiler §7.6](compiler.md#76-a-closed-build)).
+- **Plain inference** takes every answer as final, and invalidation repairs what changes. G1 rests on its edges ([§2.1](#21-g1-identical-or-error)); G2 does not.
+- **Fully typed** is one definition with the setting as its parameter (§1): every call, in the code and in what it calls, is settled in that setting. A call settled in a session is settled when closed. A call settled only when closed (a value typed `Any` passed to a function with one method that is not owner-only) is dispatched when it runs in a session.
+
 **The criterion.** A signature is a fact signature when only a stakeholder or a pirate can change dispatch at it. A form not listed is a run-time site, until it is shown to meet the criterion and added.
 
 | Form | Example | Why only a stakeholder or a pirate can change it |
@@ -186,7 +193,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
 
 ---
 
@@ -449,13 +456,13 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 
 ### 13.3 Trimmed binaries
 
-- **A `--trim` build has no facts policy.** It compiles every method plainly.
-- **Why:** a binary is a closed world. Nothing loads later, so there is no cache to protect.
-- **For the same reason its sets are closed:** an operation on a value known only by its trait is compiled for the members the build has ([compiler §7.6](compiler.md#76-a-closed-build)).
+- **A `--trim` build is the facts rule with everything final** (§3, "What is final"). A binary is a closed world: nothing loads later, so every set's members and every function's methods are final, and there is no cache to protect.
+- **Where everything is final, plain inference's assumption holds.** So the build infers every method by Julia's own inference and records no policy ([compiler §2.6](compiler.md#26---trim)): no third rule.
+- **Its sets are closed for the same reason:** an operation on a value known only by its trait is compiled for the members the build has ([compiler §7.6](compiler.md#76-a-closed-build)).
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114). Stated as the facts rule with everything final: mine (2026-11-15; D-10).
 
 ---
 

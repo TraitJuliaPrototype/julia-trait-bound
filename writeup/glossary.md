@@ -38,6 +38,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Family](#family) ·
 [Forwarding (`by`)](#forwarding-by) ·
 [Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
+[Final and settled](#final-and-settled) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
 [G2: stable caches, the G2 bit](#g2-stable-caches-and-the-g2-bit) ·
@@ -394,9 +395,15 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Fully typed and fully typed mode
 
-- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. Fully typed code is exactly the code that compiles ahead in a closed build ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). `fully_typed(f, argtypes)` reports the calls that are not: it is the closed build's own check, run in the session. **Fully typed mode** is a check, per function or module, that raises where a build would refuse a call.
+- **Here:** code is **fully typed** in a setting when every call in it, and in the code compiled into it, is settled there: no later definition but a stakeholder's or a pirate's can change where it goes. **Fully typed in a session:** every call at a fact signature. **Fully typed when closed:** every call one a closed build resolves; this is exactly the code that compiles ahead ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). `fully_typed(f, argtypes)` reports the calls that are not fully typed when closed, and lists apart those a session leaves to run time: it is the closed build's own check, run in the session. **Fully typed mode** is a check, per function or module, that raises where a build would refuse a call.
 - **Origin:** the project's terms; Julia's `@inferred` and JET check related properties after the fact.
 - **Defined in:** [facts §1](reference/facts.md#term-fully-typed); [traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode); [compiler §2.7](reference/compiler.md#27-fully-typed-mode).
+
+### Final and settled
+
+- **Here:** an answer is **final** where no later definition can change it. A call is **settled** where only a stakeholder or a pirate can change where it goes, or nothing can. In a session what is final is what Julia fixes (a closed type's members, the types that are never members), so a settled call is a call at a fact signature. In a closed build every set's members and every function's methods are final, so every call the build can list is settled. This one input is what a session and a closed build differ in.
+- **Origin:** the project's terms. Java's and C#'s `final` and `sealed` close a class or a method to later definitions; a closed build makes everything so.
+- **Defined in:** [facts §1](reference/facts.md#term-final), [§3](reference/facts.md#3-fact-signatures); [compiler §7.6](reference/compiler.md#76-a-closed-build).
 
 ### G1: identical or error
 
