@@ -409,6 +409,7 @@ Waiting for evidence, not for the user:
      - (c) **P3's demand rule** (the review §4.3): a facts copy of each callee outside the class, in which these calls are run-time sites; 2,413 and 1,782 copies, and the types E-395 (c) found lost (19 % of direct callees widen).
      - (d) **`invoke` at the callee's own signature, case by case,** where Base's code knows the method it means (stage 5's rule for the type joins and `IOContext`): each a patch that stands without traits, each worth under a point now.
      - (e) **Accept:** G2's reach in a port is the measured share; the guarantee holds for the class.
+     - Not a lever: **the boundary flag** ([compiler §2.2](reference/compiler.md#22-the-method-flag)) on a culprit's caller gives a facts copy of that method only; its callees keep their plain code, so the culprit below still keeps the copy out of the class.
    - *Recommendation (mine):* (c) looked at again for upstream compiled by facts, which crosses its share criterion ([open issue 179](#2-design)); (a) and (b) for the synthesis; (d) only where a culprit carries a share alone.
 
 219. **A query that rests on dispatch names the matched instance, so any code of it ends the caller** (found 2026-11-15 by E-477; [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate); open issue 194 (b); G-1).
