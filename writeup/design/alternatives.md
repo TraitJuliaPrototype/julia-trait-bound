@@ -40,6 +40,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - A required operation as the trait's method, replaced (2026-11-15)
 - A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
 - A membership that adds a type equality, replaced (2026-11-15)
+- A pirate silent unless strict mode is on, replaced (2026-11-15)
 
 ---
 
@@ -585,3 +586,12 @@ Choices made while building bin A of [the schedule](../plans/2026-11-11-complete
   - *(a) Keep the walk and state the limit:* a known unsound case left standing in the reference.
   - *(b) Replay every method that names the set as an invariant parameter* at each membership: common in trait code (`Vector{X}`, `Dict{K, X}`), at a cost per membership not measured.
   - *(c) Refuse a membership where a type `Union{X, S}` exists as a parameter's value:* it makes a membership's acceptance depend on which types a session happened to build.
+
+## A pirate silent unless strict mode is on, replaced (2026-11-15)
+
+- **What it was:** outside strict mode a winning pirate was followed silently, as in plain Julia; the code it ended was compiled again, and nobody learned of it (open issue 177 (c); [design §2.5](../design.md#25-the-default-following-pirates-and-what-it-gives-up), "who learns").
+- **Why replaced** (the plan's D-12, confirmed by the user's adoption of the plan, 2026-11-15; P7 (d) of [the review](../reviews/2026-11-15-conceptual-design.md)): the invalidation that ends the code holds the method and the code already, so telling costs nothing where nothing ends. Deep-G2 code is ended by nothing but a stakeholder's change or a pirate (E-395: no deep-G2 instance ended by nine unrelated loads), so a report there names exactly the pirates that cost such code.
+- **What replaced it:** three tiers: reported by default, refused in strict mode, silent only by choice ([traits §12.2](../reference/traits.md#122-pirates)).
+- **Not taken:**
+  - *Strict mode on by default:* it refuses at a definition, so a session's order of loads decides which package fails, and an image's load reports rather than refuses (traits §12.3); GT-2 prices its check at a load.
+  - *A report of every pirate by the letter:* 821 of 55,532 package methods in E-399's session are pirates by the letter, and most end nothing.

@@ -367,11 +367,12 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 ### 11.1 What a winning pirate does
 
 - **By default it is followed,** as plain Julia follows it. The code holding the broken fact is invalidated and compiled again, once.
+- **And it is reported** where the code it ends is deep G2 (§2.2): a warning names the method, its definer and the code ([traits §12.2](traits.md#122-pirates)). Deep-G2 code is ended only by a stakeholder's change or a pirate, so the report tells exactly the pirates that cost such code. It is silent only by choice, and refused in strict mode (§11.2). The report reads what the invalidation itself holds: no walk before the definition and no cost at a load ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 - A pirate that wins nowhere changes nothing, in any order (Lemma D).
 - A pirate defined before the code is compiled is in the method table; the code's facts select it from the start.
 - A pirate loaded before a package image breaks the image's facts at that signature; that code is discarded at validation and compiled again.
 
-**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9).
+**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9). The report by default: Planned (the plan's D-12, 2026-11-15), with [traits T-123](traits.md#19-deviations) and [compiler C-105](compiler.md#deviations).
 
 ### 11.2 Strict mode
 
@@ -490,7 +491,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
 | a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
-| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97 | §11 |
+| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97; a pirate reported by default where it ends deep-G2 code: Planned (D-12; traits T-123, compiler C-105) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |

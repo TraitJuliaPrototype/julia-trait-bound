@@ -108,7 +108,7 @@ Step 2 is a switch. The default session leaves it off: a winning pirate is follo
   - default: invalidated only by a stakeholder's change or a pirate that wins at one of its facts. Whether one does is an empirical property of the environment ([evidence §1](design/evidence.md#1-the-guarantee)).
 - **What the default gives up:**
   - the kind of guarantee: a theorem becomes a measurement;
-  - who learns: an error at the pirate's definition becomes a silent recompile;
+  - who learns: an error at the pirate's definition becomes a report and a recompile, where the pirate ends code that only a stakeholder or a pirate can end ([traits §12.2](reference/traits.md#122-pirates)), and a silent recompile elsewhere;
   - trust in package images: in strict mode, a pirate loaded before an image is an error at its source ([facts §11.3](reference/facts.md#113-strict-modes-errors-at-their-sources)); by default it is a recompile;
   - order independence: by default the set of methods is order-independent, and only when code compiles depends on order. In strict mode compiled code's validity is order-independent, but the set of methods depends on order (a pirate defined after the code is refused, one defined before it is selected); a lint, `verify_main`, reports a fact of code compiled by facts that selects a pirate defined before it, and restores the symmetry ([facts §11.3](reference/facts.md#113-strict-modes-errors-at-their-sources)).
 - **Why it may be presented as a later, separate choice:** strict mode changes nothing at run time; G1 and the measurements do not depend on it; both tiers are stated; the exceptions of §2.2 are listed wherever the guarantee is claimed.

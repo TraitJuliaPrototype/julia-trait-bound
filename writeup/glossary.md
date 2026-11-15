@@ -326,7 +326,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Pirate and piracy
 
-- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own, or any method of another package's [owner-only function](#owner-only-function). A pirate changes compiled code only where it wins.
+- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own, or any method of another package's [owner-only function](#owner-only-function). A pirate changes compiled code only where it wins. By default it is followed, and reported where it ends code that only a stakeholder or a pirate can end (deep G2); strict mode refuses it.
 - **Origin:** Julia's own "type piracy", which its style guide advises against and Aqua.jl checks; here strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6.
 - **Defined in:** [facts §1](reference/facts.md#term-pirate), [§11](reference/facts.md#11-pirates-and-strict-mode); [traits §12.2](reference/traits.md#122-pirates).
 
