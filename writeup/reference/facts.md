@@ -54,9 +54,9 @@
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
 - <a id="term-owner-only"></a>**Owner-only function:** a function whose methods only its owner may define (§3).
-  - By default: a function of a module that declares `facts` (its submodules included) that the module neither exports nor declares `public`. A closure of such a module is one.
+  - By default: a function of a trait module (a module whose `owner_only` option is on, which `@trait_module` turns on; its submodules included) that the module neither exports nor declares `public`. A closure of such a module is one.
   - By declaration: a function its owner declares so in its module, exported or not ([traits §12.2](traits.md#122-pirates)).
-  - Not by default: the internal functions of Base and the standard libraries, and the functions of a module that does not declare `facts`. Packages extend Base's internals as a matter of course.
+  - Not by default: the internal functions of Base and the standard libraries, and the functions of a module that declares only `facts` (a package compiled by facts with one line, the porting path's first step). Packages extend such internals as a matter of course.
 - <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of the types in its own signature, judged at every signature it applies to. Of a method of an owner-only function: the function's owner alone. A `Union`'s members count one by one. A `Vararg{T}` tail contributes `T` only where it has at least one element.
 - **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s` at any depth (each argument type, its parameters, a `Type{T}`'s `T`, a value parameter's type) and of their supertypes. **A type's supertypes include the traits it is a member of,** in the world in question. Of any signature of an owner-only function, concrete or not: the function's owner.
 - <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. Julia's type piracy, strict for unions; and a method of an owner-only function by anyone but its owner, whatever types it names.
@@ -185,14 +185,14 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a `Vararg` tail of an abstract or kind element.
 
 **Owner-only functions** (the row above; §1):
-- **By default** each function of a module that declares `facts`, its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
+- **By default** each function of a trait module (its `owner_only` option on: `@trait_module`'s default, [traits §12.2](traits.md#122-pirates)), its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
 - **By declaration** a function's owner makes any function of its module owner-only, an exported one included ([traits §12.2](traits.md#122-pirates)).
-- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that does not declare `facts`. The facts mode's default does not depend on how the caller is compiled: the callee's module decides.
+- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that declares only `facts`, as an existing package does on the porting path's first step: its internal functions are the interface other packages extend (E-431). The default does not depend on how the caller is compiled: the callee's module decides.
 - **The call is inferred as plain inference infers it** at its signature, the callee under its own policy, with Julia's ordinary dispatch edge. Where Julia's method matching gives up (more matches than `max_methods`), the call is a run-time site, as at any fact ([compiler §1.3](compiler.md#13-run-time-sites)).
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key). Owner-only functions: `next-s3` e483299622 with TraitWorld `s3` 4210852, 4f34916 (the plan's D-9, 2026-11-15; E-458), but for a later `public` or `export`, which ends nothing ([compiler C-130](compiler.md#deviations)). The default for trait modules, not for every module that declares `facts`: mine (2026-11-15; E-431, GT-23 (c)). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
 
 ---
 
@@ -355,7 +355,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
 - **`Callable`'s memberships** are entries, as any trait's: every function is a member of every `Callable{A, S}` ([compiler §7.4](compiler.md#74-callables-call)). A function's signature is checked where it is boxed, and its result on return from the box, in plain code and code compiled by facts alike. A method definition begins or ends no membership.
 
-**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: Planned (the plan's D-13, 2026-11-15), with [compiler C-106](compiler.md#deviations).
+**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: `next-s3` 213c759370 with TraitWorld `s3` 9e0e3f4 (the plan's D-13, 2026-11-15; E-459).
 
 ---
 
@@ -371,7 +371,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 - A pirate defined before the code is compiled is in the method table; the code's facts select it from the start.
 - A pirate loaded before a package image breaks the image's facts at that signature; that code is discarded at validation and compiled again.
 
-**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9). The report by default: Planned (the plan's D-12, 2026-11-15), with [traits T-123](traits.md#19-deviations) and [compiler C-105](compiler.md#deviations).
+**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9). The report by default: TraitWorld `s3` 2770c10 with `next-s3` 5d2ec7ff85 (the plan's D-12, 2026-11-15; `test/report.jl`, E-457).
 
 ### 11.2 Strict mode
 
@@ -486,14 +486,14 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
 | G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class `next` 7063158f42 (W-155) | §2.2 |
-| fact signatures | Implemented (`unified`, W-100); with keys, two more forms: an optional extension ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
+| fact signatures | Implemented (`unified`, W-100); with keys, two more forms: an optional extension ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)); owner-only functions `next-s3` e483299622 (D-9, E-458), with compiler C-130 | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
-| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: Planned (D-13, compiler C-106) | §10 |
-| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: Planned (D-12; traits T-123, compiler C-105) | §11 |
+| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: `next-s3` 213c759370 (D-13, E-459) | §10 |
+| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: TraitWorld `s3` 2770c10, `next-s3` 5d2ec7ff85 (D-12, E-457) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
 | product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |

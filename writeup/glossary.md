@@ -313,7 +313,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Owner-only function
 
-- **Here:** a function whose methods only its owner may define. By default, each function of a module that declares `facts` (a trait module among them) that the module neither exports nor declares `public`; also any function its owner declares `@owner_only`. A method of it by another package is a pirate's, whatever types it names. So a call of it is a fact at any signature, and code compiled by facts infers it as plain Julia does. Base's internal functions are not owner-only.
+- **Here:** a function whose methods only its owner may define. By default, each function of a trait module (its option `owner_only`, which `@trait_module` turns on) that the module neither exports nor declares `public`; also any function its owner declares `@owner_only`. A method of it by another package is a pirate's, whatever types it names. So a call of it is a fact at any signature, and code compiled by facts infers it as plain Julia does. Base's internal functions are not owner-only, nor those of a module that declares only `facts`.
 - **Origin:** the project's term. Julia's `public` (1.11) marks what others may use; Rust's private items and sealed traits cannot be implemented outside their crate.
 - **Defined in:** [facts §1](reference/facts.md#term-owner-only), [§3](reference/facts.md#3-fact-signatures); [traits §12.2](reference/traits.md#122-pirates).
 

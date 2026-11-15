@@ -47,6 +47,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - The classification, replaced by the instance at the box (2026-11-15)
 - `Callable` by its methods, replaced (2026-11-15)
 - Keys in the language's core, moved to the optional extensions (2026-11-15)
+- Owner-only by default in every module that declares `facts`, not taken (2026-11-15)
 
 ---
 
@@ -136,7 +137,7 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 **Taken up again in another form (2026-11-15, the plan's D-9): owner-only functions** ([facts §1](../reference/facts.md#term-owner-only), [§3](../reference/facts.md#3-fact-signatures)).
 - *Why the earlier rule was unsound.* It recorded a fact at a non-public function's abstract signature, while ownership left another package free to extend that function at its own type: such a method was no pirate, since its definer owned a type in it. So a definition by a non-stakeholder could change the fact, Lemma O failed for the abstract signature, and G2 broke (acceptance G2.1). It also reached Base's internals, which packages extend as a matter of course.
 - *Why this one is not.* It changes the definition of a pirate together with the fact rule: a method of an owner-only function by anyone but its owner is a pirate, whatever types it names. Then Lemma O holds at every signature of such a function: a method that is no pirate is its owner's, and its owner is a stakeholder of every call of it. Such a pirate is followed by default, with Julia's invalidation (G1 holds), and refused in strict mode and under `no_pirates`.
-- *Its scope is the facts mode's own:* by default only the functions of a module that declares `facts`, neither exported nor `public`; Base's internals stay outside. The acceptance case that failed (now `AC_15_type_value_extension.jl`) extends a function of a module that declares nothing, so it stays as it is.
+- *Its scope:* by default only the functions of a trait module, neither exported nor `public` ([below](#owner-only-by-default-in-every-module-that-declares-facts-not-taken-2026-11-15)); Base's internals stay outside. The acceptance case that failed (now `AC_15_type_value_extension.jl`) extends a function of a module that declares nothing, so it stays as it is.
 - *The measurement that made it worth taking up again:* E-396, a seventh of a port's run-time sites and a fifth to two fifths of idiomatic trait code's are at such functions.
 
 **The alternative recorded with it, (b): run-time dispatch under the policy.** A run-time site looks up and invokes the policy's code for the run-time types, so that dynamically reached code, ordinary code included, is protected too, at the cost of changing "run-time sites behave as plain Julia" and a cost per call. It was built in the package in s28 (TraitWorld 1d93677) and is part (C) of the compiler today.
@@ -701,3 +702,12 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **Why moved** (the plan's D-14, confirmed by the user's adoption of the plan, 2026-11-15; P7 (e) of [the review](../reviews/2026-11-15-conceptual-design.md); the synthesis' decision 2): four of 148 memberships in the ports share a key (E-263); keys took the opening of the chapter a newcomer reads to learn how arguments are compiled (G-8); the user had made them "purely a performance optimization" (2026-11-11).
 - **What replaced it:** [the page of optional extensions](../reference/extensions.md), §1; a pointer where each section stood; the conveniences said to be the library's ([traits §5.5](../reference/traits.md#55-forwarding-with-by), [§6.5](../reference/traits.md#65-results)).
 - **Not taken:** *keys dropped from the design:* the user kept them, to build late (2026-11-06: "Keep them optional and build them late"), and open issue 147's use case waits for them.
+
+## Owner-only by default in every module that declares `facts`, not taken (2026-11-15)
+
+- **What the plan's D-9 wrote:** each function of a module that declares `facts`, neither exported nor `public`, is owner-only by default.
+- **Why not taken** (GT-23, choice (c), mine, 2026-11-15; E-431): declaring `facts` is the porting path's first step, one line in an existing package. Under that default the step changes who is a pirate: in E-431's session of the upstream packages by facts, 86 methods by CSV, DataFrames and StructArrays of Tables' internal interface (`istable`, `getcolumn`, …) would be pirates, 15 of them relied on by code compiled by facts. The library's own lowering would make 8 more, in a member's module at the library's internal functions.
+- **What is taken:** the default holds in a trait module, whose option `owner_only` `@trait_module` turns on ([facts §3](../reference/facts.md#3-fact-signatures), [traits §12.2](../reference/traits.md#122-pirates)). A trait module states its interface by `export` and `public`.
+- **Not taken either:**
+  - *(a) No default; the declaration only:* the facts at a package's own helpers (E-396's run-time sites) would wait for each package to declare them.
+  - *(b) The default with a list of exceptions by package:* a list of packages in the compiler's rule.
