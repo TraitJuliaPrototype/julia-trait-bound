@@ -649,8 +649,9 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 - **Stage 5's head** (E-477, E-478; seven commits): the forks 2,654 of 4,204 own facts instances (63.1 %; own image instances 3,852 of 5,593, 68.9 %); upstream by facts 2,818 of 3,567 (79.0 %; 79.5 %). After the first five commits: 58.5 % and 70.7 %.
 - **The loads:** the nine unrelated loads end no own instance in the class (156 of the forks' own image instances, 14 and 5 of upstream's, none with the bit). Below the own code they end 30 and 12 instances in the class, all `vcat(::Int64, ::Vector{Int64})`'s chain, by SparseArrays' `_cat` at Base's types: a standard library's method, which G2 counts as Julia's own (a stakeholder's change). Before `Val`'s patch that chain was outside the class.
 - **What is left** (open issue 218): Base's plain code where types are not known. The copies P3's demand rule would make: 2,413 instances below the forks' facts code, 1,782 below upstream's. Ownership by declaration of Base's functions no package extends: +0.1 to +1.0 point alone.
-- **What plain Julia pays** (E-479): see below.
-- **P6's count** (E-480): see below.
+- **The control** (E-478; the head against the baseline's system image on the same runtime, alternating, twice each, load 3 to 28): the work after the nine loads 1.45–1.46 s against 1.46–1.48 s (upstream by facts), 2.31–2.34 s against 2.33–2.34 s (the forks); first work equal. The share moved, these times did not: the forks still lose 156 own image instances to the loads, their entry chain, whose cones hold open issue 218's culprits.
+- **What plain Julia pays** (E-479): nothing measurable. First work of plain upstream CSV and DataFrames 3.355–3.359 s against 3.351–3.370 s (load 4, 3 runs each); the system image +0.16 % (212.05 against 211.71 MB); Base's stage of the build 32.3 against 32.6 s; Base's `precompile` test 223 s (E-419: 224 s).
+- **P6's count** (E-480): after the nine loads, deep code holds 68.3 % of the instances the forks' CSV and DataFrames bring from images, 49.9 % of the edges, 18.4 % of the calls by signature (E-399: 50.3 %, 21.6 %, 12.8 %). Most of the instances, under a quarter of the lookups: P6 stays ended by E-399's criterion.
 
 ### Each tension's cost on the round's second freeze (W-145, part 8)
 
