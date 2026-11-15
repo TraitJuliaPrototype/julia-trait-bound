@@ -30,7 +30,6 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [`Dynamic{X}`](#dynamicx) ·
 [Edge](#edge) ·
 [Entry](#membership-and-entry) ·
-[Erased key](#key) ·
 [Eraser `IOContext{IO}`](#eraser-iocontextio) ·
 [Erasing by default](#erasing-by-default-and-the-forwarder) ·
 [Fact and fact signature](#fact-and-fact-signature) ·
@@ -180,7 +179,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Forwarding (`by`)
 
-- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
+- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. A convenience of the library, outside the language's core: the field's type is the receiver type, and with keys (an optional extension) every type that forwards to a field of that type could share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
 - **Origin:** Kotlin's `by`; Go's struct embedding. Rust writes it by hand or through `Deref`.
 - **Defined in:** [traits §5.5](reference/traits.md#55-forwarding-with-by).
 
@@ -208,9 +207,9 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Key
 
-- **Here:** what a trait's contract sees of a member's type: the receiver type (the member, the forwarding field's type, or none), the declared fields' types and the parameter values. Members with equal keys could share one compiled copy of a method. The **erased key** `X{p…}` is the trait at its parameter values: code compiled once. Keys are Optional, built late; until then a method compiled per key is compiled per type.
+- **Here:** what a trait's contract sees of a member's type: the receiver type (the member, the forwarding field's type, or none), the declared fields' types and the parameter values. Members with equal keys could share one compiled copy of a bounded method. An optional extension, built late, on which no rule depends.
 - **Origin:** the project's term. Go 1.18 compiles one generic instance per "GC shape"; .NET shares generic code among reference types. Julia compiles per concrete argument type.
-- **Defined in:** [traits §7.2](reference/traits.md#72-the-key); [compiler §6.1](reference/compiler.md#61-the-key-as-a-type).
+- **Defined in:** [extensions §1](reference/extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike).
 
 ### Bounded and unbounded
 <a id="fully-bounded-and-unbounded"></a>
@@ -263,7 +262,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `like` and `withfields`
 
-- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. A method that uses them is unbounded at that argument.
+- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. They are the library's conveniences, outside the language's core.
 - **Origin:** the project's terms; Base's `similar` is the closest Julia idiom.
 - **Defined in:** [traits §6.5](reference/traits.md#65-results); [lowering §8](reference/lowering.md#8-like-and-withfields).
 

@@ -174,8 +174,6 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 | **A call of an owner-only function, at any signature** (§1) | `helper(x)` with `x::Any`; `limits(p.pos)` with `p.pos::Positions` and `limits` the package's own internal function | Lemma O with the wider reading of a pirate (§1): a method of it by anyone but its owner is a pirate's, whatever types it names. So the methods dispatch can select there are its owner's, or a pirate's. |
 | **A concrete `Vararg` tail** | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners: one edge for the family. |
 | **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | A definition changes the resolution only if its own signature contains the declared one: its definer is a stakeholder of it, or a pirate. |
-| **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
-| **A keyed argument passed on,** where one method is selected for every member with that key | `g(t)` with `t` keyed for `ColTable` | A method of `g` defined later invalidates through the edge at the key; so does a later member with that key that another method of `g` would take ([compiler §6.4](compiler.md#64-calls-from-code-compiled-per-key)). |
 
 **Which unions split** is Julia's cost model exactly: the union lengths multiplied, the largest counted as 2, a split where the cost is at most `max_union_splitting` (4 by default).
 
@@ -194,7 +192,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
 
 ---
 
@@ -488,7 +486,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
 | G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class `next` 7063158f42 (W-155) | §2.2 |
-| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
+| fact signatures | Implemented (`unified`, W-100); with keys, two more forms: an optional extension ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |

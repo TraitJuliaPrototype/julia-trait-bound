@@ -21,7 +21,7 @@
 | [3. The dependency record and the deep class](#3-the-dependency-record-and-the-deep-class) | What each CodeInstance assumed; G2 as a predicate over its edges at any depth; one compiled code per result |
 | [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections, negatives folded with an edge |
 | [5. Dispatch](#5-dispatch) | Methods at sets in the method table, specificity, the ambiguity report, a membership's invalidation |
-| [6. Keys, the kept forms and the definition-time check](#6-keys-the-kept-forms-and-the-definition-time-check) | The box and the wrapper as types of `Core`; the forwarders made where a method is defined; the definition-time check; keys (Optional) |
+| [6. The kept forms and the definition-time check](#6-the-kept-forms-and-the-definition-time-check) | The box and the wrapper as types of `Core`; the forwarders made where a method is defined; the definition-time check. Keys: [an optional extension](extensions.md) |
 | [7. Operations on a value typed by its trait](#7-operations-on-a-value-typed-by-its-trait) | Declared results, the split over members, the table of targets, `Callable`'s call, `IO`'s contract |
 | [8. World-checked caches](#8-world-checked-caches-at-dynamic-boundaries) | Caches at dynamic boundaries checked against the caller's world |
 | [9. Images and the machine-code cache](#9-images-and-the-machine-code-cache) | Memberships in package images; a record complete enough for a cache of machine code |
@@ -76,7 +76,7 @@ jl_set_owner_only(F)                    # the declaration, on F's TypeName
 
 **Not gated:** `invoke` and `hasmethod` at a declared signature resolve it as Julia does, with an invoke edge at the declared signature ([facts §3](facts.md#3-fact-signatures)).
 
-A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
+An operation on a value typed by its trait: §7. With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key).
 
 **Status:** Implemented on `unified` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`. Owner-only functions: Planned (D-9, 2026-11-15), with C-101; `is_owner_only`, the bit and the binding edge for a later `public` are mine (2026-11-15).
 
@@ -315,7 +315,7 @@ The rest of the record needs nothing more: a binding edge, an absence edge (only
   - the set;
   - the member pattern: `S`, `S{T} where T`, an abstract type, a set instance, `Type{S}`;
   - the set's instance for the pattern (`X`, `X{T}`);
-  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (§6.1);
+  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (what keys would read, [extensions §1.2](extensions.md#12-the-key-as-a-type));
   - `min_world` and `max_world`;
   - the declaring module;
   - the forwarding field, if any.
@@ -335,7 +335,7 @@ The rest of the record needs nothing more: a binding edge, an absence edge (only
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **An entry ends as a method's deletion ends a method.** It ends in two ways, and is never removed from its lists, which readers walk without a lock; a reader skips an entry not live in its world.
-  - A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
+  - A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled for the old membership and the callers that folded against it.
   - **A membership taken back** (`jl_delete_membership`): under the world counter's lock its entry gets `max_world = counter` and its method (§5.6) is deleted in the same world; the walk for the removal runs (§5.5); then the counter advances. The entry leaves its set's candidate index and the image's list of memberships, and the member hook's kept answers for the pair (§10.4) go with it. A pattern's entry ends every member it made.
   - A trait's membership in its supertraits and `Dynamic{X}`'s are the trait's declaration, and a member by its definition is its type's: none is taken back alone ([traits §5.13](traits.md#513-taking-a-membership-back)).
 - **`Callable`'s memberships** are entries like any set's (§7.4): every `Function` by Core's entry.
@@ -386,7 +386,7 @@ Questions about open sets are answered in three layers:
 
 ### 4.8 Negatives fold with an edge; positives through entries
 
-- `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set or a key (§6.1); it is cached on the type object. `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
+- `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set (or, with keys, a key: [extensions §1.2](extensions.md#12-the-key-as-a-type)); it is cached on the type object. `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
 - **A negative answer about a type and a set folds where it holds in the world, with an edge.** For a concrete type `S` and a set `X` declared by the library, "`S` is not an `X`" is folded, and the code records an absence edge at the pair (§5.6). A membership of the pair declared later invalidates that code, as a method definition invalidates a call that found no method ([traits §3.4](traits.md#34-open-and-closed), [facts §10](facts.md#10-memberships)). An image's code with such an edge is checked when the image is validated (§9).
   - It holds wherever the code is compiled: while a declarer of the pair is still loading, and for a type or set of `Main`.
   - **No edge is needed** for a closed abstract type or a type with the `never_member` bit: their answer never changes.
@@ -416,14 +416,14 @@ Core.All{X, Y}
 - **Normal forms read declared supertypes only.** A membership never absorbs a component of an `All` or a `Union`: `Union{S, X}` stays as written where `S` is a member of `X` by an entry. So a type expression gives the same type object in every world, and two types inside an invariant parameter are equal in every world or in none (§4.5).
 - `jl_type_intersection` of two sets, or of a set and an abstract type, that no entry relates is `All{X, T}`, with their known common members' exactness kept (§4.7). A type meets an intersection as the intersection of its meets with each component.
 - `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
-- **At an argument typed by an intersection,** the key is the tuple of the member's keys for each component (§6.1); the split's candidates are the first component's that are members of every component (§7.2).
+- **At an argument typed by an intersection,** the split's candidates are the first component's that are members of every component (§7.2).
 - The negative-fold rule (§4.8) treats each component.
 - It takes any number of components: `All{X, Y, Z, …}`.
 - **The encoding.** `All{X, Y}` is the abstract type `Core.All{Tuple{X, Y}}`, built in its normal form; `Core.All{Tuple{X, Y}}` written so is the same type. The wrapper `Core.All` is an artefact of the encoding, not a type to write. No code reads an intersection's name, supertype or parameter as those of an ordinary type: every site that does (the typemap's names, the fold gates, type instantiation, the variable-occurrence walks) has a branch for it.
 - **In the normal form, further:** a variable as a component is in a covariant position, and the diagonal rule applies to it; a `Union` component distributes (`All{Union{A, B}, Y}` is `Union{All{A, Y}, All{B, Y}}`); a component that is itself an intersection under a `UnionAll` is flattened; two closed components whose intersection Julia computes exactly are replaced by it.
 - **Its name** is not exported by `Core` ([open issue 148](../open-issues.md#2-design)).
 
-**Status:** Implemented on `unified` 8a9144928e (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"), but for the key at an intersection (W-110) and the split's candidates (W-109). The encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft). The equality inside an invariant parameter by declared structure: Planned (D-11), with C-104.
+**Status:** Implemented on `unified` 8a9144928e (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"), but for the split's candidates (W-109). The encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, and candidates at an intersection: mine (2026-11-06, the reviews of the draft). The equality inside an invariant parameter by declared structure: Planned (D-11), with C-104.
 
 ### 4.10 Type values
 
@@ -536,23 +536,15 @@ At `jl_declare_membership`, the report asks which methods the membership makes a
 
 ---
 
-## 6. Keys, the kept forms and the definition-time check
+## 6. The kept forms and the definition-time check
 <a id="6-keys-and-the-attribute"></a>
+<a id="6-keys-the-kept-forms-and-the-definition-time-check"></a>
 
 ### 6.1 The key as a type
 
-```julia
-Core.TraitKey{X, R, F}
-```
+`Core.TraitKey{X, R, F}`, code compiled per key, is an optional extension: [extensions §1.2](extensions.md#12-the-key-as-a-type). No interface of this reference depends on it.
 
-- `TraitKey{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F`, a tuple type ([traits §7.2](traits.md#72-the-key)).
-- **The runtime computes a member's key** from its membership and the set's contract, without running Julia code: the receiver the entry records (the member, its forwarding field's type, or none), the declared fields' types at the member (`fieldtype`), and the parameter values (the pattern's match). A member of a pattern has its key from the entry like any other. The answer is memoized per (member type, set) on the member's `TypeName`, with the membership's worlds.
-- `S <: TraitKey{X, R, F}` holds when `S`'s key for `X`, computed in the world asked about, is that key. It is a case of `subtype`, as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`.
-- **At an intersection** `All{X, Y}`, the key is the tuple of the member's keys for each component.
-- **The erased key** is the set's instance `X{p…}` itself.
-- It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
-
-**Status:** Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"); a use case to investigate: [open issue 147](../open-issues.md#2-design). The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+**Status:** Optional (W-110; the plan's D-14, 2026-11-15).
 
 ### 6.2 How an argument is compiled
 <a id="62-compilation-signatures"></a>
@@ -562,7 +554,7 @@ Core.TraitKey{X, R, F}
 - **A wrapper's type is one per object type,** `Core.Compiled{T}`: code for it is compiled for `T`, and its operations call the object's own methods, statically.
 - **An argument at a set declared `@nospecialize`** is compiled once at the declared set instance, the object passed as itself. Its operations split (§7.2); passing it on is a run-time site.
 - **A `where` variable bounded by a set** is the type of the value given: a member's, a box's or a wrapper's.
-- Per key: Optional (§6.1, §6.4).
+- Per key: an optional extension ([extensions §1.2](extensions.md#12-the-key-as-a-type)).
 
 **Status:** Julia's rule: Implemented. Not in force on the build: Julia resolves an attribute at each argument typed by a set (C-112), so `@nospecialize` there takes the attribute's run-time path (E-402: 829 ns a call). The kept forms: §6.9.
 
@@ -589,38 +581,15 @@ Core.TraitKey{X, R, F}
 
 ### 6.4 Calls from code compiled per key
 
-- Code compiled per key holds the argument at the type `TraitKey{X, R, F}`. Operations and declared fields act on its parts (§6.5), whose types are concrete: each call there is at a fact.
-- **Passing the argument on to another function `g`:**
-  - **static** where the method of `g` selected at the key is the one selected for every member with that key in the current world. A later membership with that key invalidates the code when some method of `g` is more specific for the new member (found through the set-to-methods index, as the membership's walk finds it, §5.5). A later method of `g` invalidates the caller through its dispatch edge at the key, as any insertion does;
-  - **otherwise a run-time site,** dispatched on the object with the `Compiled` bit; the instance then receives the object (§6.5).
-- Swift and Rust resolve such a call where the generic code is written, at the constraint. Julia dispatches it on the value's type, and G1 asks for Julia's answer. So that invalidation is what keeps the shared code equal to that answer, by the same mechanism as any membership's (§5.5).
-
-**Status:** Optional (W-110), with keys; mine (2026-11-06).
+An optional extension, with keys: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key).
 
 ### 6.5 The calling convention
 
-A static caller passes a keyed argument as its parts:
-- the receiver, by its own convention;
-- each declared field that is `@const`, or of an immutable member, by value;
-- each writable declared field as a field reference: the object and an offset, so a write reaches the caller's object (§10.3);
-- the object itself, boxed, where the method may keep the value, return it, or pass it to a run-time site. An escape pass of inference decides this per instance.
-
-**The parts in the trait's methods.** The trait's method for an operation (§6.8) reaches the receiver and the declared fields through two intrinsics:
-
-```julia
-Core.trait_receiver(t, X)          # the receiver: t itself, or its forwarding field
-Core.trait_field(t, X, name)       # a declared field
-```
-
-At a key, inference resolves them to the parts above. At a member, it resolves them to `t` or to the forwarding field's `getfield`. So members that share a key and forward through fields of different names share the code.
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.4](extensions.md#14-the-calling-convention).
 
 ### 6.6 The boxed adapter
 
-A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstance. The wrapper reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target in [the evidence](../design/evidence.md) §2, there is one wrapper per member instead (W-110 measures).
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.5](extensions.md#15-the-boxed-adapter).
 
 ### 6.7 The definition-time check
 
@@ -665,7 +634,7 @@ struct Compiled{T}; object::T; end      # the wrapper
 
 ### 7.1 The rule
 
-- **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a key and not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the operation's entry in the contract (§4.1): of `X`, of a set `X` joins (a supertrait, from the set's own entries, `jl_supertrait_instances`), or of each component of an intersection. Where several entries apply to the call's types, the result is their intersection. No method at the set is read.
+- **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the operation's entry in the contract (§4.1): of `X`, of a set `X` joins (a supertrait, from the set's own entries, `jl_supertrait_instances`), or of each component of an intersection. Where several entries apply to the call's types, the result is their intersection. No method at the set is read.
 - **The same split for a closed abstract type with a contract** ([traits §3.4](traits.md#34-open-and-closed)): a call of one of its operations whose receiver's inferred type is the type is compiled as the split, its result `Any`. The declaring module writes the contract once on the type's `TypeName`, `jl_declare_contract(T, ops, cands)`: its operations, the module's methods at `::T`, each an entry with the result `Any` (§4.1), and its candidates (§7.2), as `svec(ops, cands)`. Images keep it with the `TypeName`. A contract is declared in the image that defines the type; one written on a type another image holds is refused, since the writer's image would not keep it (Base's build declares Core's `IO`'s; mine, 2026-11-10). Inference reads it (`jl_contract_operations(T)`) where it reads a set's methods with declared results.
 - The call is compiled as a split (§7.2), with the result asserted to the declared type, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)). Where no split applies, the dynamic call's result is asserted.
 - **A const result taken for its effects joins its type.** A declared result makes inference non-monotone: at the set the call's result is the declared result, and constant propagation that sees the member's type reaches the member's own method. Where the constant-propagated code is taken for its effects or its exception type, its result type is joined into the call's, so compiled code never returns a type its call's type excludes (`handle1`, `unified` ef1233e79e).
@@ -678,14 +647,12 @@ struct Compiled{T}; object::T; end      # the wrapper
 
 ```julia
 Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
-Compiler.register_dynamic_candidate!(K, C)
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS, in order
 ```
 
 - **The candidates of a set** are its concrete members in declaration order, from an index per set that the runtime keeps. An entry records its declaration's file and line; the order is by those. A concrete type joins the index at its membership, a member of a pattern at its first use (§10.4). The index is read without an edge.
 - **The candidates of a closed abstract type with a contract** are the concrete subtypes its declaring module registers (`jl_register_candidate(T, C)`), in that order.
 - **At an intersection** `All{X, Y}`, the candidates are those of `X`'s index that are members of every component.
-- `register_dynamic_candidate!(K, C)` registers candidates for a key `K` that is not a set.
 - **Inference:** where `x`'s type is not concrete and the set has candidates, `f` is inferred at `x`'s type intersected with the union of the first four candidates; each split is a fact with its edge.
 - **In each branch the value's type is the candidate:** the argument is `Compiled` there, so a branch that a method at the set serves runs that method's instance for the candidate, and the branch's case is the candidate, never the set.
 - **The split:** the inliner splits the call over them. The last branch, the fallback, calls through the table of the call's targets (§7.3), or is the dynamic call where no table applies. The split is never fully covered.
@@ -695,7 +662,7 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 - **No method at the set is needed.** A branch is the call at its candidate's type, which dispatches to the member's own method, or to a default's method at the set. The fallback's target is the call at the value's type (§7.3). The split reads the set for its candidates and the contract's declared result only (§7.1).
 - Registration is lock-free for readers: the table is replaced on each registration.
 
-**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). Each branch `Compiled` for its candidate on `unified` b133374e9d (found by `IO`'s `get`, whose candidates are all served by the default at `::IO`; gate `n19_io_trait`): mine (2026-11-09). `register_dynamic_candidate!` for a key: with keys (W-110). A branch not inlined through a pointer, with no edge, on `unified` 0c836f3ef6, and only a leaf inlined on 7bd8b6e512 (E-332, [open issue 167](../open-issues.md#2-design) (a)); the result converted (traits §7.9) on 0c836f3ef6 (E-333): mine (2026-11-09). That the split needs no method at the set: read in the code (the branches are a call at the candidates' union, `abstract_call_gf_by_type` with `operation = false`; the fallback's target is `Base._SplitTarget`), not yet run without one (C-100).
+**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). Each branch `Compiled` for its candidate on `unified` b133374e9d (found by `IO`'s `get`, whose candidates are all served by the default at `::IO`; gate `n19_io_trait`): mine (2026-11-09). A branch not inlined through a pointer, with no edge, on `unified` 0c836f3ef6, and only a leaf inlined on 7bd8b6e512 (E-332, [open issue 167](../open-issues.md#2-design) (a)); the result converted (traits §7.9) on 0c836f3ef6 (E-333): mine (2026-11-09). That the split needs no method at the set: read in the code (the branches are a call at the candidates' union, `abstract_call_gf_by_type` with `operation = false`; the fallback's target is `Base._SplitTarget`), not yet run without one (C-100).
 
 ### 7.3 The table of a call's targets
 
@@ -841,7 +808,7 @@ Optional, each only if a measurement asks for it:
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
 - **The member checks' instances** made while the image was built are kept with its code, with their edges, and validated with it ([traits §5.10](traits.md#510-checks)).
 - **The system image keeps the indices of sets** as it keeps its method tables: its methods at sets and each function's, the sets' candidates, entries and absence signatures, the contracts of closed types (§7.1) and their candidates, and the split tables' miss (§7.3). So `IO`'s contract holds from the start, and a membership invalidates the image's code that folded its absence.
-- **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's key ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+- **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's type ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - **A machine-code cache across sessions is the goal of the record.** The record of §3.1 is kept complete, naming its targets by identities stable across sessions:
   - a method by module path, name, signature and a digest of its lowered code;
   - a type by path and layout;
@@ -888,16 +855,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 
 ### 10.3 Field-offset intrinsics
 
-```julia
-Core.Intrinsics.getfield_at_offset(obj, T::Type, off::Int)::T
-Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
-```
-
-- Read or write the value of type `T` at byte offset `off` of `obj`, with the write barrier for a reference and Julia's alias metadata for a mutable field.
-- The offset is not checked; the caller guarantees the field.
-- The calling convention's field references (§6.5) use them.
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.6](extensions.md#16-field-offset-intrinsics).
 
 ### 10.4 The member hook
 
@@ -905,7 +863,7 @@ Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
 void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothing, or throws
 ```
 
-- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked. Its key needs no hook (§6.1).
+- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked.
 - **The runtime calls it at the member's first use,** where no answer is kept for (member type, set):
   - at dispatch, before the instance lookup, and at a split's table miss;
   - in the compile queue: inference notes each (member type, set) that a call it resolves to a method at the set rests on, and when inference returns, before the code runs, the runtime asks the hook for each. A failing check leaves that use to dispatch, which raises the `ImplementError` there; a use in a branch not taken raises nothing.
@@ -947,16 +905,15 @@ Each applies to all code.
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0); no type equality from a membership: Planned (D-11, C-104) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
 | three layers; negatives fold with an edge; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; negatives folded with their edge at every set `unified` a19d937eaa (W-140), with C-77; an intersection no type is in `unified` 1906196731 (E-334), with C-79; a positive decided at code generation, `new`'s field test included: Planned (W-160), with C-110 | §4.7, §4.8 |
-| intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
+| intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the split at an intersection (W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9, a pattern member 264b7f959f); strict mode's error W-114; dispatch's lookup at an unmet intersection on `unified` 999777ab77 | §5.4 |
 | a membership invalidates as a method does | Implemented (`unified` 29035cab11 the walk and the caches; a19d937eaa the code, W-140), with C-88; taken back, as a method's deletion: Planned (D-13, C-106) | §4.3, §5.5 |
 | the membership's method and the edges | Implemented (`unified` 90fb8ff97a, b66cdc66f2, 8b4fde6e84) | §5.6 |
-| `TraitKey`; an argument compiled as Julia compiles it | Julia's rule, with C-112; Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
+| an argument compiled as Julia compiles it | Julia's rule, with C-112 | §6.2 |
+| keys: `TraitKey`, calls from code per key, the calling convention, the adapter, field offsets | an optional extension (W-110): [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) | §6.1, §6.4–§6.6, §10.3 |
 | the forwarders, made where a method at a set that erases by default is defined | Planned (D-1, W-160), with C-111; the library's `@erasing` stands in | §6.3 |
-| calls from code compiled per key | Optional (W-110) | §6.4 |
-| the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
 | the definition-time check: the instance at the box | Planned (D-3, W-160 (c)); read by the library (TraitWorld 6f86b4e), with C-115 | §6.7 |
 | a declared result on `Method`; lowering's record of `f(…)::RT` | Implemented (`unified` 0ba6317994); an operation's declared result from its contract entry: Planned (D-4, C-100) | §4.1, §6.8 |
 | the kept forms in `Core`: `Dynamic{X}`, `Compiled{T}` | `Core.Dynamic` implemented (`unified` e692e57ab7, W-111), with C-113; `Core.Compiled` Planned (D-1), with C-113; no cast, no `keep`: Planned, with C-112 | §6.9 |
@@ -966,7 +923,7 @@ Each applies to all code.
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714) and in the compile queue (fcdfd0da36; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; field-offset intrinsics Optional (W-110); what a definition ended, by class (`jl_take_deep_endings`): Planned (D-12, C-105) | §10 |
+| hooks, the module-end hook included; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714) and in the compile queue (fcdfd0da36; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; what a definition ended, by class (`jl_take_deep_endings`): Planned (D-12, C-105) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
 ---

@@ -46,6 +46,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - One way to erase: the attribute, replaced (2026-11-15)
 - The classification, replaced by the instance at the box (2026-11-15)
 - `Callable` by its methods, replaced (2026-11-15)
+- Keys in the language's core, moved to the optional extensions (2026-11-15)
 
 ---
 
@@ -687,3 +688,10 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **Not taken** (mine, 2026-11-15):
   - *Every type a member,* so that a callable struct needs no declaration: a method at `Callable` would then outrank an untyped method for every value, and a number given there would fail at the box where it reached the untyped method before.
   - *A wrapper's calls rewritten to assert `S`,* as for an argument's calls before: the check followed the argument's name, not the value (182); a wrapper is the caller's choice of the function itself.
+
+## Keys in the language's core, moved to the optional extensions (2026-11-15)
+
+- **What it was:** keys stood in the language's chapter on compiling as one of three ways to compile an argument (per type, per key, once), with the key's definition, its type `TraitKey`, the calls from code per key, the calling convention, the adapter and the field-offset intrinsics in the compiler's chapter, and two rows of fact signatures. They were Optional, built late, and no rule depended on them. `like`, `withfields` and forwarding with `by` stood beside the core forms, conveniences from the time of keys.
+- **Why moved** (the plan's D-14, confirmed by the user's adoption of the plan, 2026-11-15; P7 (e) of [the review](../reviews/2026-11-15-conceptual-design.md); the synthesis' decision 2): four of 148 memberships in the ports share a key (E-263); keys took the opening of the chapter a newcomer reads to learn how arguments are compiled (G-8); the user had made them "purely a performance optimization" (2026-11-11).
+- **What replaced it:** [the page of optional extensions](../reference/extensions.md), §1; a pointer where each section stood; the conveniences said to be the library's ([traits §5.5](../reference/traits.md#55-forwarding-with-by), [§6.5](../reference/traits.md#65-results)).
+- **Not taken:** *keys dropped from the design:* the user kept them, to build late (2026-11-06: "Keep them optional and build them late"), and open issue 147's use case waits for them.

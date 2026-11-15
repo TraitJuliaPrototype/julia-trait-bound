@@ -42,8 +42,7 @@ A **trait** is an abstract type with two additions:
 
 Everything else is Julia's. A trait is written wherever a type is written. It is parametrized as an abstract type is. A member's value is a value of the trait. Dispatch is Julia's, with one rule for ties between a type's own supertypes and a trait.
 
-On top of that, the compiler offers two choices of speed, never of results:
-- **Code shared per key:** members that the contract sees alike run one compiled copy of a method (§7.2).
+On top of that, a choice of speed, never of results:
 - **Two kept forms of a member,** both members of the trait (§7.4): the box `Dynamic{X}(x)`, whose code is compiled once per trait instance, and the wrapper `compiled_for(x)`, whose code is compiled for `x`'s type. The choice is in the value's type, so it travels with the value. A trait that declares `@default_dynamic` boxes a plain member at its methods (§7.8).
 
 ```julia
@@ -204,12 +203,12 @@ Dynamic{All{Shape, Placed}}(x)                     # boxed at both traits
 - `All{X, Y, Z, …}` is the type of the values that are members of each, for any number of components. `S <: All{X, Y}` holds when `S <: X` and `S <: Y`.
 - It is a subtype of whatever one of its components is a subtype of, and more specific than each component. An intersection with a closed component ranks as a closed type against an open set (§6.2).
 - Components are flattened, sorted and deduplicated. A component that is a subtype of another by declared supertypes absorbs it; a membership never does, so an intersection's form does not depend on the world. Two closed types with no common subtype give `Union{}`.
-- At an argument typed by an intersection, the key is the member's keys for each component (§7.2), and an operation's split takes the first component's members that are members of every component (§7.9).
+- At an argument typed by an intersection, an operation's split takes the first component's members that are members of every component (§7.9).
 - A bundle is a `const` alias of an intersection. Its members are every type that is a member of all of its components, whoever declared them.
 - `@implement (X, Y) S` declares both memberships (§5.6).
 - **The name comes from the library:** TraitWorld exports `All`, which is `Core.All`; `Core` does not export it. A module that also uses DataAPI's `All` (DataFrames' column selector) qualifies one of them.
 
-**Status:** Implemented (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}") on `unified` 8a9144928e with TraitWorld `unified` ae4d250, but for the key at an intersection (W-110) and the split's members (W-109). The name from the library: mine (2026-11-07; [open issue 148](../open-issues.md#2-design), its recommendation (b)).
+**Status:** Implemented (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}") on `unified` 8a9144928e with TraitWorld `unified` ae4d250, but for the split's members (W-109). The name from the library: mine (2026-11-07; [open issue 148](../open-issues.md#2-design), its recommendation (b)).
 
 ---
 
@@ -279,7 +278,7 @@ end
 - **A writable field** needs a mutable member, a stored field that is not `const`, and a stored type equal to the declared type at the member's parameters. So a write never changes a type compiled code relies on.
 - **A member with its own `getproperty` or `setproperty!`** conforms only where they give the stored field at each declared name. The membership's check infers them at each name and refuses another result type.
 - A computed property is not a declared field. It is **a field named by an input parameter:** `@const N::R` with `@input N` declares `x.N`, of type `R`, at each value of `N` a member joins at. A stored field of that name or the member's own `getproperty` serves it; the check infers `getproperty` at the constant name. BaseTraits declares `HasProperty{N, R}` so (§10.1). Only an input names a field.
-- The declared fields' types are part of the key (§7.2). A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
+- A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
 - **State some members write and others only read** is two traits: one that declares the field `@const`, and a subtrait that adds the operations that change it.
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 (the user, 2026-11-06, Q7 (a)); a field named by an input in TraitWorld `unified` a658203, mine (2026-11-08). Swift's protocol properties are the conforming type's own properties in the same way.
@@ -355,8 +354,8 @@ perimeter(c::Circle) = 2π * c.r
 ```
 
 - `struct S <: X` makes the trait `X` the supertype of `S`, as for any abstract type: `S <: X` holds from the definition.
-- **The membership is declared by `@implement X S`,** in the same module, after `S`'s methods. It checks the contract (§5.10) and fixes the key. A membership is always declared, and checked where it is declared: like any membership, it is kept in the package's image and seen by the ambiguity report (§6.3).
-- **A use of `S` through `X` before the `@implement`** (a call that needs `S`'s key) raises `ImplementError` naming the missing declaration. The `@implement` then replaces that failure. A module that ends with a `struct S <: X` and no `@implement X S` is refused at its end.
+- **The membership is declared by `@implement X S`,** in the same module, after `S`'s methods. It checks the contract (§5.10). A membership is always declared, and checked where it is declared: like any membership, it is kept in the package's image and seen by the ambiguity report (§6.3).
+- **A use of `S` through `X` before the `@implement`** (a call that needs `S`'s membership checked) raises `ImplementError` naming the missing declaration. The `@implement` then replaces that failure. A module that ends with a `struct S <: X` and no `@implement X S` is refused at its end.
 - `struct S <: X{Float32, 1}` states parameters: the parameters come from the definition. The `@implement` may repeat them; a stated value, or a field's type, that differs is refused.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
@@ -398,6 +397,7 @@ end
 @implement ColTable Halves by right
 ```
 
+- **A convenience of the library,** outside the language's core: the membership (§5.3) with a method per operation that calls it on the field.
 - Every operation is served by the field `right`. The field's type is the **receiver type** and `Self`.
 - The field's type must be a member by its own methods or defaults. **Forwarding does not chain.**
 - The forwarding field may not also be a writable declared field.
@@ -472,7 +472,7 @@ end
 **When.**
 - At `@implement X S` for one type: at the declaration.
 - For `struct S <: X`: at the `@implement X S` that follows it (§5.2).
-- For a member of a family, of an abstract type or of a trait: at the member's **first use**, the first time a call needs its key when the program runs: a method at the trait, or an operation's call through the trait (§7.9; [lowering §4](lowering.md#4-members-checked-at-their-first-use)).
+- For a member of a family, of an abstract type or of a trait: at the member's **first use**, the first time a call needs its membership when the program runs: a method at the trait, or an operation's call through the trait (§7.9; [lowering §4](lowering.md#4-members-checked-at-their-first-use)).
 - **The check is its serving instances:** each serving method's instance at the member and the declared argument types, compiled by Julia's inference and kept with its edges, as code is. A package image keeps them with its code. A later session validates them with the image, as it validates any code, and infers nothing again while they hold.
 
 **What.**
@@ -609,16 +609,16 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
   - where it forwards by a field: `t`'s type rebuilt by its positional constructor, the forwarding field replaced by `x`, the other fields kept; the constructor recomputes the parameters, so a sibling at other parameters comes out where `x` has them;
   - on a box `Dynamic{X}`: a `Dynamic{X}` of that value; on a wrapper: the wrapper of `like` of its object.
 - **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced.
-- **A method whose result is built by `like(t, …)` or `withfields(t; …)` is compiled per type at `t`:** its result's type is `t`'s family.
+- **`like` and `withfields` are conveniences of the library,** outside the language's core: functions that rebuild a member from its declaration ([lowering §8](lowering.md#8-like-and-withfields)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the compilation per type is mine (2026-11-06), as Rust and Swift compile a function that returns `Self` per type.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2. As the library's conveniences: the plan's D-14 (2026-11-15).
 
 ### 6.6 Keywords, defaults, varargs
 
 - As in Julia. A positional default makes two methods; a keyword typed by a trait raises `TypeError` for a value that is not a member; there is no dispatch on keywords.
-- **A vararg of members,** `ts::ColTable...`: elements may be different members; code is compiled per tuple of keys (§7.2).
+- **A vararg of members,** `ts::ColTable...`: elements may be different members; code is compiled per tuple of their types.
 
-**Status:** Implemented as Julia's: a positional default's two methods, a keyword typed by a trait (`TypeError` for a value that is no member) and a vararg of different members run in `experiments/docs-examples/tutorial.jl` (§9 there; TraitWorld c9f701e, where under `bounded` the default's short method waits for the method it calls, §7.3). Compiled per tuple of keys: with keys, Optional (W-110); per tuple of types until then.
+**Status:** Implemented as Julia's: a positional default's two methods, a keyword typed by a trait (`TypeError` for a value that is no member) and a vararg of different members run in `experiments/docs-examples/tutorial.jl` (§9 there; TraitWorld c9f701e, where under `bounded` the default's short method waits for the method it calls, §7.3).
 
 ### 6.7 Constructors
 
@@ -650,24 +650,15 @@ A method is compiled as Julia compiles any method: for the types of the values i
 
 Which form a value has is in its type. Nothing beside the call decides (§7.5). A trait that erases by default boxes a plain member at its methods (§7.8).
 
-Per key, one copy per key (§7.2), shared by every member with that key: Optional. Until keys are built, such code is compiled per type.
+Per key, one copy shared by every member with that key, is an optional extension (§7.2).
 
 **Status:** Per type and `@nospecialize`: Julia's. The two kept forms: TraitWorld `unified` 5e2ef71 (W-151), with T-126. On the build, `@nospecialize` at a trait argument still takes the attribute's path ([compiler C-112](compiler.md#deviations)). Per key: Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
 
 ### 7.2 The key
 
-- **The key of a member** is what the contract sees of its type:
-  - the **receiver type**: the member when it serves at least one operation by its own methods, or when the trait's declarations name `Self` or a parameter that no field defines; the forwarding field's type when it forwards (§5.5); none when defaults serve every operation;
-  - the declared fields' types;
-  - the trait's parameter values.
-- **Members with equal keys share compiled code.** Every type that forwards `ColTable` to a `Vector{Vector{Float64}}` field runs the code compiled for that key, including code in the library's package image. Fields the trait does not declare never cause a compile.
-- **A member that serves an operation by its own method has its own key,** since it is its own receiver type.
-- **A field or forwarding field of an abstract type** is part of the key as it is: one copy for it, whatever it holds; operations on that part dispatch when they run.
-- With several trait arguments, a method is compiled per tuple of keys.
-- **At an argument typed by an intersection** `All{X, Y}`, the key is the member's key for each component; members with equal keys for every component share code.
-- A key prints as `ColTable at Vector{Vector{Float64}}` (§15).
+Code shared per key, among members the contract sees alike, is an optional extension: [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike). No rule of this reference depends on it.
 
-**Status:** Optional (W-110; the user, 2026-11-06: "keys as optional is approved"; [compiler §6](compiler.md#6-keys-and-the-attribute)). What keys need is Planned in the stages before them: the classification (§7.3, W-109), the contract on the trait's `TypeName` and the receiver each membership records ([compiler §4.1](compiler.md#41-sets), [§4.2](compiler.md#42-memberships); W-98, W-106). Built late; a use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
+**Status:** Optional (W-110; the plan's D-14, 2026-11-15).
 
 ### 7.3 Bounded methods
 <a id="73-fully-bounded-methods"></a>
@@ -705,7 +696,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 
 - **A scope that declares `bounded`** (§13) refuses a method that is not bounded, with `TraitUseError` naming each fault and its line.
 - **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapter that hands its argument to plain code is written so.
-- **Where keys are built** (§7.2, Optional), a bounded method is compiled per key; until then, per type.
+- With keys, an optional extension (§7.2), a bounded method would share its code per key.
 
 **Status:** Planned (the plan's D-3, 2026-11-15, confirmed by the user's adoption of the plan; [decisions](../record/decisions.md) §2). Built in TraitWorld `unified` 6f86b4e (W-151; `src/atbox.jl`; E-401, E-406: E-397's mistakes found at their lines, no fault in the ports' 249 methods), with [compiler C-115](compiler.md#deviations): the instance is inferred apart, at stand-ins, and dropped at a load; an equation's function at the box: T-130. The fault classes, the stand-ins and what is not read: mine (2026-11-15, the prototype's). `bounded` on in trait modules with a switch: the user (2026-11-06, Q2 (a)); `@unbounded`: mine (2026-11-06).
 
@@ -1097,7 +1088,7 @@ leak(t::ColTable) = typeof(t)    # bounded: the box's type
 
 ### 11.3 Errors and their messages
 
-Each message names the trait, the type, and the declared signature where one is involved. A key in a signature prints as the key (§15).
+Each message names the trait, the type, and the declared signature where one is involved.
 
 | Error | Raised for | The message names |
 |---|---|---|
@@ -1257,18 +1248,16 @@ Two guarantees, asked for separately.
 
 ## 15. Printing
 
-- **A key prints as the key** where keys are built (§7.2), wherever a signature appears: `colmean(::ColTable at Vector{Vector{Float64}}, ::Int64)` in a stack trace, a `MethodError`, `code_typed` and the list of a method's compiled copies.
 - **A box** prints as `Dynamic{Shape}(Circle(1.0))`, **a wrapper** as `Compiled(Circle(1.0))`. A signature prints the kept form's type, as Julia prints any type: `colmean(::Dynamic{ColTable}, ::Int64)`.
 - A trait prints as the type it is.
 
-**Status:** Implemented: `Dynamic{X}`'s printing in TraitWorld `unified` 745056c (W-111), the wrapper's in 5e2ef71 (W-151); a key's printing with keys (W-110, Optional).
+**Status:** Implemented: `Dynamic{X}`'s printing in TraitWorld `unified` 745056c (W-111), the wrapper's in 5e2ef71 (W-151).
 
 ---
 
 ## 16. Compiling ahead, closed programs
 
-- **While a package that declares `@implement X T` is precompiled,** the code that `T` needs is compiled into that package's image. That covers every method at `X` and its supertraits with one trait argument that does not erase, bounded there, at `T`'s type (at its key once keys are built, §7.2), where the other arguments are concrete. Their checks run then; a failing check fails the build.
-- A key that some member already has compiles nothing new.
+- **While a package that declares `@implement X T` is precompiled,** the code that `T` needs is compiled into that package's image. That covers every method at `X` and its supertraits with one trait argument that does not erase, bounded there, at `T`'s type, where the other arguments are concrete. Their checks run then; a failing check fails the build.
 - A method with several trait arguments is compiled at its first call.
 - **A method at a trait that erases by default** runs one instance for every member, at the box. It is compiled where the method is defined, by its definition-time check (§11.2), and kept in that package's image. A member's package compiles nothing of it.
 - Compiling ahead adds no method, so it invalidates nothing.
@@ -1339,9 +1328,9 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
 | a membership taken back, `delete_membership`; Revise on memberships | Planned (D-13), with T-124, L-64, compiler C-106 | §5.13 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
-| `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
-| keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`); per tuple of keys with keys, Optional | §6.6 |
-| keys and shared code | Optional, built late (W-110; open issue 147) | §7.2 |
+| `like`, `withfields`: the library's conveniences | Implemented (TraitWorld e7ff8e2) | §6.5 |
+| keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`) | §6.6 |
+| keys and shared code: an optional extension | Optional, built late (W-110; open issue 147) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | bounded methods: the instance at the box, read where a method is defined | Planned (D-3); built in TraitWorld 6f86b4e (W-151), with compiler C-115, T-130; `bounded` and `@unbounded` TraitWorld bb78d02 (W-111) | §7.3, §11.2 |
 | the two kept forms, the box and the wrapper; the value's type decides | Planned (D-1); built in TraitWorld 5e2ef71 to 6f86b4e (W-151), with T-126, T-127, compiler C-112, C-113 | §7.4–§7.6 |
 | `Dynamic{X}`, the box | Implemented (`unified` e692e57ab7, W-111; TraitWorld 5a9d19d), with compiler C-110, C-113 | §7.7 |
@@ -1358,7 +1347,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented (TraitWorld bb78d02, W-111), with T-127 | §13 |
 | concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; the report as the build's check: TraitWorld 78a78af, `unified` 381cc8b953, W-142), with T-100, T-101, T-109; fully typed in a session listed apart: Planned (D-10, T-122) | §14 |
-| printing | Implemented; keys' printing Optional (W-110) | §15 |
+| printing | Implemented | §15 |
 | compiling ahead, `verify_main` | Implemented (TraitWorld 05991fc, `unified` 5f2373b2d5, e81cd49a67; W-114, W-135; the check before a build: TraitWorld 78a78af, W-142), with T-108, T-109 | §16 |
 | named implementations | Planned (deferred) | §17 |
 

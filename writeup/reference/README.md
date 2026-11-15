@@ -2,7 +2,7 @@
 
 **The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A choice an agent made says "mine" with its date in its section's status line and is listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis ([the goals](../goals.md) §4); a choice that waits for the user before it is in force is **Open**.
 
-The four references define the intended shape of the design. Each one also records, separately, where the implementation deviates from it.
+The four references define the intended shape of the design. Each one also records, separately, where the implementation deviates from it. A fifth page holds the optional extensions, which no rule of the four depends on.
 
 | Reference | Defines | Wins on |
 |---|---|---|
@@ -10,6 +10,7 @@ The four references define the intended shape of the design. Each one also recor
 | [`facts.md`](facts.md) | The facts mode: what compiled code may assume about other code, the guarantees, which code is compiled how | What compiled code may assume |
 | [`compiler.md`](compiler.md) | What Julia's compiler and runtime provide: sets and memberships, dispatch, the kept forms and their forwarders, the facts inference, the dependency record | Julia's interfaces |
 | [`lowering.md`](lowering.md) | What the trait library's macros expand to on those interfaces | Consistent with all three; it decides nothing they decide |
+| [`extensions.md`](extensions.md) | Optional extensions: keys, code shared among members the contract sees alike | Nothing: no rule of the four depends on it |
 
 ## Conventions for every reference
 
@@ -58,8 +59,8 @@ Every choice beyond the decision log's is listed here, with who made it. The ana
 | P-9 | `struct S <: X` makes `X` the supertype; the membership is declared and checked by `@implement X S` after the methods. | the user (Q8 (c)) | [traits §5.2](traits.md#52-with-the-types-definition) |
 | P-10 | A method whose result is `like(t, …)` or `withfields(t; …)` is compiled per type at `t`. | mine | [traits §6.5](traits.md#65-results) |
 | P-11 | A trait with a contract counts as concrete as a parameter's value. | mine | [traits §14](traits.md#14-concreteness-and-fully-typed-mode) |
-| P-12 | The key's Core type is `Core.TraitKey{X, R, F}`; the runtime computes a member's key from its membership and the contract. | mine | [compiler §6.1](compiler.md#61-the-key-as-a-type) |
-| P-13 | A keyed argument passed on is a static call, invalidated by a later member that another method would take, else a run-time site. | mine | [compiler §6.4](compiler.md#64-calls-from-code-compiled-per-key) |
+| P-12 | The key's Core type is `Core.TraitKey{X, R, F}`; the runtime computes a member's key from its membership and the contract. | mine | [extensions §1.2](extensions.md#12-the-key-as-a-type) |
+| P-13 | A keyed argument passed on is a static call, invalidated by a later member that another method would take, else a run-time site. | mine | [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key) |
 | P-14 | A trait's contract lives on its `TypeName`, read without an edge. | mine | [compiler §4.1](compiler.md#41-sets) |
 | P-15 | A trait's split candidates come from the runtime's index of its members, in declaration order. | mine | [compiler §7.2](compiler.md#72-the-split) |
 | P-16 | A family states its trait's instance as a pattern of its variables, an equation's parameter included (closes open issue 140). | mine | [traits §5.8](traits.md#58-families), [lowering §4](lowering.md#4-members-checked-at-their-first-use) |
@@ -68,14 +69,14 @@ Every choice beyond the decision log's is listed here, with who made it. The ana
 | P-19 | `like(t, x)` and `withfields` as functions; overrides stay fixed at the membership. | mine (q-b, q-c) | [traits §6.5](traits.md#65-results), [§5.11](traits.md#511-overrides-and-redeclaration) |
 | P-20 | `bounded` on by default in trait modules, with switches: `@unbounded f(…) = …` marks a method unbounded on purpose, `@trait_module bounded = false` a module. | the user (the default with a switch); `@unbounded` mine | [traits §7.3](traits.md#73-bounded-methods), [§13](traits.md#13-scopes-trait-modules) |
 | P-21 | Normal forms of `Union` and `All` read declared supertypes only, so a type expression gives the same type in every world. | mine | [compiler §4.9](compiler.md#49-intersections) |
-| P-22 | At an intersection: the key is the tuple of the components' keys; the split's candidates are the first component's that are members of every component; an intersection erases where a component erases (D-1); a closed component makes it closed against an open set. | mine | [traits §3.6](traits.md#36-intersections), [compiler §4.9](compiler.md#49-intersections) |
+| P-22 | At an intersection: the split's candidates are the first component's that are members of every component; an intersection erases where a component erases (D-1); a closed component makes it closed against an open set. | mine | [traits §3.6](traits.md#36-intersections), [compiler §4.9](compiler.md#49-intersections) |
 | P-23 | *Retired* (2026-11-15, the plan's D-1): `compiled_for` is an ordinary function of the library | — | [traits §7.6](traits.md#76-compiled_forx) |
 | P-24 | *Retired* (2026-11-15, the plan's D-1): no call carries a bit | — | [compiler §6.2](compiler.md#62-how-an-argument-is-compiled) |
-| P-25 | The trait's methods reach a key's parts through `Core.trait_receiver` and `Core.trait_field`. | mine | [compiler §6.5](compiler.md#65-the-calling-convention) |
+| P-25 | A default's method reaches a key's parts through `Core.trait_receiver` and `Core.trait_field`. | mine | [extensions §1.4](extensions.md#14-the-calling-convention) |
 | P-26 | A module-end hook of Julia's. | mine | [compiler §10.1](compiler.md#101-definition-and-image-hooks) |
 | P-27 | `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`, typed `R` on a value known by its trait. | mine | [traits §10.1](traits.md#101-basetraits), [compiler §7.1](compiler.md#71-the-rule) |
 | P-28 | Smaller rules: `Type{S}` entries on `S`'s `TypeName`; one instance per member checked by the runtime; the check's instance kept with edges, as code; a `Union` bound in a family declared per type; array literals join declared supertypes only. | mine | [compiler §4.6](compiler.md#46-one-instance-per-member), [§4.10](compiler.md#410-type-values), [§6.7](compiler.md#67-the-definition-time-check); [lowering §3](lowering.md#3-implement); [traits §10.2](traits.md#102-element-types) |
-| P-29 | Keys are Optional, to be built late: a fully bounded method is compiled per type until keys are built; the classification, the contract on the trait's `TypeName` and the receiver each membership records stay Planned, as what keys need. Built late; a use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design). Keys are purely a performance optimization: no rule and no guarantee to user code depends on them (the user, 2026-11-11). | the user (2026-11-06: "keys as optional is approved"; "Keep them optional and build them late") | [traits §7.1](traits.md#71-three-ways-to-compile-an-argument), [§7.2](traits.md#72-the-key), [compiler §6.1](compiler.md#61-the-key-as-a-type) |
+| P-29 | Keys are Optional, to be built late: a bounded method is compiled per type; the contract on the trait's `TypeName` and the receiver each membership records stay Planned, as what keys need. Built late; a use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design). Keys are purely a performance optimization: no rule and no guarantee to user code depends on them (the user, 2026-11-11). | the user (2026-11-06: "keys as optional is approved"; "Keep them optional and build them late") | [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | P-30 | *Retired* (2026-11-15, the plan's D-2): subtyping reads no method; `Callable`'s members are entries | — | [compiler §7.4](compiler.md#74-callables-call) |
 | P-31 | The G2 bit on every CodeInstance of either policy; an image keeps code reached only dynamically where the bit is set; the boundary flag is the second policy per method. | adopted with the work plan (the user, 2026-11-06); the trade-offs review's M1, M2 | [compiler §2.2](compiler.md#22-the-method-flag), [§3.2](compiler.md#32-g2-as-a-predicate), [§9](compiler.md#9-images-and-the-machine-code-cache) |
 | P-32 | *Retired* (2026-11-15, the plan's D-1): there is no fallback by scope | — | [traits §7.5](traits.md#75-what-decides) |

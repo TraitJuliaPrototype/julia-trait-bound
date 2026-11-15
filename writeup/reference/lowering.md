@@ -2,7 +2,7 @@
 
 **Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines what the trait library's macros expand to on Julia's interfaces ([`compiler.md`](compiler.md)), within the facts mode's contract ([`facts.md`](facts.md)). It decides nothing the other three references decide; where it seems to, they win.
 
-The language puts most of the work in Julia: a trait is an abstract type, a membership is an entry of the type system, a method at a trait is a Julia method, code per key is a compilation signature. What remains for the library is to declare, to check, and to report.
+The language puts most of the work in Julia: a trait is an abstract type, a membership is an entry of the type system, a method at a trait is a Julia method, compiled as Julia compiles one; the box and the wrapper are two structs. What remains for the library is to declare, to check, and to report.
 
 ## Contents
 
@@ -48,7 +48,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **Its supertraits' memberships:** for each supertrait `A{q…}`, `jl_declare_membership(X{P…} where {P…}, A{q…}, nothing, mod, nothing)` ([compiler §4.2](compiler.md#42-memberships)).
 - **The operation functions:** a plain name makes a new generic function in the module; a qualified name uses the existing one.
 - **A method at the trait for each default,** at each arity it is declared at ([traits §4.2](traits.md#42-defaults)): a method at `X`, its result annotated with the operation's declared result, marked `Expr(:meta, :no_forwarder)` so that Julia makes no forwarder for it ([compiler §6.3](compiler.md#63-the-forwarders)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2). A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
-  - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`;
+  - for a member that forwards, the operation called on its forwarding field, through the library's `_fwd(t, X)`, a method per forwarding member and trait that inference resolves at a member's type to the field's `getfield`; a declared field the same way. With keys, an optional extension, `Core.trait_receiver` and `Core.trait_field` ([extensions §1.4](extensions.md#14-the-calling-convention));
   - otherwise the default's body.
 - **No method for an operation without a default.** It is an entry of the contract (below) and nothing else: each member serves it by a method of its own type (§3, steps 2 and 6).
 - **`Dynamic{X}`'s forwarding methods:** for each operation without a default and each arity, a method at `Dynamic{<:X}` that calls the operation on its object, `getfield(d, :object)`, a value typed by the set: an operation's call ([compiler §7.1](compiler.md#71-the-rule)). Its further arguments are untyped. An operation with a default reaches `Dynamic{X}` through the default's method, which forwards.
@@ -88,7 +88,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
    - agreement with `S`'s memberships of supertraits;
    - concreteness.
 4. **A refusal** deletes the block's methods and raises `ImplementError`. Nothing is declared.
-5. **The receiver** ([traits §7.2](traits.md#72-the-key)): `S` where it serves an operation by its own method, the forwarding field where it forwards, none where defaults serve every operation. The runtime computes the key from it ([compiler §6.1](compiler.md#61-the-key-as-a-type)).
+5. **The receiver** (what keys would read, [extensions §1.1](extensions.md#11-the-key)): `S` where it serves an operation by its own method, the forwarding field where it forwards, none where defaults serve every operation.
 6. **The membership:** `jl_declare_membership(S, X{p…}, mod, by, receiver)`, then `Expr(:latestworld)`. The runtime refuses a second instance of `X` for `S` ([compiler §4.6](compiler.md#46-one-instance-per-member)); the library then deletes the block's methods and raises `ImplementError`.
    - Before it, **forwarding's methods,** where `S` forwards by a field `f`: for each required operation of `X` and arity, a method at `S` that calls the operation on `t.f`, its further arguments untyped. They are the membership's, as its declaration is: no block's owner rule. A refusal deletes them.
 7. **The records the definition hook reads** (§11; [traits §5.10](traits.md#510-checks), [§5.11](traits.md#511-overrides-and-redeclaration)) are the check's instances of step 3, with their edges:
@@ -118,7 +118,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 ## 4. Members checked at their first use
 
-A membership with a pattern (a family `S{P} where P`, a closed abstract type, a trait) makes members whose checks are not run at the declaration. Their keys are the runtime's, from the entry ([compiler §6.1](compiler.md#61-the-key-as-a-type)).
+A membership with a pattern (a family `S{P} where P`, a closed abstract type, a trait) makes members whose checks are not run at the declaration.
 
 - **The pattern states the trait's instance** with the family's variables, constants and type constructors: `@implement Iterable{T} Wrapped{T} where {T}`. Where an equation defines a parameter (`T = eltype(Self)`), the pattern states it too, and each member's check compares the equation's value with the pattern's. A family whose instance cannot be written so is refused at its declaration, naming the parameter.
 - **The member hook** ([compiler §10.4](compiler.md#104-the-member-hook)): the runtime calls the library at a member's first use, at dispatch or before code that relies on the member is published. The library runs the member's checks (§3, step 3), or raises `ImplementError`. The answer is kept per (member type, trait) on the member's `TypeName`, and every later use reads it; a failure is kept too, and raised at every use.
@@ -177,6 +177,8 @@ compiled_for(x) = Compiled(x)           # the library's
 ---
 
 ## 8. `like` and `withfields`
+
+`like`, `withfields` and forwarding with `by` (§3, step 6) are the library's conveniences, outside the language's core description ([traits §5.5](traits.md#55-forwarding-with-by), [§6.5](traits.md#65-results)): each is written with the core's forms, a membership and methods.
 
 - `like(t, x)` calls the library's rebuilding function at `t`'s type:
   - a member that forwards by a field has a method of its own there, defined in the declaring module by its `@implement … by f`, with the member's forwarding methods: the type's positional constructor called with every field of `t` in order, the forwarding field replaced by `x`. Where a type forwards by several fields, the first declared is the one rebuilt;
@@ -247,7 +249,7 @@ compiled_for(x) = Compiled(x)           # the library's
 ## 12. Compiling ahead
 
 While a package that declares `@implement X S` is precompiled:
-- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, bounded there, and concrete other arguments, a compile request at `S`'s type (at its key once keys are built);
+- for each method at `X` or a supertrait in the set-to-methods index ([compiler §5.1](compiler.md#51-the-method-table)), with one trait argument, bounded there, and concrete other arguments, a compile request at `S`'s type;
 - for a method at a trait that erases by default, nothing: its instance at the box is compiled where the method is defined, by its definition-time check, in the method's own package (§11);
 - the targets of the table of a call's targets for `S` ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 
@@ -313,7 +315,7 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
 | L-52 | — | *Retired* (2026-11-10): the use raises at dispatch and in compiled code ([§3](#3-implement); TraitWorld 0aff625, 048c44e with `unified` fcdfd0da36; `test/declared.jl`, E-350, E-352). What remains is the hook's: [compiler C-31](compiler.md#deviations) | — | — |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
-| L-54 | [§2](#2-trait) | A default's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
+| L-54 | — | *Retired* (2026-11-15): [§2](#2-trait) states the library's forwarding call; `Core.trait_receiver` is an optional extension ([extensions §1.4](extensions.md#14-the-calling-convention)) | — | — |
 | L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
 | L-56 | — | *Retired* (2026-11-15): there are no casts ([§7](#7-dynamicx-and-compiledt)); what Julia still carries of them: [compiler C-112](compiler.md#deviations) | — | — |
 | L-57 | — | *Retired* (2026-11-14): the error names the constructor to define ([§8](#8-like-and-withfields)); `test/core.jl` | — | — |
