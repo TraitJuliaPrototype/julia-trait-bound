@@ -269,6 +269,11 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 - **W-155, continued: D-9, D-11, D-12, D-13** in `julia-s3` (branch `next-s3`, from `next`) with `TraitWorld-s3` (branch `s3`, from `unified`). Open issue 195 (a) if it is little code.
 - **Then,** in `julia-next` after both are merged: D-4 and D-2 (they change `@trait` and the box, which W-160 changes), and stage 4.
 
+**The fourth wave** (2026-11-15). Stage 2 is done (W-154). D-9, D-11, D-12 and D-13 are built on `next-s3` with TraitWorld `s3` (W-155's second agent); W-160's agent is still in `julia-next`.
+- **W-157, stage 5,** in `julia-s3` (branch `next-s3`, continued) with `TraitWorld-s3`: Base's surface by the census, with open issue 194's throwing helpers and open issue 195 (a). It needs nothing of W-160's.
+- **Then one merge:** `next-s3` into `next`, TraitWorld `s3` into `unified`. To watch: W-160's edges for a positive membership need open issue 211's rule in the G2 predicate; the ODE port needs open issue 212's `public` line.
+- **After the merge,** in `julia-next`: D-4 and D-2, then stage 4.
+
 **IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
 
 | Agent | Experiments | Open issues | Deviations | Tensions |
@@ -279,5 +284,6 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 | W-154, continued (D-1, D-2, D-3, D-14) | E-432 to E-435 | 199 to 203 | T-125 to T-145, C-110 to C-119, F-30 to F-34, L-65 to L-75 | GT-24 |
 | W-160 (the compiler for D-1) | E-436 to E-455 | 204 to 210 | C-120 to C-129, T-146 to T-149, L-76 to L-79 | GT-25, GT-26 |
 | W-155, continued (D-9, D-11, D-12, D-13) | E-456 to E-475 | 211 to 217 | C-130 to C-139, T-150 to T-155, F-35 to F-39, L-80 to L-83 | GT-27, GT-28 |
+| W-157 (Base's surface) | E-476 to E-495 | 218 to 224 | C-140 to C-145, F-40 to F-42 | GT-29, GT-30 |
 
 **The machine.** Three agents at 4 cores each is within the rule for sustained use (16 cores in all). A build of `julia-next` goes through `tools-local/build.sh`, which keeps the rule for a spike. Above half load: one Julia job at a time, and the main session stops agents down to one.

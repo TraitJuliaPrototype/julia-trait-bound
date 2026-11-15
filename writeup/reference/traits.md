@@ -90,7 +90,7 @@ Member         ::= Type | Type "where" "{" TypeVar ( "," TypeVar )* "}"
 How            ::= "begin" MethodDef* "end" | "by" FieldName
 
 Scope          ::= "@trait_module" Option*                           (* before the module's first method *)
-Option         ::= "facts" | "bounded" | "no_pirates" | Name "=" Expr
+Option         ::= "facts" | "bounded" | "no_pirates" | "owner_only" | Name "=" Expr
 Concrete       ::= ( "@enforce_concrete_only" | "@warn_on_abstract" ) Name*
 FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 ```
@@ -1184,7 +1184,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 ```julia
 module Geometry
 using TraitWorld
-@trait_module                     # facts, bounded, no_pirates
+@trait_module                     # facts, bounded, no_pirates, owner_only
 @trait Shape begin … end
 area_sum(shapes::Iterable{<:Shape}) = …
 end
@@ -1193,7 +1193,8 @@ end
 - **`@trait_module`, before the module's first method,** declares options for every method of the module, its submodules included:
   - **`facts`:** its methods are compiled by facts ([facts §6](facts.md#6-which-code-is-compiled-how));
   - **`bounded`:** an unbounded method at a trait argument is refused (§7.3);
-  - **`no_pirates`:** a pirate is refused (§12.2).
+  - **`no_pirates`:** a pirate is refused (§12.2);
+  - **`owner_only`:** each function of the module that it neither exports nor declares `public` is owner-only (§12.2).
 - Each is on unless written otherwise (`@trait_module bounded = false`).
 - **No option decides how a trait argument is compiled:** the value's type does (§7.5).
 - A method may set an option for itself: `@bounded f(…) = …`, `@facts f(…) = …`; `@unbounded f(…) = …` exempts it from `bounded` (§7.3).
