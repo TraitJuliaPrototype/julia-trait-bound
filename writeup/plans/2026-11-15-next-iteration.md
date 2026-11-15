@@ -256,9 +256,9 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 **The first wave** (2026-11-15), three agents side by side:
 - **W-151:** stage 1, in the library and the two ports' pieces, on the baseline Julia.
 - **W-155, the facts side without the library:** D-5, D-6 and D-7. Their references first, then `julia-next`. Its gates load the library from `TraitWorld-base`.
-- **W-154, the references that do not rest on D-1:** D-4, D-9 to D-14. No code.
+- **W-154, the references that do not rest on D-1:** D-4, D-9 to D-13. No code. D-14 goes with D-1's references: it changes the same chapter.
 
-**After it,** in order: the references for D-1, D-2 and D-3 (when W-151's gate is in); the rest of stage 3 (D-9 and D-12 with the library, then the type system: D-4, D-2, D-11, D-13); stages 4 to 7.
+**After it,** in order: the references for D-1, D-2, D-3 and D-14 (when W-151's gate is in); the rest of stage 3 (D-9 and D-12 with the library, then the type system: D-4, D-2, D-11, D-13); stages 4 to 7.
 
 **IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
 
