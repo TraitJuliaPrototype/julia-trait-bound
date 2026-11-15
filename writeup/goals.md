@@ -64,7 +64,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-5 | A closed type's contract promises no result | G-8 and G-7 against G-2 | open issues §1, flagged |
 | GT-6 | The attribute resolves at the method's declared type | G-1 against G-2 | open issues §1, flagged |
 | GT-7 | The firewall's pointer per call, and its making per member in each session | G-1 against G-2 and G-3 | open issues §1, flagged |
-| GT-8 | G2 covers less on the unified build than on the earlier one: facts code is lost through plain callees | G-8 against G-1 | open issues §1, flagged |
+| GT-8 | G2 covers the deep class; a port's facts code outside it is lost through plain callees in Base (E-395: 41 % of the forks' own instances in the class) | G-8 against G-1 | open issues §1, flagged; [facts §2.2](reference/facts.md#22-g2-stable-caches) |
 | GT-9 | The membership machinery costs code that uses no trait | G-8 against G-4 | open issues §1, flagged |
 | GT-10 | An isolated slowdown in an existing ecosystem has no reasonable local fix | G-7 against G-2 | open issues §1, flagged |
 | GT-11 | A method at an open set on one of Base's functions ends plain callers when the library loads | G-7 and G-8 against G-4 | open issues §1, flagged |
@@ -75,6 +75,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-16 | Fully typed mode raises exactly where a build refuses, or fully typed code pays nothing: the build's check takes seconds (traits T-100, T-104) | G-6 and G-5 against G-1 | open issues §1, flagged |
 | GT-18 | A membership changes which types are equal inside a parameter; following it exactly replays every method that names the set there (compiler C-88 (e)) | G-4 (the guarantee) against G-1 | open issues §1, flagged |
 | GT-17 | Fully typed, as what compiles ahead, is wider than code without a run-time site in a session: a build resolves a call at `Any` to a function with one method | G-6 against G-2 and G-8 | open issues §1, flagged |
+| GT-21 | A call that only throws is dispatched when it runs with its result asserted: it raises where a change below its signature makes its callee return (D-6, mine) | G-4 (the guarantee) against G-1 | open issues §1, flagged; [facts §5](reference/facts.md#a-call-that-only-throws) |
 
 ## 4. The synthesis
 

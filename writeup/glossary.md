@@ -18,7 +18,6 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [`Callable`](#callable) ·
 [Candidates](#split) ·
 [Cast](#cast) ·
-[Code slot](#code-slot) ·
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
 [Contract](#trait) ·
@@ -39,7 +38,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
-[G2: stable caches, the G2 bit](#g2-stable-caches-and-the-g2-bit) ·
+[G2: stable caches, the G2 bit, deep G2](#g2-stable-caches-and-the-g2-bit) ·
 [Hints](#hints) ·
 [Input parameter](#parameters-and-input-parameters) ·
 [Instance (one per member)](#parameters-and-input-parameters) ·
@@ -398,21 +397,15 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### G2: stable caches and the G2 bit
 
-- **Here:** the second guarantee. Code compiled by facts is invalidated only by a stakeholder's change or a winning pirate, so a package's compiled code stays valid when unrelated packages load. A CodeInstance whose record meets the rule carries the **G2 bit**; a package image keeps the code a session reaches dynamically only where the bit is set.
+- **Here:** the second guarantee. Code compiled by facts that is **deep G2** is invalidated only by a stakeholder's change or a winning pirate, so a package's compiled code stays valid when unrelated packages load. A CodeInstance is deep G2 when every call it commits to is at a fact signature, and the same holds for every callee it rests on, at any depth. Such a CodeInstance carries the **G2 bit**; a package image keeps the code a session reaches dynamically only where the bit is set.
 - **Origin:** the project's.
-- **Defined in:** [facts §2.2](reference/facts.md#22-g2-stable-caches); the bit: [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate).
+- **Defined in:** [facts §2.2](reference/facts.md#22-g2-stable-caches), deep G2: [facts §1](reference/facts.md#term-deep-g2); the bit: [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate).
 
 ### Absence edge
 
 - **Here:** compiled code that folded "`S` is not a member of `X`" (an `isa`, a `<:`, a method match dropped at an intersection no type is in) records an **absence edge**: the pair's signature at the runtime's function `Core.implements`, with no method. Each membership has a method of that function, and the method that meets the signature invalidates that code. A call needs no absence edge: a membership replays the trait's methods at the new member and invalidates the callers whose selection changes.
 - **Origin:** the project's term. Julia records the same edge for a call that found no method.
 - **Defined in:** [compiler §5.6](reference/compiler.md#56-the-memberships-method-and-the-edges), [§4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries); the rule: [facts §10](reference/facts.md#10-memberships).
-
-### Code slot
-
-- **Here:** a static call that relies only on its callee's result goes through a slot: a pointer per call site, checked against the task's world. A change to the callee's code is then picked up through the slot without invalidating the caller.
-- **Origin:** the project's term; Julia's `invoke` pointers and the per-call-site caches of dynamic languages.
-- **Defined in:** [compiler §3.3](reference/compiler.md#33-the-code-slot).
 
 ---
 

@@ -18,7 +18,7 @@
 |---|---|
 | [1. The facts inference](#1-the-facts-inference) | Inference that commits across a call only at a fact; run-time sites; `return_type`'s plain answers; effects |
 | [2. The policy per method](#2-the-policy-per-method) | Which methods are compiled by facts; one CodeInstance per MethodInstance and policy; calls between policies |
-| [3. The dependency record and the code slot](#3-the-dependency-record-and-the-code-slot) | What each CodeInstance assumed; G2 as a predicate; callers that survive a callee's recompilation |
+| [3. The dependency record and the deep class](#3-the-dependency-record-and-the-deep-class) | What each CodeInstance assumed; G2 as a predicate over its edges at any depth; one compiled code per result |
 | [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections, negatives folded with an edge |
 | [5. Dispatch](#5-dispatch) | Methods at sets in the method table, specificity, the ambiguity report, a membership's invalidation |
 | [6. Keys and the attribute](#6-keys-and-the-attribute) | Code per key, per type or once, chosen per call; the calling convention; the definition-time check |
@@ -80,8 +80,12 @@ Effects.nortsite::Bool          # no run-time site, here or in a callee
   - the fallback of a split over a set's members (§7.2).
 - Its result type is `Any`, its exception type `Any`, its effects unknown, except where a declared result types it (§7.1). Codegen emits a dynamic dispatch.
 - **It clears `nortsite`,** an effects bit carried to every caller as `nortcall` is, stored inverted in a CodeInstance's effects.
+- **A call that only throws** ([facts §5](facts.md#a-call-that-only-throws)). Under the facts mode, a call whose signature is a fact, with one method that covers it, and whose inferred result is `Union{}`, is emitted as a dynamic call with its result asserted (`Core.typeassert(…, Union{})`), as an operation's declared result is (§7.1).
+  - Its result, exception type and effects are the callee's as inferred. It does not clear `nortsite`.
+  - Its record holds the call's signature as a method-table edge (`sig`, `Core.methodtable`), as a call that matches no method does. It names neither the callee's MethodInstance nor its CodeInstance, so no backedge of the callee reaches the caller.
+  - It is never inlined, evaluated at compile time or called by address.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100); the split's fallback (§7.2) marks one under the facts mode with W-100's policy.
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100); the split's fallback (§7.2) marks one under the facts mode with W-100's policy. A call that only throws: C-92.
 
 ### 1.4 `return_type`
 
@@ -195,10 +199,10 @@ Expr(:meta, :facts_always)     # always compiled by facts
 A trimmed build has no facts policy. A binary is a closed world ([facts §13.3](facts.md#133-trimmed-binaries)).
 - Every method is inferred plainly.
 - The image marks every module as never compiled by facts (§2.1's `never`). The binary's runtime, which does not know that its image was trimmed, then finds every method plain.
-- Every static call binds its callee's address. No call goes through a code slot (§3.3): a slot keeps no callee in the image, and a binary has no compiler to fill it.
+- Every static call binds its callee's address.
 - An operation's call on a value known only by its trait is compiled for the members the build has ([§7.6](#76-a-closed-build)).
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100), bb2031f820 (the modules' mark) and 564a2288e2 (no code slot; mine, 2026-11-10): under `--trim` every method and top-level thunk is plain, so every CodeInstance is. Trimmed binaries of the demonstrators are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
+**Status:** Implemented on `unified` cb7f55bd35 (W-100) and bb2031f820 (the modules' mark): under `--trim` every method and top-level thunk is plain, so every CodeInstance is. Trimmed binaries of the demonstrators are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
 
 ### 2.7 Fully typed mode
 
@@ -227,7 +231,7 @@ Base.Experimental.@compiler_options fully_typed=enforce   # every method of the 
 
 ---
 
-## 3. The dependency record and the code slot
+## 3. The dependency record and the deep class
 
 ### 3.1 The record
 
@@ -246,46 +250,33 @@ The backedge iterator, `verify_method`, codegen's walkers and the image writer r
 - Validation of a loaded image's record takes an entry's worlds where the entry is in force in the session, and refuses the code where it is not (§9).
 - **A dispatch edge keeps the call's signature where the call reached an instance wider than its own match:** a method compiled once at a set (§6.3) or declared `@nospecialize`. The edge names the call's signature with the instance, and so does its backedge. A method defined later invalidates the caller only where it replaces the matched method over the part of the call's signature it meets. So a caller at `Int` of `k(@nospecialize(x))`, which reaches the instance `k(::Any)`, stays valid when a method `k(::String)` is defined. The callee's own invalidation reaches the caller as through any backedge.
 
-**Status:** On `unified` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. A folded negative's edge (§4.8); result edges apart, as the list the code slot reads (W-101, §3.3); code edges' digests and layout identities: C-52. A dispatch edge with the call's signature where the instance is wider: `unified` 53ec4356bf (E-336; gate `n21_callsig_backedge`), mine (2026-11-09).
+**Status:** On `unified` 9a601902a0 (W-100): dispatch and binding edges as Julia records them; positive memberships, the entry itself, recorded at `isa`, `<:` and dispatch matches, the code's worlds from theirs, read by image validation (E-277; gate `f7_membership_edges`), with C-51. A folded negative's edge (§4.8). Result edges told apart, code edges' digests and layout identities: C-52. A dispatch edge with the call's signature where the instance is wider: `unified` 53ec4356bf (E-336; gate `n21_callsig_backedge`), mine (2026-11-09).
 
 ### 3.2 G2 as a predicate
 
-When a CodeInstance of either policy is finished, a bit in its flags records whether its record satisfies G2:
-- every dispatch edge is at a fact signature;
-- every inlined callee's own record satisfies G2;
-- result edges may go anywhere.
+When a CodeInstance of either policy is finished, the **G2 bit** in its flags records whether it is **deep G2** ([facts §1](facts.md#term-deep-g2)):
+- every dispatch edge of its record is at a fact signature;
+- every callee among its edges is a CodeInstance that carries the bit.
 
-Strict mode, the concreteness checks and the image's rule for what it keeps (§9) read it.
+The rest of the record needs nothing more: a binding edge, an absence edge, a positive membership, an `invoke` edge at a declared signature, a method-table edge. An instance whose edges are bindings only carries the bit.
 
-**Status:** The bit implemented on `unified` 8ef154476f (W-100), for code of either policy and kept in images, inlined callees' records consulted on 1d493ca959, the edge instance made for a constant-propagated result on 427760d9e9 (gate `f4_g2_bit`, E-320); its readers: strict mode and the concreteness checks (W-114), the image's keep rule (§9, W-100). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1.
+**How it is decided.** A callee is finished before its callers, and its bit is final then. So the bit is decided from the record's own edges and their bits, with no walk.
+- **An inference cycle** is decided as one: where every member's record passes, every member carries the bit; otherwise none does.
+- **A callee named by its MethodInstance alone** (inference had no CodeInstance for it), outside the instance's own cycle, does not carry the bit: its backedge reaches the caller from whatever code it gets.
+- **An edge that names a Method alone** (a callee whose inference gave up) names no code, and holds no backedge.
+- The bit is kept with the CodeInstance in images.
 
-### 3.3 The code slot
+**Readers.** G2's claim ([facts §2.2](facts.md#22-g2-stable-caches)), strict mode's walk ([facts §11.2](facts.md#112-strict-mode)), the image's rule for what it keeps (§9), and the counts of the evidence read the bit, and nothing else.
 
-- **A static call that holds only a result edge to its callee** loads its target through a slot. Every other call binds the callee's address. A trimmed build has no slots (§2.6).
-  - The record lists these callees with the CodeInstance (§3.1).
-  - A callee qualifies when every call of it in the code is emitted as an `:invoke` typed by its result, and no statement inlines it, evaluates it concretely or propagates constants into it.
-  - The callee's CodeInstance is Julia's own and in its MethodInstance's cache.
-- **The slot is the call site's.**
-  - It holds the CodeInstance the site last called.
-  - A call checks the task's world against that CodeInstance's world range, and calls its entry.
-  - On a miss, the runtime finds the callee's code valid in that world, with the result the caller was compiled against, compiling it where needed. It puts that code in the slot.
-  - **Where no such code can be made,** it puts an entry with the call's signature that dispatches the call when it runs, in the task's world, and asserts the caller's result type. A boxed call runs the method's code in the interpreter. The entry is valid in every world.
-  - Nothing else writes a slot. An image's slots start empty.
-- **When a callee is invalidated through its own edges,** a caller whose only edge to it is a result edge is marked for revalidation, not invalidated.
-  - A callee replaced by a definition at its signature invalidates its callers.
-  - A marked CodeInstance's world range is lowered as an invalidation lowers it, so every cache that checks worlds misses it.
-  - The walk goes on from a marked caller as from an invalidated one.
-  - A later invalidation of a marked CodeInstance makes the mark final.
-- **Its next lookup in the latest world revalidates it.** The lookups are dispatch, `invoke`, a `cfunction`, a slot's miss, and inference's cache miss. Each edge to a callee not valid there is checked:
-  - A marked callee is revalidated first.
-  - For a result edge, the callee is inferred again, and its result is compared with the one the caller used: return type, exception type, constant and effects.
-  - Equal, and valid from the world of the mark on: the caller is valid again, and the edge names the callee's new CodeInstance.
-  - Otherwise the mark is final, and the caller is inferred again.
-- **An instance's code is compiled once per result.** A CodeInstance that a compile request brings and the cache does not hold takes the code of an equivalent one in the cache: of the same instance, owner, policy and result type, valid in the request's world, recording the same result edges. Every entry of the instance's cache is a candidate, a compiled one first. Only where there is none is the new one cached and compiled.
-- So G2 covers a facts caller of a plain callee whose result its recompilation leaves unchanged ([facts §2.2](facts.md#22-g2-stable-caches)).
-- `JULIA_CODE_SLOT=0` records no result edges: the code it compiles binds every call, and the walk marks nothing. The system image keeps the slots it was built with.
+**Status:** The bit implemented on `unified` 8ef154476f (W-100), for code of either policy and kept in images, the edge instance made for a constant-propagated result on 427760d9e9 (gate `f4_g2_bit`, E-320). Computed for plain code too: adopted with the work plan (the user, 2026-11-06), the trade-offs review's M1. The bit as the deep class: C-91.
 
-**Status:** Implemented on `unified` 7500630036 (W-101): the record's `ResultEdges` (`Compiler/src/typeinfer.jl`), the slot in codegen (`emit_code_slot`), the marks and revalidation (`src/gf.c`). Gate `experiments/unification/stack/slot_cascade.jl`: a plain caller, a facts caller and an image's caller kept through a callee's recompilation; compiled again when the result changes; the old world sees the old code. A call through a slot costs 0.08 ns more where calls are independent of each other, nothing measurable where each waits for the last (E-283). The entry where no code can be made on `unified` 49ab4294b6 (`code_slot_fallback`; the gate's case "the last resort", through a test switch). With C-64 to C-67 and C-69.
+### 3.3 One compiled code per result
+
+- **An instance's code is compiled once per result.** A CodeInstance that a compile request brings and the cache does not hold takes the code of an equivalent one in the cache: of the same instance, owner, policy and result type, valid in the request's world.
+- Every entry of the instance's cache is a candidate, a compiled one first. Only where there is none is the new one cached and compiled.
+- A static call binds its callee's address. A callee's invalidation invalidates its callers through their edges, as in Julia.
+
+**Status:** Implemented on `unified` 9c6c9270f3 (E-388, E-389). Equivalence also by the list of result edges, and a code slot at a call that holds only a result edge: C-93.
 
 ---
 
@@ -830,7 +821,7 @@ Optional, each only if a measurement asks for it:
 
 - **Memberships in package images.** An image writes every entry its modules declared in a list of its own, as it writes its methods for other modules' functions; an entry on one of its own types is also on that type's list. At load the list is activated before the image's code is validated: each entry in force is in its set's index and in the session's list of activated entries (`jl_activated_memberships`, never written into an image), from which the library makes the records of the membership's check again ([lowering §11](lowering.md#11-checks-errors-and-what-images-keep)), the entries get the loading session's worlds, the world of the image's methods. The dispatch caches' lowering (§5.5) and the ambiguity report (§5.4) run for each as at a declaration. Each membership's method is activated with the image's methods, which invalidates the session's code that relied on the pair's absence (§5.6); an entry refused at activation takes its method out of force, and an entry whose method the library's image hook left inactive (§10.1) is refused. Under strict mode in a session the report's findings at an activated membership are kept as messages for the library (`jl_take_activation_ambiguities`), which reports them after the load ([traits §12.3](traits.md#123-strict-mode)); the warning is not printed. While an image is built the warning stays. The image's folded memberships are validated as its edges to methods are.
 - **Machine code only for code that runs:** CodeInstances of either policy; never `return_type`'s answers.
-- **Code reached only by a dynamic call is kept** where its G2 bit is set (§3.2), of either policy: plain code that facts code reaches is then cached as facts code is.
+- **Code reached only by a dynamic call is kept** where it is deep G2, by its bit (§3.2), of either policy: plain code in the class that facts code reaches is then cached as facts code is. Code outside the class could be ended by an unrelated load.
 - **An image holds the code a facts run-time site reaches whatever the values.** While an image is built, a run-time site in facts code whose argument types match exactly one method, which specializes on none of the site's abstract arguments, has that method's instance compiled into the image, at its compileable signature and the facts policy. *Specializes on none* means: at each abstract argument the method is `@nospecialize`, the argument is no trait argument, and its declared type has no free variables and is no kind. Code that needs an instance per value's type at such a site (a closure capturing untyped values) is not covered; it is written as a loop.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
 - **The checks' records** of members checked while the image was built (traits §5.10) are kept with it.
@@ -844,7 +835,7 @@ Optional, each only if a measurement asks for it:
   So a cache of machine code later adds a loader, not a mechanism. The cache itself is paused ([decisions](../record/decisions.md) §5).
 - No part of this design stores a world, a session object or an address where a stable identity serves.
 
-**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), refused at a second instance on 07c0bee2a2; the edges with W-141 (§5.6). Every activated entry in its set's index and the list of activated entries on `unified` e42047dba2 (C-83 retired, gate `n12_image_instances`, E-344); an older entry for the same member, set and inputs ended at activation on 9f8d7d7c48 (E-348). The pattern members' answers: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07); the findings handed to the library under strict mode on `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The rule for run-time sites implemented on `unified` 6767b03893 (`Compiler/src/facts.jl` `rtsite_targets`, `typeinfer.jl` `compile!`; E-326; gate `n17_rtsite_targets`), for all modules: mine (2026-11-09). The system image's indices of sets on `unified` b133374e9d (W-129 (b), gate `n19_io_trait`): mine (2026-11-09).
+**Status:** Memberships in package images implemented on `unified` 28c401eb0c (W-108), refused at a second instance on 07c0bee2a2; the edges with W-141 (§5.6). Every activated entry in its set's index and the list of activated entries on `unified` e42047dba2 (C-83 retired, gate `n12_image_instances`, E-344); an older entry for the same member, set and inputs ended at activation on 9f8d7d7c48 (E-348). The pattern members' answers: lowering L-55. Compiling ahead: Planned ([traits §16](traits.md#16-compiling-ahead-closed-programs)). The keep rule by the G2 bit implemented on `unified` 823754556f (W-100), for code reached only dynamically from outside the package: TraitWorld's image grew 3.7 %; the bit as the deep class: C-91. The cache: paused. The rule for a signature type without a hash is implemented on `unified` 999634c858. The walk and the report at activation: mine (2026-11-07); the findings handed to the library under strict mode on `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The rule for run-time sites implemented on `unified` 6767b03893 (`Compiler/src/facts.jl` `rtsite_targets`, `typeinfer.jl` `compile!`; E-326; gate `n17_rtsite_targets`), for all modules: mine (2026-11-09). The system image's indices of sets on `unified` b133374e9d (W-129 (b), gate `n19_io_trait`): mine (2026-11-09).
 
 ---
 
@@ -932,11 +923,11 @@ Each applies to all code.
 
 | Interface | Status | Section |
 |---|---|---|
-| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47 | §1 |
+| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47; a call that only throws: C-92 | §1 |
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
-| the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-51, C-52; a folded negative's edge (W-129, W-140) | §3.1, §3.2 |
-| the code slot | Implemented (W-101), the last resort `unified` 49ab4294b6; with C-64 to C-67 and C-69 | §3.3 |
+| the dependency record; G2 as a predicate, the deep class | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-51, C-52; a folded negative's edge (W-129, W-140); the bit as the deep class: C-91 | §3.1, §3.2 |
+| one compiled code per result | Implemented (`unified` 9c6c9270f3), with C-93 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
 | three layers; negatives fold with an edge; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; negatives folded with their edge at every set `unified` a19d937eaa (W-140), with C-77; an intersection no type is in `unified` 1906196731 (E-334), with C-79 | §4.7, §4.8 |
@@ -1017,12 +1008,12 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
 | C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
 | C-63 | — | *Retired* (2026-11-09): a match through `Callable` is bounded by the member's methods' worlds at the positions where the signature names it, on `unified` c8ef0e581e, 1daebeab81, 23022b0ec7 ([§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n8_callable`; E-324 | — | — |
-| C-64 | [§3.3](#33-the-code-slot) | Reflection shows the code that runs. | `code_llvm` and `code_native` compile a CodeInstance of their own, with no record of result edges: they show each call bound by address, where the code that runs calls through a slot. | `Compiler/src/typeinfer.jl` (`slot_result_edges`: only for cached CodeInstances) |
-| C-65 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A loaded image's caller of a callee that the session changed before the load is marked and revalidated, as a caller in the session is. | Validation at load does not mark: such a caller is dropped and compiled again. | `base/staticdata.jl` (`verify_method_graph`) |
-| C-66 | [§3.3](#33-the-code-slot) | A cycle of marked CodeInstances is revalidated as one. | Revalidation goes depth first; a CodeInstance met again on its own path fails, and the cycle's CodeInstances are compiled again. | `src/gf.c` (`revalidate_code_instance`) |
-| C-67 | [§3.3](#33-the-code-slot), [facts §6.4](facts.md#64-the-compilers-own-code) | Every static call with only a result edge goes through a slot. | The compiler's own code, compiled while it bootstraps itself, binds every call: its call targets need not be cached then. Its callers are invalidated as before. | `Compiler/src/typeinfer.jl` (`slot_result_edges`, `bootstrapping_compiler`) |
-| C-68 | — | *Retired* (2026-11-08): the slot's entry where no code can be made, on `unified` 49ab4294b6 ([§3.3](#33-the-code-slot)); gate `slot_cascade.jl` | — | — |
-| C-69 | [§3.3](#33-the-code-slot), [§9](#9-images-and-the-machine-code-cache) | A marked caller is kept through an image written before its revalidation. | The image writer writes a marked caller as invalid (its lowered `max_world`): the image drops it. | `src/staticdata.c`; [the review](../reviews/2026-11-07-implementation-day.md) L3 |
+| C-64 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-65 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-66 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-67 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
+| C-68 | — | *Retired* (2026-11-08): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)) | — | — |
+| C-69 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); what the build keeps of it: C-93 | — | — |
 | C-70 | — | *Retired* (2026-11-09): a kind meets a set that takes a type value, on `unified` f14be868df, 0c9e44cb3d ([§4.10](#410-type-values)); gate `m1_typevalue_isa`; E-321 | — | — |
 | C-71 | — | *Retired* (2026-11-08): a member that fails its check at dispatch lowers the cache entries made for it while the check ran, on `unified` 07c0bee2a2 ([§10.4](#104-the-member-hook)); TraitWorld's test F10b; E-296 | — | — |
 | C-72 | — | *Retired* (2026-11-08): the walk visits the replayed method's own function and substitutes the member at a parametric set, on `unified` aa997b2180 ([§5.5](#55-a-membership-invalidates-as-a-method-does)); gate `m2_parametric_replay`; E-292 | — | — |
@@ -1044,3 +1035,6 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-88 | [§5.5](#55-a-membership-invalidates-as-a-method-does), [§7.4](#74-callables-call) | A membership invalidates exactly the callers whose selection it changes; code that relied on a `Callable` membership's absence is invalidated by the method that begins it. | (c) Where one signature does not say what the membership adds, the walk invalidates every instance of the replayed method and their callers: the set under a `Vararg`, in several places of a signature, in a variable's lower bound, or in a bound that the signature sets inside a parameter (`Box{<:X}`: `Box{Union{S, T}}` was made before the membership and is under it only now). No method takes this path at the loads of the forks' CSV and DataFrames, where five did (E-390, `unified` 8fccf1e182; gate `n32_nested_set`). (e) A type that the membership makes equal to the set (`Union{X, S}` once `S` joins) is not followed inside an invariant parameter (GT-18, [open issues](../open-issues.md) §1). For a `Vector{Union{X, S}}` made before the membership (E-400): at the concrete `Vector{X}`, `isa`, `==` and dispatch do not take the two types as one, and `<:` between them holds both ways; at `AbstractVector{X}`, `isa` at the top level holds, an `isa` compiled before the membership stays false, and dispatch does not select a method at `AbstractVector{X}`. (d) The runtime still carries what nothing reads for a membership: the bit `closed_after_load` (set for every set the library declares; `Callable` has none), the modules' loaded marks' use by `type_declarers_loaded`, and the switch `jl_set_membership_walk_invalidates` (a control for measurements). The walk's cost at a load is not measured (W-140's rounds). | `Compiler/src/abstractinterpretation.jl` (`record_callable_absences!`), `src/gf.c` (`jl_membership_dispatch_walk`), `src/datatype.c` (`jl_membership_final`) |
 | C-89 | — | *Retired* (2026-11-12): the membership's method and the edges are [§5.6](#56-the-memberships-method-and-the-edges), with [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) and [§9](#9-images-and-the-machine-code-cache) | — | — |
 | C-90 | [§7.4](#74-callables-call) | A call of a value the code knows as a `Callable{A, S}` checks `A` and asserts `S`, whatever the instance knows of the function. | The check is read into a call of the argument itself. Left as written, and so unchecked where the instance knows the function: a call with a splatted argument; a call of a variable the argument was assigned to, or of a closure's captured copy; an argument the body assigns; `Callable{A}` with `S` left open (its `A` is not checked); code that runs without being compiled ([open issue 182](../open-issues.md#2-design)). | `Compiler/src/utilities.jl` (`callable_argument_calls!`), `base/boot.jl` (`Core._callable_call`) |
+| C-91 | [§3.2](#32-g2-as-a-predicate), [§9](#9-images-and-the-machine-code-cache) | The G2 bit marks the deep class: every callee among a CodeInstance's edges carries it, an inference cycle is decided as one, a callee named by its MethodInstance alone does not carry it; an instance that rests on bindings alone carries it. | The bit asks only of the callees the code inlined; an instance made for a constant-propagated result whose code is gone gets no bit, though its edges are bindings only ([open issue 187](../open-issues.md#4-runtime-and-measurements)). So the image's keep rule and the evidence's counts read a bit one level deep. | `Compiler/src/facts.jl` (`edges_satisfy_g2`), `Compiler/src/typeinfer.jl` (`finish!`, `codeinst_as_edge`) |
+| C-92 | [§1.3](#13-run-time-sites) | A call that only throws, in code compiled by facts, is a dynamic call with its result asserted, holding its fact as a method-table edge and no edge to the callee. | It is a static call (`:invoke`) or inlined, with an edge to the callee's CodeInstance. | `Compiler/src/abstractinterpretation.jl` (`abstract_call_gf_by_type`), `Compiler/src/ssair/inlining.jl` |
+| C-93 | [§3.3](#33-one-compiled-code-per-result), [§3.1](#31-the-record), [§2.6](#26---trim) | No code slot: a static call binds its callee's address, and a callee's invalidation invalidates its callers; equivalent code is found by instance, owner, policy, result type and world. | The code slot is built (W-101): result edges listed apart (`ResultEdges`), a slot per call that holds only a result edge (`emit_code_slot`), the marks, the revalidation and the last resort in the runtime, the switch `JULIA_CODE_SLOT`; the equivalence also compares the result edges. | `src/codegen.cpp`, `src/gf.c`, `Compiler/src/typeinfer.jl` |
