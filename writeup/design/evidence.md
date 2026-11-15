@@ -643,6 +643,17 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 - **A pirate reported by default** (E-457; `next-s3` 213c759370, TraitWorld-s3 9e0e3f4, load 3 to 4 of 128). The nine unrelated loads after the forks' work end 0 deep instances and give 0 reports. Their time with the runtime's list on and the report against both off: 5.61 s against 5.58 s, the means of 4 alternating runs each, spread 0.4 s.
 - **A membership taken back** (E-459; `next-s3` 213c759370, TraitWorld-s3 9e0e3f4). The library's case: 27 of 27 checks, the code that relied on the membership ended, a call that reached the member's own method kept, a task in an older world keeping the membership. Julia's four tests pass; the forks' digests equal at 26 steps.
 
+### Base's surface on `next-s3` (W-157, stage 5; E-476 to E-480)
+
+`next-s3` from 213c759370 (stage 5's baseline) to bc844be7c0, TraitWorld-s3 9e0e3f4, forks 439bae7; E-392's session, order A; product setting, strict mode off, one thread, one process per row; counts of one run each, load 1.6 to 9 of 128. The deep class is the G2 bit. Scripts and logs: `experiments/unification/w157/`.
+
+- **The census on the baseline** (E-476): the forks' own facts instances in the class 1,756 of 4,204 (41.8 %; own image instances 39.8 %), upstream by facts 1,402 of 3,541 (39.6 %). Culprits (instances that a fault of their own keeps out): 1,730 and 978; a median of 16 and 6 in one own instance's cone. Four error paths buy 16.1 points alone for the forks, 28.0 for upstream; after them no single name buys more than a few points.
+- **Stage 5's head** (E-477, E-478; seven commits): the forks 2,654 of 4,204 own facts instances (63.1 %; own image instances 3,852 of 5,593, 68.9 %); upstream by facts 2,818 of 3,567 (79.0 %; 79.5 %). After the first five commits: 58.5 % and 70.7 %.
+- **The loads:** the nine unrelated loads end no own instance in the class (156 of the forks' own image instances, 14 and 5 of upstream's, none with the bit). Below the own code they end 30 and 12 instances in the class, all `vcat(::Int64, ::Vector{Int64})`'s chain, by SparseArrays' `_cat` at Base's types: a standard library's method, which G2 counts as Julia's own (a stakeholder's change). Before `Val`'s patch that chain was outside the class.
+- **What is left** (open issue 218): Base's plain code where types are not known. The copies P3's demand rule would make: 2,413 instances below the forks' facts code, 1,782 below upstream's. Ownership by declaration of Base's functions no package extends: +0.1 to +1.0 point alone.
+- **What plain Julia pays** (E-479): see below.
+- **P6's count** (E-480): see below.
+
 ### Each tension's cost on the round's second freeze (W-145, part 8)
 
 `unified` 21c9b33e39, TraitWorld 2072e75 (tag `round-2026-11-b`); vanilla 45b6d15e34; product setting, strict mode off; the runs and loads as in each experiment's row. The tensions: [goals §3](../goals.md), [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user).
