@@ -39,6 +39,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - The unified build: options not taken
 - A required operation as the trait's method, replaced (2026-11-15)
 - A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
+- A membership that adds a type equality, replaced (2026-11-15)
 
 ---
 
@@ -574,3 +575,13 @@ Choices made while building bin A of [the schedule](../plans/2026-11-11-complete
 - **Why replaced** (the plan's D-10, mine, 2026-11-15; P5 (a) of [the review](../reviews/2026-11-15-conceptual-design.md)): the three differ in one input, which calls count as settled. Listed as rules, each case was found and added on its own: a program with no member left an operation unresolved (open issue 184 (a)), `invokelatest` needed the build script's rebinding (181 (b)).
 - **What replaced it:** what is final is the one input ([facts §3](../reference/facts.md#3-fact-signatures)); the closed rules follow from it ([compiler §7.6](../reference/compiler.md#76-a-closed-build)); a trimmed build is the facts rule with everything final ([facts §13.3](../reference/facts.md#133-trimmed-binaries)); fully typed has the setting as its parameter ([traits §14](../reference/traits.md#14-concreteness-and-fully-typed-mode)).
 - **Not taken:** GT-17's proposal (b), a closed build that refuses what a session leaves to run time: one notion, but plain programs that build today under `--trim` would be refused.
+
+## A membership that adds a type equality, replaced (2026-11-15)
+
+- **What it was:** subtyping took a type's entries at any depth, so once `S` joined `X`, `Union{X, S}` and `X` were subtypes of each other, and inside an invariant parameter they compared equal. A `Vector{Union{X, S}}` made before the membership was then a `Vector{X}` for `<:`, and for a fresh `isa` at `AbstractVector{X}`, but not for `isa` at `Vector{X}`, for code compiled before, or for dispatch (E-400; compiler C-88 (e); GT-18).
+- **Why replaced** (the plan's D-11, confirmed by the user's adoption of the plan, 2026-11-15; P7 (b) of [the review](../reviews/2026-11-15-conceptual-design.md)): three readers gave two answers, and the runtime's own behaviour at a concrete type already was the rule.
+- **What replaced it:** a membership adds subtype answers, never type equalities: inside an invariant parameter two types are equal by their declared structure ([compiler §4.5](../reference/compiler.md#45-subtyping)). Normal forms already read declared supertypes only (§4.9).
+- **Not taken** (GT-18's proposals):
+  - *(a) Keep the walk and state the limit:* a known unsound case left standing in the reference.
+  - *(b) Replay every method that names the set as an invariant parameter* at each membership: common in trait code (`Vector{X}`, `Dict{K, X}`), at a cost per membership not measured.
+  - *(c) Refuse a membership where a type `Union{X, S}` exists as a parameter's value:* it makes a membership's acceptance depend on which types a session happened to build.
