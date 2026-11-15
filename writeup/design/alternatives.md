@@ -711,3 +711,10 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **Not taken either:**
   - *(a) No default; the declaration only:* the facts at a package's own helpers (E-396's run-time sites) would wait for each package to declare them.
   - *(b) The default with a list of exceptions by package:* a list of packages in the compiler's rule.
+
+## A trait written with its parameters open, not erased: replaced (2026-11-15)
+
+- **What it was:** a method at a trait that erases by default, written with the trait's parameters left open (`c::Column`, `c::Column{<:Real}`), was no erasing argument: the box needs the trait's parameters, and the signature did not give them. The argument took a plain member as it is.
+- **Why replaced** (open issue 204, mine, 2026-11-15, decided by the main session for the fifth wave): the trait declares that its methods are compiled once, and its default applies to anyone who writes a method. Julia reads `f(c::Column)` as `f(c::Column{T}) where T`, so the two spellings are one signature and should compile alike. TraitTables' `summarize(c::Column, name)` was compiled for each member type (on `next`, at the trait by the attribute's instance) where `c::Column{T}` was compiled once per instance (E-440).
+- **What replaced it:** the forwarder takes the open parameters as static parameters of its own and boxes at the instance the member is in; where an open parameter is an input, the argument takes the plain member as it is ([traits §7.8](../reference/traits.md#78-erasing-by-default-the-forwarder), [compiler §6.3](../reference/compiler.md#63-the-forwarders)). E-497.
+- **Not taken:** *a refusal of the open form at a trait that erases* (an error asking for `c::Column{T}`): it would make a spelling Julia treats as equal an error.

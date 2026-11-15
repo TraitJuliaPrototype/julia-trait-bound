@@ -132,7 +132,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 ## 5. Methods at traits
 
 - **A method at a trait is defined by Julia** with nothing around it. The definition-time check reads its instance at the box ([compiler §6.7](compiler.md#67-the-definition-time-check)) and compiles it for the types it is given ([compiler §6.2](compiler.md#62-how-an-argument-is-compiled)).
-- **Where its trait erases by default,** Julia enters it at the kept forms and adds its forwarder where it is defined ([compiler §6.3](compiler.md#63-the-forwarders)). The library writes nothing.
+- **Where its trait erases by default,** Julia enters it at the kept forms and adds its forwarder where it is defined ([compiler §6.3](compiler.md#63-the-forwarders)), the trait's parameters given or left open ([traits §7.8](traits.md#78-erasing-by-default-the-forwarder)). The library writes nothing.
 - `@nospecialize t::X` and `@specialize t::X` are Julia's, as at any argument.
 - **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 

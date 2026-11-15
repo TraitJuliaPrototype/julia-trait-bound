@@ -788,7 +788,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
   - A box of `X` given a box of `X` is that box. Given a box of a subtrait, it holds that box's object at `X`.
   - Given a wrapper, it holds the wrapper's object: the wrapper's choice is erased there.
   - A member of a bits type is allocated when it is boxed.
-- **`X` is a trait with its parameters, or an intersection of such:** `Dynamic{StateVector{Float64}}`, `Dynamic{All{Shape, Placed}}`. `Dynamic{Column}`, with `Column`'s parameter left open, is refused when made (`ArgumentError`, naming `Dynamic{Column{T}}`), as Rust's `dyn Iterator` must name its `Item`. So a box is made where the parameters are known; a box at a second signature (a function seen at the duals too) is made again where that signature is known. Members whose parameters differ share a container typed by the trait, `Vector{Column}`.
+- **`X` is a trait with its parameters, or an intersection of such:** `Dynamic{StateVector{Float64}}`, `Dynamic{All{Shape, Placed}}`. `Dynamic{Column}`, with `Column`'s parameter left open, is refused when made (`ArgumentError`, naming `Dynamic{Column{T}}`), as Rust's `dyn Iterator` must name its `Item`. So a box is made where the parameters are known: a method written `c::Column` boxes at the instance the member is in (§7.8); a box at a second signature (a function seen at the duals too) is made again where that signature is known. Members whose parameters differ share a container typed by the trait, `Vector{Column}`.
 - **Its operations** dispatch on the held object when they run, with the declared results. They are forwarding methods of its own, at `Dynamic{<:X}` ([lowering §2](lowering.md#2-trait)). Its declared fields are read and written on the held object.
 - `unwrap(d)` is the held object.
 - **It is a member of `X` and `X`'s supertraits only,** not of the other traits its object belongs to. To pass it where another trait is required, unwrap it, or box it as `Dynamic{All{X, Y}}`, a member of both.
@@ -824,15 +824,16 @@ A trait **erases by default** when it declares `@default_dynamic` (§4.6). `Call
 - Dispatch and the runtime are Julia's: the two are ordinary methods.
 
 **Which arguments erase.**
-- An argument typed by a trait that erases by default, with the trait's parameters given there: `m::Model`, `f::Callable{Tuple{Float64}, Float64}`, `c::Column{T}` with `T` a variable of the method.
+- An argument typed by a trait that erases by default: `m::Model`, `f::Callable{Tuple{Float64}, Float64}`, `c::Column{T}` with `T` a variable of the method.
+- **An argument whose trait the signature leaves open erases too** (`c::Column`, `c::Column{<:Real}`): the trait's default applies to anyone who writes a method. A member is in one instance of the trait (§3.2), so its membership fixes the open parameters. The forwarder takes them as variables of its own and boxes at the instance the member is in: a member of `Column{Float64}` is boxed as `Dynamic{Column{Float64}}` (§7.7). The method as written is compiled once per trait instance.
 - An argument typed by an intersection with such a component. It is boxed at the intersection.
 - An argument typed by a `where` variable bounded by such a trait: `x::C` with `C <: X`. `C` is then the kept form's type.
-- **Not** an argument whose trait the signature leaves open (`t::Column`, `t::Column{<:Real}`): a box needs the trait's parameters (§7.7). There the argument takes a plain member as it is.
+- **Not** an argument whose open parameter is an input (§3.2): the member does not fix it, as a function's type fixes no signature (`f::Callable` written bare). There the argument takes a plain member as it is.
 - **Not** an argument typed by a `where` variable that another argument names (a struct's own constructor, `T{F}(f::F)`): the call fixes the variable to the member's type, which the box is not. Nor a `Callable{A, S}` whose variables only that argument would bind: a function's type fixes none of them.
 
 **The forwarder's shape.**
 - One forwarder per positional arity that holds an argument that erases. Positional defaults make their arities, as in Julia.
-- It is compiled once where one argument erases and the other arguments fix its trait's parameters; per member type where only the member fixes one (`ip::IndexProvider{I}`), or where several arguments erase.
+- It is compiled once where one argument erases and the other arguments fix its trait's parameters; per member type where only the member fixes one (`ip::IndexProvider{I}`, `c::Column`), or where several arguments erase.
 - Keyword arguments are passed on whole.
 - With several arguments that erase, the one forwarder boxes each plain one and passes a kept form as it is.
 - The forwarders belong to the method: they are defined after it, and redefining or deleting the method redefines or deletes them. Reflection shows the method as written.
@@ -842,7 +843,7 @@ A trait **erases by default** when it declares `@default_dynamic` (§4.6). `Call
 
 **What it costs.** The forwarder makes a box at each call that passes a plain member. The box's membership test is decided when the code is compiled: the forwarder runs only where its signature matched, and the compiler decides a member's membership with an edge ([compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§6.3](compiler.md#63-the-forwarders)). Where the box does not escape, it needs no heap of its own. A box made once and held costs less: a library that calls its trait's methods many times erases at its door, once (§7.10).
 
-**Status:** Implemented (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3; W-160): Julia's `next` 8b1ec88a56 asks the library's expansion hook where a method is defined ([compiler §6.3](compiler.md#63-the-forwarders)); TraitWorld `unified` 21ae901, d537141, 2bf59b9; the box's test decided where the code is compiled (`next` 5b1900641f), with [compiler C-111](compiler.md#deviations) and T-125 for the forwarder's record of its method. The forwarder's shape, which arguments erase, the trait's own methods not forwarded, and no type exempt: mine (2026-11-15, the prototype's). The default constructors forwarded: mine (2026-11-15). The arguments not boxed and the forwarder compiled per member type where the member fixes its trait's parameters: mine (2026-11-15, W-160).
+**Status:** Implemented (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3; W-160): Julia's `next` 8b1ec88a56 asks the library's expansion hook where a method is defined ([compiler §6.3](compiler.md#63-the-forwarders)); TraitWorld `unified` 21ae901, d537141, 2bf59b9; the box's test decided where the code is compiled (`next` 5b1900641f), with [compiler C-111](compiler.md#deviations) and T-125 for the forwarder's record of its method. The forwarder's shape, which arguments erase, the trait's own methods not forwarded, and no type exempt: mine (2026-11-15, the prototype's). The default constructors forwarded: mine (2026-11-15). The arguments not boxed and the forwarder compiled per member type where the member fixes its trait's parameters: mine (2026-11-15, W-160). A trait's parameters left open erase, an input left open does not: TraitWorld `unified` fb67ac1 ([open issue 204](../open-issues.md#closed-items), E-497), mine (2026-11-15: the trait's default applies to anyone who writes a method).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
