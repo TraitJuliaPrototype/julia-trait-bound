@@ -53,12 +53,16 @@
   - A package extension belongs to its parent.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
-- <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of the types in its own signature, judged at every signature it applies to. A `Union`'s members count one by one. A `Vararg{T}` tail contributes `T` only where it has at least one element.
-- **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s` at any depth (each argument type, its parameters, a `Type{T}`'s `T`, a value parameter's type) and of their supertypes. **A type's supertypes include the traits it is a member of,** in the world in question.
-- <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. Julia's type piracy, strict for unions.
-- <a id="term-fact"></a>**Fact:** "at the concrete signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`". `r` is one method, "no method", or "ambiguous".
+- <a id="term-owner-only"></a>**Owner-only function:** a function whose methods only its owner may define (§3).
+  - By default: a function of a module that declares `facts` (its submodules included) that the module neither exports nor declares `public`. A closure of such a module is one.
+  - By declaration: a function its owner declares so in its module, exported or not ([traits §12.2](traits.md#122-pirates)).
+  - Not by default: the internal functions of Base and the standard libraries, and the functions of a module that does not declare `facts`. Packages extend Base's internals as a matter of course.
+- <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of the types in its own signature, judged at every signature it applies to. Of a method of an owner-only function: the function's owner alone. A `Union`'s members count one by one. A `Vararg{T}` tail contributes `T` only where it has at least one element.
+- **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s` at any depth (each argument type, its parameters, a `Type{T}`'s `T`, a value parameter's type) and of their supertypes. **A type's supertypes include the traits it is a member of,** in the world in question. Of any signature of an owner-only function, concrete or not: the function's owner.
+- <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. Julia's type piracy, strict for unions; and a method of an owner-only function by anyone but its owner, whatever types it names.
+- <a id="term-fact"></a>**Fact:** "at the signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `s` is concrete or is a signature of an owner-only function. `r` is one method, the methods that match (at a signature that is not concrete), "no method", or "ambiguous".
 - **A definition wins at `s`** when dispatch at `s` selects something else after it: the new method; an ambiguity; another method after a deletion or replacement.
-- **Lemma O.** A method that applies at a concrete `s` and is no pirate is defined by a stakeholder of `s`. So only a stakeholder or a pirate can change a fact. A method at a trait applies at `s` only through a membership, which makes the trait's owner a stakeholder of `s`.
+- **Lemma O.** A method that applies at a signature `s` and is no pirate is defined by a stakeholder of `s`, where `s` is concrete or `s` is any signature of an owner-only function. So only a stakeholder or a pirate can change a fact. A method at a trait applies at a concrete `s` only through a membership, which makes the trait's owner a stakeholder of `s`. A method of an owner-only function that is no pirate is its owner's, and its owner is a stakeholder of every call of it.
 - **Lemma D.** A definition that does not win at `s` leaves dispatch at `s` unchanged, whatever the order of definitions.
 - <a id="term-fact-signature"></a>**Fact signature:** a call signature at which only a stakeholder or a pirate can change dispatch (§3).
 - <a id="term-edge"></a>**Edge:** a dependency a CodeInstance records ([compiler §3.1](compiler.md#31-the-record)):
@@ -158,7 +162,8 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 | **A dispatch tuple:** concrete types, not kinds; `Type{T}` with `T` known | `f(::Int, ::Float64)` | Lemma O. A membership of one of its types changes dispatch there and invalidates through the fact's edge, as a method does; it is a stakeholder's or a pirate's (§10). |
 | **Its union splits,** where Julia's union splitting splits | `g(::Union{Int, Nothing})` | Each split is a dispatch tuple, with an edge per split. |
 | **Unions of concrete elements in tuple arguments,** split by the same cost | `h(::Tuple{Union{Int, Missing}, Float64})` | A tuple of concrete or union elements holds exactly the values of its splits. |
-| **A closure's call at kinds** | `map(T -> sizeof(T), types)` with `types::Vector{DataType}` | Only the closure's own module adds methods to a closure's type: an assumption, not Lemma O. Julia invalidates the edge, so G1 holds; G2 rests on the assumption. |
+| **A closure's call at kinds** | `map(T -> sizeof(T), types)` with `types::Vector{DataType}` | Only the closure's own module adds methods to a closure's type: an assumption, not Lemma O. Julia invalidates the edge, so G1 holds; G2 rests on the assumption. A closure of a module that declares `facts` is an owner-only function: the next row covers it, by Lemma O. |
+| **A call of an owner-only function, at any signature** (§1) | `helper(x)` with `x::Any`; `limits(p.pos)` with `p.pos::Positions` and `limits` the package's own internal function | Lemma O with the wider reading of a pirate (§1): a method of it by anyone but its owner is a pirate's, whatever types it names. So the methods dispatch can select there are its owner's, or a pirate's. |
 | **A concrete `Vararg` tail** | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners: one edge for the family. |
 | **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | A definition changes the resolution only if its own signature contains the declared one: its definer is a stakeholder of it, or a pirate. |
 | **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
@@ -166,14 +171,22 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Which unions split** is Julia's cost model exactly: the union lengths multiplied, the largest counted as 2, a split where the cost is at most `max_union_splitting` (4 by default).
 
-**Not fact signatures** (run-time sites):
+**Not fact signatures** (run-time sites), at a function that is not owner-only:
 - an abstract argument type: `show(::IO, ::Any)`, `sum(::AbstractVector)`;
 - a trait instance as an argument's type, outside the operations of §9: a member's own methods may differ;
 - a kind passed to a function that is not a closure: `make(::DataType)`;
 - a union with more than four splits;
 - a `Vararg` tail of an abstract or kind element.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110).
+**Owner-only functions** (the row above; §1):
+- **By default** each function of a module that declares `facts`, its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
+- **By declaration** a function's owner makes any function of its module owner-only, an exported one included ([traits §12.2](traits.md#122-pirates)).
+- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that does not declare `facts`. The facts mode's default does not depend on how the caller is compiled: the callee's module decides.
+- **The call is inferred as plain inference infers it** at its signature, the callee under its own policy, with Julia's ordinary dispatch edge. Where Julia's method matching gives up (more matches than `max_methods`), the call is a run-time site, as at any fact ([compiler §1.3](compiler.md#13-run-time-sites)).
+- **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
+- **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
+
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15).
 
 ---
 
@@ -342,7 +355,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 
 ## 11. Pirates and strict mode
 
-Who may write a method, and the errors a user sees, are in [traits §12](traits.md#12-ownership-pirates-strict-mode). This section says how pirates affect validity.
+Who may write a method, and the errors a user sees, are in [traits §12](traits.md#12-ownership-pirates-strict-mode). This section says how pirates affect validity. A pirate is as §1 defines it: a method of another owner's owner-only function is one, whatever types it names.
 
 ### 11.1 What a winning pirate does
 
@@ -462,7 +475,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
 | G2, stable caches; exceptions named | Implemented (`unified`, W-100); the code slot (W-101); a membership's invalidation (W-140) | §2.2 |
-| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
+| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | result edges and the code slot | Implemented (`unified`, W-101), with compiler C-64 to C-67 | §4.3, §6.3 |

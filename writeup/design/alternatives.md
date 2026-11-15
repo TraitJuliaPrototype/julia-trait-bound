@@ -11,7 +11,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Seven rules, then four, then three
 - The facts policy as package code, replaced by the facts mode in Julia's compiler
 - Code in the wrong owner
-- Facts at non-public functions, dropped
+- Facts at non-public functions, dropped (taken up again as owner-only functions)
 - Asserted effects: three rules in turn
 - The invalidation filter and other Julia pieces, reverted or moot
 - Dynamic values: pointer tables and witness tables, replaced by the call-site split
@@ -123,6 +123,12 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 **What it was (s26, the user).** In code compiled under the policy, a call at abstract argument types of a function that is not `public` (nor exported) in its owner's module was recorded as a fact, as at a concrete signature: only the owner adds methods to its internal functions, and extending another package's non-public function would count as piracy. In implementing it, it was scoped to calls from the same package (TraitWorld 6bcca9f): applied to Base's internals, which packages extend as a matter of course, it let OffsetArrays, StatsBase and Unitful invalidate trait code. With it, `@implement` took 0.09–0.21 s without loads and about 0.52 s after (against 1.2–1.5 s after CSV, DataFrames and CairoMakie, and 0.64 s without, before).
 
 **Why it went (s27, the user: decision 3).** Rule 3 lets a package that owns a type extend another package's internal function at that type, so such facts broke G2: acceptance check G2.1 failed with the rule (`JULIA_TW_INTERNAL_FACTS=1`) and passes without it. The speed it bought came from bare invokes running native code, fixed in s27 (TraitWorld eef27bc; acceptance 16/16). The consistency review of s27 had also found that the rule was in no note, broke Theorem 2's premise as stated, and still recorded Base-internal calls from Base code as facts.
+
+**Taken up again in another form (2026-11-15, the plan's D-9): owner-only functions** ([facts §1](../reference/facts.md#term-owner-only), [§3](../reference/facts.md#3-fact-signatures)).
+- *Why the earlier rule was unsound.* It recorded a fact at a non-public function's abstract signature, while ownership left another package free to extend that function at its own type: such a method was no pirate, since its definer owned a type in it. So a definition by a non-stakeholder could change the fact, Lemma O failed for the abstract signature, and G2 broke (acceptance G2.1). It also reached Base's internals, which packages extend as a matter of course.
+- *Why this one is not.* It changes the definition of a pirate together with the fact rule: a method of an owner-only function by anyone but its owner is a pirate, whatever types it names. Then Lemma O holds at every signature of such a function: a method that is no pirate is its owner's, and its owner is a stakeholder of every call of it. Such a pirate is followed by default, with Julia's invalidation (G1 holds), and refused in strict mode and under `no_pirates`.
+- *Its scope is the facts mode's own:* by default only the functions of a module that declares `facts`, neither exported nor `public`; Base's internals stay outside. The acceptance case that failed (now `AC_15_type_value_extension.jl`) extends a function of a module that declares nothing, so it stays as it is.
+- *The measurement that made it worth taking up again:* E-396, a seventh of a port's run-time sites and a fifth to two fifths of idiomatic trait code's are at such functions.
 
 **The alternative recorded with it, (b): run-time dispatch under the policy.** A run-time site looks up and invokes the policy's code for the run-time types, so that dynamically reached code, ordinary code included, is protected too, at the cost of changing "run-time sites behave as plain Julia" and a cost per call. It was built in the package in s28 (TraitWorld 1d93677) and is part (C) of the compiler today.
 

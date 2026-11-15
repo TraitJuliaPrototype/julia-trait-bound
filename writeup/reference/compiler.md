@@ -55,6 +55,7 @@ Compiler.MAX_FACT_SPLITS = 4
 ```
 
 `is_fact_sig(T)` is true when `T` is one of:
+- any signature of a call of an **owner-only function** ([facts §1](facts.md#term-owner-only), [§3](facts.md#3-fact-signatures)): the function's type is `T`'s first parameter (in a keyword call, `Core.kwcall`'s, the parameter after the `NamedTuple`);
 - a dispatch tuple: concrete types that are not kinds, and `Type{T}` with `T` known;
 - a tuple without a `Vararg` tail whose elements are concrete, or tuple types of concrete elements or unions of concrete elements, split by Julia's union-splitting cost at the interpreter's `max_union_splitting`;
 - concrete members followed by a `Vararg{E}` tail of a concrete member `E`;
@@ -62,11 +63,22 @@ Compiler.MAX_FACT_SPLITS = 4
 
 A union at a call's top level is split as Julia splits it, each split a fact signature with its own edge.
 
+**Owner-only functions.**
+
+```julia
+Compiler.is_owner_only(F)::Bool        # F: a function's type
+jl_set_owner_only(F)                    # the declaration, on F's TypeName
+```
+
+- `is_owner_only(F)` is true where `F`'s `TypeName` carries the owner-only bit, which the declaration sets, or where `F`'s module has the facts flag (§2.1) and `F`'s name is neither exported nor `public` there. A closure's type is its module's.
+- The answer is read where the call is inferred. The code relies on it through its binding edge to the function: a later `public` or `export` of the function ends that code, as a redefinition of the binding does.
+- Every reader of fact signatures reads the same test: inference (`facts_find_method_matches`) and the G2 predicate's test of a dispatch edge (§3.2).
+
 **Not gated:** `invoke` and `hasmethod` at a declared signature resolve it as Julia does, with an invoke edge at the declared signature ([facts §3](facts.md#3-fact-signatures)).
 
 A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`.
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`. Owner-only functions: Planned (D-9, 2026-11-15), with C-101; `is_owner_only`, the bit and the binding edge for a later `public` are mine (2026-11-15).
 
 ### 1.3 Run-time sites
 
@@ -934,7 +946,7 @@ Each applies to all code.
 
 | Interface | Status | Section |
 |---|---|---|
-| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47 | §1 |
+| the facts inference, fact signatures, run-time sites, `return_type`, effects | Implemented (`unified`, W-100), with C-45, C-47; owner-only functions Planned (D-9, C-101) | §1 |
 | the policy per method; one CodeInstance per MethodInstance and policy; calls between policies; the test bed; `--trim` | Implemented (`unified`, W-100), with C-49, C-50; no method of Base a boundary (E-279) | §2 |
 | fully typed mode | Implemented (`unified` 5f2373b2d5, W-114) | §2.7 |
 | the dependency record; G2 as a predicate | the record's positive memberships and G2's bit implemented (`unified` 9a601902a0, 8ef154476f), with C-51, C-52; a folded negative's edge (W-129, W-140) | §3.1, §3.2 |
@@ -1047,3 +1059,4 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-89 | — | *Retired* (2026-11-12): the membership's method and the edges are [§5.6](#56-the-memberships-method-and-the-edges), with [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) and [§9](#9-images-and-the-machine-code-cache) | — | — |
 | C-90 | [§7.4](#74-callables-call) | A call of a value the code knows as a `Callable{A, S}` checks `A` and asserts `S`, whatever the instance knows of the function. | The check is read into a call of the argument itself. Left as written, and so unchecked where the instance knows the function: a call with a splatted argument; a call of a variable the argument was assigned to, or of a closure's captured copy; an argument the body assigns; `Callable{A}` with `S` left open (its `A` is not checked); code that runs without being compiled ([open issue 182](../open-issues.md#2-design)). | `Compiler/src/utilities.jl` (`callable_argument_calls!`), `base/boot.jl` (`Core._callable_call`) |
 | C-100 | [§4.1](#41-sets), [§6.8](#68-a-declared-result-on-method), [§7.1](#71-the-rule) | An operation is an entry of the set's contract, written as types the compiler reads (`jl_set_contract_operations`); inference reads a call's declared result from the entries of the set, of the sets it joins and of an intersection's components; an operation without a default has no method at the set. | Inference reads the declared result from the methods at sets of the call's function that carry the flag (`declared_operation_result` over `jl_declared_methods_of`, which lists the function's methods at sets with `Method.declared_covers` bit 0): the trait's method that the library defines for every operation (lowering L-63). Without that method a call at a receiver typed by the set falls to Julia's ordinary rules (under the facts mode, a run-time site). The contract slot holds the library's `Contract` of expressions (`jl_set_contract`), which the compiler does not read; there is no `jl_set_contract_operations`. `Method.declared_covers` (bit 0 the flag, bit 1 "serves no member") and `jl_method_set_declared_result`'s `covers` have no reader once no method carries an operation. The split, its branches and the table's target need no method at the set by reading (§7.2, §7.3: `abstract_call_gf_by_type` with `operation = false`, `Base._SplitTarget`); not yet run without one. | `Compiler/src/abstractinterpretation.jl` (`declared_operation_result`, `operation_split_type`), `src/gf.c` (`jl_declared_methods_of`, `jl_method_set_declared_result`), `src/datatype.c` (`jl_set_contract`), `src/julia.h` (`declared_covers`); `base/splittarget.jl` |
+| C-101 | [§1.2](#12-fact-signatures) | A call of an owner-only function is a fact at any signature: `is_fact_sig` reads the function's type (`is_owner_only`: the declared bit, or a module with the facts flag where the name is neither exported nor `public`); a later `public` or `export` of the function ends the code that relied on it. | `is_fact_sig(T)` reads the signature's argument types only, so a call of a package's own internal function at an abstract signature is a run-time site: 14.7 % of the forks' 4,606 run-time sites, 21.7 % of TraitCSV's, TraitTables' and TraitMakie's 152, 41.4 % of the ODE packages' 280 (E-396). There is no owner-only bit on a `TypeName`, no `jl_set_owner_only`, no `Compiler.is_owner_only`; a later `public` or `export` ends nothing. The G2 predicate reads the same `is_fact_sig` (`edges_satisfy_g2`), so it changes with it. | `Compiler/src/facts.jl` (`is_fact_sig`, `facts_find_method_matches`, `edges_satisfy_g2`); `src/datatype.c`, `src/module.c` (the `public` and export flags) |

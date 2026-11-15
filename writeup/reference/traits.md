@@ -594,9 +594,9 @@ A type's constructor may have methods at traits: `NWState(int::All{IntegratorVie
 
 ### 6.8 Who may add a method
 
-As for any method (§12.2): a package may add a method to a function it owns, or to another package's function where a type in the signature is its own. A trait it owns counts.
+As for any method (§12.2): a package may add a method to a function it owns, or to another package's function where a type in the signature is its own. A trait it owns counts. Another package's owner-only function takes methods from its owner only (§12.2).
 
-**Status:** Implemented: Julia's rule, with the refusal in a scope that declares `no_pirates` (TraitWorld `unified` 7adcc94, W-114; §12.2).
+**Status:** Implemented: Julia's rule, with the refusal in a scope that declares `no_pirates` (TraitWorld `unified` 7adcc94, W-114; §12.2). Owner-only functions: Planned (D-9), with T-121.
 
 ---
 
@@ -1057,10 +1057,15 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 
 - **A membership of a trait you do not own, for a type you do not own, is a pirate's too, and behaves as a pirate's method.** It is followed, with a warning that names the owners, and the code that relied on its absence is compiled again. A scope that declares `no_pirates` refuses it (`OwnershipError`). Under strict mode it is refused where it would change code compiled by facts (§12.3). At the prompt, `@implement` of a package's trait for a package's type is such a membership.
 - A **pirate** is a method of a function you do not own, for types you do not own: Julia's type piracy. A trait you own is a type you own; a `Union` with your own type or a lower-bounded type variable is no way around it.
+- **A method of another package's owner-only function is a pirate's, whatever types it names.** An owner-only function's methods are its owner's ([facts §1](facts.md#term-owner-only)):
+  - by default, each function of a trait module, or of any module that declares `facts`, that the module neither exports nor declares `public`;
+  - by declaration, any function of the owner's module, exported or not: `@owner_only f g`, at the module's top level.
+  - So code compiled by facts infers every call of such a function as plain Julia does ([facts §3](facts.md#3-fact-signatures)): its owner is the only one who changes where the call goes.
+  - To let other packages extend a function, its owner declares it `public` or exports it, or names them as joint owners (§12.1). Base's internal functions are not owner-only: packages extend them.
 - **A scope that declares `no_pirates`** refuses one at its definition (`OwnershipError`).
 - Elsewhere a pirate is followed, as in Julia; code compiled by facts that it changes is compiled again once ([facts §11](facts.md#11-pirates-and-strict-mode)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); by the method's rule, in a `no_pirates` scope and under strict mode: TraitWorld a2ca7be with `unified` 7fee959383 (`test/ownership.jl`, `test/strict.jl`): the user (2026-11-12; [decisions](../record/decisions.md) §4).
+**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A method of another's owner-only function as a pirate's, and `@owner_only`: Planned (the plan's D-9, 2026-11-15), with T-121; the form `@owner_only` is mine (2026-11-15). A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); by the method's rule, in a `no_pirates` scope and under strict mode: TraitWorld a2ca7be with `unified` 7fee959383 (`test/ownership.jl`, `test/strict.jl`): the user (2026-11-12; [decisions](../record/decisions.md) §4).
 
 ### 12.3 Strict mode
 
@@ -1245,6 +1250,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94; errors at the user's line 399f389); an operation outside its signature: Planned (T-120) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343, and reported at an image's activation, E-349), with T-96, T-97 | §12 |
+| owner-only functions, `@owner_only` | Planned (D-9), with T-121, compiler C-101 | §6.8, §12.2 |
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options | Implemented (TraitWorld bb78d02, W-111) | §13 |
 | concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; the report as the build's check: TraitWorld 78a78af, `unified` 381cc8b953, W-142), with T-100, T-101, T-109 | §14 |
@@ -1279,3 +1285,4 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-111 | — | *Retired* (2026-11-14): `detect_kept_storage` reports such stores ([§7.8](#78-keeping-an-argument-with-its-attribute)); test `kept.jl`. TraitDifferentialEquations' six sites are the port's (W-104) | — | — |
 | T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is reported at error level and kept (`TraitWorld._STRICT_MISSES`), and the membership stays: a membership is not taken back (open issue 180 (c)). At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
 | T-120 | [§4.1](#41-operations), [§4.2](#42-defaults), [§5.10](#510-checks), [§11](#11-checks-and-errors) | An operation without a default is an entry of the contract and no method at the trait: a call dispatches to the member's own method; a call outside the declared signature raises Julia's `MethodError` with the contract's hint; a method that takes any receiver serves such an operation. | `@trait` defines the trait's method for every operation and arity (lowering L-63): it forwards for `Dynamic{X}`, holds a default's body, and otherwise raises `OperationError`, the library's error type. The member check refuses a serving method that takes any receiver, since the trait's method would hide it (`_hidden_method`). The hints read the trait's methods to find the declared signature (`_trait_hints!` with `_is_trait_method`). The classifier and compiling ahead skip the trait's method as the contract's own (`_is_trait_method` in `classify.jl`, `ahead.jl`). | TraitWorld `src/trait.jl` (`_trait_method`), `src/check.jl` (`_hidden_method`, `_first_serving`, `_is_trait_method`), `src/hints.jl` (`_trait_hints!`), `src/errors.jl` (`OperationError`), `src/classify.jl`, `src/ahead.jl` |
+| T-121 | [§6.8](#68-who-may-add-a-method), [§12.2](#122-pirates) | A method of another package's owner-only function is a pirate's, whatever types it names: `no_pirates` refuses it, strict mode refuses it where it wins at a fact, and its owner is the one stakeholder of every call of it. `@owner_only f g` declares such functions. | `owned_method` counts a method as no pirate where its package owns the function or a type in each alternative of its signature, whatever the function; strict mode's stakeholders are the owners of the signature's parts (`_stakeholder`, `sig_owners`). There is no `@owner_only`, and no reading of a module's `public` and export lists. A method of another package's internal function at the definer's own type is followed silently and never refused. | TraitWorld `src/ownership.jl` (`owned_method`, `sig_owners`, `_check_pirate`), `src/strict.jl` (`_stakeholder`, `_strict_violation`) |

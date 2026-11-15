@@ -57,6 +57,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Open and closed](#open-and-closed) ·
 [Operation](#operation) ·
 [Owner, joint owners](#owner) ·
+[Owner-only function](#owner-only-function) ·
 [Package extension](#package-extension) ·
 [Package image](#package-image) ·
 [Parameters](#parameters-and-input-parameters) ·
@@ -309,15 +310,21 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** Rust's crate, the unit of its orphan rule. Julia's piracy convention uses the same idea of "your own" functions and types.
 - **Defined in:** [facts §1](reference/facts.md#term-owner); [traits §12.1](reference/traits.md#121-who-may-declare-a-membership).
 
+### Owner-only function
+
+- **Here:** a function whose methods only its owner may define. By default, each function of a module that declares `facts` (a trait module among them) that the module neither exports nor declares `public`; also any function its owner declares `@owner_only`. A method of it by another package is a pirate's, whatever types it names. So a call of it is a fact at any signature, and code compiled by facts infers it as plain Julia does. Base's internal functions are not owner-only.
+- **Origin:** the project's term. Julia's `public` (1.11) marks what others may use; Rust's private items and sealed traits cannot be implemented outside their crate.
+- **Defined in:** [facts §1](reference/facts.md#term-owner-only), [§3](reference/facts.md#3-fact-signatures); [traits §12.2](reference/traits.md#122-pirates).
+
 ### Stakeholder
 
-- **Here:** the stakeholders of a method are the owner of its function and the owners of the types in its signature. The stakeholders of a concrete call signature are the owner of its function and the owners of every type in it, at any depth, and of their supertypes, traits included. Only a stakeholder or a pirate can change which method a call at a concrete signature selects. A stakeholder may declare a membership: the trait's owner or the type's.
+- **Here:** the stakeholders of a method are the owner of its function and the owners of the types in its signature. The stakeholders of a concrete call signature are the owner of its function and the owners of every type in it, at any depth, and of their supertypes, traits included. Only a stakeholder or a pirate can change which method a call at a concrete signature selects. Of an [owner-only function](#owner-only-function)'s methods and calls, the owner is the one stakeholder. A stakeholder may declare a membership: the trait's owner or the type's.
 - **Origin:** the project's term: Rust's orphan rule ("either the trait or the type must be local") generalized to multiple dispatch ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
 - **Defined in:** [facts §1](reference/facts.md#term-stakeholder); [traits §12.1](reference/traits.md#121-who-may-declare-a-membership).
 
 ### Pirate and piracy
 
-- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own. A pirate changes compiled code only where it wins.
+- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own, or any method of another package's [owner-only function](#owner-only-function). A pirate changes compiled code only where it wins.
 - **Origin:** Julia's own "type piracy", which its style guide advises against and Aqua.jl checks; here strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6.
 - **Defined in:** [facts §1](reference/facts.md#term-pirate), [§11](reference/facts.md#11-pirates-and-strict-mode); [traits §12.2](reference/traits.md#122-pirates).
 
@@ -346,8 +353,8 @@ The precedents come from the research in [`record/other-languages-research-2026-
 ### Fact and fact signature
 
 - **Here:**
-  - A **fact** is "at the concrete signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous".
-  - A **fact signature** is a call signature at which only a stakeholder or a pirate can change dispatch: a tuple of concrete types, and the forms that reduce to such tuples.
+  - A **fact** is "at the signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous", and `s` is concrete or a call of an owner-only function.
+  - A **fact signature** is a call signature at which only a stakeholder or a pirate can change dispatch: a tuple of concrete types, the forms that reduce to such tuples, and any call of an [owner-only function](#owner-only-function).
   - Code compiled by facts depends on the method table only through facts.
 - **Origin:** the project's terms. A fact is the kind of dependency Julia's compiled code already records on the dispatch it assumed, restricted to concrete signatures.
 - **Defined in:** [facts §1](reference/facts.md#term-fact), [§3](reference/facts.md#3-fact-signatures).
