@@ -213,7 +213,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 - **The definition-time check against the method read at the box** (E-397; GT-12). `classify(m)` and the method inferred at its signature with `Dynamic{X}` in each trait argument's place give the same verdict at 157 of 165 methods of the library, the demonstrators, the ODE packages and the forks. The check reports and the box is clean at 7 (a value stored with its type, a front end's adapter, `promote_op`; six marked `@unbounded`); the box flags and the check passes at 1 (a field's name that is no constant). In a control of five uses outside the contract, both find four; `typeof(t)` is no fault at a box.
 - **`Callable` in the ports** (E-398). 63 methods name it, 20 type an argument by it. No two methods are told apart by a `Callable`'s argument signature where the other arguments are open to one call. Seven pairs set a `Callable` method beside an untyped one, a fallback for a function with no method at the signature: `ODEProblem`'s front end, `TraitIndexing.Getter`, `Tables.byrow`.
 - **What a load validates, by deep G2** (E-399; after E-325). The forks' CSV and DataFrames after the nine loads bring 7,367 instances from images: deep G2 50.3 % of them, 21.6 % of their edges, 50 of 392 calls checked by signature. The trait demonstrators: 1,608 instances, 63.6 %, 31.8 %, 10 of 52. Pirates by the letter among the session's 55,532 package methods: 821.
-- **GT-18's case on the head** (E-400; compiler C-104). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
+- **GT-18's case on the head** (E-400, on the baseline; the rule built: E-456, below). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
 
 ### One way to erase, the prototype in the library (W-151; E-401 to E-407)
 
@@ -611,6 +611,12 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 - **The image's keep rule by the class** (E-417, on the commit's first build): TraitWorld's image keeps 209 external instances by the bit where the one-level bit kept 237; machine code 5.33 MB against 5.48 MB.
 - **The code slot removed** (E-419; before `next` b54eab8c17, after 7063158f42 with the removal, committed as 9b6dacf5c5; a warm-up and 2 runs each; load 6–7 before, 10–16 after). Upstream by facts: 14 of 3,464 own image instances ended by the nine loads before and after; after the loads 1.55–1.73 s before, 1.46–1.47 s after. The forks: 48 before, 49 after; after the loads 2.18–2.19 s before, 2.01–2.12 s after; first work 0.18–0.19 s before, 0.136–0.138 s after. Base's `precompile` test 232 s before, 224 s after; TraitWorld's image 5.33 MB of machine code before, 5.29 MB after (one run each).
 
+### The third wave on `next-s3` (W-155, continued; E-456 to E-459)
+
+`next-s3` (the julia repository, from `next` 9b6dacf5c5), TraitWorld-s3 (from `unified` bb4ad00), forks 439bae7; product setting, strict mode off, one thread, one process per row. Scripts and logs: `experiments/unification/w155b/`.
+
+- **A membership adds no type equality** (E-456; `next-s3` e967266d9e, load 5 to 6 of 128). The gate `gate_d11.jl`, `v::Vector{Union{X, S}}` made before `S` joins `X`: 33 of 33 checks pass, the baseline (9b6dacf5c5) fails 7. `<:` between `Vector{Union{X, S}}` and `Vector{X}`, `isa` at `AbstractVector{X}`, `typeintersect` with `AbstractVector{X}` and dispatch at it now say "two types", as code compiled before the membership does; `Vector{<:X}` takes `Vector{S}` and `Vector{Union{X, S}}` once `S` joins, fresh and compiled before. Julia's `core`, `subtype`, `Compiler/inline`, `Compiler/inference` pass; the forks' digests equal upstream's at 26 steps; the library's suite as on the baseline.
+
 ### Each tension's cost on the round's second freeze (W-145, part 8)
 
 `unified` 21c9b33e39, TraitWorld 2072e75 (tag `round-2026-11-b`); vanilla 45b6d15e34; product setting, strict mode off; the runs and loads as in each experiment's row. The tensions: [goals §3](../goals.md), [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user).
@@ -634,7 +640,7 @@ What the draft's one CodeInstance per MethodInstance and policy, and its `Callab
 | GT-15 | a family's members in a closed build | the table program builds and runs, 3.11 MB | E-383 |
 | GT-16 | fully typed mode raises where a build refuses | not timed in the round; the check and the build agree on 17 of 18 programs | E-384 |
 | GT-17 | fully typed is wider than no run-time site | the one program of 18 that differs (`bb_invokelatest`) | E-384 |
-| GT-18 | a membership changes type equality inside a parameter | not measurable here: the rule, no type equality from a membership (D-11), is not built (compiler C-104) |  |
+| GT-18 | a membership changes type equality inside a parameter | not measurable on this build: the rule, no type equality from a membership (D-11), is built later (E-456) |  |
 
 The largest: GT-1's conservative path at a port's load, GT-12's first edit, GT-8's work after unrelated loads at a port. GT-1's was a deviation of the implementation (C-88 (c)), not the rule's cost: E-390 narrows it.
 

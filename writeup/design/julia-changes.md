@@ -282,3 +282,13 @@ Branch `next` of the julia repository, from the baseline (`unified` 7b374f39ce, 
 
 - **How it is checked** (`experiments/unification/w155/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the deep class's gate `gate_deep.jl`, the library's suite on its branch `w155`, and the forks' session digests (E-417, E-419).
 
+### 7.3 Branch `next-s3`: the third wave
+
+Branch `next-s3` of the julia repository, from `next` 9b6dacf5c5; worktree `julia-s3/`. The plan's D-9, D-11, D-12, D-13 (W-155, continued; [the plan](../plans/2026-11-15-next-iteration.md) §6, the third wave), beside W-160's work on `next`. The rows take the stack's numbers when the two branches are merged.
+
+| # | Commit | What | Kind | Reference |
+|---|---|---|---|---|
+| s3-1 | e967266d9e | **D-11:** inside an invariant parameter's equality subtyping consults no membership entry (`forall_exists_equal`, the counter `noentry`; a question asked afresh from the walk keeps it, `subtype_fresh`), and intersection meets two types there only where they are equal so (`intersect_invariant`, `intersect_membership`); a variable's bound stays a subtype question with entries (`subtype_ccheck`, `intersect_var`, `intersect_aside`). | types | [compiler §4.5](../reference/compiler.md#45-subtyping), §4.9 |
+
+- **How it is checked** (`experiments/unification/w155b/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the row's gate, the library's suite on its branch `s3`, and the forks' session digests.
+
