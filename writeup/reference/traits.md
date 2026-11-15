@@ -242,7 +242,7 @@ end
 **What is checked.**
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
-- At a call outside the declared signature (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`): no method takes it, and Julia raises its `MethodError`, with a hint that names the operation's declared signature and its trait (§11.4).
+- At a call outside the declared signature that no method of the member takes (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`): Julia raises its `MethodError`, with a hint that names the operation's declared signature and its trait (§11.4).
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result asserted at a call through the trait: Implemented (§7.9). An operation as an entry of the contract, with no method at the trait for an operation without a default, and Julia's `MethodError` with the contract's hint outside the declared signature: Planned (the plan's D-4, 2026-11-15; [decisions](../record/decisions.md) §1), with T-120, [lowering L-63](lowering.md#15-deviations), [compiler C-100](compiler.md#deviations).
 

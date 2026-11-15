@@ -780,7 +780,7 @@ A build under `--trim` is closed: **what is final** there is every set's members
 
 What follows from it, beside the members and the split below:
 - **A call at an abstract type with one method resolves** to that method, as plain inference resolves it: the methods are final.
-- **An operation on a set with no member is a "no method" fact.** The list of members is final and empty, so the call raises `MethodError`, as any call no method takes. A program without callbacks builds with a solver core that calls operations of a callback trait.
+- **An operation on a set with no member is a "no method" fact.** The list of members is final and empty, so the call raises `MethodError`, as any call no method takes. So a library's code that calls a trait's operations builds in a program that has no member of the trait.
 - **A call in the latest world is the call.** Nothing is defined later, so `invokelatest(f, args…)` is inferred as `f(args…)`, and a call after `:latestworld` as any call.
 
 - **The closed rules apply** under `--trim` (`closed_build()`), and in the build's check run in a session (§2.7), which asks them of its interpreter (`closed_build(interp)`). Every rule below reads that one answer.
