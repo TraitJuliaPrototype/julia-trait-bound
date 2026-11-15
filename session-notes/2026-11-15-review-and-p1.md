@@ -78,3 +78,14 @@ The user: "Have Opus agents implement the plan"
 - It is the user's exception to "no subagents" (2026-11-06) for this plan: recorded in `CLAUDE.md`; how the agents are run in [the plan](../writeup/plans/2026-11-15-next-iteration.md) §6.
 - Stage 0 done by the main session: the tag `prototype-2026-11` on every repository, pushed (NetworkDynamics' clone locally); `julia-next` (branch `next`) made and its build started; `TraitWorld-base` at the tag; three worktrees of the design repository under `wt/`.
 - The first wave, three agents on Opus: W-151 (stage 1), W-155's facts side (D-5, D-6, D-7), W-154's references that do not rest on D-1.
+
+## 7. The first wave's results; P1 stands
+
+- **W-154's agent** (the references for D-4, D-9 to D-13): done, no question for the user; its note: `2026-11-15-agent-w154.md`.
+- **W-151's agent** (stage 1): the prototype in the library, the two ports' pieces, the gate (E-401 to E-406). One row lost: a plain member boxed at each call, 25.4 ns against 7.3 ns (GT-19). A follow-up probe at the main session's request (E-407): the box needs no heap when made by `:new`, but code generation then tests the membership at each call (105 ns); where it can decide the membership, 9.5 ns. Its note: `2026-11-15-agent-w151.md`.
+- Put to the user: keep P1 and build the compiler item (recommended), keep it without, or take it back.
+
+The user: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast."
+
+- P1 stands. Recorded: the decision log's Pending row, open issue 186, GT-19, W-160; the guidance on speed in `CLAUDE.md`.
+- The second wave: the references for D-1, D-2, D-3 and D-14 (W-154, an agent); the compiler for P1 (W-160, an agent in `julia-next` once W-155's agent has left it).
