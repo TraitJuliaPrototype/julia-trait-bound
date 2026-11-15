@@ -71,6 +71,7 @@ nav:
       - The facts mode: writeup/reference/facts.md
       - Compiler and runtime: writeup/reference/compiler.md
       - Lowering: writeup/reference/lowering.md
+      - Optional extensions: writeup/reference/extensions.md
   - The record, for agents:
       - Index: writeup/record/INDEX.md
       - Decision log: writeup/record/decisions.md

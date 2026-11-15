@@ -303,7 +303,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 - `code_typed`, `infer_return_type`, `verify_main` and the definition-time check see that code.
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world.
 
-**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check is the library's (compiler C-40).
+**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check reads the instance at the box ([compiler §6.7](compiler.md#67-the-definition-time-check), C-115).
 
 ---
 

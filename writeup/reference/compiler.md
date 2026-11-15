@@ -694,7 +694,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 **Memberships.**
 - `Core.Callable{A, S}` is a set with two input parameters. Its members are declared, as any set's: Core's build declares `Function` a member of every instance, one entry whose pattern leaves both inputs free; a callable type that is no `Function` joins the same way, by `@implement Callable T` ([traits §9](traits.md#9-functions-callable)). The kept forms are members by the library's entries, as for any set ([lowering §9](lowering.md#9-callable)).
 - **Subtyping reads no method:** `F <: Callable{A, S}` is answered from entries alone, for every `A` and `S`. Positives fold through the entry and negatives fold with their edge, as at any set (§4.8). A method definition begins or ends no membership.
-- **Neither input selects a method:** two methods at `Callable` instances that differ only in `A` or `S` meet at every function, and the ambiguity report names them as any tie.
+- **Neither input selects a method:** two methods at `Callable` instances that differ only in `A` or `S` meet at every function: a tie, which Julia reports as any (`detect_ambiguities`, a call's `MethodError`).
 - `Callable` alone is every member: every function, and every type declared callable.
 
 **The check at the box.**
