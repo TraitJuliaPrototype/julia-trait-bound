@@ -215,7 +215,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 - **What a load validates, by deep G2** (E-399; after E-325). The forks' CSV and DataFrames after the nine loads bring 7,367 instances from images: deep G2 50.3 % of them, 21.6 % of their edges, 50 of 392 calls checked by signature. The trait demonstrators: 1,608 instances, 63.6 %, 31.8 %, 10 of 52. Pirates by the letter among the session's 55,532 package methods: 821.
 - **GT-18's case on the head** (E-400; compiler C-104). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
 
-### One way to erase, the prototype in the library (W-151; E-401 to E-406)
+### One way to erase, the prototype in the library (W-151; E-401 to E-407)
 
 `unified` 7b374f39ce with TraitWorld 6f86b4e, TDE 813808a, NetworkDynamics 946c0dc, against the tag `prototype-2026-11` (TraitWorld-base e11c7cc, TDE b730628, NetworkDynamics 6310040) run the same day; product setting, strict mode off, one thread; load 4 to 11 of 128. D-1 and D-3 of [the plan](../plans/2026-11-15-next-iteration.md) as a prototype in the library, with no change to Julia: the wrapper `Compiled` that `compiled_for(x)` returns; a trait's default as generated methods (`@erasing`: the method at the kept forms, a forwarder that boxes a plain member); `convert` into storage typed `Dynamic{X}`; the definition-time check as a reading of the method at the box. Scripts, logs, full tables: `experiments/unification/w151/README.md`. Idiomatic trait code, not interop.
 
@@ -233,6 +233,7 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
   | a field `::Dynamic{Shape}` | 5.56 | 5.56 |
 
 - **NetworkDynamics' workload** (E-403; a warm-up and 2 runs each): the session 43.5 s against 43.3–43.7; new equations (E-310's row) 510.7–516.0 ms against 513.2–516.8; the steady state (E-314's row) 181.3–181.4 ms against 199.1–202.5; the digests equal.
+- **The forwarder's box, made three ways** (E-407; the kept-form method kept from inlining): the attribute 7.3 ns, 16 bytes (the isbits member boxed to pass as the trait); the prototype's `jl_new_struct` 27 ns, 32 bytes (the box on the heap too); `:new` 105 ns, 32 bytes: the box on the stack, but codegen tests the member against the field's trait when it runs; where codegen decides the subtyping without a membership (a member by definition), 9.5 ns, 16 bytes, the forwarder's IR the attribute caller's. A box held 5.2–5.6 ns, no allocation.
 - **A late load** (E-404): `using TraitWorld` after upstream CSV's and DataFrames' plain work ends 201 plain instances on both (E-394's); the ODE port loaded after it, 757 on both, ForwardDiff's. The wrapper's methods, `convert` and the forwarders end none.
 - **The annotations in library code** (E-405): the choosing ones (`keep`, a cast, `Erased`) 7 to 1 in the ODE port, 3 to 1 in NetworkDynamics; `@erasing`, which stands for what lowering would make implicit, 8 and 14.
 
