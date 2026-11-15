@@ -69,3 +69,12 @@ The user: "Okay, accept the change. What would be the best way to act on the Syn
 - My answer to the question: yes. One plan, since the two documents overlap and the probes changed three of the review's proposals; staged, each stage with a gate from an existing experiment; the measured state tagged first; the library before Julia, the references before the build, the ports after.
 - Written: [`writeup/plans/2026-11-15-next-iteration.md`](../writeup/plans/2026-11-15-next-iteration.md), a proposal. Its table D-1 to D-15 holds what the user decided (D-1 provisionally, D-2), what waits for the user's confirmation, and what is mine. Its stages are W-151 and W-153 to W-159 in the work queue, proposed.
 - Nothing was built. W-151's prototype is not started.
+
+## 6. The plan adopted; agents
+
+The user: "Have Opus agents implement the plan"
+
+- Read as the plan's adoption, with no exception named: its rows marked to confirm are confirmed ([the decision log](../writeup/record/decisions.md), Pending).
+- It is the user's exception to "no subagents" (2026-11-06) for this plan: recorded in `CLAUDE.md`; how the agents are run in [the plan](../writeup/plans/2026-11-15-next-iteration.md) §6.
+- Stage 0 done by the main session: the tag `prototype-2026-11` on every repository, pushed (NetworkDynamics' clone locally); `julia-next` (branch `next`) made and its build started; `TraitWorld-base` at the tag; three worktrees of the design repository under `wt/`.
+- The first wave, three agents on Opus: W-151 (stage 1), W-155's facts side (D-5, D-6, D-7), W-154's references that do not rest on D-1.

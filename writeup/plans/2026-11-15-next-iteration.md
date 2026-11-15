@@ -1,6 +1,6 @@
 # The next iteration: one plan from the synthesis and the review
 
-**Status:** proposal (2026-11-15), for the user. Written in the main session, with no subagent. Not normative: nothing here is in force until it is decided and written into a reference.
+**Status:** adopted (2026-11-15, the user: "Have Opus agents implement the plan"). Written in the main session as a proposal the same day. Not normative: nothing here is in force until it is written into a reference. How it is run: §6.
 
 The user (2026-11-15): "What would be the best way to act on the Synthesis+Review? Would it make sense to write a consolidated implementation plan that a new session can pick up?"
 
@@ -48,11 +48,11 @@ The user (2026-11-15): "What would be the best way to act on the Synthesis+Revie
 - A gate that fails does not stop the stage. Record the choice (the reference, the decision log marked "mine", open issues §1) and go on. A failure names a pattern: look for the rule, and keep the tool that finds every instance.
 - The run pattern of the probes: `experiments/unification/w152/README.md`.
 
-**The first action.** If the user has adopted the plan (its status line says so): stage 0. If not: nothing is built; §2's table waits for the user's word.
+**The first action.** Stage 0 is done (the tags). Read §6 for who works where, then the work queue for each stage's status.
 
 ## 2. What is decided, and what the plan takes
 
-Adopting the plan takes every row marked *to confirm* as recommended, unless the user names an exception. Rows marked *mine* are choices of the agent: they stand as recorded and are input to the next synthesis (`CLAUDE.md`).
+Adopting the plan takes every row marked *to confirm* as recommended, unless the user names an exception. The user adopted it on 2026-11-15 and named none: the rows marked *to confirm* are confirmed. Rows marked *mine* are choices of the agent: they stand as recorded and are input to the next synthesis (`CLAUDE.md`).
 
 | | The change | From | Whose | Evidence | Stage |
 |---|---|---|---|---|---|
@@ -98,8 +98,10 @@ Sizes are relative: S a session's part, M a session, L several.
 
 ### Stage 0: the baseline
 
-- Tag every head of §1's table `prototype-2026-11`, and push the tags. The round's numbers (E-374 to E-393) and the probes' (E-394 to E-400) are that state's.
-- Work goes on on the same branches. Each change to Julia is a self-contained commit, as the stack's are.
+- Every head of §1's table is tagged `prototype-2026-11`, and the tags are pushed (done 2026-11-15; NetworkDynamics' clone in `ndport/pkgs/` is tagged locally, its remote is upstream's). The round's numbers (E-374 to E-393) and the probes' (E-394 to E-400) are that state's.
+- **Julia's work goes on in a new tree, `julia-next`** (branch `next` of the julia repository, from the tag). `julia-unified` stays at the baseline, built, so that a gate can run the baseline beside the head on the same day.
+- The library and the demonstrators go on on their branches `unified`, in place. `TraitWorld-base` is the library at the tag, for a gate that needs the baseline library while the library changes.
+- Each change to Julia is a self-contained commit, as the stack's are.
 
 ### Stage 1: one way to erase, in the library (W-151, parts 1 and 2)
 
@@ -234,3 +236,36 @@ Two proposals that stand apart:
 - **D-4's cost is a plainer error** for a call outside an operation's declared signature. E-385's set is the control.
 - **D-9 changes who is a pirate.** A package that extends another's internal function is refused in strict mode. The count of such methods in the round's environment belongs in the registry row before the build.
 - **Stage 3 is large.** Its two halves are independent, and each item has its own gate; the order inside a half is free.
+
+## 6. How it is run
+
+The user (2026-11-15): "Have Opus agents implement the plan". The main session directs; agents on Opus do the stages. This is the user's exception to "no subagents" for this plan (`CLAUDE.md`). An agent starts no agent of its own.
+
+**One agent per piece of work that can stand alone.** Each gets the plan, its rows and its gate. It records as the main session would: the registry row before a run, the reference before the build, its own session note, the work queue's row.
+
+**Who works where,** so that two agents never change one tree:
+
+| Tree | Changed by |
+|---|---|
+| `julia-next` (branch `next`) | one agent at a time: the Julia work of stages 3 to 5 |
+| `julia-unified`, `TraitWorld-base` | nobody: the baseline |
+| `TraitWorld-unified` and the demonstrators' `-unified` trees, `ndport` | one agent at a time: stages 1, 3 (the library's part), 4, 6 |
+| `experiments` | every agent, each in its own directory `unification/w<item>/`; a commit names its paths |
+| the design repository | every agent in its own worktree `wt/design-w<item>` on a branch `iter-w<item>`; it merges `origin/w141-record` into its branch and pushes to `w141-record` |
+
+**The first wave** (2026-11-15), three agents side by side:
+- **W-151:** stage 1, in the library and the two ports' pieces, on the baseline Julia.
+- **W-155, the facts side without the library:** D-5, D-6 and D-7. Their references first, then `julia-next`. Its gates load the library from `TraitWorld-base`.
+- **W-154, the references that do not rest on D-1:** D-4, D-9 to D-14. No code.
+
+**After it,** in order: the references for D-1, D-2 and D-3 (when W-151's gate is in); the rest of stage 3 (D-9 and D-12 with the library, then the type system: D-4, D-2, D-11, D-13); stages 4 to 7.
+
+**IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
+
+| Agent | Experiments | Open issues | Deviations | Tensions |
+|---|---|---|---|---|
+| W-151 | E-401 to E-415 | 189 to 193 | T-113 to T-119, L-59 to L-62 | GT-19, GT-20 |
+| W-155 (facts side) | E-416 to E-430 | 194 to 198 | C-91 to C-99, F-25 to F-29 | GT-21, GT-22 |
+| W-154 (references) | E-431 to E-435 | 199 to 203 | T-120 to T-129, C-100 to C-109, F-30 to F-34, L-63 to L-66 | GT-23, GT-24 |
+
+**The machine.** Three agents at 4 cores each is within the rule for sustained use (16 cores in all). A build of `julia-next` goes through `tools-local/build.sh`, which keeps the rule for a spike. Above half load: one Julia job at a time, and the main session stops agents down to one.

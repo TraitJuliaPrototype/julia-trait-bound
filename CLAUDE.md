@@ -95,7 +95,9 @@ Everything worth remembering is kept in the project's notes and guidance: this f
 
 **Never search the whole file system** (2026-11-06, the user: "NEVER search the entire file system. You are connected to a massive storage system."). `find`, `du`, `grep -r`, `locate` and the like run inside the workspace, and there inside the directories they concern. Never on `/`, `/p`, `/home` or the home directory.
 
-**No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so. The one exception: a Fable review of a really high-impact choice made at a gate (below).
+**No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so. Two exceptions:
+- a Fable review of a really high-impact choice made at a gate (below);
+- the plan for the next iteration is implemented by agents on Opus, directed by the main session (2026-11-15, the user: "Have Opus agents implement the plan"). Who works in which tree, and the ranges of IDs: [the plan](writeup/plans/2026-11-15-next-iteration.md) §6. An agent starts no agent of its own, and keeps every other rule of this file.
 
 **Gates do not stop the work** (2026-11-06, the user: "Okay, don't stop at gates, even if they fail. Make a choice and record it. Ask a Fable agent to review the choice but only if it is really high impact. I am going to bed. Keep implementing."):
 - A gate that fails, or a gate meant for the user, does not stop the stage's work. The agent makes the choice, records it (the reference, the decision log marked "mine", open issues §1 as input to the synthesis) and continues.

@@ -22,7 +22,7 @@ Only open items are listed in sections 1–6. Items keep their numbers, so that 
 - *Given up:* dispatch by a function's signature (the user, 2026-11-06: "I think we need dispatch to pick by signature"); the check of a struct parameter's bound; a variable that only the function's methods bind.
 - *Before it is in force:* the references (traits §9, compiler §7.4, lowering §9), with [the plan](plans/2026-11-15-next-iteration.md)'s stage 2.
 
-**The next iteration, in one plan** ([a proposal](plans/2026-11-15-next-iteration.md), 2026-11-15): the synthesis' seven decisions and the review's proposals in one table (D-1 to D-15), each marked decided, to confirm or mine. Adopting the plan confirms the rows marked to confirm as recommended, unless the user names an exception.
+**The next iteration, in one plan** ([the plan](plans/2026-11-15-next-iteration.md), adopted by the user on 2026-11-15: "Have Opus agents implement the plan"): the synthesis' seven decisions and the review's proposals in one table (D-1 to D-15), each marked decided, confirmed with the adoption, or mine (D-6, D-10: input to the next synthesis). A row is in force once it is in its reference.
 
 **The ports' fresh-ideas round (2026-10-28)** ([SciML](plans/2026-10-28-fresh-ideas-sciml.md), [Makie](plans/2026-10-28-fresh-ideas-makie.md), [DataFrames](plans/2026-10-28-fresh-ideas-dataframes.md)) raised items 82–94; all are decided (closed items, §1).
 

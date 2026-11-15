@@ -99,6 +99,16 @@ tools-local/build.sh julia-vanilla
 - `tools-local/build.sh` rebuilds the system image where a runtime source (`src/`) is newer than it: Julia's make rebuilds the image only for a change in `base/`, yet the runtime's rules shape what Base's build compiles. `KEEP_IMAGE=1` keeps the image.
 - Its gates and acceptance cases: `experiments/unification/`.
 
+**The next iteration's trees** ([the plan](plans/2026-11-15-next-iteration.md) §3, stage 0, and §6):
+
+```sh
+git -C julia-unified worktree add ../julia-next -b next prototype-2026-11   # Julia's work; julia-unified stays the baseline
+cp -a julia-unified/deps/srccache julia-next/deps/
+tools-local/build.sh julia-next
+git -C TraitWorld-unified worktree add --detach ../TraitWorld-base prototype-2026-11   # the library at the baseline
+git worktree add wt/design-w<item> -b iter-w<item>   # an agent's worktree of this repository
+```
+
 ## Paths
 
 - **Environments:** they name their sibling packages by paths relative to the environment.
