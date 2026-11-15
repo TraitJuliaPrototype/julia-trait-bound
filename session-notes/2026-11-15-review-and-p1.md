@@ -69,4 +69,3 @@ The user: "Okay, accept the change. What would be the best way to act on the Syn
 - My answer to the question: yes. One plan, since the two documents overlap and the probes changed three of the review's proposals; staged, each stage with a gate from an existing experiment; the measured state tagged first; the library before Julia, the references before the build, the ports after.
 - Written: [`writeup/plans/2026-11-15-next-iteration.md`](../writeup/plans/2026-11-15-next-iteration.md), a proposal. Its table D-1 to D-15 holds what the user decided (D-1 provisionally, D-2), what waits for the user's confirmation, and what is mine. Its stages are W-151 and W-153 to W-159 in the work queue, proposed.
 - Nothing was built. W-151's prototype is not started.
-
