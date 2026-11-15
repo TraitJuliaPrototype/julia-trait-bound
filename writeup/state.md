@@ -105,6 +105,6 @@ The work follows [the schedule to the synthesis](plans/2026-11-11-complete-proto
 
 The speed work is retired; its log is an archive. Deferred: keys (W-110), purely a performance optimization.
 
-The synthesis waits for the user: its seven decisions ([§7](plans/2026-11-14-synthesis.md#7-decisions-for-the-user)).
+The synthesis waits for the user: its seven decisions ([§7](plans/2026-11-14-synthesis.md#7-decisions-for-the-user)). [A review of the conceptual design](reviews/2026-11-15-conceptual-design.md) stands beside it. Both are consolidated in [one plan for the next iteration](plans/2026-11-15-next-iteration.md), a proposal: its table holds the synthesis' decisions and the review's proposals, each marked decided, to confirm or mine; its stages are W-151 and W-153 to W-159 in [the work queue](record/todo.md).
 
 What was done, in order, is in [the design history](record/design-history.md) and the session notes.

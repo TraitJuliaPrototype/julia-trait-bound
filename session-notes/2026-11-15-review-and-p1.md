@@ -51,3 +51,22 @@ Run the same day, on `unified` 7b374f39ce with TraitWorld e11c7cc and the forks 
 - Found on the way: the G2 bit is missing on instances with binding edges only (open issue 187); compiler C-88 (e) restated from the case.
 
 Not done: P1's prototype (W-151). No reference was changed but compiler C-88 (e)'s row.
+
+## 5. `Callable`, and the plan
+
+The user: "Explain the Callable point concisely"
+
+- My answer: today a function is a member of `Callable{A, S}` where it has a method at `A`, so subtyping reads the method table. The proposal: every function is a member, and the signature is checked where the function is boxed. What it gives up is dispatch by a function's signature, which the ports do not use (E-398).
+
+The user: "Two questions: Do we lose early Error messages? What about something like map that wants to match signature and type through a variable?"
+
+- Early errors: kept at a call. The forwarder boxes a plain function, and the box's constructor checks; a wrapper is checked at the method's entry by a test of `hasmethod`. Lost only for a struct parameter's bound.
+- Variables: one that another argument binds keeps working (`retain!`, `Tables.byrow`, `ODEProblem`, the callbacks). One that only the function's methods bind stops working; none found among the census's 20 methods, read and not checked mechanically.
+
+The user: "Okay, accept the change. What would be the best way to act on the Synthesis+Review? Would it make sense to write a consolidated implementation plan that a new session can pick up?"
+
+- Recorded: [the decision log](../writeup/record/decisions.md), Pending (accepted, not in force); [open issue 188](../writeup/open-issues.md); the review's third addendum; W-153.
+- My answer to the question: yes. One plan, since the two documents overlap and the probes changed three of the review's proposals; staged, each stage with a gate from an existing experiment; the measured state tagged first; the library before Julia, the references before the build, the ports after.
+- Written: [`writeup/plans/2026-11-15-next-iteration.md`](../writeup/plans/2026-11-15-next-iteration.md), a proposal. Its table D-1 to D-15 holds what the user decided (D-1 provisionally, D-2), what waits for the user's confirmation, and what is mine. Its stages are W-151 and W-153 to W-159 in the work queue, proposed.
+- Nothing was built. W-151's prototype is not started.
+

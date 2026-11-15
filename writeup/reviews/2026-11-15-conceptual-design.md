@@ -472,3 +472,24 @@ Run at the user's word ("Record this and then do the suggested probes to settle 
 - E-397 reads the top frame on today's build. It shows agreement, not the cost of the check.
 - E-395 (c) infers under the test bed. It shows the result types, not what the port's own code would then lose above them.
 - E-394 shows what the methods at sets cost. That the split works without them is not shown.
+
+---
+
+## Third addendum (2026-11-15, the main session): `Callable` accepted; the plan
+
+Written after the second addendum, from the user's questions on P7 (c) the same day. Nothing was run for it. The user's words in full: [the session note](../../session-notes/2026-11-15-review-and-p1.md) §5.
+
+**The change as the user accepted it** ("Okay, accept the change.").
+- Every function is a member of every `Callable{A, S}`.
+- The signature is checked where the function is boxed or enters: a method at `A`. The result is asserted to `S` on return.
+- Subtyping reads no method table.
+
+**The user's two questions, and the answers.**
+- *"Do we lose early Error messages?"* Not at a call. Under P1 a method at `Callable{A, S}` takes a plain function through its forwarder, which boxes it; the box's constructor checks, so the error is at the call that passes the function. A wrapper is checked at the method's entry by a test of `hasmethod`. Lost: the check of a struct parameter's bound (`F <: Callable{A, S}` holds for every function); the constructor's method checks in its place.
+- *"What about something like map that wants to match signature and type through a variable?"* A variable that another argument binds keeps working: `retain!`, `Tables.byrow`, `ODEProblem`, the callbacks. A variable that only the function's methods bind stops working. None was found among the census's 20 methods (E-398); that was read, not checked mechanically.
+
+**What it gives up:** dispatch by a function's signature. It reverses the user's "I think we need dispatch to pick by signature" (2026-11-06). The census found no use (E-398).
+
+**What was done with it.**
+- Recorded as pending in [the decision log](../record/decisions.md#pending) and as [open issue 188](../open-issues.md#1-decisions-waiting-for-the-user). It is not in a reference, so it is not in force. The work: W-153.
+- **The plan:** the synthesis and this review are consolidated in [one plan](../plans/2026-11-15-next-iteration.md), a proposal for the user: the decisions in one table, then stages with gates (W-151, W-153 to W-159).
