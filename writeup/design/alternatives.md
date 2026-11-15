@@ -45,6 +45,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Memberships only grow, replaced (2026-11-15)
 - One way to erase: the attribute, replaced (2026-11-15)
 - The classification, replaced by the instance at the box (2026-11-15)
+- `Callable` by its methods, replaced (2026-11-15)
 
 ---
 
@@ -674,3 +675,15 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *Fully typed at the box as the definition, every run-time site a fault:* a call left to run time that finds a method when it runs is Julia's function barrier (E-397's `setproperty!` with a name that is no constant); the prototype's fault classes keep it (mine, 2026-11-15).
   - *The check without the box,* reading the record of the instance compiled once at the trait: it needs the attribute (the review's §4.2, last paragraph).
   - *A check at a method's first call* for what the box cannot see (a trait whose parameters the signature leaves open): a second engine at a second time; such a method is not read.
+
+## `Callable` by its methods, replaced (2026-11-15)
+
+- **What it was:** a function was a member of `Callable{A, S}` where it had a method at `A` (`hasmethod`). Subtyping read the function's methods as its memberships, with a fixed point for a question that reached itself; a method definition began or ended a membership, and a call that matched no method at `Callable` held an absence edge to the function's dispatch. So dispatch picked among methods by a function argument's signature. A call of an argument declared `Callable{A, S}` was rewritten to check `A` and `S`, in every instance (C-90).
+- **Why replaced** (the plan's D-2; the user, 2026-11-15: "Okay, accept the change."; P7 (c) of [the review](../reviews/2026-11-15-conceptual-design.md) and its third addendum):
+  - The ports never dispatch by a function's signature: no two methods are told apart by it; seven pairs use membership as a guard beside an untyped fallback (E-398).
+  - What reading the method table cost: a pointer per call that was never built (C-61), positives not folded outside dispatch (C-62), a check that follows the argument's name, not the value (C-90, open issue 182), a method at a struct's family against a method at `Callable` (184 (d)), and the narrowing of absence edges, which took the ODE port's session from 2.75 s to 1.25 s (E-372).
+- **What replaced it:** every function is a member of every `Callable{A, S}`; the signature is checked where the function is boxed or a wrapper enters; the box asserts the result on return ([traits §9](../reference/traits.md#9-functions-callable), [compiler §7.4](../reference/compiler.md#74-callables-call)).
+- **Given up,** as the user accepted it: dispatch by a function's signature (the user, 2026-11-06: "I think we need dispatch to pick by signature"); the check of a struct parameter's bound, which now holds every function (the constructor with a `Callable` argument checks); a `where` variable that only the function's methods bind (none among the census's 20 methods, read and not checked mechanically).
+- **Not taken** (mine, 2026-11-15):
+  - *Every type a member,* so that a callable struct needs no declaration: a method at `Callable` would then outrank an untyped method for every value, and a number given there would fail at the box where it reached the untyped method before.
+  - *A wrapper's calls rewritten to assert `S`,* as for an argument's calls before: the check followed the argument's name, not the value (182); a wrapper is the caller's choice of the function itself.

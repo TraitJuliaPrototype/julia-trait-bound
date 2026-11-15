@@ -111,7 +111,7 @@ The kept forms are values, made by ordinary calls: `Dynamic{X}(x)` and `compiled
   - **with its definition:** `struct S <: X … end`, declared and checked by an `@implement X S` after its methods (§5.2);
   - **after its definition:** `@implement X S` (§5.3 to §5.9), by a stakeholder (§12.1);
   - **through another membership:** membership is transitive. `S <: B` and `B <: A` give `S <: A`, whether each link is a declared supertype, a membership, or a trait's membership in another trait.
-- **A membership has worlds, as a method has.** It holds from the world in which it is declared. A task running in an older world does not see it. It may be redeclared (§5.11) and taken back (§5.13), as a method may be redefined and deleted. `Callable`'s memberships are derived from the method table and follow it (§9).
+- **A membership has worlds, as a method has.** It holds from the world in which it is declared. A task running in an older world does not see it. It may be redeclared (§5.11) and taken back (§5.13), as a method may be redefined and deleted. Every function is a member of every `Callable` (§9).
 - **What may be a member:** a concrete type; a family of types (`S{P} where P`); a closed abstract type (`AbstractVector{T}`); another trait. A trait is never a member of a closed abstract type. A trait's declared supertype is `Any` or a trait.
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
@@ -942,33 +942,32 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)    # F = Compiled{typeof(lorenz!
 
 ```julia
 colmap(f::Callable{Tuple{Float64}, Float64}, t::ColTable, i::Int) = map(f, col(t, i))
-apply(f::Callable{Tuple{Int}, Int}, x) = "an integer map"
-apply(f::Callable{Tuple{String}, <:AbstractString}, x) = "a string map"     # dispatch picks by signature
 both(f::All{Callable{Tuple{Float64}, Float64}, Callable{Tuple{Int}, Int}}, x::Float64, n::Int) = (f(x), f(n))
 byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T} = …     # result type, where needed: Base.promote_op(f, T)
+retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T} = …   # T bound by xs
 
-colmap(x -> 2x, m, 1)                     # Dynamic: Callable's default
-colmap(compiled_for(x -> 2x), m, 1)       # Compiled at this call
-colmap(abs2, m, 1)                        # Compiled: a function Julia defines
+colmap(x -> 2x, m, 1)                     # boxed: Dynamic{Callable{Tuple{Float64}, Float64}}, compiled once
+colmap(compiled_for(x -> 2x), m, 1)       # the wrapper: compiled for the function
+colmap(uppercase, m, 1)                   # MethodError where the function is boxed: no method of uppercase at (Float64,)
 ```
 
-**`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** It has rules of its own, as Rust's `Fn` traits are the compiler's own:
-- **A function is a member of `Callable{A, S}` where it has a method for a call at `A`** (Julia's `hasmethod`), whatever `S` is. Its own methods decide it: nothing is declared, and inference plays no part. A method of the function defined later can begin or end a membership; that is the one kind of membership that can end ([facts §10](facts.md#10-memberships)).
-- **So dispatch picks by the arguments' signature:** `apply(uppercase)` takes the second method above, since `uppercase` has a method at `String` and none at `Int`.
-- **`S` is checked on return.** A call through a value the code knows as a `Callable{A, S}` (an argument, a field or element declared so, a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted: `TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`. Where it is compiled once, the call goes through a pointer that follows the caller's world.
-- **The check is the same under every attribute.** A function passed with `compiled_for`, or one the caller's code knows, is called directly, and its arguments and result are still checked against the declaration. Where the compiler proves them, the check costs nothing.
-- **`S` takes no part in which method is chosen.** Between two methods that differ only in `S`, the one with the more specific `S` is taken, and its check may fail. `Callable{A}`, with `S` left open, checks nothing on return.
-- **A `where` variable that appears only in `S` is not bound by a call,** as Julia's `detect_unbound_args` reports. Code that needs the result type computes it as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)). Such a method is unbounded at `f` (§7.3): under `bounded` it is written `@unbounded`.
-- **Where the code knows the function by its own type** (a struct parameter `F`), the call is the function's own call.
-- **Its default is `Dynamic`:** code is compiled once per signature, not per function. A function Julia defines, or one of the trait's own package, is `Compiled`, unless its type carries another package's type, as `Base.Fix1{typeof(f), Int}` does (§7.5).
-- **Several signatures** are an intersection: a call picks the signature its argument types match.
-- **Argument types may follow other arguments:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`.
-- `Callable` without parameters takes any function, kept before its signature is known.
+**`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** It is Julia's own, as Rust's `Fn` traits are the compiler's own. Its contract is checked at the box, not in the type system:
+- **Every function is a member of every `Callable{A, S}`:** a value of a subtype of `Function`, and a value of a callable type declared a member (`@implement Callable MyCallable`, for a callable struct that is no `Function`). Subtyping reads no method: membership is declared, as for any trait.
+- **The signature is checked where the function is boxed or enters.** A plain function given at `Callable{A, S}` is boxed (`Callable` erases by default, §7.8), and the box is made only for a function with a method at `A`: otherwise it raises the `MethodError` a call at `A` would, with a hint that names the declaration and the function's methods near `A`. So the error is at the call that passes the function. A wrapper is checked at the entry of the method that takes it, by the same test.
+- **The result is asserted to `S` on return,** at every call of a box, however it is called: its own argument, a copy, a capture, a splat. A call at arguments outside `A` raises `MethodError`; a result outside `S` raises `TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`.
+- **A wrapper is the function:** passed with `compiled_for(f)`, it is checked at entry, and its calls are the function's own, compiled for its type.
+- **Neither `A` nor `S` selects a method.** Two methods at `Callable` instances that differ only there are ambiguous for every function: dispatch does not pick by a function's signature. A method that branches on it tests `hasmethod(f, A)` in its body.
+- **A struct parameter bounded by `Callable{A, S}` holds every function:** the bound checks no signature. The constructor with a `Callable` argument checks it, by its box or its entry (§8.2).
+- **A `where` variable that only `A` or `S` names is not bound by a call,** as Julia's `detect_unbound_args` reports. Another argument binds it (`retain!`, `byrow` above), or code computes the result type as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)).
+- **Its default erases:** a plain function is boxed, so code is compiled once per signature, not per function, Julia's own functions included (§7.8). `compiled_for(f)` compiles it for the function.
+- **Several signatures** are an intersection: a box of `All{Callable{A, S}, Callable{B, R}}` is made for a function with methods at both, and a call picks the signature its argument types match.
+- **Argument types may follow other arguments:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`; the box is made at the signature the other arguments give.
+- `Callable` without parameters is every function; a box needs a signature (§7.7).
 - **Keywords:** `Callable{A, S, K}`, `K` a named-tuple type (Planned).
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
-- **Passing `f` on to a higher-order function,** `map(f, xs)`, is a call of another function with it, so the method is unbounded at `f` (§7.3): `colmap` above is refused under `bounded`. How a fully bounded method passes a function on: Open ([open issue 165](../open-issues.md#2-design)).
+- **Passing `f` on to a higher-order function,** `map(f, xs)`, passes the box: a call at a concrete signature, whose code is compiled once for the box. `colmap` above is bounded (§7.3).
 
-**Status:** Implemented on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113), with compiler C-61, C-62; the hint for a function that is not a member in TraitWorld e572379 (W-114), the hint at a failed result L-58; the check under every attribute on `unified` a0602148ca (compiler C-90); keywords Planned. Dispatch by signature: the user (2026-11-06, "I think we need dispatch to pick by signature"); `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). Keywords Planned.
+**Status:** Planned (the plan's D-2, 2026-11-15, the user: "Okay, accept the change."; [decisions](../record/decisions.md) §3), with [compiler C-116](compiler.md#deviations), [lowering L-68](lowering.md#15-deviations). Built as the earlier rule on `unified` 5f0a8ffd50 and in TraitWorld `unified` 5d52f0d (W-113): a function a member where it has a method at `A`. The box's call, checked at both ends: TraitWorld 5d52f0d; the hint for a function with no method at `A`: TraitWorld e572379 (W-114), the hint at a failed result L-58. `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). A callable struct declared a member, and a wrapper's calls as the function's own: mine (2026-11-15). Keywords Planned.
 
 ---
 
@@ -1076,7 +1075,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode `ImplementError`, and the membership does not exist |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
 | a member's call of an operation | a call that no method of the member takes, outside the operation's declared signature | `MethodError`, with the declared signature as a hint (§11.4) |
-| a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
+| a call through the trait | an operation's result against its declared type (§7.9); a box of a `Callable`: its arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
 **Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership an error under strict mode on `unified` 0bb8f38830 (E-343); at an image's activation reported at error level after the load on 9f8d7d7c48 with TraitWorld 0aff625 (E-349).
@@ -1349,7 +1348,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | erasing by default: the forwarder made where a method is defined | Planned (D-1), with T-125, compiler C-110, C-111; the library's `@erasing` (TraitWorld 362f08b) | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
 | storage typed by a trait; struct parameters; storage keeps the form given | Implemented (Julia's, with TraitWorld e7ff8e2; the conversion into `Dynamic{X}` 5e2ef71) | §8 |
-| `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
+| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Planned (D-2, W-153), with compiler C-116, L-68; built as the earlier rule (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
 | checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94; errors at the user's line 399f389); an operation outside its signature: Planned (T-120) | §11 |

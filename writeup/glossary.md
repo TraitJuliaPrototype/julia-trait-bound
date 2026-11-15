@@ -257,8 +257,8 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `Callable`
 
-- **Here:** `Callable{A, S}`, the set of the functions and callable values that a call at the argument types `A` reaches, with result `S` checked on return. Its memberships are the members' methods: defining a method declares one, deleting it ends it. Dispatch picks among methods by a function argument's signature.
-- **Origin:** Rust's `Fn` traits, Swift's function types matched by signature. In Julia: `Function`, which says nothing about signatures.
+- **Here:** `Callable{A, S}`, the trait of functions called at the argument types `A` and returning an `S`. Every function is a member of every `Callable{A, S}`; the signature is checked where the function is boxed or a wrapper enters, and the box checks the result on return. A function's signature selects no method.
+- **Origin:** Rust's `Fn` traits, checked where a closure is coerced to `dyn Fn`. In Julia: `Function`, which says nothing about signatures.
 - **Defined in:** [traits §9](reference/traits.md#9-functions-callable); [compiler §7.4](reference/compiler.md#74-callables-call).
 
 ### `like` and `withfields`
