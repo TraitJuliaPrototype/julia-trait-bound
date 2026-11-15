@@ -701,6 +701,8 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) Â
 - **Not taken** (mine, 2026-11-15):
   - *Every type a member,* so that a callable struct needs no declaration: a method at `Callable` would then outrank an untyped method for every value, and a number given there would fail at the box where it reached the untyped method before.
   - *A wrapper's calls rewritten to assert `S`,* as for an argument's calls before: the check followed the argument's name, not the value (182); a wrapper is the caller's choice of the function itself.
+  - *A wrapper unchecked at `S`* (GT-24 (a); mine, W-161): the entry's inference of the function's result at `A` folds where the function's type is known, and refuses at the line that passes it a function whose every result lies outside `S` (E-500, E-501).
+  - *The wrapper's test written into the method as written* (mine, W-161): the expansion hook answers methods and does not rewrite a body; an entry method at the wrapper's form that tests and invokes the method as written puts the same test at the same place ([compiler C-146](../reference/compiler.md#deviations) for where it is not made).
 
 ## Keys in the language's core, moved to the optional extensions (2026-11-15)
 
