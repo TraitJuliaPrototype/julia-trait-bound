@@ -661,6 +661,12 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *`@default_dynamic` as a hook on every method definition, in the library* (the prototype's note): the definition hook cannot narrow a method, and a method cannot be redefined while an image is built. Julia's method definition makes the forwarder instead ([compiler §6.3](../reference/compiler.md#63-the-forwarders)).
   - *A forwarder compiled per member type with a fast path in the library for a member by its definition* (`:new` where the declared supertype chain holds the trait, E-407): it serves one form of membership, where the compiler's decision serves all.
   - *`with_dynamic(x)` kept as a function:* a box needs the trait, which a value-level function cannot know; `Dynamic{X}(x)` is written where it is known.
+  - *In building the compiler's part (W-160, mine; [evidence §1](evidence.md#one-way-to-erase-the-compilers-part-w-160-e-436-to-e-444)):*
+    - a bit of the runtime that marks a trait's default, read by `jl_method_def`: the library owns the contract, so the runtime asks it (the expansion hook), as it asks at a member's first use;
+    - the statement's "cannot throw" flag as the carrier of inference's proof to code generation: a store's flag covers its bounds check too, so a store into a `Vector{Shape}` kept its run-time membership test (88 ns, E-441);
+    - the forwarder's box made by a library function: in code compiled by facts a call with an argument typed by the set is a run-time site, 670 ns a call; the box is made by `new` in the forwarder's body;
+    - the membership walk's conservative path at a bound the signature sets (the kept forms): each membership ended every instance of the methods at the kept forms, the check's among them (E-439: 14 entries at the ODE port's load); the replay at the method's own signature keeps them (E-444);
+    - the check reading the instance a box's call runs whatever its signature: on `next` that is the attribute's instance at the trait for a trait without the default, whose code hides an undeclared field read (the library's `test/attribute.jl`); such a method is read apart.
 
 **Terms retired:** *attribute* (of an argument at a call), *cast*, `keep`, `Kept{X}`, `kept_call`, *fallback by scope*, `first_seen`, the module option `dynamic`, `@default_compiled`.
 
@@ -705,3 +711,10 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **Not taken either:**
   - *(a) No default; the declaration only:* the facts at a package's own helpers (E-396's run-time sites) would wait for each package to declare them.
   - *(b) The default with a list of exceptions by package:* a list of packages in the compiler's rule.
+
+## A trait written with its parameters open, not erased: replaced (2026-11-15)
+
+- **What it was:** a method at a trait that erases by default, written with the trait's parameters left open (`c::Column`, `c::Column{<:Real}`), was no erasing argument: the box needs the trait's parameters, and the signature did not give them. The argument took a plain member as it is.
+- **Why replaced** (open issue 204, mine, 2026-11-15, decided by the main session for the fifth wave): the trait declares that its methods are compiled once, and its default applies to anyone who writes a method. Julia reads `f(c::Column)` as `f(c::Column{T}) where T`, so the two spellings are one signature and should compile alike. TraitTables' `summarize(c::Column, name)` was compiled for each member type (on `next`, at the trait by the attribute's instance) where `c::Column{T}` was compiled once per instance (E-440).
+- **What replaced it:** the forwarder takes the open parameters as static parameters of its own and boxes at the instance the member is in; where an open parameter is an input, the argument takes the plain member as it is ([traits §7.8](../reference/traits.md#78-erasing-by-default-the-forwarder), [compiler §6.3](../reference/compiler.md#63-the-forwarders)). E-497.
+- **Not taken:** *a refusal of the open form at a trait that erases* (an error asking for `c::Column{T}`): it would make a spelling Julia treats as equal an error.
