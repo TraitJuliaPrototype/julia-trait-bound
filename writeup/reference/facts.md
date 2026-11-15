@@ -139,7 +139,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new type that joins a trait (§10): no earlier code asked about it;
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); a membership invalidates as a method does: `unified` a19d937eaa (W-140). The deep class as the bit each CodeInstance records: compiler C-91; strict mode's walk by the class: F-25.
+**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); a membership invalidates as a method does: `unified` a19d937eaa (W-140). The deep class as the bit each CodeInstance records: `next` 7063158f42 (W-155; [compiler §3.2](compiler.md#32-g2-as-a-predicate)): the nine unrelated loads end no instance that carries it (E-417); strict mode's walk by the class: F-25.
 
 ### 2.3 Two tiers
 
@@ -219,7 +219,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 - **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a membership ends an absence it relied on, or a CodeInstance it holds an edge to is invalidated. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
 
-**Status:** Implemented on `unified` (W-100) for facts, binding edges, edges to callees as CodeInstance edges and positive memberships (compiler §3.1, with C-52). A caller kept over a callee's equal result: compiler C-93.
+**Status:** Implemented on `unified` (W-100) for facts, binding edges, edges to callees as CodeInstance edges and positive memberships (compiler §3.1, with C-52); with no code slot on `next` 9b6dacf5c5 (W-155).
 
 ---
 
@@ -434,7 +434,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). The keep rule by the deep class: compiler C-91. A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
+**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). The keep rule by the deep class: `next` 7063158f42 (E-417). A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
 
 ---
 
@@ -485,7 +485,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | Item | Status | Where |
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
-| G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class as built: compiler C-91 | §2.2 |
+| G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class `next` 7063158f42 (W-155) | §2.2 |
 | fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
@@ -510,4 +510,4 @@ Where the unified build falls short of this page.
 |---|---|---|---|---|
 | F-1 to F-23 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/facts.md` | — | — |
 | F-24 | [§7.2](#72-reflection) | `infer_return_type` and the definition-time check see the code of the method's policy. | `code_typed` and `Base.infer_return_type` infer with the default interpreter (`_default_interp`, plain): a facts method's top frame is inferred plainly, its callees under their own policy. TraitWorld's membership check reads it, so a member is checked by a mix of the two ([open issue 157](../open-issues.md#2-design)). Inferring it under the method's policy makes TraitMakie's `MappedColors` fail its check at `rgba`, a function barrier whose result facts types `Any` (157's case; found 2026-11-08 by E-311). The plain frame is not kept as the method's code (`unified` 50261bb4c7: `typeinf_type` infers it uncached; gate `n15_image_policy`). | `Compiler/src/reflection_interface.jl` (`_default_interp`), `base/reflection.jl`; TraitWorld `src/check.jl` |
-| F-25 | [§11.2](#112-strict-mode) | The walk follows callers in the deep class only, and refuses a pirate that would win at a fact of code in the class. | The walk follows every caller through plain code to code compiled by facts, in or out of the class. | TraitWorld `src/strict.jl` (`_winning_fact`, `_facts_dependent`) |
+| F-25 | [§11.2](#112-strict-mode) | The walk follows callers in the deep class only, and refuses a pirate that would win at a fact of code in the class. | On TraitWorld `unified` the walk follows every caller through plain code to code compiled by facts, in or out of the class. Built on TraitWorld branch `w155` e682482 (with `next` 7063158f42), to be merged into `unified`. | TraitWorld `src/strict.jl` (`_winning_fact`, `_facts_dependent`) |

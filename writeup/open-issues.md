@@ -465,6 +465,12 @@ Waiting for evidence, not for the user:
      - (c) The rule for code compiled by facts only: 3 instances (E-416 (c)).
    - *Recommendation (mine):* (a), as the first entries of stage 5's list.
 
+195. **Edges that name a callee by its MethodInstance alone keep a share of a port's code out of the deep class** (found 2026-11-15 by E-416, E-417; [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate); G-1).
+   - *The case:* where inference had no CodeInstance for a callee when the caller was inferred (a recursion through it, a limited inference), the caller's record names the callee's MethodInstance. Such an edge holds a backedge on the instance, so any CodeInstance the instance has or gets, of either policy, ends the caller when it is invalidated.
+   - *The rule:* the deep class counts such an edge as outside, but within the instance's own inference cycle (compiler §3.2). Sound, and it costs: the forks' own image instances in the class are 1,784 of 4,772 (37 %) on `next`, where E-395's walk, which followed CodeInstance edges only, gave 1,983 (41 %); the same walk with the rule gives 1,787 on the baseline (E-416 (e)). Upstream by facts: 1,373 against 1,382. No such callee's code was outside the class when measured (E-416 (b)).
+   - *The tool:* `experiments/unification/w155/deep.jl` (the line "corrected, a callee by MethodInstance outside").
+   - *Proposals:* (a) name the callee's CodeInstance in the caller's record where it exists when the caller finishes, as Julia's `add_one_edge!` already upgrades an edge it meets again; (b) accept the cost. *Recommendation (mine):* (a), looked at with stage 5's census.
+
 ## 3. TraitWorld (the prototype)
 
 State: [state §6.1](state.md#today).
@@ -1051,7 +1057,7 @@ From "Found by the solvers agent":
 
 ### §4
 
-187. **Closed (2026-11-15, W-155, the plan's D-5, confirmed by the user's adoption):** the G2 bit marks the deep class, decided at a CodeInstance's finish from its edges' bits; an instance whose edges are bindings only carries it; G2's claim, an image's keep rule, strict mode's walk and the counts read it ([compiler §3.2](reference/compiler.md#32-g2-as-a-predicate), [facts §2.2](reference/facts.md#22-g2-stable-caches), [§11.2](reference/facts.md#112-strict-mode)). Found by E-395; the tool `experiments/unification/w155/deep.jl`. What the build lacks: compiler C-91, facts F-25.
+187. **Closed (2026-11-15, W-155, the plan's D-5, confirmed by the user's adoption):** the G2 bit marks the deep class, decided at a CodeInstance's finish from its edges' bits; an instance whose edges are bindings only carries it; G2's claim, an image's keep rule, strict mode's walk and the counts read it ([compiler §3.2](reference/compiler.md#32-g2-as-a-predicate), [facts §2.2](reference/facts.md#22-g2-stable-caches), [§11.2](reference/facts.md#112-strict-mode)). Found by E-395; the tool `experiments/unification/w155/deep.jl`. Built on `next` 7063158f42 (E-417); strict mode's walk on TraitWorld branch `w155`, facts F-25 until it is merged.
 
 Closed by W-118 (2026-11-09): items that named the earlier design's mechanisms ([todo](record/todo.md) W-118).
 

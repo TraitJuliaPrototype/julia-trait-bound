@@ -269,3 +269,16 @@ Oldest first. *Kind*: **general**, useful without traits and facts; **traits**, 
   - the top with W-108, 28c401eb0c (commit 19): gates 33 of 33 (`n3_image_memberships` new: four packages on a fresh depot, both load orders, a call before and after the membership's load, an image built without it); E-262's four files at vanilla's times; the six other files, `precompile` and `exceptions` pass; `detect_ambiguities(Base)` 0; TraitWorld's tests (the override rule, the module's end) and both workloads pass.
   - W-109's first three commits, e70675a606: gates 33 of 33; E-262's four files at vanilla's times; the six other files, `precompile` and `exceptions` pass; `detect_ambiguities(Base)` 0; TraitWorld's tests (operation results, the split, the table) and both workloads pass.
   - W-109's top, 50da8d8ee2 (commit 23): the same, with TraitWorld 59134ef's `declared fields` and `classification`; Base's `core` test lists the new atomic field of `TypeName`.
+
+### 7.2 Branch `next`: the next iteration
+
+Branch `next` of the julia repository, from the baseline (`unified` 7b374f39ce, tag `prototype-2026-11`); worktree `julia-next/`. The plan's stages 3 to 5 ([the plan](../plans/2026-11-15-next-iteration.md) §3, §6). `unified` stays at the baseline, built, for runs beside it. The rows go on with the stack's numbers.
+
+| # | Commit | What | Kind | Reference |
+|---|---|---|---|---|
+| 124 | 7063158f42 | **W-155, D-5:** the G2 bit marks the deep class: set where every dispatch edge is at a fact signature and every callee among the edges is a CodeInstance that carries it (`edges_satisfy_g2`, `set_g2!`); an inference cycle decided as one (`finish_cycle`); a callee named by its MethodInstance alone outside; an absence edge counted in (`is_absence_sig`); an instance with binding edges only carries it (`codeinst_as_edge`). The image's keep rule reads it. | facts | [compiler §3.2](../reference/compiler.md#32-g2-as-a-predicate), §9 |
+| 125 | 3037289af6 | **W-155:** an operation's split names an inlined branch by the CodeInstance it inlined, found among the case's own edges (`split_case_edge!`). | facts | compiler §3.2, §7.2 |
+| 126 | 9b6dacf5c5 | **W-155, D-7:** the code slot removed: `ResultEdges` and `slot_result_edges`, `emit_code_slot`, the marks and their revalidation, `jl_code_slot_resolve` and its last resort, `JL_CI_FLAGS_MARKED`, `JULIA_CODE_SLOT`; equivalent code found without result edges (`equivalent_cached_ci`). | facts | [compiler §3.3](../reference/compiler.md#33-one-compiled-code-per-result) |
+
+- **How it is checked** (`experiments/unification/w155/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the deep class's gate `gate_deep.jl`, the library's suite on its branch `w155`, and the forks' session digests (E-417, E-419).
+
