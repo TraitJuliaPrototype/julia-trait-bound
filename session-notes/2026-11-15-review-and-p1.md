@@ -89,3 +89,20 @@ The user: "Yes please. Build the compiler for P1 and be cogniszent of finding pr
 
 - P1 stands. Recorded: the decision log's Pending row, open issue 186, GT-19, W-160; the guidance on speed in `CLAUDE.md`.
 - The second wave: the references for D-1, D-2, D-3 and D-14 (W-154, an agent); the compiler for P1 (W-160, an agent in `julia-next` once W-155's agent has left it).
+
+## 8. The later waves; the stop
+
+- **The references' second part** (W-154's second agent): D-1, D-3, D-2, D-14 written; no question for the user.
+- **W-155's second agent** (`julia-s3`): D-11, D-12, D-9, D-13 built. GT-23 decided (c), mine: owner-only by default in trait modules only (E-431: 86 methods in upstream's packages extend another package's internal function).
+- **W-160's agent** (`julia-next`): the compiler for D-1 and D-3. The lost row: 8.28–8.40 ns against the baseline's 7.19–7.32 ns (E-437); GT-19 closed.
+- Open issue 204 decided by the main session, mine: a trait written with its parameters open erases too.
+- **W-157's agent** (`julia-s3`): Base's surface; the deep share 41.8 % to 63.1 % (the forks), 39.6 % to 79.0 % (upstream by facts); the times after the loads unchanged.
+
+The user (16:56): "We are about to hit the session limit. Pause the agents and restart them after 17:40 when it resets"
+
+- Both running agents were told to stop at a safe point; the limit cut them first. Resumed at 17:45 from their notes.
+
+The user: "End and report a summary of where the work stands after the running agent finishes."
+
+- **The merge agent** (W-161's note) finished: `next-s3` into `next` twice, TraitWorld `s3` into `unified`, open issue 204, D-4 and D-2 built; every gate passes on `next` 32a2235abd.
+- No further agent was started. Where the work stands, the heads and what is next: [the plan](../writeup/plans/2026-11-15-next-iteration.md) §6, "Where it stands".

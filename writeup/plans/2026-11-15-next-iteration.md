@@ -278,6 +278,47 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 - **The merge, then D-4 and D-2,** one agent in `julia-next` with the library, the ODE port, NetworkDynamics and the forks: `next-s3` into `next` and TraitWorld `s3` into `unified`, with both builders' gates again; open issue 204 (a trait written with its parameters open erases too: mine, since the trait's default applies to anyone who writes a method); a required operation as a contract entry (D-4); `Callable` as a contract at the box (D-2, W-153).
 - **Then** stage 4 (W-156), and W-157's later commits merged once more.
 
+**Where it stands** (2026-11-15, evening). The agents are stopped at the user's word ("End and report a summary of where the work stands after the running agent finishes."). No agent runs; no build runs. Every tree is clean and pushed.
+
+| Stage | Standing |
+|---|---|
+| 0 | done: the tag `prototype-2026-11` |
+| 1 (W-151) | done: the prototype and its gate (E-401 to E-407) |
+| 2 (W-154) | done: every row D-1 to D-14 is in its reference, but D-6 (not built, taken out: open issue 194, GT-21) and D-8, D-15 (work, not rules) |
+| 3 (W-155, W-153, W-160) | done: D-5, D-7, D-9, D-11, D-12, D-13, D-4, D-2 and the compiler for D-1 and D-3, merged on `next` |
+| 4 (W-156) | **next,** not started |
+| 5 (W-157) | done: the deep share 41.8 % to 63.1 % (the forks), 39.6 % to 79.0 % (upstream by facts) |
+| 6 (W-158), 7 (W-159), 8 (W-19) | not started |
+
+**The heads.**
+
+| Tree | Branch | Head |
+|---|---|---|
+| `julia-next` (built) | `next` | 32a2235abd |
+| `julia-s3` (built; all of it merged into `next`) | `next-s3` | bc844be7c0 |
+| `TraitWorld-unified` | `unified` | d1febca |
+| `TraitDifferentialEquations-unified` | `unified` | ae1a966 |
+| `forks-unified` | `unified` | bf6799b |
+| `TraitMakie-unified` | `unified` | d905a0b |
+| `ndport` (NetworkDynamics-unified 6d311a3, local, in the bundles) | `main` | cad389d |
+| `TraitTables-unified`, `TraitCSV-unified`, `TraitReport-unified` | `unified` | at the baseline: not converted |
+| `julia-unified`, `TraitWorld-base` | — | the baseline, `prototype-2026-11` |
+
+**To go on: stage 4,** one agent in `julia-next` with the library and every demonstrator. Its brief is this plan's stage 4 and these notes: `session-notes/2026-11-15-agent-w161.md` ("What stage 4 must know"), `-w160.md` (what of the attribute's machinery can go: C-112), `-w154.md` part 2 (T-127, T-128).
+- Convert the casts of TraitTables, TraitCSV, TraitMakie, TraitReport, the forks' `ColumnCore`, the ODE port's `kept_interpolant`. A callable struct that is no `Function` is declared `@implement Callable T`.
+- Then remove the attribute's machinery from Julia and the library (C-112, T-127), and run E-391's edit session again (GT-12 closes with it).
+- Then stages 6 and 7.
+
+**What the builders left open,** each in its open issue:
+- 225: plain code's first work is 3.31–3.47 s on `next` against 2.90–3.00 s on the baseline; the cause is not found. To bisect before the freeze.
+- 228: the ODE session's first run is 651 ms against 398 ms; an instance of the workload is missing from the package image.
+- 227 with GT-32: a plain package's callable struct is no `Callable` member until declared (134 of 174 callable types in the forks' session).
+- GT-31: strict mode secures the deep class only, so it no longer refuses one of E-385's pirates.
+- 218: the long tail of Base's surface. 219: no edge for "dispatch, not code". 226, C-146, T-156, C-130, L-64 (Revise), C-111 (a forwarder does not record its method).
+- NetworkDynamics' new equations: 567–572 ms against 510–519 ms (E-438).
+
+**The worktrees under `wt/`** are the agents' (`design-w*`, merged into `w141-record`) and baselines for gates (`w151-base`, `w160-tm`, `w161-tde-base`, `w161-tw`). They can be removed when stage 7's round no longer needs the baselines.
+
 **IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
 
 | Agent | Experiments | Open issues | Deviations | Tensions |
