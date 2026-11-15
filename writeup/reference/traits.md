@@ -110,12 +110,12 @@ Cast           ::= "compiled_for" "(" Expr ")" | "with_dynamic" "(" Expr ")"   (
   - **with its definition:** `struct S <: X … end`, declared and checked by an `@implement X S` after its methods (§5.2);
   - **after its definition:** `@implement X S` (§5.3 to §5.9), by a stakeholder (§12.1);
   - **through another membership:** membership is transitive. `S <: B` and `B <: A` give `S <: A`, whether each link is a declared supertype, a membership, or a trait's membership in another trait.
-- **Memberships only grow.** A membership holds from the world in which it is declared. A task running in an older world does not see it. Once declared, a membership is never withdrawn; it may be redeclared (§5.11). `Callable`'s memberships are derived from the method table and follow it (§9).
+- **A membership has worlds, as a method has.** It holds from the world in which it is declared. A task running in an older world does not see it. It may be redeclared (§5.11) and taken back (§5.13), as a method may be redefined and deleted. `Callable`'s memberships are derived from the method table and follow it (§9).
 - **What may be a member:** a concrete type; a family of types (`S{P} where P`); a closed abstract type (`AbstractVector{T}`); another trait. A trait is never a member of a closed abstract type. A trait's declared supertype is `Any` or a trait.
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
 
-**Status:** Implemented in Julia's type system on branch `unified` 62016706d0 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented in Julia's type system on branch `unified` 62016706d0 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2. A membership taken back: Planned (§5.13).
 
 ### 3.2 Parameters
 
@@ -480,7 +480,7 @@ end
 
 **A failure** raises `ImplementError` (§11.3).
 - At a declaration, the declaration then declares nothing: no membership and no methods.
-- At a first use, the member stays a member (memberships only grow), and every use of it through the trait raises the same `ImplementError`.
+- At a first use, the member stays a member (a failed check takes no membership back), and every use of it through the trait raises the same `ImplementError`.
 
 Not everything is caught: a conversion that fails at run time is not proved by the check.
 
@@ -520,6 +520,32 @@ materialize(t::TableLike)::Vector{Vector{Float64}} = [Float64.(column(t, n)) for
 A type whose data a library can use only after a conversion (a lazily derived table, a foreign layout) does not join by a field. The library converts it through a trait that reads any such type, and runs its own code on the result: a copy, no write-through. A pattern, nothing to build.
 
 **Status:** Planned.
+
+### 5.13 Taking a membership back
+
+```julia
+delete_membership(Shape, Circle)       # Circle is no Shape from the next world on
+```
+
+- **`delete_membership(X, S)` takes back the membership of `S` in `X`** that an `@implement` declared, as `Base.delete_method(m)` deletes a method. `S` is the member as declared: a type, a family `S{T} where T`, an abstract type or a trait. `X` names the trait, at the input values that select the membership where the trait has inputs.
+- **It behaves as a method's deletion:**
+  - it holds from the next world on; a task in an older world keeps the membership;
+  - the code that relied on the membership is compiled again: a call at the member that selected a method at the trait, an `isa` or `<:` that folded true, code compiled at the member for the trait;
+  - no other code is: a call that dispatched to the member's own method keeps it.
+- **Who may:** whoever may declare it (§12.1), the trait's owner or the type's. One by neither is a pirate's, as a pirate's membership is (§12.2). In strict mode it is refused where code compiled by facts relies on it, as a method's deletion is ([facts §11.3](facts.md#113-strict-modes-errors-at-their-sources)).
+- **What goes with it:**
+  - the member's check, and the records of §5.10 and §5.11: a later method at the member is judged by them no longer;
+  - the member's place among the trait's candidates (§7.9);
+  - for a family, an abstract type or a trait as member, every member it made, with their checks.
+- **Values stored before stay where they are.** An item of a `Vector{Shape}` whose type is no member any more is called by its type, as plain code's call is; an operation's call through the trait still asserts the declared result (§7.9). So every call computes what plain code computes, or raises.
+- **What cannot be taken back alone:**
+  - a member by its definition (`struct S <: X`): its supertype is its definition's, and only a new definition of `S` changes it;
+  - a trait's membership in its supertraits, and `Dynamic{X}`'s: they are part of the trait's declaration.
+- **A membership declared again** after it was taken back is a new declaration, checked as any (§5.10).
+- **Revise:** an `@implement` line deleted from a file takes its membership back, as a deleted method definition deletes its method ([lowering §3](lowering.md#3-implement)).
+- **Package images:** an image holds the memberships in force when it is written. Taking one back in a session changes no image. An image loaded afterwards whose code relied on it has that code compiled again: its edge to the membership fails validation.
+
+**Status:** Planned (the plan's D-13, 2026-11-15; the user, by adopting the plan), with T-124, [lowering L-64](lowering.md#15-deviations), [compiler C-106](compiler.md#deviations). The mechanism (the membership's method deleted, the walk run for the removal), the name `delete_membership`, and what cannot be taken back alone: mine (2026-11-15).
 
 ---
 
@@ -1064,7 +1090,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
   - To let other packages extend a function, its owner declares it `public` or exports it, or names them as joint owners (§12.1). Base's internal functions are not owner-only: packages extend them.
 - **A scope that declares `no_pirates`** refuses one at its definition (`OwnershipError`).
 - Elsewhere a pirate is followed, as in Julia; code compiled by facts that it changes is compiled again once ([facts §11](facts.md#11-pirates-and-strict-mode)).
-- **A pirate is reported where it ends deep-G2 code** ([facts §2.2](facts.md#22-g2-stable-caches), [compiler §3.2](compiler.md#32-g2-as-a-predicate)): code that nothing but a stakeholder's change or a pirate can end. A warning names the method, its definer, who owns neither the function nor a type in it, and the code compiled by facts it ended. So every pirate that costs such code is told, and no other:
+- **A pirate is reported where it ends deep-G2 code** ([facts §1](facts.md#term-deep-g2), [§2.2](facts.md#22-g2-stable-caches); [compiler §3.2](compiler.md#32-g2-as-a-predicate)): code that nothing but a stakeholder's change or a pirate can end. A warning names the method, its definer, who owns neither the function nor a type in it, and the code compiled by facts it ended. So every pirate that costs such code is told, and no other:
   - **reported**, by default: when its definition ends such code, and when an image's code that its method makes invalid at the image's load is such code;
   - **refused**, in strict mode (§12.3), where it would win at a fact;
   - **silent** only by choice: `TraitWorld.report_pirates!(false)`, or `JULIA_TW_PIRATES=0` at start.
@@ -1244,6 +1270,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
 | checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714, fcdfd0da36: at dispatch and before compiled code runs; C-31); kept while a member, also from an image (TraitWorld 6871ea9, E-344); pattern answers in images L-55 | §5.10 |
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
+| a membership taken back, `delete_membership`; Revise on memberships | Planned (D-13), with T-124, L-64, compiler C-106 | §5.13 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
 | `like`, `withfields`; their compilation per type | Implemented (TraitWorld e7ff8e2) | §6.5 |
 | keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`); per tuple of keys with keys, Optional | §6.6 |
@@ -1293,8 +1320,9 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles, and the report's calls are the build's. | The verdicts agree on 17 of 18 programs (E-369). What differs: (1) what the build script changes in Base that is no method is not read by the check: the binding `Base.invokelatest`, which the build makes a direct call (the check reports the call, the build builds: `bb_invokelatest`; the closed rule that removes it is compiler C-103), and eleven functions' `max_args`. (2) Three functions the build script adds are defined in the session's Base as written (`show_typeish`, `invokelatest_trimmed`, `unwrap_val`). (3) The lists of calls are not compared one by one: the report names the call in the user's code above a refused call, the build the call it stopped at. (4) A build's process that loads a package from source, not from its image, runs the package's own workload under the closed rules, and can fail there. (5) At a member of a family that no image has checked, the check in a session leaves calls at the trait unresolved that the build's process resolves, since its queue runs the member's check ([open issue 184](../open-issues.md#2-design) (b)). | TraitWorld `src/fullytyped.jl`, `src/buildbase.jl`; `experiments/unification/w142/` (`agree.sh`, the apps `bb_*`); [open issue 181](../open-issues.md#2-design) |
 | T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
 | T-111 | — | *Retired* (2026-11-14): `detect_kept_storage` reports such stores ([§7.8](#78-keeping-an-argument-with-its-attribute)); test `kept.jl`. TraitDifferentialEquations' six sites are the port's (W-104) | — | — |
-| T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is reported at error level and kept (`TraitWorld._STRICT_MISSES`), and the membership stays: a membership is not taken back (open issue 180 (c)). At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
+| T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is reported at error level and kept (`TraitWorld._STRICT_MISSES`), and the membership stays: a membership is not taken back yet (§5.13, T-124); once it can be, the miss is undone as a method's is. At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
 | T-120 | [§4.1](#41-operations), [§4.2](#42-defaults), [§5.10](#510-checks), [§11](#11-checks-and-errors) | An operation without a default is an entry of the contract and no method at the trait: a call dispatches to the member's own method; a call outside the declared signature raises Julia's `MethodError` with the contract's hint; a method that takes any receiver serves such an operation. | `@trait` defines the trait's method for every operation and arity (lowering L-63): it forwards for `Dynamic{X}`, holds a default's body, and otherwise raises `OperationError`, the library's error type. The member check refuses a serving method that takes any receiver, since the trait's method would hide it (`_hidden_method`). The hints read the trait's methods to find the declared signature (`_trait_hints!` with `_is_trait_method`). The classifier and compiling ahead skip the trait's method as the contract's own (`_is_trait_method` in `classify.jl`, `ahead.jl`). | TraitWorld `src/trait.jl` (`_trait_method`), `src/check.jl` (`_hidden_method`, `_first_serving`, `_is_trait_method`), `src/hints.jl` (`_trait_hints!`), `src/errors.jl` (`OperationError`), `src/classify.jl`, `src/ahead.jl` |
 | T-121 | [§6.8](#68-who-may-add-a-method), [§12.2](#122-pirates) | A method of another package's owner-only function is a pirate's, whatever types it names: `no_pirates` refuses it, strict mode refuses it where it wins at a fact, and its owner is the one stakeholder of every call of it. `@owner_only f g` declares such functions. | `owned_method` counts a method as no pirate where its package owns the function or a type in each alternative of its signature, whatever the function; strict mode's stakeholders are the owners of the signature's parts (`_stakeholder`, `sig_owners`). There is no `@owner_only`, and no reading of a module's `public` and export lists. A method of another package's internal function at the definer's own type is followed silently and never refused. | TraitWorld `src/ownership.jl` (`owned_method`, `sig_owners`, `_check_pirate`), `src/strict.jl` (`_stakeholder`, `_strict_violation`) |
 | T-122 | [§14](#14-concreteness-and-fully-typed-mode) | `fully_typed`'s report lists apart the calls a build resolves and a session leaves to run time; `isfullytyped(report; session = true)` answers for a session. | The report lists the calls the build's check refuses (`Compiler.closed_check`) and the walk's root causes; a call a build resolves and a session dispatches is in neither list, and nothing answers whether code is fully typed in a session. | TraitWorld `src/fullytyped.jl` (`fully_typed`, `isfullytyped`, the report's type) |
 | T-123 | [§12.2](#122-pirates) | By default a pirate whose definition, or whose method at an image's load, ends deep-G2 code is reported: the method, its definer, the code ended; `report_pirates!(false)` silences it. | Outside strict mode a pirate is followed silently. The library reads Julia's invalidation log only under strict mode, around a definition or a declaration (`_strict_log_start!`, `_strict_log_hit`), and validation's log at a load only under strict mode (`_validation_log_on!`, `_load_pirates`). There is no `report_pirates!`, and the runtime keeps no list of what a definition ended by class (compiler C-105). | TraitWorld `src/strict.jl` (`_strict_after!`, `_strict_log_hit`, `_validation_log_on!`, `_load_pirates`, `strict!`) |
+| T-124 | [§5.13](#513-taking-a-membership-back) | `delete_membership(X, S)` takes a membership back: ownership checked as for a declaration, strict mode's refusal as for a method's deletion, the member's check records forgotten, a pattern's members ended with it; a member by its definition, a supertrait's and `Dynamic{X}`'s memberships are refused. | No such function. The library forgets a member's records only at a redeclaration (`@implement` again), and its kept check answers (`_CHECKED`) never; the runtime offers no way to end an entry (compiler C-106). | TraitWorld `src/implement.jl` (`_CHECKED`, the records of lowering §3, step 7), `src/ownership.jl`, `src/strict.jl` (`_deletion_hook`) |

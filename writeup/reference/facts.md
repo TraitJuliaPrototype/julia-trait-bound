@@ -82,7 +82,7 @@
 - **Kinds of methods:** facts, boundary, plain and neutral methods (§6.1).
 - **Setting:** which policy a neutral method has (§13).
 - **Kind:** a type whose instances are types: `DataType`, `UnionAll`, `Union`, `typeof(Union{})`.
-- **A stakeholder's change:** a definition, deletion, redefinition or membership by a stakeholder of what it changes.
+- **A stakeholder's change:** a definition, deletion or redefinition of a method, or a membership declared, redeclared or taken back, by a stakeholder of what it changes.
 
 ---
 
@@ -356,16 +356,17 @@ So the split takes the place of the speculation the facts mode removes (§4.2), 
 ## 10. Memberships
 
 A membership makes a type a member of a trait from a world on ([traits §3.1](traits.md#31-membership)). What compiled code may assume about memberships:
-- **A positive membership may be relied on,** with the CodeInstance's world range starting no earlier than the membership's.
+- **A positive membership may be relied on,** with the CodeInstance's world range starting no earlier than the membership's, and ending where it is taken back.
 - **A negative one may be relied on, with an edge.** Code that folds "`S` is not a member of `X`", in inference or in dispatch, records the pair. A membership of that pair declared later invalidates it. A closed abstract type and a type that is never a member need no edge: their answer is final ([traits §3.4](traits.md#34-open-and-closed)).
 - **A call selects its method without a guard.** It holds its ordinary dispatch edge. A membership replays the trait's methods at the new member and invalidates the callers whose selection changes ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does)).
 - **So a membership invalidates the code that relied on its absence, and no other,** as a method definition invalidates its callers ([compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries)). A new type that joins invalidates nothing: no earlier code asked about it, and a call at a wider signature matched the trait's methods already. Code compiled once at a trait reaches a later member through its table and relies on no absence ([compiler §7.3](compiler.md#73-the-table-of-a-calls-targets)).
 - **G1 holds in the caller's world:** a task in a world before the membership sees the type as a non-member; one after it, as a member.
+- **A membership taken back** ([traits §5.13](traits.md#513-taking-a-membership-back)) ends the code that relied on it, as a deleted method ends its callers: the code that folded the positive, through its edge to the membership's method, and the callers whose selection at the member changes, by the walk run for the removal ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)). No other code ends: a call that dispatched to the member's own method keeps its fact. It is a stakeholder's change, or a pirate's, as its declaration is. A task in a world before it keeps the membership.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)), and behaves as a pirate's method: followed by default, refused under strict mode where it would change code compiled by facts (§11.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
 - **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one, or on its absence, holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
 
-**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)).
+**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: Planned (the plan's D-13, 2026-11-15), with [compiler C-106](compiler.md#deviations).
 
 ---
 
@@ -376,7 +377,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 ### 11.1 What a winning pirate does
 
 - **By default it is followed,** as plain Julia follows it. The code holding the broken fact is invalidated and compiled again, once.
-- **And it is reported** where the code it ends is deep G2 (§2.2): a warning names the method, its definer and the code ([traits §12.2](traits.md#122-pirates)). Deep-G2 code is ended only by a stakeholder's change or a pirate, so the report tells exactly the pirates that cost such code. It is silent only by choice, and refused in strict mode (§11.2). The report reads what the invalidation itself holds: no walk before the definition and no cost at a load ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
+- **And it is reported** where the code it ends is deep G2 (§1, §2.2): a warning names the method, its definer and the code ([traits §12.2](traits.md#122-pirates)). Deep-G2 code is ended only by a stakeholder's change or a pirate, so the report tells exactly the pirates that cost such code. It is silent only by choice, and refused in strict mode (§11.2). The report reads what the invalidation itself holds: no walk before the definition and no cost at a load ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 - A pirate that wins nowhere changes nothing, in any order (Lemma D).
 - A pirate defined before the code is compiled is in the method table; the code's facts select it from the start.
 - A pirate loaded before a package image breaks the image's facts at that signature; that code is discarded at validation and compiled again.
@@ -501,7 +502,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
 | operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
-| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
+| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: Planned (D-13, compiler C-106) | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: Planned (D-12; traits T-123, compiler C-105) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
 | the store across sessions | paused | §12 |
