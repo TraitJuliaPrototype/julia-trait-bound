@@ -38,4 +38,15 @@ The user: "But if a type satisfies the trait by a specialized function that gets
 
 ## 4. The probes
 
-Their outcomes: the registry's rows, `experiments/unification/w152/README.md`, and the review's second addendum.
+Run the same day, on `unified` 7b374f39ce with TraitWorld e11c7cc and the forks 439bae7; seconds to two minutes each; load below 1 of 128. Scripts and logs: `experiments/unification/w152/` (experiments 1e39190). The outcomes: the registry's rows E-394 to E-400, [the evidence](../writeup/design/evidence.md) §1, the review's second addendum.
+
+- **P4 holds** (E-394): the library's late load ends 201 plain instances, all through required operations' methods at open sets; the same operations at the box end none.
+- **P3: the predicate holds, the demand rule is too wide for now** (E-395): no deep-G2 instance ended by the nine loads; 40 of the 49 ended carry the bit; 56 % of the forks' facts instances are not deep. A cheap rule found: a call that only throws as a run-time site (41 % to 61 % deep).
+- **P5 (b) holds** (E-396): 14.7 % of the forks' run-time sites and 22 to 41 % of the trait packages' are at the package's own functions that only it extends.
+- **P2 holds** (E-397): the check and the reading at the box agree at 157 of 165 methods.
+- **P7 (c) holds** (E-398): no dispatch by a `Callable`'s signature in the ports; seven guards.
+- **P6 is ended by its criterion** (E-399): deep-G2 code holds 13 to 19 % of a load's lookups.
+- **P7 (b)** (E-400): the case on the head; the fix needs a build.
+- Found on the way: the G2 bit is missing on instances with binding edges only (open issue 187); compiler C-88 (e) restated from the case.
+
+Not done: P1's prototype (W-151). No reference was changed but compiler C-88 (e)'s row.

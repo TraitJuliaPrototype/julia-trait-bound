@@ -191,6 +191,31 @@ The same build and setting; one thread; each phase profiled at 0.5 ms in one pro
 - **The first edit's 2.6 s was the check's own code, compiled in the session** (GT-12). With the check in inference's world and its entries in the system image (E-391, `unified` 7b374f39ce, TraitWorld e11c7cc): 0.64–0.67 s the first time, 0.48–0.50 s the second, which is the check's inference.
 - **The walk, the member check and the memberships' activation are below a tenth of every phase.** A session's time is the images' validation and restore at a load, and code generation and inference after it.
 
+### The review's probes (W-152; E-394 to E-400)
+
+`unified` 7b374f39ce, TraitWorld e11c7cc, forks 439bae7; product setting but where said; strict mode off; one thread; one process per row; load 0.3 to 0.8 of 128. Counts of one run each; no times. Scripts, logs and the full tables: `experiments/unification/w152/README.md`. They test proposals of [the review of 2026-11-15](../reviews/2026-11-15-conceptual-design.md); what they mean for each is its second addendum.
+
+- **A required operation's method at an open set is all that the library's late load ends in plain code** (E-394; GT-11). After upstream CSV's and DataFrames' plain work, `using TraitWorld` ends 201 of 120,335 plain instances: by insertion `length(::HasLength)` 97, `iterate(::Iterable{T})` 59, `haskey(::Keyed{K, V}, ::Any)` 26; by the membership walk's replay `iterate(::Iterable{T}, ::Any)` 14 and `resize!(::Resizable{T}, ::Any)` 5. Eleven methods of the same functions at `Core.Dynamic` alone end none, with an empty log.
+- **Deep G2 separates what unrelated loads end; the G2 bit does not** (E-395; GT-8). An instance is deep G2 when it has the bit and so has every CodeInstance among its edges, transitively.
+
+  | E-392's session, order A | the forks | upstream by facts |
+  |---|---|---|
+  | own image instances; with the G2 bit; deep G2 | 4,799; 4,667; 1,983 | 3,490; 3,438; 1,382 |
+  | ended by the nine loads; of them deep G2; with the bit | 49; 0; 40 | 19; 0; 15 |
+  | callees outside the own modules below the own facts instances: deep and ended; not deep and ended | 0 of 26,336; 281 of 6,508 | 0 of 22,054; 109 of 5,463 |
+  | own facts instances that are not deep G2 | 1,934 of 3,465 | 2,156 of 3,567 |
+  | the callees without the bit themselves | 1,596 in 385 method names | 1,167 in 316 |
+  | own image instances deep G2 with calls that only throw taken as run-time sites | 2,917 | 2,215 |
+
+  - What the own instances most often rest on: error paths with a `Type` argument (`Core.throw_inexacterror`), `DomainError(::Any, ::Any)`, type joins at `Any`, the task code under a lock, `push!(::Vector{Any}, ::Any)`.
+  - **Inferred by facts all the way down** (the forks; under the test bed): of 701 callees that are not deep and that own facts code calls directly, 520 keep the plain result type, 130 get a wider one (`Any` at 70), 51 another.
+  - The class counts an instance with binding edges only as having the bit; 2,341 of the forks' callees below are such and carry none ([open issue 187](../open-issues.md#4-runtime-and-measurements)).
+- **Run-time sites by who owns the callee** (E-396; open issues 157, 99). Of the calls left to run time in own facts code: the forks 4,606, at Base's or Core's functions 73.6 %, at an own function that is not public and has only its owner's methods 678 (14.7 %; plain inference of the call gives a concrete type at 356). TraitCSV, TraitTables and TraitMakie: 152 sites, 33 such (21.7 %), all concrete. The ODE packages: 280 sites, 116 such (41.4 %), 66 concrete.
+- **The definition-time check against the method read at the box** (E-397; GT-12). `classify(m)` and the method inferred at its signature with `Dynamic{X}` in each trait argument's place give the same verdict at 157 of 165 methods of the library, the demonstrators, the ODE packages and the forks. The check reports and the box is clean at 7 (a value stored with its type, a front end's adapter, `promote_op`; six marked `@unbounded`); the box flags and the check passes at 1 (a field's name that is no constant). In a control of five uses outside the contract, both find four; `typeof(t)` is no fault at a box.
+- **`Callable` in the ports** (E-398). 63 methods name it, 20 type an argument by it. No two methods are told apart by a `Callable`'s argument signature where the other arguments are open to one call. Seven pairs set a `Callable` method beside an untyped one, a fallback for a function with no method at the signature: `ODEProblem`'s front end, `TraitIndexing.Getter`, `Tables.byrow`.
+- **What a load validates, by deep G2** (E-399; after E-325). The forks' CSV and DataFrames after the nine loads bring 7,367 instances from images: deep G2 50.3 % of them, 21.6 % of their edges, 50 of 392 calls checked by signature. The trait demonstrators: 1,608 instances, 63.6 %, 31.8 %, 10 of 52. Pirates by the letter among the session's 55,532 package methods: 821.
+- **GT-18's case on the head** (E-400; compiler C-88 (e)). For `v::Vector{Union{X, S}}` made before `S` joins `X`: `isa`, `==` and dispatch at `Vector{X}` say no before and after; `<:` between the two types turns true. At `AbstractVector{X}` after the membership, `isa` at the top level says yes, the same test compiled before says no, and dispatch takes the untyped method.
+
 ## 2. Run time
 
 Rows marked "2026-10-19" are from the build of 2026-10-19 and were not in the round.

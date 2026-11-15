@@ -421,3 +421,54 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)   # F = the wrapper: code per fu
 **What was done with it.**
 - Recorded as pending in [the decision log](../record/decisions.md#pending) and as [open issue 186](../open-issues.md#1-decisions-waiting-for-the-user). It is not in a reference, so it is not in force.
 - The work: W-151 (a prototype in the library, then the references) and W-152 (the probes for P2 to P7, E-394 to E-400) in [the work queue](../record/todo.md).
+
+---
+
+## Second addendum (2026-11-15, the main session): the probes, and what they settle
+
+Run at the user's word ("Record this and then do the suggested proves to settle the other P from the review."), as W-152. Seven probes, E-394 to E-400, on `unified` 7b374f39ce with TraitWorld e11c7cc and the forks 439bae7; each a run of seconds to two minutes; counts of one run, no times. Scripts, logs and tables: `experiments/unification/w152/README.md`. Numbers: [evidence §1](../design/evidence.md#the-reviews-probes-w-152-e-394-to-e-400).
+
+| | The probe | What it found | Verdict |
+|---|---|---|---|
+| P2 | E-397: the check against the method read at the box | the same verdict at 157 of 165 methods; the 7 the check alone reports are a stored value, an adapter, `promote_op`; in a control both find four of five mistakes, and the fifth (`typeof(t)`) is no fault at a box | **holds.** To build with P1's prototype |
+| P3 | E-395: deep G2 on the nine loads | no deep-G2 instance ended (0 of some 50,000); every ended instance not deep; the bit carried by 40 of 49. But 56 % of the forks' own facts instances are not deep, through 1,596 callees in 385 method names; inferred by facts all the way down, 19 % of 701 direct callees widen | **the predicate holds exactly; the demand rule costs more than §4.3 assumed** |
+| P4 | E-394: methods at sets against methods at the box | the library's late load ends 201 plain instances, all by required operations' methods at sets; the same operations at the box end none | **holds** |
+| P5 (b) | E-396: run-time sites by the callee's owner | owner-only functions: 14.7 % of the forks' 4,606 sites, 21.7 % and 41.4 % of the trait demonstrators' and the ODE packages'; plain inference gives a concrete type at half or more of them | **holds;** the larger lever in idiomatic trait code, the smaller in a port |
+| P6 | E-399: what a load validates, by deep G2 | deep-G2 instances are 50 to 64 % of what a load brings, with 13 to 19 % of the calls by signature | **ended by its criterion,** for now |
+| P7 (b) | E-400: GT-18's case | at a concrete container type only `<:` equates the two types; at an abstract one a fresh `isa`, a compiled `isa` and dispatch give two answers | the rule matches what the runtime does at a concrete type; **needs a build** |
+| P7 (c) | E-398: the `Callable` census | no two methods told apart by a `Callable`'s signature; seven pairs use membership as a guard beside an untyped fallback | **holds:** dispatch by signature is not in use |
+
+### What changes in the review's proposals
+
+**P3 is split in two.**
+- **Take the predicate.** Deep G2 is the class that unrelated loads do not end. The bit as built is one level deep and does not tell (40 of 49). So G2's claim, the image's keep rule, strict mode's walk and the evidence's counts should read the deep class. It is a walk over edges that exist; `w152/p3/deep.jl` is a first form of the tool.
+- **Do not take the demand rule yet.** §4.3 read GT-8 as a loss at an entry chain. The census says the exposure is wide: more than half of a port's facts instances rest on a callee that is not G2, and a rule that gave each a facts copy would infer most of the port again and widen a fifth of the direct results. The reach comes first from few places.
+- **A cheap rule to take now: a call that only throws is a run-time site for a facts caller.** Its result is `Union{}`, so no type is lost, and no edge is held. It moves the forks from 41 % to 61 % deep, and upstream by facts from 40 % to 63 %.
+- **Then Base's surface, by the census's list,** not by the entry chain: error paths that take a `Type` (`Core.throw_inexacterror`), `DomainError(::Any, ::Any)`, type joins at `Any` (behind `collect` and `map`), the task code under a lock, `push!(::Vector{Any}, ::Any)`. Each is a patch to Base or a boundary. The gate: the share of a port's facts instances that are deep G2, counted by the tool.
+- **The fact rule's kinds show in the types lost.** `iterate(::Dict{Symbol, DataType})` gives `Tuple{Any, Int64}` by facts: a constructor called with a value of a kind is a run-time site ([facts §3](../reference/facts.md#3-fact-signatures)). It is by the rule, and it is a place where P5's settled calls would help: a constructor's own type is its owner's.
+- **The code slot's case is unchanged:** E-393 for facts code, and now the class that tells without it.
+
+**P6 waits for P3's list.** The lookups a load pays for sit in code that is not G2, as E-325 found for the bit. Validation by ownership would skip half the instances and an eighth to a fifth of the lookups. It is worth taking up again when the deep class holds most of an image.
+
+**P7 (b) is smaller than §4.7 said.** No rule of equality needs inventing for a concrete type: the runtime never equates the two. The fault is `<:` between the types, and `isa` and dispatch at an abstract container type. The fix is in `subtype.c`'s equality test for an invariant parameter; it needs a build and the gates.
+
+**P7 (c): the question for the user is sharper.** The ports dispatch on "is it a `Callable` at this signature at all", never on which signature. With every function a member and the check at the box, each of the seven pairs becomes one test of `hasmethod` in one method. It would take the method table out of subtyping (compiler §7.4). It reverses "I think we need dispatch to pick by signature" (2026-11-06).
+
+**P2, P4 and P5 (b) stand as written.** For P4 the open part is to build: inference reading the declared result from the contract with no method at the set.
+
+### An order, revised
+
+1. **W-151:** P1's prototype in the library, with P2's reading of the box as its check.
+2. **P4,** in the library and the runtime's rule for an operation's call. It removes GT-11 as measured.
+3. **Deep G2 as the predicate, and the throw-only rule** (P3's first two parts); open issue 187's bit.
+4. **Base's surface by the census** (W-19's patches, open issue 179), with the deep share as its gate.
+5. **Owner-only functions** (P5 (b)), with the ports' asserted barriers as its test (open issues 157, 99).
+6. **For the user:** `Callable` as a contract at the box (P7 (c)).
+7. **Later:** P7 (b)'s fix with a build; P6 after step 4; P5 (a) as a restatement of the references.
+
+### Limits
+
+- One run per count, one machine, the round's sessions. The classes are structural, so the counts do not move with load; the times were not taken.
+- E-397 reads the top frame on today's build. It shows agreement, not the cost of the check.
+- E-395 (c) infers under the test bed. It shows the result types, not what the port's own code would then lose above them.
+- E-394 shows what the methods at sets cost. That the split works without them is not shown.
