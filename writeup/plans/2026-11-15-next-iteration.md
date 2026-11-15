@@ -260,6 +260,10 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 
 **After it,** in order: the references for D-1, D-2, D-3 and D-14 (when W-151's gate is in); the rest of stage 3 (D-9 and D-12 with the library, then the type system: D-4, D-2, D-11, D-13); stages 4 to 7.
 
+**The second wave** (2026-11-15). W-151's gate is in: every row at parity or better but one, a plain member boxed at each call (GT-19; E-402, E-407). The user: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast." So D-1 stands.
+- **W-154, continued:** the references for D-1, D-2, D-3 and D-14.
+- **W-160, the compiler for one way to erase,** in `julia-next` after W-155's agent, with the library: a positive membership decided at `new`'s field test and at `isa` with an edge (GT-19's fix); the forwarders made where a method is defined, in place of the prototype's macro; the check's instance at the box kept with its edges (D-3); and, on the way, the principled ways of making the design fast that it finds (`CLAUDE.md`).
+
 **IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
 
 | Agent | Experiments | Open issues | Deviations | Tensions |
@@ -267,5 +271,7 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 | W-151 | E-401 to E-415 | 189 to 193 | T-113 to T-119, L-59 to L-62 | GT-19, GT-20 |
 | W-155 (facts side) | E-416 to E-430 | 194 to 198 | C-91 to C-99, F-25 to F-29 | GT-21, GT-22 |
 | W-154 (references) | E-431 to E-435 | 199 to 203 | T-120 to T-129, C-100 to C-109, F-30 to F-34, L-63 to L-66 | GT-23, GT-24 |
+| W-154, continued (D-1, D-2, D-3, D-14) | E-432 to E-435 | 199 to 203 | T-125 to T-145, C-110 to C-119, F-30 to F-34, L-65 to L-75 | GT-24 |
+| W-160 (the compiler for D-1) | E-436 to E-455 | 204 to 210 | C-120 to C-129, T-146 to T-149, L-76 to L-79 | GT-25, GT-26 |
 
 **The machine.** Three agents at 4 cores each is within the rule for sustained use (16 cores in all). A build of `julia-next` goes through `tools-local/build.sh`, which keeps the rule for a spike. Above half load: one Julia job at a time, and the main session stops agents down to one.
