@@ -37,6 +37,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Choices of the clean-up of 2026-10-27: options not taken
 - Level 2 of unification: options not taken
 - The unified build: options not taken
+- A required operation as the trait's method, replaced (2026-11-15)
 
 ---
 
@@ -546,3 +547,16 @@ Choices made while building bin A of [the schedule](../plans/2026-11-11-complete
 - **The trait's method leaving such a call to dispatch,** so that Julia raises its own `MethodError`. Not taken: the trait's method leaves a further argument untyped on purpose ([lowering §2](../reference/lowering.md#2-trait)), so it takes the call.
 - **A check's error with its backtrace cut at the library's entry.** Not taken: a backtrace that is edited hides frames a library's author needs. The error is returned to the code at the user's line (the macro's own code, the runtime at a definition) and raised there.
 
+## A required operation as the trait's method, replaced (2026-11-15)
+
+- **What it was:** `@trait` defined a method at the trait for every operation and arity. It carried the operation's declared result, with a flag that it covers every member, which inference read at a receiver typed by the trait. It forwarded for `Dynamic{X}`, held a default's body, and otherwise raised `OperationError`. A further argument was left untyped unless it bound an input, so that a member's own method won.
+- **Why replaced** (the plan's D-4, confirmed by the user's adoption of the plan, 2026-11-15; P4 of [the review](../reviews/2026-11-15-conceptual-design.md)):
+  - The contract had two homes: the entries on the trait's `TypeName`, and a method at the trait per operation (the review's R3).
+  - For an operation that is Base's function, the method sat at an open set on Base's function. The library's late load ended 201 plain instances, every one through such a method; the same operations' methods at the box alone ended none (E-394; GT-11).
+  - The method hid a member's own method that takes any receiver (`mul!(C, A, B)`), so a rule refused such a member, and BaseTraits took a function of its own, `apply!` (open issue 150; E-281).
+  - A forwarding member needed methods of its own beside it (open issue 178 (a)), and a call outside the declared signature reached it and needed an error type of its own (`OperationError`).
+- **What replaced it:** an operation without a default is an entry of the contract and no method; inference reads the declared result from the entry; a call dispatches to the member's own method; `Dynamic{X}` forwards by methods at `Dynamic{<:X}`; a default stays a method at the trait ([traits §4.1](../reference/traits.md#41-operations), [compiler §4.1](../reference/compiler.md#41-sets), [lowering §2](../reference/lowering.md#2-trait)).
+- **Its cost:** a call outside the declared signature raises Julia's `MethodError`, with the contract's hint, where `OperationError` named the operation itself. E-385's fifteen mistakes are the control.
+- **Not taken:**
+  - *The trait's method kept, with a mark that it serves no member* (open issue 158 (a), built on `unified` 40401f67d8): its insertion still met every call at a plain abstract type that a member's subtype could reach (E-394).
+  - *BaseTraits' operations as functions of its own* (GT-11's proposal (b)): a member's own `length` and `iterate` would no longer serve them.

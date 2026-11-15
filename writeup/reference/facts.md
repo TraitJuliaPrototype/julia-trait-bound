@@ -316,10 +316,11 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
 - **The result** is the operation's declared result, asserted on every branch not known to give it and never converted: a result of another type raises a `TypeError` ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [§11](traits.md#11-checks-and-errors)). The declaration is the contract each member was checked against, and a member keeps its check while it is a member ([traits §5.10](traits.md#510-checks)); the assertion catches what the check does not reach: a result at an abstract further argument, a method already in the session when an image's membership loads, and inference's own limits.
 - **A later member** reaches the fallback and invalidates nothing. Code compiled after its declaration may branch on it.
 - **Code compiled once for a trait argument** records no edge to the set of members. A member loaded after it was compiled discards none of it.
+- **No method at the trait takes part in an operation without a default.** The declared result is read from the trait's contract ([compiler §4.1](compiler.md#41-sets)), without an edge: it never changes after the declaration. Each branch, the fallback and a dynamic call reach the member's own method ([traits §4.1](traits.md#41-operations)). So such an operation adds no method at a set: declaring the trait, or a membership in it, ends no code through it. Only a default is a method at the set, and it invalidates as any method does (§10).
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39.
+**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39. The declared result read from the contract, with no method at the set for an operation without a default: Planned (D-4), with [compiler C-100](compiler.md#deviations).
 
 ---
 
@@ -467,7 +468,7 @@ In strict mode, code compiled by facts, in a session and in package images, is i
 | result edges and the code slot | Implemented (`unified`, W-101), with compiler C-64 to C-67 | §4.3, §6.3 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
-| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39 | §9 |
+| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
 | a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |

@@ -67,7 +67,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-8 | G2 covers less on the unified build than on the earlier one: facts code is lost through plain callees | G-8 against G-1 | open issues §1, flagged |
 | GT-9 | The membership machinery costs code that uses no trait | G-8 against G-4 | open issues §1, flagged |
 | GT-10 | An isolated slowdown in an existing ecosystem has no reasonable local fix | G-7 against G-2 | open issues §1, flagged |
-| GT-11 | A method at an open set on one of Base's functions ends plain callers when the library loads | G-7 and G-8 against G-4 | open issues §1, flagged |
+| GT-11 | A method at an open set on one of Base's functions ends plain callers when the library loads. Decided 2026-11-15 for operations without a default: an entry of the contract, no method (D-4); not built | G-7 and G-8 against G-4 | open issues §1, flagged; [traits §4.1](reference/traits.md#41-operations) |
 | GT-12 | The definition-time check runs at each edit | G-5 against G-1 | open issues §1, flagged |
 | GT-13 | A trimmed build refuses the call on a value known only by its trait. Decided 2026-11-11: a closed build compiles generic code for the members it has | G-1 against G-6 | open issues §1, flagged; [compiler §7.6](reference/compiler.md#76-a-closed-build) |
 | GT-14 | A membership is seen from the world of its declaration, where a subtype is seen at once | G-1 against G-5 and G-7 | open issues §1, flagged |

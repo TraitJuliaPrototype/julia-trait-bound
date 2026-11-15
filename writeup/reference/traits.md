@@ -233,11 +233,18 @@ end
 - An operation may mutate its arguments.
 - **A value fixed per member** (an algorithm's order) is an operation with a declared result: `alg_order(a::ODEAlgorithm)::Int`. A call on a known type folds to the constant.
 
+**An operation is an entry of the trait's contract, not a method at the trait.**
+- The entry holds the function, the declared argument types and the declared result ([compiler §4.1](compiler.md#41-sets)).
+- Declaring a trait defines no method for an operation without a default. Each member serves it by a method of its own type: its own method (§5.3, §5.4), or the method its forwarding membership defines (§5.5). `Dynamic{X}` serves it by a forwarding method of its own (§7.7).
+- So a call of the operation is a call of its function, dispatched as any call: to the member's own method. A method that takes any receiver (a function's untyped fallback, `mul!(C, A, B)`) serves too: no method at the trait hides it.
+- An operation with a default is the one with a method at the trait: the default (§4.2).
+
 **What is checked.**
 - At each membership: a method applies at the member and the declared further argument types, or a default or a forwarding field serves the operation; its result infers to a subtype of the declared result.
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
+- At a call outside the declared signature (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`): no method takes it, and Julia raises its `MethodError`, with a hint that names the operation's declared signature and its trait (§11.4).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result asserted at a call through the trait: Implemented (§7.9).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result asserted at a call through the trait: Implemented (§7.9). An operation as an entry of the contract, with no method at the trait for an operation without a default, and Julia's `MethodError` with the contract's hint outside the declared signature: Planned (the plan's D-4, 2026-11-15; [decisions](../record/decisions.md) §1), with T-120, [lowering L-63](lowering.md#15-deviations), [compiler C-100](compiler.md#deviations).
 
 ### 4.2 Defaults
 
@@ -247,11 +254,12 @@ describe(s::Shape)::String = "a shape of area $(area(s))"
 
 - A default is an operation with a body, written with the trait's other operations and fields. The trait's parameters are in scope.
 - **It is the trait's method for that operation**, a method at the trait. A member's own method is more specific and wins (§6.2).
-- **Every caller reaches it:** plain code that calls `describe(c)` on a member without its own method gets the default.
+- **Only a default is a method at the trait.** An operation without one is an entry of the contract alone (§4.1).
+- **Every caller reaches it:** plain code that calls `describe(c)` on a member without its own method gets the default. So a default at the trait hides a member's method that takes any receiver: the member defines the operation at its own type to serve it otherwise (§5.10).
 - Which operations a default serves for a member is fixed at its membership (§5.11).
 - Rust's and Swift's default methods are reached by every caller in the same way, as a method on an abstract type is in Julia.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; mine (2026-11-06).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2; mine (2026-11-06). Only a default as a method at the trait: Planned (D-4), with T-120 and [lowering L-63](lowering.md#15-deviations).
 
 ### 4.3 Fields
 
@@ -458,12 +466,12 @@ end
 **When.**
 - At `@implement X S` for one type: at the declaration.
 - For `struct S <: X`: at the `@implement X S` that follows it (§5.2).
-- For a member of a family, of an abstract type or of a trait: at the member's **first use**, the first time a call needs its key when the program runs: a method at the trait, or an operation through the trait's method ([lowering §4](lowering.md#4-members-checked-at-their-first-use)).
+- For a member of a family, of an abstract type or of a trait: at the member's **first use**, the first time a call needs its key when the program runs: a method at the trait, or an operation's call through the trait (§7.9; [lowering §4](lowering.md#4-members-checked-at-their-first-use)).
 - The result is kept with the member; a package image keeps it, and a later session does not check again while the methods that serve the member are the same.
 
 **What.**
 - **Who:** the declaring package owns the trait or the type (§12.1).
-- **Completeness:** every operation is served at the member; every declared field exists with the declared type. A method that takes any receiver (a function's untyped fallback, `show(io::IO, x)`) does not serve: the trait's method, more specific at the receiver, would hide it, so the member defines the operation at its own type ([open issue 150](../open-issues.md#2-design)).
+- **Completeness:** every operation is served at the member; every declared field exists with the declared type. An operation without a default is served by the method dispatch selects at the member and the declared further argument types, a method that takes any receiver included (LinearAlgebra's `mul!(C, A, B)`): no method at the trait hides it (§4.1). An operation with a default is served by the member's own method where one is more specific than the default, else by the default (§4.2).
 - **Results:** each serving method's result infers to a subtype of the declared result. A result that infers wider than the declared one, or outside it, is refused; the fix is the member's inference (a concrete field type, a type parameter), not an assertion. Where a further argument is declared abstract (an iteration state, `x::AbstractVector{T}`), a method that meets the declared signature serves and its result is not inferred there: each call through the trait asserts it (§7.9).
 - **Fields:** §4.3.
 - **Parameters:** fields define them consistently; equations agree with stated values; values within their bounds; one instance per member (§3.2).
@@ -489,7 +497,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - The declared result is read from the trait's contract when the method is defined.
 - A membership loaded from a package's image keeps its check too: the records of the check are made again from the image's membership, without inference. They are the check the image's build made: a method already in the session when the image loads is not judged by them.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; an image keeps the answers that passed while it was built ([lowering §11](lowering.md#11-checks-errors-and-what-images-keep); `unified` b1c0b50f4c, TraitWorld 347176a). A method that takes any receiver refused, and the rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; for a membership loaded from a package's image, TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). A member by its definition, from an image too: TraitWorld e8554d9 (W-131, E-345). Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take.
+**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; an image keeps the answers that passed while it was built ([lowering §11](lowering.md#11-checks-errors-and-what-images-keep); `unified` b1c0b50f4c, TraitWorld 347176a). The rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). A method that takes any receiver serving an operation without a default: Planned (D-4), with T-120. The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; for a membership loaded from a package's image, TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). A member by its definition, from an image too: TraitWorld e8554d9 (W-131, E-345). Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take.
 
 ### 5.11 Overrides and redeclaration
 
@@ -973,7 +981,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a membership | a type made a member of two traits whose methods are ambiguous for it (§6.3) | a warning; under strict mode `ImplementError`, and the membership does not exist |
 | a method's first call at a signature | what definition checking could not see: a `where` variable that only a trait's open parameter fixes, a `Callable`'s open result | `TraitUseError` |
 | a call | Julia's dispatch: no method, or ambiguous | `MethodError` |
-| a member's call of an operation | a call that no method of the member takes, outside the operation's declared signature | `OperationError` |
+| a member's call of an operation | a call that no method of the member takes, outside the operation's declared signature | `MethodError`, with the declared signature as a hint (§11.4) |
 | a call through the trait | an operation's result against its declared type (§7.9); a `Callable`'s arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
@@ -1003,8 +1011,7 @@ Each message names the trait, the type, and the declared signature where one is 
 | `OwnershipError` | a method, or a membership, by a package that owns none of what it names, in a scope that declares `no_pirates`; a block's method for a foreign function and type | the method or membership, its owners, and who may declare it |
 | `TraitUseError` | an unbounded method in a `bounded` scope; a check at a first call | each use outside the contract, its line, and the contract's operations of that name |
 | `PirateError` | strict mode | the method, or the pirate's membership, and the code compiled by facts it would change |
-| `OperationError` | a member's call of an operation that no method of the member takes (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`) | the call at its argument types, the operation's declared signature and its trait, the member's own methods of the operation |
-| `MethodError` | a call no method takes, or two take ambiguously | Julia's message, with hints (§11.4) |
+| `MethodError` | a call no method takes, or two take ambiguously; a member's call of an operation outside its declared signature (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`) | Julia's message: the call at its argument types and the member's own methods of the function; with hints (§11.4): for an operation, its declared signature and its trait |
 | `TypeError` | an operation's result that is not its declared type (§7.9), or a `Callable`'s result that is not its declared type; a keyword that is not a member; a struct parameter outside its bound | the operation or function, the declared and the returned type |
 | `NotFullyTypedError` | code under `@enforce_fully_typed` with a call it cannot resolve when compiled (§14) | each such call, at the types inference knows, and its root cause |
 | `AbstractTypeError` | a method under `@enforce_concrete_only result` whose result is not concrete (§14) | the result's type and its root cause |
@@ -1016,7 +1023,7 @@ Each message names the trait, the type, and the declared signature where one is 
 - The code a declaration makes lies at the declaration: the place of a candidate and a stack frame name the user's `@trait`, not the library's source.
 - **A check's error is raised at the user's line.** The first frame of its backtrace is the `@implement`, or the method's definition that a check refused. The library's own frames are not above it.
 
-**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError`, `PirateError`, `NotFullyTypedError` and `AbstractTypeError` in 7adcc94 (W-114). A concrete part refused at a call (§14) raises `TraitUseError`: mine (2026-11-07). The form of a message: TraitWorld 6a8ee7f and 158d000 with `unified` dd3f6d839b (`test/messages.jl`; E-362), mine (2026-11-11); the messages against plain Julia's for the same mistakes: [evidence §4d](../design/evidence.md#4d-error-messages-against-plain-julias). `OperationError`, and a check's error raised at the user's line: TraitWorld 399f389 with `unified` 8f42ba7ed7 (`test/messages.jl`), mine (2026-11-12; [decisions](../record/decisions.md) §2). A pirate that is silent without strict mode, and a port's run-time failures: [open issue 177](../open-issues.md#2-design).
+**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError`, `PirateError`, `NotFullyTypedError` and `AbstractTypeError` in 7adcc94 (W-114). A concrete part refused at a call (§14) raises `TraitUseError`: mine (2026-11-07). The form of a message: TraitWorld 6a8ee7f and 158d000 with `unified` dd3f6d839b (`test/messages.jl`; E-362), mine (2026-11-11); the messages against plain Julia's for the same mistakes: [evidence §4d](../design/evidence.md#4d-error-messages-against-plain-julias). A check's error raised at the user's line: TraitWorld 399f389 with `unified` 8f42ba7ed7 (`test/messages.jl`), mine (2026-11-12; [decisions](../record/decisions.md) §2). An operation called outside its declared signature as Julia's `MethodError` with the contract's hint: Planned (D-4), with T-120. A port's run-time failures: [open issue 177](../open-issues.md#2-design).
 
 ### 11.4 Hints
 
@@ -1024,12 +1031,12 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **a value that is not a member** of a trait a method takes: "`Circle` is not a member of `ColTable`; `@implement ColTable Circle` declares it", with the trait's declared members where few;
 - **a member at other parameter values:** "`v` is a member of `StateVector{Float32}`; the method takes `StateVector{Float64}`";
 - **a broken shared variable:** "`T` is `Float64` for `a` and `Float32` for `b`";
-- **a call at an operation's function outside its declared signature:** the declared signature, "`col` is declared `col(t::ColTable, i::Int)::Vector{Float64}`";
+- **a call at an operation's function outside its declared signature:** the declared signature and its trait, read from the contract, "`col` is declared `col(t::ColTable, i::Int)::Vector{Float64}` by `ColTable`". It is given where an argument at the operation's receiver position is a member of the trait, so a failed call names the contract it missed;
 - **an ambiguity between two traits:** the joint method to define, `f(::All{ColTable, RowTable})`.
 
-**No hint at an operation that is another owner's function.** `Indexable` declares Base's `getindex` as its operation. A failed call of `getindex` says nothing of `Indexable`, so the trait's own method for it gives no hint. A method at the trait of the caller's own function keeps its hints.
+**No hint at an operation that is another owner's function.** `Indexable` declares Base's `getindex` as its operation. A failed call of `getindex` says nothing of `Indexable`: the hint is given at an operation whose function the trait's owner owns.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114), as hints on Julia's `MethodError`; the ambiguity's joint method is Julia's own message on `unified` (`f(::All{X, Y})`), so the library adds none. No hint at another owner's function: TraitWorld 99c4934, mine (2026-11-11; E-363). The SciML error cases' gate: T-99.
+**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114), as hints on Julia's `MethodError`; the ambiguity's joint method is Julia's own message on `unified` (`f(::All{X, Y})`), so the library adds none. No hint at another owner's function: TraitWorld 99c4934, mine (2026-11-11; E-363). The declared signature read from the contract, where no method at the trait takes the call: Planned (D-4), with T-120. The SciML error cases' gate: T-99.
 
 ---
 
@@ -1213,12 +1220,13 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | a non-membership relied on, with its edge; a pirate's membership | Implemented (`unified` bf447db25e, 80aa919bed, 7fee959383; TraitWorld dbfb488, a2ca7be), with C-76, C-77, C-88, T-112 | §3.4, §12.2 |
 | intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
 | operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
+| an operation as an entry of the contract: no method at the trait for one without a default; `MethodError` with the contract's hint outside the declared signature | Planned (D-4), with T-120, L-63, compiler C-100 | §4.1, §4.2, §11 |
 | defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
 | declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
 | `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
 | `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end; 0aff625 with `unified` fcdfd0da36: the use before it) | §5.2 |
 | one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
-| forwarding by the trait's method | Implemented (TraitWorld e7ff8e2) | §5.5 |
+| forwarding: the member's own methods; a default through the trait's method | Implemented (TraitWorld e7ff8e2; the member's methods W-128) | §5.5 |
 | families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
 | checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714, fcdfd0da36: at dispatch and before compiled code runs; C-31); kept while a member, also from an image (TraitWorld 6871ea9, E-344); pattern answers in images L-55 | §5.10 |
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
@@ -1235,7 +1243,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `Callable`: dispatch by signature, the result checked on return | Implemented (`unified` 5f0a8ffd50, TraitWorld 5d52f0d, W-113) | §9 |
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
-| checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94; `OperationError` and errors at the user's line 399f389) | §11 |
+| checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94; errors at the user's line 399f389); an operation outside its signature: Planned (T-120) | §11 |
 | ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343, and reported at an image's activation, E-349), with T-96, T-97 | §12 |
 | the standard libraries as owners | Open | §12.1 |
 | scopes: `@trait_module` and its options | Implemented (TraitWorld bb78d02, W-111) | §13 |
@@ -1270,3 +1278,4 @@ The library on the unified build is TraitWorld `unified` (its head: [state.md §
 | T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
 | T-111 | — | *Retired* (2026-11-14): `detect_kept_storage` reports such stores ([§7.8](#78-keeping-an-argument-with-its-attribute)); test `kept.jl`. TraitDifferentialEquations' six sites are the port's (W-104) | — | — |
 | T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is reported at error level and kept (`TraitWorld._STRICT_MISSES`), and the membership stays: a membership is not taken back (open issue 180 (c)). At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
+| T-120 | [§4.1](#41-operations), [§4.2](#42-defaults), [§5.10](#510-checks), [§11](#11-checks-and-errors) | An operation without a default is an entry of the contract and no method at the trait: a call dispatches to the member's own method; a call outside the declared signature raises Julia's `MethodError` with the contract's hint; a method that takes any receiver serves such an operation. | `@trait` defines the trait's method for every operation and arity (lowering L-63): it forwards for `Dynamic{X}`, holds a default's body, and otherwise raises `OperationError`, the library's error type. The member check refuses a serving method that takes any receiver, since the trait's method would hide it (`_hidden_method`). The hints read the trait's methods to find the declared signature (`_trait_hints!` with `_is_trait_method`). The classifier and compiling ahead skip the trait's method as the contract's own (`_is_trait_method` in `classify.jl`, `ahead.jl`). | TraitWorld `src/trait.jl` (`_trait_method`), `src/check.jl` (`_hidden_method`, `_first_serving`, `_is_trait_method`), `src/hints.jl` (`_trait_hints!`), `src/errors.jl` (`OperationError`), `src/classify.jl`, `src/ahead.jl` |

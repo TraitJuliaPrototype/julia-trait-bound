@@ -22,6 +22,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
 [Contract](#trait) ·
+[Contract entry](#operation) ·
 [Contract of a closed type](#open-and-closed) ·
 [Declared field](#declared-field) ·
 [Declared result](#declared-result) ·
@@ -144,9 +145,9 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Operation
 
-- **Here:** a generic function declared in the trait with argument and result types: `area(s::Shape)::Float64`. A member serves it by its own method, by a field it forwards to, or by the trait's default. An operation may be an existing function, such as `Base.length`.
+- **Here:** a generic function declared in the trait with argument and result types: `area(s::Shape)::Float64`. It is a **contract entry**, not a method at the trait: the entry holds the function, the declared signature and the declared result, and compiled code reads the result from it. A member serves the operation by its own method, by a field it forwards to, or by the trait's default; only a default is a method at the trait. A call outside the declared signature raises Julia's `MethodError`, with the declared signature as a hint. An operation may be an existing function, such as `Base.length`.
 - **Origin:** a Rust trait's methods, a Swift protocol's requirements. In Julia: a generic function whose methods are declared at an abstract type, as `length(x::AbstractArray)`.
-- **Defined in:** [traits §4.1](reference/traits.md#41-operations).
+- **Defined in:** [traits §4.1](reference/traits.md#41-operations); the entry: [compiler §4.1](reference/compiler.md#41-sets).
 
 ### Default
 
@@ -174,7 +175,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Forwarding (`by`)
 
-- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. Forwarding is served by the trait's methods; it does not chain.
+- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
 - **Origin:** Kotlin's `by`; Go's struct embedding. Rust writes it by hand or through `Deref`.
 - **Defined in:** [traits §5.5](reference/traits.md#55-forwarding-with-by).
 
@@ -198,7 +199,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 - **Here:** the result type a method or an operation declares, `f(…)::RT`. Compiled code that calls an operation on a value it knows only by its trait relies on the declared result, not on inference of whichever method runs.
 - **Origin:** a Rust or Swift function's return type, which callers type-check against. In Julia, `f(x)::T = …` converts and asserts the result.
-- **Defined in:** [traits §6.5](reference/traits.md#65-results); [compiler §6.8](reference/compiler.md#68-a-declared-result-on-method).
+- **Defined in:** [traits §6.5](reference/traits.md#65-results); [compiler §6.8](reference/compiler.md#68-a-declared-result-on-method); an operation's, in its contract entry: [compiler §4.1](reference/compiler.md#41-sets).
 
 ### Key
 

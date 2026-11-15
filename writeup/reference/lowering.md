@@ -28,7 +28,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 | Construct | Becomes | Made |
 |---|---|---|
-| `@trait X …` | an open abstract type; its supertraits' memberships; the operation functions; the trait's method per operation; the contract on the type's `TypeName`; `Dynamic{X}`'s membership | at the declaration |
+| `@trait X …` | an open abstract type; its supertraits' memberships; the operation functions; a method at the trait per default; the contract on the type's `TypeName`, its operations as entries; `Dynamic{X}`'s membership and forwarding methods | at the declaration |
 | `@implement X S …` | the block's methods; the checks; a membership entry with its receiver; the override records | at the declaration |
 | a family, an abstract type or a trait as a member | a membership entry with a pattern; each member's check | the entry at the declaration; each member's check at its first use |
 | `struct S <: X` | Julia's struct, whose supertype is `X`; the `@implement X S` that must follow | Julia's definition; the check at the `@implement` |
@@ -47,12 +47,13 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **The abstract type** `X{P…}`, created open ([compiler §4.1](compiler.md#41-sets)), its declared supertype `Any`. Bounds on parameters are the type's bounds.
 - **Its supertraits' memberships:** for each supertrait `A{q…}`, `jl_declare_membership(X{P…} where {P…}, A{q…}, nothing, mod, nothing)` ([compiler §4.2](compiler.md#42-memberships)).
 - **The operation functions:** a plain name makes a new generic function in the module; a qualified name uses the existing one.
-- **The trait's method for each operation and arity:** a method at `X` with the operation's declared result, flagged as covering every member ([compiler §6.8](compiler.md#68-a-declared-result-on-method)). Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2): Base's `haskey(d::AbstractDict, k)` for `Keyed`'s `haskey(d, k::K)`. A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
-  - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`. At a required operation only `Dynamic{X}` reaches this: every other forwarding member has a method of its own (§3, step 6);
-  - for a member that a default serves, the default's body;
-  - otherwise `OperationError` ([traits §11.3](traits.md#113-errors-and-their-messages)). A member's check has passed for the declared signature, so the call that arrives here is outside it: a further argument of another type than declared, where the trait's method leaves that argument untyped.
+- **A method at the trait for each default,** at each arity it is declared at ([traits §4.2](traits.md#42-defaults)): a method at `X`, its result annotated with the operation's declared result. Its receiver is typed by `X`. A further argument keeps its declared type only where it binds one of the trait's input parameters or one of the operation's own `where` variables, or where two declarations of the operation at one arity differ; the others are untyped. A parameter the receiver fixes (an equation of `Self`, or the instance a membership states) is bound by the receiver, not by a further argument. So a member's own method, written at its type, is more specific however it types its further arguments, and wins (traits §4.2). A `where` written after the operation's result is the operation's own. The checks use the declared types (§3). Its body:
+  - for a member that forwards, the operation called on `Core.trait_receiver(t, X)`, which inference resolves to the forwarding field at a member and to the receiver's part at a key ([compiler §6.5](compiler.md#65-the-calling-convention)); a declared field through `Core.trait_field(t, X, name)`;
+  - otherwise the default's body.
+- **No method for an operation without a default.** It is an entry of the contract (below) and nothing else: each member serves it by a method of its own type (§3, steps 2 and 6).
+- **`Dynamic{X}`'s forwarding methods:** for each operation without a default and each arity, a method at `Dynamic{<:X}` that calls the operation on its object, `getfield(d, :object)`, a value typed by the set: an operation's call ([compiler §7.1](compiler.md#71-the-rule)). Its further arguments are untyped. An operation with a default reaches `Dynamic{X}` through the default's method, which forwards.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
-  - the operations, each with its trait's method;
+  - the operations, each an entry: the function, the declared signature and the declared result as types, and the default's method where it has one ([compiler §4.1](compiler.md#41-sets));
   - the declared fields, with their types and whether `@const`;
   - each parameter's definition: a field's pattern, an equation (a function of `Self`), or stated;
   - the input parameters;
@@ -64,9 +65,9 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **`Dynamic{X}`'s membership:** the family `Dynamic{Z} where {P…, Z <: X{P…}}` in `X{P…}`, forwarding by its field `object` (§7). So `Dynamic{Sub}` for a subtrait `Sub` and `Dynamic{All{X, Y}}` are members of `X` too.
 - `Expr(:latestworld)`.
 
-A trait's declaration changes no compiled code: its methods are at a set with no members yet.
+A trait's declaration changes no compiled code: its methods are at a set with no members yet, and at `Dynamic{<:X}`, of which no value exists yet.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54; the flag of compiler §6.8 on `unified` e70675a606 with TraitWorld e9a63f7 (W-109). A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary). `OperationError`: TraitWorld 399f389, mine (2026-11-12).
+**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54. A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary). The operations as entries, a method at the trait only for a default, and `Dynamic{X}`'s forwarding methods: Planned (D-4, 2026-11-15), with L-63.
 
 ---
 
@@ -214,9 +215,9 @@ end
 | a module's end | the classification of methods that waited; a `struct S <: X` without its `@implement` | the module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks)) |
 | an image's activation | the methods the records refuse and, in strict mode, winning pirates, left inactive with a warning | the image hook |
 | a membership | the ambiguity report | the runtime ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)) |
-| a `MethodError` at a method at a trait | the hints of [traits §11.4](traits.md#114-hints) | `Base.Experimental.register_error_hint` |
+| a `MethodError` at a method at a trait, or at an operation's function | the hints of [traits §11.4](traits.md#114-hints), the declared signature read from the contract | `Base.Experimental.register_error_hint` |
 
-**Errors** are the library's types `ImplementError`, `OwnershipError`, `TraitUseError`, `OperationError` and `PirateError`, each with the message of [traits §11.3](traits.md#113-errors-and-their-messages). `MethodError` and `TypeError` are Julia's.
+**Errors** are the library's types `ImplementError`, `OwnershipError`, `TraitUseError` and `PirateError`, each with the message of [traits §11.3](traits.md#113-errors-and-their-messages). `MethodError` and `TypeError` are Julia's.
 
 **What a package image keeps:**
 - its traits' contracts, with their `TypeName`s;
@@ -299,8 +300,9 @@ The library on the unified build: TraitWorld `unified` (its head: [state.md §6.
 | L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
 | L-52 | — | *Retired* (2026-11-10): the use raises at dispatch and in compiled code ([§3](#3-implement); TraitWorld 0aff625, 048c44e with `unified` fcdfd0da36; `test/declared.jl`, E-350, E-352). What remains is the hook's: [compiler C-31](compiler.md#deviations) | — | — |
 | L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
-| L-54 | [§2](#2-trait) | The trait's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
+| L-54 | [§2](#2-trait) | A default's method reaches a forwarding member's field through `Core.trait_receiver(t, X)`, which inference resolves. | It calls the library's `_fwd(t, X)`, a method per forwarding member and trait, which inference resolves the same way at a member's type; `Core.trait_receiver` comes with keys (Optional). | `src/trait.jl` (`_trait_method`), `src/implement.jl` (`_define_fwd!`) |
 | L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
 | L-56 | [§7](#7-dynamicx-keep-casts) | A call with cast arguments is lowered to `Core.attributed_call`. | A cast in a call with a splatted argument, a cast as a keyword's value, or one past the call's 32nd argument (the 30th with keywords), is left as the call of its name, which raises. | `src/julia-syntax.scm` (`lower-cast-call`) |
 | L-57 | — | *Retired* (2026-11-14): the error names the constructor to define ([§8](#8-like-and-withfields)); `test/core.jl` | — | — |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |
+| L-63 | [§1](#1-summary), [§2](#2-trait) | `@trait` writes each operation as an entry of the contract, as types the compiler reads (`jl_set_contract_operations`); it defines a method at the trait only for a default, and for each operation without a default a forwarding method at `Dynamic{<:X}`. | `@trait` defines the trait's method for every operation and arity (`_trait_method`) and sets its declared result with the flag that it covers every member (`_set_declared!`, `jl_method_set_declared_result(m, rt, 1)`). Its body forwards through `_fwd` (a forwarding member's field, `Dynamic{X}`'s object), runs a default's body, or raises `OperationError`. `Dynamic{X}` has no method of its own: the trait's method serves it. The contract is the library's `Contract` of type expressions, evaluated per member by the check (`_eval_in`); the operations' declared signatures and results are written nowhere as types. | TraitWorld `src/trait.jl` (`_trait_method`, the expansion's step 6), `src/runtime.jl` (`_set_declared!`, `_set_contract!`), `src/contract.jl` (`Contract`, `OperationDecl`) |
