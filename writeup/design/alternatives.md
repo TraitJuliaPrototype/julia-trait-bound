@@ -11,7 +11,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Seven rules, then four, then three
 - The facts policy as package code, replaced by the facts mode in Julia's compiler
 - Code in the wrong owner
-- Facts at non-public functions, dropped
+- Facts at non-public functions, dropped (taken up again as owner-only functions)
 - Asserted effects: three rules in turn
 - The invalidation filter and other Julia pieces, reverted or moot
 - Dynamic values: pointer tables and witness tables, replaced by the call-site split
@@ -38,6 +38,8 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - Level 2 of unification: options not taken
 - The unified build: options not taken
 - G2's predicate and the code slot: options not taken (2026-11-15)
+- A required operation as the trait's method, replaced (2026-11-15)
+- A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
 
 ---
 
@@ -123,6 +125,12 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 **What it was (s26, the user).** In code compiled under the policy, a call at abstract argument types of a function that is not `public` (nor exported) in its owner's module was recorded as a fact, as at a concrete signature: only the owner adds methods to its internal functions, and extending another package's non-public function would count as piracy. In implementing it, it was scoped to calls from the same package (TraitWorld 6bcca9f): applied to Base's internals, which packages extend as a matter of course, it let OffsetArrays, StatsBase and Unitful invalidate trait code. With it, `@implement` took 0.09–0.21 s without loads and about 0.52 s after (against 1.2–1.5 s after CSV, DataFrames and CairoMakie, and 0.64 s without, before).
 
 **Why it went (s27, the user: decision 3).** Rule 3 lets a package that owns a type extend another package's internal function at that type, so such facts broke G2: acceptance check G2.1 failed with the rule (`JULIA_TW_INTERNAL_FACTS=1`) and passes without it. The speed it bought came from bare invokes running native code, fixed in s27 (TraitWorld eef27bc; acceptance 16/16). The consistency review of s27 had also found that the rule was in no note, broke Theorem 2's premise as stated, and still recorded Base-internal calls from Base code as facts.
+
+**Taken up again in another form (2026-11-15, the plan's D-9): owner-only functions** ([facts §1](../reference/facts.md#term-owner-only), [§3](../reference/facts.md#3-fact-signatures)).
+- *Why the earlier rule was unsound.* It recorded a fact at a non-public function's abstract signature, while ownership left another package free to extend that function at its own type: such a method was no pirate, since its definer owned a type in it. So a definition by a non-stakeholder could change the fact, Lemma O failed for the abstract signature, and G2 broke (acceptance G2.1). It also reached Base's internals, which packages extend as a matter of course.
+- *Why this one is not.* It changes the definition of a pirate together with the fact rule: a method of an owner-only function by anyone but its owner is a pirate, whatever types it names. Then Lemma O holds at every signature of such a function: a method that is no pirate is its owner's, and its owner is a stakeholder of every call of it. Such a pirate is followed by default, with Julia's invalidation (G1 holds), and refused in strict mode and under `no_pirates`.
+- *Its scope is the facts mode's own:* by default only the functions of a module that declares `facts`, neither exported nor `public`; Base's internals stay outside. The acceptance case that failed (now `AC_15_type_value_extension.jl`) extends a function of a module that declares nothing, so it stays as it is.
+- *The measurement that made it worth taking up again:* E-396, a seventh of a port's run-time sites and a fifth to two fifths of idiomatic trait code's are at such functions.
 
 **The alternative recorded with it, (b): run-time dispatch under the policy.** A run-time site looks up and invokes the policy's code for the run-time types, so that dynamically reached code, ordinary code included, is protected too, at the cost of changing "run-time sites behave as plain Julia" and a cost per call. It was built in the package in s28 (TraitWorld 1d93677) and is part (C) of the compiler today.
 
@@ -569,3 +577,23 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 
 **Terms retired:** *code slot*, *mark* and *revalidation* (of a caller), *result edges listed apart*.
 
+## A required operation as the trait's method, replaced (2026-11-15)
+
+- **What it was:** `@trait` defined a method at the trait for every operation and arity. It carried the operation's declared result, with a flag that it covers every member, which inference read at a receiver typed by the trait. It forwarded for `Dynamic{X}`, held a default's body, and otherwise raised `OperationError`. A further argument was left untyped unless it bound an input, so that a member's own method won.
+- **Why replaced** (the plan's D-4, confirmed by the user's adoption of the plan, 2026-11-15; P4 of [the review](../reviews/2026-11-15-conceptual-design.md)):
+  - The contract had two homes: the entries on the trait's `TypeName`, and a method at the trait per operation (the review's R3).
+  - For an operation that is Base's function, the method sat at an open set on Base's function. The library's late load ended 201 plain instances, every one through such a method; the same operations' methods at the box alone ended none (E-394; GT-11).
+  - The method hid a member's own method that takes any receiver (`mul!(C, A, B)`), so a rule refused such a member, and BaseTraits took a function of its own, `apply!` (open issue 150; E-281).
+  - A forwarding member needed methods of its own beside it (open issue 178 (a)), and a call outside the declared signature reached it and needed an error type of its own (`OperationError`).
+- **What replaced it:** an operation without a default is an entry of the contract and no method; inference reads the declared result from the entry; a call dispatches to the member's own method; `Dynamic{X}` forwards by methods at `Dynamic{<:X}`; a default stays a method at the trait ([traits §4.1](../reference/traits.md#41-operations), [compiler §4.1](../reference/compiler.md#41-sets), [lowering §2](../reference/lowering.md#2-trait)).
+- **Its cost:** a call outside the declared signature raises Julia's `MethodError`, with the contract's hint, where `OperationError` named the operation itself. E-385's fifteen mistakes are the control.
+- **Not taken:**
+  - *The trait's method kept, with a mark that it serves no member* (open issue 158 (a), built on `unified` 40401f67d8): its insertion still met every call at a plain abstract type that a member's subtype could reach (E-394).
+  - *BaseTraits' operations as functions of its own* (GT-11's proposal (b)): a member's own `length` and `iterate` would no longer serve them.
+
+## A closed build's rules as a list, and fully typed in two words, replaced (2026-11-15)
+
+- **What it was:** three mechanisms side by side: facts in a session, plain inference, and a closed build's list of rules of its own (compiler §7.6: the attribute's defaults turned, the split over every member, a cast that branches, `Core.attributed_call` refused, code inferred again in rounds). "Fully typed" meant what a closed build compiles, wider than code with no run-time site in a session, and the narrower sense had no word (GT-17).
+- **Why replaced** (the plan's D-10, mine, 2026-11-15; P5 (a) of [the review](../reviews/2026-11-15-conceptual-design.md)): the three differ in one input, which calls count as settled. Listed as rules, each case was found and added on its own: a program with no member left an operation unresolved (open issue 184 (a)), `invokelatest` needed the build script's rebinding (181 (b)).
+- **What replaced it:** what is final is the one input ([facts §3](../reference/facts.md#3-fact-signatures)); the closed rules follow from it ([compiler §7.6](../reference/compiler.md#76-a-closed-build)); a trimmed build is the facts rule with everything final ([facts §13.3](../reference/facts.md#133-trimmed-binaries)); fully typed has the setting as its parameter ([traits §14](../reference/traits.md#14-concreteness-and-fully-typed-mode)).
+- **Not taken:** GT-17's proposal (b), a closed build that refuses what a session leaves to run time: one notion, but plain programs that build today under `--trim` would be refused.

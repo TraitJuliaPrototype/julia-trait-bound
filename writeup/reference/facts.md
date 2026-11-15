@@ -53,12 +53,16 @@
   - A package extension belongs to its parent.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
-- <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of the types in its own signature, judged at every signature it applies to. A `Union`'s members count one by one. A `Vararg{T}` tail contributes `T` only where it has at least one element.
-- **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s` at any depth (each argument type, its parameters, a `Type{T}`'s `T`, a value parameter's type) and of their supertypes. **A type's supertypes include the traits it is a member of,** in the world in question.
-- <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. Julia's type piracy, strict for unions.
-- <a id="term-fact"></a>**Fact:** "at the concrete signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`". `r` is one method, "no method", or "ambiguous".
+- <a id="term-owner-only"></a>**Owner-only function:** a function whose methods only its owner may define (§3).
+  - By default: a function of a module that declares `facts` (its submodules included) that the module neither exports nor declares `public`. A closure of such a module is one.
+  - By declaration: a function its owner declares so in its module, exported or not ([traits §12.2](traits.md#122-pirates)).
+  - Not by default: the internal functions of Base and the standard libraries, and the functions of a module that does not declare `facts`. Packages extend Base's internals as a matter of course.
+- <a id="term-stakeholder"></a>**Stakeholders of a method:** the owner of its function, and the owners of the types in its own signature, judged at every signature it applies to. Of a method of an owner-only function: the function's owner alone. A `Union`'s members count one by one. A `Vararg{T}` tail contributes `T` only where it has at least one element.
+- **Stakeholders of a concrete signature `s`:** the owner of its function, and the owners of every type in `s` at any depth (each argument type, its parameters, a `Type{T}`'s `T`, a value parameter's type) and of their supertypes. **A type's supertypes include the traits it is a member of,** in the world in question. Of any signature of an owner-only function, concrete or not: the function's owner.
+- <a id="term-pirate"></a>**Pirate:** a method defined by none of its stakeholders. Julia's type piracy, strict for unions; and a method of an owner-only function by anyone but its owner, whatever types it names.
+- <a id="term-fact"></a>**Fact:** "at the signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `s` is concrete or is a signature of an owner-only function. `r` is one method, the methods that match (at a signature that is not concrete), "no method", or "ambiguous".
 - **A definition wins at `s`** when dispatch at `s` selects something else after it: the new method; an ambiguity; another method after a deletion or replacement.
-- **Lemma O.** A method that applies at a concrete `s` and is no pirate is defined by a stakeholder of `s`. So only a stakeholder or a pirate can change a fact. A method at a trait applies at `s` only through a membership, which makes the trait's owner a stakeholder of `s`.
+- **Lemma O.** A method that applies at a signature `s` and is no pirate is defined by a stakeholder of `s`, where `s` is concrete or `s` is any signature of an owner-only function. So only a stakeholder or a pirate can change a fact. A method at a trait applies at a concrete `s` only through a membership, which makes the trait's owner a stakeholder of `s`. A method of an owner-only function that is no pirate is its owner's, and its owner is a stakeholder of every call of it.
 - **Lemma D.** A definition that does not win at `s` leaves dispatch at `s` unchanged, whatever the order of definitions.
 - <a id="term-fact-signature"></a>**Fact signature:** a call signature at which only a stakeholder or a pirate can change dispatch (§3).
 - <a id="term-edge"></a>**Edge:** a dependency a CodeInstance records ([compiler §3.1](compiler.md#31-the-record)):
@@ -71,7 +75,8 @@
   Julia invalidates a CodeInstance when an edge breaks, and its callers through their edges to it.
 - <a id="term-deep-g2"></a>**Deep G2:** a CodeInstance is deep G2 when every dispatch edge of its record is at a fact signature and every callee among its edges is deep G2 ([compiler §3.2](compiler.md#32-g2-as-a-predicate)). Its code rests on facts, bindings and memberships only, at any depth. The class of such CodeInstances is the *deep class*.
 - <a id="term-run-time-site"></a>**Run-time site:** a call in code compiled by facts that records no edge (§5).
-- <a id="term-fully-typed"></a>**Fully typed:** code in which every call is at a fact signature, and every call in the code compiled into it, transitively.
+- <a id="term-final"></a>**Final:** an answer no later definition can change (§3, "What is final"). A call is **settled** where only a stakeholder or a pirate can change its dispatch, or nothing can.
+- <a id="term-fully-typed"></a>**Fully typed,** in a setting: code in which every call, and every call in the code compiled into it, transitively, is settled in that setting (§3). **Fully typed in a session:** every such call is at a fact signature. **Fully typed when closed:** a closed build resolves every such call ([traits §14](traits.md#14-concreteness-and-fully-typed-mode)).
 - **Policy:** whether a method's code is compiled by facts or plainly (§6). *Facts:* the rules of this page. *Plain:* Julia's own inference.
 - **Code compiled by facts:** CodeInstances of the facts policy.
 - **Kinds of methods:** facts, boundary, plain and neutral methods (§6.1).
@@ -153,6 +158,12 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 ## 3. Fact signatures
 
+**What is final.** A call is inferred across where its dispatch is **settled:** only a stakeholder or a pirate can change it, or nothing can. Which calls are settled follows from one input, what is **final**: an answer no later definition can change.
+- **In a session,** what is final is what Julia fixes: a closed abstract type's members, and the types that are never members. Every other answer may change by a later definition. So a settled call is one that only a stakeholder or a pirate can change: a call at a fact signature (the criterion below), an owner-only function's at any signature.
+- **In a closed build,** every set's members and every function's methods are final: nothing is defined after the build. So every call whose targets the build can list is settled, and a closed build's rules follow ([compiler §7.6](compiler.md#76-a-closed-build)).
+- **Plain inference** takes every answer as final, and invalidation repairs what changes. G1 rests on its edges ([§2.1](#21-g1-identical-or-error)); G2 does not.
+- **Fully typed** is one definition with the setting as its parameter (§1): every call, in the code and in what it calls, is settled in that setting. A call settled in a session is settled when closed. A call settled only when closed (a value typed `Any` passed to a function with one method that is not owner-only) is dispatched when it runs in a session.
+
 **The criterion.** A signature is a fact signature when only a stakeholder or a pirate can change dispatch at it. A form not listed is a run-time site, until it is shown to meet the criterion and added.
 
 | Form | Example | Why only a stakeholder or a pirate can change it |
@@ -160,7 +171,8 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 | **A dispatch tuple:** concrete types, not kinds; `Type{T}` with `T` known | `f(::Int, ::Float64)` | Lemma O. A membership of one of its types changes dispatch there and invalidates through the fact's edge, as a method does; it is a stakeholder's or a pirate's (§10). |
 | **Its union splits,** where Julia's union splitting splits | `g(::Union{Int, Nothing})` | Each split is a dispatch tuple, with an edge per split. |
 | **Unions of concrete elements in tuple arguments,** split by the same cost | `h(::Tuple{Union{Int, Missing}, Float64})` | A tuple of concrete or union elements holds exactly the values of its splits. |
-| **A closure's call at kinds** | `map(T -> sizeof(T), types)` with `types::Vector{DataType}` | Only the closure's own module adds methods to a closure's type: an assumption, not Lemma O. Julia invalidates the edge, so G1 holds; G2 rests on the assumption. |
+| **A closure's call at kinds** | `map(T -> sizeof(T), types)` with `types::Vector{DataType}` | Only the closure's own module adds methods to a closure's type: an assumption, not Lemma O. Julia invalidates the edge, so G1 holds; G2 rests on the assumption. A closure of a module that declares `facts` is an owner-only function: the next row covers it, by Lemma O. |
+| **A call of an owner-only function, at any signature** (§1) | `helper(x)` with `x::Any`; `limits(p.pos)` with `p.pos::Positions` and `limits` the package's own internal function | Lemma O with the wider reading of a pirate (§1): a method of it by anyone but its owner is a pirate's, whatever types it names. So the methods dispatch can select there are its owner's, or a pirate's. |
 | **A concrete `Vararg` tail** | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners: one edge for the family. |
 | **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | A definition changes the resolution only if its own signature contains the declared one: its definer is a stakeholder of it, or a pirate. |
 | **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
@@ -168,14 +180,22 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Which unions split** is Julia's cost model exactly: the union lengths multiplied, the largest counted as 2, a split where the cost is at most `max_union_splitting` (4 by default).
 
-**Not fact signatures** (run-time sites):
+**Not fact signatures** (run-time sites), at a function that is not owner-only:
 - an abstract argument type: `show(::IO, ::Any)`, `sum(::AbstractVector)`;
 - a trait instance as an argument's type, outside the operations of §9: a member's own methods may differ;
 - a kind passed to a function that is not a closure: `make(::DataType)`;
 - a union with more than four splits;
 - a `Vararg` tail of an abstract or kind element.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110).
+**Owner-only functions** (the row above; §1):
+- **By default** each function of a module that declares `facts`, its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
+- **By declaration** a function's owner makes any function of its module owner-only, an exported one included ([traits §12.2](traits.md#122-pirates)).
+- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that does not declare `facts`. The facts mode's default does not depend on how the caller is compiled: the callee's module decides.
+- **The call is inferred as plain inference infers it** at its signature, the callee under its own policy, with Julia's ordinary dispatch edge. Where Julia's method matching gives up (more matches than `max_methods`), the call is a run-time site, as at any fact ([compiler §1.3](compiler.md#13-run-time-sites)).
+- **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
+- **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
+
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
 
 ---
 
@@ -325,10 +345,11 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
 - **The result** is the operation's declared result, asserted on every branch not known to give it and never converted: a result of another type raises a `TypeError` ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [§11](traits.md#11-checks-and-errors)). The declaration is the contract each member was checked against, and a member keeps its check while it is a member ([traits §5.10](traits.md#510-checks)); the assertion catches what the check does not reach: a result at an abstract further argument, a method already in the session when an image's membership loads, and inference's own limits.
 - **A later member** reaches the fallback and invalidates nothing. Code compiled after its declaration may branch on it.
 - **Code compiled once for a trait argument** records no edge to the set of members. A member loaded after it was compiled discards none of it.
+- **No method at the trait takes part in an operation without a default.** The declared result is read from the trait's contract ([compiler §4.1](compiler.md#41-sets)), without an edge: it never changes after the declaration. Each branch, the fallback and a dynamic call reach the member's own method ([traits §4.1](traits.md#41-operations)). So such an operation adds no method at a set: declaring the trait, or a membership in it, ends no code through it. Only a default is a method at the set, and it invalidates as any method does (§10).
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39.
+**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39. The declared result read from the contract, with no method at the set for an operation without a default: Planned (D-4), with [compiler C-100](compiler.md#deviations).
 
 ---
 
@@ -350,7 +371,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 
 ## 11. Pirates and strict mode
 
-Who may write a method, and the errors a user sees, are in [traits §12](traits.md#12-ownership-pirates-strict-mode). This section says how pirates affect validity.
+Who may write a method, and the errors a user sees, are in [traits §12](traits.md#12-ownership-pirates-strict-mode). This section says how pirates affect validity. A pirate is as §1 defines it: a method of another owner's owner-only function is one, whatever types it names.
 
 ### 11.1 What a winning pirate does
 
@@ -445,13 +466,13 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 
 ### 13.3 Trimmed binaries
 
-- **A `--trim` build has no facts policy.** It compiles every method plainly.
-- **Why:** a binary is a closed world. Nothing loads later, so there is no cache to protect.
-- **For the same reason its sets are closed:** an operation on a value known only by its trait is compiled for the members the build has ([compiler §7.6](compiler.md#76-a-closed-build)).
+- **A `--trim` build is the facts rule with everything final** (§3, "What is final"). A binary is a closed world: nothing loads later, so every set's members and every function's methods are final, and there is no cache to protect.
+- **Where everything is final, plain inference's assumption holds.** So the build infers every method by Julia's own inference and records no policy ([compiler §2.6](compiler.md#26---trim)): no third rule.
+- **Its sets are closed for the same reason:** an operation on a value known only by its trait is compiled for the members the build has ([compiler §7.6](compiler.md#76-a-closed-build)).
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114).
+**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114). Stated as the facts rule with everything final: mine (2026-11-15; D-10).
 
 ---
 
@@ -472,13 +493,13 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
 | G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class as built: compiler C-91 | §2.2 |
-| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110) | §3 |
+| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | a call that only throws, dispatched when it runs | compiler C-92 | §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
-| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39 | §9 |
+| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
 | a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88 | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25 | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |

@@ -67,15 +67,16 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-8 | G2 covers the deep class; a port's facts code outside it is lost through plain callees in Base (E-395: 41 % of the forks' own instances in the class) | G-8 against G-1 | open issues §1, flagged; [facts §2.2](reference/facts.md#22-g2-stable-caches) |
 | GT-9 | The membership machinery costs code that uses no trait | G-8 against G-4 | open issues §1, flagged |
 | GT-10 | An isolated slowdown in an existing ecosystem has no reasonable local fix | G-7 against G-2 | open issues §1, flagged |
-| GT-11 | A method at an open set on one of Base's functions ends plain callers when the library loads | G-7 and G-8 against G-4 | open issues §1, flagged |
+| GT-11 | A method at an open set on one of Base's functions ends plain callers when the library loads. Decided 2026-11-15 for operations without a default: an entry of the contract, no method (D-4); not built | G-7 and G-8 against G-4 | open issues §1, flagged; [traits §4.1](reference/traits.md#41-operations) |
 | GT-12 | The definition-time check runs at each edit | G-5 against G-1 | open issues §1, flagged |
 | GT-13 | A trimmed build refuses the call on a value known only by its trait. Decided 2026-11-11: a closed build compiles generic code for the members it has | G-1 against G-6 | open issues §1, flagged; [compiler §7.6](reference/compiler.md#76-a-closed-build) |
 | GT-14 | A membership is seen from the world of its declaration, where a subtype is seen at once | G-1 against G-5 and G-7 | open issues §1, flagged |
 | GT-15 | A closed build has every member of a trait; a family over another owner's type has hundreds. Decided 2026-11-11: members by use; built (W-139) | G-7 against G-6 | open issues §1, flagged; [compiler §7.6](reference/compiler.md#76-a-closed-build), C-86 |
 | GT-16 | Fully typed mode raises exactly where a build refuses, or fully typed code pays nothing: the build's check takes seconds (traits T-100, T-104) | G-6 and G-5 against G-1 | open issues §1, flagged |
 | GT-18 | A membership changes which types are equal inside a parameter; following it exactly replays every method that names the set there (compiler C-88 (e)) | G-4 (the guarantee) against G-1 | open issues §1, flagged |
-| GT-17 | Fully typed, as what compiles ahead, is wider than code without a run-time site in a session: a build resolves a call at `Any` to a function with one method | G-6 against G-2 and G-8 | open issues §1, flagged |
+| GT-17 | Fully typed, as what compiles ahead, is wider than code without a run-time site in a session: a build resolves a call at `Any` to a function with one method. Decided 2026-11-15 (D-10, mine): one definition with the setting as its parameter; the report lists the difference apart (not built, T-122) | G-6 against G-2 and G-8 | open issues §1, flagged; [facts §3](reference/facts.md#3-fact-signatures) |
 | GT-21 | A call that only throws is dispatched when it runs with its result asserted: it raises where a change below its signature makes its callee return (D-6, mine) | G-4 (the guarantee) against G-1 | open issues §1, flagged; [facts §5](reference/facts.md#a-call-that-only-throws) |
+| GT-23 | An extension of another package's internal function is a pirate: owner-only functions by default (D-9) | G-7 against G-1 and G-2 | open issues §1, flagged; [facts §3](reference/facts.md#3-fact-signatures); E-431 |
 
 ## 4. The synthesis
 

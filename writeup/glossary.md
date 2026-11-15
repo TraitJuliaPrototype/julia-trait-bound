@@ -21,6 +21,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
 [Contract](#trait) ·
+[Contract entry](#operation) ·
 [Contract of a closed type](#open-and-closed) ·
 [Declared field](#declared-field) ·
 [Declared result](#declared-result) ·
@@ -36,6 +37,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Family](#family) ·
 [Forwarding (`by`)](#forwarding-by) ·
 [Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
+[Final and settled](#final-and-settled) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
 [G2: stable caches, the G2 bit, deep G2](#g2-stable-caches-and-the-g2-bit) ·
@@ -55,6 +57,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Open and closed](#open-and-closed) ·
 [Operation](#operation) ·
 [Owner, joint owners](#owner) ·
+[Owner-only function](#owner-only-function) ·
 [Package extension](#package-extension) ·
 [Package image](#package-image) ·
 [Parameters](#parameters-and-input-parameters) ·
@@ -143,9 +146,9 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Operation
 
-- **Here:** a generic function declared in the trait with argument and result types: `area(s::Shape)::Float64`. A member serves it by its own method, by a field it forwards to, or by the trait's default. An operation may be an existing function, such as `Base.length`.
+- **Here:** a generic function declared in the trait with argument and result types: `area(s::Shape)::Float64`. It is a **contract entry**, not a method at the trait: the entry holds the function, the declared signature and the declared result, and compiled code reads the result from it. A member serves the operation by its own method, by a field it forwards to, or by the trait's default; only a default is a method at the trait. A call outside the declared signature raises Julia's `MethodError`, with the declared signature as a hint. An operation may be an existing function, such as `Base.length`.
 - **Origin:** a Rust trait's methods, a Swift protocol's requirements. In Julia: a generic function whose methods are declared at an abstract type, as `length(x::AbstractArray)`.
-- **Defined in:** [traits §4.1](reference/traits.md#41-operations).
+- **Defined in:** [traits §4.1](reference/traits.md#41-operations); the entry: [compiler §4.1](reference/compiler.md#41-sets).
 
 ### Default
 
@@ -173,7 +176,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Forwarding (`by`)
 
-- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. Forwarding is served by the trait's methods; it does not chain.
+- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
 - **Origin:** Kotlin's `by`; Go's struct embedding. Rust writes it by hand or through `Deref`.
 - **Defined in:** [traits §5.5](reference/traits.md#55-forwarding-with-by).
 
@@ -197,7 +200,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 - **Here:** the result type a method or an operation declares, `f(…)::RT`. Compiled code that calls an operation on a value it knows only by its trait relies on the declared result, not on inference of whichever method runs.
 - **Origin:** a Rust or Swift function's return type, which callers type-check against. In Julia, `f(x)::T = …` converts and asserts the result.
-- **Defined in:** [traits §6.5](reference/traits.md#65-results); [compiler §6.8](reference/compiler.md#68-a-declared-result-on-method).
+- **Defined in:** [traits §6.5](reference/traits.md#65-results); [compiler §6.8](reference/compiler.md#68-a-declared-result-on-method); an operation's, in its contract entry: [compiler §4.1](reference/compiler.md#41-sets).
 
 ### Key
 
@@ -307,15 +310,21 @@ The precedents come from the research in [`record/other-languages-research-2026-
 - **Origin:** Rust's crate, the unit of its orphan rule. Julia's piracy convention uses the same idea of "your own" functions and types.
 - **Defined in:** [facts §1](reference/facts.md#term-owner); [traits §12.1](reference/traits.md#121-who-may-declare-a-membership).
 
+### Owner-only function
+
+- **Here:** a function whose methods only its owner may define. By default, each function of a module that declares `facts` (a trait module among them) that the module neither exports nor declares `public`; also any function its owner declares `@owner_only`. A method of it by another package is a pirate's, whatever types it names. So a call of it is a fact at any signature, and code compiled by facts infers it as plain Julia does. Base's internal functions are not owner-only.
+- **Origin:** the project's term. Julia's `public` (1.11) marks what others may use; Rust's private items and sealed traits cannot be implemented outside their crate.
+- **Defined in:** [facts §1](reference/facts.md#term-owner-only), [§3](reference/facts.md#3-fact-signatures); [traits §12.2](reference/traits.md#122-pirates).
+
 ### Stakeholder
 
-- **Here:** the stakeholders of a method are the owner of its function and the owners of the types in its signature. The stakeholders of a concrete call signature are the owner of its function and the owners of every type in it, at any depth, and of their supertypes, traits included. Only a stakeholder or a pirate can change which method a call at a concrete signature selects. A stakeholder may declare a membership: the trait's owner or the type's.
+- **Here:** the stakeholders of a method are the owner of its function and the owners of the types in its signature. The stakeholders of a concrete call signature are the owner of its function and the owners of every type in it, at any depth, and of their supertypes, traits included. Only a stakeholder or a pirate can change which method a call at a concrete signature selects. Of an [owner-only function](#owner-only-function)'s methods and calls, the owner is the one stakeholder. A stakeholder may declare a membership: the trait's owner or the type's.
 - **Origin:** the project's term: Rust's orphan rule ("either the trait or the type must be local") generalized to multiple dispatch ([`design/other-languages.md` §5](design/other-languages.md#5-who-may-implement-ownership-and-stakeholders)).
 - **Defined in:** [facts §1](reference/facts.md#term-stakeholder); [traits §12.1](reference/traits.md#121-who-may-declare-a-membership).
 
 ### Pirate and piracy
 
-- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own. A pirate changes compiled code only where it wins.
+- **Here:** a pirate is a method defined by none of its stakeholders: a method of a function you do not own, for types you do not own, or any method of another package's [owner-only function](#owner-only-function). A pirate changes compiled code only where it wins.
 - **Origin:** Julia's own "type piracy", which its style guide advises against and Aqua.jl checks; here strict for unions. Rust refuses such impls at compile time; Swift warns on retroactive conformances since Swift 6.
 - **Defined in:** [facts §1](reference/facts.md#term-pirate), [§11](reference/facts.md#11-pirates-and-strict-mode); [traits §12.2](reference/traits.md#122-pirates).
 
@@ -344,8 +353,8 @@ The precedents come from the research in [`record/other-languages-research-2026-
 ### Fact and fact signature
 
 - **Here:**
-  - A **fact** is "at the concrete signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous".
-  - A **fact signature** is a call signature at which only a stakeholder or a pirate can change dispatch: a tuple of concrete types, and the forms that reduce to such tuples.
+  - A **fact** is "at the signature `s`, in the worlds `w₁` to `w₂`, dispatch selects `r`", where `r` is a method, "no method" or "ambiguous", and `s` is concrete or a call of an owner-only function.
+  - A **fact signature** is a call signature at which only a stakeholder or a pirate can change dispatch: a tuple of concrete types, the forms that reduce to such tuples, and any call of an [owner-only function](#owner-only-function).
   - Code compiled by facts depends on the method table only through facts.
 - **Origin:** the project's terms. A fact is the kind of dependency Julia's compiled code already records on the dispatch it assumed, restricted to concrete signatures.
 - **Defined in:** [facts §1](reference/facts.md#term-fact), [§3](reference/facts.md#3-fact-signatures).
@@ -385,9 +394,15 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Fully typed and fully typed mode
 
-- **Here:** code is **fully typed** when every call in it, and in the code compiled into it, is at a fact signature. Fully typed code is exactly the code that compiles ahead in a closed build ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). `fully_typed(f, argtypes)` reports the calls that are not: it is the closed build's own check, run in the session. **Fully typed mode** is a check, per function or module, that raises where a build would refuse a call.
+- **Here:** code is **fully typed** in a setting when every call in it, and in the code compiled into it, is settled there: no later definition but a stakeholder's or a pirate's can change where it goes. **Fully typed in a session:** every call at a fact signature. **Fully typed when closed:** every call one a closed build resolves; this is exactly the code that compiles ahead ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)). `fully_typed(f, argtypes)` reports the calls that are not fully typed when closed, and lists apart those a session leaves to run time: it is the closed build's own check, run in the session. **Fully typed mode** is a check, per function or module, that raises where a build would refuse a call.
 - **Origin:** the project's terms; Julia's `@inferred` and JET check related properties after the fact.
 - **Defined in:** [facts §1](reference/facts.md#term-fully-typed); [traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode); [compiler §2.7](reference/compiler.md#27-fully-typed-mode).
+
+### Final and settled
+
+- **Here:** an answer is **final** where no later definition can change it. A call is **settled** where only a stakeholder or a pirate can change where it goes, or nothing can. In a session what is final is what Julia fixes (a closed type's members, the types that are never members), so a settled call is a call at a fact signature. In a closed build every set's members and every function's methods are final, so every call the build can list is settled. This one input is what a session and a closed build differ in.
+- **Origin:** the project's terms. Java's and C#'s `final` and `sealed` close a class or a method to later definitions; a closed build makes everything so.
+- **Defined in:** [facts §1](reference/facts.md#term-final), [§3](reference/facts.md#3-fact-signatures); [compiler §7.6](reference/compiler.md#76-a-closed-build).
 
 ### G1: identical or error
 
