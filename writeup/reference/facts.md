@@ -419,7 +419,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 **What an image holds.**
 - Code of both policies compiled while the image was built, with machine code.
 - Code for other packages' methods its workload compiled.
-- Code compiled ahead at the keys of the memberships it declares ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+- Code compiled ahead for the memberships it declares ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - The memberships it declares on other modules' types, in a list of its own.
 - The check records of members checked while it was built.
 - `return_type`'s answers, without machine code.
