@@ -11,13 +11,11 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 [Absence edge](#absence-edge) ·
 [`All{X, Y}`](#intersection-allx-y) ·
-[Attribute: `Compiled` and `Dynamic`](#compiled-and-dynamic) ·
 [`BaseTraits`](#basetraits) ·
 [Boundary method](#boundary-method) ·
-[`bounded` and `@unbounded`](#fully-bounded-and-unbounded) ·
+[`bounded` and `@unbounded`](#bounded-and-unbounded) ·
 [`Callable`](#callable) ·
 [Candidates](#split) ·
-[Cast](#cast) ·
 [CodeInstance](#codeinstance) ·
 [Concrete parts](#concrete-parts) ·
 [Contract](#trait) ·
@@ -27,16 +25,19 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Declared result](#declared-result) ·
 [Default](#default) ·
 [Definition checking](#definition-checking) ·
+[Box: `Dynamic{X}`](#dynamicx) ·
+[`compiled_for`](#wrapper-compiled_forx) ·
 [`Dynamic{X}`](#dynamicx) ·
 [Edge](#edge) ·
 [Entry](#membership-and-entry) ·
-[Erased key](#key) ·
 [Eraser `IOContext{IO}`](#eraser-iocontextio) ·
+[Erasing by default](#erasing-by-default-and-the-forwarder) ·
 [Fact and fact signature](#fact-and-fact-signature) ·
 [Facts policy](#policy-facts-and-plain) ·
 [Family](#family) ·
+[Forwarder](#erasing-by-default-and-the-forwarder) ·
 [Forwarding (`by`)](#forwarding-by) ·
-[Fully bounded and unbounded](#fully-bounded-and-unbounded) ·
+[Bounded and unbounded](#bounded-and-unbounded) ·
 [Final and settled](#final-and-settled) ·
 [Fully typed, fully typed mode](#fully-typed-and-fully-typed-mode) ·
 [G1: identical or error](#g1-identical-or-error) ·
@@ -45,7 +46,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Input parameter](#parameters-and-input-parameters) ·
 [Instance (one per member)](#parameters-and-input-parameters) ·
 [Invalidation](#invalidation) ·
-[`keep`](#keep) ·
+[Kept form](#kept-form) ·
 [Key](#key) ·
 [`like`, `withfields`](#like-and-withfields) ·
 [Member](#membership-and-entry) ·
@@ -77,7 +78,8 @@ The precedents come from the research in [`record/other-languages-research-2026-
 [Trait code and plain code](#trait-module) ·
 [Trait module](#trait-module) ·
 [Type value as a member](#type-value-as-a-member) ·
-[World and world age](#world-and-world-age)
+[World and world age](#world-and-world-age) ·
+[Wrapper: `compiled_for(x)`](#wrapper-compiled_forx)
 
 ---
 
@@ -177,7 +179,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Forwarding (`by`)
 
-- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. The field's type is then the [key](#key)'s receiver type, so every type that forwards to a field of that type can share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
+- **Here:** a membership that serves the operations through one field: `@implement ColTable Measurements by data`. A convenience of the library, outside the language's core: the field's type is the receiver type, and with keys (an optional extension) every type that forwards to a field of that type could share compiled code. The membership defines the member's own method for each operation without a default, calling it on the field; a default reaches the field through the trait's method. Forwarding does not chain.
 - **Origin:** Kotlin's `by`; Go's struct embedding. Rust writes it by hand or through `Deref`.
 - **Defined in:** [traits §5.5](reference/traits.md#55-forwarding-with-by).
 
@@ -205,42 +207,40 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Key
 
-- **Here:** what a trait's contract sees of a member's type: the receiver type (the member, the forwarding field's type, or none), the declared fields' types and the parameter values. Members with equal keys could share one compiled copy of a method. The **erased key** `X{p…}` is the trait at its parameter values: code compiled once. Keys are Optional, built late; until then a method compiled per key is compiled per type.
+- **Here:** what a trait's contract sees of a member's type: the receiver type (the member, the forwarding field's type, or none), the declared fields' types and the parameter values. Members with equal keys could share one compiled copy of a bounded method. An optional extension, built late, on which no rule depends.
 - **Origin:** the project's term. Go 1.18 compiles one generic instance per "GC shape"; .NET shares generic code among reference types. Julia compiles per concrete argument type.
-- **Defined in:** [traits §7.2](reference/traits.md#72-the-key); [compiler §6.1](reference/compiler.md#61-the-key-as-a-type).
+- **Defined in:** [extensions §1](reference/extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike).
 
-### Fully bounded and unbounded
+### Bounded and unbounded
+<a id="fully-bounded-and-unbounded"></a>
 
-- **Here:** a method is **fully bounded** at a trait argument when its body reaches the argument only through the contract: operations, declared fields, passing it on to an argument typed by the trait. Any other use makes it **unbounded** there (`typeof(t)`, a call of another function with it, a closure that captures it). A scope that declares `bounded` refuses an unbounded method with `TraitUseError`; `@unbounded` marks one unbounded on purpose.
-- **Origin:** Rust and Swift check generic code against its bounds wherever it is written ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)). Julia checks nothing of the kind; a method at an abstract type may do anything with its argument.
-- **Defined in:** [traits §7.3](reference/traits.md#73-fully-bounded-methods); the check: [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
+- **Here:** a method is **bounded** at a trait argument when its code for the box does what it says for every member: its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws. Behind the box only the contract reaches the member, so a bounded method works erased for every member that will ever join. A scope that declares `bounded` refuses a method that is not, with `TraitUseError`; `@unbounded` marks one unbounded on purpose.
+- **Origin:** Rust and Swift check generic code against its bounds wherever it is written, at an archetype ([`record/other-languages-research-2026-10-16.md` §2](record/other-languages-research-2026-10-16.md#2-checking-generic-code-where-it-is-written)); here the archetype is a real type, the box. Julia checks nothing of the kind; a method at an abstract type may do anything with its argument.
+- **Defined in:** [traits §7.3](reference/traits.md#73-bounded-methods); the check: [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
-### `Compiled` and `Dynamic`
+### Kept form
 
-- **Here:** the **attribute** of each trait argument at each call.
-  - **`Compiled`:** the code compiled for the value's type (or key) runs. A caller that does not know the value's type dispatches on it once: a function barrier.
-  - **`Dynamic`:** the code compiled once, at the trait, runs. Each operation on the value dispatches when it runs, and its result has the declared type.
-  - Both run the same methods and give the same results. What decides, strongest first: a cast at the call, an attribute the value carries, the method's own marks, the trait's default, the module's fallback.
-- **Origin:** the project's terms. Rust chooses per type between `impl Trait` (monomorphized) and `dyn Trait` (one copy); Swift between generics and `any P`. Julia has `@nospecialize`, a hint per argument with no say for the caller.
-- **Defined in:** [traits §7.4](reference/traits.md#74-the-attribute-compiled-and-dynamic), [§7.5](reference/traits.md#75-what-decides); a trait's default: [§4.6](reference/traits.md#46-the-traits-default-attribute); [compiler §6.3](reference/compiler.md#63-the-attribute-at-a-call).
-
-### Cast
-
-- **Here:** `compiled_for(x)` or `with_dynamic(x)` written at a call's argument: the caller chooses the attribute there. A cast decides only at an argument typed by a trait. The names are functions the library exports, not reserved words: where a scope binds either name to something else, the call is that thing's.
-- **Origin:** the project's term. Closest in Rust: choosing `&dyn Trait` or a generic at the call by the value passed.
-- **Defined in:** [traits §7.6](reference/traits.md#76-casts); [compiler §6.9](reference/compiler.md#69-casts-and-keep).
+- **Here:** a member of a trait held so that the choice of what code is compiled for it is in the value's type. There are two, both concrete types and both members of the trait: the [box](#dynamicx), whose code is compiled once per trait instance, and the [wrapper](#wrapper-compiled_forx), whose code is compiled for the object's type. A kept form is a value: storage keeps it, a parameter passes it. It is not the object: `typeof`, `===` and `isa` answer for the kept form; `unwrap(t)` is the object.
+- **Origin:** the project's term. Rust's pair is `dyn Trait` and a generic `T: Trait`; Swift's `any P` and a generic. In Julia, `@nospecialize` is a hint per argument with no say for the caller.
+- **Defined in:** [traits §7.4](reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper), [§7.5](reference/traits.md#75-what-decides); [compiler §6.9](reference/compiler.md#69-the-kept-forms-in-core).
 
 ### `Dynamic{X}`
 
-- **Here:** a struct of Julia's `Core` that holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits) whose code is compiled once: `Dynamic{Shape}(Circle(1.0))`. Its operations dispatch on the held object when they run; `unwrap(d)` is the object. It keeps the attribute through storage: a `Vector{Dynamic{Shape}}`.
+- **Here:** the **box**: a struct of Julia's `Core` that holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits), whose code is compiled once per trait instance: `Dynamic{Shape}(Circle(1.0))`. Its operations dispatch on the held object when they run; `unwrap(d)` is the object. It keeps its form through storage: a `Vector{Dynamic{Shape}}`.
 - **Origin:** Rust's `dyn X` and Swift's `any X` are such boxes, usable through their own trait only; `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 - **Defined in:** [traits §7.7](reference/traits.md#77-dynamicx).
 
-### `keep`
+### Wrapper: `compiled_for(x)`
 
-- **Here:** `keep(x)` is a trait argument with the attribute it has in the current code: itself where it is `Compiled`, a `Dynamic{X}` where it is `Dynamic`. It is for storage that hands the attribute on: a struct parameter, which records it, or `Kept{X}`, which holds the member with its attribute in one type. Into storage typed by the trait, a value is assigned without it.
-- **Origin:** the project's term.
-- **Defined in:** [traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute); [compiler §6.9](reference/compiler.md#69-casts-and-keep).
+- **Here:** `compiled_for(x)` returns the **wrapper** of `x`, `Compiled{typeof(x)}`: a member of every trait `x` is a member of, whose code is compiled for `x`'s type and whose operations call `x`'s own methods statically. A caller passes it to get code per type from a library that erases.
+- **Origin:** the project's term. Rust's generic `T: Trait`, chosen by the value passed.
+- **Defined in:** [traits §7.6](reference/traits.md#76-compiled_forx).
+
+### Erasing by default and the forwarder
+
+- **Here:** a trait that declares `@default_dynamic` **erases by default**: each method at it is defined at the two kept forms, and Julia adds a **forwarder** that takes a plain member, boxes it and calls the method, as a positional default makes a second method. So in such a method the argument is a kept form. `Callable` erases by default.
+- **Origin:** the project's term. Rust's `&dyn Fn` in a library's signature; here the library's caller can still pass the wrapper.
+- **Defined in:** [traits §4.6](reference/traits.md#46-erasing-by-default), [§7.8](reference/traits.md#78-erasing-by-default-the-forwarder); [compiler §6.3](reference/compiler.md#63-the-forwarders).
 
 ### Split
 
@@ -256,13 +256,13 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### `Callable`
 
-- **Here:** `Callable{A, S}`, the set of the functions and callable values that a call at the argument types `A` reaches, with result `S` checked on return. Its memberships are the members' methods: defining a method declares one, deleting it ends it. Dispatch picks among methods by a function argument's signature.
-- **Origin:** Rust's `Fn` traits, Swift's function types matched by signature. In Julia: `Function`, which says nothing about signatures.
+- **Here:** `Callable{A, S}`, the trait of functions called at the argument types `A` and returning an `S`. Every function is a member of every `Callable{A, S}`; the signature is checked where the function is boxed or a wrapper enters, and the box checks the result on return. A function's signature selects no method.
+- **Origin:** Rust's `Fn` traits, checked where a closure is coerced to `dyn Fn`. In Julia: `Function`, which says nothing about signatures.
 - **Defined in:** [traits §9](reference/traits.md#9-functions-callable); [compiler §7.4](reference/compiler.md#74-callables-call).
 
 ### `like` and `withfields`
 
-- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. A method that uses them is unbounded at that argument.
+- **Here:** results like the input. `like(t, data)` builds a value of the input's kind from new data; `withfields(t; f = …)` copies a member with some declared fields changed. They are the library's conveniences, outside the language's core.
 - **Origin:** the project's terms; Base's `similar` is the closest Julia idiom.
 - **Defined in:** [traits §6.5](reference/traits.md#65-results); [lowering §8](reference/lowering.md#8-like-and-withfields).
 
@@ -290,7 +290,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Definition checking
 
-- **Here:** the check of a method at a trait where it is defined: one inference at the trait that records each use of the argument beyond the contract. It classifies the method as [fully bounded or unbounded](#fully-bounded-and-unbounded), and `bounded` refuses an open one.
+- **Here:** the check of a method at a trait where it is defined: it reads the method's instance at the box, the code a box runs, for calls that find no method or only throw. It tells whether the method is [bounded](#bounded-and-unbounded), and `bounded` refuses one that is not.
 - **Origin:** Rust and Swift type-check generic code against its bounds; C++20 concepts check only at instantiation.
 - **Defined in:** [traits §11.2](reference/traits.md#112-definition-checking); [compiler §6.7](reference/compiler.md#67-the-definition-time-check).
 
@@ -462,16 +462,18 @@ These appear in documents before 2026-11-06, in the record ([`record/INDEX.md`](
 
 | Old term | Now | Changed |
 |---|---|---|
-| open method, `@open` | [unbounded](#fully-bounded-and-unbounded) method, `@unbounded` | 2026-11-12 |
+| open method, `@open` | [unbounded](#bounded-and-unbounded) method, `@unbounded` | 2026-11-12 |
+| fully bounded; the classification (of a method at a trait) | [bounded](#bounded-and-unbounded): its instance at the box | 2026-11-15 |
 | implementation, conformance (the noun) | [membership](#membership-and-entry), declared by `@implement` | 2026-11-06 (conformance: 2026-10-19) |
 | conforms to, `conforms(T, X)` | `T <: X`: a [member](#membership-and-entry) | 2026-11-06 |
 | generic implementation | [pattern member](#pattern-member) | 2026-11-06 |
-| bound, bounded function | a [method at a trait](#method-at-a-trait); fully bounded is a [classification](#fully-bounded-and-unbounded) | 2026-11-06 |
+| bound, bounded function | a [method at a trait](#method-at-a-trait); bounded is [a property of it](#bounded-and-unbounded) | 2026-11-06 |
 | receiver type, receiver | part of the [key](#key) | 2026-11-06 |
 | trait object, view, held view | the member's own value, passed unwrapped ([traits §3.5](reference/traits.md#35-values)) | 2026-11-06 |
 | entry and worker (of a bounded function) | gone: one method, compiled per type, per key or once. "Entry" now means a [membership entry](#membership-and-entry) | 2026-11-06 |
-| kept value: `Compiled{X}` | a member's own value, [`keep`](#keep) | 2026-11-06 |
-| trait cast, of the trait world, first seen through a trait | [casts](#cast) and the [attribute](#compiled-and-dynamic)'s order; `first_seen` is a module's fallback ([compiler §6.3](reference/compiler.md#63-the-attribute-at-a-call)) | 2026-11-06 |
+| kept value: `Compiled{X}` | a member's own value, or a [kept form](#kept-form) | 2026-11-06 |
+| trait cast, of the trait world, first seen through a trait | the [kept forms](#kept-form): the value's type decides | 2026-11-06 |
+| attribute, `Compiled` and `Dynamic` (of an argument at a call); cast; `keep`; `Kept{X}`; the fallback by scope, `first_seen`, the option `dynamic` | the [kept forms](#kept-form): the [box](#dynamicx) and the [wrapper](#wrapper-compiled_forx); a trait [erasing by default](#erasing-by-default-and-the-forwarder) | 2026-11-15 |
 | bundle, tuple of traits | an [intersection](#intersection-allx-y), named by a `const` | 2026-11-06 |
 | associated type | a trait's [parameter](#parameters-and-input-parameters) | 2026-11-06 |
 | call-site split | the [split](#split) | 2026-11-06 |
@@ -482,7 +484,7 @@ These appear in documents before 2026-11-06, in the record ([`record/INDEX.md`](
 | definition checking and archetype | [definition checking](#definition-checking) | 2026-11-06 |
 | results like the input (`Like`) | [`like` and `withfields`](#like-and-withfields) | 2026-11-06 |
 | item position, plain value, sibling | gone with the earlier lowering | 2026-11-06 |
-| `@default_with_dynamic_self`, `@default_compiled_for_self` | a trait's [default attribute](#compiled-and-dynamic) | 2026-11-06 |
+| `@default_with_dynamic_self`, `@default_compiled_for_self`; `@default_compiled` | `@default_dynamic`: a trait [erasing by default](#erasing-by-default-and-the-forwarder) | 2026-11-06; 2026-11-15 |
 | representation, projection | [key](#key) | session 22 |
 | layering, trait wrappers, calls upward, sealing | the facts rule: trait code may call any Julia code | sessions 23–29 |
 
@@ -505,11 +507,17 @@ See the table above.
 ### Entry and worker
 See the table above.
 ### Kept value: `Dynamic{X}`, `Compiled{X}`, `Kept{X}`
-See [`Dynamic{X}`](#dynamicx) and [`keep`](#keep). `Kept{X}` is storage that holds a member of `X` with its attribute, in one concrete type ([traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute)).
+See [kept form](#kept-form).
 ### Trait cast
-See [cast](#cast).
+See [kept form](#kept-form).
 ### Of the trait world
-See [`Compiled` and `Dynamic`](#compiled-and-dynamic).
+See [kept form](#kept-form).
+### `Compiled` and `Dynamic`
+See [kept form](#kept-form): the box and the wrapper.
+### Cast
+See [wrapper](#wrapper-compiled_forx).
+### `keep`
+See [erasing by default](#erasing-by-default-and-the-forwarder): a method's argument at such a trait is already a kept form.
 ### Call-site split
 See [split](#split).
 ### World-checked call-site cache

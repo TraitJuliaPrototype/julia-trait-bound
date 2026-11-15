@@ -95,7 +95,7 @@
 - "The same world" is the caller's world. A task in an older world sees that world's methods and memberships.
 - "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)). Such an operation's result is asserted, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)): no path returns a value plain code would not. A closed type with a contract promises no result, so its operations raise nothing new (§13.1).
 - A method that strict mode refuses does not exist for plain code either.
-- The attribute of a trait argument ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)) changes speed, never a result: both attributes run the same methods.
+- The kept form of a trait argument ([traits §7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)) changes speed, never a result, but where code asks a kept form what only the object can answer.
 
 **Why it holds.** Every valid CodeInstance has all its facts true in the current method table:
 - compilation records only true facts;
@@ -174,8 +174,6 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 | **A call of an owner-only function, at any signature** (§1) | `helper(x)` with `x::Any`; `limits(p.pos)` with `p.pos::Positions` and `limits` the package's own internal function | Lemma O with the wider reading of a pirate (§1): a method of it by anyone but its owner is a pirate's, whatever types it names. So the methods dispatch can select there are its owner's, or a pirate's. |
 | **A concrete `Vararg` tail** | `vcat(::Vararg{Int})` | Every value's type is a dispatch tuple with the same owners: one edge for the family. |
 | **`invoke` at a declared signature,** and `hasmethod` at one | `invoke(f, Tuple{AbstractArray}, x)` | A definition changes the resolution only if its own signature contains the declared one: its definer is a stakeholder of it, or a pirate. |
-| **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
-| **A keyed argument passed on,** where one method is selected for every member with that key | `g(t)` with `t` keyed for `ColTable` | A method of `g` defined later invalidates through the edge at the key; so does a later member with that key that another method of `g` would take ([compiler §6.4](compiler.md#64-calls-from-code-compiled-per-key)). |
 
 **Which unions split** is Julia's cost model exactly: the union lengths multiplied, the largest counted as 2, a split where the cost is at most `max_union_splitting` (4 by default).
 
@@ -194,7 +192,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). The rows for keys: Optional, with keys (W-110). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
+**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key). Owner-only functions: Planned (the plan's D-9, 2026-11-15), with [compiler C-101](compiler.md#deviations) and [traits T-121](traits.md#19-deviations); the methods in an environment that extend another package's internal function are counted before the build (E-431). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
 
 ---
 
@@ -305,7 +303,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 - `code_typed`, `infer_return_type`, `verify_main` and the definition-time check see that code.
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world.
 
-**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check is the library's (compiler C-40).
+**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check reads the instance at the box ([compiler §6.7](compiler.md#67-the-definition-time-check), C-115).
 
 ---
 
@@ -355,7 +353,7 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **A membership taken back** ([traits §5.13](traits.md#513-taking-a-membership-back)) ends the code that relied on it, as a deleted method ends its callers: the code that folded the positive, through its edge to the membership's method, and the callers whose selection at the member changes, by the walk run for the removal ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)). No other code ends: a call that dispatched to the member's own method keeps its fact. It is a stakeholder's change, or a pirate's, as its declaration is. A task in a world before it keeps the membership.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)), and behaves as a pirate's method: followed by default, refused under strict mode where it would change code compiled by facts (§11.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
-- **`Callable`'s memberships** are decided by the functions' methods ([compiler §7.4](compiler.md#74-callables-call)): a membership begins or ends only with a method definition of its member's type at its signature, a stakeholder's change or a pirate's, by Lemma O. Code that relied on one, or on its absence, holds an edge to the member's dispatch and is invalidated with it, as by any such definition. The result type is no part of a membership: it is checked on return, in plain code and code compiled by facts alike.
+- **`Callable`'s memberships** are entries, as any trait's: every function is a member of every `Callable{A, S}` ([compiler §7.4](compiler.md#74-callables-call)). A function's signature is checked where it is boxed, and its result on return from the box, in plain code and code compiled by facts alike. A method definition begins or ends no membership.
 
 **Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: Planned (the plan's D-13, 2026-11-15), with [compiler C-106](compiler.md#deviations).
 
@@ -385,6 +383,8 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 **When.** Before the method or the membership becomes visible: at a definition or a declaration, and for a package image's methods and memberships before they are activated (a refused one stays inactive; the load reports the `PirateError`).
 
 **How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each caller in the deep class, the callers' backedges, transitively, through code in the class, to code compiled by facts. A caller outside the class ends the walk: what rests on it is outside the class too. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
+
+**The same walk for a member's check.** A member's check is its serving instances, kept with their edges ([traits §5.10](traits.md#510-checks)). A definition that would end one is found by this walk over their backedges, in every mode, and is refused where the call, inferred again with it, leaves the declared result or becomes ambiguous. So strict mode's refusal and the check's are one mechanism. At an image's load only the check instances that fail validation are inferred again. Planned (the plan's D-3, 2026-11-15), with [traits T-129](traits.md#19-deviations).
 
 **The property it secures:** code compiled by facts in the deep class is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
 
@@ -419,7 +419,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 **What an image holds.**
 - Code of both policies compiled while the image was built, with machine code.
 - Code for other packages' methods its workload compiled.
-- Code compiled ahead at the keys of the memberships it declares ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+- Code compiled ahead for the memberships it declares ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - The memberships it declares on other modules' types, in a list of its own.
 - The check records of members checked while it was built.
 - `return_type`'s answers, without machine code.
@@ -486,7 +486,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 |---|---|---|
 | G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
 | G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class `next` 7063158f42 (W-155) | §2.2 |
-| fact signatures, keys among them | Implemented (`unified`, W-100); the keys' rows Optional (W-110); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
+| fact signatures | Implemented (`unified`, W-100); with keys, two more forms: an optional extension ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)); owner-only functions Planned (D-9; compiler C-101, traits T-121) | §1, §3 |
 | run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |

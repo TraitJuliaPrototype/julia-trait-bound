@@ -21,7 +21,7 @@
 | [3. The dependency record and the deep class](#3-the-dependency-record-and-the-deep-class) | What each CodeInstance assumed; G2 as a predicate over its edges at any depth; one compiled code per result |
 | [4. Sets and memberships](#4-sets-and-memberships) | Open abstract types, memberships with worlds, transitive subtyping, intersections, negatives folded with an edge |
 | [5. Dispatch](#5-dispatch) | Methods at sets in the method table, specificity, the ambiguity report, a membership's invalidation |
-| [6. Keys and the attribute](#6-keys-and-the-attribute) | Code per key, per type or once, chosen per call; the calling convention; the definition-time check |
+| [6. The kept forms and the definition-time check](#6-the-kept-forms-and-the-definition-time-check) | The box and the wrapper as types of `Core`; the forwarders made where a method is defined; the definition-time check. Keys: [an optional extension](extensions.md) |
 | [7. Operations on a value typed by its trait](#7-operations-on-a-value-typed-by-its-trait) | Declared results, the split over members, the table of targets, `Callable`'s call, `IO`'s contract |
 | [8. World-checked caches](#8-world-checked-caches-at-dynamic-boundaries) | Caches at dynamic boundaries checked against the caller's world |
 | [9. Images and the machine-code cache](#9-images-and-the-machine-code-cache) | Memberships in package images; a record complete enough for a cache of machine code |
@@ -76,7 +76,7 @@ jl_set_owner_only(F)                    # the declaration, on F's TypeName
 
 **Not gated:** `invoke` and `hasmethod` at a declared signature resolve it as Julia does, with an invoke edge at the declared signature ([facts §3](facts.md#3-fact-signatures)).
 
-A key in a call's signature: §6.4. An operation on a value typed by its trait: §7.
+An operation on a value typed by its trait: §7. With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key).
 
 **Status:** Implemented on `unified` 28fe27b2f7 (W-100), from `trait-world-1.13`'s `facts.jl`. Owner-only functions: Planned (D-9, 2026-11-15), with C-101; `is_owner_only`, the bit and the binding edge for a later `public` are mine (2026-11-15).
 
@@ -135,14 +135,13 @@ Base.Experimental.@compiler_options facts=true
 
 - `facts=true` makes every method of the module compiled by facts, unless the method says otherwise. It emits `Expr(:meta, :facts, 1)` at the module's top level.
 - The module flag (`jl_module_t.facts`): 0 plain, 1 facts, 2 never by facts (the compiler's own modules). A submodule takes its parent's flag when created. The flag is saved with the module in images.
-- **Four more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
-  - `bounded=true`: an unbounded method at a trait argument is refused (§6.7);
-  - `no_pirates=true`: a pirate is refused by the library's definition hook;
-  - `dynamic=true`: the default attribute of every trait argument of the module's methods is `Dynamic` (§6.3);
-  - `first_seen=true`: where nothing else decides, a trait argument's attribute is what the caller knows (§6.3, step 5).
+- **Two more options,** set the same way and inherited and saved alike, serve the trait language's scopes ([traits §13](traits.md#13-scopes-trait-modules)):
+  - `bounded=true`: a method that is not bounded at a trait argument is refused (§6.7);
+  - `no_pirates=true`: a pirate is refused by the library's definition hook.
+- No option decides how an argument is compiled: the value's type does (§6.2).
 - A module's other compiler options (`optimize`, `compile`, `infer`, `max_methods`) apply to its code under either policy.
 
-**Status:** The module option implemented on `unified` beafa01b36 (W-100): `facts` and the four trait options, set by `Base.Experimental.@compiler_options`, inherited by submodules, saved with the module; their consumers: §2.3 (W-100) and W-109, W-111, W-114.
+**Status:** The module option implemented on `unified` beafa01b36 (W-100): `facts` and the trait options, set by `Base.Experimental.@compiler_options`, inherited by submodules, saved with the module; their consumers: §2.3 (W-100) and W-109, W-111, W-114. The options `dynamic` and `first_seen` are still built: C-112.
 
 ### 2.2 The method flag
 
@@ -302,7 +301,7 @@ The rest of the record needs nothing more: a binding edge, an absence edge (only
   - **the operations, each an entry** (`jl_set_contract_operations(X, ops)`, an `svec` of entries): the function; the declared signature, a tuple type with the receiver at the set's instance `X{P…}` under the set's parameters and the operation's own variables (`Tuple{typeof(kget), KVec{T}, Int} where T`); the declared result in the same variables; and the default's method where a default serves the operation, else `nothing`;
   - the declared fields, with their types and whether read-only;
   - each parameter's definition;
-  - the default attribute bit (§6.3).
+  - whether the set erases by default (`@default_dynamic`), a bit the method definition reads to make forwarders (§6.3).
 
   The compiler reads it without an edge: it never changes after the declaration.
 - **An operation is no method.** An entry without a default has no method at the set: the set has a method of an operation's function only where a default serves it ([traits §4.1](traits.md#41-operations), [§4.2](traits.md#42-defaults)). A closed type's entries are made from its operations' methods at `::T`, with the result `Any` (§7.1).
@@ -316,7 +315,7 @@ The rest of the record needs nothing more: a binding edge, an absence edge (only
   - the set;
   - the member pattern: `S`, `S{T} where T`, an abstract type, a set instance, `Type{S}`;
   - the set's instance for the pattern (`X`, `X{T}`);
-  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (§6.1);
+  - the receiver: the member itself, its forwarding field, or none where defaults serve every operation (what keys would read, [extensions §1.2](extensions.md#12-the-key-as-a-type));
   - `min_world` and `max_world`;
   - the declaring module;
   - the forwarding field, if any.
@@ -336,10 +335,10 @@ The rest of the record needs nothing more: a binding edge, an absence edge (only
 - The library's declaration is followed by `Expr(:latestworld)`, so the declaring code sees its own membership.
 - A task in an older world does not see it.
 - **An entry ends as a method's deletion ends a method.** It ends in two ways, and is never removed from its lists, which readers walk without a lock; a reader skips an entry not live in its world.
-  - A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled at the old key and the callers that folded against it.
+  - A redeclared membership gives the old entry a `max_world`, declares a new one, and invalidates the code compiled for the old membership and the callers that folded against it.
   - **A membership taken back** (`jl_delete_membership`): under the world counter's lock its entry gets `max_world = counter` and its method (§5.6) is deleted in the same world; the walk for the removal runs (§5.5); then the counter advances. The entry leaves its set's candidate index and the image's list of memberships, and the member hook's kept answers for the pair (§10.4) go with it. A pattern's entry ends every member it made.
   - A trait's membership in its supertraits and `Dynamic{X}`'s are the trait's declaration, and a member by its definition is its type's: none is taken back alone ([traits §5.13](traits.md#513-taking-a-membership-back)).
-- **`Callable`'s memberships** follow its members' methods (§7.4): a method definition can begin or end one.
+- **`Callable`'s memberships** are entries like any set's (§7.4): every `Function` by Core's entry.
 
 **Status:** Implemented on `unified` 62016706d0; strict mode's check and the retired entry on `unified` 0bb8f38830 (E-343). A membership taken back: Planned (the plan's D-13, 2026-11-15), with C-106; the mechanism (the entry ended and its method deleted in one world, the walk for the removal) is mine (2026-11-15).
 
@@ -387,20 +386,22 @@ Questions about open sets are answered in three layers:
 
 ### 4.8 Negatives fold with an edge; positives through entries
 
-- `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set or a key (§6.1); it is cached on the type object. `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
+- `has_open_set(t)` is true when `t`, a parameter of `t`, a component of a union or intersection in `t` is an open set (or, with keys, a key: [extensions §1.2](extensions.md#12-the-key-as-a-type)); it is cached on the type object. `isa_tfunc`, `subtype_tfunc`, `typeassert_tfunc`, `tmeet`, `typesubtract`, the `hasintersect` sites and `Conditional` refinement consult it before folding a negative.
 - **A negative answer about a type and a set folds where it holds in the world, with an edge.** For a concrete type `S` and a set `X` declared by the library, "`S` is not an `X`" is folded, and the code records an absence edge at the pair (§5.6). A membership of the pair declared later invalidates that code, as a method definition invalidates a call that found no method ([traits §3.4](traits.md#34-open-and-closed), [facts §10](facts.md#10-memberships)). An image's code with such an edge is checked when the image is validated (§9).
   - It holds wherever the code is compiled: while a declarer of the pair is still loading, and for a type or set of `Main`.
   - **No edge is needed** for a closed abstract type or a type with the `never_member` bit: their answer never changes.
-  - **`Callable`'s negatives are not folded** at `isa` and `<:`: its members are decided by methods (§7.4).
 - **A test proves its own positive.** In the branch where `x isa X` holds, `x` is known as an `X`, where `X` is under what was known of `x` (a value typed `Any`, or by a supertype of the set). The test ran, so no edge is needed and no world is raised. Nothing else is refined: the other branch keeps what was known, and a type that could still join `X` is not dropped from the true branch. So a result annotation at a trait, `f(…)::X`, gives callers a result known as `X`.
 - **A positive answer folds only through an entry,** with an edge to the membership's method (§5.6), and the fold raises the CodeInstance's `min_world` to the entry's. So a task in an older world never runs code that assumed the membership.
+- **Code generation decides the positive answers inference folded.** Where compiled code tests a value whose type inference knows, a concrete member `S`, against a set `X` that `S` is under through an entry, the test is decided when the code is compiled. That holds for `isa`, `<:` of constant types, a `typeassert`, and the field test of `new` (a struct's field typed by the set, the box's `object` among them). Inference records the edge to the membership's method for each such test, as for a folded `isa`, so the code rests on the membership as any fold does: a membership taken back ends it (§5.6).
+  - **So the box a forwarder makes at a member's type tests nothing when it runs** (§6.3, [traits §7.8](traits.md#78-erasing-by-default-the-forwarder)). Where the box does not escape, code generation passes it by reference, and it needs no heap of its own (E-407).
+  - A value whose type is only known as `X`, or wider, is tested when it runs, as Julia tests a value against any abstract type.
 - **An intersection no type is in folds the same way.** For an abstract type `S` that is not a set and a set `X`, the pair (`S`, `X`) is relied on where `All{S, X}` is unmet in the world (§5.4). Its absence edge is met once a type under `S` is a member of `X`, so such a membership invalidates the code that relied on it.
   - Inference folds `isa` of a value of `X` against `S` to `false`.
   - Dispatch's lookup drops a method match whose argument is met only at that intersection, even one more specific than every covering match, and reports the pair's absence edge, which inference records (§5.4). So no instance is compiled at `All{S, X}`: a call `describe(t)` at `t::ColTable` matches `describe(::ColTable)` alone, not `describe(::AbstractString)`.
   - A component under a `where` (`All{AbstractVector{T}, X} where T`) is met where a member is under the component for some value of its variable.
 - **Core and Base's own negatives.** Code compiled while Base is built at such an intersection is invalidated, with its callers, at the end of Base's build, in a new world; the image's later code drops the match.
 
-**Status:** Implemented on `unified` 62016706d0 for the lattice's sites; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. A negative folded with an edge: `unified` bf447db25e (W-129 (a)) for a set that opted in, 80aa919bed, 1b2f0a9e1e and a19d937eaa for every set, wherever the code is compiled (W-140); with C-77; gates `n18_closed_after_load`, `n20_unmet_lookup`, `n2_open_abstract`. The end of Base's build: `unified` b133374e9d (W-129 (b)), mine (2026-11-09). An intersection no type is in: `unified` 1906196731 (E-334, open issue 169 (a)), with C-79; mine (2026-11-09); a component under a `where`: a19d937eaa (E-365). The edges as the method table's own (§5.6): `unified` 90fb8ff97a, 8b4fde6e84 (W-141; E-367). A test's own positive: `unified` 86deee2f98 (gate `n31_isa_narrows`; E-373), mine (2026-11-14). The rule: the user (2026-11-11; [decisions](../record/decisions.md) §4).
+**Status:** Implemented on `unified` 62016706d0 for the lattice's sites; the positive fold through an entry, with its world and its record (§3.1), on `unified` 9a601902a0 (W-100), with C-51. A negative folded with an edge: `unified` bf447db25e (W-129 (a)) for a set that opted in, 80aa919bed, 1b2f0a9e1e and a19d937eaa for every set, wherever the code is compiled (W-140); with C-77; gates `n18_closed_after_load`, `n20_unmet_lookup`, `n2_open_abstract`. The end of Base's build: `unified` b133374e9d (W-129 (b)), mine (2026-11-09). An intersection no type is in: `unified` 1906196731 (E-334, open issue 169 (a)), with C-79; mine (2026-11-09); a component under a `where`: a19d937eaa (E-365). The edges as the method table's own (§5.6): `unified` 90fb8ff97a, 8b4fde6e84 (W-141; E-367). A test's own positive: `unified` 86deee2f98 (gate `n31_isa_narrows`; E-373), mine (2026-11-14). The rule: the user (2026-11-11; [decisions](../record/decisions.md) §4). A positive decided at code generation, `new`'s field test included: Planned (the user, 2026-11-15: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast."; W-160 (a)), with C-110.
 
 ### 4.9 Intersections
 
@@ -415,14 +416,14 @@ Core.All{X, Y}
 - **Normal forms read declared supertypes only.** A membership never absorbs a component of an `All` or a `Union`: `Union{S, X}` stays as written where `S` is a member of `X` by an entry. So a type expression gives the same type object in every world, and two types inside an invariant parameter are equal in every world or in none (§4.5).
 - `jl_type_intersection` of two sets, or of a set and an abstract type, that no entry relates is `All{X, T}`, with their known common members' exactness kept (§4.7). A type meets an intersection as the intersection of its meets with each component.
 - `type_morespecific_` ranks `All{X, Y}` above each component, and an intersection with a closed component as a closed type against an open set (§5.2).
-- **At an argument typed by an intersection,** the key is the tuple of the member's keys for each component (§6.1); the split's candidates are the first component's that are members of every component (§7.2).
+- **At an argument typed by an intersection,** the split's candidates are the first component's that are members of every component (§7.2).
 - The negative-fold rule (§4.8) treats each component.
 - It takes any number of components: `All{X, Y, Z, …}`.
 - **The encoding.** `All{X, Y}` is the abstract type `Core.All{Tuple{X, Y}}`, built in its normal form; `Core.All{Tuple{X, Y}}` written so is the same type. The wrapper `Core.All` is an artefact of the encoding, not a type to write. No code reads an intersection's name, supertype or parameter as those of an ordinary type: every site that does (the typemap's names, the fold gates, type instantiation, the variable-occurrence walks) has a branch for it.
 - **In the normal form, further:** a variable as a component is in a covariant position, and the diagonal rule applies to it; a `Union` component distributes (`All{Union{A, B}, Y}` is `Union{All{A, Y}, All{B, Y}}`); a component that is itself an intersection under a `UnionAll` is flattened; two closed components whose intersection Julia computes exactly are replaced by it.
 - **Its name** is not exported by `Core` ([open issue 148](../open-issues.md#2-design)).
 
-**Status:** Implemented on `unified` 8a9144928e (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"), but for the key at an intersection (W-110) and the split's candidates (W-109). The encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, keys and candidates at an intersection: mine (2026-11-06, the reviews of the draft). The equality inside an invariant parameter by declared structure: Planned (D-11), with C-104.
+**Status:** Implemented on `unified` 8a9144928e (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}"), but for the split's candidates (W-109). The encoding and the further rules: mine (2026-11-07, after [the review of the encoding](../reviews/2026-11-07-all-representation.md)). Normal forms by declared supertypes, and candidates at an intersection: mine (2026-11-06, the reviews of the draft). The equality inside an invariant parameter by declared structure: Planned (D-11), with C-104.
 
 ### 4.10 Type values
 
@@ -474,9 +475,8 @@ So `Method.interferences`, `detect_ambiguities` and the insertion walk order the
 - **At an abstract query,** a method at a set matches at their intersection `All{X, T}` (§4.7). A closed method that covers the query is more specific (§5.2), so the method at the set is dropped from the matches, as any method a covering more specific one hides.
 - At a query at a set, a method at an abstract type matches likewise.
 - A concrete query that is not a member meets no method at the set.
-- **A match through `Callable`** (at a method whose signature names it) carries the worlds of the member's call methods, at the argument positions where the signature names `Callable` (§7.4): a method's definition or deletion changes no other match's worlds.
 
-**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81 and d04256a442, E-300, E-301). A match through `Callable` on c8ef0e581e, 1daebeab81, 23022b0ec7 (E-324).
+**Status:** Implemented on `unified` 29035cab11; the matches at an abstract query 8a9144928e (W-107). At a query in the latest world in which an entry's visibility changed, or later, a match's valid worlds start at that world, with no walk of the entries: exact at their end, narrower at their start (`unified` 89b3bcff81 and d04256a442, E-300, E-301). A match through `Callable` carries its member's methods' worlds on c8ef0e581e, 1daebeab81, 23022b0ec7 (E-324), the earlier rule ([§7.4](#74-callables-call), C-116).
 
 ### 5.4 The ambiguity report at a membership
 
@@ -489,7 +489,7 @@ At `jl_declare_membership`, the report asks which methods the membership makes a
 - **The report names the ambiguities the membership creates:** a method that applied at the call types in the world before the entry is not asked. So a later membership of an ambiguous member, a redeclaration among them, is neither warned about nor refused under strict mode; and for `struct S <: X`, where `X`'s methods apply at `S` by the definition, the membership in a second trait `Y` is the one reported, in whatever order the two are declared.
 - **The world:** the search asks the entry's world, which strict mode's check asks before the counter reaches it.
 - **The member as an argument only:** a set inside another type's parameter (`f(::Vector{<:X})`) is not replaced. A tie that arises only at a type with the member as its parameter (`Vector{S}`) is raised at the call, as Julia raises any ambiguity; the report does not enumerate the types built from the member.
-- **An intersection no type is in.** An argument `All{X, Y, …}` is *unmet* in a world where no type of that world is in every component. Nominal supertypes form a tree, so a common type is in some set component by an entry: the entries live in that world at the set components (and at the sets that join them) are read (`jl_has_unmet_argument`). A `Callable` component, or a set it joins, makes the intersection met: its members are the types whose methods match it (§7.4), and any later method can make one. A `Vararg` tail whose length is not a positive constant is met by its empty tail.
+- **An intersection no type is in.** An argument `All{X, Y, …}` is *unmet* in a world where no type of that world is in every component. Nominal supertypes form a tree, so a common type is in some set component by an entry: the entries live in that world at the set components (and at the sets that join them) are read (`jl_has_unmet_argument`). A `Callable` component is met by every function (§7.4). A `Vararg` tail whose length is not a positive constant is met by its empty tail.
 - **Dispatch's lookup:** where every unmet argument's pair is one a negative is folded for (§4.8), the lookup drops the match met only there, also one that would win, at any number of matches, before the matches are sorted and their ambiguity computed, and returns the pairs' absence edges (`jl_matching_methods_cells`). Inference carries them on the lookup's result and records them with the call, so a membership that meets the intersection invalidates the caller.
 - **Julia's ambiguity reflection** (`Base.isambiguous`, `detect_ambiguities`) asks the same question in the query's world: an argument met only as an unmet intersection has no value there, as an argument met only as `Union{}` has none. So two methods at a set and at a type no member of it relates (`describe(::AbstractString)` and `describe(::ColTable)`) are not reported until a membership makes them meet, and then by this report.
 
@@ -536,103 +536,73 @@ At `jl_declare_membership`, the report asks which methods the membership makes a
 
 ---
 
-## 6. Keys and the attribute
+## 6. The kept forms and the definition-time check
+<a id="6-keys-and-the-attribute"></a>
+<a id="6-keys-the-kept-forms-and-the-definition-time-check"></a>
 
 ### 6.1 The key as a type
 
-```julia
-Core.TraitKey{X, R, F}
-```
+`Core.TraitKey{X, R, F}`, code compiled per key, is an optional extension: [extensions §1.2](extensions.md#12-the-key-as-a-type). No interface of this reference depends on it.
 
-- `TraitKey{X, R, F}` names the members of `X` whose receiver type is `R` and whose declared fields' types are `F`, a tuple type ([traits §7.2](traits.md#72-the-key)).
-- **The runtime computes a member's key** from its membership and the set's contract, without running Julia code: the receiver the entry records (the member, its forwarding field's type, or none), the declared fields' types at the member (`fieldtype`), and the parameter values (the pattern's match). A member of a pattern has its key from the entry like any other. The answer is memoized per (member type, set) on the member's `TypeName`, with the membership's worlds.
-- `S <: TraitKey{X, R, F}` holds when `S`'s key for `X`, computed in the world asked about, is that key. It is a case of `subtype`, as `Type{T}` is, and likewise of `intersect`, `type_morespecific_`, `obviously_disjoint`, `jl_isa_compileable_sig` and `jl_compilation_sig`.
-- **At an intersection** `All{X, Y}`, the key is the tuple of the member's keys for each component.
-- **The erased key** is the set's instance `X{p…}` itself.
-- It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
+**Status:** Optional (W-110; the plan's D-14, 2026-11-15).
 
-**Status:** Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"); a use case to investigate: [open issue 147](../open-issues.md#2-design). The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+### 6.2 How an argument is compiled
+<a id="62-compilation-signatures"></a>
 
-### 6.2 Compilation signatures
+- **An argument is compiled as Julia compiles it:** for the value's type, or at the declared type where the method says `@nospecialize`. Nothing beside the values decides which instance runs. `jl_apply_generic`, its caches and the interpreter are Julia's.
+- **A box's type is one per set instance,** `Core.Dynamic{X{p…}}`: code for it is compiled once for every member, and its operations dispatch on the held object (§7.1, §7.2).
+- **A wrapper's type is one per object type,** `Core.Compiled{T}`: code for it is compiled for `T`, and its operations call the object's own methods, statically.
+- **An argument at a set declared `@nospecialize`** is compiled once at the declared set instance, the object passed as itself. Its operations split (§7.2); passing it on is a run-time site.
+- **A `where` variable bounded by a set** is the type of the value given: a member's, a box's or a wrapper's.
+- Per key: an optional extension ([extensions §1.2](extensions.md#12-the-key-as-a-type)).
 
-At each argument whose declared type is a set, or a parameter bounded by one, a method's compilation signature is one of:
-- **per key:** `TraitKey{X, R, F}`, the member's key (§6.1), where the method is fully bounded at the argument (§6.7) and the attribute is `Compiled`. Inference runs once per key, by the path `@nospecializeinfer` takes. Optional with keys: until they are built, such an argument is compiled per type;
-- **per type:** the member's type, where the method is unbounded at the argument and the attribute is `Compiled`;
-- **once:** the erased key `X{p…}`, where the attribute is `Dynamic`.
+**Status:** Julia's rule: Implemented. Not in force on the build: Julia resolves an attribute at each argument typed by a set (C-112), so `@nospecialize` there takes the attribute's run-time path (E-402: 829 ns a call). The kept forms: §6.9.
 
-A value whose type is `Dynamic{X}` has the erased key by its type ([traits §7.7](traits.md#77-dynamicx)).
+### 6.3 The forwarders
+<a id="63-the-attribute-at-a-call"></a>
 
-- So one (method, argument tuple) has up to two compilation signatures per trait argument, chosen per call (§6.3): up to 2ⁿ for n trait arguments, each compiled only where a call asks for it.
-- Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed or its erased instance. A plain dynamic call's attribute is a function of the method and the tuple (§6.3), so the leaf cache keys entries by the tuple alone; `Core.attributed_call` has a cache of its own (§6.9).
-- **Static parameters** bound by a keyed argument are those the key fixes. A method whose body uses a static parameter the key does not fix is unbounded at that argument.
-- **A `where` variable bounded by a set** (`x::C` with `C <: X`) takes the attribute as an argument typed by the set does. In an instance compiled once for the argument, the variable is not known when the code is compiled: the body reads it from the value when it runs, as a method of Julia's that is not specialized on an argument does. It is the value's type under either attribute ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)).
+**A method at a set that erases by default is entered as two methods, made where it is defined** ([traits §7.8](traits.md#78-erasing-by-default-the-forwarder)).
+- **Which sets erase:** a set whose contract carries the erasing bit (§4.1), which `@default_dynamic` writes; `Core.Callable`, whose bit Core's build sets; an intersection with such a component.
+- **Where:** in the method's definition, from its evaluated signature (`jl_method_def`), as lowering makes a positional default's second method from the syntax. At each positional argument the runtime asks whether the declared type is such a set with its parameters given, an intersection with such a component, or a `where` variable bounded by one. A set whose parameters the signature leaves open (a bare parametric set, a parameter `<: B`) does not erase there.
+- **The method as written** is entered with each such argument at `Union{Core.Dynamic{<:X}, Core.Compiled{<:X}}`, and a `where` variable's bound replaced the same way.
+- **Its forwarder,** one per positional arity that holds such an argument, is a method at the declared types, each such argument `@nospecialize`. Its body boxes each plain one at its set (`Core.Dynamic{X}(t)`), passes a kept form as it is, and calls the function, the keywords passed on whole.
+  - It is entered after the method as written, and records that method, so that reflection shows one definition, and redefining or deleting the method takes its forwarders with it.
+  - It is less specific than the method as written at each such argument, so a kept form never reaches it. Dispatch is Julia's.
+- **At a `Callable{A, S}` argument** the method as written begins with the test of a wrapper there: `hasmethod` of its object at `A` (§7.4).
+- **Not forwarded:** a method `@trait` makes (a default, a kept form's forwarding method), which carries `Expr(:meta, :no_forwarder)` ([lowering §2](lowering.md#2-trait)).
+- Images keep both methods, as they keep a positional default's.
 
-**Status:** Implemented on `unified` e692e57ab7 (W-111) per type and once, chosen per call by the attribute (§6.3). Inference infers a call at the instance that runs: the set's type at an argument compiled once. A dynamic call's instance compiled once by an attribute is cached with the call's own types. Per key: Optional (W-110). A `where` variable bounded by a set, compiled once with the variable read when the code runs: `unified` f6ad3008b4 (W-148; gate `n30_where_variable`).
+**What the rule lets the compiler do less.** Consequences, not promises of inlining:
+- **The method as written is compiled once per set instance** for every box, and per object type for a wrapper. A new member compiles none of it.
+- **The forwarder's box tests no membership when it runs.** In the forwarder's code at its declared type, the box's field test is decided by the argument's declared type. Where the forwarder's code is compiled for a member's type, inlined into a caller that knows it, the test is decided by the membership with an edge (§4.8). Where the box does not escape, it needs no heap of its own (E-407).
+- **The definition-time check reads the instance of the method as written at the box** (§6.7): the instance every box runs, inferred once.
 
-### 6.3 The attribute at a call
-
-- **Each trait argument of a call has an attribute bit,** `Compiled` or `Dynamic`, which chooses its compilation signature.
-- **It is resolved, strongest first** ([traits §7.5](traits.md#75-what-decides)):
-  1. a cast written at the call (§6.9);
-  2. an attribute the value carries:
-     - an argument inside an instance compiled per key or per type is `Compiled`, inside an instance compiled once `Dynamic`. The instance's attribute is part of its CodeInstance, so inference knows it at every call that passes the argument on;
-     - a value of type `Dynamic{X}` is `Dynamic`;
-     - a value read from a field whose declared type is a struct parameter bounded by a set: inference tracks the attribute the parameter records, `Dynamic` for a `Dynamic{X}`, else `Compiled`;
-  3. the method's attribute bits at the argument, from `@nospecialize` (`Dynamic`) and `@specialize` (`Compiled`) at an argument typed by a set, saved with the method as its `nospecialize` bits are; then the module's option;
-  4. the set's default bit, except for a value whose type Julia's own modules or the set's own package define, with every type among its parameters, recursively (a value parameter is the type's own);
-  5. the method's module's fallback: with `first_seen` (§2.1), `Compiled` at a static call whose caller infers the argument's concrete type, `Dynamic` at a dynamic call; otherwise `Compiled`.
-- **A static call** resolves the bits in the caller's inference and invokes the instance.
-- **A dynamic call with bits from 1 or 2** is a call of `Core.attributed_call` (§6.9): a cast written at the call, or a run-time site that passes on a trait argument of an instance compiled per key or once (codegen emits it there). It selects the method by the arguments' types as `jl_apply_generic` does, then resolves the rest (3 to 5) at the method.
-- **A plain dynamic call** carries no bits. The runtime resolves 3 to 5 at the method: a function of the method, the tuple and the module's options. So `jl_apply_generic` and its caches stay Julia's.
-- **The interpreter** passes the bits of casts written at the call, and resolves the rest at the method.
-
-**Status:** Implemented on `unified` e692e57ab7 (W-111): a static call's bits resolved in the caller's inference, a dynamic call's at the method by the runtime, `Core.attributed_call` from casts and from a run-time site that passes on a trait argument of code compiled once; an argument `Compiled` whose type the caller does not know makes the call dispatch on it when it runs, a function barrier; gate `n6_attribute`. With C-55. A call's dispatch fact at its own signature, for G2 too, on `unified` 0ee9e4f8a6 (gate `n21_callsig_backedge`, E-340). The order is mine (2026-11-06), on the user's "Dynamic or not as a trait and library default, that the user can override"; the fallback by scope is the user's (2026-11-06). Bits only through `Core.attributed_call`: mine (2026-11-06, the work plan's review, S6). Step 4's exception taking the type's parameters: `unified` 7fb94ae02b, gate `n6_attribute`; mine (2026-11-08, [open issue 161](../open-issues.md#2-design)).
+**Status:** Planned (the plan's D-1; the user, 2026-11-15; [decisions](../record/decisions.md) §3; W-160 (b)), with C-111. The library's `@erasing` stands in ([traits T-125](traits.md#19-deviations)). The place, the method's definition from its evaluated signature; the forwarder's record of its method; `:no_forwarder`: mine (2026-11-15).
 
 ### 6.4 Calls from code compiled per key
 
-- Code compiled per key holds the argument at the type `TraitKey{X, R, F}`. Operations and declared fields act on its parts (§6.5), whose types are concrete: each call there is at a fact.
-- **Passing the argument on to another function `g`:**
-  - **static** where the method of `g` selected at the key is the one selected for every member with that key in the current world. A later membership with that key invalidates the code when some method of `g` is more specific for the new member (found through the set-to-methods index, as the membership's walk finds it, §5.5). A later method of `g` invalidates the caller through its dispatch edge at the key, as any insertion does;
-  - **otherwise a run-time site,** dispatched on the object with the `Compiled` bit; the instance then receives the object (§6.5).
-- Swift and Rust resolve such a call where the generic code is written, at the constraint. Julia dispatches it on the value's type, and G1 asks for Julia's answer. So that invalidation is what keeps the shared code equal to that answer, by the same mechanism as any membership's (§5.5).
-
-**Status:** Optional (W-110), with keys; mine (2026-11-06).
+An optional extension, with keys: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key).
 
 ### 6.5 The calling convention
 
-A static caller passes a keyed argument as its parts:
-- the receiver, by its own convention;
-- each declared field that is `@const`, or of an immutable member, by value;
-- each writable declared field as a field reference: the object and an offset, so a write reaches the caller's object (§10.3);
-- the object itself, boxed, where the method may keep the value, return it, or pass it to a run-time site. An escape pass of inference decides this per instance.
-
-**The parts in the trait's methods.** The trait's method for an operation (§6.8) reaches the receiver and the declared fields through two intrinsics:
-
-```julia
-Core.trait_receiver(t, X)          # the receiver: t itself, or its forwarding field
-Core.trait_field(t, X, name)       # a declared field
-```
-
-At a key, inference resolves them to the parts above. At a member, it resolves them to `t` or to the forwarding field's `getfield`. So members that share a key and forward through fields of different names share the code.
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.4](extensions.md#14-the-calling-convention).
 
 ### 6.6 The boxed adapter
 
-A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstance. The wrapper reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target in [the evidence](../design/evidence.md) §2, there is one wrapper per member instead (W-110 measures).
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.5](extensions.md#15-the-boxed-adapter).
 
 ### 6.7 The definition-time check
 
-- **One inference of a method at the erased signature** of each set argument, under a check flag of the native interpreter. There, operations of the set and its supertraits resolve to their declared results, read from their contract entries (§4.1, §7.1), declared fields to their declared types, and calls passing the argument to a method at the set or a supertrait to that method.
-- **Any other use of the argument** is recorded with its line, and inference continues past it at `Any`. The record decides the method's classification per argument, fully bounded or unbounded. The classification is kept with edges to the unannotated functions it followed, so a later definition of one classifies the method again.
-- **Under the `bounded` option** of the method's module or the method itself, an unbounded argument raises `TraitUseError` listing every recorded use, at the method's definition or at the definition that opens it. A method marked `@unbounded` (`Expr(:meta, :bounded, false)`) is exempt, and so is a constructor of a struct whose parameter is bounded by a set where it sets that parameter, Julia's default constructor included ([traits §8.2](traits.md#82-a-struct-parameter-bounded-by-a-trait)).
-- Unannotated functions of the same module to which the method passes the argument are followed. A method that calls a function not yet defined is classified at its module's end, or at its first call.
-- **The check runs in the world Julia's own inference runs in.** The compiler's code there is the system image's, which no package's method ends; the image holds the check interpreter's entries as it holds the native interpreter's. The check's hook is called in the latest world.
-- **A function of `Self` that an equation names** (`T = eltype(Self)`), called on the argument, resolves to the parameter's value, a constant of the key: `eltype(t)` keeps a method fully bounded where the trait defines `T = eltype(Self)`. So do Rust's associated types in generic code.
+- **The check reads one instance: the method's at the box** ([traits §7.3](traits.md#73-bounded-methods)). Its signature has `Core.Dynamic{X}` at each argument at a set `X` (a set, an intersection, a kept form, a `where` variable bounded by one), and a stand-in where a variable is left free. It is inferred and optimized by the native interpreter, under the method's policy, and cached with its edges: it is the instance a box's call runs, and an image keeps it as code.
+- **What it reads:** each call in that optimized code that takes a value at the box (the box, or a value whose type is a set instance) and finds no method, directly or below a call that only throws (each callee read at its call's argument types), or only throws. Each is reported at the outermost frame of the debug information that lies in the method: the line that passes the value.
+- **No interpreter of its own, no record kept apart, no list of exempt forms.** The instance's record is the check's record: its edges are what a later definition ends, as for any code.
+- **Under the `bounded` option** of the method's module or the method itself, a fault raises `TraitUseError` at the method's definition, from the definition hook (§10.1). A method marked `@unbounded` (`Expr(:meta, :bounded, false)`) is exempt.
+- A method whose body names a global not yet defined, or whose only faults are calls of its module's own functions with no method yet, is read again at a definition of that name, and at last at its module's end (§10.1).
+- **It is Julia's own inference,** run where the method is defined in the latest world; the compiler code it runs is the system image's, which no package's method ends.
+- **What the rule lets the compiler do less:** the check is the compile the box's first call needs, done once. An edit infers the edited method's instance at the box, and nothing else again ([traits §11.2](traits.md#112-definition-checking)).
+- **A member's check, the same way** ([traits §5.10](traits.md#510-checks)): the serving methods' instances at the member, inferred by the native interpreter and kept with their edges; validated with an image at its load. A definition that would end one is found by the walk over backedges strict mode runs ([facts §11.2](facts.md#112-strict-mode)), and judged by inferring that call again with it before it is visible (§10.1).
 
-**Status:** The classification implemented in TraitWorld `unified` 59134ef (`classify`, `check_definitions`), with C-40 and C-41; its interpreter the compiler's own on `unified` 98fcbdfbba with TraitWorld 0ac3364 (W-123), so loading the library invalidates none of the compiler's code; `bounded` per method (`@bounded`) and `@unbounded` there; the module's `bounded` option with `@trait_module` (TraitWorld `unified` bb78d02, W-111). The classification and the `bounded` option: the user, 2026-11-06, Q2 (a). The rule for equations is mine (2026-11-06; open issue 137). The classification kept with edges, and `@unbounded`: mine (2026-11-06, the reviews of the draft).
+**Status:** Planned (the plan's D-3, 2026-11-15; [decisions](../record/decisions.md) §2; W-160 (c)), with C-115. The library reads the instance at the box in TraitWorld `unified` 6f86b4e (W-151), its check interpreter and classification still built (C-115); a member's check as its instances: [traits T-129](traits.md#19-deviations). The `bounded` option: the user, 2026-11-06, Q2 (a). The check's place in the latest world: mine (2026-11-14; E-391).
 
 ### 6.8 A declared result on `Method`
 
@@ -641,32 +611,22 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 
 **Status:** Lowering's record of `f(…)::RT` implemented on `unified` 0ba6317994 and 523214899f (a module's binding) (lowering's `declared_result` meta, evaluated by `jl_method_set_source`), gate `n16_declared_result`. The record's scope (a type at the definition) is mine (2026-11-09). An operation's declared result read from its contract entry, not from a method at the set with a flag: Planned (D-4), with C-100.
 
-### 6.9 Casts and `keep`
+### 6.9 The kept forms in `Core`
+<a id="69-casts-and-keep"></a>
 
-- **Lowering turns a call with cast arguments,** `f(compiled_for(x), y)` or `f(with_dynamic(x))`, into `Core.attributed_call(bits, f, args…)`, and with keyword arguments into `Core.attributed_call(bits, Core.kwcall, kws, f, args…)`, a builtin that dispatches as the call with those attribute bits. Inference resolves it statically where it can. A cast called anywhere else is the builtin's own call, which raises. A cast of a `Dynamic{X}` to `Compiled` passes the held object. The cast of a value typed by a set is typed by that set: a `Dynamic{Z}` is a member of `X` only where `Z <: X` ([lowering §2](lowering.md#2-trait)), and its object is a `Z`.
-- **The names are bound, not reserved.** `Core.compiled_for` and `Core.with_dynamic` are two builtins that raise when called. Lowering recognizes a call's argument of the form `compiled_for(x)` or `with_dynamic(x)` by the bare name and emits both readings, chosen by what the name is bound to where the call runs:
+```julia
+struct Dynamic{X};  object::X; end      # the box
+struct Compiled{T}; object::T; end      # the wrapper
+```
 
-  ```julia
-  f(compiled_for(x), y)
-  # lowers to
-  if compiled_for === Core.compiled_for
-      Core.attributed_call(bits, f, Core._cast_compiled(x), y)
-  else
-      f(compiled_for(x), y)        # the ordinary call of whatever the name is bound to
-  end
-  ```
+- **Both are ordinary structs of `Core`,** with no rule of subtyping. Their memberships are the library's: each `@trait X` declares the families `Dynamic{Z} where {Z <: X}` and `Compiled{Z} where {Z <: X}` members of `X`, forwarding by `object` ([lowering §2](lowering.md#2-trait), [§7](lowering.md#7-dynamicx-and-compiledt)). `Core` defines them so that a forwarder made where a method is defined (§6.3) names them.
+- **`Core.Dynamic{X}(x)`** holds a member of `X`, `X` a set instance with its parameters or an intersection of such. A bare parametric set raises `ArgumentError`; a value that is not a member raises `TypeError`, by the field test of `new` (§4.8).
+  - A box of `X` is itself. A box of a subset of `X` gives its object boxed at `X`. A wrapper gives its object boxed.
+- **`Core.Compiled{T}(x)`** holds `x` at its own type. A box gives its object wrapped; a wrapper is itself. The library's `compiled_for(x)` makes one ([traits §7.6](traits.md#76-compiled_forx)).
+- **`Base.convert(::Type{Dynamic{X}}, x)`** is the library's method at a type of `Core` it declares the memberships of: it boxes. It is no method at a set: a late load of it ends nothing (E-404).
+- Lowering knows neither name: a kept form is made by an ordinary call.
 
-  - Where the name is a constant binding (an import of the cast, a module's own function), inference folds the test, and the compiled code holds one branch.
-  - A local variable of the name is read as any local: the test fails, and the local is called.
-  - A name bound to nothing raises `UndefVarError`, as any call of it does.
-  - A definition or an assignment of either name is an ordinary definition.
-- **A cast at an argument the selected method does not type by a set** has no effect. Inference records each such cast it finds; `detect_unused_casts(mod)` lists them.
-- `Core.attributed_call` keeps a cache of its own, keyed by the tuple and the bits, and a table of its latest calls, keyed by the bits and the function's and arguments' types and read without a lock, so that a call whose arguments are no types makes no tuple type.
-- **`Core.Dynamic{X}`** is an ordinary struct of `Core`, with no rule of subtyping: its memberships are declared by the library ([lowering §7](lowering.md#7-dynamicx-keep-casts)). `Core` defines it so that `keep` can make one.
-- **`keep(x)`** for an argument `x` at a set `X` resolves where the instance is compiled: `Dynamic{X}(x)` in an instance compiled once for the argument, `x` otherwise. An `x` that is itself a `Dynamic` gives its object held anew, as `Dynamic{X}(d)` does: never a `Dynamic` of a `Dynamic`. Where the code is not compiled, it is resolved at the method's default attribute.
-- Julia's call-site `@inline` and `@noinline` are the precedent: a statement about one call, written at the call.
-
-**Status:** Implemented on `unified` e692e57ab7 (W-111): the casts lowered to `Core.attributed_call`, the builtin with its cache, `Core.Dynamic`, `keep` resolved by inference, a `Dynamic` held anew on `unified` ef93ff7844 (mine, 2026-11-08); the table of latest calls on `unified` b61e326170 (E-313: 43 ns a call against 109 ns, a dynamic call 17 ns; mine, 2026-11-09); `detect_unused_casts` in the library (TraitWorld `unified` bb78d02). With C-56 and lowering L-56. Mine (2026-11-06). `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft). The names bound, not reserved: `unified` 3f33d9e684 (gate `n6_attribute`), mine (2026-11-12; [decisions](../record/decisions.md) §3). With keyword arguments: `unified` 23e1dd3feb.
+**Status:** `Core.Dynamic`: Implemented on `unified` e692e57ab7 (W-111); its constructor tests the membership when it runs and boxes a box anew, and the library's methods stand in (C-113). The wrapper is the library's type (C-113, [traits T-126](traits.md#19-deviations)). The casts and `keep` are still built (C-112). `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft). `Compiled` in `Core`, beside it: mine (2026-11-15).
 
 ---
 
@@ -674,7 +634,7 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 
 ### 7.1 The rule
 
-- **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a key and not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the operation's entry in the contract (§4.1): of `X`, of a set `X` joins (a supertrait, from the set's own entries, `jl_supertrait_instances`), or of each component of an intersection. Where several entries apply to the call's types, the result is their intersection. No method at the set is read.
+- **A call of an operation of `X`** whose receiver's inferred type is a set instance `X{p…}` (not a concrete member) is inferred as the operation's declared result at those parameter values. The declared result comes from the operation's entry in the contract (§4.1): of `X`, of a set `X` joins (a supertrait, from the set's own entries, `jl_supertrait_instances`), or of each component of an intersection. Where several entries apply to the call's types, the result is their intersection. No method at the set is read.
 - **The same split for a closed abstract type with a contract** ([traits §3.4](traits.md#34-open-and-closed)): a call of one of its operations whose receiver's inferred type is the type is compiled as the split, its result `Any`. The declaring module writes the contract once on the type's `TypeName`, `jl_declare_contract(T, ops, cands)`: its operations, the module's methods at `::T`, each an entry with the result `Any` (§4.1), and its candidates (§7.2), as `svec(ops, cands)`. Images keep it with the `TypeName`. A contract is declared in the image that defines the type; one written on a type another image holds is refused, since the writer's image would not keep it (Base's build declares Core's `IO`'s; mine, 2026-11-10). Inference reads it (`jl_contract_operations(T)`) where it reads a set's methods with declared results.
 - The call is compiled as a split (§7.2), with the result asserted to the declared type, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)). Where no split applies, the dynamic call's result is asserted.
 - **A const result taken for its effects joins its type.** A declared result makes inference non-monotone: at the set the call's result is the declared result, and constant propagation that sees the member's type reaches the member's own method. Where the constant-propagated code is taken for its effects or its exception type, its result type is joined into the call's, so compiled code never returns a type its call's type excludes (`handle1`, `unified` ef1233e79e).
@@ -687,14 +647,12 @@ A dynamic call to a keyed instance goes through one wrapper per keyed CodeInstan
 
 ```julia
 Compiler.split_call(K, ::Type{RT}, f, x, args...)            # f(x, args...)::RT
-Compiler.register_dynamic_candidate!(K, C)
 Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FACT_SPLITS, in order
 ```
 
 - **The candidates of a set** are its concrete members in declaration order, from an index per set that the runtime keeps. An entry records its declaration's file and line; the order is by those. A concrete type joins the index at its membership, a member of a pattern at its first use (§10.4). The index is read without an edge.
 - **The candidates of a closed abstract type with a contract** are the concrete subtypes its declaring module registers (`jl_register_candidate(T, C)`), in that order.
 - **At an intersection** `All{X, Y}`, the candidates are those of `X`'s index that are members of every component.
-- `register_dynamic_candidate!(K, C)` registers candidates for a key `K` that is not a set.
 - **Inference:** where `x`'s type is not concrete and the set has candidates, `f` is inferred at `x`'s type intersected with the union of the first four candidates; each split is a fact with its edge.
 - **In each branch the value's type is the candidate:** the argument is `Compiled` there, so a branch that a method at the set serves runs that method's instance for the candidate, and the branch's case is the candidate, never the set.
 - **The split:** the inliner splits the call over them. The last branch, the fallback, calls through the table of the call's targets (§7.3), or is the dynamic call where no table applies. The split is never fully covered.
@@ -704,7 +662,7 @@ Compiler.dynamic_candidates(K)::Vector{Any}                   # the first MAX_FA
 - **No method at the set is needed.** A branch is the call at its candidate's type, which dispatches to the member's own method, or to a default's method at the set. The fallback's target is the call at the value's type (§7.3). The split reads the set for its candidates and the contract's declared result only (§7.1).
 - Registration is lock-free for readers: the table is replaced on each registration.
 
-**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). Each branch `Compiled` for its candidate on `unified` b133374e9d (found by `IO`'s `get`, whose candidates are all served by the default at `::IO`; gate `n19_io_trait`): mine (2026-11-09). `register_dynamic_candidate!` for a key: with keys (W-110). A branch not inlined through a pointer, with no edge, on `unified` 0c836f3ef6, and only a leaf inlined on 7bd8b6e512 (E-332, [open issue 167](../open-issues.md#2-design) (a)); the result converted (traits §7.9) on 0c836f3ef6 (E-333): mine (2026-11-09). That the split needs no method at the set: read in the code (the branches are a call at the candidates' union, `abstract_call_gf_by_type` with `operation = false`; the fallback's target is `Base._SplitTarget`), not yet run without one (C-100).
+**Status:** Implemented on `unified` e70675a606: the candidates per set, registered at a membership, at an image's activation and by the library at a pattern's member's first use, ordered by declaration (C-38); the split over the first four, the table as the fallback (§7.3). Each branch `Compiled` for its candidate on `unified` b133374e9d (found by `IO`'s `get`, whose candidates are all served by the default at `::IO`; gate `n19_io_trait`): mine (2026-11-09). A branch not inlined through a pointer, with no edge, on `unified` 0c836f3ef6, and only a leaf inlined on 7bd8b6e512 (E-332, [open issue 167](../open-issues.md#2-design) (a)); the result converted (traits §7.9) on 0c836f3ef6 (E-333): mine (2026-11-09). That the split needs no method at the set: read in the code (the branches are a call at the candidates' union, `abstract_call_gf_by_type` with `operation = false`; the fallback's target is `Base._SplitTarget`), not yet run without one (C-100).
 
 ### 7.3 The table of a call's targets
 
@@ -734,29 +692,22 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 ### 7.4 `Callable`'s call
 
 **Memberships.**
-- `Core.Callable{A, S}` is a set with two input parameters. `F <: Callable{A, S}` holds where a call of an `F` at `A` selects a method (`hasmethod`), for every `S`. So dispatch picks by the arguments' signature, and `S` takes no part in membership.
-- **Each method of `F` is a membership.** A method `f(x::T₁, …)` makes `F` a member of `Callable{A, S}` for every `A <: Tuple{T₁, …}`, in the method's worlds; one method must cover `A`, as for `hasmethod`. Subtyping reads `F`'s methods as it reads entries, through the method table's index by the function's type, and checks `A` against each method's argument types in the same subtyping environment. Subtyping runs no inference and keeps no memo of its own.
-- **A question that reaches itself** (a method of `F` whose argument is bounded by a `Callable` that `F` must satisfy) is subtyping's own assumption within the query, recomputed at each query: the answer is the least fixed point, the same in every order of questions.
-- **Defining a method declares the membership,** and deleting or replacing it ends it. What relied on the old answer is found through its edge to `F`'s dispatch (below).
-- **`Dynamic{Z}` with `Z <: Callable{A, S}`** is a member by the entry the library declares, as for any set ([lowering §9](lowering.md#9-callable)), never by a query of its call method.
-- **Compiled code that relies on a membership** holds an edge to `F`'s dispatch at `A`, and is invalidated with it.
-- **Compiled code that relies on its absence** holds the same edge. A call that does not match a method at `Callable{A, S}`, with a concrete `F` at that argument, records an edge to `F`'s dispatch at `A`. A method of `F` defined later, which can begin the membership, invalidates it as any method invalidates the callers with a missing method there.
-  - **The edge is as narrow as the question.** The method's signature and the call are compared with the `Callable` position left open. Where they do not meet, the method cannot take the call whatever `F`'s methods are, and there is no edge: a call of one type's constructor holds none for another type's constructor that takes a `Callable`. Where they meet, the call's other arguments give the method's variables their values, and the edge is at `A` with those values: `retain!(f, xs::Vector{Int})` against `retain!(f::Callable{Tuple{T}, Bool}, xs::Vector{T})` holds an edge to `f`'s dispatch at `Tuple{Int}`.
-  - Such an edge is at a fact signature, so the caller's record can satisfy G2 (§3.2) and an image keeps it.
-  - Where a variable stays open (bare `Callable`), the edge is to every call of `F`.
-- **Negatives are not folded** at `isa` and `<:` (§4.8).
-- `Callable` alone is any type with a call method.
+- `Core.Callable{A, S}` is a set with two input parameters. Its members are declared, as any set's: Core's build declares `Function` a member of every instance, one entry whose pattern leaves both inputs free; a callable type that is no `Function` joins the same way, by `@implement Callable T` ([traits §9](traits.md#9-functions-callable)). The kept forms are members by the library's entries, as for any set ([lowering §9](lowering.md#9-callable)).
+- **Subtyping reads no method:** `F <: Callable{A, S}` is answered from entries alone, for every `A` and `S`. Positives fold through the entry and negatives fold with their edge, as at any set (§4.8). A method definition begins or ends no membership.
+- **Neither input selects a method:** two methods at `Callable` instances that differ only in `A` or `S` meet at every function: a tie, which Julia reports as any (`detect_ambiguities`, a call's `MethodError`).
+- `Callable` alone is every member: every function, and every type declared callable.
 
-**The call.**
-- **A call of a value the code knows as a `Callable{A, S}`** (declared so as an argument, a field or an element, or a `Dynamic{Callable{A, S}}`) has the result type `S`, asserted on return (`TypeError`). Where inference proves the result, the assertion costs nothing. Each argument must be of `A`, or the call raises `MethodError`.
-- **In an instance compiled once** for the argument, the call goes through a `:caller_world` pointer (§8.1) to the function's code compiled for `A`. The pointer is made at the first call per (signature, function type). The result is asserted to `S` (`TypeError`).
-- **The declaration decides the check, not what an instance knows of the function.** An instance compiled for the function's type, and a caller that has the function as a constant, call the function's own method directly, and still check the arguments against `A` and assert the result to `S`. So the same call gives the same answer or the same error under every attribute.
-  - Inference reads a call of an argument declared `Callable{A, S}` as `Core._callable_call(A, S, f, args…)`, with the instance's values of the method's variables in `A` and `S`. The function is inlined: where the argument types are of `A` and the result's type is of `S`, nothing is left of the check.
-- **In an instance compiled per key,** whose key is the function's type, the call is direct, with the same check.
+**The check at the box.**
+- **`Core.Dynamic{Callable{A, S}}(f)`** tests that `f` has a method at `A` (`hasmethod`, in the world it runs in) and raises the `MethodError` a call at `A` would where it has none. Where the compiler knows `f`'s type, the test is a fact (`hasmethod` at a declared signature, [facts §3](facts.md#3-fact-signatures)) and folds, with its edge to `f`'s dispatch at `A`.
+- **A wrapper at a `Callable{A, S}` argument** is tested the same way at the entry of the method as written: the method definition puts the test there for each such argument (§6.3). The method is compiled for the wrapper's type, so the test folds with its edge.
+- **A call of a box** asserts each argument to `A` (`MethodError`) and the result to `S` (`TypeError`), in the box's call method, however the box is called. It dispatches on the held function when it runs, as Julia's dynamic call does, with Julia's caches (§8).
+- **A call of a wrapper** is the function's own, compiled for its type.
 
-This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own. Swift's function types are matched by signature in overload resolution.
+**What the rule lets the compiler do less:** subtyping at `Callable` reads entries, as at any set, with no walk over a function's methods and no fixed point; a method definition invalidates through a membership only as any method does.
 
-**Status:** Implemented on `unified` 7195706721, 5f0a8ffd50 (W-113): `Core.Callable` an open set from Core's build, compiled once by default; a concrete callable type a member by its methods visible in the query world, read by subtyping as choices beside its entries, a question that reaches itself answering no within the query; a method's deletion lowers the dispatch cache entries that went through Callable; a match through Callable holds an edge to the member's dispatch at `A`; a call that does not match a method at `Callable` holds one too (`unified` a19d937eaa, W-140; gate `n26_callable_late_method`; mine, 2026-11-11), also where a caller infers the call again with a constant (`unified` 381cc8b953); a call through a value known as `Callable{A, S}` infers `S`, asserted. Gate `n8_callable`. A match's worlds bounded by the member's methods on c8ef0e581e, 1daebeab81, 23022b0ec7 (at the positions where the method's signature names `Callable`, §5.3; E-324). With C-61, C-62; the arguments checked against `A` (§7.4) on 1d493ca959 and c248dbfd8c. The absence edge at the variables' values, and none for a method the call cannot reach: `unified` add2f921c9 (gate `n26_callable_late_method`; E-372: the ODE port's solver is kept by its image, its session 1.25 s where it was 2.75 s), mine (2026-11-14). The check in every instance: `unified` a0602148ca (gate `n8_callable`; found 2026-11-14: a function compiled for its type, or a constant of the caller, returned a value outside `S` where the instance compiled once raised), with C-90; mine (2026-11-14; [decisions](../record/decisions.md) §3). Dispatch by signature, `S` checked on return: the user (2026-11-06). Methods read as memberships, with no memo: mine (2026-11-06, E-267). An abstract type a member only by an entry: mine (2026-11-07).
+This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own.
+
+**Status:** Planned (the plan's D-2, 2026-11-15, the user: "Okay, accept the change."; [decisions](../record/decisions.md) §3; W-153), with C-116. Built as the earlier rule on `unified` 7195706721, 5f0a8ffd50 (W-113): a function a member by its methods, read by subtyping; the box's call checked at both ends in the library (TraitWorld 5d52f0d). `Function` declared a member of every instance, and a callable type that is no `Function` by declaration: mine (2026-11-15).
 
 ### 7.5 `IO`
 
@@ -780,7 +731,7 @@ What follows from it, beside the members and the split below:
 - **A call in the latest world is the call.** Nothing is defined later, so `invokelatest(f, args…)` is inferred as `f(args…)`, and a call after `:latestworld` as any call.
 
 - **The closed rules apply** under `--trim` (`closed_build()`), and in the build's check run in a session (§2.7), which asks them of its interpreter (`closed_build(interp)`). Every rule below reads that one answer.
-- **A trait argument is compiled for its type wherever the call knows it.** The set's default attribute, the module's `dynamic` and `first_seen` options choose what a session compiles once, to save later callers a compile; a build has no later caller. So in a closed build steps 4 and 5 of §6.3 give `Compiled` at an argument whose concrete type the call knows. A cast, an attribute the value carries and the method's own `@nospecialize` stand. Code that a session compiles once and that passes its argument on, keeps it or returns a value made from it is then typed in a build: a method at a trait with a `Dynamic` default, with or without keywords, is fully typed.
+- **A build compiles what is written,** as a session does: a plain member at a method of a set that erases by default is boxed by the forwarder (§6.3); code for a box is compiled once per set instance, for a wrapper per object type. A box is a concrete type, so code that passes it on, keeps it or returns a value made from it is typed in a build as in a session.
 - **The split is over every member** (§7.2), where the set's members can be listed: all of them that are of the receiver's type, not the first four. With them the box `Dynamic{X}`, which its own forwarding method opens ([lowering §2](lowering.md#2-trait)).
 - **The members of a set in a closed build** (`closed_candidates(X)`), from its membership entries in force:
   - an entry at a concrete type: that type;
@@ -797,14 +748,13 @@ What follows from it, beside the members and the split below:
 - **Each branch is a direct call** of the member's method, or its body inlined. No pointer, no table (§7.3).
 - **An invoke that names its method instance is compiled as any target.** A body inlined from an image names an invoke's target by its instance, not by its code. The build's queue compiles the instance, and the verifier takes the invoke as resolved where it did. A call that inference limited (a recursion over growing types) names a new instance at each step: at most four instances of one method are followed this way, and past them the invoke stays unresolved.
 - **Past the branches the call raises** the `MethodError`. No call is left to dispatch when the program runs.
-- **A cast to `Compiled` on a value known by its trait branches over the members** (`f(compiled_for(x), …)` with `x::X`): the call is inferred at the union of the set's members and split as an operation's call is, each branch the call at the member's type. A session leaves such a call to dispatch when it runs.
-- **Any other call that does not know its argument's member runs the instance compiled once** (§6.3), and so does a cast's where the members cannot be listed: where a session would leave the call to dispatch on the trait argument when it runs (`Core.attributed_call`), a closed build takes the argument as `Dynamic`. The instance's operations branch over the members.
+- **A call whose method's static parameter a value known only by its trait binds branches over the members** (`Core.Compiled(x)` with `x::X`, the wrapper's constructor that `compiled_for(x)` calls): the call is inferred at the union of the set's members and split as an operation's call is, each branch the call at the member's type. A session leaves such a call to dispatch when it runs.
+- **Any other call that does not know its argument's member** runs the method's instance at the argument's declared type, as Julia compiles a call at an abstract type with one method; the instance's operations branch over the members.
 - **A split over more than 64 members is not made.** The call stays dynamic, and the build's verifier refuses it.
 - **Memberships are asked in the world the build compiles for.** The build's driver runs in the compiler's own world, where no membership of the program exists; it sets the membership query world as `jl_type_infer` does for a session.
 - **Code inferred before every member was declared is inferred again.** While the build loads its program, an instance whose inference met an operation's call at a set, or a call left to dispatch on a trait argument, is noted. When the build compiles, each noted instance is invalidated, with its callers, and inferred with every member. A method at a set checked at its definition ([§6.7](#67-the-definition-time-check)) is such an instance: it was inferred with no member.
-- **The verifier refuses `Core.attributed_call`** left in the code: it is a call that dispatches when it runs.
 
-**Status:** Implemented on `unified` 97861c6b31, ddc328b343 (the instance compiled once at a call that does not know the member), 5d8da002fa (the branches at a cast to `Compiled`, the cast typed by its set) and d8cebc40fe (members by use, the rounds, the report) (W-139; E-364: five small programs and TraitTables' table program build under `--trim=safe` and run, where the plain twin with an abstract type is refused). The rule: the user (2026-11-11); members by use: the user (2026-11-11, "Build members by use."). The box as a member, the bound of 64, the second inference, the rounds, the verifier's refusal of an attributed call, the branches at a cast, and what counts as a use (the places, the test): mine (2026-11-11). The rules asked of the interpreter, and an invoke that names its instance compiled: `unified` 381cc8b953, bounded on 42681be784 (Base's `Compiler/inference` test) (W-142; E-369: Base's `repeat(::Char, ::Int)` builds). With C-86, C-87. A trait argument compiled for its type where the call knows it: `unified` 21c9b33e39 (TraitWorld test `fullytyped.jl`; E-387), mine (2026-11-14). The closed rules as what follows from what is final, and the three consequences stated first: mine (2026-11-15; D-10); an operation on a set with no member and a call in the latest world: Planned, with C-102 and C-103.
+**Status:** Implemented on `unified` 97861c6b31, ddc328b343 (the instance compiled once at a call that does not know the member), 5d8da002fa (the branches at a cast to `Compiled`, the cast typed by its set) and d8cebc40fe (members by use, the rounds, the report) (W-139; E-364: five small programs and TraitTables' table program build under `--trim=safe` and run, where the plain twin with an abstract type is refused). The rule: the user (2026-11-11); members by use: the user (2026-11-11, "Build members by use."). The box as a member, the bound of 64, the second inference, the rounds, and what counts as a use (the places, the test): mine (2026-11-11). The branches at a call whose static parameter the value binds: built for a cast only (C-114), mine (2026-11-11, for the cast; 2026-11-15, for the wrapper). The rules asked of the interpreter, and an invoke that names its instance compiled: `unified` 381cc8b953, bounded on 42681be784 (Base's `Compiler/inference` test) (W-142; E-369: Base's `repeat(::Char, ::Int)` builds). With C-86, C-87. A build that compiles what is written: Planned (the plan's D-1, 2026-11-15); the build still resolves an attribute at a trait argument (C-112, C-114). The closed rules as what follows from what is final, and the three consequences stated first: mine (2026-11-15; D-10); an operation on a set with no member and a call in the latest world: Planned, with C-102 and C-103.
 
 ---
 
@@ -832,7 +782,7 @@ Expr(:cfunction, Ptr{Cvoid}, QuoteNode(f), rettype, :(Core.svec(argtypes...)), Q
 - Julia's `call_cache` holds method-cache entries per call site. Two kinds are added:
   - **wildcard entries:** a method-cache entry with no `Vararg`, no type variables and no guard signatures, whose parameters are concrete or `Any`, matched where every non-`Any` position has the argument's exact type;
   - **exact-type entries:** for any other entry, an entry at the call's exact argument types, kept in the method cache's leaf cache, so later misses reuse it; for a varargs method only up to as many arguments as Julia's compilation signatures spell out for it.
-- A plain dynamic call carries no attribute bits (§6.3), so entries are keyed as Julia's are.
+- A dynamic call is Julia's (§6.2), so entries are keyed as Julia's are.
 - Each entry's range is the copied entry's; a call outside it looks up again.
 
 **Status:** Implemented on `unified` 8319275b9e for wildcard entries. Exact-type entries: W-109, in a form whose cost at a site that sees many types is vanilla's ([PE-20](../record/performance-explorations.md)).
@@ -856,9 +806,9 @@ Optional, each only if a measurement asks for it:
 - **Code reached only by a dynamic call is kept** where it is deep G2, by its bit (§3.2), of either policy: plain code in the class that facts code reaches is then cached as facts code is. Code outside the class could be ended by an unrelated load.
 - **An image holds the code a facts run-time site reaches whatever the values.** While an image is built, a run-time site in facts code whose argument types match exactly one method, which specializes on none of the site's abstract arguments, has that method's instance compiled into the image, at its compileable signature and the facts policy. *Specializes on none* means: at each abstract argument the method is `@nospecialize`, the argument is no trait argument, and its declared type has no free variables and is no kind. Code that needs an instance per value's type at such a site (a closure capturing untyped values) is not covered; it is written as a loop.
 - **An image keeps no external code specialized at a signature type without a hash** (a value-specific instance). Its insertion at load would scan its method's specializations.
-- **The checks' records** of members checked while the image was built (traits §5.10) are kept with it.
+- **The member checks' instances** made while the image was built are kept with its code, with their edges, and validated with it ([traits §5.10](traits.md#510-checks)).
 - **The system image keeps the indices of sets** as it keeps its method tables: its methods at sets and each function's, the sets' candidates, entries and absence signatures, the contracts of closed types (§7.1) and their candidates, and the split tables' miss (§7.3). So `IO`'s contract holds from the start, and a membership invalidates the image's code that folded its absence.
-- **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's key ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
+- **Compiling ahead:** for each membership a package declares, the set-to-methods index (§5.1) gives the methods at the set and its supersets to compile at the member's type ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - **A machine-code cache across sessions is the goal of the record.** The record of §3.1 is kept complete, naming its targets by identities stable across sessions:
   - a method by module path, name, signature and a digest of its lowered code;
   - a type by path and layout;
@@ -885,7 +835,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 - **A refusal is an error the hook returns.** The runtime raises it at the definition, so the first frame of its backtrace is the method's definition, not the library ([traits §11.3](traits.md#113-errors-and-their-messages)). An error the hook throws is raised too, with the library's frames.
 - **The image hook** runs once per package image, with its methods for other modules' functions, before any is activated. Methods it returns stay inactive.
 - Both run in the latest world, outside the world-counter lock, not for a definition a hook makes, and not while the system image is built.
-- **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library classifies there the methods that waited for later definitions, and refuses a `struct S <: X` without its `@implement`.
+- **The module-end hook** runs when a module's definition ends (`jl_eval_module_expr`), and for a package also while its image is written. The library checks there the methods that waited for later definitions (§6.7), and refuses a `struct S <: X` without its `@implement`.
 - Strict mode, the override rule, a member's check kept while it is a member ([traits §5.10](traits.md#510-checks)), the `no_pirates` and `bounded` options use them.
 - In the image hook a method about to be activated is inferred as it is: a call it makes to another inactive method of the same image infers `Union{}` there.
 - Both hooks first bring the library's records up to the memberships images have activated (§9). The image hook runs before its image's own memberships are in force, which its build checked with its methods.
@@ -905,16 +855,7 @@ void jl_set_module_end_hook(jl_value_t *hook);          // hook(m::Module)
 
 ### 10.3 Field-offset intrinsics
 
-```julia
-Core.Intrinsics.getfield_at_offset(obj, T::Type, off::Int)::T
-Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
-```
-
-- Read or write the value of type `T` at byte offset `off` of `obj`, with the write barrier for a reference and Julia's alias metadata for a mutable field.
-- The offset is not checked; the caller guarantees the field.
-- The calling convention's field references (§6.5) use them.
-
-**Status:** Optional (W-110), with keys.
+An optional extension, with keys: [extensions §1.6](extensions.md#16-field-offset-intrinsics).
 
 ### 10.4 The member hook
 
@@ -922,9 +863,9 @@ Core.Intrinsics.setfield_at_offset(obj, T::Type, off::Int, x)::Nothing
 void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothing, or throws
 ```
 
-- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked. Its key needs no hook (§6.1).
+- **The hook checks a member of a pattern** (a family, a closed abstract type, a set) that no declaration checked.
 - **The runtime calls it at the member's first use,** where no answer is kept for (member type, set):
-  - at dispatch, before the instance lookup, and at a split's table miss or `keep`;
+  - at dispatch, before the instance lookup, and at a split's table miss;
   - in the compile queue: inference notes each (member type, set) that a call it resolves to a method at the set rests on, and when inference returns, before the code runs, the runtime asks the hook for each. A failing check leaves that use to dispatch, which raises the `ImplementError` there; a use in a branch not taken raises nothing.
 - It is called for an argument whose chain carries an entry, or has a set as a declared supertype: a member by its definition (`abstract type A <: X end`) is reached through its `@implement`'s entry, and a type under a set by its definition with no entry yet is refused by the library ([traits §5.2](traits.md#52-with-the-types-definition)). That refusal is not kept as an answer: the declaration ends it.
 - **Inference never calls it,** and no runtime lock is held while it runs. It runs in the latest world. Inference reads the kept answer: none, it notes the member for the queue; a failure, it leaves the call to dispatch. A per-(member type, set) state marks a check in progress; a check that reaches its own member again raises, and code compiled inside a check uses its member without waiting for it.
@@ -933,7 +874,7 @@ void jl_set_member_hook(jl_value_t *hook);   // hook(T::Type, X::Type) -> nothin
 - The runtime keeps the answer per (member type, set) on the member's `TypeName`, a failure included, and every later use reads it.
 - **A package image keeps the answers** found while it was built, with the methods each check relied on, and drops an answer at load where those methods dispatch differently. Checks at a first use are for members no image checked.
 
-**Status:** Implemented on `unified` ec4f9a8714 at dispatch and fcdfd0da36 in the compile queue (gate `n24_hook_compile_queue`, E-352; leaving a failed use to dispatch: mine, 2026-11-10), with C-30 and C-31; an abstract member's subtypes reached through its entry with TraitWorld e8554d9 (C-85, E-345); a declared subtype of a set with no entry on `unified` 352b916899 with TraitWorld 0aff625 (E-350); a failed check lowers the entries made while it ran on 07c0bee2a2; at a split's table miss and `keep` with W-109 and W-111. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
+**Status:** Implemented on `unified` ec4f9a8714 at dispatch and fcdfd0da36 in the compile queue (gate `n24_hook_compile_queue`, E-352; leaving a failed use to dispatch: mine, 2026-11-10), with C-30 and C-31; an abstract member's subtypes reached through its entry with TraitWorld e8554d9 (C-85, E-345); a declared subtype of a set with no entry on `unified` 352b916899 with TraitWorld 0aff625 (E-350); a failed check lowers the entries made while it ran on 07c0bee2a2; at a split's table miss with W-109. Mine (2026-11-06). Checks only, and where it runs: mine (2026-11-06, the reviews of the draft).
 
 ---
 
@@ -963,27 +904,26 @@ Each applies to all code.
 | one compiled code per result | Implemented (`unified` 9c6c9270f3); no code slot on `next` 9b6dacf5c5 | §3.3 |
 | sets and their contracts, memberships, worlds, transitivity, subtyping in the walk | Implemented (`unified` 62016706d0); no type equality from a membership: Planned (D-11, C-104) | §4.1–§4.5 |
 | one instance per member | Implemented (`unified` 62016706d0; a pattern edc2653e43) | §4.6 |
-| three layers; negatives fold with an edge; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; negatives folded with their edge at every set `unified` a19d937eaa (W-140), with C-77; an intersection no type is in `unified` 1906196731 (E-334), with C-79 | §4.7, §4.8 |
-| intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the key and the split at an intersection (W-110, W-109) | §4.9 |
+| three layers; negatives fold with an edge; positives through entries | Implemented (`unified` 62016706d0); positives' world and record on `unified` 9a601902a0, with C-51; negatives folded with their edge at every set `unified` a19d937eaa (W-140), with C-77; an intersection no type is in `unified` 1906196731 (E-334), with C-79; a positive decided at code generation, `new`'s field test included: Planned (W-160), with C-110 | §4.7, §4.8 |
+| intersections `All{X, Y, Z, …}` | Implemented (`unified` 8a9144928e), but for the split at an intersection (W-109) | §4.9 |
 | type values as members | Implemented (`unified` 62016706d0; the kinds f14be868df, 0c9e44cb3d) | §4.10 |
 | methods at sets in the table; specificity; match ranges | Implemented (`unified` 29035cab11, 62016706d0; intersections 8a9144928e) | §5.1–§5.3 |
 | the ambiguity report at a membership | Implemented (`unified` 0d529d33a9, a pattern member 264b7f959f); strict mode's error W-114; dispatch's lookup at an unmet intersection on `unified` 999777ab77 | §5.4 |
 | a membership invalidates as a method does | Implemented (`unified` 29035cab11 the walk and the caches; a19d937eaa the code, W-140), with C-88; taken back, as a method's deletion: Planned (D-13, C-106) | §4.3, §5.5 |
 | the membership's method and the edges | Implemented (`unified` 90fb8ff97a, b66cdc66f2, 8b4fde6e84) | §5.6 |
-| `TraitKey`; compilation signatures per key, per type, once | per type and once implemented (`unified` e692e57ab7, W-111; a `where` variable f6ad3008b4); Optional (W-110): `TraitKey`, per key | §6.1, §6.2 |
-| the attribute bits at a call | Implemented (`unified` e692e57ab7, W-111), with C-55, C-57 | §6.3 |
-| calls from code compiled per key | Optional (W-110) | §6.4 |
-| the calling convention; the boxed adapter | Optional (W-110) | §6.5, §6.6 |
-| the definition-time check and the classification | Implemented (TraitWorld `unified` 59134ef), with C-40, C-41 | §6.7 |
+| an argument compiled as Julia compiles it | Julia's rule, with C-112 | §6.2 |
+| keys: `TraitKey`, calls from code per key, the calling convention, the adapter, field offsets | an optional extension (W-110): [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) | §6.1, §6.4–§6.6, §10.3 |
+| the forwarders, made where a method at a set that erases by default is defined | Planned (D-1, W-160), with C-111; the library's `@erasing` stands in | §6.3 |
+| the definition-time check: the instance at the box | Planned (D-3, W-160 (c)); read by the library (TraitWorld 6f86b4e), with C-115 | §6.7 |
 | a declared result on `Method`; lowering's record of `f(…)::RT` | Implemented (`unified` 0ba6317994); an operation's declared result from its contract entry: Planned (D-4, C-100) | §4.1, §6.8 |
-| casts at the call; `keep` | Implemented (`unified` e692e57ab7, W-111), with C-56, L-56 | §6.9 |
+| the kept forms in `Core`: `Dynamic{X}`, `Compiled{T}` | `Core.Dynamic` implemented (`unified` e692e57ab7, W-111), with C-113; `Core.Compiled` Planned (D-1), with C-113; no cast, no `keep`: Planned, with C-112 | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented (`unified` e70675a606, 50da8d8ee2), with C-38, C-39; no method at the set for an operation without a default: Planned (D-4, C-100) | §7.1–§7.3 |
-| `Callable`: dispatch by signature, its call, the result checked on return | Implemented (`unified` 5f0a8ffd50, W-113), with C-61, C-62; the arguments checked against `A` on 1d493ca959 | §7.4 |
+| `Callable`: every function a member, the signature checked at the box and at a wrapper's entry, the result on return | Planned (D-2, W-153), with C-116; built as the earlier rule (`unified` 5f0a8ffd50, W-113) | §7.4 |
 | A closed abstract type with a contract; `IO`'s contract, its candidates, the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0, ef1233e79e, 18bbbf0841) | §7.1, §7.5 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented (`unified` 6f936edf18, 8319275b9e); exact-type entries W-109 | §8.1, §8.2 |
 | further caches at dynamic boundaries | Optional | §8.3 |
 | memberships in images; the record toward a machine-code cache | memberships in images implemented (`unified` 28c401eb0c; one instance per member at activation, 07c0bee2a2); the positive-membership edge read at validation (`unified` 9a601902a0); the record's stable identities: C-52 | §9 |
-| hooks, the module-end hook included; field-offset intrinsics; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714) and in the compile queue (fcdfd0da36; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; field-offset intrinsics Optional (W-110); what a definition ended, by class (`jl_take_deep_endings`): Planned (D-12, C-105) | §10 |
+| hooks, the module-end hook included; the member hook | the member hook implemented at dispatch (`unified` ec4f9a8714) and in the compile queue (fcdfd0da36; C-30, C-31); the definition, image and module-end hooks implemented (`unified` 28c401eb0c); strict mode's deletion hook implemented (`unified` 5f2373b2d5), the binding hook Planned; what a definition ended, by class (`jl_take_deep_endings`): Planned (D-12, C-105) | §10 |
 | changes useful without traits | Implemented (`unified`, the stack's first eleven commits) | §11 |
 
 ---
@@ -1017,8 +957,8 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-37 | — | *Retired* (2026-11-07): the split's last branch calls through the table on `unified` e70675a606 ([§7.3](#73-the-table-of-a-calls-targets)); TraitWorld test `table` | — | — |
 | C-38 | [§7.2](#72-the-split) | A set's candidates are ordered by their declarations' file and line. | By the order in which the memberships are declared or activated: across images, by load order. | `src/datatype.c` (`register_candidate`) |
 | C-39 | [§7.3](#73-the-table-of-a-calls-targets) | For each member declared in a package, its targets and their thunks are compiled into the package's image. | A target is made at its first miss in each session. | `base/splittable.jl` (`_split_table_miss!`) |
-| C-40 | [§6.7](#67-the-definition-time-check) | One inference of the method at the erased signature, under a check flag of the native interpreter, records each use of a trait argument outside the contract; the classification is per argument. | The library infers the method with the compiler's check interpreter (`Compiler.DefinitionCheckInterpreter`: an ephemeral cache, so every function it follows is inferred again, and the library's hook at each known call), a type beside the native interpreter rather than a flag of it, and records each call that takes a value typed by a trait outside the contract: per method, each use against the trait the value is known by. | `Compiler/src/types.jl` (`DefinitionCheckInterpreter`); TraitWorld `src/classify.jl` |
-| C-41 | [§6.7](#67-the-definition-time-check) | The classification is kept with edges to the functions it followed and runs again at a later definition of one; a method that calls a function not yet defined is classified at its module's end or first call; a constructor that sets a bounded parameter is never refused. | It runs when `classify` or `check_definitions` is called, and under `bounded` at the method's definition. A method whose calls reach no method yet, or that names a global of its module not yet defined, waits: a definition of that name classifies it again, and its module's end a last time (TraitWorld c9f701e). It is not kept with edges, so a later definition of a function it followed does not classify it again; no constructor is exempt. | TraitWorld `src/classify.jl` |
+| C-40 | — | *Retired* (2026-11-15): the check reads the instance at the box ([§6.7](#67-the-definition-time-check)); what is built of it, and the check interpreter still in Julia: C-115 | — | — |
+| C-41 | — | *Retired* (2026-11-15): the instance at the box is kept with its edges as code ([§6.7](#67-the-definition-time-check)); what is built: C-115 | — | — |
 | C-42 | — | *Retired* (2026-11-07): code of both policies under Julia's own owner on `unified` 10c7e1c2cf ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy)); gate `f3_policy_code` | — | — |
 | C-43 | — | *Retired* (2026-11-07): lowering carries the policy meta into every method a definition makes, on `unified` cb7f55bd35 ([§2.2](#22-the-method-flag)); gate `f2_policy_flags` | — | — |
 | C-44 | — | *Retired* (2026-11-07): the policy of the code that reaches a method on `unified` c44a447f2c ([§2.3](#23-one-codeinstance-per-methodinstance-and-policy), [§2.4](#24-calls-between-policies)); gate `f6_reach_policy` | — | — |
@@ -1032,14 +972,14 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-52 | [§3.1](#31-the-record), [§9](#9-images-and-the-machine-code-cache) | The record tells result edges from dispatch edges, gives a code edge the digest of its callee's lowered code, records the layouts of the types whose fields the code reads, and names its targets by identities stable across sessions. | An edge to a callee names its CodeInstance, result edge or code edge alike (the list of result edges apart is gone on `next` 9b6dacf5c5); no layout is recorded; targets are objects of the session or its images. In a session a method's identity and the binding edges serve. The rest comes with the machine-code cache (paused). | `Compiler/src/stmtinfo.jl` (`add_edges_impl`), `Compiler/src/typeinfer.jl` |
 | C-53 | — | *Retired* (2026-11-10): a trimmed image marks every module as never compiled by facts, `unified` bb2031f820 ([§2.6](#26---trim); E-361) | — | — |
 | C-54 | — | *Retired* (2026-11-12): [§6.2](#62-compilation-signatures) holds the rule, built. | | |
-| C-55 | [§6.3](#63-the-attribute-at-a-call) | A set's default does not apply to a value whose type Julia's own modules define. | Julia's own modules are `Core` and `Base`: a standard library's type takes the set's default as a package's type would. A module of a script (under `Main`) counts as a package of its own. | `src/gf.c` (`type_is_own`, `module_package`) |
-| C-56 | [§6.9](#69-casts-and-keep) | Where the code is not compiled, `keep(x)` is resolved at the method's default attribute. | It is `x`. | `base/boot.jl` (`Core.keep`) |
+| C-55 | — | *Retired* (2026-11-15): no type is exempt from a trait's default ([traits §7.8](traits.md#78-erasing-by-default-the-forwarder)); what Julia still carries of the attribute: C-112 | — | — |
+| C-56 | — | *Retired* (2026-11-15): there is no `keep` ([§6.9](#69-the-kept-forms-in-core)); what Julia still carries of it: C-112 | — | — |
 | C-57 | — | *Retired* (2026-11-10): a call's dispatch fact at its own signature, for G2 too, on `unified` 0ee9e4f8a6 ([§6.3](#63-the-attribute-at-a-call), [§3.2](#32-g2-as-a-predicate)); gate `n21_callsig_backedge` | — | — |
 | C-58 | — | *Retired*: no call carries a guard ([§5.5](#55-a-membership-invalidates-as-a-method-does)) | — | — |
 | C-59 | — | *Retired*: no call carries a guard ([§5.5](#55-a-membership-invalidates-as-a-method-does)) | — | — |
 | C-60 | — | *Retired* (2026-11-08): a call of a value known as `Callable{A, S}` checks its arguments against `A` where inference cannot prove them, and raises `MethodError` where it proves them outside, on `unified` 1d493ca959 and c248dbfd8c ([§7.4](#74-callables-call)); gate `n14_callable_args`; E-297 | — | — |
-| C-61 | [§7.4](#74-callables-call) | In an instance compiled once for the argument, the call goes through a `:caller_world` pointer to the function's code compiled for `A`. | It is a dynamic call, its result asserted. | `Compiler/src/abstractinterpretation.jl` |
-| C-62 | [§7.4](#74-callables-call), [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | A positive answer at `Callable` folds, with an edge to the member's dispatch at `A`. | Outside dispatch (`isa`, `<:`) it is not folded: there is no entry to rest it on. | `Compiler/src/typeutils.jl` (`record_memberships!`) |
+| C-61 | — | *Retired* (2026-11-15): a box's call dispatches when it runs, as Julia's dynamic call does ([§7.4](#74-callables-call)) | — | — |
+| C-62 | — | *Retired* (2026-11-15): `Callable`'s positives fold through entries as any set's ([§7.4](#74-callables-call)); what is built: C-116 | — | — |
 | C-63 | — | *Retired* (2026-11-09): a match through `Callable` is bounded by the member's methods' worlds at the positions where the signature names it, on `unified` c8ef0e581e, 1daebeab81, 23022b0ec7 ([§7.4](#74-callables-call), [§5.3](#53-match-world-ranges-and-abstract-queries)); gate `n8_callable`; E-324 | — | — |
 | C-64 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
 | C-65 | — | *Retired* (2026-11-15): no code slot in the design ([§3.3](#33-one-compiled-code-per-result)); removed from the build on `next` 9b6dacf5c5 (C-93) | — | — |
@@ -1065,9 +1005,9 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-85 | — | *Retired* (2026-11-10): an abstract member by its definition (`abstract type A <: X end`) has its `@implement`'s entry, so the member hook runs for its subtypes (it runs where an argument's chain carries an entry), TraitWorld e8554d9 ([§10.4](#104-the-member-hook)); TraitWorld test `declared.jl`, gate `stack/recheck_packages.jl` case 7 | — | — |
 | C-86 | [§7.6](#76-a-closed-build) | A family's and an abstract type's members in a closed build are the types the program uses as members. | The build counts the types its optimized code forgets at a place under the set, or at a place a `PiNode` or a `typeassert` narrows from. Not counted: a value whose type no compiled code forgets (made by a foreign call or by reflection, or held in a constant deeper than three levels or past 4,096 elements); a narrowing by a call the build did not inline into a test. Such a value raises `MethodError` at the branch. An operation on a set with no member: C-102. | `closed_note_used!` in `Compiler/src/typeinfer.jl`, `closed_candidates` in `abstractinterpretation.jl`; E-364 |
 | C-87 | [§7.6](#76-a-closed-build) | The split over a set's members costs what a session's does: a branch among a few, a table past them (§7.3). | In a closed build every member is a branch, an `isa` test in the entries' order; a set of more than 64 members is not split. | `MAX_CLOSED_SPLITS`; E-364 |
-| C-88 | [§5.5](#55-a-membership-invalidates-as-a-method-does), [§7.4](#74-callables-call) | A membership invalidates exactly the callers whose selection it changes; code that relied on a `Callable` membership's absence is invalidated by the method that begins it. | (c) Where one signature does not say what the membership adds, the walk invalidates every instance of the replayed method and their callers: the set under a `Vararg`, in several places of a signature, in a variable's lower bound, or in a bound that the signature sets inside a parameter (`Box{<:X}`: `Box{Union{S, T}}` was made before the membership and is under it only now). No method takes this path at the loads of the forks' CSV and DataFrames, where five did (E-390, `unified` 8fccf1e182; gate `n32_nested_set`). (e) is C-104 (a membership adds no type equality, D-11). (d) The runtime still carries what nothing reads for a membership: the bit `closed_after_load` (set for every set the library declares; `Callable` has none), the modules' loaded marks' use by `type_declarers_loaded`, and the switch `jl_set_membership_walk_invalidates` (a control for measurements). The walk's cost at a load is not measured (W-140's rounds). | `Compiler/src/abstractinterpretation.jl` (`record_callable_absences!`), `src/gf.c` (`jl_membership_dispatch_walk`), `src/datatype.c` (`jl_membership_final`) |
+| C-88 | [§5.5](#55-a-membership-invalidates-as-a-method-does) | A membership invalidates exactly the callers whose selection it changes. | (c) Where one signature does not say what the membership adds, the walk invalidates every instance of the replayed method and their callers: the set under a `Vararg`, in several places of a signature, in a variable's lower bound, or in a bound that the signature sets inside a parameter (`Box{<:X}`: `Box{Union{S, T}}` was made before the membership and is under it only now). No method takes this path at the loads of the forks' CSV and DataFrames, where five did (E-390, `unified` 8fccf1e182; gate `n32_nested_set`). (e) is C-104 (a membership adds no type equality, D-11). (d) The runtime still carries what nothing reads for a membership: the bit `closed_after_load` (set for every set the library declares; `Callable` has none), the modules' loaded marks' use by `type_declarers_loaded`, and the switch `jl_set_membership_walk_invalidates` (a control for measurements). The walk's cost at a load is not measured (W-140's rounds). | `src/gf.c` (`jl_membership_dispatch_walk`), `src/datatype.c` (`jl_membership_final`) |
 | C-89 | — | *Retired* (2026-11-12): the membership's method and the edges are [§5.6](#56-the-memberships-method-and-the-edges), with [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) and [§9](#9-images-and-the-machine-code-cache) | — | — |
-| C-90 | [§7.4](#74-callables-call) | A call of a value the code knows as a `Callable{A, S}` checks `A` and asserts `S`, whatever the instance knows of the function. | The check is read into a call of the argument itself. Left as written, and so unchecked where the instance knows the function: a call with a splatted argument; a call of a variable the argument was assigned to, or of a closure's captured copy; an argument the body assigns; `Callable{A}` with `S` left open (its `A` is not checked); code that runs without being compiled ([open issue 182](../open-issues.md#2-design)). | `Compiler/src/utilities.jl` (`callable_argument_calls!`), `base/boot.jl` (`Core._callable_call`) |
+| C-90 | — | *Retired* (2026-11-15): a box checks every call, however it is called; a wrapper is the function ([§7.4](#74-callables-call)); what is built: C-116 | — | — |
 | C-91 | — | *Retired* (2026-11-15): the G2 bit marks the deep class, on `next` 7063158f42 ([§3.2](#32-g2-as-a-predicate), [§9](#9-images-and-the-machine-code-cache)); gate `experiments/unification/w155/gate_deep.jl`; E-417 | — | — |
 | C-92 | — | *Retired* (2026-11-15): the design has no rule of its own for a call that only throws; the question is [open issue 194](../open-issues.md#2-design) | — | — |
 | C-93 | — | *Retired* (2026-11-15): no code slot, on `next` 9b6dacf5c5 ([§3.3](#33-one-compiled-code-per-result)); E-419 | — | — |
@@ -1078,3 +1018,10 @@ The build's heads: [state.md §6.1](../state.md#today); its commits, stage by st
 | C-104 | [§4.5](#45-subtyping), [§4.9](#49-intersections) | Inside an invariant parameter two types are equal by their declared structure: the equality test consults no entry, so `<:`, `isa`, `==`, intersection and dispatch agree in every world, fresh and compiled before. | The walk takes a type's entries at any depth, the equality of an invariant parameter included (`subtype_membership` reached from `forall_exists_equal`), so `Union{X, S}` equals `X` once `S` joins. For a `Vector{Union{X, S}}` made before the membership (E-400): at the concrete `Vector{X}`, `isa`, `==` and dispatch do not take the two types as one, and `<:` between them holds both ways; at `AbstractVector{X}`, `isa` at the top level holds, an `isa` compiled before the membership stays false, and dispatch does not select a method at `AbstractVector{X}` (GT-18). | `src/subtype.c` (`subtype_membership`, `forall_exists_equal`, the invariant-depth count `e->invdepth`; `intersect_invariant` for intersection); gate to write from `experiments/unification/w152/p7b/case.jl` |
 | C-105 | [§10.2](#102-hooks-for-strict-mode) | The runtime keeps, for each definition, membership or image that ends deep-G2 code, what ended which instances, filled only where such code ends; the library takes it with `jl_take_deep_endings()`. | No such list. What a definition ends is recorded only in Julia's invalidation log (`jl_debug_method_invalidation`), which records every invalidation while it is on and which the library turns on only under strict mode; validation's failures at an image's load reach the library only through that log. The deep class itself is D-5's (§3.2). | `src/gf.c` (`_invalidate_backedges`, `jl_method_table_insert`, `jl_debug_method_invalidation`), `src/staticdata_utils.c` (validation at load) |
 | C-106 | [§4.2](#42-memberships), [§4.3](#43-worlds), [§5.5](#55-a-membership-invalidates-as-a-method-does), [§5.6](#56-the-memberships-method-and-the-edges), [§9](#9-images-and-the-machine-code-cache) | `jl_delete_membership(member, set_instance, deleter)` takes a membership back: its entry ends and its method is deleted in one world, the walk replays the set's methods at the member as deleted there, the entry leaves the candidate index, the image's list and the member hook's kept answers. | No interface. An entry ends only at a redeclaration (`jl_declare_membership`) or before it begins (strict mode's check, §4.3). The walk replays methods for an insertion only (`jl_membership_dispatch_walk`). The candidate index has no removal (`register_candidate`), nor the member states (`jl_member_states`), nor the activated list (`jl_activated_memberships`). Deleting the membership's method with `Base.delete_method` would end neither the entry nor the code that dispatched through it. | `src/datatype.c` (`jl_declare_membership`, `register_candidate`, the entry lists), `src/gf.c` (`jl_membership_dispatch_walk`, `jl_member_states`) |
+| C-110 | [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | Code generation decides a positive answer at a member by an entry, as inference folded it with the edge: at `isa`, `<:` of constant types, a `typeassert` and the field test of `new`. So a forwarder's box tests nothing when it runs. | Code generation keeps the run-time test wherever the subtype answer goes through an entry: `emit_isa` takes an answer as known only where `jl_subtype_via_membership` is false, and `emit_new_struct` tests each field through it (`emit_typecheck(…, "new")`); `<:` of constant types and `update_julia_type` keep the generic call likewise. Inference takes `new`'s field test as passed through an entry (`⊑` in `abstract_eval_new`) without recording the membership's edge. So `new` of a box at a member by an entry runs a membership query when it runs: E-407, 105 ns by `:new` against 9.5 ns for a member by its definition and 7.3 ns on the baseline's attribute path. | `src/cgutils.cpp` (`emit_isa`, `emit_new_struct`), `src/codegen.cpp` (`emit_builtin_call`'s `<:`, `update_julia_type`), `src/subtype.c` (`jl_subtype_via_membership`), `Compiler/src/abstractinterpretation.jl` (`abstract_eval_new`), `Compiler/src/typeutils.jl` (`record_memberships!`); W-160 (a) |
+| C-111 | [§6.3](#63-the-forwarders), [§4.1](#41-sets) | Where a method at a set that erases by default is defined, the runtime enters the method at the kept forms and its forwarders, from the evaluated signature; the contract carries the erasing bit the definition reads. | No such step: `jl_method_def` enters the method as written. The set's `TypeName` carries the attribute's `default_attribute` (1 `Compiled`, 2 `Dynamic`, 3 with Julia's own types; `jl_set_default_attribute`), read at a call (C-112), not at a definition. The library's macro `@erasing` stands in ([traits T-125](traits.md#19-deviations)). | `src/method.c` (`jl_method_def`), `src/datatype.c` (`default_attribute`, `jl_set_default_attribute`, `jl_get_default_attribute`); W-160 (b) |
+| C-112 | [§2.1](#21-the-module-option), [§6.2](#62-how-an-argument-is-compiled), [§6.9](#69-the-kept-forms-in-core), [§7.6](#76-a-closed-build) | No attribute is resolved at a call: an argument is compiled as Julia compiles it; there is no cast, no `keep`, no `Core.attributed_call`; the module options are `facts`, `bounded`, `no_pirates`. | The attribute's machinery is built. A call's trait arguments carry attribute bits (`Compiler/src/stmtinfo.jl`), resolved at the method by five steps (`src/gf.c`: `effective_nospecialize`, `set_default_attribute`, `type_is_own`, `module_package`, `jl_attribute_sig`, `jl_attribute_dynamic_bits`, `jl_attributed_mi`). Casts lower to `Core.attributed_call` (`src/julia-syntax.scm`, `lower-cast-call`; `src/builtins.c`, `jl_f_attributed_call`, `attributed_call_reach`, its cache and table of latest calls), which inference (`abstract_attributed_call`, `attributed_matches`) and the inliner (`handle_attributed_call!`) resolve. `Core.compiled_for`, `Core.with_dynamic`, `Core._cast_compiled` and `Core.keep` are in `base/boot.jl`. The module options `dynamic` and `first_seen` are bits 4 and 8 of a module's flags (`src/module.c`; `base/experimental.jl`). So `@nospecialize` at a trait argument takes the attribute's run-time path (E-402: 829 ns a call), and a method at `Callable` takes `Dynamic` without a forwarder. A standard library's type is not Julia's own there (the subject of C-55). | the files named; removed in stage 4 of [the plan](../plans/2026-11-15-next-iteration.md) (W-156) |
+| C-113 | [§6.9](#69-the-kept-forms-in-core), [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | `Core` defines the box `Dynamic{X}` and the wrapper `Compiled{T}`; a box of `X` is itself, a box of a subset or a wrapper gives its object boxed; the box's membership test is `new`'s field test. | `Core` defines `Dynamic` only. Its constructor tests the membership when it runs (`x isa X` in Julia code) and boxes a box anew, holding its object. The library adds the methods that make a box of the same trait itself and box a subtrait's box or a wrapper's object without the test (`(::Type{Dynamic{X}})(d::Dynamic{X})`, `_new_box` by `jl_new_struct`). The wrapper is the library's `TraitWorld.Compiled` ([traits T-126](traits.md#19-deviations)). | `base/boot.jl` (`Core.Dynamic`); TraitWorld `src/compiled.jl`, `src/erasing.jl` |
+| C-114 | [§7.6](#76-a-closed-build) | In a closed build a call whose method's static parameter a value known only by its trait binds (the wrapper's constructor) branches over the members; nothing else of the attribute applies. | The branches are made for a cast's `Core.attributed_call` (`unified` 5d8da002fa: `abstract_attributed_call` under `closed_build`), not for such a call. The closed build still turns steps 4 and 5 of the attribute to `Compiled` at a known type (`unified` 21c9b33e39), takes a call left to dispatch on a trait argument as `Dynamic` (ddc328b343), and the verifier refuses an attributed call (`verifytrim.jl`). | `Compiler/src/abstractinterpretation.jl` (`abstract_attributed_call`, `attributed_matches` with `closed_build`), `Compiler/src/verifytrim.jl`, `src/gf.c` (`effective_nospecialize`) |
+| C-115 | [§6.7](#67-the-definition-time-check) | The check reads the method's instance at the box, the instance a box's call runs: inferred by the native interpreter, cached with its edges, kept by an image; nothing else infers for the check. | The library infers the instance apart at each check (`check_at_box`: `Base.code_typed_by_type` with a `NativeInterpreter(world; facts = true)` of its own, at `box_signature`'s stand-in types where a variable is free). Where such an instance enters an image it is dropped at the load (E-404: 92 log entries at the ODE port's load, no plain instance ended). A later definition of a function it called does not check the method again; only a name not yet defined and the module's end do (`_check_pending_bounded`, `_end_pending_bounded`). Beside it the classification is still built: `Compiler.DefinitionCheckInterpreter` (an ephemeral cache, the library's hook at each known call) and the library's `classify`. | TraitWorld `src/atbox.jl` (`check_at_box`, `box_signature`, `_stand_in`), `src/classify.jl` (`classify`, `check_definitions`, `_decide_bounded`, the pending lists); `julia-unified` `Compiler/src/types.jl` (`DefinitionCheckInterpreter`); W-160 (c) |
+| C-116 | [§7.4](#74-callables-call), [§4.3](#43-worlds), [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries), [§5.4](#54-the-ambiguity-report-at-a-membership) | `Callable`'s members are entries: `Function` in every instance by Core's, a callable type by its declaration; subtyping reads no method; the box tests `hasmethod` at `A`; the method as written tests a wrapper at its entry. | Subtyping reads a concrete callable type's methods as its memberships (`subtype.c`: `callable_methods`, `subtype_callable_method`, a fixed point over the questions asked within a query, `callable_asked`), and a match carries their worlds; there is no entry for `Function`, and `@implement Callable T` is not offered. A call that matches no method at `Callable` records an absence edge to the function's dispatch at `A` (`record_callable_absences!`). Negatives at `Callable` do not fold. A call of an argument declared `Callable{A, S}` is rewritten into `Core._callable_call(A, S, f, args…)` (`callable_argument_calls!`), which checks only the calls written of the argument's name ([open issue 182](../open-issues.md#closed-items)). No method definition puts a test at a wrapper's entry: a wrapper of a function with no method at `A` is no member, and reaches the forwarder, whose box refuses it (W-151). | `src/subtype.c` (`callable_methods`, `subtype_callable_method`, the `jl_callable_type` branches), `Compiler/src/abstractinterpretation.jl` (`record_callable_absences!`), `Compiler/src/utilities.jl` (`callable_argument_calls!`), `base/boot.jl` (`Core._callable_call`); TraitWorld `src/callable.jl`; W-153 |
