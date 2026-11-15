@@ -264,6 +264,11 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 - **W-154, continued:** the references for D-1, D-2, D-3 and D-14.
 - **W-160, the compiler for one way to erase,** in `julia-next` after W-155's agent, with the library: a positive membership decided at `new`'s field test and at `isa` with an edge (GT-19's fix); the forwarders made where a method is defined, in place of the prototype's macro; the check's instance at the box kept with its edges (D-3); and, on the way, the principled ways of making the design fast that it finds (`CLAUDE.md`).
 
+**The third wave** (2026-11-15). W-155's agent is done: D-5 and D-7 built on `next` (9b6dacf5c5), the library's part merged (TraitWorld `unified` bb4ad00); D-6 not built (open issue 194, GT-21). Two builders side by side, each with a Julia tree and a library tree of its own:
+- **W-160** in `julia-next` (branch `next`) with `TraitWorld-unified`, `TraitDifferentialEquations-unified` and NetworkDynamics.
+- **W-155, continued: D-9, D-11, D-12, D-13** in `julia-s3` (branch `next-s3`, from `next`) with `TraitWorld-s3` (branch `s3`, from `unified`). Open issue 195 (a) if it is little code.
+- **Then,** in `julia-next` after both are merged: D-4 and D-2 (they change `@trait` and the box, which W-160 changes), and stage 4.
+
 **IDs are given out in ranges,** so that agents side by side take none twice. A range's unused numbers stay unused.
 
 | Agent | Experiments | Open issues | Deviations | Tensions |
@@ -273,5 +278,6 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 | W-154 (references) | E-431 to E-435 | 199 to 203 | T-120 to T-129, C-100 to C-109, F-30 to F-34, L-63 to L-66 | GT-23, GT-24 |
 | W-154, continued (D-1, D-2, D-3, D-14) | E-432 to E-435 | 199 to 203 | T-125 to T-145, C-110 to C-119, F-30 to F-34, L-65 to L-75 | GT-24 |
 | W-160 (the compiler for D-1) | E-436 to E-455 | 204 to 210 | C-120 to C-129, T-146 to T-149, L-76 to L-79 | GT-25, GT-26 |
+| W-155, continued (D-9, D-11, D-12, D-13) | E-456 to E-475 | 211 to 217 | C-130 to C-139, T-150 to T-155, F-35 to F-39, L-80 to L-83 | GT-27, GT-28 |
 
 **The machine.** Three agents at 4 cores each is within the rule for sustained use (16 cores in all). A build of `julia-next` goes through `tools-local/build.sh`, which keeps the rule for a spike. Above half load: one Julia job at a time, and the main session stops agents down to one.
