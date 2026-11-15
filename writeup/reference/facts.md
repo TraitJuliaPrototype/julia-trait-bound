@@ -338,7 +338,7 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39. The declared result read from the contract, with no method at the set for an operation without a default: Planned (D-4), with [compiler C-100](compiler.md#deviations).
+**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39. The declared result read from the contract, with no method at the set for an operation without a default: Implemented (D-4; julia `next` 5448a8b7bf with TraitWorld `unified` c838f76 (W-161, E-498)).
 
 ---
 
@@ -491,7 +491,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
 | `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
 | no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
-| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set: Planned (D-4, compiler C-100) | §9 |
+| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set for an operation without a default: Implemented (D-4; `next` 5448a8b7bf) | §9 |
 | a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: `next-s3` 213c759370 (D-13, E-459) | §10 |
 | pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: TraitWorld `s3` 2770c10, `next-s3` 5d2ec7ff85 (D-12, E-457) | §11 |
 | package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
