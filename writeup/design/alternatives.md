@@ -582,6 +582,12 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
 - **The same with the result `Any`.** Not taken: the code after the call becomes reachable, and a value merged with it loses its type: `x < 0 ? throw_inexacterror(…) : reinterpret(UInt, x)` is `Any`.
 - **The same in code of either policy:** open, [open issue 194](../open-issues.md#2-design) (b), GT-21.
 
+**Base's surface by the census** (the plan's D-8, stage 5; W-157, E-476 to E-480)
+- **The boundary flag on Base's methods above a culprit** ([compiler §2.2](../reference/compiler.md#22-the-method-flag)). Not taken: a boundary gives code compiled by facts a facts copy of that one method; its callees keep their plain code, so a culprit further down keeps the copy out of the class. Only a fix at the culprit, or the demand rule, which copies down the chain, moves it.
+- **The throwing helpers left untyped, with a call that only throws taken as a run-time site** (above). Replaced by patches to the helpers, which keep plain code's results and moved the share further (E-478).
+- **`Base.inferencebarrier` in an error path** (no edge at all to the exception's constructor). Not taken: the call is then dynamic in plain code, which a closed build refuses; specializing the helper keeps it static and a fact.
+- **Ownership by declaration of Base's functions that no package extends** ([facts §3](../reference/facts.md#3-fact-signatures)). Not taken in stage 5: it changes who is a pirate for Base's functions, against D-9's default, and buys under a point alone (E-476, E-478's what-if); a proposal of [open issue 218](../open-issues.md#2-design).
+
 **The code slot** (W-101, built 2026-11-07; [the section above](#w-101-the-code-slot-options-not-taken))
 - **What it was:** a static call that held only a result edge to its callee loaded its target through a slot of its own, checked against the task's world. When the callee was invalidated through its own edges, such a caller was marked, not invalidated, and revalidated at its next lookup where the callee's new result was equal. The compiler listed the result edges apart (`ResultEdges`); `JULIA_CODE_SLOT=0` turned it off.
 - **Why it was built:** E-261 estimated that it would keep a quarter of what loads invalidate, and 56–91 % of the facts callers of invalidated plain code; E-265 put the forks' session after its loads at 0.2–0.3 s with it against 0.7–1.0 s without, on the earlier build.
