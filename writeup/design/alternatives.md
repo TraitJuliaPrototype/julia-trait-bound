@@ -43,6 +43,7 @@ Dates and sessions are given briefly ("s23" is session 23). The register's super
 - A membership that adds a type equality, replaced (2026-11-15)
 - A pirate silent unless strict mode is on, replaced (2026-11-15)
 - Memberships only grow, replaced (2026-11-15)
+- One way to erase: the attribute, replaced (2026-11-15)
 
 ---
 
@@ -634,3 +635,27 @@ The plan's D-5, D-6 and D-7 ([the plan](../plans/2026-11-15-next-iteration.md) �
   - *Refused while compiled code relies on it,* outside strict mode: Revise's case is exactly code that relied on the membership; a method's deletion is followed, so the membership's is.
   - *Values stored before converted or checked again* (an item of a `Vector{Shape}` whose type left `Shape`): Julia checks no stored value against a later change; each call on it dispatches by its type, so G1 holds.
   - *Re-declaration at an empty contract* as the way to withdraw: a membership with no operations is still a membership, and the subtype answer stays.
+
+## One way to erase: the attribute, replaced (2026-11-15)
+
+- **What it was:** each trait argument had an **attribute** at each call, `Compiled` or `Dynamic`, carried in no type. Five steps decided it, strongest first: a cast written at the call (`compiled_for(x)`, `with_dynamic(x)`, lowered to `Core.attributed_call`), what the value carried, the library's default (`@nospecialize` at the argument, the module's `dynamic`), the trait's default (`@default_dynamic`, `@default_compiled`, with an exception for Julia's own types), and the scope's fallback (`first_seen` in a trait module, `Compiled` elsewhere). `keep(x)` stored an argument with its attribute, `Kept{X}` held a member with an attribute in one type, `kept_call` called under it. Three reports listed what went wrong: `detect_unused_casts`, `detect_kept_storage`, `detect_dynamic_fallbacks`. A closed build turned the defaults to `Compiled` where a call knew the type.
+- **Why replaced** (the plan's D-1; the user, 2026-11-15: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast."; P1 of [the review](../reviews/2026-11-15-conceptual-design.md), its §3.2 and its addendum):
+  - **The attribute was in no type, so it was lost wherever only types travel:** an untyped parameter (open issue 162, GT-4: NetworkDynamics' steady state 436–475 ms against 228–257 ms, E-310, E-314), a record made before the signature is known (159), a library's own type around a user's function (161), a closure or a higher-order function (165), storage (`Kept{X}`, open issue 175), a build (E-387: one rule for a session, another for a build; 184 (e), 185).
+  - **It differed in meaning, not only in speed:** through a box a call that passed the argument on dispatched on the box, through the attribute on the object; `sum(keep(t))` raised under one and gave a result under the other (165).
+  - **The ports' casts in library code asked for Julia's own function barrier** on a value read from storage or returned by an operation (TraitTables `src/TableCore.jl` 75, 90, 188; TraitCSV `src/CSVCore.jl` 123); the ports erased by the box 94 times against 12 casts (the synthesis §3.2).
+  - **A typed caller reached code compiled once** where the trait's default was `Dynamic` (GT-6: 8.3 ns against 2.38 ns with `compiled_for`, E-374).
+  - G-8: five steps, of which the ports used three.
+- **What replaced it:** two kept forms, the box `Dynamic{X}` and the wrapper `compiled_for(x)` returns, both members; the value's type decides; a trait that erases by default boxes a plain member by a forwarder Julia makes where the method is defined; storage keeps the form given ([traits §7.4 to §7.8](../reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper), [§8](../reference/traits.md#8-storage); [compiler §6.3](../reference/compiler.md#63-the-forwarders)).
+- **Measured on the prototype in the library** (W-151, E-401 to E-407; [evidence §1](evidence.md#one-way-to-erase-the-prototype-in-the-library-w-151-e-401-to-e-407)): parity where types are known; NetworkDynamics' workload not worse; a late load ends nothing more; the choosing annotations fall 7 to 1 (TraitDifferentialEquations) and 3 to 1 (NetworkDynamics). Lost: a plain member boxed at each call, 25.4 ns against 7.3 ns (GT-19), until the compiler decides the box's membership when it compiles (E-407: 9.5 ns where it does).
+- **What it costs:** a kept form is not the object (`typeof`, `===`, `isa`); a box is a restricted view, a member of its trait and supertraits only; a wrapper can meet an ambiguity a box hides; erased code stays at the trait it was erased at. [Traits §7.4](../reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper) states each.
+- **Not taken:**
+  - *P1 as the review first wrote it* (the box at a library's door, the caller's override out of the language): a caller who wants code per type would need the library's own switch, which the user ruled out on 2026-10-21 ("The type ODEProblem has to store the function and if compiled_for(f) is lost on storage this forces us back into the library provided switch").
+  - *P1′, one default and one cast* (a method's `@nospecialize` erases at its entry, `compiled_for(x)` at a call skips it): still a bit beside the call, lost through an untyped parameter.
+  - *The wrapper's narrow reach* (the wrapper sees what the box sees): the user chose the wide reach (2026-11-15: "If a subtrait provides a higher performance specialisation we don't want to miss that."), which is also one wrapper type made in plain code.
+  - *`Kept{X}` kept as an inline form of `Vector{X}`* (mine, 2026-11-15): with the choice in each element's type, a container typed by the trait holds what `Kept{X}` held; an element of `Vector{Kept{X}}` was a pointer and a flag, of `Vector{X}` a pointer; and `Kept{X}` was no member, so code had to call through `kept_call`.
+  - *The attribute's path kept for a plain member at a call* (GT-19's proposal (c)): a bit beside the call again, for one row of the gate that the compiler recovers.
+  - *`@default_dynamic` as a hook on every method definition, in the library* (the prototype's note): the definition hook cannot narrow a method, and a method cannot be redefined while an image is built. Julia's method definition makes the forwarder instead ([compiler §6.3](../reference/compiler.md#63-the-forwarders)).
+  - *A forwarder compiled per member type with a fast path in the library for a member by its definition* (`:new` where the declared supertype chain holds the trait, E-407): it serves one form of membership, where the compiler's decision serves all.
+  - *`with_dynamic(x)` kept as a function:* a box needs the trait, which a value-level function cannot know; `Dynamic{X}(x)` is written where it is known.
+
+**Terms retired:** *attribute* (of an argument at a call), *cast*, `keep`, `Kept{X}`, `kept_call`, *fallback by scope*, `first_seen`, the module option `dynamic`, `@default_compiled`.

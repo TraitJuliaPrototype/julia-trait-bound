@@ -36,7 +36,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 | Generic code checked | at instantiation only | at definition, against bounds | at definition | before instantiation | at definition, at archetypes; open parameters per signature |
 | Code generated | per type (templates) | per type (monomorphization) | once, dictionary passing; specialization an optimization | per type, whole program | per key: what a bound can see; per type only for a type that supplies its own behaviour |
 | Implementation through a field | — | by hand, or `Deref` | by hand | — | forwarding (`by field`), compiled per the field's type |
-| Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | `Dynamic{X}`, a `Dynamic` position; `Callable` by default; the caller converts with `compiled_for`, `with_dynamic` |
+| Dynamic position | virtual functions, type erasure | `dyn Trait`, chosen by the callee | `any P`, existentials | none (roadmap) | the box `Dynamic{X}`, a member of the trait; a trait's methods box a plain member where the trait erases by default, `Callable` among them; the caller passes the wrapper `compiled_for(x)` for code per type |
 | Storable dynamic value | yes | `Box<dyn Trait>` | `any P` | `Variant`, `PythonObject` | `Dynamic{X}` |
 | How a dynamic call finds the method | a vtable | a vtable, carried with the pointer | a witness table, carried in the existential | witness tables at compile time only | a call-site split over the first four declared implementations, then a table keyed by the type in the object's header |
 | Heterogeneous collection | a vector of pointers to a base class, or of `std::variant` *(from memory)* | `Vec<Box<dyn Trait>>`; lazily `impl Iterator<Item = &dyn Trait>` | `[any P]`; lazily `some Sequence<any P>` | `Variant`, `PythonObject` | a copy into `Vector{Dynamic{X}}` today; collection traits with a view planned |
@@ -59,7 +59,7 @@ Where this chapter and the [references](../reference/README.md) disagree, the re
 **Why ours differs.** Julia types already serve both roles. An abstract type in an argument is specialized, in a field it is boxed, and Julia's performance tips teach both. A trait that reads like an abstract type by position follows a convention Julia users know.
 - **The cost the position hides is smaller than Swift's.** A `Dynamic` operation has a declared result type and splits over the declared implementations (section 6), not an open `Any`.
 - **Fully typed mode reports it** in a hot loop ([traits §11](../../attic/writeup/reference/traits.md#11-concreteness-and-fully-typed-mode)).
-- **Inside trait modules only.** A trait's name in a field means `Kept{X}` there, a value that keeps its attribute; the explicit spellings `Dynamic{X}`, `Compiled{X}`, `Kept{X}` always work. Membership as subtyping waits for traits in the type system (Julia piece 7).
+- **The cost is spelled where it is chosen.** A field typed by the trait holds each member by its own type; the box `Dynamic{X}` is written where code wants it erased, and a trait that erases by default says so in its declaration ([traits §7](../reference/traits.md#7-compiling-the-box-and-the-wrapper)).
 
 **What traits add over abstract types** is in the declaration, not the use:
 - a type joins a trait after it is defined, and joins several (Julia fixes a type's supertypes at its definition);
@@ -218,10 +218,10 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 
 ## 6. Static and dynamic positions, and their defaults
 
-**The choice** ([traits §6](../../attic/writeup/reference/traits.md#6-values-in-trait-code-compiled-and-dynamic)).
-- **Every value in trait code is `Compiled` or `Dynamic`,** set where it is first seen through a trait: `Compiled` if the code knows its concrete type, `Dynamic` if not. As in Rust and Swift, the type the code knows decides: a concrete value runs code compiled per key, a value of abstract type runs code compiled once.
-- **Overrides:** a trait may declare its default, `@default_with_dynamic_self` or `@default_compiled_for_self`; `Callable`'s default is `Dynamic`, so functions from plain code are dynamic calls by default ([traits §5.8](../../attic/writeup/reference/traits.md#58-callable-functions-at-a-declared-signature)). A library sets an attribute per position, `x::Compiled{X}`, `x::Dynamic{X}`, also on a collection's items: a default for values first seen there. The caller casts per value, with `compiled_for(x)` or `with_dynamic(x)`, which always wins.
-- **Values carry through storage.** A value stored in a field or container keeps its attribute (`Kept{X}`), and a struct parameter bounded by a trait keeps the value itself under `Compiled`. Rust and Swift store a value at an abstract type only behind a table (`Box<dyn P>`, `any P`), since they compile ahead; Julia compiles per type when the code runs, so a stored `Compiled` value selects its key's code once per call, a function barrier.
+**The choice** ([traits §7.4 to §7.8](../reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)).
+- **A member is passed as itself or in one of two kept forms,** both concrete types and members of the trait: the box `Dynamic{X}(x)`, whose code is compiled once per trait instance, and the wrapper `compiled_for(x)`, whose code is compiled for the object's type. As in Rust and Swift, the type decides: the choice is in the value's type, and travels with it.
+- **A trait may erase by default** (`@default_dynamic`): a method at it takes a plain member boxed, by a forwarder Julia makes where the method is defined, and a kept form as it is. `Callable` erases by default, so a function from plain code is boxed. The caller who wants code per type passes the wrapper.
+- **Storage keeps the form given.** A field or container typed by the trait holds each form by its own type; one typed `Dynamic{X}` boxes what is stored; a struct parameter bounded by the trait records the form in the struct's type. Rust and Swift store a value at an abstract type only behind a table (`Box<dyn P>`, `any P`); here the box is that table's place, and the wrapper the generic's.
 
 **Defaults in other languages** (`other-languages-research-2026-10-16.md` §7):
 
@@ -232,17 +232,17 @@ The design does not restrict calls from trait code at all: the facts rule keeps 
 | Swift | compiled once, witness tables; specialization an optimization | indirect unless inlined | `@inlinable`, cross-module optimization, `@specialized` |
 | Mojo | compiled per type | compiled per closure type | none inside Mojo |
 | Julia today | compiled per concrete type | compiled per function type if called in the body | `@nospecialize`, `Any` fields, FunctionWrappers |
-| Ours | per key where the type is known, once where it is not | dynamic by default; the caller converts | `Dynamic{X}`, `Dynamic` positions, `with_dynamic` |
+| Ours | per type; once per trait instance for a box | boxed by default (`Callable` erases); the caller passes the wrapper | the box `Dynamic{X}`, a trait that erases by default |
 
 **Why.**
-- **The known type decides, as in Rust and Swift.** Julia compiles every call for the argument's type at run time, a function barrier at every call; here that is asked for, with `compiled_for`, where it pays.
-- **Functions dynamic by default.** That is what Swift chose by design and Rust's practitioners recommend by experience ("prefer `&dyn Fn()` over `impl Fn()`", [matklad](https://matklad.github.io/2021/09/04/fast-rust-builds.html)): compiling per closure costs much and rarely pays. Unlike Rust, the caller can override, so the choice does not leak into the library's API.
-- **But both attributes stay.** An ODE right-hand side needs a compiled call with a declared, checked signature, which Julia's type system cannot express otherwise.
+- **The type decides, as in Rust and Swift.** Julia compiles every call for the argument's type at run time, a function barrier at every call; here the box and the wrapper are types too, so the choice is a value's, kept by storage and passed by any parameter.
+- **Functions boxed by default.** That is what Swift chose by design and Rust's practitioners recommend by experience ("prefer `&dyn Fn()` over `impl Fn()`", [matklad](https://matklad.github.io/2021/09/04/fast-rust-builds.html)): compiling per closure costs much and rarely pays. Unlike Rust, the caller can pass the wrapper, so the choice does not leak into the library's API.
+- **But both forms stay.** An ODE right-hand side needs a compiled call with a declared, checked signature, which Julia's type system cannot express otherwise.
 - **Data static per key.** Operations are direct calls, with no dictionary at run time.
 - **Dynamic data is explicit.** It follows Swift's lesson to spell the slow path where it is used, and to decide it before the ecosystem grows.
 
 **How `Dynamic{X}` dispatches: a call-site split, then a table.**
-- An operation on a `Dynamic` value is split at the call site over the implementations registered for the trait, the first four, with direct calls (`Compiler.split_call`, part D; [traits §7](../../attic/writeup/reference/traits.md#7-kept-values-dynamicx-compiledx-keptx), [compiler §4.2](../../attic/writeup/reference/compiler.md#42-compilersplit_call-the-call-site-split)). This is Julia's union splitting applied to a trait's implementations.
+- An operation on a `Dynamic` value is split at the call site over the implementations registered for the trait, the first four, with direct calls (`Compiler.split_call`; [traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait), [compiler §7.2](../reference/compiler.md#72-the-split)). This is Julia's union splitting applied to a trait's implementations.
 - Any other implementation is called through a table of the call's targets keyed by the value's type ([compiler §4.3](../../attic/writeup/reference/compiler.md#43-what-follows-the-split-the-table-of-a-calls-targets)). Rust's `dyn` and Swift's `any` carry their table with the value; ours is reached through the type in the object's header, as C++'s and the JVM's vtables are.
 - Both dispatch in the caller's world, as every Julia call does: the table's pointers run there. Candidates are registered without an edge, so a new implementation reaches the table and invalidates nothing.
 - Measured ([`evidence.md`](evidence.md) §2, the build of 2026-10-19): a sum over `Dynamic{Shape}` costs 0.92–1.40 ns per element against plain Julia's 0.87–0.91 with two types and 29.5–33 with four.

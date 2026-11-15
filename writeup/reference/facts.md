@@ -95,7 +95,7 @@
 - "The same world" is the caller's world. A task in an older world sees that world's methods and memberships.
 - "Or raises": code compiled by facts raises where plain code does not only where a value lacks a declared result type: an operation's on a value typed by its trait (§9), a `Callable`'s ([traits §9](traits.md#9-functions-callable)). Such an operation's result is asserted, never converted ([traits §7.9](traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)): no path returns a value plain code would not. A closed type with a contract promises no result, so its operations raise nothing new (§13.1).
 - A method that strict mode refuses does not exist for plain code either.
-- The attribute of a trait argument ([traits §7.4](traits.md#74-the-attribute-compiled-and-dynamic)) changes speed, never a result: both attributes run the same methods.
+- The kept form of a trait argument ([traits §7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)) changes speed, never a result, but where code asks a kept form what only the object can answer.
 
 **Why it holds.** Every valid CodeInstance has all its facts true in the current method table:
 - compilation records only true facts;
