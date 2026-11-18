@@ -222,6 +222,7 @@ A member is passed as itself, in a box or in a wrapper. The choice is in the val
   _kept_model(::Type{VertexModel}, x::VertexDynamics) = x   # …/NetworkDynamics-unified/src/network_structure.jl:229
   ```
   The network's type then names none of the user's functions, and new equations compile no code over the network.
+- **A loop over values known only by their trait that wants each member's own code hands the value over as `compiled_for(x)`:** a kernel over a column's cells, `summarize(compiled_for(c), name)`. A plain call there is compiled per type in a session only, and once at the trait in a trimmed build.
 - **Open the hot loop with the wrapper.** `compiled_for` of a box is the wrapper of its object, so the kernel is compiled per model:
 
   ```julia

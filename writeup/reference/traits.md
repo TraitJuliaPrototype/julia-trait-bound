@@ -696,7 +696,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 - **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapter that hands its argument to plain code is written so.
 - With keys, an optional extension (§7.2), a bounded method would share its code per key.
 
-**Status:** Implemented, but for [compiler C-115](compiler.md#deviations) and T-130.
+**Status:** Implemented, but for [compiler C-115](compiler.md#deviations).
 
 ### 7.4 The two kept forms: the box and the wrapper
 <a id="74-the-attribute-compiled-and-dynamic"></a>
@@ -729,7 +729,7 @@ A member of a trait `X` is passed as itself, or in one of two **kept forms**. Ea
 
 Rust's pair is the same: `dyn X`, and a generic `T: X`. Here both are members of `X`, so one method at `X` takes either.
 
-**Status:** Implemented, but for T-130.
+**Status:** Implemented.
 
 ### 7.5 What decides
 
@@ -1334,8 +1334,8 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | `like`, `withfields`: the library's conveniences | Implemented | §6.5 |
 | keywords, defaults, varargs at traits | Implemented | §6.6 |
 | keys and shared code: an optional extension | Optional ([open issue 147](../open-issues.md)) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
-| bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 and T-130 | §7.3, §11.2 |
-| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-130 | §7.4–§7.6 |
+| bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 | §7.3, §11.2 |
+| the two kept forms, the box and the wrapper; the value's type decides | Implemented | §7.4–§7.6 |
 | `Dynamic{X}`, the box | Implemented | §7.7 |
 | erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented | §7.9 |
@@ -1374,7 +1374,6 @@ The rows below are where the implementation falls short of this page; the heads 
 | T-122 | [§14](#14-concreteness-and-fully-typed-mode) | `fully_typed`'s report lists apart the calls a build resolves and a session leaves to run time; `isfullytyped(report; session = true)` answers for a session. | The report lists the calls the build's check refuses (`Compiler.closed_check`) and the walk's root causes; a call a build resolves and a session dispatches is in neither list, and nothing answers whether code is fully typed in a session. | TraitWorld `src/fullytyped.jl` (`fully_typed`, `isfullytyped`, the report's type) |
 | T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
 | T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen. Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; [GT-2](../goals.md#3-tensions-between-the-goals)). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
-| T-130 | [§7.3](#73-bounded-methods), [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) | A function of `Self` that an equation names answers through a kept form as for its object: `eltype(d)` of a box of `Iterable{Float64}` is `Float64`. | No such method at the kept forms: `eltype` of a box is Base's fallback, `Any`, so a method that computes with `eltype(t)` gives another type at the box than at the member, and a call made with it (`zero(eltype(t))`) can find no method there. TraitTables' `take` and `sortby` of a boxed or wrapped column return a `Vector{Any}` column (`experiments/implementation/w156/probes/kept_tables.jl`). | TraitWorld `src/trait.jl` (no methods of the equations' functions at `Dynamic{<:X}`, `Compiled{<:X}`), `src/dynamic.jl`; [lowering L-67](lowering.md#15-deviations) |
 | T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types. The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
 
-**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128.
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128, T-130.

@@ -53,7 +53,11 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 - **No method for an operation without a default.** It is an entry of the contract (below) and nothing else: each member serves it by a method of its own type (§3, steps 2 and 6).
 - **`Dynamic{X}`'s forwarding methods:** for each operation without a default and each arity, a method at `Dynamic{<:X}` that calls the operation on its object, `getfield(d, :object)`, a value typed by the set: an operation's call ([compiler §7.1](compiler.md#71-the-rule)). A further argument keeps its declared type where that type names none of the trait's parameters, `Self` or the operation's own variables (`io::IO`, `i::Int`), so that the method is more specific than one of the function that types those arguments and takes any receiver (Base's `show(io::IO, x)`). The others are untyped, but where two declarations of the operation at one arity differ in them. An operation with a default reaches `Dynamic{X}` through the default's method, which forwards.
 - **The wrapper's forwarding methods:** the same at `Compiled{<:X}`, on `getfield(w, :object)`, whose type is the object's: a static call of the object's own method.
-- **The kept forms' methods of each equation's function:** for an equation `P = f(Self)`, a method of `f` at the types of `Dynamic{<:X{P…}}` and of `Compiled{<:X{P…}}` that returns the parameter's value ([traits §7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)): `eltype` of a box of `Iterable{Float64}` is `Float64`.
+- **The kept forms' methods of each equation's function:** for an equation `P = f(Self)`, one method of `f` at each kept form's type, made by the first trait whose equation names `f` ([traits §7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)): `eltype` of a box of `Iterable{Float64}` is `Float64`.
+  - At the box's type, `f(::Type{Dynamic{Z}})` is the parameter's value at `Z`. Each trait answers at its own instance, then its supertraits answer; an intersection asks its components in order. Every step is a call at constant types, so the value is known where the code is compiled.
+  - At the wrapper's type, `f(::Type{Compiled{W}})` is `f(W)`, the object's own answer.
+  - Where `f` has no method at `Any` (`keytype`, `valtype`), the same at the values: `f(d::Dynamic)`, `f(w::Compiled)`.
+  - One method per function, not one per trait: methods at `Dynamic{<:X{P…}}` for each trait would be ambiguous at an intersection's box and at the wrapper of a member of two traits whose equations name `f`.
 - The kept forms' methods are marked `Expr(:meta, :no_forwarder)` too.
 - **The contract** on `X`'s `TypeName` ([compiler §4.1](compiler.md#41-sets)):
   - the operations, each an entry: the function, the declared signature and the declared result as types, and the default's method where it has one ([compiler §4.1](compiler.md#41-sets));
@@ -71,7 +75,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet, and at `Dynamic{<:X}` and `Compiled{<:X}`, of which no value exists yet.
 
-**Status:** Implemented, but for L-67.
+**Status:** Implemented.
 
 ---
 
@@ -314,6 +318,5 @@ The rows below are where the implementation falls short of this page; the heads 
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |
 | L-64 | [§3](#3-implement) | The library's extension for Revise lists the memberships an expression declared and takes back, with `delete_membership`, those a revised file no longer has. | No extension for Revise: Revise re-evaluates a changed `@implement` (a redeclaration) and leaves a deleted one in force. `delete_membership` itself is built ([traits §5.13](traits.md#513-taking-a-membership-back)). Revise is not in the workspace's depot, so the extension is neither built nor tested. | TraitWorld `src/delete.jl`; `Project.toml` (no `[weakdeps]` entry for Revise) |
 | L-66 | [§12](#12-compiling-ahead), [§10](#10-basetraits) | Compiling ahead asks Julia's `precompile` of the signature at `S`'s type, and nothing per member for a method that erases; `asvector` stores its argument. | `ahead.jl` asks the attribute's instance (`jl_attribute_dynamic_bits`, `jl_attributed_mi`), the set's instance where the method's attribute is `Dynamic`. BaseTraits' `asvector` stores `keep(x)`, which is `x` there. | TraitWorld `src/ahead.jl` (`ahead_requests`, the request loop), `src/BaseTraits.jl` (`asvector`) |
-| L-67 | [§2](#2-trait) | `@trait` defines, at each kept form, a method of each equation's function that returns the parameter's value. | It defines none: `eltype` of a box or a wrapper is Base's fallback, `Any` ([traits T-130](traits.md#19-deviations)). | TraitWorld `src/trait.jl` (the expansion) |
 
-**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): L-1 to L-57, L-59, L-63, L-65, L-68.
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): L-1 to L-57, L-59, L-63, L-65, L-68, L-67.

@@ -191,3 +191,13 @@ An Opus agent worked in `wt/w156-julia` (branch `w156`) and on a branch of the l
 - **Found** at once, from the clean-up's own lines, and measured with a check of every manifest against the depot.
 - **Restored** from the file system's snapshot of the night (`/p/projects/coen/.snapshots/globaldaily.p.2026-11-18_01-09-08`): all 157 installations and the 4 artifacts. The depot's list of installations equals the snapshot's. The 41 manifests that still name a package the depot lacks did so before (old experiments' environments).
 - **So that it does not recur:** `env.sh` sets `JULIA_PKG_GC_AUTO=false`; the playbook §2 has the rule and the way back; the check is kept as `experiments/tools/depot_check.jl`.
+
+## W-166, its first part: the demonstrators' programs toward a build
+
+An Opus agent worked on branches `w166` of the library, TraitTables and TraitCSV, and in `wt/w166-julia` for the closed build's scope; the main session reviewed, merged, rebuilt, ran every check and the table program's trimmed build, and recorded.
+
+- **Built:** the equations' functions answer at the kept forms (traits T-130, lowering L-67 retired; TraitWorld a8d11af); the loops of TraitTables and TraitCSV hand each column over as `compiled_for(c)` (a69eb6c, 8c307d0); the closed rules apply to what a build compiles for its output, and the library's hooks run while a trimmed build loads (julia `next` 521c1faced, 803060c332; TraitWorld 1c6cca4). Open issues 241 and 242 closed.
+- **Not reached:** the table program counts 6 errors, not 0. The wrapper's constructor branches over the five column types, but the call that takes the wrapper stands past the join of the branches, which inference types `Compiled`, and nothing splits it. The rule is now in compiler §7.6 (mine): such a call branches over the members too. Not built: compiler C-150, the next part of W-166.
+- **Plain Julia's fault behind the other programs:** a trimmed build's process calls LAPACK through a null pointer where code it runs while loading reaches it; vanilla does the same on a probe. The report's, the plot's and the ODE program's builds stop there (open issue 243). With BLAS set up first, the ODE program reaches the verifier with 13 errors.
+- **What the wrapper costs a session:** the table's session loads in 362 to 365 ms against 347 to 351 ms: 33 more instances at the wrapper in the images. Compiles in the session: 19 in both.
+- **The main session's run on the rebuilt `julia-next`** (803060c332, 779 s): gates 72 of 72 and 9 of 9; Base's six files; the library 92 testsets; every port's suite and session; the static check 0 findings; the table program's trimmed build 6 errors (`experiments/implementation/w135/logs/w166-table-main.build.log`).
