@@ -51,6 +51,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 - The forks' entry chain is lost to unrelated loads: two reader instances, ended through Base's plain code by another package's method on `open` and a standard library's on `vcat` (GT-8).
 - An edit at a demonstrator's prompt is not timed on the head: TraitTables does not yet follow the one way to erase (traits T-128; GT-12).
 - The ODE-and-plot row is not like for like: the demonstrators have a fraction of SciML's and Makie's features.
+- The plain twins are written as plain Julia is commonly written. A twin hardened by hand at its barriers is not measured.
 - Load protection for a package wrapped whole as a trait module, at the scale of NetworkDynamics with 186 packages loaded after its first simulation: measured only on the library of October 2026 (E-153 in the ledger); not measured on this implementation.
 
 <a id="2-run-time"></a>
