@@ -22,7 +22,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 
 ### §4 Members checked at their first use
 
-- **The status line as it stood:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch and in the compile queue ([compiler §10.4](../../reference/compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; an abstract member by its definition through its entry in e8554d9 (E-345); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](../../reference/README.md#the-choices-in-these-references)).
+- **The status line as it stood:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch and in the compile queue ([compiler §10.4](../../reference/compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; an abstract member by its definition through its entry in e8554d9 (E-345); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](../build-notes/choices.md)).
 
 ### §5 Methods at traits
 
