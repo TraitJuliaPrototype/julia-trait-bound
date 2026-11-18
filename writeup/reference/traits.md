@@ -95,7 +95,7 @@ FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 
 The kept forms are values, made by ordinary calls: `Dynamic{X}(x)` and `compiled_for(x)` (§7.4). They have no syntax of their own.
 
-**Status:** Implemented, but for T-127.
+**Status:** Implemented.
 
 ---
 
@@ -315,7 +315,7 @@ end
 - A caller chooses otherwise by what it passes: `compiled_for(x)` for code per type, `Dynamic{X}(x)` at a trait that does not erase (§7.5).
 - `Callable` erases by default (§9).
 
-**Status:** Implemented, but for T-125 and T-127.
+**Status:** Implemented, but for T-125.
 
 ---
 
@@ -650,7 +650,7 @@ Which form a value has is in its type. Nothing beside the call decides (§7.5). 
 
 Per key, one copy shared by every member with that key, is an optional extension (§7.2).
 
-**Status:** Implemented, but for T-126 and [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument); per key: Optional (§7.2).
+**Status:** Implemented, but for [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument); per key: Optional (§7.2).
 
 ### 7.2 The key
 
@@ -729,7 +729,7 @@ A member of a trait `X` is passed as itself, or in one of two **kept forms**. Ea
 
 Rust's pair is the same: `dyn X`, and a generic `T: X`. Here both are members of `X`, so one method at `X` takes either.
 
-**Status:** Implemented, but for T-126 and T-130.
+**Status:** Implemented, but for T-130.
 
 ### 7.5 What decides
 
@@ -753,7 +753,7 @@ solve(compiled_for(MyModel()), u0)            # the wrapper: the code compiled f
 - **A `where` variable bounded by a trait is the type of what the method is given:** in `f(x::C) where {C <: X}`, `C` is `typeof(x)`, a member's, a box's or a wrapper's type. Where `X` erases by default, `C` is the kept form's type.
 - **`@nospecialize` and `@specialize` are Julia's,** at a trait argument as at any other (§7.1).
 
-**Status:** Implemented, but for T-125, T-127 and [compiler C-112](compiler.md#deviations).
+**Status:** Implemented, but for T-125 and [compiler C-112](compiler.md#deviations).
 
 ### 7.6 `compiled_for(x)`
 <a id="76-casts"></a>
@@ -771,7 +771,7 @@ prob = ODEProblem(w, u0, tspan, p)            # the solver compiled for lorenz!
 - **The name is the library's,** exported as any function is. A module that binds its own `compiled_for` has its own.
 - Equality: §8.3. Printing: §15.
 
-**Status:** Implemented, but for T-126.
+**Status:** Implemented, but for [compiler C-113](compiler.md#deviations).
 
 ### 7.7 `Dynamic{X}`
 
@@ -898,7 +898,7 @@ end
 - **Erasing a user's container without a copy needs a view type:** Julia has no borrowed reference into an array's element.
 - An operation on a value read back follows §7.9.
 
-**Status:** Implemented, but for T-127.
+**Status:** Implemented.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -1204,7 +1204,7 @@ end
 - Concreteness and fully typed mode (§14) take the same places: before `@trait_module`, for the module; before a method, for it.
 - Traits, memberships and methods at traits work in any module; a scope decides only these options.
 
-**Status:** Implemented, but for T-127.
+**Status:** Implemented.
 
 ---
 
@@ -1244,7 +1244,7 @@ Two guarantees, asked for separately.
 
 **They differ.** Concrete parts do not make code fully typed (a `Vector{Any}` argument, an abstract declared result can each leave a call unresolved). Fully typed code is checked at the signatures it ran at; concrete parts are promised for every member.
 
-**Status:** Implemented, but for T-100, T-101, T-104, T-109, T-122 and T-127 (gate `n9_fully_typed`).
+**Status:** Implemented, but for T-100, T-101, T-104, T-109 and T-122 (gate `n9_fully_typed`).
 
 ---
 
@@ -1295,7 +1295,7 @@ Two guarantees, asked for separately.
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented, but for T-108, T-109, T-127 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member); a build that compiles what is written, and a method that erases compiled ahead at the box: Planned, with [compiler C-112, C-114](compiler.md#deviations) and [lowering L-66](lowering.md#15-deviations).
+**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member) and [C-114](compiler.md#deviations) (the wrapper of a value known only by its trait: `verify_main` lists its targets, the build's own check refuses it); a build that compiles what is written, and a method that erases compiled ahead at the box: Planned, with [compiler C-112, C-114](compiler.md#deviations) and [lowering L-66](lowering.md#15-deviations).
 
 ---
 
@@ -1334,7 +1334,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | keywords, defaults, varargs at traits | Implemented | §6.6 |
 | keys and shared code: an optional extension | Optional ([open issue 147](../open-issues.md)) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 and T-130 | §7.3, §11.2 |
-| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-126, T-127, T-130 and compiler C-112, C-113 | §7.4–§7.6 |
+| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-130 and compiler C-112, C-113 | §7.4–§7.6 |
 | `Dynamic{X}`, the box | Implemented, but for compiler C-113 | §7.7 |
 | erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented | §7.9 |
@@ -1347,10 +1347,10 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | owner-only functions, `@owner_only` | Implemented, but for compiler C-130 | §6.8, §12.2 |
 | a pirate reported where it ends deep-G2 code; `report_pirates!` | Implemented | §12.2 |
 | the standard libraries as owners | Open ([open issue 19](../open-issues.md)) | §12.1 |
-| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented, but for T-127 | §13 |
+| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented | §13 |
 | concreteness and fully typed mode | Implemented, but for T-100, T-101, T-109 and T-122 | §14 |
 | printing | Implemented | §15 |
-| compiling ahead, `verify_main` | Implemented, but for T-108, T-109, T-127 and compiler C-86; a build that compiles what is written: Planned, with compiler C-112, C-114 and lowering L-66 | §16 |
+| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86, C-114; a build that compiles what is written: Planned, with compiler C-112, C-114 and lowering L-66 | §16 |
 | named implementations | Planned | §17 |
 
 ---
@@ -1372,10 +1372,8 @@ The rows below are where the implementation falls short of this page; the heads 
 | T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is undone as a method's is: the membership is taken back (§5.13) and refused. At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
 | T-122 | [§14](#14-concreteness-and-fully-typed-mode) | `fully_typed`'s report lists apart the calls a build resolves and a session leaves to run time; `isfullytyped(report; session = true)` answers for a session. | The report lists the calls the build's check refuses (`Compiler.closed_check`) and the walk's root causes; a call a build resolves and a session dispatches is in neither list, and nothing answers whether code is fully typed in a session. | TraitWorld `src/fullytyped.jl` (`fully_typed`, `isfullytyped`, the report's type) |
 | T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
-| T-126 | [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper), [§7.6](#76-compiled_forx) | The wrapper is `Core.Compiled{T}`; `compiled_for(x)`, exported by the library, returns it. | The wrapper is the library's type, `TraitWorld.Compiled{T}`. The library's exported `compiled_for` is Julia's cast (`import Core: compiled_for`), and the wrapper's function is `TraitWorld.ByType.compiled_for`, which a module binds explicitly (`using TraitWorld.ByType: compiled_for`). | TraitWorld `src/compiled.jl`, `src/TraitWorld.jl` (`module ByType`, the exports); compiler C-113 |
-| T-127 | [§2](#2-syntax-summary), [§4.6](#46-erasing-by-default), [§7.5](#75-what-decides), [§8.1](#81-fields-and-containers-typed-by-a-trait), [§13](#13-scopes-trait-modules), [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Nothing beside a call decides how an argument is compiled: no cast, no `keep`, no `Kept{X}`, no module option `dynamic` or `first_seen`, no `@default_compiled`; storage keeps the form given; `verify_main` and `fully_typed` read wrappers. | The library offers the attribute's surface, beside the kept forms: it exports the casts `compiled_for` and `with_dynamic` and `keep` (Julia's, compiler C-112), `Kept`, `kept_call`, `isdynamic`, `detect_unused_casts`, `detect_kept_storage`, `detect_dynamic_fallbacks`; `@trait_module` accepts `dynamic` and `first_seen`, and `first_seen` is on unless written (the ports write `first_seen = false`); `@default_compiled` sets the compiler's attribute bit (`jl_set_default_attribute`); `verify_main` lists a cast's targets, and `fully_typed` reads a cast's operand. | TraitWorld `src/TraitWorld.jl` (the exports), `src/kept.jl`, `src/scope.jl` (`@trait_module`, the three `detect_` functions), `src/trait.jl` (`@default_compiled`), `src/fullytyped.jl` (the casts' targets) |
 | T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen. Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; [GT-2](../goals.md#3-tensions-between-the-goals)). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
 | T-130 | [§7.3](#73-bounded-methods), [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) | A function of `Self` that an equation names answers through a kept form as for its object: `eltype(d)` of a box of `Iterable{Float64}` is `Float64`. | No such method at the kept forms: `eltype` of a box is Base's fallback, `Any`, so a method that computes with `eltype(t)` gives another type at the box than at the member, and a call made with it (`zero(eltype(t))`) can find no method there. TraitTables' `take` and `sortby` of a boxed or wrapped column return a `Vector{Any}` column (`experiments/implementation/w156/probes/kept_tables.jl`). | TraitWorld `src/trait.jl` (no methods of the equations' functions at `Dynamic{<:X}`, `Compiled{<:X}`), `src/dynamic.jl`; [lowering L-67](lowering.md#15-deviations) |
 | T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types. The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
 
-**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-128.
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128.

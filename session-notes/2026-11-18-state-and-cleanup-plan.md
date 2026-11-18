@@ -160,3 +160,15 @@ An Opus agent worked on a branch `w156` of each demonstrator; the main session r
   - TraitMakie's `scripts/errors.jl` wrote `@trait_module module … end`, a form the reference does not have. The main session rewrote it (TraitMakie 2c560cb): the definition check refuses the recipe's method where it is defined.
 - **The main session's run** (`experiments/implementation/w156/logs/main-w156-*`): every suite as the agent reported; the forks' Tables suite with its one error.
 - **Started, the second part** (E-505 registered): the attribute's surface leaves the library.
+
+## W-156, its second part: the attribute's surface leaves the library
+
+An Opus agent worked on a branch `w156` of the library and of each port; the main session reviewed, ran every check again, merged and recorded.
+
+- **The library** (TraitWorld ea72682): the exported `compiled_for` is the wrapper's function; the casts, `keep`, `Kept`, `kept_call`, `isdynamic`, the `detect_` functions and `@default_compiled` are gone; `@trait_module` refuses `dynamic` and `first_seen`; `verify_main` and `fully_typed` read wrappers. Traits T-126 and T-127 retired. The suite: 90 testsets (three deleted with the surface), one check broken.
+- **The ports** drop `first_seen = false` (11 modules, and NetworkDynamics) and the wrapper's function bound by name.
+- **The forks, whose modules relied on the option** (E-505): the session compiles less without it, 224 compiles against 236, 6.7 s against 7.1 to 7.4 s. The join kernels are compiled at the box the first part put at the join's door. No other door was needed.
+- **Exposed:** a closed build's own check refuses the wrapper of a value known only by its trait, where the cast had its branches (compiler C-114, a row that stood). It is the first thing of Julia's part.
+- **What the library still reads of Julia's machinery:** `src/ahead.jl`, `src/erasing.jl` (`Callable`'s default), `src/fullytyped.jl`; named in compiler C-112's row.
+- **NetworkDynamics' clone has no remote of ours:** its branch reaches the repository by `ndport/pkgs-bundles/make.sh`, run after the merge (ndport 6928edb).
+- **The main session's run:** gates 72 of 72 and 9 of 9; the library 90 testsets; every port's suite and session; NetworkDynamics' subset with its known failures; the forks' digests equal at 26 steps; the examples 26, 95 and 5 checks with one known deviation (open issue 235). Logs: `experiments/implementation/w156/logs/main-b-*`, `w161/logs/main-w156b-*`.

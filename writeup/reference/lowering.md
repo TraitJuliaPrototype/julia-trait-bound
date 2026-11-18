@@ -36,7 +36,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 | `@trait_module` | module option bits | before the module's first method |
 | `Dynamic{X}`, `Compiled{T}`, `compiled_for` | two structs of `Core` with the library's memberships and methods; a function of the library | — |
 
-**Status:** Implemented, but for [traits T-125, T-126](traits.md#19-deviations).
+**Status:** Implemented, but for [traits T-125](traits.md#19-deviations).
 
 ---
 
@@ -148,7 +148,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose check waited are checked, and `struct S <: X` without its `@implement` is refused.
 
-**Status:** Implemented, but for [traits T-127](traits.md#19-deviations).
+**Status:** Implemented.
 
 ---
 
@@ -172,7 +172,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - `unwrap(t)` is `getfield(t, :object)` for both; `==`, `isequal` and `hash` by the objects' `===`; `show` prints `Dynamic{Shape}(Circle(1.0))` and `Compiled(Circle(1.0))`.
 - **`compiled_for(x)`** is the library's function. The library exports it, as any name.
 
-**Status:** Implemented, but for [traits T-126](traits.md#19-deviations) and [compiler C-113](compiler.md#deviations) (the wrapper the library's type; `compiled_for` exported as Julia's cast).
+**Status:** Implemented, but for [compiler C-113](compiler.md#deviations) (the wrapper the library's type).
 
 ---
 

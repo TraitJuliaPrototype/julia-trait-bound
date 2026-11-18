@@ -200,7 +200,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 
 **Not shown.**
 - Teaching: nothing measures "easy to teach".
-- The changed Julia and the library still carry the machinery of an argument's attribute (compiler C-112, traits T-126, T-127).
+- The changed Julia still carries the machinery of an argument's attribute (compiler C-112, C-113).
 
 <a id="4c-the-unifications-trade-offs-measured-on-todays-build"></a>
 <a id="each-tensions-cost-on-the-rounds-second-freeze-w-145-part-8"></a>
