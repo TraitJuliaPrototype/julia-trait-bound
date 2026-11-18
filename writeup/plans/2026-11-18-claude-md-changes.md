@@ -1,6 +1,6 @@
 # Proposed changes to `CLAUDE.md` after the documentation clean-up
 
-**Status:** proposal (2026-11-18), for the user. Not applied: the user asked to see the rule changes as a diff first ([the clean-up's plan](2026-11-18-documentation-cleanup.md) §8, Q1). Written in the main session. Only links that the move to the attic broke were changed in `CLAUDE.md` itself.
+**Status:** proposal (2026-11-18), for the user. Not applied: the user asked to see the rule changes as a diff first ([the clean-up's plan](2026-11-18-documentation-cleanup.md) §8, Q1). Written in the main session. In `CLAUDE.md` itself only paths were changed: the links that the move to the attic broke, and `experiments/unification/` to `experiments/implementation/` after the directories were renamed.
 
 ## What the diff does
 
@@ -13,13 +13,16 @@
 7. **The table** gains homes for the build notes, the proofs, the lessons, the ledgers and the agents' tier; the rows for the references, the deviations, experiments, the evidence, agreed work, open questions, what is built, reviews, plans and history say what the current page holds.
 8. **Rule 4:** a retired or closed row lives in its ledger. **Rule 7:** a move to the attic keeps the path and leaves no "Moved" page.
 
+9. **Pointers into the open issues and the decision log** follow their new sections: the questions for the user are §1, the tensions §2, the agent's choices §3; the decision log is grouped by the part of the design.
+10. **The exception for subagents during the clean-up** carries the user's later word (after a usage limit: "Continue with only one opus subagent at a time.").
+
 Not in the diff, for the user to say: the exception for subagents during the clean-up (W-162) can be taken out when the clean-up is closed.
 
 ## The diff
 
 ```diff
---- CLAUDE.md	2026-11-18 01:58:05.262430000 +0100
-+++ CLAUDE.md (proposed)	2026-11-18 02:12:42.164412135 +0100
+--- CLAUDE.md
++++ CLAUDE.md (proposed)
 @@ -1,14 +1,18 @@
  # Rules for agents: the documents
  
@@ -42,7 +45,7 @@ Not in the diff, for the user to say: the exception for subagents during the cle
  
  **A failure names a pattern** (2026-11-09, the user: "When we see failures like this, also think about principled fixes or new tools that reveal common patterns"). When a test, gate or measurement fails, look past the one case:
  - name the pattern it belongs to, and the rule that produces it;
-@@ -17,7 +21,7 @@
+@@ -17,45 +21,50 @@
  
  **The goals direct the work** (2026-11-10, the user: "The entire point of this project is to show that Traits and Facts actually enable dramatically reducing (re) compilation and potentially improve speed and caching with limited to no downsides and better error messages and better AOT compilation experience. We also want to show that there is a clean and doable path for the ecosystem to transition with clear potting guidelines. Finally unification made the design of the Trait system dramatically simpler, making it easy to teach."). The goals, the claim on each axis and where each stands are [`writeup/goals.md`](writeup/goals.md). The order of work follows the weakest axes (the user: "Clean up our experiment, decisions and work/todo log to reflect the aim to build towards that goal, prioritising weakest spots.").
  
@@ -51,16 +54,18 @@ Not in the diff, for the user to say: the exception for subagents during the cle
  
  **The cache across sessions is not built now** (2026-11-14, the user: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment."). The measurement round (W-145) carries those workloads: code of several packages first combined in a session, each compile's time attributed so that what an image holds, could hold or cannot hold is told apart.
  
-@@ -25,7 +29,7 @@
+-**The speed work is retired; no claim of better steady-state speed** (2026-11-10, the user: "I don't want to claim better steady state speed, just no regression/the possibility to opt into full speed (compiled_for(x))."; 2026-11-11: "The speed work and performance things that are on hold probably should all be retired permanently.", "we retire the speed items, but of course we can later look into the attic to get inspiration for other things that could be done."). The claim is no regression where types are known, and full speed by opting in (`compiled_for(x)`). No work item pursues speed. Speed is measured only as a control. The performance explorations log is an archive. Performance work is one phase after the measurement round: fixes that add little code (W-146). **Workloads** (2026-11-08, the user: "Specific precompile workloads, unless they genuinely cover broad typical cases (String, Int Columns) are cheating."): a package image's workload counts only where it covers broad typical cases. [decisions](writeup/record/decisions.md) §5.
++**The speed work is retired; no claim of better steady-state speed** (2026-11-10, the user: "I don't want to claim better steady state speed, just no regression/the possibility to opt into full speed (compiled_for(x))."; 2026-11-11: "The speed work and performance things that are on hold probably should all be retired permanently.", "we retire the speed items, but of course we can later look into the attic to get inspiration for other things that could be done."). The claim is no regression where types are known, and full speed by opting in (`compiled_for(x)`). No work item pursues speed. Speed is measured only as a control. The performance explorations log is an archive. Performance work is one phase after the measurement round: fixes that add little code (W-146). **Workloads** (2026-11-08, the user: "Specific precompile workloads, unless they genuinely cover broad typical cases (String, Int Columns) are cheating."): a package image's workload counts only where it covers broad typical cases. [the decision log](writeup/record/decisions.md), "The project: the goals, the claims, speed, measuring".
  
  **Principled ways of making the design fast** (2026-11-15, the user, on the compiler's part of one way to erase: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast."). The rule above stands: no claim of better steady-state speed, no patch at a case. While building the design's mechanisms, look for where a rule of the design itself lets the compiler do less (a membership test decided with an edge, a box that needs no heap, a check read from an instance that exists). Take such a way where it follows from a rule and adds little code. Record the others with their measurement and a proposal ([open issues](writeup/open-issues.md); a tension where a goal pays).
  
 -**Record a tension between the goals; do not resolve it at the case** (2026-11-10, the user: "I want to continue the strategy of recording pressure and tension between the goals (as we did for pushback on the design from speed and port work). The goal is not for me to review this bit by bit but to eventually create a synthesis, and iterate the design from all the evidence collected."; it widens the rule of 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, sets one goal against another (a slowdown, a cost at load, a port that the rule blocks, a message that the mechanism cannot give), list it in `writeup/open-issues.md` §1 under "Flagged: tensions between the goals", with the rule, its measured cost and a proposal, and add its row to the index in `writeup/goals.md` §3. Do not work around it in the implementation or a port.
-+**Record a tension between the goals; do not resolve it at the case** (2026-11-10, the user: "I want to continue the strategy of recording pressure and tension between the goals (as we did for pushback on the design from speed and port work). The goal is not for me to review this bit by bit but to eventually create a synthesis, and iterate the design from all the evidence collected."; it widens the rule of 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, sets one goal against another (a slowdown, a cost at load, a port that the rule blocks, a message that the mechanism cannot give), list it in `writeup/open-issues.md` §1 under "Flagged: tensions between the goals", with the rule, its measured cost and a proposal, and add its row to the index in `writeup/goals.md` §3. Do not work around it in the implementation or a port. **A change that touches Base, or erases a type the whole ecosystem specializes on, is flagged before it is built:** its decision row names the guarantees for plain code it touches ([facts](writeup/reference/facts.md) §2, §13), and a proxy measured first says what it does not model.
++**Record a tension between the goals; do not resolve it at the case** (2026-11-10, the user: "I want to continue the strategy of recording pressure and tension between the goals (as we did for pushback on the design from speed and port work). The goal is not for me to review this bit by bit but to eventually create a synthesis, and iterate the design from all the evidence collected."; it widens the rule of 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, sets one goal against another (a slowdown, a cost at load, a port that the rule blocks, a message that the mechanism cannot give), list it in `writeup/open-issues.md` §2, "Tensions between the goals", with the rule, its measured cost and a proposal, and add its row to the index in `writeup/goals.md` §3. Do not work around it in the implementation or a port. **A change that touches Base, or erases a type the whole ecosystem specializes on, is flagged before it is built:** its decision row names the guarantees for plain code it touches ([facts](writeup/reference/facts.md) §2, §13), and a proxy measured first says what it does not model.
  
- **The agent's choices are not reviewed one by one** (2026-11-10, the user: "I don't want to review all decisions made by you."). A choice made while building stands as recorded: the reference, and the decision log marked "mine". Open issues §1 lists it as input to the synthesis (`writeup/goals.md` §4). Only a question the work cannot continue without is put to the user.
+-**The agent's choices are not reviewed one by one** (2026-11-10, the user: "I don't want to review all decisions made by you."). A choice made while building stands as recorded: the reference, and the decision log marked "mine". Open issues §1 lists it as input to the synthesis (`writeup/goals.md` §4). Only a question the work cannot continue without is put to the user.
++**The agent's choices are not reviewed one by one** (2026-11-10, the user: "I don't want to review all decisions made by you."). A choice made while building stands as recorded: the reference, and the decision log marked "mine". Open issues §3 lists it as input to the synthesis (`writeup/goals.md` §4). Only a question the work cannot continue without is put to the user.
  
-@@ -33,29 +37,34 @@
+ ## Where each kind of content goes
  
  | Content | Its home | Rule |
  |---|---|---|
@@ -71,9 +76,12 @@ Not in the diff, for the user to say: the exception for subagents during the cle
 +| Where a rule is in the code, the commits that built it, its gates, who decided it | `writeup/record/build-notes/<reference>.md`, by the reference's section | The agents' tier. Never the only home of the rule. |
  | A decision | first the reference, then a row in `writeup/record/decisions.md` | A decision that is not in a reference is not in force. The log row quotes the user's words verbatim, gives the date, and names the reference sections it changed. |
  | The goals, the claim on each axis, where each stands | `writeup/goals.md` | The standing links to the evidence for numbers and to the work queue for work. Updated in the commit that changes an axis's standing. |
- | A tension between the goals | `writeup/open-issues.md` §1, "Flagged: tensions between the goals" | The rule, its measured cost (E-n), a proposal. Its row in the index, `writeup/goals.md` §3, with a stable `GT-n`. |
- | A decision waiting for the user | `writeup/open-issues.md` §1 | The reference marks it Open and links the issue; it does not describe a guess. |
- | A choice an agent made while building | the reference, and the decision log marked "mine" | Also listed in `open-issues.md` §1 as input to the synthesis; it does not wait for the user's review. |
+-| A tension between the goals | `writeup/open-issues.md` §1, "Flagged: tensions between the goals" | The rule, its measured cost (E-n), a proposal. Its row in the index, `writeup/goals.md` §3, with a stable `GT-n`. |
+-| A decision waiting for the user | `writeup/open-issues.md` §1 | The reference marks it Open and links the issue; it does not describe a guess. |
+-| A choice an agent made while building | the reference, and the decision log marked "mine" | Also listed in `open-issues.md` §1 as input to the synthesis; it does not wait for the user's review. |
++| A tension between the goals | `writeup/open-issues.md` §2, "Tensions between the goals" | The rule, its measured cost (E-n), a proposal. Its row in the index, `writeup/goals.md` §3, with a stable `GT-n`. |
++| A decision waiting for the user | `writeup/open-issues.md` §1, "Questions for the user" | The reference marks it Open and links the issue; it does not describe a guess. |
++| A choice an agent made while building | the reference, and the decision log marked "mine" | Also listed in `open-issues.md` §3 as input to the synthesis; it does not wait for the user's review. |
  | An alternative considered, rejected or replaced | `writeup/design/alternatives.md`, by topic | With the reason and, where measured, the experiment's ID. The references never mention alternatives. |
 -| An experiment | a row in `writeup/record/experiments.md`; scripts and logs in `experiments/<dir>/` | The row comes before the run: the question, and the result that would change the design. When done: the outcome with its key numbers, the build, the write-up (the directory's README). Logs are committed; never only in `/tmp` or a scratchpad. |
 -| The current numbers behind a claim | `writeup/design/evidence.md` | Each number cites its experiment (E-n) and build. Other documents link to it rather than copy. |
@@ -118,7 +126,17 @@ Not in the diff, for the user to say: the exception for subagents during the cle
  
  ## Writing
  
-@@ -108,8 +117,8 @@
+@@ -100,16 +109,16 @@
+ **No subagents on the shared host** (2026-11-06, the user: "no subagents on this machien please"). Reviews, audits and plans that the record assigns to an agent are done in the main session, and say so. Two exceptions:
+ - a Fable review of a really high-impact choice made at a gate (below);
+ - the plan for the next iteration is implemented by agents on Opus, directed by the main session (2026-11-15, the user: "Have Opus agents implement the plan"). Who works in which tree, and the ranges of IDs: [the plan](writeup/plans/2026-11-15-next-iteration.md) §6. An agent starts no agent of its own, and keeps every other rule of this file.
+-- the documentation clean-up (W-162; 2026-11-18, the user: "you can use subagents. But not too many in parallel."): at most two side by side (my reading), for work that can be checked mechanically. The reading for the harvest is the main session's ([the plan](writeup/plans/2026-11-18-documentation-cleanup.md) §9).
++- the documentation clean-up (W-162; 2026-11-18, the user: "you can use subagents. But not too many in parallel."; later the same day, after a usage limit: "Continue with only one opus subagent at a time."): one at a time, for work that can be checked mechanically. The reading for the harvest is the main session's ([the plan](writeup/plans/2026-11-18-documentation-cleanup.md) §9).
+ 
+ **Gates do not stop the work** (2026-11-06, the user: "Okay, don't stop at gates, even if they fail. Make a choice and record it. Ask a Fable agent to review the choice but only if it is really high impact. I am going to bed. Keep implementing."):
+-- A gate that fails, or a gate meant for the user, does not stop the stage's work. The agent makes the choice, records it (the reference, the decision log marked "mine", open issues §1 as input to the synthesis) and continues.
++- A gate that fails, or a gate meant for the user, does not stop the stage's work. The agent makes the choice, records it (the reference, the decision log marked "mine", open issues §3 as input to the synthesis) and continues.
+ - Only for a really high-impact choice, a `fable-critic` agent reviews it; the review is written to `writeup/reviews/` as any review.
  
  **No excessive benchmarking.** Run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
  
