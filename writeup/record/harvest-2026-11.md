@@ -21,6 +21,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 |---|---|---|
 | 1 | reviews and plans of 2026-10-16 and 2026-10-17 (7 documents, 180 KB) | 2026-11-18, in full |
 | 2a | the five reviews of 2026-10-18 (255 KB) | 2026-11-18, in full |
+| 2b | the seven reviews and five plans of 2026-10-19 (255 KB) | 2026-11-18, in full |
 
 ## Entries
 
@@ -242,6 +243,142 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 - **L (the ports):** a port whose kernels unwrap at once validates a barrier, not a trait.
 - **L (code):** a rule kept in three copies diverges; one source of truth holds for code as for documents.
 
+### `reviews/2026-10-19-compiler-implementation.md`
+
+- *What it was:* an independent review of the facts and traits compiler as first built in Julia (session 29; julia-1.13 to f6838f96fc, parts A to D: the facts mode, the owner `:facts`, dispatch from facts code to facts code, the `Dynamic` split). Seven experiments, among them packages through images and trimmed binaries.
+- *Found:* the architecture right and mostly sound (one interpreter with a mode; the owner chosen by the method's module; facts code in package images, verified there for the first time). Three things wrong:
+  1. **The split compiled wrong code** when inference knew the dynamic value's type and the callee took varargs, which every generated forwarder did. The inliner mapped the callee's arguments onto the split primitive's own. By construction memory-unsafe. The tests missed it because they looked at the code for `(Any,)` only.
+  2. **A fold over one of Base's asserted effects broke "identical or error":** the reference said "the same exposure plain Julia has". Plain Julia records the edge under the fold; facts inference recorded none. Fix: fold only where the callee's code itself rests on facts.
+  3. `--trim` switched the facts mode off in the build process and not in the binary.
+  - Also: dispatch from facts code reached facts code only through codegen's call sites (a splat of a vector, the `invoke` builtin ran plain code). The split's result was typed `Any`: one box per call. The split used the candidates known when the caller compiled, with no edge, so speed depended on compile order; the review offered the alternative "record an edge to the candidate list… invalidation at a conformance: the sanctioned extension point".
+  - One rule lived in three pieces of code; the same split was implemented twice.
+- *Became:* the split carries the declared result ([compiler §7](../reference/compiler.md)). "Rests on facts" became the G2 predicate and, on 2026-11-15, the deep class ([compiler §3.2](../reference/compiler.md)). One function decides a method's mode and owner. The alternative on the candidate list is what was chosen three weeks later: a membership invalidates as a method does (2026-11-11, GT-1).
+- *Not yet in a current document:* nothing of the design. The gates' practice below is for the playbook.
+- **L (testing):** a compiler change is tested at the concrete argument types too, and by what the runtime compiled, not by what reflection shows for the abstract signature.
+- **L (claims):** "the same exposure as plain Julia" is a claim about edges. Check it by redefinition: plain followed (1 → 2), facts did not (1 → 1).
+- **L (the design, eras 2 to 3):** a split without an edge to its members makes speed depend on what was loaded first. The edge was proposed here and adopted with "a membership behaves as a method".
+
+### `reviews/2026-10-19-performance-phase.md`
+
+- *What it was:* an independent review of session 29's performance phase (the note on performance, six Julia commits, the demonstrators' rows before and after). Its own probes on the patched build and on stock 1.13.2.
+- *Found:*
+  - **A1:** the note's lesson "the optimizer's heuristics assumed the dynamic case" was wrong. The two habits (an invoke widened to the compileable signature; no inlining within an inference cycle) cost plain Julia the same: a varargs wrapper in a recursion through an abstract type, 22.5 ms and 16.8 MB against 0.40 ms and nothing, on stock too. The trait runtime's wrappers made every `Dynamic` recursion hit it. Both fixes are improvements to Julia, "found by the facts build, worth having in stock".
+  - A caveat on diagnosis: `code_typed` after the code ran shows the callee inlined, because by then it is cached. It does not show what the runtime compiled in the cycle. Allocation counts do.
+  - **A2:** the control's arithmetic was wrong. What the loads cost is the work after them minus the repeated work (992 − 0.8 ms), not minus the first work (992 − 722). And the count of lost code covered eight packages, not Base, where the facts copies lived.
+  - **A3:** "the one load-dependent cost left" was overclaimed; four other rows still depended on loads.
+  - **A4:** a 2 to 4× regression in the clean case was invisible, because the table's columns never showed the case without loads before the phase.
+  - **B1:** facts code that calls the compiler directly holds edges to plain code; the guarantee has that exception.
+  - **C:** a headline differenced two harnesses; the platform's load cost (+0.2 s of `using`) was left out beside the work times; single runs; the "plain, open set" baseline was an artifact of `max_methods = 3`: four subtypes is one over the limit, and the trait split stopped at four too.
+  - **D3:** a workload extension per combination of three packages is combinatorial and written by hand. The design's own answer: a membership's declaration compiles the declared code for the member when its package precompiles.
+  - **Theme 4:** what loads still cost was one standard-library method, SparseArrays' `vcat` winning at `vcat(::Int64, ::Vector{Int64})`. "In strict mode that stdlib method would be *refused*… which makes the case against strict mode as a default as much as for it."
+- *Became:* the two optimizer fixes and the other general ones are the first commits of the stack, "changes useful without traits" ([compiler §11](../reference/compiler.md)). D3's answer is measured as E-375: a membership declared in a package puts the code in that image with no workload. The same `vcat` method is still the first of the callees by which a port's code is lost (GT-8), and G2 names a standard library's method as its exception. The sessions' tables count the imports.
+- *Not yet in a current document:* the measuring rules below, for the playbook.
+- **L (measuring):** a before-and-after table shows the clean case in both columns. A count of lost code covers every module. A difference is taken within one harness. A baseline that sits exactly at a heuristic's threshold is an artifact. The cost of loading the platform stands beside the work it speeds up.
+- **L (diagnosis):** what reflection shows after a run is not what ran. Confirm with allocations or the compiled instance.
+- **L (the design):** one method of a standard library has been the largest single cause of lost code from October to November. A guarantee's exception can be one method wide and still decide a headline.
+- **L (upstream):** what the facts build found wrong in plain Julia is proposed as an improvement to plain Julia, first and apart.
+
+### `plans/2026-10-19-inline-caches-plan.md` and `reviews/2026-10-19-inline-caches-review.md`
+
+- *What they were:* the user asked whether one principled mechanism binds the cache at the `Dynamic` split's fallback and the untyped trait call. The plan proposed world-checked polymorphic inline caches for three problems. The review read the runtime's source and the benchmark's log; the plan was revised the same day, after a profile.
+- *Found:*
+  - **The plan's diagnosis was unsupported.** The largest tail was one monomorphic site at 270 ns, where the plan assumed 15 to 20 ns for a dynamic call. Nobody had profiled it.
+  - **The profile found a gap in Julia's own per-site cache:** it holds leaf signatures only, so a call that dispatches to a method with a `@nospecialize` argument (`push!(a::Vector{Any}, @nospecialize x)`) did a full method lookup each time. Exact-type entries fixed it: 276 → 14 ns; the `collection` group 0.60 of the morning's; plain unchanged.
+  - The review's own suspect, a slow path it had verified in the source, was "measured: not reached".
+  - "No edges" in the plan conflated inference edges, which the facts rule refuses, with the maintenance of a dispatch cache, which Julia's runtime does itself.
+  - The third problem was no cache of dispatch results but a hook by which a package substitutes a call's target: a separate decision, not taken.
+  - Precedents corrected: Self's and Smalltalk's gains came mostly from type feedback feeding inlining; V8's megamorphic cache is the design of Julia's; HotSpot has no polymorphic state; CPython's adaptive interpreter (PEP 659) is the closest, with version tags per type.
+  - The order of work put a speculative gain of nanoseconds ahead of measured costs of milliseconds and seconds.
+- *Became:* the exact-type entries are a change to Julia's own cache, general for Julia. Whether they are in today's stack is to check (C-12). The inline caches were not built (alternatives; PE-4).
+- *Not yet in a current document:* nothing of the design.
+- **L (method):** profile one case before designing a mechanism for the class. The mechanism was sound and beside the point; the cause was a small gap in Julia's own cache. Even a path verified by reading was not the one that ran.
+- **L (ordering):** measured costs per session come before speculative gains per call.
+
+### `plans/2026-10-19-notes-cleanup-plan.md`
+
+- *What it was:* the proposal for the first clean-up of the writeup (the user asked for one "without deleting anything"). It set the layout for three audiences: `intro/` for programmers, `design.md` with `design/` for core developers, `record/INDEX.md` for agents.
+- *Found:* four notes of 1,647 lines contradicted the design and each carried two banners saying so; the front doors were stale; nothing existed for programmers; the numbers were spread over six places. Its rule: move only the stale notes, leave a stub at each old path, index everything else in place, because "session notes, reviews, memories and other repositories cite their paths more than a hundred times".
+- *Became:* today's layout. The index grew from that rule to 402 lines, and the stubs to sixteen. The clean-up of 2026-11-18 (W-162) reverses the rule on stubs and keeps the three audiences.
+- **L (the documents):** an index of everything in place keeps links alive and grows without bound; a move with a path rule keeps them alive too. Both were tried.
+
+### `reviews/2026-10-19-references-consistency.md`
+
+- *What it was:* a fresh-eye consistency review of the four references on the day they were written, with the documents around them. A link checker ran over about 750 links (and was probed with a bad anchor). 6 high, 16 medium, 16 low findings.
+- *Found:*
+  - One item carried four statuses in four references (Planned, Open, Optional, "Planned as an option"); "Optional" was in use and not in the conventions.
+  - One deviation was recorded in two references with opposite content (F-2, C-2).
+  - A deviation row existed for a rule not yet decided.
+  - Documents still gave precedence to pages already retired.
+  - **History inside the references on day one:** piece numbers of an exploration, commits in body text, a fixed bug in a deviation row, dated documents, a label from the old notes ("assumption A3"). "Name the thing, not the piece… move commits to julia-changes.md."
+  - Terms with several meanings: mode, entry, owner, boundary.
+  - Workarounds written into the reference as advice ("until it is built, write…").
+- *Became:* "Optional" is a status; the conventions of `reference/README.md`. The finding on history was not held: by 2026-11-18 the four references carry 727 commit hashes and 294 work items in their status lines (W-162's first count).
+- **L (the documents):** a reference drifts back into a build log unless the shape of the status line forbids it. The rule was stated on the first day and lost within a month, because each build added "one more commit" to a line that allowed it.
+- **L (the documents):** one deviation has one row in one reference; the other links it.
+
+### `reviews/2026-10-19-writeup-review.md`
+
+- *What it was:* an independent review of the reorganized writeup for its three audiences. The worked example was run; links and counts checked.
+- *Found:*
+  1. **SparseArrays' `vcat` was called a pirate that strict mode would refuse. By the design's definition it is neither:** Julia (Core, Base, the standard libraries) is one owner, so the method is a stakeholder's. The one diagnosed residue after loads is then "code it depends on changes". The design question behind it: are the standard libraries owners of their own?
+  2. **The headline motivating number was misfiled:** CSV's first read at 2.5 s against 0.19 s is not an unrelated package's method. DataFrames loads InlineStrings, which activates CSV's own extension. The facts rule does not prevent it; a membership in place of the extension does.
+  - "In every load order" over a row that was 171 ms in one order. Evidence of an earlier build presented as today's. Rounding in the design's favour (0.92 to 1.40 ns as "about 1 ns"). "Proposed for upstream" where nothing was proposed. Two names for one switch. Sixteen `[[TBD]]` markers on pages for programmers. A guide for porters routed to programmers in core developers' terms.
+  - The index's table of latest commits "was stale within hours".
+- *Became:* the rationale files the CSV number as a package's own extension ([`design.md`](../design.md) §1). G2 names a standard library's method as its exception. The intro's rules (no core developers' terms; current state only) are in `CLAUDE.md`.
+- *Not yet in a current document:* where the question "are the standard libraries owners of their own" stands today (C-13).
+- **L (claims):** file a motivating number under the mechanism that causes it. The best-known number of the project illustrated the wrong step for a day.
+- **L (the documents):** do not copy into a document what one command reports (a head, a count of commits). The copy was stale within hours.
+- **L (claims):** round against yourself; "in every order" needs every order.
+
+### `reviews/2026-10-19-references-facts-compiler-vs-code.md` and `reviews/2026-10-19-references-traits-lowering-vs-code.md`
+
+- *What they were:* two audits of the new references against the code (julia-1.13 f13117cd74, TraitWorld 227781a), by reading. The method: every interface named in the compiler reference located by name in the diff against v1.13.2; every rule marked Implemented traced to the code that enforces it; every deviation row checked at its cited line; a list of what was verified as stated. 4 high, 9 medium, 10 low; and 6 high, 12 medium, 11 low.
+- *Found, of lasting interest:*
+  - **`return_type` had two answers:** the compile-time fold asked plain inference, the run-time route in the product setting asked facts inference.
+  - **G2's evidence was not what the references cited.** The control counted only code of the default owner, so it counted no trait-module code. The script that had counted it named an owner type that no longer existed. A cited file did not exist. "G2 is the design's central promise."
+  - `invoke` at a declared signature, and `hasmethod`, record edges at signatures that are no fact signatures. Sound by the criterion, and missing from the closed list.
+  - The form "a closure's call at kinds" rested on a practice (nobody names a closure's type), not on the lemma.
+  - **A method compiled ahead for a member, `f(::T, …)`, was a new method of the library's function and invalidated the untyped entry and every plain caller with an edge to it:** "Declaring one discards nothing" was false in the product setting.
+  - Families were not checked at their declaration; a failed `@implement` left methods and records behind.
+- *Became:* one answer for `return_type` (2026-10-28; [compiler §1.4](../reference/compiler.md)). The check of G2 across loads counts the facts code (W-15; today E-376). A refused declaration defines nothing. Everything about entries, `conformance` methods and projections went with the earlier library.
+- *Not yet in a current document:* whether [facts §3](../reference/facts.md) lists `invoke` at a declared signature among the forms, and states the assumption under the closure form (C-14).
+- **L (evidence):** the check of a guarantee counts the code the guarantee is about, and a reference cites only checks that exist and run. The central promise was for some days supported by a count of other code.
+- **L (the design):** the third instance of L3 in one week: a method added to a library function for one member ends the function's plain callers. On the unified line this is the rule itself (a membership replays the trait's methods and invalidates as a method does), stated and measured instead of denied.
+- **L (method, for the build notes):** an audit of a reference against code has three passes (interfaces by name, rules to enforcing code, deviation rows at their lines) and ends with what was verified as stated.
+
+### `plans/2026-10-19-principled-speed-plan.md` and `plans/2026-10-19-remaining-performance-work.md`
+
+- *What they were:* the order of performance work of session 29 and its status list a day later. The user (2026-10-19): "the focus now should continue to be on principled ways to make everything fast, and as close as possible to established and battle proven designs of other languages."
+- *Found:*
+  - Each step named its precedent: inline caches (Self, V8); guarded devirtualization (HotSpot's class-hierarchy analysis, .NET); compiling ahead from declared implementations (Rust's monomorphization in the crate that sees both the generic code and the type; C++'s explicit instantiation).
+  - **Guarded devirtualization at run-time sites was postponed by the user:** code bounded by traits never reaches those sites; it serves untyped plain code under `all`, which "slower is fine if traits can easily recover it" covers. And "a failed guard is a cliff: that site turns dynamic for good, silently".
+  - Built: a `cfunction` that runs in the caller's world; facts code inlined into plain callers (a typed trait call 2.6 → 0.8 ns); a declared implementation's code compiled with the declaring package's image (the first untyped call with a new type 90 → 3 to 4 ms).
+  - **"Correctness ranks above every performance item."** Two cases: an image whose output differed once in five runs; and a `const` holding a function pointer in a package image, which crashed in the next session, because the image writer resets pointers only in mutable structs.
+  - The measurement round of 2026-10-20 on julia-1.13: BaseBenchmarks under `all` 1.037 with tails to 27.8×; upstream CSV and DataFrames by facts lose 2 of 3,337 instances to nine loads, plain 561 of 4,684.
+- *Became:* compiling a member's code where the membership is declared is today's rule for an image (E-375). The numbers of 2026-10-20 are the earlier build's; the unified line's are E-376 and E-392. The inline caches and guarded devirtualization: alternatives (C-15).
+- **L (the design):** each mechanism was taken from a named precedent, and the precedent's known failure came with it (a failed guard is a cliff). Naming the precedent is how the failure was seen before building.
+- **L (the playbook):** a raw pointer in an immutable struct is saved into a package image as the old session's address.
+- *For `record/context.md`:* the user's words on principled and proven designs.
+
+### `plans/2026-10-19-return-type-after-loads-plan.md`
+
+- *What it was:* a plan, by reading the code and profiles, for the 990 ms that upstream CSV and DataFrames compiled by facts still paid after nine loads. It implemented nothing.
+- *Found:*
+  - **700 ms were plain inference behind `return_type`:** 509 cached answers invalidated by the loads and computed again. The rest was `CSV._parse` compiled again because SparseArrays' `vcat` wins inside it.
+  - **`return_type` is unspecified upstream and yet observable** through four of Base's mechanisms: `collect` of a generator (the element type of an empty result and where widening starts), broadcasting, `promote_op`, `flatten`. The design's promise is narrower and exact: in one world, the facts mode's answer is plain Julia's.
+  - The invalidation that ended the answers is precise per edge, not per answer. One tree: Unitful's `Colon(::Any, ::Any, ::Quantity)` with 10 roots and 733 nodes, most above depth 35, climbing through functions whose result could not change (`isapprox` returns `Bool`).
+  - The winning methods: Unitful's `Colon`, FilePathsBase's `write`, IntervalArithmetic's `promote_rule`, GeometryBasics' `convert`, SparseArrays' `vcat`.
+  - **Candidate A, revalidate instead of re-infer** ("red-green", as rustc's incremental compilation and Salsa's early cutoff; Julia's own image loading already checks edges): recompute a stale answer only up to the first node whose result is unchanged. Estimated to save 400 to 600 of the 700 ms. Not built.
+  - **Candidate F, the traits route:** every costly site is a `collect` or a broadcast whose element type the library knows and does not write. "Rust and Swift have no `return_type`."
+  - Rejected: freezing answers (they would depend on load history); skipping the optimizer for the answer cache (tried: it widens answers); a guarded fold.
+  - A differential test was specified first: a corpus of queries, stock Julia as the oracle, before and after the loads.
+- *Became:* one answer for `return_type` ([compiler §1.4](../reference/compiler.md)); revalidating cached answers is Optional there (PE-5). Four of the five winning methods are still on GT-8's list of the Base callees by which a port's code is lost.
+- *Not yet in a current document:* "declare the element type" as a porting rule with its reason (C-16). The differential test's existence on today's build (C-17).
+- **L (the design):** a value decided by inference is the one place where "identical" needs plain inference kept alive beside the facts mode; its cost after loads is plain Julia's own recomputation.
+- **L (the ports):** a typed comprehension or a declared element type removes a `return_type` query, in a port as in a plain package.
+- **L (evidence):** the same handful of over-broad methods in a few packages ends most code, in October's profile and in November's count (extends L30).
+- **L (alternatives):** early cutoff on unchanged results, for answers as for code.
+
 ## The running lists
 
 ### L-list: candidates for the lessons
@@ -273,6 +410,20 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | L23 | Classify a prototype's mechanisms: needed, imitating the platform, working around the vehicle, left over. | implementation-shape §2 | method |
 | L24 | **The guarantee is the facts rule's and holds for plain code; traits make living under it cheap and checked.** Attribute every claim to one of the two. | implementation-shape P2; demonstrators-fresh-eye B2; E-392 | the design |
 | L25 | A port whose kernels unwrap at once validates a barrier, not a trait. | implementation-shape P7 | the ports |
+| L26 | A compiler change is tested at concrete argument types and by what the runtime compiled; reflection on the abstract signature, or after a run, shows something else. | compiler-implementation 2.1; performance-phase A1 | testing, diagnosis |
+| L27 | A claim of "the same as plain Julia" is checked by a redefinition, in both modes. | compiler-implementation 2.2 | claims |
+| L28 | A split with no edge to its members makes speed depend on load order; the edge (a membership invalidates as a method) is the principled form. | compiler-implementation 2.6; GT-1 | the design |
+| L29 | Tables: the clean case in both columns; counts over every module; one harness per difference; no baseline at a heuristic's threshold; the platform's load cost beside the work. | performance-phase A2 to C4 | measuring |
+| L30 | One standard-library method (SparseArrays' `vcat`) has been the largest cause of lost code from October to November. | performance-phase theme 4; GT-8 | the design, evidence |
+| L31 | What the facts build finds wrong in plain Julia goes upstream as an improvement to plain Julia. | performance-phase A1, D1 | upstream |
+| L32 | Profile one case before designing a mechanism for the class; measured costs per session come before speculative gains per call. | inline-caches review and plan | method |
+| L33 | A reference drifts back into a build log unless the status line's shape forbids it: stated 2026-10-19, lost by 2026-11-18. One deviation, one row. | references-consistency L2, H2 | the documents |
+| L34 | Do not copy into a document what one command reports; an index of everything in place grows without bound. | writeup-review 32; notes-cleanup-plan | the documents |
+| L35 | File a motivating number under the mechanism that causes it; round against yourself. | writeup-review 2, 8 | claims |
+| L36 | A guarantee's check counts the code the guarantee is about; a reference cites checks that exist and run. | references-facts-compiler-vs-code H2 | evidence |
+| L37 | Take a mechanism from a named precedent; its known failure comes with the name. | principled-speed-plan | the design |
+| L38 | A value decided by inference (`return_type`) is where "identical" needs plain inference kept beside the facts mode; a declared element type removes the query. | return-type-after-loads | the design, the ports |
+| L39 | Correctness ranks above every performance item. A raw pointer in an immutable struct survives into a package image. | remaining-performance-work | ordering, the playbook |
 
 ### A-list: alternatives to add or complete
 
@@ -280,6 +431,8 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 |---|---|---|---|
 | A1 | Sealed abstract types and sealed functions, dropped by the user ("A closed contract is a trait, not a sealed abstract type.") | policy-in-compiler | to check (C-5) |
 | A2 | Owner-only functions as the return of facts at non-public functions | consistency 3 | the two entries exist apart; link them (C-2) |
+| A3 | Guarded devirtualization at run-time sites, postponed by the user (a failed guard is a cliff; traits recover the cost); polymorphic inline caches, not built | principled-speed-plan; inline-caches-plan | to check (C-15) |
+| A4 | For `return_type` after loads: freezing answers; no optimizer for the answer cache (tried, widens answers); a guarded fold; red-green revalidation (not built, Optional) | return-type-after-loads | partly there ("`return_type` at run time…, replaced"); to complete |
 
 ### C-list: to check against today's documents
 
@@ -296,3 +449,9 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | C-9 | Is the table S1 to S8 (plain Julia against the facts mode) in the rationale or the evidence? Does `inval.jl` exist in `experiments`? | framing-and-motivation §0 |
 | C-10 | Which of `experiments/facts/framing/` and `experiments/examples/` run on today's build? (C-9 is answered in part: the framing cases were added to the repository in session 29.) | examples-and-demonstrators |
 | C-11 | Does `intro/porting.md` say that a port's kernels use the trait's operations? | implementation-shape P7 |
+| C-12 | Are the exact-type entries of Julia's per-site cache (`call_cache_exact`) in today's stack, and listed among the changes useful without traits? | inline-caches-plan §2 |
+| C-13 | Where does "are the standard libraries owners of their own" stand today? | writeup-review 1 |
+| C-14 | Does facts §3 list `invoke` at a declared signature, and state the assumption under "a closure's call at kinds"? | references-facts-compiler-vs-code H4, M2 |
+| C-15 | Are guarded devirtualization and inline caches in the alternatives, with the user's reason? | principled-speed-plan |
+| C-16 | Does `intro/porting.md` say "declare the element type" with its reason? | return-type-after-loads F |
+| C-17 | Does the differential test of `return_type` answers (stock Julia as oracle) exist for today's build? | return-type-after-loads §3 |
