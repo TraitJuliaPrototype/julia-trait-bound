@@ -26,6 +26,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | 4 | 2026-10-21 and 2026-10-22: values-carry, what-follows-the-split, tonights-code, porting-guideline, pickup, the two reviews of the traits reference, w34; the NetworkDynamics port (the meta plan and the two explorations in full; the six part-plans and six reviews by summary and verdict) | 2026-11-18 |
 | 5 | 2026-10-26 to 2026-10-28: the four fresh-eye reviews of the references; W-40, W-56, W-57; the first-use cluster (ten plans, eight reviews); the ports' design round (eight plans, three reviews). By heads, summaries and every finding's opening; the audit's conclusions and the High findings in full | 2026-11-18 |
 | 6 | 2026-10-29 to 2026-11-14: the ports' finish (eleven plans); the turn to unification (eight documents, summaries and High findings in full); the unified build's first week (fifteen plans, sixteen reviews, by summary and findings' openings; dispositions audited apart); the schedule and its end (eight documents) | 2026-11-18 |
+| 7 | The explorations and `design-findings.md`: `wrapping-by-facts`, `dataframes-port-lessons`, `ndport-pushback`, `ndport-principled-traits` in full; the others by summaries and section openings | 2026-11-18 |
 
 ## Entries
 
@@ -677,6 +678,55 @@ Read: the reviews of 2026-11-07 to 2026-11-09 by summary and every finding's ope
 - **Not yet in a current document.** CLAUDE.md links the schedule's plan, which moves to the attic: the link follows (part 2).
 - **L:** L97 to L99. **For `record/context.md`:** the third turn (the schedule, the retirement of speed, the bins), in the user's words.
 
+### `explorations/wrapping-by-facts.md` (2026-10-16, validated 2026-10-17)
+
+Read in full.
+
+- **What it was.** The first turn of the project. The user: "Try to come up with a much cleaner and simpler design for wrapping Julia code that is provably correct. Don't work on the basis of the current design, but do take some of the learnings on board." A brief with four goals, ten lessons and four test cases, and none of the then-current mechanisms. Three agents designed from it alone, from three angles (proof first; per-package method visibility; a minimal trusted base). All three arrived at the same core.
+- **Found.**
+  - **One rule and one prohibition.** R: compiled code depends on the method table only through facts "at concrete signature `s`, dispatch selects `r`"; a call whose argument types are not concrete records nothing and dispatches at run time. P: no invalidation that the facts call for is ever suppressed.
+  - **Three theorems with their model and assumptions.** G1 by an invariant (every valid CodeInstance has all its facts true) kept by every event. G2 by Lemma D (a method that does not win leaves dispatch unchanged, in any order) and Lemma O (a non-pirate that applies at a concrete signature is a stakeholder's). **Necessity:** an abstract fact ("the methods matching `S` are exactly these") is broken by any package that defines a new subtype with a method, a package that is no pirate and no stakeholder. So concrete facts are necessary and sufficient for this form of G2. G3: what a program can reach is finite and listable.
+  - **Evidence on stock Julia:** Julia's own invalidation is exact at concrete signatures (nine cases); the chains that had invalidated the demonstrators started at abstract edges only; 0 of 3,043 concrete facts selected a pirate.
+  - **What went:** wrappers, delegates, sealing regions, doors, declared calls, the invalidation filter, the layering rule ("the trait world uses only itself").
+  - **Rules the implementation needed, each found in validation:** a bare edge belongs to its owner; `return_type` is plain Julia's question; no compile-time evaluation over a run-time site; kinds are facts for closures only.
+- **Became.** `reference/facts.md` (the facts rule, G1, G2, the terms, the lemmas); `design.md`'s argument. The proofs are in no current document in this form.
+- **Not yet in a current document.** The decision at adoption (Q7): checked against today's facts reference and kept as `design/proofs.md`, in today's terms: the model, the assumptions, the three theorems with the corrected Lemma O, the necessity argument.
+- **L:** L100, L101. **For `record/context.md`:** the first turn, with the user's words and the method (a brief without mechanisms, three independent designs).
+
+### `explorations/dataframes-port-lessons.md` (2026-10-17, sessions 27 and 28)
+
+Read in full.
+
+- **What it was.** The first contact of the facts rule with real packages (Tables, DataFrames, CSV), item by item: design issue, porting guideline or tooling issue.
+- **Found.**
+  - **A run-time site's result is `Any`, and everything after it is a run-time site too.** Real packages are full of such sites: union-typed options, `Vector{Any}` of columns, types passed as values, keyword splats. Each got an answer: fold where Julia itself asserts the effects; a fact at a tuple whose elements are small unions (iteration over `Union{Missing, T}`); results asserted at the boundaries of large stages; types carried as `Val`.
+  - **Code reached through a run-time site must be compiled by facts too,** or a load invalidates it. And a hot run-time site must cost what dynamic dispatch costs (it cost 6.5 µs, then a cache per site).
+  - **Machinery reached from every run-time site must not specialize on what the site passes** (process start took 46 s).
+  - **A tool that lists run-time sites** found in minutes what took most of the porting time.
+  - **Keys from one package, functions from another:** compiled code for the pair lives in no image unless a glue extension's workload makes it.
+  - **A first-call time is not all compilation.** Time the step a second time in the same session.
+  - **Three settings of one switch** (off; all code; trait code beside plain code) and what the compiler needs for each: the origin of the policy in the compiler and of the test bed `all`.
+- **Became.** Facts §3 (the fact forms), §8; `intro/porting.md`; the dispatch profiler and `fully_typed`; the move of the policy into Julia's compiler.
+- **Not yet in a current document.** To check (C-42): the porting guideline's list of what makes a run-time site in ordinary code, with the answer for each.
+- **L:** L102 to L105.
+
+### The other explorations: `strict-mode.md`, `aot-under-facts.md`, `fast-loads.md`, `load-on-demand.md`, `facts-keyed-cache.md`, `keys-plan.md`, `sciml-as-traits.md`, `solvers.md`, `makie-rewrite.md`, `associated-types.md`, `runtime.md`, `julia-support.md`, `abstract-types-as-traits.md`, `unified-build-from-vanilla-julia.md`; and `design-findings.md`
+
+Read: summaries and section openings; `abstract-types-as-traits.md` §1 to §5 and §11 by their openings.
+
+- **`strict-mode.md`** (2026-10-17). The user: "I want to keep the option open to have strict mode, so trait code is never invalidated. If it rarely happens anyway it's cheap in terms of user friction but powerful as a guarantee." And: "I would love a mode that makes defining a winning pirate an error. If pirates never win then we never error." The mode first assessed (a call that would select a pirate raises) was a misreading, and costlier. Became facts §11 and traits §12.
+- **`aot-under-facts.md`** (2026-10-17). A closed build compiles plainly: in a closed world plain inference is Julia, and nothing loads. What the traits add for a closed build is a list: the members behind an erased value, the signature of a `Callable`. The user: "In my mind AOT means no LLVM in the binary." Became facts §13.3 and traits §16. To check (C-43): the annotations A to E and the three risks against today's AOT standing (G-7).
+- **`keys-plan.md`, `associated-types.md`** (2026-10-16). Keys replaced representations and projections (the user: "Every other language doesn't tackle representations … Do we really need this"); associated types adopted in first-order form only, after the finding that symbolic reasoning about associated types is where the other languages' cost lies. Today: parameters with equations (traits §3.2).
+- **`solvers.md`, `makie-rewrite.md`, `sciml-as-traits.md`** (2026-10-16 to 2026-10-21). What a rewrite of SciML and Makie around a few traits would be. SciML's architecture read as twelve goals with their mechanisms and costs, then the same goals in Rust and Swift, then "the shortest route" in moves. The demonstrators and the ports' case studies came from these.
+- **`runtime.md`, `julia-support.md`** (2026-10-16). What the design needs from Julia, as numbered pieces; the move to Julia 1.13.2. The pieces' numbering lives on in `design/julia-changes.md`.
+- **`fast-loads.md`, `load-on-demand.md`, `facts-keyed-cache.md`** (2026-10-22 to 2026-10-27). Merged into the first-use cluster (above).
+- **`abstract-types-as-traits.md`** (2026-10-28, 133 KB). The user: "Right now Julia has two more or less distinct ways to write generic code: Multiple Dispatch on functions written for abstract types (in the case of no type annotations at all Any), and traits with the compiled/dynamic switch. I wonder whether a unified perspective is possible, where we have one way to write generics. This would probably mean that abstract types are just traits." Found: strip the mechanism away and two differences remain (a declared contract or an open one; membership at the definition or later). Seven rules of a unified model. The one hard point: a late membership can change dispatch at a concrete signature that compiled code holds. Eight candidates (C1 to C8) from "members belong to the member" to "membership epochs", with Rust's coherence as precedent; then candidates for sound subtyping under late memberships.
+- **`unified-build-from-vanilla-julia.md`** (2026-10-29, 85 KB). The user: "This is not an incremental change but a fundamental reframing." Each feature as an extension of a mechanism upstream Julia has, with the upstream place named line by line. Its review corrected four load-bearing claims (above). Its inventory of upstream places is, by the review, "the best map of the upstream surface the project has".
+- **`design-findings.md`** (to 2026-10-16). The evidence log of the first era, in the order of the work: the August prototype (TraitRegions, nine packages), the measurements behind the motivation, `verify_main`, concrete mode, "between nested types and `Any`", where unreadable errors come from (three ingredients: the failure is detected deep; the message names the library's internals; the types are long), lenses, keys.
+- **Became.** As named per item.
+- **Not yet in a current document.** To check (C-44 to C-46): the anatomy of an unreadable error (three ingredients) in the rationale for the messages axis (G-5); "between nested types and `Any`" as the rationale's statement of the problem; the inventory of upstream places kept for the build notes (`record/build-notes/compiler.md`), since the exploration moves to the attic.
+- **L:** L106 to L110. **A:** A11 (the eight candidates for late membership; strict mode as a raise at the call; representations and projections; trait wrappers, sealing, doors; lenses).
+
 ## The running lists
 
 ### L-list: candidates for the lessons
@@ -782,6 +832,17 @@ Read: the reviews of 2026-11-07 to 2026-11-09 by summary and every finding's ope
 | L97 | Conceptual parsimony is owed to the user, not to the implementation: a membership behaves as a method does; what implements it is whatever is simplest. | the user, 2026-11-12 | the design |
 | L98 | Measure what a mechanism would hold before building it. The cache across sessions had nothing left to hold on the sessions measured; the images held it. | cache-across-sessions; E-372 | the method |
 | L99 | Sort every open question into bins by what it blocks. "Conceptually complete" got a definition, and measuring began the day the first bin was empty. | complete-prototype | the method |
+| L100 | To get a simpler design, state the goals and the lessons, withhold the mechanisms, and let independent designers start from the brief. Three arrived at one core; that agreement was the evidence. | wrapping-by-facts, Method | the method |
+| L101 | A guarantee worth having can be proved from a short model. G1 and G2 follow from one rule and one prohibition, and the proof also says what is necessary: only concrete facts survive unrelated loads. | wrapping-by-facts, theorems | the design, proofs |
+| L102 | Under the facts rule a call at abstract types returns `Any`, and the loss spreads. Ordinary packages are full of such calls: keyword splats, types as values, union-typed options, untyped containers. Each kind needs a rule of the design or a line in the porting guideline. | dataframes-port-lessons §1 | the ports, the design |
+| L103 | Build the tool that shows the mechanism's cost sites before porting with it. Listing run-time sites turned days into minutes. | dataframes-port-lessons 1.7 | tools |
+| L104 | Machinery that every call site reaches must not specialize on what the site passes. | dataframes-port-lessons 1.9 | the compiler, the playbook |
+| L105 | A first-call time is compilation plus run time. Time the step again in the same session before attributing. | dataframes-port-lessons §4 | the playbook |
+| L106 | A guarantee that rarely costs is cheap to offer and strong to hold: if pirates never win, strict mode never raises. | the user, 2026-10-17; strict-mode | the design |
+| L107 | A closed build compiles plainly. What traits add to AOT is a list of what an erased value can be, not another compiler mode. | aot-under-facts | AOT |
+| L108 | Associated types in first-order form only. Symbolic reasoning about them is where the other languages paid. | associated-types §2 | the design, other languages |
+| L109 | An unreadable error needs three ingredients: detected deep, named in the library's internals, with long types. A bound removes the first at the call; a short type signature removes the third. | design-findings §17 | messages |
+| L110 | Frame a change to Julia as an extension of a mechanism upstream has, with the place named. The frame survived its review; four of its claims did not. | unified-build-from-vanilla-julia; its review | the compiler, upstream |
 
 ### A-list: alternatives to add or complete
 
@@ -797,6 +858,7 @@ Read: the reviews of 2026-11-07 to 2026-11-09 by summary and every finding's ope
 | A8 | Folds recovered by mechanism: the member's builder folded by a compiler primitive (W-40); concrete evaluation with recorded dispatches (W-56); kinds inferred plainly; assertions as the asserter's promise | W-40, W-56, the W-57 memo's options B to H | to check |
 | A9 | Unification's own alternatives: memberships explicit (no transitivity), reversed the same day; over-approximating `typeintersect`; result edges without a slot; keys as `Keyed{X, R, F}`; `Callable` by derived memberships; "bounded" on by default; `All` as an ordinary abstract type | the documents of 2026-10-29 to 2026-11-07 | partly there (level 2's options, the unified build's options); to check each |
 | A10 | Of the unified build's first week: guards and "a membership invalidates nothing"; `IO` as an open set compiled once; `Dynamic{IO}` as a box; "a membership is a method" as the definition; the speed plan's gates; reserved cast names | the reviews of 2026-11-08 to 2026-11-12 | to check each |
+| A11 | From the explorations: the eight candidates for late membership (C1 to C8) and those for sound subtyping; strict mode as a raise at the call (the views design); representations and projections; trait wrappers, sealing regions, doors, declared calls, the invalidation filter; lenses and the held layout; associated types beyond first order | the explorations; design-findings | most are in the alternatives; to check each by topic |
 
 ### C-list: to check against today's documents
 
@@ -843,3 +905,8 @@ Read: the reviews of 2026-11-07 to 2026-11-09 by summary and every finding's ope
 | C-39 | Are the Swift, Rust and Mojo lessons per trade-off in `other-languages.md`? | unification-tradeoffs §3 |
 | C-40 | Is "a port's change that follows a rule of the references is not a workaround" in CLAUDE.md's rule for ports (the diff for the user) or the playbook? | io-porting-lessons L6 |
 | C-41 | The playbook: a counter on every "rare" path; profile before judging a first number. | unification-review H1 |
+| C-42 | Does `intro/porting.md` list what makes a run-time site in ordinary code (keyword splats, types as values, union-typed options, untyped containers), with the answer for each? | dataframes-port-lessons §1 |
+| C-43 | AOT: the annotations and the three risks of the exploration against G-7's standing and the open issues. | aot-under-facts §3, §6 |
+| C-44 | The anatomy of an unreadable error (three ingredients) in the rationale for G-5? | design-findings §17 |
+| C-45 | "Between nested types and `Any`" as the rationale's statement of the problem? | design-findings §16 |
+| C-46 | The inventory of upstream places (the build exploration's §1 and its sources) kept for `record/build-notes/compiler.md`. | unified-build-from-vanilla-julia; its review |
