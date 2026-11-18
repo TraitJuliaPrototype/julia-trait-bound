@@ -113,7 +113,7 @@ Sessions a user would run, each in a fresh process:
 
 - **Better messages for failures at run time inside a user's own function.** On three classic failures of a differential equation solver, the trait port's messages are shorter than the upstream package's and no shorter than those of the same small solver written without traits: no contract is broken, so no check reports earlier (E-363).
 - **Ahead-of-time binaries of a library's size.** Small trait programs build as trimmed binaries (`juliac --trim`) and run, 2.5 MB with no compiler in them, also where they loop over a vector typed by a trait; the same loop over an abstract type is refused in plain Julia (E-384). One demonstrator's program builds this way too: a CSV read with a summary, 3.1 MB, with the session's output (E-383). The ODE program and the plot's do not build yet.
-- **A port by someone outside the project,** and a reader from outside who learns the design from these pages.
+- **A port by someone outside the project.**
 - **Scale:** the ports are parts of three ecosystems.
 - **A cache across sessions.**
 - **Threads; Revise.**

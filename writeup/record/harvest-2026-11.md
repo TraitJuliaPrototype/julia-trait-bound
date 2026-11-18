@@ -1,6 +1,6 @@
 # The harvest's notebook (W-162, part 1)
 
-The notebook of the documentation clean-up's reading ([the plan](../plans/2026-11-18-documentation-cleanup.md) part 1 and §9). For agents. One entry per document that goes to the attic, written right after the document is read, in the main session. It carries what the session cannot hold in its context. When the harvest is done it becomes the attic's digest (`attic/README.md`) and the source of `record/context.md`, `design/lessons.md` and the alternatives' chapters.
+The notebook of the documentation clean-up's reading ([the plan](../../attic/writeup/plans/2026-11-18-documentation-cleanup.md) part 1 and §9). For agents. One entry per document that goes to the attic, written right after the document is read, in the main session. It carries what the session cannot hold in its context. When the harvest is done it becomes the attic's digest (`attic/README.md`) and the source of `record/context.md`, `design/lessons.md` and the alternatives' chapters.
 
 **An entry holds:**
 - *What it was:* the kind of document, who wrote it, on which build, what it answered.

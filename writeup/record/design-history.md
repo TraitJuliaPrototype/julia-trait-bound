@@ -20,7 +20,7 @@ Process history that the current documents for core developers leave out: where 
 
 ## The documentation clean-up of 2026-11-18
 
-The documents were rewritten to describe one implementation and its intended design, against plain Julia and Python ([the plan](../plans/2026-11-18-documentation-cleanup.md); W-162).
+The documents were rewritten to describe one implementation and its intended design, against plain Julia and Python ([the plan](../../attic/writeup/plans/2026-11-18-documentation-cleanup.md); W-162).
 - The plans and reviews that were done, the explorations and the findings log moved to the attic, at the same paths under `attic/`. Their insights went first into the alternatives, the lessons, the proofs, the context and the playbook ([the harvest notebook](harvest-2026-11.md)).
 - The ledgers were split: what is open or in force stays in `writeup/`; every row as it stood is in `attic/writeup/record/`.
 - The references' status lines and deviation tables keep what is open; how each section was built is in `record/build-notes/`.

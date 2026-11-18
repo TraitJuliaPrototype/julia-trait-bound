@@ -180,7 +180,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | Typing the ODE port's front end | with traits: the session 1.25 → 1.33 s (6 %); the build's errors 122 to 50, none in the front end | — | — | `unified` 21c9b33e39; a warm-up and 3 runs | E-387 |
 
 **Not shown.**
-- A second port by another author. No porter from outside has followed [the porting guide](../intro/porting.md).
+- A second port by another author: every port is the project's own.
 - After unrelated loads the forks are behind the package compiled by facts as it is: 2.22–2.25 s against 1.71–1.73 s (E-392; GT-8).
 - The ports' own questions are open: [the open issues, the ports](../open-issues.md#the-ports), and open issues 157 and 184.
 - Upstream wrapped whole as trait modules, and the forks against upstream under the test bed: measured only on the library of October 2026 (E-212 in the ledger); not measured on this implementation.
@@ -199,7 +199,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | `Callable` as a contract at the box | with traits: no pair of methods needs dispatch by a function's signature; the gate 25 of 25 | — | — | `next` eaa19da272 | E-500 |
 
 **Not shown.**
-- Teaching: no reader from outside has learned the design from `intro/`. Nothing measures "easy to teach".
+- Teaching: nothing measures "easy to teach".
 - The changed Julia and the ports do not all follow the one way to erase yet (compiler C-112, traits T-128).
 
 <a id="4c-the-unifications-trade-offs-measured-on-todays-build"></a>
@@ -251,7 +251,7 @@ What no experiment shows. Each goal's own list is under its table.
 
 - **Scale.** Composition is measured with twenty small packages (E-378). The ports are parts of three ecosystems, not the ecosystems.
 - **A second port by another author.** Every port is the project's own.
-- **Teaching with a reader from outside.** No reader from outside has learned the design from `intro/`.
+- **Teaching.** Whether `intro/` teaches the design is not tested.
 - **A cache across sessions.** Not built. By E-375 and E-372 it would serve:
   - the session's own code and Julia's methods at its signatures, which plain Julia compiles too: about 155 ms of the generated workload; 692 ms of the ODE session's 1.25 s and 0.19 s of the table session's 0.76 s;
   - a library's code at another package's type, where the membership is declared in the session and compiled for the type: 152 ms;

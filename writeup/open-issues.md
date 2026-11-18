@@ -11,7 +11,10 @@ What is open in the design, the implementation, the measurements and the documen
 
 ## 1. Questions for the user
 
-No question waits for the user now.
+**Q-1. Eight pushed commits name a model in their co-author line.**
+- *The case:* the commits "The README for the package as it is; its history to HISTORY.md" in TraitWorld, TraitDifferentialEquations, TraitMakie, TraitTables, TraitCSV, TraitReport, forks and ndport end with "Co-Authored-By: Claude Opus 5.5". An agent wrote them so, and they were pushed before the main session saw it.
+- *The options:* (a) leave them; (b) amend each and push with force. The harness refused (b) without the user's word.
+- *The recommendation:* (b). Each is the head commit of its branch, and no one else uses the remotes.
 
 - The tensions (§2) and the agent's choices (§3) are input to the next synthesis ([the goals §4](goals.md#4-the-synthesis)). They do not wait for a review one by one.
 - A question goes here when the work cannot continue without the user's answer: the question, the options, the recommendation, and the reference section where the answer would land.

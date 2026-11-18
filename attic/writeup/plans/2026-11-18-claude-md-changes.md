@@ -1,6 +1,6 @@
 # Proposed changes to `CLAUDE.md` after the documentation clean-up
 
-**Status:** proposal (2026-11-18), for the user. Not applied: the user asked to see the rule changes as a diff first ([the clean-up's plan](2026-11-18-documentation-cleanup.md) §8, Q1). Written in the main session. In `CLAUDE.md` itself only paths were changed: the links that the move to the attic broke, and `experiments/unification/` to `experiments/implementation/` after the directories were renamed.
+**Status:** done (2026-11-18): applied to `CLAUDE.md` on the user's word, "Go ahead with the Claude proposal." Two lines with the user's words of the same answer were added (one Opus agent at a time; the work queue holds work an agent can do). Was: proposal (2026-11-18), for the user. Not applied: the user asked to see the rule changes as a diff first ([the clean-up's plan](2026-11-18-documentation-cleanup.md) §8, Q1). Written in the main session. In `CLAUDE.md` itself only paths were changed: the links that the move to the attic broke, and `experiments/unification/` to `experiments/implementation/` after the directories were renamed.
 
 ## What the diff does
 

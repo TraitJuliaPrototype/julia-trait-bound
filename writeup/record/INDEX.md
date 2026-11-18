@@ -52,7 +52,7 @@ This directory holds more context than a reader of the design wants. An agent th
 The plans that are running or awaited:
 - [the next iteration](../plans/2026-11-15-next-iteration.md): the decisions of the iteration that is being built, its stages, who works in which tree, where it stands;
 - [the synthesis](../plans/2026-11-14-synthesis.md) and [the review of the conceptual design](../reviews/2026-11-15-conceptual-design.md), which the iteration answers;
-- [the documentation clean-up](../plans/2026-11-18-documentation-cleanup.md): the rules the current documents follow; [its review](../reviews/2026-11-18-documentation-cleanup.md): what it did, what it found, what it leaves; [the names of the directories](../plans/2026-11-18-names.md); [the proposed changes to `CLAUDE.md`](../plans/2026-11-18-claude-md-changes.md), waiting for the user.
+- The documentation clean-up of 2026-11-18 is done. Its rules are in [`CLAUDE.md`](../../CLAUDE.md); its plan, its review and what it found are in the attic ([the plan](../../attic/writeup/plans/2026-11-18-documentation-cleanup.md), [the review](../../attic/writeup/reviews/2026-11-18-documentation-cleanup.md)).
 
 ## Standing constraints
 

@@ -59,9 +59,11 @@ Base's own test files against the vanilla control, and the acceptance cases of t
 
 First, a fault: the tutorial's script crashes in one run of three on the head, in dispatch's cache ([open issue 234](open-issues.md#4-runtime-and-measurements); W-163). It is found and fixed before anything is measured.
 
+Four gates assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements); W-164): they are rewritten next.
+
 Then the stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the demonstrators follow the design, and the attribute's machinery leaves Julia and the library (W-156);
-2. daily use: a program of the ODE library through a build, the teaching, a reader from outside (W-158);
+2. daily use: a program of the ODE library through a build, the teaching (W-158);
 3. a freeze and a short measurement round, each row against plain Julia and Python (W-159);
 4. the changes to Julia as patches for upstream (W-19).
 

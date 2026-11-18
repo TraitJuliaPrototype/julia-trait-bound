@@ -234,3 +234,15 @@ Keys, entries and workers, trait objects, the first ports. The library of that t
 | [`writeup/reviews/2026-11-12-w141-membership-as-method.md`](writeup/reviews/2026-11-12-w141-membership-as-method.md) | The user's schedule (2026-11-11): "The strategy should be to build the complete prototype. | The schedule and its end, 2026-11-11 to 2026-11-14 |
 | [`writeup/plans/2026-11-14-cache-across-sessions.md`](writeup/plans/2026-11-14-cache-across-sessions.md) | The user's schedule (2026-11-11): "The strategy should be to build the complete prototype. | The schedule and its end, 2026-11-11 to 2026-11-14 |
 | [`writeup/plans/2026-11-14-measurement-round.md`](writeup/plans/2026-11-14-measurement-round.md) | The user's schedule (2026-11-11): "The strategy should be to build the complete prototype. | The schedule and its end, 2026-11-11 to 2026-11-14 |
+
+## The documentation clean-up of 2026-11-18
+
+| Document | What it was |
+|---|---|
+| [`writeup/plans/2026-11-18-documentation-cleanup.md`](writeup/plans/2026-11-18-documentation-cleanup.md) | the clean-up's plan: the rules R1 to R4, the nine parts, the user's answers |
+| [`writeup/plans/2026-11-18-names.md`](writeup/plans/2026-11-18-names.md) | part 9: the directories renamed, with the steps and the checks |
+| [`writeup/plans/2026-11-18-claude-md-changes.md`](writeup/plans/2026-11-18-claude-md-changes.md) | the rule changes to `CLAUDE.md` as a diff, applied on the user's word |
+| [`writeup/reviews/2026-11-18-documentation-cleanup.md`](writeup/reviews/2026-11-18-documentation-cleanup.md) | the main session's review of the clean-up: what each part did, the checks, what it found, what it left; with the addendum of the user's answer |
+
+What it harvested is the notebook, `writeup/record/harvest-2026-11.md`.
+

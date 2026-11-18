@@ -70,7 +70,7 @@ Adopting the plan takes every row marked *to confirm* as recommended, unless the
 | D-12 | **A pirate is reported by default** when it ends deep-G2 code; refused in strict mode; silent by choice | P7 (d); open issue 177 (c) | to confirm | — | 2, 3 |
 | D-13 | **A membership can be taken back,** so that Revise works on memberships | the synthesis' decision 6 | to confirm | open issue 180 (c) | 2, 3 |
 | D-14 | **The prune list.** Keys to a page of optional extensions; `like`, `withfields` and forwarding with `by` as the library's conveniences; `@trait_module` with `facts`, `bounded`, `no_pirates` | P7 (e); the synthesis' decision 2, first part | to confirm | E-263: four of 148 memberships share a key | 2, 6 |
-| D-15 | **The next demonstrators:** the ODE program without callbacks through a build; a reader from outside for `intro/`, on the reduced design. No new port | the synthesis' decision 7 | to confirm | — | 6 |
+| D-15 | **The next demonstrators:** the ODE program without callbacks through a build; `intro/` on the reduced design (the reader from outside is withdrawn: the user, 2026-11-18, "We won't have an outside reader so remove that."). No new port | the synthesis' decision 7 | to confirm | — | 6 |
 
 **Settled by D-1, with nothing left to decide:** the synthesis' decision 2 (the attribute's rules) and decision 3 (a build compiles for the type, a session once).
 
@@ -196,7 +196,7 @@ Each item is one commit with its gate script, and the suites after it (Julia's `
 - D-14 in the library and the references.
 - `intro/` on the reduced design: a fact, an owner, a trait, the box, the wrapper. Its examples run in `experiments/docs-examples/`.
 - `operations(x)` at the REPL (W-150), if it is small then.
-- The reader from outside: the user finds one; the plan prepares `intro/` and a short task list.
+- The reader from outside is withdrawn (the user, 2026-11-18: "We won't have an outside reader so remove that.").
 
 ### Stage 7: freeze, and a short round (W-159)
 

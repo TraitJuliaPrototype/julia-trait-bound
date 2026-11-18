@@ -93,3 +93,18 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 **The user, in the morning, after a usage limit stopped two agents:** "You hit a usage limit. Continue with only one opus subagent at a time." From then on one agent at a time. It is in the proposal for `CLAUDE.md`, not in `CLAUDE.md`: an edit of that file's rules was refused by the harness, as the user had asked to see rule changes as a diff.
 
 **What waits for the user:** the proposal for `CLAUDE.md` (`writeup/plans/2026-11-18-claude-md-changes.md`); the default branch of each repository on GitHub. The review of the whole: `writeup/reviews/2026-11-18-documentation-cleanup.md`.
+
+## After the report
+
+**The user's questions** on the report: "What had happened before the usage limit?"; "The agents that were running before were Fable or Opus?" (Opus, every one); "What's the next Todo" (W-163, the crash).
+
+**The user's answer:** "Go ahead with the Claude proposal. I will take care of GitHub. Continue the work using an Opus subagent. We won't have an outside reader so remove that. The work log should be more for things you can do."
+
+**Done on it:**
+- `CLAUDE.md`: the proposal applied as its diff stood; two lines added with the user's words (one Opus agent at a time for the work of the queue; the work queue holds only work an agent can do).
+- The reader from outside removed from the work queue (W-158), the state page, the next iteration's plan (D-15 and its note), the results page; the evidence and the goals now say that teaching is not tested.
+- The work queue rewritten: only work an agent can do, each item with its first step. New: W-164 (the four gates that assert replaced rules; open issue 237). Closed into the ledger: W-162 (done), W-110 (keys: deferred).
+- The clean-up's plan, the plan for the names, the proposal and the review moved to the attic; the review has an addendum with the user's answer.
+- One question waits for the user (open issues §1, Q-1): the eight commits whose co-author line names a model.
+- W-163 started: an Opus agent in `wt/w163-julia`.
+

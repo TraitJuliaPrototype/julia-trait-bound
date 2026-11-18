@@ -89,3 +89,17 @@ The decision log's row "The clean-up's choices made while it ran" lists them. Th
 - Read `intro/` as a programmer who has not seen the project, and the references as a core developer. The clean-up removed what the lint can count; whether the pages teach is not measured (G-8).
 - Check ten more rows of the evidence against their logs.
 - Run `python3 experiments/tools/doclint/doclint.py` and `anchors.py` before each commit to a current document.
+
+## Addendum, 2026-11-18, later the same day
+
+The user read the report and answered: "Go ahead with the Claude proposal. I will take care of GitHub. Continue the work using an Opus subagent. We won't have an outside reader so remove that. The work log should be more for things you can do."
+
+What was done with each point of §5 and §6:
+- **The rule changes in `CLAUDE.md`** are applied as proposed. Two lines were added with the user's words of that answer: one Opus agent at a time for the work of the queue; the work queue holds only work an agent can do.
+- **The default branch on GitHub** is the user's.
+- **The eight commits whose co-author line names a model** are a question for the user ([the open issues §1](../../../writeup/open-issues.md#1-questions-for-the-user)).
+- **§6 is withdrawn:** there will be no reader from outside. The evidence and the goals say that teaching is not tested; the work queue's item on daily use and the next iteration's plan no longer name a reader.
+- **The crash** is W-163, running; **the four gates** are W-164.
+- **The work queue** was rewritten for what an agent can do, each item with its first step. W-162 is closed. W-110 (keys) left the queue as deferred.
+- This review, the clean-up's plan, the plan for the names and the proposal moved to the attic with W-162's closing.
+
