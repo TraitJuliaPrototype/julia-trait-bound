@@ -10,9 +10,11 @@
 # process is sampled every 10 s. The log is <tree>/tw-build.log and ends with "BUILD EXIT <rc>".
 # A wide build is a spike (its parallel compile phase lasts minutes); builds one after another
 # (a bisection) are sustained use and run with WIDE=0.
-# The runtime's rules (subtyping, memberships, cells) shape what Base's build compiles, yet Julia's
-# make rebuilds the system image only when a file of base/ changes: where a runtime source (src/) is
-# newer than the image, base/sysimg.jl is touched so the image is rebuilt (KEEP_IMAGE=1 keeps it).
+# The runtime's rules (subtyping, memberships, cells) shape what Base's build compiles, and the first
+# image stage (basecompiler) stores Core's types with the state the runtime's start gave them, yet
+# Julia's make rebuilds an image stage only when a file of base/ or Compiler/ changes: where a runtime
+# source (src/) is newer than the first stage, Compiler/src/Compiler.jl is touched, so every stage is
+# rebuilt (KEEP_IMAGE=1 keeps them).
 # Usage: tools-local/build.sh <julia tree> [make target]     (WIDE=0 forces -j4)
 # Run from a private copy: bash reads a script as it runs, so an edit to this file would corrupt a running build.
 if [ -z "${BUILD_SH_COPY:-}" ]; then t=$(mktemp); cp "$0" "$t"; BUILD_SH_COPY=$t exec bash "$t" "$@"; fi
@@ -34,10 +36,11 @@ start() {  # $1 = jobs
 own_running() { ps -L -s "$pid" -o stat= 2>/dev/null | grep -c '^[RD]'; }
 load1() { awk '{print $1}' /proc/loadavg; }
 
-IMG=$TREE/usr/lib/julia/sys.so
-if [ "${KEEP_IMAGE:-0}" != 1 ] && [ -f "$IMG" ] && [ -f "$TREE/base/sysimg.jl" ]; then
+IMG=$TREE/usr/lib/julia/basecompiler.so
+FIRST=$TREE/Compiler/src/Compiler.jl
+if [ "${KEEP_IMAGE:-0}" != 1 ] && [ -f "$IMG" ] && [ -f "$FIRST" ]; then
   newer=$(find "$TREE/src" -maxdepth 2 \( -name '*.c' -o -name '*.cpp' -o -name '*.h' \) -newer "$IMG" -print -quit)
-  [ -n "$newer" ] && touch "$TREE/base/sysimg.jl" && note "runtime source newer than the system image ($(basename "$newer")): the image is rebuilt"
+  [ -n "$newer" ] && touch "$FIRST" && note "runtime source newer than the first image stage ($(basename "$newer")): every image stage is rebuilt"
 fi
 l=$(load1)
 if [ "${WIDE:-1}" = 1 ] && awk -v l="$l" -v h="$HALF" 'BEGIN{exit !(l < h)}'; then jobs=$HALF; else jobs=$NARROW; fi

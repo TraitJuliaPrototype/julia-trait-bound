@@ -141,7 +141,7 @@ end
 - **The bare name is the union over all parameters:** `KVec` is `KVec{T} where T`, as `AbstractVector` is `AbstractVector{T} where T`.
 - **One instance per member.** A type may reach a trait by several paths (its own membership, a supertype's, a supertrait's). Every path must give the same parameter values. A declaration that would give a second instance is refused (`ImplementError`).
 - **Bounds on parameters:** `@trait ArrayLike{T <: Real, N}`, also a trait as the bound. A value outside the bound is refused at the membership.
-- **Input parameters:** `@input N` in the body marks `N` as an input. A type may be a member at several values of an input (`HasProperty{:ps, PView}` and `HasProperty{:u, Vector{Float64}}`). The trait at fixed input values is a trait of its own for every other rule. Two such traits are not disjoint: a type may be a member of both, and two methods that differ only in an input's value are ambiguous for it (§6.3). A method's `where` variable or a stated value fixes an input; it is never left open where an operation's result needs it.
+- **Input parameters:** `@input N` in the body marks `N` as an input. A type may be a member at several values of an input (`HasProperty{:ps, PView}` and `HasProperty{:u, Vector{Float64}}`). The trait at fixed input values is a trait of its own for every other rule. Two such traits are not disjoint: a type may be a member of both, and two methods at different values of an input are ambiguous for it (§6.3). A method's `where` variable or a stated value fixes an input; it is never left open where an operation's result needs it.
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
@@ -959,7 +959,7 @@ colmap(uppercase, m, 1)                   # MethodError where the function is bo
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 - **Passing `f` on to a higher-order function,** `map(f, xs)`, passes the box: a call at a concrete signature, whose code is compiled once for the box. `colmap` above is bounded (§7.3).
 
-**Status:** Implemented, but for T-156, [compiler C-146, C-147](compiler.md#deviations) and [lowering L-58](lowering.md#15-deviations); keywords (`Callable{A, S, K}`): Planned.
+**Status:** Implemented, but for T-156, [compiler C-146](compiler.md#deviations) and [lowering L-58](lowering.md#15-deviations); keywords (`Callable{A, S, K}`): Planned.
 
 ---
 
@@ -1339,7 +1339,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented | §7.9 |
 | storage typed by a trait; struct parameters; storage keeps the form given | Implemented | §8 |
-| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for T-156, compiler C-146, C-147 and lowering L-58 | §9 |
+| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for T-156, compiler C-146 and lowering L-58 | §9 |
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented | §10 |
 | checks, errors, hints | Implemented, but for T-99 and compiler C-115 | §11 |

@@ -107,6 +107,8 @@ Moved here by the documentation clean-up of 2026-11-18 (W-162). Every row is unc
 | C-106 | — | *Retired* (2026-11-15): a membership taken back, on `next-s3` 213c759370 (`jl_delete_membership`, `jl_membership_removal_walk`; [§4.3](#43-worlds), [§5.5](#55-a-membership-invalidates-as-a-method-does), [§5.6](#56-the-memberships-method-and-the-edges), [§9](#9-images-and-the-machine-code-cache)); E-459 | — | — |
 | C-110 | — | *Retired* (2026-11-15): [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) is built for `new`, a store and a `typeassert` (`next` 5b1900641f, W-160); `isa` and `<:` are inference's folds | — | — |
 | C-116 | — | *Retired* (2026-11-15): `Callable`'s members are entries, subtyping reads no method, the signature is checked at the box and at a wrapper's entry ([§7.4](#74-callables-call)); built on `next` eaa19da272 and TraitWorld `unified` c14d2e4 (W-161); what is short: C-146 | — | — |
+| C-147 | — | *Retired* (2026-11-18): two instances of a set that may differ in an input meet as `All{X{A}, X{B}}`, and two methods at them tie ([§4.9](#49-intersections), [§7.4](#74-callables-call)); built on `next` 7397ab6f70 and 02139b2168 (W-165); gates `n8_callable`, `n10_inputs`; E-503; what is short: C-149 | — | — |
+| C-148 | — | *Retired* (2026-11-18): `Callable` is closed after load as every set, and a set written with free parameters is asked as the set, so the lookup drops the match and its ambiguity ([§4.8](#48-negatives-fold-with-an-edge-positives-through-entries)); built on `next` a29ffdd428 (W-165); gate `n20_unmet_lookup` (5); E-503 | — | — |
 
 ## Lowering (L-)
 

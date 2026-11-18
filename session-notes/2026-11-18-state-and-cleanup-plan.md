@@ -132,3 +132,16 @@ An Opus agent worked in `experiments/implementation/gates/`; the main session ra
 - **The static check of GC roots on `julia-next` itself:** 15 files, 0 findings. A first run read "0 findings" although the checker's plugin had not been built: `sagc.sh` now exits with an error when the check could not run. `wt/w163-julia` and the merged branch `w163` are removed.
 - **W-165 started** (E-503 registered): an Opus agent in `wt/w165-julia`.
 
+
+## W-165: two instances of one set
+
+An Opus agent worked in `wt/w165-julia` (branch `w165`); the main session reviewed, merged, rebuilt, ran the checks again and recorded. The agent was stopped once, at the user's word ("Stop work I til 12:10 to avoid limits", "Dublin time"), and resumed at that time.
+
+- **Built** (julia `next` 7397ab6f70, a29ffdd428, 02139b2168; E-503): two instances of a set that may differ in an input meet as `All{X{A}, X{B}}`, so two methods at `Callable` instances tie for every function, with a report. `Callable` is closed after load as every set, and a set written with free parameters is asked as the set: the unmet lookup drops its ambiguity. Compiler C-147 and C-148 retired.
+- **The build corrected the rule I had written:** `HasProperty{:a, Int}` and `HasProperty{:b, String}` differ in the input and in another parameter, and meet. The rule is: disjoint where the instances agree in every input and differ in another parameter (compiler §4.9; the decision log's row).
+- **A second reading of intersection, found by gate `n10_inputs`:** an entry's own instance is paired with the instance asked about parameter by parameter; else the one-instance check refuses a member at two input values (compiler §4.6).
+- **The census** (`experiments/implementation/w165/census.jl`): no pair of methods in Base, the library or a port is at two instances of one set at one argument. Nothing else ties.
+- **Left:** compiler C-149 (two instances whose variables unify are answered by the unified instance alone); open issue 239 (a caller at an abstract instance calls dynamically where another method is at another input value; the proposal is a cell per instance); open issue 238's case is unchanged.
+- **A trap of the build:** Julia's make does not rebuild the first image stage (`basecompiler`) for a change of the runtime, and that stage stores Core's types with the bits the runtime's start gave them. `tools-local/build.sh` now touches `Compiler/src/Compiler.jl` where a runtime source is newer than the first stage, so every stage is rebuilt (the playbook §2).
+- **The main session's checks on the rebuilt `julia-next`** (02139b2168, 832 s): gates 72 of 72 and 9 of 9; the suites as before (library 93 testsets, the ODE library 35, TraitMakie 8, NetworkDynamics with its known failures, the forks' digests equal at 26 steps); Base's `subtype`, `core`, `ambiguous`, `worlds` pass, `detect_ambiguities(Base)` 0; the examples pass; the static check 0 findings in 15 files. Logs: `experiments/implementation/w165/logs/main-*`, `w161/logs/main-02139b2168-*`.
+- **W-156 started, its first part** (E-504 registered): an Opus agent converts the demonstrators' casts (traits T-128), on a branch `w156` of each demonstrator's repository.

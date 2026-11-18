@@ -25,7 +25,7 @@ Before changing anything:
 - **Check `BUILD EXIT 0`** at the end of `<tree>/tw-build.log`. An error inside the system image's build leaves no crash message.
 - **Commit, then build.** A binary built from an uncommitted tree names a commit it was not built from, and every log line that prints the version is then wrong.
 - **After a change to a struct's layout,** delete the staged system images.
-- **The script rebuilds the system image when a runtime source is newer.** Julia's make does not.
+- **The script rebuilds every image stage when a runtime source is newer.** Julia's make does not. The first stage (`basecompiler`) stores Core's types with the state the runtime's start gave them (`post_boot_hooks`: a set's bits), so a rebuild of the later stages alone runs on the old state.
 - **A build that takes twice its recorded time** is stopped and bisected, one build at a time (`WIDE=0`).
 - **Every package image is rebuilt after a build.** The first run of anything includes precompilation. Run a warm-up before timing.
 - **Do not edit the library while a job loads it from source.**

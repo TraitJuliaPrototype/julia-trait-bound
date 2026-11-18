@@ -11,7 +11,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | a5bd871cce | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `julia-next` | julia, `next` | 02139b2168 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
 | `TraitWorld` | TraitWorld, `unified` | 3e64ede | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 0816231 | the ODE library |
 | `TraitMakie` | `unified` | efc3ec0 | the plotting library |
@@ -44,7 +44,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 
 | What | On | Result |
 |---|---|---|
-| the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; two carry an expected-failure check (compiler C-147, C-148) |
+| the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
 | the library's suite | `next` | passes (93 testsets) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass |
 | NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
@@ -52,14 +52,13 @@ The suites below ran on these heads but for the commits that only change READMEs
 | TraitTables, TraitCSV, TraitReport | the tag (E-373) | pass; on `next` after their conversion |
 | the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass, with the deviations T-126 and T-127 marked; the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
+| Base's `subtype`, `core`, `ambiguous`, `worlds`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-503) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
 ## 4. What is next
 
-First, a fault the gates found: two instances of one set that a member is in both do not meet, so dispatch selects one of two methods at `Callable` instances without a report ([open issue 238](open-issues.md#2-design); compiler C-147; W-165).
-
-Then the stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
+The stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the demonstrators follow the design, and the attribute's machinery leaves Julia and the library (W-156);
 2. daily use: a program of the ODE library through a build, the teaching (W-158);
 3. a freeze and a short measurement round, each row against plain Julia and Python (W-159);
