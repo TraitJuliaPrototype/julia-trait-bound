@@ -22,6 +22,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | 1 | reviews and plans of 2026-10-16 and 2026-10-17 (7 documents, 180 KB) | 2026-11-18, in full |
 | 2a | the five reviews of 2026-10-18 (255 KB) | 2026-11-18, in full |
 | 2b | the seven reviews and five plans of 2026-10-19 (255 KB) | 2026-11-18, in full |
+| 3 | the three plans and two reviews of 2026-10-20 (142 KB; the implementation plan by its opening sections and outline) | 2026-11-18 |
 
 ## Entries
 
@@ -379,6 +380,66 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 - **L (evidence):** the same handful of over-broad methods in a few packages ends most code, in October's profile and in November's count (extends L30).
 - **L (alternatives):** early cutoff on unchanged results, for answers as for code.
 
+### `plans/2026-10-20-dynamic-and-compiled.md`
+
+- *What it was:* the proposal for one language of trait positions, from the user's words (2026-10-20): "I think all of this points to a unifying language. f(x::Dynamic{X}) for an erased position, and the new f2(x::Compiled{X}) for a static one. Then f(compiled_for(x)) and f2(with_dynamic(x)) override. Importantly these rules can be given without talking about receiver types at all." Its §0 is the rule as the user refined it the same day.
+- *Found:*
+  - **The rule:** every value in trait code is `Dynamic` or `Compiled`. It gets the attribute where it is first seen through a trait: concretely typed there, `Compiled`; abstractly typed, `Dynamic`. A trait's default overrides (`Callable` declares `Dynamic`); a boundary's annotation overrides that; a caller's `compiled_for(x)` or `with_dynamic(x)` always wins. Inside trait code a value keeps its attribute, "library to library: Values carry. Not redecided."
+  - **The precedent, in its §1b:** "Neither language has a mode per bound. The value's own type decides: a concrete value runs generic code compiled for its type; a `dyn` (Rust) or an `any` (Swift) value runs it erased, once. Neither turns an erased value back into per-type code."
+  - What the rule absorbed: `Callable`'s two modes, `dynamic by`, the solvers' model mode, "a type that supplies its own behaviour gets its own copy".
+  - The user on the REPL: a call on an ordinary global is `Dynamic`; "Repl might bear revisiting later as a special case".
+- *Became:* built as W-4 the same day, then values that carry through storage (W-18), then on the unified line "the attribute" with five steps deciding it. On 2026-11-15 the next iteration replaced it by one way to erase: two kept forms, and the value's type decides (D-1; [traits §7.4](../reference/traits.md)). That is the precedent of §1b.
+- *Not yet in a current document:* that the rule of 2026-11-15 is the Rust and Swift rule the plan of 2026-10-20 cited beside the rule it then built (C-20: the alternatives' entry "One way to erase: the attribute, replaced").
+- **L (the design, eras 2 to 3):** the rule with one decider (the value's own type) was on the page as the precedent while a rule with several deciders was designed around it. It took three and a half weeks, a measurement round and a review of the whole design to come back. A named precedent is tried as the design before a richer rule is built.
+- *For `record/context.md`:* the user's words on the unifying language, and on values that carry.
+
+### `plans/2026-10-20-dynamic-compiled-implementation.md` and `reviews/2026-10-20-dynamic-compiled-plan.md`
+
+- *What they were:* the implementation plan of W-4 (375 lines, seven phases; read: its status, phases, scope and outline) and its review (read in full; nothing run). The user (2026-10-20): "Make a detailed implementation plan first. This implementation plan needs to include updating all documents on the website to the intended design. References first, then everything else."
+- *Found:*
+  - **The order the project has kept since:** the references first, with "Planned" and deviation rows for what is not built; then the other design documents; then the library; then the demonstrators; then one short check; then the documents that state the current state (the teaching pages last, because their examples must run).
+  - **The scope, in the user's words:** "Right now we want to implement new semantics, not do performance work… Where you make a choice that you judge performance relevant, record it as a possible performance issue to revisit. Proper measurements will have to wait until we have code idiomatically written to the new semantics".
+  - The review: the plan deleted a fast path in phase 3 and measured whether it was needed in phase 5 ("the deletion precedes its measurement").
+  - **An erased function compiled into a library's image splits over the library's own members only; every user type takes the fallback.** So what follows the split is no option but a prerequisite for a library that compiles ahead.
+  - **`known_type` is false in every interpreted top-level call,** so at the prompt every literal call was `Dynamic`, while the demonstrators' rows wrapped their calls in closures and measured `Compiled`: "E-149 would report no change where the prompt gets a different path."
+  - Two representations of one dynamic value met at seams the plan had not listed.
+- *Became:* the order of phases is `CLAUDE.md`'s "a decision: first the reference". The scope sentence is the root of recording a slowdown as a tension. The split's members and the table past them: [compiler §7.2](../reference/compiler.md), GT-7.
+- *Not yet in a current document:* nothing of the design.
+- **L (ordering):** the references first, the teaching pages last; semantics before performance; a choice that may cost speed is recorded, not tuned.
+- **L (measuring):** a harness that wraps the timed call in a compiled closure does not measure what a line at the prompt runs (extends L9).
+- **L (the design):** what a library's image can split over is the library's own members. A user's type is by construction past the split (see GT-7).
+- *For `record/context.md`:* both passages of the user's words.
+
+### `reviews/2026-10-20-heterogeneous-collections.md`
+
+- *What it was:* a fresh-eye review, with seven experiments, of `Vector{Any}`, `Vector{Union{…}}`, `Dict{K, Any}`, `Vector{AbstractFoo}` and `Vector{Dynamic{X}}` under the facts rule, in the product setting and under `all` (julia-1.13). An addendum records the user's reading.
+- *Found:*
+  - **Trait code pays the `Any` tails in the product setting too,** because every Base method reached from trait code is compiled by facts: Base's `filter!` on a `Vector{Any}` 36.8 ns per element against 1.1 in plain code; a loop over a `Dict{String, Any}` 242 ns and 100 bytes against 2.2 ns.
+  - **The cost is not the dispatch.** A run-time site costs what plain Julia's dynamic dispatch costs (17.3 against 16.9 ns). The tails are two things plain inference gives at an abstract call and the facts rule withholds: inlining a callee whose one method is declared at `Any`, and a typed result. One constructor call at `Any` turned `Dict{Any, Any}` iteration from 7 ns into 112 ns: "the cascade of `Any`".
+  - Only a fact brings a site back: an `invoke` at the declared signature (0.7 ns), or a guarded direct call at a concrete signature.
+  - **"At most four" was not Julia's rule.** Julia bounds a cost that counts the largest union as 2: one union argument of eight types splits into eight facts; two union arguments of three types each do not split (44 ns and 64 bytes, a 45× tail with no `Any` anywhere).
+  - `Dynamic` kept its promise for four members, and for an arbitrary four: the candidates came in the method table's order after a load, another order than the image was compiled under. Making a `Dynamic` cost 157 ns.
+  - For a user's heterogeneous data the remedy was a copy, and the copy needed a trait.
+  - A table of ten options with their precedents (Rust's `Vec<Box<dyn Trait>>` and `enum_dispatch`, Swift's `[any P]` and witness tables, HotSpot's guarded class-hierarchy analysis, Self and V8's type feedback, CPython's version tags).
+  - **The user (the addendum):** "we should remember that the facts compiler was for smoothly calling into ordinary code, idiomatic trait code as it would look in Swift and Rust probably would see things differently", and: "TraitWorld needing collections sounds right to me. Vector{AbstractType} is a poor substitute for an Iterable trait and this should be an argument for why we need Traits with facts mode."
+- *Became:* BaseTraits, the library's traits for Base's interfaces ([traits §10.1](../reference/traits.md)). Rule 5 of `CLAUDE.md`: a number says whether it measures interop or idiomatic trait code. The split over the first members with a table past them. On the unified line an element of a `Vector{Shape}` costs 2.87 ns against 2.70 for a vector of an abstract type (E-374).
+- *Not yet in a current document:* what trait code pays today when it calls Base's generic algorithms on a container of `Any`, the interop number on this build (C-18). The two causes of the tails, as an explanation, belong in the rationale or the lessons.
+- **L (the design):** under facts a run-time site costs a dynamic dispatch, as in plain Julia. What is lost is inlining of one-method callees declared at `Any` and the type of the result, and the loss cascades. This is the precise form of "the price of the facts rule".
+- **L (measuring):** say whether a number measures interop or idiomatic trait code. The same review reads as an indictment or as the argument for collection traits, depending on that.
+- **L (claims):** a limit quoted from Julia ("four") is checked in Julia's code.
+- *For `record/context.md`:* the user's two sentences of the addendum.
+
+### `plans/2026-10-20-proving-the-references.md`
+
+- *What it was:* a proposal, on the user's request, for what the demonstrators and checks should do next to prove the design that the references define.
+- *Found:*
+  - **A conformance suite per reference:** one check per rule marked Implemented, named by its section; one check per deviation, written for the intended shape and expected to fail. "A fix flips it, and the table row is retired in the same commit. A deviation without such a check is a claim nobody re-verifies."
+  - The guarantees in realistic stacks: G2 across loads for every demonstrator in three load orders; strict mode in a real stack; upstream's test suites as the strongest evidence for "identical".
+  - **What would count against the design,** written down first: a loss under G2 that no named exception explains; a difference on an upstream suite outside the named exceptions; a rule a real port cannot follow without a workaround; a cost that traits cannot recover.
+- *Became:* rule 1 of `CLAUDE.md` (a fix retires the row, flips its check, updates the state). The gates of `experiments/unification/` and the examples of `experiments/docs-examples/`. The list of what counts against the design is the ancestor of the goals' "weakest point" column.
+- *Not yet in a current document:* whether each open deviation row of today has its expected-failure check (C-19); the build notes can carry the check's name per row.
+- **L (evidence):** a deviation without an expected-failure check is a claim nobody re-verifies. Write down what would count against the design before the results come.
+
 ## The running lists
 
 ### L-list: candidates for the lessons
@@ -424,6 +485,12 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | L37 | Take a mechanism from a named precedent; its known failure comes with the name. | principled-speed-plan | the design |
 | L38 | A value decided by inference (`return_type`) is where "identical" needs plain inference kept beside the facts mode; a declared element type removes the query. | return-type-after-loads | the design, the ports |
 | L39 | Correctness ranks above every performance item. A raw pointer in an immutable struct survives into a package image. | remaining-performance-work | ordering, the playbook |
+| L40 | The rule with one decider (the value's own type, as in Rust and Swift) was cited as the precedent on 2026-10-20 and adopted on 2026-11-15, after a rule with several deciders. Try the named precedent as the design first. | dynamic-and-compiled §1b; D-1 | the design |
+| L41 | The references first, the teaching last; semantics before performance; a choice that may cost speed is recorded, not tuned. | dynamic-compiled-implementation; the user | ordering |
+| L42 | A library's image splits over the library's own members; a user's type is past the split by construction. | dynamic-compiled-plan review 2; GT-7 | the design |
+| L43 | Under facts a run-time site costs a dynamic dispatch as in plain Julia; the loss is inlining of one-method callees at `Any` and the result's type, and it cascades. | heterogeneous-collections F2 | the design |
+| L44 | A number says whether it measures interop or idiomatic trait code. | heterogeneous-collections, addendum | measuring |
+| L45 | A deviation without an expected-failure check is a claim nobody re-verifies; write what would count against the design before the results. | proving-the-references | evidence |
 
 ### A-list: alternatives to add or complete
 
@@ -455,3 +522,6 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | C-15 | Are guarded devirtualization and inline caches in the alternatives, with the user's reason? | principled-speed-plan |
 | C-16 | Does `intro/porting.md` say "declare the element type" with its reason? | return-type-after-loads F |
 | C-17 | Does the differential test of `return_type` answers (stock Julia as oracle) exist for today's build? | return-type-after-loads §3 |
+| C-18 | Where is today's interop number: trait code calling Base's generic algorithms on a container of `Any`? | heterogeneous-collections F1 |
+| C-19 | Does each open deviation row have an expected-failure check? (For the build notes.) | proving-the-references §1 |
+| C-20 | Do the alternatives say that one way to erase is the Rust and Swift rule cited on 2026-10-20? | dynamic-and-compiled §1b |
