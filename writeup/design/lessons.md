@@ -65,6 +65,8 @@ What the work taught, stated as it holds now. Each lesson is one sentence in bol
 - **An annotation that fixes a time hides a cause.** Run the fully typed report first; declare the callee's result before asserting at the call. (L76)
 - **A port never bends the design at the case; it records where the design pushed back.** And a port's change that follows a rule of the references is the port following the design, not a workaround. (L56, L94)
 - **Upstream's own suites, run unchanged, are the bar of a port.** (L8)
+- **A session's suites cannot see what a build compiles differently.** A plain call at a value known only by its trait is per type in a session and once at the trait in a trimmed build; the wrapper carries the member's own code into both. A change of how code erases is checked by a trimmed build (E-506, E-507, E-508).
+- **The casts gave a session nothing the box, the wrapper and the forwarder do not give.** Their machinery left Julia with every suite and session as before (E-504, E-505, E-506).
 - **Each ecosystem was ported once, by the design's author.** A porting rule needs a second port. (L49)
 
 ## 6. Claims and measuring
@@ -78,6 +80,7 @@ What the work taught, stated as it holds now. Each lesson is one sentence in bol
 - **A first-call time is compilation plus run time.** Time the step again in the same session. (L105)
 - **A harness proves its images valid.** One depot per setting; no cache measured on the session that recorded it. (L71)
 - **A deviation without an expected-failure check is a claim nobody re-verifies.** (L45)
+- **A build that stops is first a question about the procedure.** Three trimmed builds stopped after a rebuild of Julia because no package image was valid, not because of a change of the design; the control at the tag stopped the same way (E-509).
 
 ## 7. The record
 

@@ -25,7 +25,8 @@ Before changing anything:
 - **Check `BUILD EXIT 0`** at the end of `<tree>/tw-build.log`. An error inside the system image's build leaves no crash message.
 - **Commit, then build.** A binary built from an uncommitted tree names a commit it was not built from, and every log line that prints the version is then wrong.
 - **After a change to a struct's layout,** delete the staged system images.
-- **A closed build is checked by a build.** A change to how a demonstrator erases or specializes is checked with `experiments/implementation/w135/build.sh table` as well as the suites: a session's suites cannot see what a closed build compiles differently.
+- **A closed build is checked by a build.** A change to how a demonstrator erases or specializes is checked with `experiments/implementation/w166/build_c.sh table` as well as the suites: a session's suites cannot see what a closed build compiles differently.
+- **A trimmed build needs the program's package images, written by the same Julia.** After a rebuild of Julia none is valid, the build loads the packages from source, and it runs no `__init__`: it then stops in a package's top-level code. `build_c.sh` writes the images first and names any package still loaded from source.
 - **The script rebuilds every image stage when a runtime source is newer.** Julia's make does not. The first stage (`basecompiler`) stores Core's types with the state the runtime's start gave them (`post_boot_hooks`: a set's bits), so a rebuild of the later stages alone runs on the old state.
 - **A build that takes twice its recorded time** is stopped and bisected, one build at a time (`WIDE=0`).
 - **Every package image is rebuilt after a build.** The first run of anything includes precompilation. Run a warm-up before timing.

@@ -13,9 +13,9 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 |---|---|---|---|
 | `julia-next` | julia, `next` | f5328f94c5 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
 | `TraitWorld` | TraitWorld, `unified` | 9d4f782 | the library: `@trait`, `@implement`, the checks, BaseTraits |
-| `TraitDifferentialEquations` | `unified` | 7956907 | the ODE library |
-| `TraitMakie` | `unified` | 0668ebf | the plotting library |
-| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | a69eb6c, 8c307d0, 53a712b | the table library, the CSV reader, the report against pandas |
+| `TraitDifferentialEquations` | `unified` | 3e60c29 | the ODE library |
+| `TraitMakie` | `unified` | 1888698 | the plotting library |
+| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
 | `forks` | forks, `unified` | a3a37d6 | Tables, DataFrames and CSV ported, with upstream's suites |
 | `ndport` | `main` | 6928edb | NetworkDynamics (its branch `unified` 82513ee), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
@@ -36,7 +36,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 **The library** provides `@trait` (operations as contract entries, defaults, fields, inputs, supertraits), `@implement` (the forms, families, forwarding), the checks at a declaration and at a member's first use, bounded methods, `@trait_module`, the box `Dynamic{X}` and the wrapper `compiled_for(x)`, `Callable`, ownership and strict mode, fully typed mode with `fully_typed`, `make_executable` and `make_library`, hints, and BaseTraits ([traits §10](reference/traits.md#10-collections)).
 
 **What is not built, or built differently,** is in the Deviations tables: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). The largest:
-- **Three of the four demonstrators' programs do not build as trimmed binaries.** The table program builds and runs. The report's, the plot's and the ODE program's builds stop while loading, in plain Julia's code ([open issue 243](open-issues.md#2-design)): the next work (§4).
+- **Three of the four demonstrators' programs do not build as trimmed binaries.** The table program builds and runs. The plot's and the report's count 6 errors each, a hole of Base reached from a JLL's `__init__`; the ODE program counts 12, six of them its own ([open issue 184](open-issues.md#2-design)).
 - **Keys** are an optional extension, not built ([the extensions](reference/extensions.md)).
 - **A cache across sessions** is not built ([the goals](goals.md), G-3).
 
@@ -53,17 +53,16 @@ The suites below ran on these heads but for the commits that only change READMEs
 | the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (26, 95 and 5 checks), with one known deviation marked ([open issue 235](open-issues.md#5-implementation-and-measurements)); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
-| the table program as a trimmed binary (`experiments/implementation/w135/build.sh table`) | `next` | builds with 0 errors, 2.7 MB, and prints the session's output; the eight small trait programs build and run (E-508) |
+| the table program as a trimmed binary (`experiments/implementation/w135/build.sh table`) | `next` | builds with 0 errors, 2.7 MB, and prints the session's output; the eight small trait programs build and run (E-508). The plot's and the report's programs count 6 errors, the ODE program 12 (`experiments/implementation/w166/build_c.sh`, which writes the images first; E-509) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
 ## 4. What is next
 
 The stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
-1. the report's, the plot's and the ODE program's builds (W-166);
-2. daily use: a program of the ODE library through a build, the teaching (W-158);
-3. a freeze and a short measurement round, each row against plain Julia and Python (W-159);
-4. the changes to Julia as patches for upstream (W-19).
+1. daily use: a program of the ODE library through a build, the teaching (W-158);
+2. a freeze and a short measurement round, each row against plain Julia and Python (W-159);
+3. the changes to Julia as patches for upstream (W-19).
 
 ## 5. The target
 

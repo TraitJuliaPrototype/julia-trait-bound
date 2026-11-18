@@ -209,3 +209,13 @@ An Opus agent worked in `wt/w166-julia`; the main session reviewed, merged, rebu
 - **Built** (julia `next` f5328f94c5; TraitWorld 9d4f782; E-508): in a closed build the join of the wrapper's branches keeps the trait (`Compiled{<:X}` where it is more than a union keeps), and a call that takes it branches over the members' wrappers. One file of the compiler, 73 lines. Compiler C-150 retired.
 - **The main session's run on the rebuilt `julia-next`** (779 s): the table program builds under `--trim=safe` with 0 errors, 2,716,256 bytes, and its binary prints the tag's output byte for byte; the eight small programs build and run; gates 72 of 72 and 9 of 9; Base's six files; the library 93 testsets; every port's suite and session as before.
 - **Left of W-166:** open issue 243, the trimmed build's process at LAPACK while loading, which stops the report's, the plot's and the ODE program's builds.
+
+## W-166, its last part: why three builds stopped while loading
+
+An Opus agent diagnosed; the main session ran the three builds again and recorded.
+
+- **No change of the design caused the stops.** A trimmed build runs no `__init__`. A build that finds no package image for its own Julia loads the packages from source and runs their top-level code: Colors' constant calls LAPACK through a null pointer, a workload calls Cairo before its JLL is set up. The tag's builds had the images their round's sessions wrote; the head's builds, after each rebuild of Julia, had none. The tag's control stops the same way without images.
+- **The fix is the procedure's:** `experiments/implementation/w166/build_c.sh` writes the images first. The main session's run: the plot 6 errors, the report 6, the ODE program 12, no package from source.
+- **The demonstrators' six workloads** run only where a package image is built (`Base.generating_output(true)`): the suites pass, the sessions compile 25 and 19 methods as before.
+- **Not done:** four core files of 2026-11-11 in `experiments/implementation/w135/` (1.5 GB, ignored by git) are still there: the harness refused their removal.
+- W-166 closed; the ODE program's six own errors are open issue 184's, with W-158.

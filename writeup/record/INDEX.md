@@ -23,7 +23,7 @@ The full table, with the rule for each kind, is in [`CLAUDE.md`](../../CLAUDE.md
 | every commit to Julia | [Julia's changes](../design/julia-changes.md) |
 | the design against other languages | [other languages](../design/other-languages.md); the research notes in this directory |
 | a term | [the glossary](../glossary.md) |
-| the chronology, the user's words in full | `session-notes/`, one note per session, named by date |
+| the chronology, the user's words in full | `session-notes/`, one note per session, named by date; the latest handover: [`2026-11-18-handover.md`](../../session-notes/2026-11-18-handover.md) |
 | anything earlier | [the attic](../../attic/README.md) |
 
 ## The agents' tier

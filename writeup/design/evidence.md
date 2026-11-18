@@ -159,7 +159,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | The demonstrators' programs: the verifier's errors under `--trim=safe` | with traits: the table 0, 3.11 MB, runs and prints the session's output; the ODE program 50, with a gradient 88; the plot 6; the report 6 | the plain twins: table 6 (12 on vanilla); ODE 14; plot 86 (88 on vanilla); report 92 (98). Upstream CSV with DataFrames 844, 768 on vanilla | — | `unified` 21c9b33e39; one build each | E-383 |
 | Base's exported surface at broad types | — | of 6,179 signatures of Base's 837 exported functions, 71.4 % fully typed, 20.1 % with a hole, 8.4 % where the report failed; five standard libraries 68.8 % of 474 | — | `unified` f6ad3008b4; one run | E-368 |
 
-**On the head** (`next` f5328f94c5, E-508): the table program builds with 0 errors, 2.72 MB, and prints the session's output; its loops hand each column over as the wrapper. The eight small trait programs build and run, 2.06 to 2.24 MB. The report's, the plot's and the ODE program's builds stop while loading, in plain Julia's code ([open issue 243](../open-issues.md#2-design)), so their counts are the row's, from its build.
+**On the head** (`next` f5328f94c5, E-508): the table program builds with 0 errors, 2.72 MB, and prints the session's output; its loops hand each column over as the wrapper. The eight small trait programs build and run, 2.06 to 2.24 MB. With the programs' images written first (E-509): the plot 6 errors and the report 6, as in the row; the ODE program 12, where the row has 50.
 
 **Not shown.**
 - The ODE program does not build under `--trim=safe`: 38 of its 50 errors are in the core's callbacks, 6 in Rodas5, 6 in a sort (open issue 184). Under `unsafe-warn` its binary runs.
