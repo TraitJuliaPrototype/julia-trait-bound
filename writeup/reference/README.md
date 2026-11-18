@@ -26,7 +26,7 @@ Where another document disagrees with the references, they win. Why the design h
 - **Planned:** decided, not built. A guarantee the design commits to is Planned, however late it is delivered.
 - **Optional:** a mechanism built when a measurement or a later decision asks for it. User code may not rely on what it would give until it is Planned.
 - **Open:** not decided; the line links [the open issue](../open-issues.md).
-- Where parts of a section differ, the line names the part: "Implemented; a membership taken back: Planned."
+- Where parts of a section differ, the line names the part: "Implemented; keywords: Planned."
 - The line may name the gate or test that checks the rule. It holds no commit, branch, date, work item or name of who decided. Those are in [the build notes](../record/build-notes/), by section.
 
 **Guarantees and their mechanisms.** A guarantee is a promise to user code: what is accepted or refused, which method runs, what compiled code may assume, what a membership or a load does to compiled code. It is stated in `traits.md` or `facts.md`. The mechanism that delivers it is in `compiler.md`.

@@ -1,13 +1,11 @@
 # Traits: the reference
 
-**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines the trait language: what a trait is, how a type joins one, how methods at traits dispatch and are compiled, what is checked, and which errors a user sees. It describes the language as designed. The status line of each section says how far it is built.
+This page defines the trait language: what a trait is, how a type joins one, how methods at traits dispatch and are compiled, what is checked, and which errors a user sees. Each section ends with a status line (Implemented, Planned, Optional, Open), as [the README](README.md#conventions-for-every-reference) defines them. The [Deviations](#19-deviations) table lists where the implementation falls short of this page.
 
 - What compiled code may assume: [`facts.md`](facts.md).
 - The Julia interfaces the language rests on: [`compiler.md`](compiler.md).
 - What the library's macros expand to: [`lowering.md`](lowering.md).
 - Terms are defined where they first matter; the [glossary](../glossary.md) links here.
-
-**Status labels:** Implemented, Planned, Optional, Open, and "mine" for a choice an agent made, as [the README](README.md#conventions-for-every-reference) defines them.
 
 ## Contents
 
@@ -97,7 +95,7 @@ FullyTyped     ::= "@enforce_fully_typed" | "@warn_not_fully_typed"
 
 The kept forms are values, made by ordinary calls: `Dynamic{X}(x)` and `compiled_for(x)` (§7.4). They have no syntax of their own.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait` and `@implement` (W-106); `@trait_module` and `@default_dynamic` bb78d02 (W-111); concreteness W-114. The library still accepts `@default_compiled`, the options `dynamic` and `first_seen`, and the casts: T-127.
+**Status:** Implemented, but for T-127.
 
 ---
 
@@ -115,7 +113,7 @@ The kept forms are values, made by ordinary calls: `Dynamic{X}(x)` and `compiled
 - **A type value** is a member only by its own membership: `@implement CellParser Type{Int64}` makes `Int64 isa CellParser` true. `S <: X` and `S isa X` are different questions, as in Julia.
 - **Never members:** Core's kinds (`DataType`, `UnionAll`, `Union`, `TypeVar`, `Module`), the builtins' types, opaque closures, the memory types.
 
-**Status:** Implemented in Julia's type system on branch `unified` 62016706d0 ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); `@trait` and `@implement` in TraitWorld `unified` e7ff8e2. A membership taken back: Planned (§5.13).
+**Status:** Implemented ([compiler §4](compiler.md#4-sets-and-memberships), with its deviations); a membership taken back: Implemented, but for [lowering L-64](lowering.md#15-deviations) (§5.13).
 
 ### 3.2 Parameters
 
@@ -147,7 +145,7 @@ end
 - **Not offered:** equations between type functions; a parameter bound that names its own trait.
 - **Two traits linked by their parameters** are linked by a method's shared `where` variables, as in Julia: `solve!(integ::Integrator{U, T, P}, prob::ODEProblemTrait{U, T, P}) where {U, T, P}`.
 
-**Status:** Implemented on `unified` 62016706d0 (subtyping) and in TraitWorld `unified` e7ff8e2 (the checks); a member at several values of an input on `unified` 350c5b1c59 and in TraitWorld `unified` a658203 (gate `n10_inputs`), but for the refusal of an input left open (T-105). A family states its instance as a pattern, an equation's parameter included (§5.8): mine (2026-11-06; open issue 140).
+**Status:** Implemented, but for T-105 (gate `n10_inputs`).
 
 ### 3.3 Where a trait stands
 
@@ -158,7 +156,7 @@ A trait is written wherever a type is written:
 - in `isa`, `<:`, `typeassert`, `convert(X, x)`, `Type{<:X}`;
 - as a declared supertype: `struct S <: X`, `abstract type A <: X`.
 
-**Status:** Implemented on `unified` 62016706d0 and 29035cab11 (W-98, W-99): a set is an abstract type wherever a type stands.
+**Status:** Implemented.
 
 ### 3.4 Open and closed
 
@@ -172,7 +170,7 @@ A trait is written wherever a type is written:
   - A membership that holds is relied on through its entry, from the entry's world ([facts §10](facts.md#10-memberships)).
 - For a closed type, Julia's rules apply; its contract's operations only branch (above).
 
-**Status:** Implemented on `unified` 62016706d0 (W-98). A non-membership relied on: Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does); gates `n18_closed_after_load`, `n7_guards`, `n16_declared_result`, `n25_image_before_set_method`), with compiler C-88. The rule: the user (2026-11-11, "declaring membership of a type in a trait if you own neither the type or the trait is piracy").
+**Status:** Implemented, but for [compiler C-88](compiler.md#deviations) (gates `n18_closed_after_load`, `n7_guards`, `n16_declared_result`, `n25_image_before_set_method`).
 
 ### 3.5 Values
 
@@ -190,7 +188,7 @@ A trait is written wherever a type is written:
 | Dispatch | by subtyping | by subtyping, with a type's own supertypes before a trait (§6.2) |
 | What code is compiled for | the argument's type | the argument's type: a member's own, a box's once per trait instance, a wrapper's per type of its object (§7.1) |
 
-**Status:** Implemented on `unified` 62016706d0 (W-98): a member's value is a value of the trait, unwrapped. The argument at a trait that erases by default as a kept form: Implemented (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3): the method made at the kept forms where it is defined (julia `next` 8b1ec88a56, TraitWorld `unified` 21ae901; W-160), with T-125. A view that is not the object: the user (2026-11-15, "1 is acceptable").
+**Status:** Implemented, but for T-125.
 
 ### 3.6 Intersections
 
@@ -208,7 +206,7 @@ Dynamic{All{Shape, Placed}}(x)                     # boxed at both traits
 - `@implement (X, Y) S` declares both memberships (§5.6).
 - **The name comes from the library:** TraitWorld exports `All`, which is `Core.All`; `Core` does not export it. A module that also uses DataAPI's `All` (DataFrames' column selector) qualifies one of them.
 
-**Status:** Implemented (W-107; the user, 2026-11-06: Q5 (a), "spelled All{X,Y,Z,...}") on `unified` 8a9144928e with TraitWorld `unified` ae4d250, but for the split's members (W-109). The name from the library: mine (2026-11-07; [open issue 148](../open-issues.md#2-design), its recommendation (b)).
+**Status:** Implemented.
 
 ---
 
@@ -245,7 +243,7 @@ end
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 - At a call outside the declared signature that no method of the member takes (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`): Julia raises its `MethodError`, with a hint that names the operation's declared signature and its trait (§11.4).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at each membership; the result asserted at a call through the trait: Implemented (§7.9). An operation as an entry of the contract, with no method at the trait for an operation without a default, and Julia's `MethodError` with the contract's hint outside the declared signature: Implemented (the plan's D-4, 2026-11-15; [decisions](../record/decisions.md) §1): julia `next` 5448a8b7bf, TraitWorld `unified` c838f76 and 4b6c1d6 (W-161, E-498).
+**Status:** Implemented.
 
 ### 4.2 Defaults
 
@@ -260,7 +258,7 @@ describe(s::Shape)::String = "a shape of area $(area(s))"
 - Which operations a default serves for a member is fixed at its membership (§5.11).
 - Rust's and Swift's default methods are reached by every caller in the same way, as a method on an abstract type is in Julia.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; mine (2026-11-06). Only a default as a method at the trait: Implemented (D-4; julia `next` 5448a8b7bf, TraitWorld `unified` c838f76 and 4b6c1d6 (W-161, E-498)).
+**Status:** Implemented.
 
 ### 4.3 Fields
 
@@ -281,7 +279,7 @@ end
 - A field declared at an abstract type is read at that type, and operations on it dispatch when they run.
 - **State some members write and others only read** is two traits: one that declares the field `@const`, and a subtrait that adds the operations that change it.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 (the user, 2026-11-06, Q7 (a)); a field named by an input in TraitWorld `unified` a658203, mine (2026-11-08). Swift's protocol properties are the conforming type's own properties in the same way.
+**Status:** Implemented.
 
 ### 4.4 `Self`
 
@@ -289,7 +287,7 @@ end
 - It appears as an argument's type, in result types and in equations (`T = eltype(Self)`).
 - **A constructor operation** returns `Self`: `kwith(t::KTable, cs::Vector{Vector{Float64}})::Self`. With `like(t, x)` (§6.5) it returns "a value like the input".
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 4.5 Supertraits
 
@@ -307,7 +305,7 @@ end
 - **Several supertraits:** `@trait C <: (A, B)`. `C`'s members must join `C`, and are then members of `A` and of `B`. A name for "a member of both" is an intersection (§3.6).
 - **Parameters:** a supertrait is written with the subtrait's parameters, constants and type constructors. Every member of `B{U, T, P}` is a member of `A{U, T, P}`.
 
-**Status:** Implemented on `unified` 62016706d0 and in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 4.6 Erasing by default
 <a id="46-the-traits-default-attribute"></a>
@@ -317,7 +315,7 @@ end
 - A caller chooses otherwise by what it passes: `compiled_for(x)` for code per type, `Dynamic{X}(x)` at a trait that does not erase (§7.5).
 - `Callable` erases by default (§9).
 
-**Status:** Implemented (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3): the library records it on its contract (TraitWorld `unified` 5e2ef71, W-151), and its expansion hook reads it where a method is defined (julia `next` 8b1ec88a56, TraitWorld 21ae901; W-160), with T-125. The trait's say over a plain member: the user (2026-11-06: "Dynamic or not as a trait and library default, that the user can override"); as forwarders made at each method: the user (2026-11-15: "if Callable wants it anyway that's how it should be").
+**Status:** Implemented, but for T-125 and T-127.
 
 ---
 
@@ -342,7 +340,7 @@ All forms share these rules:
 - It is checked against the contract (§5.10).
 - **It invalidates as a method definition does:** the compiled code that relied on its absence, and no other. A new type that joins invalidates nothing ([facts §10](facts.md#10-memberships)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.2 With the type's definition
 
@@ -359,7 +357,7 @@ perimeter(c::Circle) = 2π * c.r
 - `struct S <: X{Float32, 1}` states parameters: the parameters come from the definition. The `@implement` may repeat them; a stated value, or a field's type, that differs is refused.
 - `abstract type A <: X end` likewise needs `@implement X A`; every subtype of `A` is then a member, each checked at its first use (§5.9).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the declaration and its check, and 701aaab for the refusal at a module's end, by Julia's module-end hook ([compiler §10.1](compiler.md#101-definition-and-image-hooks), `unified` 28c401eb0c); the use before it raised at a use dispatched at run time in TraitWorld 0aff625 with `unified` 352b916899 (E-350), mine (2026-11-10); a use compiled with the type known on `unified` fcdfd0da36 (E-352; the user, 2026-11-06, Q8 (c): "declared membership stays as a design goal"). The membership's entry, and the parameters from the definition: TraitWorld e8554d9, mine (2026-11-10, W-131, E-345).
+**Status:** Implemented.
 
 ### 5.3 One line
 
@@ -373,7 +371,7 @@ perimeter(c::Circle) = 2π * c.r
 - **No field is special:** the one-line form never forwards. Forwarding is written with `by` (§5.5).
 - Errors name the operations: methods for some operations and not for others; no methods (listing the fields whose type is a member, each with its `by` line).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.4 With a block of methods
 
@@ -389,7 +387,7 @@ end
 - The receiver is typed by the member; unannotated arguments take the operation's declared types.
 - The methods are ordinary methods of the type; every caller finds them.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.5 Forwarding with `by`
 
@@ -404,7 +402,7 @@ end
 - **A forwarding member has a method of its own for each required operation,** defined with the membership: it calls the operation on the field. An operation with a default is served by the trait's method, which calls it on the field. Every caller reaches them, as for a default (§4.2).
 - A trait that requires a concrete `Self` (§14) refuses a forwarding field of an abstract type.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2; the trait's method serving a forwarding member is mine (2026-11-06). The member's own methods for required operations: TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08).
+**Status:** Implemented.
 
 ### 5.6 Several traits at once
 
@@ -414,7 +412,7 @@ end
 
 One declaration, one membership per trait, all served the same way. Each may also be declared on its own.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.7 Stating parameters
 
@@ -425,7 +423,7 @@ One declaration, one membership per trait, all served the same way. Each may als
 - A membership states the parameters that no field and no equation defines.
 - A stated value for a parameter an equation defines is checked against the equation at the member. If they differ, the membership is refused (`ImplementError`).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.8 Families
 
@@ -447,7 +445,7 @@ end
 - **The family's variables are in scope in its block's methods,** as their static parameters: `@implement Holds{T} Box{T} where {T} begin elt(h) = T end`. Rust's generic `impl<T>` scopes them the same way.
 - **Where an equation defines a parameter** (`T = eltype(Self)`), the family states it as a type expression of its variables: `@implement Iterable{T} Wrapped{T} where {T}`. Each member's check compares the equation's value with it. A family whose instance cannot be written so is refused, naming the parameter. Rust writes an associated type in a generic `impl` the same way.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, each member checked at its first use, at dispatch and before compiled code runs (`unified` fcdfd0da36, E-352; compiler C-31); a variable bounded by a `Union` declared per type in dd72b10; the variables in the block's methods in 401c7b4, mine (2026-11-08).
+**Status:** Implemented, but for [compiler C-31](compiler.md#deviations).
 
 ### 5.9 Abstract types and traits as members
 
@@ -465,7 +463,7 @@ end
 - A membership of a trait in a trait applies only to a trait without declared fields; a trait with fields needs each type's own membership, which locates them.
 - Each member reached this way is checked at its first use.
 
-**Status:** Implemented on `unified` 62016706d0 and in TraitWorld `unified` e7ff8e2.
+**Status:** Implemented.
 
 ### 5.10 Checks
 
@@ -505,7 +503,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - The declared result is read from the trait's contract when the method is defined.
 - A membership loaded from a package's image keeps its check too: its instances are validated with the image. A method already in the session that ends one is found by that validation; the instance is inferred again, and a result outside the declared one is reported at the load (§12.3).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at a declaration and at a first use at dispatch; an image keeps the answers that passed while it was built ([lowering §11](lowering.md#11-checks-errors-and-what-images-keep); `unified` b1c0b50f4c, TraitWorld 347176a). The rule at an abstract further argument: TraitWorld 4be0097, mine (2026-11-07). A method that takes any receiver serving an operation without a default: Implemented (D-4; julia `next` 5448a8b7bf, TraitWorld `unified` c838f76 and 4b6c1d6 (W-161, E-498); open issue 150's case, `mul!`, `w161/d4/op150.jl`). The check kept while a member: TraitWorld `unified` 5b3c427, mine (2026-11-10), for memberships declared in the session and members of a family, an abstract type or a trait checked in it; for a membership loaded from a package's image, TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). A member by its definition, from an image too: TraitWorld e8554d9 (W-131, E-345). Cost: one dictionary lookup per method definition; for a definition of an operation's function, one intersection per kept call under the function, and one inference per call the method would take. The check as its serving instances, kept with edges and validated with an image; a method below an operation's body judged through them; the walk shared with strict mode: Planned (the plan's D-3, 2026-11-15), with T-129.
+**Status:** Implemented; the check as its serving instances, kept with their edges and validated with an image: Planned, with T-129.
 
 ### 5.11 Overrides and redeclaration
 
@@ -513,7 +511,7 @@ Not everything is caught: a conversion that fails at run time is not proved by t
 - **A forwarding member's methods are fixed at its membership, like the defaults:** a later method that would take a call one of them serves at the member is refused the same way (§5.5).
 - **Redeclaring a membership** replaces it. The new one holds from its world; the old one ends there; code compiled for the old one is invalidated. It is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Implemented in TraitWorld `unified` 701aaab by the definition and image hooks ([compiler §10.1](compiler.md#101-definition-and-image-hooks)), for memberships declared in the session; for one loaded from an image, TraitWorld 6871ea9 (E-344). A redeclaration's new entry on `unified` 62016706d0. The forwarding's methods, members checked at their first use, and the call a method would take (it applies there and no method in force beats it): TraitWorld `unified` 5b3c427, mine (2026-11-10).
+**Status:** Implemented, but for T-129.
 
 ### 5.12 Types that only convert
 
@@ -542,7 +540,7 @@ delete_membership(Shape, Circle)       # Circle is no Shape from the next world 
   - no other code is: a call that dispatched to the member's own method keeps it.
 - **Who may:** whoever may declare it (§12.1), the trait's owner or the type's. One by neither is a pirate's, as a pirate's membership is (§12.2). In strict mode it is refused where code compiled by facts relies on it, as a method's deletion is ([facts §11.3](facts.md#113-strict-modes-errors-at-their-sources)).
 - **What goes with it:**
-  - the member's check, and the records of §5.10 and §5.11: a later method at the member is judged by them no longer;
+  - the member's check, and the records of §5.10 and §5.11: a later method at the member is not judged by them;
   - the member's place among the trait's candidates (§7.9);
   - for a family, an abstract type or a trait as member, every member it made, with their checks.
 - **Values stored before stay where they are.** An item of a `Vector{Shape}` whose type is no member any more is called by its type, as plain code's call is; an operation's call through the trait still asserts the declared result (§7.9). So every call computes what plain code computes, or raises.
@@ -553,7 +551,7 @@ delete_membership(Shape, Circle)       # Circle is no Shape from the next world 
 - **Revise:** an `@implement` line deleted from a file takes its membership back, as a deleted method definition deletes its method ([lowering §3](lowering.md#3-implement)).
 - **Package images:** an image holds the memberships in force when it is written. Taking one back in a session changes no image. An image loaded afterwards whose code relied on it has that code compiled again: its edge to the membership fails validation.
 
-**Status:** Implemented in TraitWorld `s3` 9e0e3f4 with `next-s3` 213c759370 (the plan's D-13, 2026-11-15; the user, by adopting the plan; `test/delete.jl`, E-459), but for Revise: no extension yet ([lowering L-64](lowering.md#15-deviations)). The mechanism (the membership's method deleted, the walk run for the removal), the name `delete_membership` and its keyword `by` (the module that takes it back, by default the declarer), and what cannot be taken back alone: mine (2026-11-15).
+**Status:** Implemented, but for [lowering L-64](lowering.md#15-deviations) (Revise).
 
 ---
 
@@ -572,7 +570,7 @@ describe(x) = "something else"
 - Any method in any module may name a trait in its signature. It is a method of its generic function, dispatched by Julia.
 - Its body may do with the argument what any body may do with an abstract-typed argument. What the body does decides whether the method is bounded (§7.3), never what it means.
 
-**Status:** Implemented in Julia's dispatch on `unified` 29035cab11 ([compiler §5](compiler.md#5-dispatch)); how a method is compiled: §7.3's status.
+**Status:** Implemented; how a method is compiled: §7.3.
 
 ### 6.2 Specificity
 
@@ -580,20 +578,20 @@ describe(x) = "something else"
 - **Between traits:** by subtyping. A subtrait is more specific than its supertrait; an intersection than each of its components. Unrelated traits are unordered.
 - `Any` is the least specific, as always.
 
-**Status:** Implemented on `unified` 62016706d0 ([compiler §5.2](compiler.md#52-specificity)); intersections 8a9144928e (W-107).
+**Status:** Implemented.
 
 ### 6.3 Ambiguity
 
 - **As in Julia:** a call where two methods apply and neither is more specific raises `MethodError` (ambiguous).
 - **Reported earlier, at a membership:** where a membership makes a method apply to a type, and another method of the function is tied with it there with no more specific method for the type, a warning names the function, the methods and the joint method to define (`f(::All{ColTable, RowTable})`). The other method may be at a second trait of the type, at a trait or abstract type the type is under by its definition, or at `Any` with a narrower type at another argument. Under strict mode it is an error (§12.3): the membership that creates the ambiguity raises `ImplementError` and does not exist; a later membership, a redeclaration among them, is not refused for an ambiguity it did not create. For a member by its definition (`struct S <: X`), `X`'s methods apply by the definition, so a second trait's `@implement Y S` is the membership that creates the ambiguity, whether it comes before or after `@implement X S`. A method that dominates every common member suppresses the report.
 
-**Status:** Implemented on `unified` 0d529d33a9 for a concrete member, 264b7f959f for a pattern ([compiler §5.4](compiler.md#54-the-ambiguity-report-at-a-membership)): the warning names the function, the two traits and the joint method's signature, `f(::All{…})` (8a9144928e, W-107); the error under strict mode on `unified` 0bb8f38830 with TraitWorld 960b99e (E-343), for the membership that creates the ambiguity on `unified` 2ee5569252 (E-346); a tie with a method at a declared supertype, a superset or `Any` on `unified` 53d28eea68 with TraitWorld 9383843 (`test/declared.jl`, E-347); at an image's activation reported after the load on `unified` 9f8d7d7c48 with TraitWorld 0aff625 (E-349, [§12.3](#123-strict-mode)).
+**Status:** Implemented.
 
 ### 6.4 The fallback
 
 A value that matches no method at a trait reaches the most specific method that applies, as in Julia, or raises `MethodError`. A member at other parameter values than a method states, or a broken shared variable, is such a value.
 
-**Status:** Implemented on `unified` 29035cab11: Julia's dispatch.
+**Status:** Implemented.
 
 ### 6.5 Results
 
@@ -611,14 +609,14 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
 - **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced.
 - **`like` and `withfields` are conveniences of the library,** outside the language's core: functions that rebuild a member from its declaration ([lowering §8](lowering.md#8-like-and-withfields)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2. As the library's conveniences: the plan's D-14 (2026-11-15).
+**Status:** Implemented.
 
 ### 6.6 Keywords, defaults, varargs
 
 - As in Julia. A positional default makes two methods; a keyword typed by a trait raises `TypeError` for a value that is not a member; there is no dispatch on keywords.
 - **A vararg of members,** `ts::ColTable...`: elements may be different members; code is compiled per tuple of their types.
 
-**Status:** Implemented as Julia's: a positional default's two methods, a keyword typed by a trait (`TypeError` for a value that is no member) and a vararg of different members run in `experiments/docs-examples/tutorial.jl` (§9 there; TraitWorld c9f701e, where under `bounded` the default's short method waits for the method it calls, §7.3).
+**Status:** Implemented.
 
 ### 6.7 Constructors
 
@@ -630,7 +628,7 @@ A type's constructor may have methods at traits: `NWState(int::All{IntegratorVie
 
 As for any method (§12.2): a package may add a method to a function it owns, or to another package's function where a type in the signature is its own. A trait it owns counts. Another package's owner-only function takes methods from its owner only (§12.2).
 
-**Status:** Implemented: Julia's rule, with the refusal in a scope that declares `no_pirates` (TraitWorld `unified` 7adcc94, W-114; §12.2). Owner-only functions: TraitWorld `s3` 4210852 with `next-s3` e483299622 (D-9, E-458).
+**Status:** Implemented.
 
 ---
 
@@ -652,13 +650,13 @@ Which form a value has is in its type. Nothing beside the call decides (§7.5). 
 
 Per key, one copy shared by every member with that key, is an optional extension (§7.2).
 
-**Status:** Per type and `@nospecialize`: Julia's. The two kept forms: TraitWorld `unified` 5e2ef71 (W-151), with T-126. On the build, `@nospecialize` at a trait argument still takes the attribute's path ([compiler C-112](compiler.md#deviations)). Per key: Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
+**Status:** Implemented, but for T-126 and [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument); per key: Optional (§7.2).
 
 ### 7.2 The key
 
 Code shared per key, among members the contract sees alike, is an optional extension: [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike). No rule of this reference depends on it.
 
-**Status:** Optional (W-110; the plan's D-14, 2026-11-15).
+**Status:** Optional.
 
 ### 7.3 Bounded methods
 <a id="73-fully-bounded-methods"></a>
@@ -698,7 +696,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 - **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapter that hands its argument to plain code is written so.
 - With keys, an optional extension (§7.2), a bounded method would share its code per key.
 
-**Status:** Implemented (the plan's D-3, 2026-11-15, confirmed by the user's adoption of the plan; [decisions](../record/decisions.md) §2): TraitWorld `unified` 6f86b4e (W-151; `src/atbox.jl`; E-401, E-406: E-397's mistakes found at their lines, no fault in the ports' 249 methods); the instance read from Julia's cache and kept at a load (TraitWorld 9c0912b, `next` 75a7f1795b; W-160, E-440, E-444), with [compiler C-115](compiler.md#deviations) (read apart where a box's call runs the attribute's instance); an equation's function at the box: T-130. The fault classes, the stand-ins and what is not read: mine (2026-11-15, the prototype's). `bounded` on in trait modules with a switch: the user (2026-11-06, Q2 (a)); `@unbounded`: mine (2026-11-06).
+**Status:** Implemented, but for [compiler C-115](compiler.md#deviations) and T-130.
 
 ### 7.4 The two kept forms: the box and the wrapper
 <a id="74-the-attribute-compiled-and-dynamic"></a>
@@ -731,7 +729,7 @@ A member of a trait `X` is passed as itself, or in one of two **kept forms**. Ea
 
 Rust's pair is the same: `dyn X`, and a generic `T: X`. Here both are members of `X`, so one method at `X` takes either.
 
-**Status:** Planned (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3). Built in TraitWorld `unified` 5e2ef71 to 6f86b4e (W-151; E-401 to E-406): the box `Core.Dynamic`, the wrapper `Compiled{T}` as the library's type (T-126). The forms as values: the user (2026-11-15, "So provisionally I would accept P1 with the addendum.", then "Yes please. Build the compiler for P1 …"). The wrapper's reach: the user (2026-11-15, "I would say that we want wide reach. If a subtrait provides a higher performance specialisation we don't want to miss that."). The name `Compiled{T}`: mine (2026-11-15).
+**Status:** Implemented, but for T-126, T-128 and T-130.
 
 ### 7.5 What decides
 
@@ -755,7 +753,7 @@ solve(compiled_for(MyModel()), u0)            # the wrapper: the code compiled f
 - **A `where` variable bounded by a trait is the type of what the method is given:** in `f(x::C) where {C <: X}`, `C` is `typeof(x)`, a member's, a box's or a wrapper's type. Where `X` erases by default, `C` is the kept form's type.
 - **`@nospecialize` and `@specialize` are Julia's,** at a trait argument as at any other (§7.1).
 
-**Status:** Planned (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3). Built in TraitWorld `unified` 6f86b4e (W-151); the forwarders made where a method is defined (julia `next` 8b1ec88a56, TraitWorld 21ae901; W-160), with T-125; Julia still resolves an attribute at each trait argument ([compiler C-112](compiler.md#deviations)), and the library still offers its surface (T-127). The principle: the user (2026-10-21, "Values carry"); the choice in the value's type: the user (2026-11-15, D-1).
+**Status:** Implemented, but for T-125, T-127 and [compiler C-112](compiler.md#deviations).
 
 ### 7.6 `compiled_for(x)`
 <a id="76-casts"></a>
@@ -773,7 +771,7 @@ prob = ODEProblem(w, u0, tspan, p)            # the solver compiled for lorenz!
 - **The name is the library's,** exported as any function is. A module that binds its own `compiled_for` has its own.
 - Equality: §8.3. Printing: §15.
 
-**Status:** Planned (the plan's D-1, 2026-11-15). Built in TraitWorld `unified` 5e2ef71 (W-151; `test/bytype.jl`), with T-126: the library's exported `compiled_for` is still the cast of Julia's, and a module binds the wrapper's function as `TraitWorld.ByType.compiled_for`. The wrapper's name and its reach of every `Callable` by its call method: mine (2026-11-15, the prototype's).
+**Status:** Implemented, but for T-126.
 
 ### 7.7 `Dynamic{X}`
 
@@ -799,7 +797,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Implemented: the struct is Julia's `Core.Dynamic` (`unified` e692e57ab7, W-111); its memberships and methods are the library's (TraitWorld `unified` bb78d02); a `Dynamic{All{Callable…}}` called at either signature in 401c7b4. A box of the same trait as itself, of a subtrait and of a wrapper as their object's box: TraitWorld 5a9d19d (W-151), in place of `Core.Dynamic`'s own constructor ([compiler C-113](compiler.md#deviations)); the membership decided when compiled: Implemented (`next` 5b1900641f, W-160). Mine (2026-11-06). In `Core`, members of intersections, parameters required, the second signature: mine (2026-11-06, the reviews of the draft). A box of the same trait as itself: mine (2026-11-15, the prototype's).
+**Status:** Implemented, but for [compiler C-113](compiler.md#deviations).
 
 ### 7.8 Erasing by default: the forwarder
 <a id="78-keeping-an-argument-with-its-attribute"></a>
@@ -843,7 +841,7 @@ A trait **erases by default** when it declares `@default_dynamic` (§4.6). `Call
 
 **What it costs.** The forwarder makes a box at each call that passes a plain member. The box's membership test is decided when the code is compiled: the forwarder runs only where its signature matched, and the compiler decides a member's membership with an edge ([compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§6.3](compiler.md#63-the-forwarders)). Where the box does not escape, it needs no heap of its own. A box made once and held costs less: a library that calls its trait's methods many times erases at its door, once (§7.10).
 
-**Status:** Implemented (the plan's D-1, 2026-11-15; [decisions](../record/decisions.md) §3; W-160): Julia's `next` 8b1ec88a56 asks the library's expansion hook where a method is defined ([compiler §6.3](compiler.md#63-the-forwarders)); TraitWorld `unified` 21ae901, d537141, 2bf59b9; the box's test decided where the code is compiled (`next` 5b1900641f), with [compiler C-111](compiler.md#deviations) and T-125 for the forwarder's record of its method. The forwarder's shape, which arguments erase, the trait's own methods not forwarded, and no type exempt: mine (2026-11-15, the prototype's). The default constructors forwarded: mine (2026-11-15). The arguments not boxed and the forwarder compiled per member type where the member fixes its trait's parameters: mine (2026-11-15, W-160). A trait's parameters left open erase, an input left open does not: TraitWorld `unified` fb67ac1 ([open issue 204](../../attic/writeup/record/issues-closed.md), E-497), mine (2026-11-15: the trait's default applies to anyone who writes a method).
+**Status:** Implemented, but for T-125, T-128 and [compiler C-111](compiler.md#deviations).
 
 ### 7.9 Operations on a value the code knows only by its trait
 
@@ -853,7 +851,7 @@ Where the code holds a value at the trait's type (a box's object, an argument de
 - a member declared later takes the table and invalidates nothing; code compiled after its declaration may branch on it if it is among the first four;
 - a declared field read there works the same way.
 
-**Status:** The declared result, asserted, and the branches on the first four members implemented on `unified` e70675a606 with TraitWorld e9a63f7 ([compiler §7](compiler.md#7-operations-on-a-value-typed-by-its-trait)); and the table past them; declared fields: W-109. Asserted, never converted, on `unified` ef1233e79e (open issue 171, gate `n22_declared_assert`, E-340): mine (2026-11-10).
+**Status:** Implemented (gate `n22_declared_assert`).
 
 ### 7.10 Costs, and choosing
 
@@ -867,7 +865,7 @@ Where the code holds a value at the trait's type (a box's object, an argument de
   - **A trait whose operation is a hot inner call** (a model's right-hand side) is erased once, at the library's door, and its operations are called on the held box; or the caller passes the wrapper.
   - A loop over a `Vector{Shape}` runs once; each item's type is unknown in it. An operation on an item takes §7.9's branches. Passing items to a method compiled per type pays a dispatch per item.
   - **A specialization belongs at a subtrait or in an operation,** where both forms reach it, not at a member's own type, which only `unwrap(t)` reaches (§7.4).
-- The numbers: [`../design/evidence.md`](../design/evidence.md) §2, and §1 for the kept forms (E-401 to E-407).
+- The numbers: [`../design/evidence.md`](../design/evidence.md) §2, and §1 for the kept forms.
 
 **Status:** Planned.
 
@@ -900,7 +898,7 @@ end
 - **Erasing a user's container without a copy needs a view type:** Julia has no borrowed reference into an array's element.
 - An operation on a value read back follows §7.9.
 
-**Status:** Julia's storage, with TraitWorld `unified` e7ff8e2's members: Implemented. The conversion into storage typed `Dynamic{X}`: TraitWorld `unified` 5e2ef71 (W-151; a late load of it ends nothing, E-404). Storage that keeps the form given: the plan's D-1 (2026-11-15; [decisions](../record/decisions.md) §3), the storage table of [the review's addendum](../reviews/2026-11-15-conceptual-design.md#addendum-2026-11-15-the-main-session-p1-corrected-in-discussion-and-provisionally-accepted).
+**Status:** Implemented, but for T-127 and T-128.
 
 ### 8.2 A struct parameter bounded by a trait
 
@@ -922,13 +920,13 @@ ODEProblem(compiled_for(lorenz!), u0, tspan, p)    # F = Compiled{typeof(lorenz!
 - **A parameter named only in a bound** is matched through the membership, as a `where` clause matches: in `struct CellVector{T, C <: Column{T}} <: AbstractVector{T}; c::C; end`, the constructor `CellVector(c::C) where {T, C <: Column{T}} = CellVector{T, C}(c)` reads `T` from the column's membership.
 - **A constructor that sets the parameter from its trait argument is bounded** (§7.3): at a box it stores the box, and the struct's type names the box's type.
 
-**Status:** Julia's bound and default constructor, with TraitWorld `unified` e7ff8e2's members: Implemented. The parameter recording the form, and a plain member boxed at an erasing trait: the plan's D-1 (2026-11-15); built where a method is defined, Julia's default outer constructor included (julia `next` 8b1ec88a56, TraitWorld `unified` 2bf59b9; W-160), with T-125.
+**Status:** Implemented, but for T-125 and T-128.
 
 ### 8.3 Equality
 
 `Dynamic{X}(a) == Dynamic{Y}(b)` when `a === b`, for a mutable object by identity, for an immutable one by value; `compiled_for(a) == compiled_for(b)` likewise; `hash` agrees. `===` compares the kept forms.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for the box, 5e2ef71 for the wrapper; mine (2026-11-06), the wrapper's mine (2026-11-15).
+**Status:** Implemented, but for T-128.
 
 ---
 
@@ -961,7 +959,7 @@ colmap(uppercase, m, 1)                   # MethodError where the function is bo
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 - **Passing `f` on to a higher-order function,** `map(f, xs)`, passes the box: a call at a concrete signature, whose code is compiled once for the box. `colmap` above is bounded (§7.3).
 
-**Status:** Implemented (the plan's D-2, 2026-11-15, the user: "Okay, accept the change."; [decisions](../record/decisions.md) §3; W-153): every function a member by Core's entry, subtyping reads no method, julia `next` eaa19da272; the box's test at `A`, the wrapper's at entry and `@implement Callable T`, TraitWorld `unified` c14d2e4 (W-161, E-500), with [compiler C-146](compiler.md#deviations) and T-156. The box's call, checked at both ends: TraitWorld 5d52f0d (W-113); the hint for a function with no method at `A`: TraitWorld e572379 (W-114), the hint at a failed result L-58. `S` checked on return: the user (2026-11-06, "For Callable S go with checked on return. Keep it simple."). A callable struct declared a member, and a wrapper's calls as the function's own: mine (2026-11-15). The wrapper's result inferred at entry against `S` ([GT-24](../goals.md#3-tensions-between-the-goals) (b)): mine (2026-11-15, W-161). A callable struct of plain code, which declares nothing: [GT-32](../goals.md#3-tensions-between-the-goals). Keywords Planned.
+**Status:** Implemented, but for T-156, [compiler C-146](compiler.md#deviations) and [lowering L-58](lowering.md#15-deviations); keywords (`Callable{A, S, K}`): Planned.
 
 ---
 
@@ -986,7 +984,7 @@ end
 - **The display erases the stream:** the REPL's display (`show_limited`) and Base's `TextDisplay` pass `IOContext{IO}(io)` to `show`, so every value's display at the REPL or a text display runs at one stream type. A package's display methods stay plain code, and its image's workload covers that display by displaying once at `IOContext{IO}(IOBuffer())`. A method of `show` there sees `IOContext{IO}`, not the REPL's stream type; the stream's properties (`:limit`, `:color`, `:displaysize`) pass through.
 - **Erasing elsewhere is the author's choice,** where large code serves many streams outside a display (§7.10): the entry declares `@nospecialize(io::IO)` and passes `IOContext{IO}(io)` on, so one compiled body serves every stream, and a workload at the erased type covers them all. Small code that writes a byte or a short string per call stays per type.
 
-**Status:** Implemented on `unified` b05ae361e0 (E-337); the display erasing on `unified` 8c4b93f867 with the forks' DataFrames plain and its workload line (forks ddc20f6; E-339), adopted (the user, 2026-11-09: "That said, b-display is adopted."; E-338; `TextDisplay` mine); the counts `Int`, converted at the call, on 0c836f3ef6 (E-333). The user (2026-11-09: "Go with the Fable plans recommendations", [the plan](../../attic/writeup/plans/2026-11-09-io-alternatives.md) §4.2, option B). `eof`, `isopen` and `close` out of the contract: mine (2026-11-09).
+**Status:** Implemented.
 
 ---
 
@@ -1006,8 +1004,8 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 | `HasLength` | `length(c)::Int`, expected in constant time | — | `AbstractArray`, `AbstractDict`, `AbstractSet` |
 | `Iterable{T}` | `iterate(c)`, `iterate(c, state)`, each `::Union{Nothing, Tuple{T, Any}}`; iteration repeats and leaves `c` unchanged | `T = eltype(Self)` | `AbstractArray`, `AbstractDict` (items `Pair{K, V}`), `AbstractSet`, `AbstractString` (items `Char`) |
 | `Indexable{T} <: HasLength` | `c[i::Int]::T`, `firstindex(c)::Int`; positions `firstindex(c)` to `firstindex(c) + length(c) - 1` | `T = eltype(Self)` | `AbstractVector` |
-| `MutableIndexable{T} <: Indexable{T}` | `c[i::Int] = x::T`, which keeps the length and reads back `x` at `i` | `T = eltype(Self)` | `Vector`, `BitVector`, a view of a member (`SubArray{T, 1, P} where {P <: MutableIndexable{T}}`) |
-| `Resizable{T} <: HasLength` | `push!(c, x::T)`, an item at the end; `resize!(c, n::Int)` for `n ≤ length(c)`, the first `n` kept | `T = eltype(Self)` | `Vector`, `BitVector` |
+| `MutableIndexable{T} <: Indexable{T}` | `setindex!(c, x::T, i::Int)::Any`, written `c[i] = x`, which keeps the length and reads back `x` at `i` | `T = eltype(Self)` | `Vector`, `BitVector`, a view of a member (`SubArray{T, 1, P} where {P <: MutableIndexable{T}}`) |
+| `Resizable{T} <: HasLength` | `push!(c, x::T)::Any`, an item at the end; `resize!(c, n::Int)::Any` for `n ≤ length(c)`, the first `n` kept | `T = eltype(Self)` | `Vector`, `BitVector` |
 | `Keyed{K, V} <: HasLength` | `d[k::K]::V`, `haskey(d, k::K)::Bool`, `get(d, k::K, default::D)::Union{V, D} where {D}` | `K = keytype(Self)`, `V = valtype(Self)` | `AbstractDict` |
 | `HasProperty{N, R}` (`N` an input) | `x.N`, of type `R`: `getproperty` at the constant name `N`, served by a stored field or the member's own `getproperty`; on a value known only by its trait, `x.N` has the declared type, as a declared field's read (§7.9). Declared as a field named by its input, `@const N::R` (§4.3) | — | none; a type joins at each name |
 | `Solvable{T}` | `ldiv!(x::AbstractVector{T}, F, b::AbstractVector{T})::AbstractVector{T}`: `x` solves `F x = b` | `T = eltype(Self)` | LinearAlgebra's factorizations that solve (`LU`, `Cholesky`, `CholeskyPivoted`, the `QR`s, `LQ`, `BunchKaufman`, `LDLt`, `SVD`), and `Diagonal`, `UpperTriangular`, `LowerTriangular`, `Bidiagonal` |
@@ -1017,13 +1015,13 @@ BaseTraits is the library's standard set of traits for the concepts Base defines
 - **Base's types join as Base's abstract types,** declared in BaseTraits, which owns the traits: `@implement Indexable{T} AbstractVector{T} where {T}`. A type is a member only where declared: a `Number` iterates in Base but is not `Iterable`, and a string is `Iterable` but not `HasLength` (its `length` is not constant time).
 - **A contract states what a membership's check cannot verify:** `length`'s value, that iteration repeats, that a write reads back, the vectors a solver accepts (LinearAlgebra's factorizations take one-based vectors in host memory, views included). The check verifies the operations and their result types. Trait code does not index without bounds checks on a member's `length` alone, and code that preallocates by `textbound` still checks what `print` wrote.
 - **Positions start at the member's `firstindex`:** a vector with offset axes is an `Indexable`.
-- **The operations use Base's and LinearAlgebra's functions** (`length`, `iterate`, `getindex`, `ldiv!`) where a member's own methods serve them and no untyped method of the function would be hidden (§5.10). `LinearOp`'s `apply!` is BaseTraits' own: a method of `mul!` at the trait would hide `mul!`'s untyped fallback for every matrix (E-281). A member with its own `mul!` joins with a block: `apply!(y, A, x) = mul!(y, A, x)`. A matrix-free member defines `eltype`.
+- **The operations use Base's and LinearAlgebra's functions** (`length`, `iterate`, `getindex`, `ldiv!`) where a member's own methods serve them and no untyped method of the function would be hidden (§5.10). `LinearOp`'s `apply!` is BaseTraits' own: a method of `mul!` at the trait would hide `mul!`'s untyped fallback for every matrix. A member with its own `mul!` joins with a block: `apply!(y, A, x) = mul!(y, A, x)`. A matrix-free member defines `eltype`.
 - **`BoundedText` is a constant per type where the width is fixed** (machine integers, `Bool`, the IEEE floats, characters, dates, `Rational` and `Complex` of those) and a value's own bound otherwise (a `BigInt`, a string's code units, a `Symbol`'s bytes; four bytes a character for a string other than `String`). `textbound(T)` lets a writer size a column without visiting its cells.
 - `asvector(x::Indexable{T})` is the collection as a read-only `AbstractVector{T}` for plain code, positions `1:length(x)`, without a copy, each read's bounds checked by the member: `IndexableVector{T, C}`. It is an unbounded method (§7.3).
 - `HasLength` is not `Base.HasLength`, the value of `Base.IteratorSize`.
 - A module that uses BaseTraits and another module exporting the same name gets Julia's usual ambiguity of names.
 
-**Status:** Implemented in TraitWorld `unified` 4be0097 with `unified` 0ce5b7f752 (W-114); `HasProperty` in TraitWorld `unified` a658203 with `unified` 350c5b1c59; tests `basetraits.jl`. The table's contracts follow the prior art of Rust, Swift and Mojo ([the research](../record/collection-and-linalg-traits-research-2026-11-07.md); the user, 2026-11-07: "When it comes to Base Traits and Lin Alg Traits, send out an agent that collects prior art from Rust, Swift, Mojo") and [the review of the choices](../../attic/writeup/reviews/2026-11-07-basetraits-choices.md); each choice is mine (2026-11-07), listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user). Base's own tests pass with BaseTraits loaded, at their times without it (E-282).
+**Status:** Implemented (tests `basetraits.jl`).
 
 ### 10.2 Element types
 
@@ -1041,14 +1039,14 @@ total([Circle(1.0), Square(2.0)])         # members by @implement alone: a Vecto
 total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 ```
 
-**Status:** Implemented: Julia's variance with BaseTraits' memberships (TraitWorld `unified` 4be0097); tests `basetraits.jl`.
+**Status:** Implemented (tests `basetraits.jl`).
 
 ### 10.3 Algorithms
 
 - `retain!(f::Callable{Tuple{T}, Bool}, xs::All{MutableIndexable{T}, Resizable{T}}) where {T}` keeps the items for which `f` is `true`, in place, in order. It is Base's `filter!` for trait code. `Callable` erases by default, so a plain function is boxed: `retain!` is compiled once per item type for every function, Julia's included (§7.8). `retain!(compiled_for(f), xs)` compiles it for the function.
 - BaseTraits' algorithms have names of their own: a method of Base's `filter!` at a trait would rank below Base's own methods (§6.2) and never run for Base's containers.
 
-**Status:** Implemented in TraitWorld `unified` 4be0097 (W-114).
+**Status:** Implemented.
 
 ---
 
@@ -1072,7 +1070,7 @@ total(Shape[Circle(1.0), Square(2.0)])    # a Vector{Shape}
 | a call through the trait | an operation's result against its declared type (§7.9); a box of a `Callable`: its arguments and result (§9) | `TypeError`, `MethodError` (a `Callable`'s arguments) |
 | a keyword typed by a trait | membership | `TypeError` |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 at `@trait`, at `@implement` and at a member's first use at dispatch; at a module's end and at a method's definition (an override) in TraitWorld 701aaab; a member's check kept at a method's definition and an image's load in 5b3c427 (§5.10); `bounded` in bb78d02 (W-111); ownership, pirates and strict mode in 7adcc94 (W-114). The ambiguity at a membership an error under strict mode on `unified` 0bb8f38830 (E-343); at an image's activation reported at error level after the load on 9f8d7d7c48 with TraitWorld 0aff625 (E-349).
+**Status:** Implemented.
 
 ### 11.2 Definition checking
 
@@ -1087,7 +1085,7 @@ spread(t::ColTable) = size(t)    # size(::Dynamic{ColTable}) has no method: not 
 leak(t::ColTable) = typeof(t)    # bounded: the box's type
 ```
 
-**Status:** Implemented (the plan's D-3, 2026-11-15; [decisions](../record/decisions.md) §2): TraitWorld `unified` 6f86b4e (W-151; `check_definitions` and the `bounded` refusal read the box); an edit infers the instance at the box once, at its definition (TraitWorld 9c0912b, W-160, E-440), with [compiler C-115](compiler.md#deviations); the failure at the definition in a trait module, and so while a package is precompiled (TraitWorld `unified` bb78d02, W-111).
+**Status:** Implemented, but for [compiler C-115](compiler.md#deviations).
 
 ### 11.3 Errors and their messages
 
@@ -1111,7 +1109,7 @@ Each message names the trait, the type, and the declared signature where one is 
 - The code a declaration makes lies at the declaration: the place of a candidate and a stack frame name the user's `@trait`, not the library's source.
 - **A check's error is raised at the user's line.** The first frame of its backtrace is the `@implement`, or the method's definition that a check refused. The library's own frames are not above it.
 
-**Status:** `ImplementError` and `TraitUseError` in TraitWorld `unified` e7ff8e2; `OwnershipError`, `PirateError`, `NotFullyTypedError` and `AbstractTypeError` in 7adcc94 (W-114). A concrete part refused at a call (§14) raises `TraitUseError`: mine (2026-11-07). The form of a message: TraitWorld 6a8ee7f and 158d000 with `unified` dd3f6d839b (`test/messages.jl`; E-362), mine (2026-11-11); the messages against plain Julia's for the same mistakes: [evidence §4d](../design/evidence.md#4d-error-messages-against-plain-julias). A check's error raised at the user's line: TraitWorld 399f389 with `unified` 8f42ba7ed7 (`test/messages.jl`), mine (2026-11-12; [decisions](../record/decisions.md) §2). An operation called outside its declared signature as Julia's `MethodError` with the contract's hint: Implemented (D-4; julia `next` 5448a8b7bf, TraitWorld `unified` c838f76 and 4b6c1d6 (W-161, E-498)). A pirate reported where it ends deep-G2 code: §12.2. A port's run-time failures: [open issue 177](../open-issues.md#2-design).
+**Status:** Implemented (`test/messages.jl`).
 
 ### 11.4 Hints
 
@@ -1124,7 +1122,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 
 **No hint at an operation that is another owner's function.** `Indexable` declares Base's `getindex` as its operation. A failed call of `getindex` says nothing of `Indexable`: the hint is given at an operation whose function the trait's owner owns.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114), as hints on Julia's `MethodError`; the ambiguity's joint method is Julia's own message on `unified` (`f(::All{X, Y})`), so the library adds none. No hint at another owner's function: TraitWorld 99c4934, mine (2026-11-11; E-363). The declared signature read from the contract, where an argument at the operation's receiver position is a member: Implemented (D-4; julia `next` 5448a8b7bf, TraitWorld `unified` c838f76 and 4b6c1d6 (W-161, E-498)). The SciML error cases' gate: T-99.
+**Status:** Implemented, but for T-99.
 
 ---
 
@@ -1139,7 +1137,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
 - **An operation that is an existing function** (`Base.size`) may be served by methods in a block only for types the declaring package owns. Otherwise declare the type's existing methods: `@implement Sized Vector{Float32}`.
 - **Joint owners:** a package may name packages that own its functions and types with it (`@joint_owners DiffEqBase OrdinaryDiffEqCore`, at the top level of its own module). They are owners wherever the declaring package is one: memberships, pirates, strict mode's stakeholders. Not symmetric, not transitive; a joint owner's extension is a joint owner too. A joint owner's change is a stakeholder's change ([facts §2.2](facts.md#22-g2-stable-caches)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): `owner`, `@joint_owners`, `OwnershipError` at `@implement` and for a block's methods, an extension's triggers; tests `ownership.jl`. Open: whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+**Status:** Implemented (tests `ownership.jl`); whether the standard libraries are owners of their own: Open ([open issue 19](../open-issues.md)).
 
 ### 12.2 Pirates
 
@@ -1158,7 +1156,7 @@ The library adds hints to Julia's `MethodError` where a trait is involved:
   - **silent** only by choice: `TraitWorld.report_pirates!(false)`, or `JULIA_TW_PIRATES=0` at start.
   - The report costs nothing where no such code ends: the invalidation that ends the code holds the method already. A pirate's membership is reported the same way, beside its warning at the declaration.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 (W-114): the definition hook refuses a pirate in a `no_pirates` scope. A method of another's owner-only function as a pirate's, and `@owner_only`: TraitWorld `s3` 4210852, 4f34916 with `next-s3` e483299622 (the plan's D-9, 2026-11-15; `test/owner_only.jl`, E-458); the form `@owner_only` and the default for trait modules are mine (2026-11-15). A pirate's membership: TraitWorld dbfb488 (W-140, stage 1; `test/ownership.jl`); by the method's rule, in a `no_pirates` scope and under strict mode: TraitWorld a2ca7be with `unified` 7fee959383 (`test/ownership.jl`, `test/strict.jl`): the user (2026-11-12; [decisions](../record/decisions.md) §4). A pirate reported by default where it ends deep-G2 code: TraitWorld `s3` 2770c10 with `next-s3` 5d2ec7ff85 (the plan's D-12, 2026-11-15; `test/report.jl`, E-457); the switch's name and spelling are mine (2026-11-15). The reports given are kept (`TraitWorld.PIRATE_REPORTS`).
+**Status:** Implemented.
 
 ### 12.3 Strict mode
 
@@ -1178,7 +1176,7 @@ TraitWorld.strict!(true)        # or start Julia with JULIA_TW_STRICT=1
 - An ambiguity at a membership (§6.3) is an error: the membership raises `ImplementError` and does not exist. An image's membership activated at load that meets an ambiguity with code loaded earlier is reported, as a pirate loaded earlier is.
 - A method loaded before an image that breaks the check of one of the image's memberships (§5.10) is reported when the image loads, as a pirate loaded earlier is: the check instance it ends fails validation and is inferred again. Only such instances are inferred.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the refusal before the definition, the check after it, the image hook, the report after a load, the deletion hook; the earlier library's strict-mode cases pass (`test/strict.jl`). An ambiguity at a membership refused on `unified` 0bb8f38830 with TraitWorld 960b99e (`test/strict_membership.jl`, E-343). An ambiguity at an image's activated membership reported at error level after the load and kept (`TraitWorld._LOAD_AMBIGUITIES`) in TraitWorld 0aff625 with `unified` 9f8d7d7c48 (gate `stack/strict_activation.jl`, E-349): mine (2026-11-10). The report at error level, kept (`TraitWorld._LOAD_MEMBERSHIPS`), in TraitWorld 048c44e (gate `stack/strict_load_membership.jl`, E-353): mine (2026-11-10); only the check instances that fail validation inferred again: Planned (D-3), with T-129. A pirate's membership by the method's rule: TraitWorld a2ca7be with `unified` 7fee959383 (`test/strict.jl`; gate `stack/strict_pirate_membership.jl`): the user (2026-11-12). With T-96, T-97, T-112. The warning at an extension's method: TraitWorld 12b8b31 (stack gate `strict_extension_method`).
+**Status:** Implemented, but for T-96 and T-112; only the check instances that fail validation inferred again at a load: Planned, with T-129.
 
 ---
 
@@ -1206,7 +1204,7 @@ end
 - Concreteness and fully typed mode (§14) take the same places: before `@trait_module`, for the module; before a method, for it.
 - Traits, memberships and methods at traits work in any module; a scope decides only these options.
 
-**Status:** Implemented in TraitWorld `unified` bb78d02 (`@trait_module`; W-111; the user, 2026-11-06, Q2 (a)). The three options and no other: the plan's D-1 and D-14 (2026-11-15); the library still accepts `dynamic` and `first_seen` (T-127).
+**Status:** Implemented, but for T-127.
 
 ---
 
@@ -1246,7 +1244,7 @@ Two guarantees, asked for separately.
 
 **They differ.** Concrete parts do not make code fully typed (a `Vector{Any}` argument, an abstract declared result can each leave a call unresolved). Fully typed code is checked at the signatures it ran at; concrete parts are promised for every member.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [compiler §2.7](compiler.md#27-fully-typed-mode)); tests `fullytyped.jl`, acceptance case `AC_16`, gate `n9_fully_typed`. With T-100, T-101. Fully typed as exactly what compiles ahead, the report as the build's own check: Implemented on `unified` 381cc8b953 with TraitWorld `unified` 78a78af (W-142; E-369: the check and the build agree on 17 of 18 programs), with T-109; the check as the build's code run in the session, and the modes raising only where it refuses: mine (2026-11-12; [decisions](../record/decisions.md) §6). The abstract result as no fault, and `@enforce_concrete_only result`: Implemented on `unified` 22db66e23c with TraitWorld `unified` d804c78 (W-142; gate `n9_fully_typed`, test `fullytyped.jl`); the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later.". The name `result`: mine (2026-11-11). The modes' check in the compiler: mine (2026-11-07). A trait as a concrete parameter value is mine (2026-11-06), as Rust's `Vec<Box<dyn Trait>>` and Swift's `[any P]` are concrete. Fully typed with the setting as its parameter, in a session and when closed, and the report's two lists: mine (2026-11-15; the plan's D-10), with T-122.
+**Status:** Implemented, but for T-100, T-101, T-104, T-109, T-122 and T-127 (gate `n9_fully_typed`).
 
 ---
 
@@ -1255,7 +1253,7 @@ Two guarantees, asked for separately.
 - **A box** prints as `Dynamic{Shape}(Circle(1.0))`, **a wrapper** as `Compiled(Circle(1.0))`. A signature prints the kept form's type, as Julia prints any type: `colmean(::Dynamic{ColTable}, ::Int64)`.
 - A trait prints as the type it is.
 
-**Status:** Implemented: `Dynamic{X}`'s printing in TraitWorld `unified` 745056c (W-111), the wrapper's in 5e2ef71 (W-151).
+**Status:** Implemented.
 
 ---
 
@@ -1297,7 +1295,7 @@ Two guarantees, asked for separately.
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** `make_executable` and `make_library`: Implemented in TraitWorld `unified` 19862aa (W-139; `test/build.jl`, E-364's `make.jl`): mine in their form (2026-11-11), asked for by the user. A function written at the prompt: Implemented in TraitWorld `unified` 633d6c0 (E-364: entered at a real prompt, built, run); the selection by name from the prompt's history is mine (2026-11-11). The fully typed report as the build's, the check before a build, and the build's Base read by the check: Implemented in TraitWorld `unified` 78a78af with `unified` 381cc8b953 (W-142; E-369: TraitTables' table program is fully typed, builds and runs; `experiments/unification/w139/make.jl`), with T-109; the replacements as an overlay method table read from the build script's files: mine (2026-11-14; [decisions](../record/decisions.md) §6). A closed build compiling generic code for its members: Implemented on `unified` 97861c6b31 ([compiler §7.6](compiler.md#76-a-closed-build); W-139, E-364), for a set whose members are declared at concrete types, at families (`S{T} where T`) or at subtraits; not at an abstract type (compiler C-86). The rest: Implemented in TraitWorld `unified` 05991fc with `unified` 5f2373b2d5 and e81cd49a67 (W-114, W-135): compiling ahead, gate `ahead_two_packages.jl`; `verify_main`, tests `verify.jl`, with T-108. The targets at a value known only by its trait, the entry points and the bound: mine (2026-11-10); a wrapper's in place of a cast's: the plan's D-1 (2026-11-15), with T-127. A build that compiles what is written, and a method that erases compiled ahead at the box: Planned (D-1, D-3), with [compiler C-112, C-114](compiler.md#deviations) and [lowering L-66](lowering.md#15-deviations). Trimmed binaries: E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)).
+**Status:** Implemented, but for T-108, T-109, T-127 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member); a build that compiles what is written, and a method that erases compiled ahead at the box: Planned, with [compiler C-112, C-114](compiler.md#deviations) and [lowering L-66](lowering.md#15-deviations).
 
 ---
 
@@ -1305,7 +1303,7 @@ Two guarantees, asked for separately.
 
 A second way for a type to join a trait, used only where a caller names it, is a wrapper type that joins it: `Via{Fast}(x)`, a newtype. A foreign trait for a foreign type is joined through the user's own wrapper type: `struct FastM; m::M; end` with its own membership.
 
-**Status:** Planned (deferred).
+**Status:** Planned.
 
 ---
 
@@ -1313,85 +1311,72 @@ A second way for a type to join a trait, used only where a caller names it, is a
 
 | Construct | Status | Section |
 |---|---|---|
-| a trait is an abstract type; membership, transitivity, worlds | Implemented (`unified` 62016706d0) | §3.1 |
-| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented (`unified` 62016706d0, TraitWorld e7ff8e2); inputs `unified` 350c5b1c59, TraitWorld a658203, but T-105 | §3.2 |
-| a family states its instance as a pattern, equations included | Implemented (TraitWorld e7ff8e2) | §3.2, §5.8 |
-| a trait wherever a type stands | Implemented (`unified` 29035cab11) | §3.3 |
-| a non-membership relied on, with its edge; a pirate's membership | Implemented (`unified` bf447db25e, 80aa919bed, 7fee959383; TraitWorld dbfb488, a2ca7be), with C-76, C-77, C-88, T-112 | §3.4, §12.2 |
-| intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented (`unified` 8a9144928e, TraitWorld ae4d250) | §3.6 |
-| operations, `where` on operations, the receiver at any position | Implemented (TraitWorld e7ff8e2) | §4.1 |
-| an operation as an entry of the contract: no method at the trait for one without a default; `MethodError` with the contract's hint outside the declared signature | Implemented (D-4; julia `next` 5448a8b7bf, TraitWorld `unified` c838f76, W-161) | §4.1, §4.2, §11 |
-| defaults as the trait's methods, reached by every caller | Implemented (TraitWorld e7ff8e2) | §4.2 |
-| declared fields as stored fields | Implemented (TraitWorld e7ff8e2) | §4.3 |
-| `Self`; supertraits | Implemented (TraitWorld e7ff8e2) | §4.4, §4.5 |
-| `struct S <: X`, declared and checked by `@implement X S` | Implemented (TraitWorld e7ff8e2, 701aaab: the module's end; 0aff625 with `unified` fcdfd0da36: the use before it) | §5.2 |
-| one line, block, several traits, stated parameters | Implemented (TraitWorld e7ff8e2) | §5.3–§5.7 |
-| forwarding: the member's own methods; a default through the trait's method | Implemented (TraitWorld e7ff8e2; the member's methods W-128) | §5.5 |
-| families; abstract types and traits as members | Implemented (TraitWorld e7ff8e2, dd72b10) | §5.8, §5.9 |
-| checks at the declaration and at first use | Implemented (TraitWorld e7ff8e2, `unified` ec4f9a8714, fcdfd0da36: at dispatch and before compiled code runs; C-31); kept while a member, also from an image (TraitWorld 6871ea9, E-344); pattern answers in images L-55; the check as kept instances with edges: Planned (D-3, T-129) | §5.10 |
-| overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
-| a membership taken back, `delete_membership`; Revise on memberships | Implemented (TraitWorld `s3` 9e0e3f4, `next-s3` 213c759370; D-13, E-459); Revise: Planned, with L-64 | §5.13 |
-| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
-| `like`, `withfields`: the library's conveniences | Implemented (TraitWorld e7ff8e2) | §6.5 |
-| keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`) | §6.6 |
-| keys and shared code: an optional extension | Optional, built late (W-110; open issue 147) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
-| bounded methods: the instance at the box, read where a method is defined | Implemented (D-3; TraitWorld 6f86b4e, W-151; read from Julia's cache, 9c0912b, W-160), with compiler C-115, T-130; `bounded` and `@unbounded` TraitWorld bb78d02 (W-111) | §7.3, §11.2 |
-| the two kept forms, the box and the wrapper; the value's type decides | Planned (D-1); built in TraitWorld 5e2ef71 to 6f86b4e (W-151), with T-126, T-127, compiler C-112, C-113 | §7.4–§7.6 |
-| `Dynamic{X}`, the box | Implemented (`unified` e692e57ab7, W-111; TraitWorld 5a9d19d; its test decided where the code is compiled, `next` 5b1900641f, W-160), with compiler C-113 | §7.7 |
-| erasing by default: the forwarder made where a method is defined | Implemented (`next` 8b1ec88a56, TraitWorld `unified` 21ae901; W-160), with T-125, compiler C-111 | §4.6, §7.8 |
-| operations on a value known only by its trait | Implemented (`unified` e70675a606, W-109) | §7.9 |
-| storage typed by a trait; struct parameters; storage keeps the form given | Implemented (Julia's, with TraitWorld e7ff8e2; the conversion into `Dynamic{X}` 5e2ef71) | §8 |
-| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented (D-2: `next` eaa19da272, TraitWorld c14d2e4; W-161), with compiler C-146, T-156 | §9 |
-| A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented (`unified` b05ae361e0) | §3.4, §9b |
-| BaseTraits; element types by variance; `retain!` | Implemented (TraitWorld 4be0097, `unified` 0ce5b7f752; W-114; `HasProperty` TraitWorld a658203, `unified` 350c5b1c59) | §10 |
-| checks, errors, hints | Implemented (TraitWorld e7ff8e2; definition checking 59134ef, bb78d02; hints and the errors of §12, §14 7adcc94; errors at the user's line 399f389); an operation outside its signature as Julia's `MethodError` with the contract's hint: Implemented (D-4; TraitWorld `unified` c838f76) | §11 |
-| ownership, joint owners, pirates, strict mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; an ambiguity at a membership refused, E-343, and reported at an image's activation, E-349), with T-96, T-97 | §12 |
-| owner-only functions, `@owner_only` | Implemented (TraitWorld `s3` 4210852, `next-s3` e483299622; D-9, E-458), with compiler C-130 | §6.8, §12.2 |
-| a pirate reported where it ends deep-G2 code; `report_pirates!` | Implemented (TraitWorld `s3` 2770c10, `next-s3` 5d2ec7ff85; D-12, E-457) | §12.2 |
-| the standard libraries as owners | Open | §12.1 |
-| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented (TraitWorld bb78d02, W-111), with T-127 | §13 |
-| concreteness and fully typed mode | Implemented (TraitWorld 7adcc94, `unified` 5f2373b2d5; W-114; the report as the build's check: TraitWorld 78a78af, `unified` 381cc8b953, W-142), with T-100, T-101, T-109; fully typed in a session listed apart: Planned (D-10, T-122) | §14 |
+| a trait is an abstract type; membership, transitivity, worlds | Implemented | §3.1 |
+| parameters as associated types; invariance, `X{<:T}`; one instance per member | Implemented, but for T-105 | §3.2 |
+| a family states its instance as a pattern, equations included | Implemented | §3.2, §5.8 |
+| a trait wherever a type stands | Implemented | §3.3 |
+| a non-membership relied on, with its edge; a pirate's membership | Implemented, but for compiler C-77, C-88 and T-112 | §3.4, §12.2 |
+| intersections `All{X, Y, Z, …}`; bundles as aliases | Implemented | §3.6 |
+| operations, `where` on operations, the receiver at any position | Implemented | §4.1 |
+| an operation as an entry of the contract: no method at the trait for one without a default; `MethodError` with the contract's hint outside the declared signature | Implemented | §4.1, §4.2, §11 |
+| defaults as the trait's methods, reached by every caller | Implemented | §4.2 |
+| declared fields as stored fields | Implemented | §4.3 |
+| `Self`; supertraits | Implemented | §4.4, §4.5 |
+| `struct S <: X`, declared and checked by `@implement X S` | Implemented | §5.2 |
+| one line, block, several traits, stated parameters | Implemented | §5.3–§5.7 |
+| forwarding: the member's own methods; a default through the trait's method | Implemented | §5.5 |
+| families; abstract types and traits as members | Implemented, but for compiler C-31 | §5.8, §5.9 |
+| checks at the declaration and at first use | Implemented, but for compiler C-31; the check as kept instances with edges: Planned, with T-129 | §5.10 |
+| overrides fixed; redeclaration | Implemented | §5.11 |
+| a membership taken back, `delete_membership`; Revise on memberships | Implemented, but for lowering L-64 (Revise) | §5.13 |
+| dispatch: specificity, ambiguity reported at a membership, fallback | Implemented | §6.2–§6.4 |
+| `like`, `withfields`: the library's conveniences | Implemented | §6.5 |
+| keywords, defaults, varargs at traits | Implemented | §6.6 |
+| keys and shared code: an optional extension | Optional ([open issue 147](../open-issues.md)) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
+| bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 and T-130 | §7.3, §11.2 |
+| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-126, T-127, T-128, T-130 and compiler C-112, C-113 | §7.4–§7.6 |
+| `Dynamic{X}`, the box | Implemented, but for compiler C-113 | §7.7 |
+| erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
+| operations on a value known only by its trait | Implemented | §7.9 |
+| storage typed by a trait; struct parameters; storage keeps the form given | Implemented | §8 |
+| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for T-156, compiler C-146 and lowering L-58 | §9 |
+| A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented | §3.4, §9b |
+| BaseTraits; element types by variance; `retain!` | Implemented | §10 |
+| checks, errors, hints | Implemented, but for T-99 and compiler C-115 | §11 |
+| ownership, joint owners, pirates, strict mode | Implemented, but for T-96 and T-112; the check instances that fail validation inferred again at a load: Planned, with T-129 | §12 |
+| owner-only functions, `@owner_only` | Implemented, but for compiler C-130 | §6.8, §12.2 |
+| a pirate reported where it ends deep-G2 code; `report_pirates!` | Implemented | §12.2 |
+| the standard libraries as owners | Open ([open issue 19](../open-issues.md)) | §12.1 |
+| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented, but for T-127 | §13 |
+| concreteness and fully typed mode | Implemented, but for T-100, T-101, T-109 and T-122 | §14 |
 | printing | Implemented | §15 |
-| compiling ahead, `verify_main` | Implemented (TraitWorld 05991fc, `unified` 5f2373b2d5, e81cd49a67; W-114, W-135; the check before a build: TraitWorld 78a78af, W-142), with T-108, T-109 | §16 |
-| named implementations | Planned (deferred) | §17 |
+| compiling ahead, `verify_main` | Implemented, but for T-108, T-109, T-127 and compiler C-86; a build that compiles what is written: Planned, with compiler C-112, C-114 and lowering L-66 | §16 |
+| named implementations | Planned | §17 |
 
 ---
 
 ## 19. Deviations
 
-The library on the unified build is TraitWorld `unified` (its head: [state.md §6.1](../state.md#today)); the lowering's deviations are [lowering.md's](lowering.md#15-deviations), the type system's and dispatch's [compiler.md's](compiler.md#deviations). The rows below are where the library falls short of this reference's guarantees.
+The rows below are where the implementation falls short of this page; the heads are in [the state](../state.md). The lowering's deviations are [lowering.md's](lowering.md#15-deviations), the type system's and dispatch's [compiler.md's](compiler.md#deviations).
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| T-1 to T-95 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/traits.md` | — | — |
-| T-96 | [§12.3](#123-strict-mode) | Strict mode refuses a binding redefined from another module, through its hook ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)). | No such hook exists: a binding redefined from another module is followed. | `julia-unified` (no hook); TraitWorld `src/strict.jl` |
-| T-97 | — | *Retired* (2026-11-14): the warning at an extension's method, at its definition and at its image's load ([§12.3](#123-strict-mode)); stack gate `strict_extension_method` | — | — |
-| T-98 | — | *Retired* (2026-11-10): under strict mode an ambiguity at an image's membership activated at load is reported after the load, at error level, in TraitWorld 0aff625 with `unified` 9f8d7d7c48 ([§12.3](#123-strict-mode), [compiler §9](compiler.md#9-images-and-the-machine-code-cache)); gate `stack/strict_activation.jl` (E-349) | — | — |
-| T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases (the work plan's M8). | The hints are tested on the library's own cases (`test/hints.jl`, `test/messages.jl`). The SciML cases run on the port (E-363) and reach no hint: each is a run-time failure in the user's function, not a call of a method at a trait. They are a measurement, not a gate. | TraitWorld `test/hints.jl`; `experiments/unification/w136/sciml/` |
-| T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for every call that a build from the signature refuses, in the code or in anything it calls. | The compiled code asks the check only where the session's inference found a run-time site in the code or in a callee compiled by facts. A call that only the build refuses, inside plain code the method calls (Base's, in the product setting), is reported by `fully_typed` and not raised. | `julia-unified` `Compiler/src/facts.jl` (`fully_typed_fault`); TraitWorld `src/fullytyped.jl` (`_fully_typed_hook`) |
+| T-96 | [§12.3](#123-strict-mode) | Strict mode refuses a binding redefined from another module, through its hook ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)). | No such hook exists: a binding redefined from another module is followed. | Julia (no hook); TraitWorld `src/strict.jl` |
+| T-99 | [§11.4](#114-hints) | The hints are gated on the SciML error cases. | The hints are tested on the library's own cases (`test/hints.jl`, `test/messages.jl`). The SciML cases run on the port and reach no hint: each is a run-time failure in the user's function, not a call of a method at a trait. They are a measurement, not a gate. | TraitWorld `test/hints.jl` |
+| T-100 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises for every call that a build from the signature refuses, in the code or in anything it calls. | The compiled code asks the check only where the session's inference found a run-time site in the code or in a callee compiled by facts. A call that only the build refuses, inside plain code the method calls (Base's, in the product setting), is reported by `fully_typed` and not raised. | Julia's `Compiler/src/facts.jl` (`fully_typed_fault`); TraitWorld `src/fullytyped.jl` (`_fully_typed_hook`) |
 | T-101 | [§14](#14-concreteness-and-fully-typed-mode) | Concreteness, like fully typed mode, can be declared for a module before `@trait_module`. | Concreteness is declared per trait and per method only. | TraitWorld `src/fullytyped.jl` |
-| T-102 | — | *Retired* (2026-11-14): `like` and `withfields` call the constructor by position, with nothing looked up when they run ([lowering §8](lowering.md#8-like-and-withfields)); `test/core.jl`, stack gate `like_precompiled` | — | — |
-| T-103 | — | *Retired* (2026-11-08): `HasProperty` in TraitWorld `unified` a658203 with `unified` 350c5b1c59 ([§10.1](#101-basetraits), [§3.2](#32-parameters)); tests `basetraits.jl`, gate `n10_inputs` | — | — |
-| T-104 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises at every run of a fault. | The check is in the method's code compiled by facts. A plain caller that inlines the method, or propagates constants into it (compiler C-45), runs it without the check. The warning's once-only flag is written into the code's literal. | `Compiler/src/optimize.jl`, `base/experimental.jl`; [the review](../../attic/writeup/reviews/2026-11-07-implementation-day.md) M7 |
+| T-104 | [§14](#14-concreteness-and-fully-typed-mode) | `@enforce_fully_typed` raises at every run of a fault. | The check is in the method's code compiled by facts. A plain caller that inlines the method, or propagates constants into it (compiler C-45), runs it without the check. The warning's once-only flag is written into the code's literal. | Julia's `Compiler/src/optimize.jl`, `base/experimental.jl` |
 | T-105 | [§3.2](#32-parameters) | An input is never left open where an operation's result needs it: a method whose `where` variable or stated value does not fix it is refused at its definition. | Not checked: such a trait's method is accepted, and the call's result names the open input. | TraitWorld `src/trait.jl` (`_trait_method`) |
-| T-106 | — | *Retired* (2026-11-09): `IO`'s contract is Base's, on a closed type ([§9b](#9b-streams-io)) | — | — |
-| T-107 | — | *Retired* (2026-11-14): the report's holes are the build's own check's ([§16](#16-compiling-ahead-closed-programs)); what is left is in T-109 | — | — |
 | T-108 | [§16](#16-compiling-ahead-closed-programs) | `add_entrypoints(report)` gives an instance at a member to the build through Julia's interface for entry points. | Julia's `Base.Experimental.entrypoint` takes a signature, which names the instance compiled once. The instance at a member is pushed into the compiler's internal list `Base.Compiler._entrypoint_mis`. | TraitWorld `src/fullytyped.jl` (`add_entrypoints`) |
-| T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles, and the report's calls are the build's. | The verdicts agree on 17 of 18 programs (E-369). What differs: (1) what the build script changes in Base that is no method is not read by the check: the binding `Base.invokelatest`, which the build makes a direct call (the check reports the call, the build builds: `bb_invokelatest`; the closed rule that removes it is compiler C-103), and eleven functions' `max_args`. (2) Three functions the build script adds are defined in the session's Base as written (`show_typeish`, `invokelatest_trimmed`, `unwrap_val`). (3) The lists of calls are not compared one by one: the report names the call in the user's code above a refused call, the build the call it stopped at. (4) A build's process that loads a package from source, not from its image, runs the package's own workload under the closed rules, and can fail there. (5) At a member of a family that no image has checked, the check in a session leaves calls at the trait unresolved that the build's process resolves, since its queue runs the member's check ([open issue 184](../open-issues.md#2-design) (b)). | TraitWorld `src/fullytyped.jl`, `src/buildbase.jl`; `experiments/unification/w142/` (`agree.sh`, the apps `bb_*`); [open issue 181](../open-issues.md#2-design) |
-| T-110 | — | *Retired* (2026-11-12): [§14](#14-concreteness-and-fully-typed-mode) holds the rule, built. | | |
-| T-111 | — | *Retired* (2026-11-14): `detect_kept_storage` reports such stores ([§7.8](#78-keeping-an-argument-with-its-attribute)); test `kept.jl`. TraitDifferentialEquations' six sites are the port's (W-104) | — | — |
-| T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is undone as a method's is: the membership is taken back (§5.13) and refused (TraitWorld `s3` 9e0e3f4). At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
-| T-113 | — | *Retired* (2026-11-15): [§4.6](#46-erasing-by-default) and [§7.8](#78-erasing-by-default-the-forwarder) state what the library records; what stands in for Julia's forwarders is T-125 | — | — |
-| T-114 | — | *Retired* (2026-11-15): [§7.3](#73-bounded-methods) and [§11.2](#112-definition-checking) state what the library reads; how it infers that instance: [compiler C-115](compiler.md#deviations) | — | — |
-| T-120 | — | *Retired* (2026-11-15): an operation without a default is an entry of the contract and no method at the trait, in TraitWorld `unified` c838f76 with julia `next` 5448a8b7bf ([§4.1](#41-operations), [§11.4](#114-hints)); E-498 | — | — |
-| T-121 | — | *Retired* (2026-11-15): a method of another package's owner-only function is a pirate's, and `@owner_only`, in TraitWorld `s3` 4210852, 4f34916 ([§12.2](#122-pirates)); `test/owner_only.jl`, E-458 | — | — |
+| T-109 | [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Fully typed code is exactly the code a closed build compiles, and the report's calls are the build's. | The check and the build can give different verdicts. What differs: (1) what the build script changes in Base that is no method is not read by the check: the binding `Base.invokelatest`, which the build makes a direct call (the check reports the call, the build builds; the closed rule that removes it is compiler C-103), and eleven functions' `max_args`. (2) Three functions the build script adds are defined in the session's Base as written (`show_typeish`, `invokelatest_trimmed`, `unwrap_val`). (3) The lists of calls are not compared one by one: the report names the call in the user's code above a refused call, the build the call it stopped at. (4) A build's process that loads a package from source, not from its image, runs the package's own workload under the closed rules, and can fail there. (5) At a member of a family that no image has checked, the check in a session leaves calls at the trait unresolved that the build's process resolves, since its queue runs the member's check ([open issue 184](../open-issues.md#4-design) (b)). | TraitWorld `src/fullytyped.jl`, `src/buildbase.jl`; [open issue 181](../open-issues.md#4-design) |
+| T-112 | [§12.3](#123-strict-mode) | Strict mode refuses a pirate's membership that would change code compiled by facts, before it exists. | The check before the declaration walks the edges a method's check walks. The declaration's invalidation log is read after it, as a method's is; code compiled by facts that the walk missed is undone as a method's is: the membership is taken back (§5.13) and refused. At an image's load, a family's or an abstract member's membership is checked for the folded answers only, not for the calls. | TraitWorld `src/strict.jl` (`_declare_pirate!`, `_membership_violation`, `_image_membership`) |
 | T-122 | [§14](#14-concreteness-and-fully-typed-mode) | `fully_typed`'s report lists apart the calls a build resolves and a session leaves to run time; `isfullytyped(report; session = true)` answers for a session. | The report lists the calls the build's check refuses (`Compiler.closed_check`) and the walk's root causes; a call a build resolves and a session dispatches is in neither list, and nothing answers whether code is fully typed in a session. | TraitWorld `src/fullytyped.jl` (`fully_typed`, `isfullytyped`, the report's type) |
-| T-123 | — | *Retired* (2026-11-15): the report by default, in TraitWorld `s3` 2770c10 ([§12.2](#122-pirates)); `test/report.jl`, E-457 | — | — |
-| T-124 | — | *Retired* (2026-11-15): `delete_membership` in TraitWorld `s3` 9e0e3f4 with `next-s3` 213c759370 ([§5.13](#513-taking-a-membership-back)); `test/delete.jl`, E-459; Revise's part is lowering L-64 | — | — |
-| T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself, for code written for the prototype. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
-| T-126 | [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper), [§7.6](#76-compiled_forx) | The wrapper is `Core.Compiled{T}`; `compiled_for(x)`, exported by the library, returns it. | The wrapper is the library's type, `TraitWorld.Compiled{T}`. The library's exported `compiled_for` is still Julia's cast (`import Core: compiled_for`), and the wrapper's function is `TraitWorld.ByType.compiled_for`, which a module binds explicitly (`using TraitWorld.ByType: compiled_for`). | TraitWorld `src/compiled.jl`, `src/TraitWorld.jl` (`module ByType`, the exports); compiler C-113 |
-| T-127 | [§2](#2-syntax-summary), [§4.6](#46-erasing-by-default), [§7.5](#75-what-decides), [§8.1](#81-fields-and-containers-typed-by-a-trait), [§13](#13-scopes-trait-modules), [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Nothing beside a call decides how an argument is compiled: no cast, no `keep`, no `Kept{X}`, no module option `dynamic` or `first_seen`, no `@default_compiled`; storage keeps the form given; `verify_main` and `fully_typed` read wrappers. | The library still offers the attribute's surface, beside the kept forms: it exports the casts `compiled_for` and `with_dynamic` and `keep` (Julia's, compiler C-112), `Kept`, `kept_call`, `isdynamic`, `detect_unused_casts`, `detect_kept_storage`, `detect_dynamic_fallbacks`; `@trait_module` accepts `dynamic` and `first_seen`, and `first_seen` is on unless written (the ports write `first_seen = false`); `@default_compiled` sets the compiler's attribute bit (`jl_set_default_attribute`); `verify_main` lists a cast's targets, and `fully_typed` reads a cast's operand. | TraitWorld `src/TraitWorld.jl` (the exports), `src/kept.jl`, `src/scope.jl` (`@trait_module`, the three `detect_` functions), `src/trait.jl` (`@default_compiled`), `src/fullytyped.jl` (the casts' targets) |
-| T-128 | [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) to [§7.8](#78-erasing-by-default-the-forwarder), [§8](#8-storage) | The demonstrators follow the design: their code erases by the trait's default or at a door, and chooses code per type with `compiled_for(x)`, a value. | Not converted: TraitTables' four casts (`src/TableCore.jl` 75, 90, 188; `src/TraitTables.jl` 52), TraitCSV's one (`src/CSVCore.jl` 123), the forks' Tables (`src/ColumnCore.jl` 98 to 118), TraitMakie, TraitReport, which import the casts and `keep`. TraitDifferentialEquations' `kept_interpolant` keeps a `keep`, and its README and docstrings outside the front end and the callbacks describe casts (TraitRodas' `with_dynamic(ls)`). Converted: TraitDifferentialEquations' front end and callbacks (813808a), NetworkDynamics' kernel (946c0dc). | the demonstrators' `-unified` trees, `forks-unified`; stage 4 of [the plan](../plans/2026-11-15-next-iteration.md) (W-156) |
-| T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen ([open issue 115](../../attic/writeup/record/issues-closed.md), closed by rule). Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; E-353, E-382: GT-2). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
+| T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
+| T-126 | [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper), [§7.6](#76-compiled_forx) | The wrapper is `Core.Compiled{T}`; `compiled_for(x)`, exported by the library, returns it. | The wrapper is the library's type, `TraitWorld.Compiled{T}`. The library's exported `compiled_for` is Julia's cast (`import Core: compiled_for`), and the wrapper's function is `TraitWorld.ByType.compiled_for`, which a module binds explicitly (`using TraitWorld.ByType: compiled_for`). | TraitWorld `src/compiled.jl`, `src/TraitWorld.jl` (`module ByType`, the exports); compiler C-113 |
+| T-127 | [§2](#2-syntax-summary), [§4.6](#46-erasing-by-default), [§7.5](#75-what-decides), [§8.1](#81-fields-and-containers-typed-by-a-trait), [§13](#13-scopes-trait-modules), [§14](#14-concreteness-and-fully-typed-mode), [§16](#16-compiling-ahead-closed-programs) | Nothing beside a call decides how an argument is compiled: no cast, no `keep`, no `Kept{X}`, no module option `dynamic` or `first_seen`, no `@default_compiled`; storage keeps the form given; `verify_main` and `fully_typed` read wrappers. | The library offers the attribute's surface, beside the kept forms: it exports the casts `compiled_for` and `with_dynamic` and `keep` (Julia's, compiler C-112), `Kept`, `kept_call`, `isdynamic`, `detect_unused_casts`, `detect_kept_storage`, `detect_dynamic_fallbacks`; `@trait_module` accepts `dynamic` and `first_seen`, and `first_seen` is on unless written (the ports write `first_seen = false`); `@default_compiled` sets the compiler's attribute bit (`jl_set_default_attribute`); `verify_main` lists a cast's targets, and `fully_typed` reads a cast's operand. | TraitWorld `src/TraitWorld.jl` (the exports), `src/kept.jl`, `src/scope.jl` (`@trait_module`, the three `detect_` functions), `src/trait.jl` (`@default_compiled`), `src/fullytyped.jl` (the casts' targets) |
+| T-128 | [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) to [§7.8](#78-erasing-by-default-the-forwarder), [§8](#8-storage) | The demonstrators follow the design: their code erases by the trait's default or at a door, and chooses code per type with `compiled_for(x)`, a value. | Not converted: TraitTables' four casts (`src/TableCore.jl` 75, 90, 188; `src/TraitTables.jl` 52), TraitCSV's one (`src/CSVCore.jl` 123), the forks' Tables (`src/ColumnCore.jl` 98 to 118), TraitMakie, TraitReport, which import the casts and `keep`. TraitDifferentialEquations' `kept_interpolant` keeps a `keep`, and its README and docstrings outside the front end and the callbacks describe casts (TraitRodas' `with_dynamic(ls)`). Converted: TraitDifferentialEquations' front end and callbacks, NetworkDynamics' kernel. | the demonstrators' sources named in the row: TraitTables, TraitCSV, the forks' Tables, TraitMakie, TraitReport, TraitDifferentialEquations |
+| T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen. Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; [GT-2](../goals.md#3-tensions-between-the-goals)). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
 | T-130 | [§7.3](#73-bounded-methods), [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) | A function of `Self` that an equation names answers through a kept form as for its object: `eltype(d)` of a box of `Iterable{Float64}` is `Float64`. | No such method at the kept forms: `eltype` of a box is Base's fallback, `Any`, so a method that computes with `eltype(t)` gives another type at the box than at the member, and a call made with it (`zero(eltype(t))`) can find no method there. | TraitWorld `src/trait.jl` (no methods of the equations' functions at `Dynamic{<:X}`, `Compiled{<:X}`), `src/dynamic.jl`; [lowering L-67](lowering.md#15-deviations) |
-| T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types (E-500). The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
+| T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types. The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
+
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124.

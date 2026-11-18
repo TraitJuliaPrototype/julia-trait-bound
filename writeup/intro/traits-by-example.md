@@ -2,7 +2,7 @@
 
 This page builds a small geometry library with traits, one step at a time, and uses every part of the trait language on the way. Each step links to the precise rules in [Traits: the reference](../reference/traits.md). Why traits exist, and what they buy, is in [Traits for Julia](traits-for-julia.md). The terms are in the [glossary](../glossary.md).
 
-Every example runs as written on the unified build. The scripts are in [`experiments/docs-examples/`](../../experiments/docs-examples/), with a README that says how to run them: `tutorial.jl` runs §2–§17 and checks every result stated here, `strict.jl` runs §18.
+Every example runs as written on the implementation. The scripts are in [`experiments/docs-examples/`](../../experiments/docs-examples/), with a README that says how to run them: `tutorial.jl` runs §2–§17 and checks every result stated here, `strict.jl` runs §18. Where the implementation still differs from what this page states, the script says so, naming the deviation.
 
 ## Contents
 
@@ -31,7 +31,7 @@ Every example runs as written on the unified build. The scripts are in [`experim
 
 ## 1. Setting up
 
-You need the unified build of Julia 1.13 (`julia-unified/` in this workspace) and the TraitWorld package. TraitWorld does not run on stock Julia.
+You need Julia 1.13 with the design's changes (`julia-next/` in this workspace) and the TraitWorld package. TraitWorld does not run on stock Julia.
 
 The library is a *trait module*: an ordinary module that declares `@trait_module` before its first method. Traits, memberships and methods at traits work in any module; a trait module adds checks and compiles its code in the facts mode. The user's code is ordinary Julia.
 
@@ -148,32 +148,30 @@ title(Circle(1.0))                      # "A shape of area 3.141592653589793": t
 title(Rect(2.0, 3.0))                   # "A 2.0 by 3.0 rectangle": Rect's own
 ```
 
-**Fully bounded and unbounded.** A method that reaches its argument only through the trait is *fully bounded* there. It may:
+**Bounded and unbounded.** A method is *bounded* at a trait argument when its code works for every member that will ever join. TraitWorld reads the method's code for the box `Dynamic{Shape}` (§12), through which only the trait's operations and declared fields reach the member. A method is bounded where no call there finds no method or only throws. It may:
 - call the trait's operations;
 - read the trait's declared fields (§6), and write them unless they are `@const`;
-- pass the argument on to another argument typed by the trait;
+- pass the argument on to code that asks no more of it: another argument typed by the trait, a closure, a struct;
 - call any Julia code on ordinary values, such as the `Float64` that `area` returns.
 
-Anything else makes it *unbounded* at that argument: passing it to an ordinary function (`length(s)`), asking `typeof(s)`, capturing it in a closure. A trait module refuses an unbounded method where it is defined ([§16](#16-when-something-does-not-fit)); `@unbounded` before a method allows it.
+A call that needs more of the member than the trait declares (`length(s)`, where `Shape` declares no `length`) finds no method at the box: the method is *unbounded* at that argument. A trait module refuses an unbounded method where it is defined ([§16](#16-when-something-does-not-fit)); `@unbounded` before a method allows it.
 
-**What it is compiled for: `Compiled` and `Dynamic`.** Each trait argument at each call has an *attribute*. The results are the same; only the speed differs.
-- **`Compiled`:** `ratio` runs code compiled for the value's type: once for `Circle`, once for `Rect`, as plain Julia compiles per type.
-- **`Dynamic`:** `ratio` runs code compiled once, at `Shape`. Each operation on `s` dispatches when it runs, and its result has the declared type.
+**What it is compiled for.** A method is compiled as Julia compiles any method: for the types of the values it is given. A shape passed as itself gets code for its type: `ratio` is compiled once for `Circle`, once for `Rect`. A caller who wants other code passes one of two other forms, each a value and a member of the trait. The results are the same; only the speed differs.
+- **The box, `Dynamic{Shape}(x)`:** `ratio` runs code compiled once, for `Shape`. Each operation on `s` dispatches when it runs, and its result has the declared type (§12).
+- **The wrapper, `compiled_for(x)`:** `ratio` runs code compiled for the type of `x`. It matters where a value would otherwise be boxed (§14).
 
-**What decides, strongest first:**
-1. **A cast at the call:** `compiled_for(x)` or `with_dynamic(x)`.
-2. **An attribute the value carries:** an argument keeps its attribute when the code passes it on, and a `Dynamic{Shape}` (§12) is `Dynamic`.
-3. **The library's choice:** `@specialize s::Shape` or `@nospecialize s::Shape` at an argument, or the module's option `dynamic`.
-4. **The trait's default:** `@default_dynamic` or `@default_compiled` in its body.
-5. **Otherwise, for a method of a trait module, what the caller knows:** a caller compiled with the value's type passes `Compiled`. The prompt, or an item of a `Vector{Any}`, passes `Dynamic`. So the calls above, typed at the prompt, run the code compiled once. For a method outside a trait module the argument is `Compiled`, as Julia compiles a method at an abstract type.
+**What decides:** the value's type, as in Julia. Nothing beside the call decides, so the calls above, typed at the prompt, run the same code as in a function. The choice is made in three places:
+1. **The caller, with a value:** `compiled_for(x)` or `Dynamic{Shape}(x)`. Storage keeps the form it is given (§12).
+2. **The trait, for a plain member:** a trait that declares `@default_dynamic` in its body *erases by default*. Its methods take a plain member boxed, and a box or a wrapper as it is. `Shape` does not; `Callable` does (§14).
+3. **A library, at its doors:** it boxes where it chooses, `f(s::Shape) = _f(Dynamic{Shape}(s))`.
 
 ```julia
-circle_ratio(c::Circle) = ratio(c)    # in a function: Compiled, compiled for Circle
-ratio(compiled_for(Circle(1.0)))      # at the prompt: Compiled, by a cast
-ratio(with_dynamic(Circle(1.0)))      # Dynamic, by a cast
+circle_ratio(c::Circle) = ratio(c)    # in a function: compiled for Circle, as at the prompt
+ratio(compiled_for(Circle(1.0)))      # 0.5: the wrapper, compiled for Circle
+ratio(Dynamic{Shape}(Circle(1.0)))    # 0.5: the box, compiled once for Shape
 ```
 
-Rules: [reference §6](../reference/traits.md#6-methods-at-traits), [§7.3–§7.6](../reference/traits.md#73-fully-bounded-methods).
+Rules: [reference §6](../reference/traits.md#6-methods-at-traits), [§7.1–§7.5](../reference/traits.md#71-how-an-argument-is-compiled).
 
 ---
 
@@ -366,7 +364,7 @@ In `Geometry`:
 @trait Scalable begin
     scale(s::Scalable, k::Float64)::Self
 end
-@unbounded doubled(s::Scalable) = like(s, scale(s, 2.0))
+doubled(s::Scalable) = like(s, scale(s, 2.0))
 @unbounded nudged(p::Placed) = withfields(p; x = p.x + 1.0)
 ```
 
@@ -380,14 +378,14 @@ end
 @implement Scalable Tile by shape  # forwards to its `shape` field, a Rect
 
 doubled(Circle(1.0))                      # Circle(2.0)
-doubled(Tile("door", Rect(1.0, 2.0)))     # Tile("door", Rect(2.0, 4.0)): the label is kept
+doubled(Tile("door", Rect(1.0, 2.0)))     # Tile("door", Rect(2.0, 4.0)): the label stays
+doubled(Dynamic{Scalable}(Circle(1.0)))   # Dynamic{Scalable}(Circle(2.0)): at a box, a box
 nudged(sp)                                # a new Sprite, x = 2.0; `sp` is unchanged
 ```
 
 - `Self` is the member's type, or the forwarding field's: `scale` on a `Tile` returns a `Rect`.
-- `like(t, x)` is a value like `t` built from `x`: `x` itself for a member that serves the trait by its own methods; for one that forwards, `t` rebuilt with the field replaced by `x`.
-- `withfields(t; …)` is `t` rebuilt with declared fields replaced.
-- A method whose result is built by `like` or `withfields` is unbounded at that argument: its result has the member's own type, so it is compiled per type. A trait module accepts it marked `@unbounded` ([§4](#4-methods-at-a-trait)).
+- `like(t, x)` is a value like `t` built from `x`: `x` itself for a member that serves the trait by its own methods; for one that forwards, `t` rebuilt with `x` in its field; for a box, a box of `x`. So `doubled` is bounded ([§4](#4-methods-at-a-trait)).
+- `withfields(t; …)` is `t` rebuilt with declared fields replaced. At the box it only throws, so `nudged` is unbounded there. A trait module accepts it marked `@unbounded`.
 
 Rules: [reference §4.4](../reference/traits.md#44-self), [§6.5](../reference/traits.md#65-results).
 
@@ -428,25 +426,23 @@ ratio(d)                          # 1.0
 unwrap(d)                         # Circle(2.0)
 ```
 
-- A `Vector{Shape}` holds members of any type. A shape passed to `add!` is stored as itself, at the prompt and from compiled code alike.
-- **`Dynamic{X}`** holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits). Code that receives it runs the code compiled once, at the trait. `Dynamic{Shape}(42)` raises a `TypeError`.
-- **A library that wants each item's attribute carried** types its storage `Kept{Shape}`:
+- A `Vector{Shape}` holds members of any type. **Storage keeps the form it is given:** a shape passed to `add!` is stored as itself, at the prompt and from compiled code alike, and a box or a wrapper as itself.
+- **`Dynamic{X}`**, the box, holds a member of `X` and is itself a member of `X` (and of `X`'s supertraits). Code that receives it runs the code compiled once, for the trait. `Dynamic{Shape}(42)` raises a `TypeError`.
+- **Storage typed by the box** boxes each member stored in it:
 
   ```julia
-  ks = Kept{Shape}[]
-  push!(ks, Dynamic{Shape}(Circle(1.0))); push!(ks, Circle(1.0))
-  typeof(ks[1]) === typeof(ks[2])   # true: one type, the attribute beside the object
-  isdynamic(ks[1])                  # true
-  kept_call(area, ks[1])            # 3.141592653589793, by the code compiled once
-  kept_call(area, ks[2])            # the same, by the code compiled for Circle
-  unwrap(ks[1])                     # Circle(1.0)
+  bs = Dynamic{Shape}[]
+  push!(bs, Circle(1.0)); push!(bs, Dynamic{Shape}(Rect(2.0, 3.0))); push!(bs, compiled_for(Circle(1.0)))
+  typeof(bs[1]) === typeof(bs[3])   # true: each item is a Dynamic{Shape}
+  unwrap(bs[3])                     # Circle(1.0): the wrapper's choice is erased there
   ```
 
-  A method stores its argument there with `push!(ks, keep(s))`: **`keep(s)`** is the argument with the attribute it has in the current code. `keep` is for a `Kept` slot or a struct parameter (§14), not for storage typed by the trait: there it would store a box at one caller and the shape at another.
+  Code over a `Vector{Dynamic{Shape}}` knows each item's type, `Dynamic{Shape}`, and is compiled once.
+- **The wrapper, `compiled_for(x)`,** is a member of every trait `x` is in: `compiled_for(Circle(1.0))` is a `Shape` and a `Scalable`. Neither the box nor the wrapper is the object: `typeof`, `===` and `isa Circle` answer for the form the value has, and `unwrap` gives the object.
 - `totalarea` is compiled once, whatever the scene holds. `area(s)` on an item tests its type against `Shape`'s members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type, so the loop stays typed.
 - A shape type declared later works at once, and discards no compiled code.
 
-Rules: [reference §7.7–§7.9](../reference/traits.md#77-dynamicx), [§8](../reference/traits.md#8-storage).
+Rules: [reference §7.1](../reference/traits.md#71-how-an-argument-is-compiled), [§7.6–§7.9](../reference/traits.md#76-compiled_forx), [§8](../reference/traits.md#8-storage).
 
 ---
 
@@ -535,7 +531,7 @@ dotp([1.0, 2.0], [3.0, 4.0])     # 11.0
 dotp([1.0], [1])                 # MethodError: T is Float64 for one and Int for the other
 ```
 
-`dotp` is a loop: a generator, `sum(sample(a, i) * sample(b, i) for i in …)`, captures `a` and `b` in a closure, which makes the method unbounded ([§4](#4-methods-at-a-trait); [open issue 165](../open-issues.md#2-design)).
+A generator does as well: `sum(sample(a, i) * sample(b, i) for i in 1:nsamples(a))` captures `a` and `b` in a closure that calls only operations on them, so the method is bounded ([§4](#4-methods-at-a-trait)).
 
 Rules: [reference §3.2](../reference/traits.md#32-parameters), [§5.7, §5.8](../reference/traits.md#57-stating-parameters).
 
@@ -555,7 +551,7 @@ function transform(f::Callable{Tuple{Float64}, Float64}, s::Samples{Float64})
     end
     return out
 end
-function sumby(@specialize(f::Callable{Tuple{Float64}, Float64}), s::Samples{Float64})
+function sumby(f::Callable{Tuple{Float64}, Float64}, s::Samples{Float64})
     acc = 0.0
     for i in 1:nsamples(s)
         acc += f(sample(s, i))
@@ -565,23 +561,22 @@ end
 ```
 
 ```julia
-sin isa Callable{Tuple{Float64}, Float64}       # true: sin has a method at Float64
-transform(x -> 2x, [1.0, 2.0])                  # [2.0, 4.0]
-transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the caller casts to Compiled
-sumby(abs2, [1.0, 2.0])                         # 5.0
-sumby(with_dynamic(x -> x + 1), [1.0, 2.0])     # 5.0: the caller casts to Dynamic
+sin isa Callable{Tuple{Float64}, Float64}       # true: every function is a member
+uppercase isa Callable{Tuple{Float64}, Float64} # true: membership reads no method
+transform(x -> 2x, [1.0, 2.0])                  # [2.0, 4.0]: the closure boxed, code compiled once
+transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the wrapper, code compiled for this closure
+sumby(abs2, [1.0, 2.0])                         # 5.0: Julia's own functions are boxed too
 transform(x -> 1, [1.0])                        # TypeError: the result is an Int, not a Float64
 transform(uppercase, [1.0])                     # MethodError: uppercase has no method at Float64
 ```
 
-- A function is a member of `Callable{A, S}` where it has a method for a call at `A`. Its own methods decide it; nothing is declared. Unlike the memberships of §3, `Callable`'s are not declared.
-- `S` is checked on return.
-- **`Compiled` or `Dynamic`, chosen for speed, never for results** ([§4](#4-methods-at-a-trait)):
-  - `Dynamic`, `Callable`'s default: the library is compiled once per signature. A new closure compiles nothing in the library.
-  - `Compiled`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this. `sumby` asks for it with `@specialize`.
-  - A function Julia defines, such as `abs2`, or one of the library's own package, is `Compiled`.
-- A cast by the caller, `compiled_for(f)` or `with_dynamic(f)`, always wins.
-- The library calls `f` itself, as `transform` does. Passing `f` on to Base's `map` is a use outside the contract, so the method is unbounded ([open issue 165](../open-issues.md#2-design)).
+- Every function is a member of every `Callable{A, S}`; nothing is declared. The signature is checked where the function is boxed or enters: `transform(uppercase, …)` raises at the call that passes it.
+- `S` is checked on return, at every call of the box.
+- **The box or the wrapper, chosen for speed, never for results** ([§4](#4-methods-at-a-trait)):
+  - `Callable` erases by default: a plain function is boxed as a `Dynamic{Callable{Tuple{Float64}, Float64}}`, so the library is compiled once per signature. A new closure compiles nothing in the library. Julia's own functions, such as `abs2`, are boxed as any other.
+  - `compiled_for(f)`: the library is compiled for the particular function, at plain Julia's speed. An ODE right-hand side wants this. The signature is checked where it enters.
+- Inside `transform`, `f` is the box or the wrapper, not the function; `unwrap(f)` is the function.
+- The library calls `f` itself, as `transform` does, or passes it on to Base's `map`: that passes the box, and the method stays bounded.
 
 **Storing a function.** A field typed by `Callable` holds any member:
 
@@ -600,17 +595,17 @@ end
 countif(Threshold(x -> x > 1.0), [0.5, 1.5, 2.5])     # 2
 ```
 
-`countif` is compiled once, whatever function the threshold holds; each call checks its result.
+The constructor boxes the function, so `countif` is compiled once, whatever function the threshold holds; each call checks its result.
 
-**A struct parameter bounded by `Callable`.** The parameter records the attribute:
+**A struct parameter bounded by `Callable`.** The parameter records the form. The constructor boxes a plain function, and keeps a wrapper:
 
 ```julia
 struct Gate{F <: Callable{Tuple{Float64}, Bool}}
     test::F
 end
 
-Gate(x -> x > 1.0)                                                # F is the closure's type: code compiled per function
-Gate(Dynamic{Callable{Tuple{Float64}, Bool}}(x -> x > 1.0))       # F is the Dynamic: code compiled once
+Gate(x -> x > 1.0)                    # F is the box's type, Dynamic{Callable{…}}: code compiled once
+Gate(compiled_for(x -> x > 1.0))      # F is the wrapper's type: code compiled per function
 ```
 
 Rules: [reference §9](../reference/traits.md#9-functions-callable), [§8.2](../reference/traits.md#82-a-struct-parameter-bounded-by-a-trait).
@@ -712,7 +707,7 @@ outline(s::Shape) = length(s)          # meant: perimeter(s)
 end
 ```
 
-`outline` is unbounded at `s`: `length` is not an operation of `Shape`. The trait module refuses it with a `TraitUseError` that names the line and the use. The check runs against `Shape` alone, before any member type exists.
+`outline` is unbounded at `s`: `length` is not an operation of `Shape`, so at the box `Dynamic{Shape}` the call finds no method. The trait module refuses it with a `TraitUseError` that names the call and its line. The check reads the method's code at the box, before any member type exists.
 
 **A pirate in a trait module.** A trait module may not define a method of a function it does not own for types it does not own:
 
@@ -842,9 +837,9 @@ This section shows the layout of a package; it is taken from the demonstrators a
   export Shape, area, perimeter
   end
   ```
-- **Compiling ahead.** While a package that declares `@implement X T` is precompiled, the methods at `X` that `T` reaches are compiled into its image, and the checks run. A failing check fails the build.
+- **Compiling ahead.** While a package that declares `@implement X T` is precompiled, the methods at `X` that `T` reaches are compiled for `T` into its image, and the checks run. A failing check fails the build. A method at a trait that erases by default is compiled once, at the box, into the image of the package that defines it.
 - **Extensions declare memberships,** never methods of the library's internal functions. TraitCSV supports InlineStrings' `String15` in an extension that declares one membership of `Vector{String15}`. Loading InlineStrings then discards none of the reader's compiled code.
-- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time. No demonstrator builds as a trimmed binary yet: the build refuses a call on a value known only by its trait ([results](results.md#what-is-not-shown-yet)).
+- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time. No demonstrator builds as a trimmed binary yet ([results](results.md#what-is-not-shown-yet)).
 
 Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-programs).
 
@@ -857,4 +852,4 @@ Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-program
 - **Named implementations:** a second way for a type to join a trait, used only where a caller names it, `Via{Fast}(m)` ([reference §17](../reference/traits.md#17-named-implementations)).
 - **Keys:** members that a trait sees alike (types that forward to fields of one type, say) sharing one compiled copy. Optional, built late ([reference §7.2](../reference/traits.md#72-the-key)).
 
-The full list, with where each is decided: [reference §18](../reference/traits.md#18-status-index).
+The full list, with the status of each: [reference §18](../reference/traits.md#18-status-index).

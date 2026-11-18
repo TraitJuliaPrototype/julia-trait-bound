@@ -310,6 +310,11 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
   - (c) A closure at the call (`x -> itp(x)`) accepted as the plain form, with the hint naming it.
   - The proposal is (b) with (c); (a) for the synthesis, with a census of the pairs it would tie.
 
+**236. What `withfields` gives for a box is not defined.**
+- *The case:* `like(t, x)` at a box is defined ([traits §6.5](reference/traits.md#65-results)): a method that rebuilds with `like` is bounded. `withfields(t; …)` at a box only throws in the implementation, so the tutorial's `nudged` is marked `@unbounded`, and a method of a trait that erases by default cannot rebuild its argument with other field values.
+- *The rule that blocks it:* none. The reference states `withfields` for a member and does not say what a kept form gives.
+- *The proposal:* as for `like`: `withfields` at a box rebuilds the held object and boxes the result at the same trait; at a wrapper it gives the wrapper of the rebuilt object. Then such a method is bounded.
+
 **229. Which of Base's closed abstract types declare a contract.**
 - *The case:* `IO` does ([traits §9b](reference/traits.md#9b-streams-io)). The rule is general ([traits §3.4](reference/traits.md#34-open-and-closed)): a closed abstract type may declare operations. `AbstractArray` and `AbstractString` are the next cases: values in a `Vector{AbstractArray}` would have their operations' calls split.
 - *The rule that blocks it:* none. No one has asked which of Base's types gain from a contract, and what a contract on `AbstractArray` costs plain code typed by it.
@@ -478,6 +483,18 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The counts* (`w161/d2/image_instances.jl`, the instances with valid code after loading, per function): fewer of `_rodas5_run`, `advance!`, `core_solution` (TraitRodas's), `run_to_end!`, `_steps`, `_retcode`, `step_condition`, `step_affect!` (ODECore's).
 - *The rule:* not identified. A lead: the instance is TraitRodas's method compiled by the ODE port's workload, so it is external code in the port's image, which an image keeps only at a signature type with a hash ([julia-changes](design/julia-changes.md)).
 - *The proposal:* find where the workload's instance goes (not compiled, not kept by the serializer, or kept and dropped at load) with `image_instances.jl` on the precompiling process. Before the measurement round, since the sessions' times rest on it.
+
+**234. A crash in dispatch's cache while a trait is declared: memory unsafety in the changed runtime.**
+- *The case:* the tutorial's script (`experiments/docs-examples/tutorial.jl`) ends with a segmentation fault in 2 of 6 runs on `next` 32a2235abd with the library at d1febca, each time while `@trait Named` is expanded, after one collection. The stack: the library's `_parse_body` (`src/trait.jl:201`) calls a function through `apply_generic_reach`; `jl_mt_find_cache_entry` reads the leaf cache (`lookup_leafcache`, `gf.c`) and takes the identity hash of a key that is no valid object (`jl_object_id`). The log: `experiments/docs-examples/logs/tutorial-next-32a2235abd-b-segfault.log`.
+- *The pattern:* a value the runtime's C code builds or caches is not rooted across an allocation, or a cache keeps a key the collector has freed. Open issue 189's fix was of this kind (the membership walk's substituted signature). The changes to dispatch add such places: the cache per call site, the lookup that reaches code compiled by facts, the tables of the split.
+- *The rule:* none of the design. It is the implementation's own.
+- *The proposal:*
+  - a tool, since the pattern can recur: Julia's own static check of roots (`make -C src analyzegc`) run over the changed runtime files, and the gates with the examples run once under a stressed collector, with the counts recorded;
+  - then the fix at each place the tool names. Before the measurement round: a crash in one of six runs of a teaching example outranks every performance item.
+
+**235. A message of the definition-time check prints the compiler's tuple type.**
+- *The case:* `TraitUseError` for a method declared bounded reads "is not bounded at the box (Tuple{typeof(Main.Broken.colsum), Dynamic{ColTable}})" (`experiments/docs-examples/intro.jl`, `tutorial.jl`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
+- *The proposal:* the message names the method as its signature is written, `colsum(t::ColTable)`, and says "read with `t` in a box".
 
 **232. Rules about a set over many of Base's methods have no test at Base's scale.**
 - *The case:* the fixes of E-331, E-334, E-335 and E-336 answer cases that appear only when a set stands on a thousand of Base's methods ([the lessons](design/lessons.md)). No gate declares such a set.
