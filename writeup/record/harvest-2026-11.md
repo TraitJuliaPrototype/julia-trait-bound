@@ -910,3 +910,17 @@ Read: summaries and section openings; `abstract-types-as-traits.md` §1 to §5 a
 | C-44 | The anatomy of an unreadable error (three ingredients) in the rationale for G-5? | design-findings §17 |
 | C-45 | "Between nested types and `Any`" as the rationale's statement of the problem? | design-findings §16 |
 | C-46 | The inventory of upstream places (the build exploration's §1 and its sources) kept for `record/build-notes/compiler.md`. | unified-build-from-vanilla-julia; its review |
+
+## The record's passes
+
+What each pass over a ledger did, with the choices (mine).
+
+### The registry of experiments
+
+- **How:** two agents drafted the rows (E-1 to E-393; E-394 to E-501) in a fixed format. The main session merged them by script and checked: every ID of the old registry is in the registry or in the ledger's first table, once; every number of a kept outcome stands in that experiment's old row.
+- **The result:** 106 rows in [the registry](experiments.md), by goal; 329 IDs in [the ledger](../../attic/writeup/record/experiments-archive.md) only, each with its reason. The ledger holds every old row unchanged.
+- **Kept though measured on an earlier build of the line:** the rows on plain Julia alone (the problem, §1); the gates that the references' rules cite (E-311, E-315, E-320, E-321, E-332, E-335, E-336, E-342, E-344, E-352, E-353, E-366); E-395, whose count of the types kept under the facts rule (74 %) no later run repeats.
+- **Kept, cut down to the part that stands:** E-168 and E-230 and E-289 (the plain and Python numbers), E-374 and E-375 (known types, plain code, images), E-386 (upstream's session), E-364 (the builds).
+- **To the ledger though a current document cited it:** E-369 and E-376 (repeated by E-384 and E-392), E-401, E-402, E-404 and E-442 (repeated on `next` by E-440, E-437, E-439 and E-501), E-330 and E-331 (E-341 is the kept row), E-31 and E-176 (a stock number beside an earlier build's). The documents that cite them are changed in their own passes; the history's documents (the alternatives, the lessons, the decision log, the build notes) may cite a ledger row.
+- **E-418** was registered and not run; it is in the ledger, since its rule (a call that only throws as a run-time site) is not in the references.
+- **A control's row** (E-405, E-436 to E-439, E-441) compares `next` with the tag. E-436 and E-441 also state a property of `next` alone.
