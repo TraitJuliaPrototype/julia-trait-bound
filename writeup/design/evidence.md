@@ -119,7 +119,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 **Not shown.**
 - Why plain code's first work on the head takes more code generation than vanilla's: not diagnosed (open issue 225).
 - The facts rule's cost to plain code compiled by facts, on BaseBenchmarks under the test bed `all`: measured only on the library of October 2026 (E-163 in the ledger); not measured on this implementation.
-- What the open rows of the references' Deviations tables cost: not measured. One is unsound in a case no port or gate writes (compiler C-104).
+- What the open rows of the references' Deviations tables cost: not measured.
 
 <a id="4d-error-messages-against-plain-julias"></a>
 

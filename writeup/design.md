@@ -200,7 +200,7 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 ## 4. What is not claimed
 
 - No change to results beyond values that Julia decides by inference, such as the element type of an empty `map` ([facts §2.1](reference/facts.md#21-g1-identical-or-error)).
-- "Never invalidated" is strict mode's tier, for code compiled by facts; strict mode is built, with the deviations T-96 and T-97 ([facts §2.3](reference/facts.md#23-two-tiers), [traits §12.3](reference/traits.md#123-strict-mode)).
+- "Never invalidated" is strict mode's tier, for code compiled by facts; strict mode is built, with the deviation T-96 ([facts §2.3](reference/facts.md#23-two-tiers), [traits §12.3](reference/traits.md#123-strict-mode)).
 - No "compiled once for any type": code compiled once at a trait (`Dynamic`) still calls each member's own methods, each compiled for its type, once, in its own image.
 - No claim of better steady-state speed. The claim is no regression against plain Julia where types are known, and code per type where a caller opts in with `compiled_for(x)` ([the goals](goals.md), G-2).
 - No claim that code that uses no trait pays nothing: memberships are consulted in subtyping and method matching ([the evidence](design/evidence.md#what-each-tension-costs); [the open issues §2](open-issues.md#2-tensions-between-the-goals), GT-9).

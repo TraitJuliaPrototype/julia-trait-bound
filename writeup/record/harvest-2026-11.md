@@ -1029,3 +1029,11 @@ Each check of the C-list above against the documents as the clean-up left them. 
 | C-44 | Done: the rationale §2.7, G-5. |
 | C-45 | Holds: the rationale §1, "The two problems meet at abstract types". |
 | C-46 | The inventory of upstream places is in the attic's exploration (`attic/writeup/explorations/unified-build-from-vanilla-julia.md`); the compiler's build note points to it. |
+
+### The references
+
+- **How:** three agents, one over each of traits, compiler, and facts with lowering and extensions, by one brief: a status line becomes one word and the deviation rows that qualify it; commits, branches, dates, work items, plan rows, experiments and the user's words leave the text; retired deviation rows leave the tables. Nothing is lost: each old status line, and each sentence taken from a section, is in `record/build-notes/<the reference>.md`; the retired rows are in [the deviations' ledger](../../attic/writeup/record/deviations-retired.md) (279 IDs).
+- **Checked by the main session:** no heading and no anchor changed; the number of status lines is the same (traits 64, compiler 52, facts 22, lowering 14, extensions 6); the lint's columns for commits, work items, plan rows, branches, the user's words and dates are 0 for every reference; no current document cites a retired row.
+- **Status lines corrected after the agents' reports** (mine): traits §3.1 (a membership taken back is built, but for L-64), §3.6 (the split at an intersection is built), §7.4 to §7.6 (built, with their rows, not "Planned"); the rows T-104, T-127 to T-130 named in every section they cite; compiler §8.2 (the per-site cache's exact-type entries are not built: Optional, by PE-20).
+- **Not verified against the code:** compiler §10.4's hook at a miss of the split's table, which an old status line left to a work item that is closed. The cache across sessions and the store across sessions read "Optional": not built, and built only if a later decision asks.
+- **The agents' lists of what may be stale,** each a sentence of a reference to check when its subject is next touched: compiler §1.4 (revalidating `return_type` answers: Optional, by PE-5); compiler C-112's last sentence; C-88's labels (c) and (d); C-87's place; facts §13.2's planned spelling of the flag.

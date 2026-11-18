@@ -865,7 +865,7 @@ Where the code holds a value at the trait's type (a box's object, an argument de
   - **A trait whose operation is a hot inner call** (a model's right-hand side) is erased once, at the library's door, and its operations are called on the held box; or the caller passes the wrapper.
   - A loop over a `Vector{Shape}` runs once; each item's type is unknown in it. An operation on an item takes §7.9's branches. Passing items to a method compiled per type pays a dispatch per item.
   - **A specialization belongs at a subtrait or in an operation,** where both forms reach it, not at a member's own type, which only `unwrap(t)` reaches (§7.4).
-- The numbers: [`../design/evidence.md`](../design/evidence.md) §2, and §1 for the kept forms.
+- The numbers: [the evidence, G-2](../design/evidence.md#2-run-time).
 
 **Status:** Planned.
 
