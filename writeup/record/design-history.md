@@ -2,6 +2,29 @@
 
 Process history that the current documents for core developers leave out: where each document came from, the order of work as it was done, and the numbers of earlier builds. The designs that were tried and dropped, with their reasons, are in [`../design/alternatives.md`](../design/alternatives.md). The decisions with their dates are in [`../decisions.md`](decisions.md). Everything else is in [`INDEX.md`](INDEX.md).
 
+## Where the history is
+
+| What | Where |
+|---|---|
+| The project's eras and turns, with the user's words that made each turn | [the context](context.md) §1 |
+| Every archived plan, review and exploration, one line each, by era | [the attic's index](../../attic/README.md) |
+| The designs tried, rejected or replaced, with the reasons | [the alternatives](../design/alternatives.md) |
+| What the work taught | [the lessons](../design/lessons.md); the full list L-n in [the harvest notebook](harvest-2026-11.md) |
+| Every decision, with the user's words; the superseded ones | [the decision log](decisions.md); [its ledger](../../attic/writeup/record/decisions-superseded.md) |
+| Every experiment ever registered | [the experiments' ledger](../../attic/writeup/record/experiments-archive.md) |
+| The numbers of each earlier iteration | [the evidence as it stood on 2026-11-18](../../attic/writeup/design/evidence-2026-11-18.md); "Earlier numbers of the demonstrators" below |
+| Closed work items, closed issues, retired deviation rows | `attic/writeup/record/`: `todo-closed.md`, `issues-closed.md`, `deviations-retired.md` |
+| The changes to Julia on the earlier line | [the page as it stood](../../attic/writeup/design/julia-changes-2026-11-18.md) §1 to §6 |
+| The terms of earlier iterations | [the retired terms](../../attic/writeup/glossary-retired-terms.md) |
+| The chronology, day by day | `session-notes/` |
+
+## The documentation clean-up of 2026-11-18
+
+The documents were rewritten to describe one implementation and its intended design, against plain Julia and Python ([the plan](../plans/2026-11-18-documentation-cleanup.md); W-162).
+- The plans and reviews that were done, the explorations and the findings log moved to the attic, at the same paths under `attic/`. Their insights went first into the alternatives, the lessons, the proofs, the context and the playbook ([the harvest notebook](harvest-2026-11.md)).
+- The ledgers were split: what is open or in force stays in `writeup/`; every row as it stood is in `attic/writeup/record/`.
+- The references' status lines and deviation tables keep what is open; how each section was built is in `record/build-notes/`.
+
 ## The documents
 
 - **2026-10-19, the split of `design.md`.** `design.md` was the consolidated statement of the design: the terms, the problem, the argument in four steps, traits, the three rules, what Julia provides, the decisions in force, the evidence, the software, what is not claimed. It became two pages: [`../design.md`](../design.md), the design in prose, and [`../design/implementation.md`](../../attic/writeup/design/implementation.md), the details, which keeps the old section numbers 1–9. History went to [`../design/alternatives.md`](../design/alternatives.md) and to this file. `decisions.md` was regrouped by topic, with the superseded rows at its end; `open-issues.md` keeps open items in place and lists closed ones at its end.
