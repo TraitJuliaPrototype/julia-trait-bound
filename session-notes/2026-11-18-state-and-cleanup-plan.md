@@ -21,3 +21,21 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 
 - The user decides on the plan. On adoption it becomes W-162 in the work queue, and its part 0 is first (the tool, the tags, `main`).
 - Stage 4 of the next iteration (W-156) is otherwise next. The plan's §6 says how the two fit.
+
+## Later the same day: the plan adopted, part 0
+
+**The user's words** (on the plan's eight decisions): "Q1 yes, Q2 you decide, measuring a set of changes against the immediate predecessor is of course fine during regression testing and performance work. Q3 yes, Q4 yes, Q5 Clean Up the directory names as well, but do it last. Q6 you decide, Q7 check and keep. Q8 you can use subagents. But not too many in parallel. Should we also have an additional "for agents" documentation that gives more context than humans would like? Would it be possible for this session to actually do all the reading to be better able to extract relevant lessons by having maximum contextual knowledge of the project?"
+
+**Recorded:** the plan's status line, §8's last column and §9; the decision log §8 (two rows, the second mine); W-162 in the work queue; `CLAUDE.md`'s exception for subagents; the index.
+
+**Mine, on the two questions** (the plan §9):
+- The record becomes the agents' tier: `record/context.md`, `record/build-notes/` per reference section, `record/playbook.md`, the attic's digest. What rule R2 takes out of the documents for people goes there.
+- The harvest is read in the main session. The volume is 4.5 MB, more than a million tokens, so the session cannot hold it at once; the notebook `writeup/record/harvest-2026-11.md` carries it. Subagents only for work that can be checked mechanically, at most two side by side.
+
+**Part 0, done.**
+- The tool: `experiments/tools/doclint/` with its first log (experiments 4e32228). Its totals before the clean-up: earlier-build names 640, history words 348, dates 3,025, comparisons against an earlier iteration 89, links into what is archived 825, experiment IDs of the earlier build 327; in the references 727 commit hashes, 294 work items, 521 branch names. No broken link.
+- The tags `docs-before-cleanup-2026-11-18` on the design repository and on `experiments`.
+- `main` is the design repository's branch, at the head, pushed; the website builds from it. The local `main` held two commits of 2026-11-12 that were never pushed (a baseline tree committed by mistake, and its removal). Their net content is the first commit of `w141-record` (428b50c), checked file by file; the local branch was moved to the head. `w141-record` stays where it is until part 7.
+- The 107 untracked logs of `experiments` committed.
+
+**Found on the way:** the survey counted experiment IDs with a pattern that also matched `PE-n`; the tool's count is the right one (84 of the earlier build in the evidence, not 89; none in the references).

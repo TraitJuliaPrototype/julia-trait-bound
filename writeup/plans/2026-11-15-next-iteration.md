@@ -251,7 +251,7 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 | `julia-unified`, `TraitWorld-base` | nobody: the baseline |
 | `TraitWorld-unified` and the demonstrators' `-unified` trees, `ndport` | one agent at a time: stages 1, 3 (the library's part), 4, 6 |
 | `experiments` | every agent, each in its own directory `unification/w<item>/`; a commit names its paths |
-| the design repository | every agent in its own worktree `wt/design-w<item>` on a branch `iter-w<item>`; it merges `origin/w141-record` into its branch and pushes to `w141-record` |
+| the design repository | every agent in its own worktree `wt/design-w<item>` on a branch `iter-w<item>`; it merges `origin/main` into its branch and pushes to `main` (the design repository's branch since 2026-11-18; before, `w141-record`) |
 
 **The first wave** (2026-11-15), three agents side by side:
 - **W-151:** stage 1, in the library and the two ports' pieces, on the baseline Julia.

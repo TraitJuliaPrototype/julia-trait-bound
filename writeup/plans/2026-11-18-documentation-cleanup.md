@@ -1,6 +1,6 @@
 # The documentation clean-up: a plan
 
-**Status:** proposal (2026-11-18), for the user. Written in the main session, from a survey of every document of `writeup/`, the record, the attic, the experiments repository and the trees of the workspace. Not normative. Nothing is moved or rewritten yet. On adoption it becomes W-162.
+**Status:** adopted (2026-11-18, the user, on §8's decisions: "Q1 yes, Q2 you decide, measuring a set of changes against the immediate predecessor is of course fine during regression testing and performance work. Q3 yes, Q4 yes, Q5 Clean Up the directory names as well, but do it last. Q6 you decide, Q7 check and keep. Q8 you can use subagents. But not too many in parallel. Should we also have an additional "for agents" documentation that gives more context than humans would like? Would it be possible for this session to actually do all the reading to be better able to extract relevant lessons by having maximum contextual knowledge of the project?"). W-162 in [the work queue](../record/todo.md), which holds the status of each part. Written in the main session as a proposal the same day, from a survey of every document of `writeup/`, the record, the attic, the experiments repository and the trees of the workspace. Not normative. What the adoption changed: §9.
 
 The user (2026-11-18):
 
@@ -12,7 +12,7 @@ The user (2026-11-18):
 - The registry, the work queue, the open issues and the decision log each split into what is current and a ledger in the attic. IDs stay permanent.
 - The evidence is rewritten by claim, each number against plain Julia or Python.
 - A small tool counts what the rules forbid, so the clean-up can be checked and stays clean.
-- Eight decisions are the user's (§8). Adopting the plan takes each as recommended.
+- Eight decisions were the user's (§8); what the adoption added is §9: the record as the agents' tier, the harvest read in the main session, the directories renamed last.
 
 ## 1. What the survey found
 
@@ -35,7 +35,7 @@ Counts are of 2026-11-18, design repository a233783.
 
 **Where the history sits in documents that should hold none.**
 - **The references.** Their rules are current. Their status lines are build logs: 282 commit hashes in `compiler.md`, 107 in `traits.md`; 110 and 93 work items; the user's words, dates, the plan's D-numbers, branch names (`unified` 116 times in `compiler.md`, `next` 50 times). The Deviations tables hold more retired rows than open ones (compiler: 70 of 93).
-- **The evidence** (786 lines) is ordered by rounds and waves, not by claims. It cites 89 experiments of the earlier build beside 165 of the unified line. §3 (first calls and sessions, 264 lines) names julia-1.13 in 34 places. Ten rows compare against an earlier iteration ("the attribute's 7.2 ns", "the baseline's 2.90 s", "the earlier build's digests").
+- **The evidence** (786 lines) is ordered by rounds and waves, not by claims. It cites 84 experiments of the earlier build beside 165 of the unified line. §3 (first calls and sessions, 264 lines) names julia-1.13 in 34 places. Ten rows compare against an earlier iteration ("the attribute's 7.2 ns", "the baseline's 2.90 s", "the earlier build's digests").
 - **`state.md`** tells the next iteration as five waves of builds, and lists eight finished phases.
 - **`goals.md`** §3: most tension rows read "Decided 2026-11-15 … Built on `next-s3` e967266d9e …".
 - **`design/performance.md`** is entirely on julia-1.13. **`design/julia-changes.md`** §1 to §6 describe the earlier build's patch; §7 is the unified stack.
@@ -151,7 +151,7 @@ Each part ends with the documents consistent and the tool's counts recorded. Siz
   - comparisons against an earlier iteration (a word list, reviewed by hand).
   Today's counts (§1) are its first log. The end state is zero, or a listed exception.
 - **A tag** `docs-before-cleanup-2026-11-18` on the design repository and on `experiments`.
-- **`main` fast-forwarded** to `w141-record` (Q3), so the website shows the current documents.
+- **`main` fast-forwarded** to `w141-record` (Q3), so the website shows the current documents. The work goes on on `main`.
 - The untracked logs of `experiments` committed.
 
 ### Part 1: the harvest (L)
@@ -259,15 +259,47 @@ Nothing moves before this part is done. It reads the plans, the reviews, the exp
 
 ## 8. Decisions for the user
 
-Adopting the plan takes each as recommended, unless the user names an exception.
+Adopting the plan takes each as recommended, unless the user names an exception. The user's answers (2026-11-18) are the last column; in full, the status line.
 
-| | The question | Recommended |
-|---|---|---|
-| Q1 | **`CLAUDE.md`:** may the rules R1 to R4, the changes to rules 4 and 7 and the removal of finished paragraphs be written into it? | Yes, shown as a diff first. |
-| Q2 | **Is the tag `prototype-2026-11` "a previous iteration"?** If so, `next` against the tag is a control, not evidence, and stage 7's round measures against plain Julia and Python. | Yes. |
-| Q3 | **The design repository's branch:** `main` fast-forwarded to `w141-record`, and the work continues on `main`. | Yes; it also repairs the website. |
-| Q4 | **No "Moved" pages** for the move to the attic, and the sixteen existing stubs deleted. Old citations resolve by the attic's path rule. | Yes. |
-| Q5 | **Names.** Documents stop saying "the unified build". The directories `*-unified`, the branch `unified` and `experiments/unification/` keep their names until stage 7's freeze: 227 scripts name them. | Keep now; rename at the freeze, or never. |
-| Q6 | **The earlier build is history:** tagged, its build output cleaned, no document says it still runs. | Yes. |
-| Q7 | **The proofs** (`explorations/wrapping-by-facts.md`, the argument for G1 and G2): checked against today's facts reference and kept as `design/proofs.md`, or archived. | Check and keep: the guarantee is the project's first claim. |
-| Q8 | **Who reads for the harvest.** The rule is no subagents on this host. The harvest is 35,000 lines of reading that splits cleanly by era. | The main session, in three sittings. Opus agents only if the user extends the exception. |
+| | The question | Recommended | Decided |
+|---|---|---|---|
+| Q1 | **`CLAUDE.md`:** may the rules R1 to R4, the changes to rules 4 and 7 and the removal of finished paragraphs be written into it? | Yes, shown as a diff first. | Yes (the user). |
+| Q2 | **Is the tag `prototype-2026-11` "a previous iteration"?** If so, `next` against the tag is a control, not evidence, and stage 7's round measures against plain Julia and Python. | Yes. | Yes (mine; the user: "Q2 you decide, measuring a set of changes against the immediate predecessor is of course fine during regression testing and performance work."). A change measured against its immediate predecessor is a control: it stands in the registry's section of controls and in its gate's README. The evidence, the goals, the state and `intro/` state numbers against plain Julia and Python. |
+| Q3 | **The design repository's branch:** `main` fast-forwarded to `w141-record`, and the work continues on `main`. | Yes; it also repairs the website. | Yes (the user). Done: `main` 59c6f97. |
+| Q4 | **No "Moved" pages** for the move to the attic, and the sixteen existing stubs deleted. Old citations resolve by the attic's path rule. | Yes. | Yes (the user). |
+| Q5 | **Names.** Documents stop saying "the unified build". The directories `*-unified`, the branch `unified` and `experiments/unification/` keep their names until stage 7's freeze: 227 scripts name them. | Keep now; rename at the freeze, or never. | Renamed too, as the last part (the user: "Clean Up the directory names as well, but do it last."): part 9, §9. |
+| Q6 | **The earlier build is history:** tagged, its build output cleaned, no document says it still runs. | Yes. | Yes (mine; the user: "Q6 you decide"). |
+| Q7 | **The proofs** (`explorations/wrapping-by-facts.md`, the argument for G1 and G2): checked against today's facts reference and kept as `design/proofs.md`, or archived. | Check and keep: the guarantee is the project's first claim. | Check and keep (the user). |
+| Q8 | **Who reads for the harvest.** The rule is no subagents on this host. The harvest is 35,000 lines of reading that splits cleanly by era. | The main session, in three sittings. Opus agents only if the user extends the exception. | Subagents allowed, few side by side (the user: "you can use subagents. But not too many in parallel."). The harvest's reading stays in the main session: §9. |
+
+## 9. What the adoption added
+
+**The record is the agents' tier, with more context than a human reader wants** (the user: "Should we also have an additional "for agents" documentation that gives more context than humans would like?"). Yes (mine). It is also where the clean-up puts what rule R2 takes out of the documents for people: the context is kept, in the one place written for a reader who wants all of it.
+- **Where:** `writeup/record/`, which the site already calls "The record, for agents". No new top-level directory.
+- **What it adds** beside the ledgers (the decision log, the registry, the work queue):
+  - `record/context.md`: the project for an agent that starts cold. The eras and why each turn was taken; the user's standing preferences with their reasons; what a new agent tends to get wrong. Chronology is allowed here.
+  - `record/build-notes/traits.md`, `facts.md`, `compiler.md`, `lowering.md`: one entry per section of the reference, under the section's number. Where the rule is in the code (files, functions); the commits that built it; the gates and tests that check it; the decision's row in the log; the experiments; the pitfalls met while building. Part 5 moves what it takes out of a status line here.
+  - `record/playbook.md`: how the work is done. Building, the gates, measuring on the shared host, the traps (a build tree beside `git add -A`, load order, a stale image), how agents are briefed and kept apart. It takes in `session-notes/00-environment-and-workflow.md`, the index's standing constraints and the long form of the lessons on measuring and on working with agents.
+  - `attic/README.md`: a digest per archived document, from the harvest: what it was, what it found, where its insights went.
+- **Its rules:**
+  - It may hold chronology, provenance and the user's words.
+  - It is never the only home of a rule of the design, a number or a decision. It links to the reference, the evidence and the decision log.
+  - It is written for an agent without context: complete before short.
+  - `CLAUDE.md` stays the rules; the playbook is the know-how.
+- **For people:** `design/lessons.md` and `design/alternatives.md` stay short. The long form of a lesson is in the agents' tier.
+
+**The harvest is read in the main session** (the user: "Would it be possible for this session to actually do all the reading to be better able to extract relevant lessons by having maximum contextual knowledge of the project?"). Yes (mine), with one limit stated plainly.
+- **The volume:** plans 1.6 MB, reviews 2.1 MB, explorations 0.7 MB, the findings log 0.1 MB: 4.5 MB, more than a million tokens. The record beside it (the registry, the queue, the open issues, the decision log, the evidence, the alternatives) is 2 MB more; the session notes 0.8 MB.
+- **The limit:** the session reads all of it, but cannot hold all of it at once. Its context is summarized as it fills. What carries the knowledge is a notebook, written as the reading goes.
+- **The notebook:** `writeup/record/harvest-2026-11.md`. One entry per document, written right after it is read: what it was, what it found, what became of each finding, what is not yet in a current document, and candidates for the lessons and the alternatives. Committed after each batch. It becomes the attic's digest and the source of `record/context.md`.
+- **The order:** by date, oldest first, so that each document is read knowing what came before it. Plans, reviews and explorations of one day together. The session notes are read beside them for the user's words.
+- **Subagents** are used for work that can be checked mechanically, at most two side by side (my reading of "not too many in parallel"): the demonstrators' READMEs, fixing links after the move, the registry's rows put into the new shape. Not for the reading.
+
+**Part 9: the names (L), last.** After every other part, at a time when no agent works in the trees.
+- The directories `*-unified` lose the suffix; the earlier checkouts take a name that says what they are. The `-unified` trees are worktrees of the earlier checkouts today, so each repository's main checkout changes its branch first.
+- The branch `unified` of each repository becomes its default branch.
+- `experiments/unification/` is renamed, or its directories move up, after `experiments/attic/` holds the earlier ones.
+- The 227 scripts that name these paths, and the environments' Manifests, follow in the same commits.
+- **The check:** the gates and each demonstrator's suite run once after the rename.
+- Its steps are written as a short plan of their own before it starts.
+
