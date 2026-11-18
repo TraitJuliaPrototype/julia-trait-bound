@@ -180,6 +180,7 @@ Oldest first. The last column names the commit of the earlier line (branch `trai
 | 147 | 4bf381040c | **E-506:** `Core.Compiled{T}` beside `Core.Dynamic{X}`, with their constructors; the box's test is `new`'s field test with no conversion (`Core._new_dynamic`). | Base | [compiler §6.9](../reference/compiler.md#69-the-kept-forms-in-core) |
 | 148 | 521c1faced | **E-507:** the closed rules apply from the start of the output's compile (`CLOSED_OUTPUT`, set in `compile_and_emit_native`); code a build runs while it loads is compiled as in a session, and the instances whose inference met a set are noted from the process's start (`closed_process`) and inferred again. | compiler | [compiler §7.6](../reference/compiler.md#76-a-closed-build) |
 | 149 | 803060c332 | **E-507:** the library's hooks are called while a trimmed build loads its program (`call_library_hook`: off only while a system image is built). | runtime | [compiler §7.6](../reference/compiler.md#76-a-closed-build), [§10.1](../reference/compiler.md#101-definition-and-image-hooks) |
+| 150 | f5328f94c5 | **E-508:** in a closed build the join of the wrapper's branches is `Compiled{<:X}` where it is more than a union keeps (`closed_member_split`'s bound), and a call that takes such a wrapper splits over the members' wrappers, `MethodError` past them (`closed_wrapper_set`, `closed_wrapper_bits`). | compiler | [compiler §7.6](../reference/compiler.md#76-a-closed-build) |
 
 <a id="73-branch-next-s3-the-third-wave"></a>
 ## 4. The commits merged from branch `next-s3`

@@ -116,6 +116,7 @@ Moved here by the documentation clean-up of 2026-11-18 (W-162). Every row is unc
 | C-116 | — | *Retired* (2026-11-15): `Callable`'s members are entries, subtyping reads no method, the signature is checked at the box and at a wrapper's entry ([§7.4](#74-callables-call)); built on `next` eaa19da272 and TraitWorld `unified` c14d2e4 (W-161); what is short: C-146 | — | — |
 | C-147 | — | *Retired* (2026-11-18): two instances of a set that may differ in an input meet as `All{X{A}, X{B}}`, and two methods at them tie ([§4.9](#49-intersections), [§7.4](#74-callables-call)); built on `next` 7397ab6f70 and 02139b2168 (W-165); gates `n8_callable`, `n10_inputs`; E-503; what is short: C-149 | — | — |
 | C-148 | — | *Retired* (2026-11-18): `Callable` is closed after load as every set, and a set written with free parameters is asked as the set, so the lookup drops the match and its ambiguity ([§4.8](#48-negatives-fold-with-an-edge-positives-through-entries)); built on `next` a29ffdd428 (W-165); gate `n20_unmet_lookup` (5); E-503 | — | — |
+| C-150 | — | *Retired* (2026-11-18): a call that takes the wrapper of a value known only by its trait branches over the members ([§7.6](#76-a-closed-build)); `next` f5328f94c5 (`closed_wrapper_set`, `closed_member_split` with its bound) with TraitWorld `unified` 9d4f782 (W-166; E-508). The table program builds under `--trim=safe` with 0 errors and runs; TraitWorld `test/verify.jl`, "verify_main: the wrappers of five members". What stops the other programs' builds is open issue 243 | — | — |
 
 ## Lowering (L-)
 

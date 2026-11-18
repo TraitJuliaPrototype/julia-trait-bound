@@ -1296,7 +1296,7 @@ Two guarantees, asked for separately.
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member) and [C-150](compiler.md#deviations) (no trimmed binary of a program with a wrapper is built); a method that erases compiled ahead at the box: Planned, with [lowering L-66](lowering.md#15-deviations).
+**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member); a method that erases compiled ahead at the box: Planned, with [lowering L-66](lowering.md#15-deviations).
 
 ---
 
@@ -1351,7 +1351,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented | §13 |
 | concreteness and fully typed mode | Implemented, but for T-100, T-101, T-109 and T-122 | §14 |
 | printing | Implemented | §15 |
-| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86, C-150; a method that erases compiled ahead at the box: Planned, with lowering L-66 | §16 |
+| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86; a method that erases compiled ahead at the box: Planned, with lowering L-66 | §16 |
 | named implementations | Planned | §17 |
 
 ---
