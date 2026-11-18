@@ -1,8 +1,6 @@
 # The references: Julia with traits in its type system
 
-**The references** (adopted: the user, 2026-11-06: "Adopt all recommendations. Go"). They describe the design as a whole, from the ground up. "The choices in these references" below lists every choice beyond the decision log's, with who made it. A choice an agent made says "mine" with its date in its section's status line and is listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis ([the goals](../goals.md) §4); a choice that waits for the user before it is in force is **Open**.
-
-The four references define the intended shape of the design. Each one also records, separately, where the implementation deviates from it. A fifth page holds the optional extensions, which no rule of the four depends on.
+The four references define the design. Each states the design as intended, and records apart from it where the implementation falls short. A fifth page holds the optional extensions, which no rule of the four depends on.
 
 | Reference | Defines | Wins on |
 |---|---|---|
@@ -12,26 +10,33 @@ The four references define the intended shape of the design. Each one also recor
 | [`lowering.md`](lowering.md) | What the trait library's macros expand to on those interfaces | Consistent with all three; it decides nothing they decide |
 | [`extensions.md`](extensions.md) | Optional extensions: keys, code shared among members the contract sees alike | Nothing: no rule of the four depends on it |
 
+Where another document disagrees with the references, they win. Why the design has this shape: [the rationale](../design.md); why the guarantees hold: [the proofs](../design/proofs.md).
+
 ## Conventions for every reference
 
-**Intended shape first.** Each section states the design as intended, whether or not it is built:
+**The intended design.** Each section states the design as intended, whether or not it is built:
 1. the syntax or the interface;
 2. its meaning;
 3. its rules and checks, and when they apply;
 4. a short example where it helps;
-5. a one-line status:
-   - **Implemented:** on branch `unified` of the julia repository (the worktree `julia-unified/`, on v1.13.2), or in the trait library built on it;
-   - **Planned:** decided, not built. A guarantee the design commits to is Planned, however late the stage that delivers it;
-   - **Optional:** a mechanism built when a measurement or a later decision asks for it. User code may not rely on what it would give until it is Planned;
-   - **Open:** not decided, linking [`../open-issues.md`](../open-issues.md).
+5. a status line.
 
-   A work item alone ("W-109") is not a status: each part of a status line says Implemented with its commit, Planned, Optional or Open. The build's heads are in [`../state.md` §6.1](../state.md#today), not copied here.
+**The status line** is one word and the deviations that qualify it: "**Status:** Implemented, but for T-105."
+- **Implemented:** in the implementation: Julia with the design's changes, or the trait library on it. The heads are in [the state](../state.md#today).
+- **Planned:** decided, not built. A guarantee the design commits to is Planned, however late it is delivered.
+- **Optional:** a mechanism built when a measurement or a later decision asks for it. User code may not rely on what it would give until it is Planned.
+- **Open:** not decided; the line links [the open issue](../open-issues.md).
+- Where parts of a section differ, the line names the part: "Implemented; a membership taken back: Planned."
+- The line may name the gate or test that checks the rule. It holds no commit, branch, date, work item or name of who decided. Those are in [the build notes](../record/build-notes/), by section.
 
-**Guarantees and their mechanisms.** A guarantee is a promise to user code: what is accepted or refused, which method runs, what compiled code may assume, what a membership or a load does to compiled code. It is stated in `traits.md` or `facts.md`. The mechanism that delivers it is in `compiler.md`. A guarantee the design commits to is Planned with the stage that delivers it, however late. Optional is kept for mechanisms whose gain user code cannot build on, or whose guarantee is not yet committed.
+**Guarantees and their mechanisms.** A guarantee is a promise to user code: what is accepted or refused, which method runs, what compiled code may assume, what a membership or a load does to compiled code. It is stated in `traits.md` or `facts.md`. The mechanism that delivers it is in `compiler.md`.
 
-**Deviations separately.** Each reference ends with a table, one row per place where the implementation differs from it: `ID | Section | The reference says | The implementation does | Where`. IDs are stable (`T-n`, `F-n`, `C-n`, `L-n`) and never reused.
+**Deviations apart.** Each reference ends with a table, one row per place where the implementation differs from it: `ID | Section | The reference says | The implementation does | Where`.
+- IDs are stable (`T-n`, `F-n`, `C-n`, `L-n`) and never reused.
+- The table lists the open rows. A row names code or a test.
+- A retired row leaves the table. Its ID stands in one line below the table, and its text is in [the ledger](../../attic/writeup/record/deviations-retired.md).
 
-**The current intended state, plus deviations.** No history, no measurements beyond numbers that are part of the design (the split limit of four). The evidence is in [`../design/evidence.md`](../design/evidence.md).
+**The current intended state, plus deviations.** No history, no alternative that was not taken, no measurement beyond a number that is part of the design (the split's limit of four). The evidence is in [`../design/evidence.md`](../design/evidence.md); what was not taken, in [`../design/alternatives.md`](../design/alternatives.md).
 
 **Writing:** short sentences, one idea per sentence, bullets for anything with more than two parts. [`traits.md`](traits.md) serves programmers too: it explains a core developer's term in a plain sentence where it uses one.
 
@@ -42,47 +47,6 @@ The four references define the intended shape of the design. Each one also recor
 - **An interface of Julia's** (a type-system rule, a compilation signature, a calling convention, a hook, what an image keeps): `compiler.md`, with its semantics.
 - **What a macro of the library defines:** `lowering.md`.
 
-## The choices in these references
+## Who chose what
 
-Every choice beyond the decision log's is listed here, with who made it. The analysis behind them: [`../plans/2026-11-06-traits-are-abstract-types.md`](../../attic/writeup/plans/2026-11-06-traits-are-abstract-types.md). A choice marked **mine** was made on the user's instruction (2026-11-06: "For the Gaps: Make decisions, think about existing languages, only where no principled option exists, come back to me"); the user confirmed them with the references' adoption (the user, 2026-11-06: "Adopt all recommendations. Go"). P-20 to P-28 answer the draft's two reviews: [the prototypes'](../../attic/writeup/reviews/2026-11-06-unified-reference-prototypes.md) and [the work plan's](../../attic/writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md). P-29 to P-32 came with the work plan's adoption (the user, 2026-11-06) and its experiments.
-
-| # | Choice | Made by | Where |
-|---|---|---|---|
-| P-1 | A default is the trait's method for its operation, and a forwarding member's default is served by the trait's method: every caller reaches them, as Rust's and Swift's default methods. An operation without a default is no method at the trait (D-4, the user's, 2026-11-15, by adopting [the plan](../plans/2026-11-15-next-iteration.md)). | mine | [traits §4.2](traits.md#42-defaults), [§5.5](traits.md#55-forwarding-with-by) |
-| P-2 | A method at a trait is bounded where its instance at the box finds a method at every call with a value at the box (D-3); `bounded` refuses a method that is not; `@trait_module` is the bundle of `facts`, `bounded`, `no_pirates`, before the module's first method. | the user (Q2 (a)); bounded at the box: the plan's D-3, confirmed by its adoption | [traits §7.3](traits.md#73-bounded-methods), [§13](traits.md#13-scopes-trait-modules) |
-| P-3 | *Retired* (2026-11-15, the plan's D-1): the value's type decides | — | [traits §7.5](traits.md#75-what-decides) |
-| P-4 | *Retired* (2026-11-15, the plan's D-1): `compiled_for(x)` is a value | — | [traits §7.6](traits.md#76-compiled_forx) |
-| P-5 | `Dynamic{X}` is a struct of `Core` whose memberships and methods are the library's, a member of `X` by forwarding, compiled once, a member of `X` and its supertraits only (Rust's `dyn`, Swift's `any`), `X` with its parameters. The wrapper `Compiled{T}` stands beside it in `Core` (D-1). | mine; the wrapper in `Core` mine (2026-11-15) | [traits §7.7](traits.md#77-dynamicx); [compiler §6.9](compiler.md#69-the-kept-forms-in-core) |
-| P-6 | Intersections `All{X, Y, Z, …}`; a bundle is an alias of one. | the user (Q5 (a)) | [traits §3.6](traits.md#36-intersections), [compiler §4.9](compiler.md#49-intersections) |
-| P-7 | `Callable{A, S}`: every function is a member; the signature is checked at the box and at a wrapper's entry; `S` is checked on return from the box; it erases by default. | the user (`S` checked on return, 2026-11-06; a contract at the box, 2026-11-15: "Okay, accept the change.") | [traits §9](traits.md#9-functions-callable), [compiler §7.4](compiler.md#74-callables-call) |
-| P-8 | A declared field is the member's stored field of that name, read and written as `t.f`. | the user (Q7 (a)) | [traits §4.3](traits.md#43-fields) |
-| P-9 | `struct S <: X` makes `X` the supertype; the membership is declared and checked by `@implement X S` after the methods. | the user (Q8 (c)) | [traits §5.2](traits.md#52-with-the-types-definition) |
-| P-10 | A method whose result is `like(t, …)` or `withfields(t; …)` is compiled per type at `t`. | mine | [traits §6.5](traits.md#65-results) |
-| P-11 | A trait with a contract counts as concrete as a parameter's value. | mine | [traits §14](traits.md#14-concreteness-and-fully-typed-mode) |
-| P-12 | The key's Core type is `Core.TraitKey{X, R, F}`; the runtime computes a member's key from its membership and the contract. | mine | [extensions §1.2](extensions.md#12-the-key-as-a-type) |
-| P-13 | A keyed argument passed on is a static call, invalidated by a later member that another method would take, else a run-time site. | mine | [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key) |
-| P-14 | A trait's contract lives on its `TypeName`, read without an edge. | mine | [compiler §4.1](compiler.md#41-sets) |
-| P-15 | A trait's split candidates come from the runtime's index of its members, in declaration order. | mine | [compiler §7.2](compiler.md#72-the-split) |
-| P-16 | A family states its trait's instance as a pattern of its variables, an equation's parameter included (closes open issue 140). | mine | [traits §5.8](traits.md#58-families), [lowering §4](lowering.md#4-members-checked-at-their-first-use) |
-| P-17 | A function of `Self` that an equation names (`eltype(t)`) answers at a kept form as for its object: the trait's parameter (open issue 137). | mine; at the kept forms mine (2026-11-15) | [traits §7.3](traits.md#73-bounded-methods), [§7.4](traits.md#74-the-two-kept-forms-the-box-and-the-wrapper) |
-| P-18 | The member hook: the runtime asks the library to check a pattern member at its first use, at dispatch or before code relying on it is published, outside every lock; inference never asks. | mine | [compiler §10.4](compiler.md#104-the-member-hook) |
-| P-19 | `like(t, x)` and `withfields` as functions; overrides stay fixed at the membership. | mine (q-b, q-c) | [traits §6.5](traits.md#65-results), [§5.11](traits.md#511-overrides-and-redeclaration) |
-| P-20 | `bounded` on by default in trait modules, with switches: `@unbounded f(…) = …` marks a method unbounded on purpose, `@trait_module bounded = false` a module. | the user (the default with a switch); `@unbounded` mine | [traits §7.3](traits.md#73-bounded-methods), [§13](traits.md#13-scopes-trait-modules) |
-| P-21 | Normal forms of `Union` and `All` read declared supertypes only, so a type expression gives the same type in every world. | mine | [compiler §4.9](compiler.md#49-intersections) |
-| P-22 | At an intersection: the split's candidates are the first component's that are members of every component; an intersection erases where a component erases (D-1); a closed component makes it closed against an open set. | mine | [traits §3.6](traits.md#36-intersections), [compiler §4.9](compiler.md#49-intersections) |
-| P-23 | *Retired* (2026-11-15, the plan's D-1): `compiled_for` is an ordinary function of the library | — | [traits §7.6](traits.md#76-compiled_forx) |
-| P-24 | *Retired* (2026-11-15, the plan's D-1): no call carries a bit | — | [compiler §6.2](compiler.md#62-how-an-argument-is-compiled) |
-| P-25 | A default's method reaches a key's parts through `Core.trait_receiver` and `Core.trait_field`. | mine | [extensions §1.4](extensions.md#14-the-calling-convention) |
-| P-26 | A module-end hook of Julia's. | mine | [compiler §10.1](compiler.md#101-definition-and-image-hooks) |
-| P-27 | `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`, typed `R` on a value known by its trait. | mine | [traits §10.1](traits.md#101-basetraits), [compiler §7.1](compiler.md#71-the-rule) |
-| P-28 | Smaller rules: `Type{S}` entries on `S`'s `TypeName`; one instance per member checked by the runtime; the check's instance kept with edges, as code; a `Union` bound in a family declared per type; array literals join declared supertypes only. | mine | [compiler §4.6](compiler.md#46-one-instance-per-member), [§4.10](compiler.md#410-type-values), [§6.7](compiler.md#67-the-definition-time-check); [lowering §3](lowering.md#3-implement); [traits §10.2](traits.md#102-element-types) |
-| P-29 | Keys are Optional, to be built late: a bounded method is compiled per type; the contract on the trait's `TypeName` and the receiver each membership records stay Planned, as what keys need. Built late; a use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design). Keys are purely a performance optimization: no rule and no guarantee to user code depends on them (the user, 2026-11-11). | the user (2026-11-06: "keys as optional is approved"; "Keep them optional and build them late") | [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
-| P-30 | *Retired* (2026-11-15, the plan's D-2): subtyping reads no method; `Callable`'s members are entries | — | [compiler §7.4](compiler.md#74-callables-call) |
-| P-31 | The G2 bit on every CodeInstance of either policy; an image keeps code reached only dynamically where the bit is set; the boundary flag is the second policy per method. | adopted with the work plan (the user, 2026-11-06); the trade-offs review's M1, M2 | [compiler §2.2](compiler.md#22-the-method-flag), [§3.2](compiler.md#32-g2-as-a-predicate), [§9](compiler.md#9-images-and-the-machine-code-cache) |
-| P-32 | *Retired* (2026-11-15, the plan's D-1): there is no fallback by scope | — | [traits §7.5](traits.md#75-what-decides) |
-
-## State of the build
-
-- What is built is on branch `unified`, a stack of self-contained commits on v1.13.2 ([julia-changes §7.1](../design/julia-changes.md#71-the-stack)), with TraitWorld `unified`: the changes useful without traits (compiler §11); the type system's sets, memberships and intersections (§4); dispatch at sets, a membership's invalidation, its method and the edges (§5, W-140, W-141); images and hooks (§9, §10.1); the facts mode (§1–§3, W-100); the attribute, casts and `keep`, out of the design and still built (W-111; compiler C-112); operations on a value typed by its trait, the split and its table (§6.8, §7.1–§7.3, W-109); the world-checked caches (§8.1, §8.2); `Callable` (§7.4, W-113); fully typed mode and the hooks for strict mode (§2.7, §10.2, W-114); the code slot, out of the design and still built (W-101; compiler C-93); a set's inputs (§4.6); negatives folded with an edge and a closed type's contract, `IO`'s (§4.8, §7.1, §7.5, W-129, W-140). The heads: [`../state.md` §6.1](../state.md#today). Each section's status line says what is built and its deviations; what is not is Planned or Optional, by stage in [the work queue](../record/todo.md).
-- The trait library on the unified build: TraitWorld `unified` (its deviations: traits' and lowering's Deviations tables).
-- The deviations of the branch are in [compiler.md](compiler.md#deviations).
+A rule of the references was decided by the user or chosen by an agent while building. Neither is said in the references. The decisions are in [the decision log](../record/decisions.md); the agent's choices are listed in [the open issues](../open-issues.md) as input to the next synthesis, and in [the build notes](../record/build-notes/choices.md) with their dates.
