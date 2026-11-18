@@ -976,3 +976,56 @@ What each pass over a ledger did, with the choices (mine).
 | A membership's check, at a further argument declared abstract, asks for a method that meets the signature (T5) | the check at abstract further arguments holds; one clause contradicts a contract's entries |
 | Sets in Base's build: (C) | sets in Base's build; its "final negatives" are of that time |
 | Dispatch's lookup at an open set keeps a match met only at an intersection no type is in (C) | dispatch keeps a match at an empty intersection; negatives fold with an edge now |
+
+## The checks, resolved
+
+Each check of the C-list above against the documents as the clean-up left them. "Holds" means the current document says it. A check that found nothing names where the gap is recorded.
+
+| ID | Resolution |
+|---|---|
+| C-1 | Holds: [facts §2.2](../reference/facts.md#22-g2-stable-caches) lists a stakeholder's extension activated by an unrelated package. |
+| C-2 | Holds: the alternatives' chapter on ownership says owner-only functions take up what was dropped in October. |
+| C-3 | Not measured. The plain twins are written as plain Julia is commonly written. For the next round (W-159): a twin hardened by hand at its barriers, or the evidence's "Not shown" says so. |
+| C-4 | Not measured on this implementation: the rationale and the evidence (G-4, "Not shown") say so, without the old numbers. |
+| C-5 | Holds: the alternatives' chapter on ownership has sealed types and functions. |
+| C-6 | Done: the porting guideline §0.2 has the seven shapes. |
+| C-7 | Holds: the evidence (G-7) and the results page give the forks' session beside pandas' and say Julia is slower on every row. |
+| C-8 | Holds: [compiler §7.2](../reference/compiler.md#72-the-split) and traits §7.9: the candidates are the members in declaration order. |
+| C-9 | Holds in part: the acceptance cases of the facts mode (`experiments/unification/test/acceptance/`) are the table's cases; E-23 is in the evidence. The table itself is in the attic's framing review. |
+| C-10 | Not run on this implementation: `experiments/facts/framing/` and `experiments/examples/` belong to the library of October 2026. Their current form is the acceptance cases and `experiments/docs-examples/`. |
+| C-11 | Holds: the porting guideline §0.3 and A7. |
+| C-12 | The inventory lists the per-site cache's wildcard entries (row 4). The exact-type entries are not in the stack: the build notes of the stack say why (they slowed sites that see many types). |
+| C-13 | Open: [open issue 19](../open-issues.md#2-design). |
+| C-14 | Holds: checked in the harvest's dispositions. |
+| C-15 | Holds: the alternatives' chapter on changes to Julia. |
+| C-16 | Done: the porting guideline §0.1, the table of run-time sites. |
+| C-17 | No such test exists for this implementation. It is the condition of PE-5 (revalidating `return_type` answers), which is not pursued. |
+| C-18 | Not measured on this implementation: the evidence, G-4, "Not shown". |
+| C-19 | Not checked row by row. The playbook §3 states the rule; [open issue 233](../open-issues.md#5-documents) proposes the grep that would check it. |
+| C-20 | Holds: the alternatives' chapter on erasing. |
+| C-21 | Done: the porting guideline §0.2 (the informal interface), §0.3 (the options struct), part A's opening (a rule needs a second port). |
+| C-22 | Holds: the alternatives' chapter on erasing. |
+| C-23 | Done: the porting guideline §0.2 (the inventory first), B2 (the six moves). |
+| C-24 | Done: the porting guideline §0.1, "The silent hazards of step 2". |
+| C-25 | Done: the porting guideline §0.5. |
+| C-26 | In part. The pushback that stands is the open issues' group on the ports, GT-8, and the porting guideline's B4. The entries were not re-run one by one on this implementation. |
+| C-27 | Holds: each row of the evidence names its build; NetworkDynamics against upstream is under "Not shown". |
+| C-28 | In part: `@inferred` tests are open issue 157; `ReshapedArray` is open issue 230. Strict mode on a stack of ports is "not shown" in the results page. The share of run-time `return_type` answers is not measured. |
+| C-29 | Done: the porting guideline §0.2, "Compilation is keyed three ways". |
+| C-30 | Holds in part: the results page and the evidence say the ODE row is not like for like. The split into "trait-specific" and "packaging" is not measured. |
+| C-31 | Holds: E-168, E-230, E-289 in the registry and the evidence. |
+| C-32 | Holds in the playbook §4. Whether the next round's harness checks each trap is for W-159. |
+| C-33 | Holds: the inventory's rows 1 to 3 and compiler §11. |
+| C-34 | Done: the porting guideline's "What a port meets today" and §0.4. |
+| C-35 | In part: the harvest's entries name what became of each weak point; none was found unanswered. |
+| C-36 | Done: the porting guideline, B1 to B3, "The architecture's principle". |
+| C-37 | Done: the rationale's opening. The intro pages open with it. |
+| C-38 | Holds: the rationale §2.6 and §4 ("no claim that traits protect code from loads"). |
+| C-39 | The pass over `design/other-languages.md` (an agent's, checked by the main session). |
+| C-40 | Done: the porting guideline, "What a port does not do"; proposed for `CLAUDE.md`. |
+| C-41 | Holds: the playbook §4. |
+| C-42 | Done: the porting guideline §0.1, the table of run-time sites. |
+| C-43 | Holds: the goals' weakest points for G-6; open issues 179, 181, 184. |
+| C-44 | Done: the rationale §2.7, G-5. |
+| C-45 | Holds: the rationale §1, "The two problems meet at abstract types". |
+| C-46 | The inventory of upstream places is in the attic's exploration (`attic/writeup/explorations/unified-build-from-vanilla-julia.md`); the compiler's build note points to it. |
