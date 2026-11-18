@@ -1,0 +1,132 @@
+# Proposed changes to `CLAUDE.md` after the documentation clean-up
+
+**Status:** proposal (2026-11-18), for the user. Not applied: the user asked to see the rule changes as a diff first ([the clean-up's plan](2026-11-18-documentation-cleanup.md) §8, Q1). Written in the main session. Only links that the move to the attic broke were changed in `CLAUDE.md` itself.
+
+## What the diff does
+
+1. **The opening** names today's trees and the two pages of the agents' tier (the context, the playbook).
+2. **"The current intended state, not the history"** gains the clean-up's four rules: one implementation; no chronology; a baseline is plain Julia or Python; what is no longer relevant goes to the attic at its path.
+3. **"Principled solutions"** gains the lesson of the `IO` episode: a port's change that applies a rule of the references is no workaround.
+4. **"Record a tension"** gains: a change that touches Base is flagged before it is built, its decision names the guarantees it touches, and a proxy says what it does not model.
+5. **"The schedule"** is shortened: the first schedule is finished; the order is the next iteration's stages.
+6. **"No measurement campaigns until the prototype is conceptually complete"** becomes "campaigns at a freeze only".
+7. **The table** gains homes for the build notes, the proofs, the lessons, the ledgers and the agents' tier; the rows for the references, the deviations, experiments, the evidence, agreed work, open questions, what is built, reviews, plans and history say what the current page holds.
+8. **Rule 4:** a retired or closed row lives in its ledger. **Rule 7:** a move to the attic keeps the path and leaves no "Moved" page.
+
+Not in the diff, for the user to say: the exception for subagents during the clean-up (W-162) can be taken out when the clean-up is closed.
+
+## The diff
+
+```diff
+--- CLAUDE.md	2026-11-18 01:58:05.262430000 +0100
++++ CLAUDE.md (proposed)	2026-11-18 02:12:42.164412135 +0100
+@@ -1,14 +1,18 @@
+ # Rules for agents: the documents
+ 
+-This directory is the design repository of trait-bound Julia. Beside `writeup/` it holds the experiments repository (`experiments/`), the patched Julia (`julia-1.13/`), TraitWorld and the demonstrators, each its own git repository. The map of the record, with the standing constraints of the machine, is [`writeup/record/INDEX.md`](writeup/record/INDEX.md).
++This directory is the design repository of trait-bound Julia. Beside `writeup/` it holds the other repositories of the workspace, each its own git repository: Julia with the design's changes, the library (TraitWorld), the demonstrators and `experiments/`. Which tree holds which branch, and the standing constraints of the machine: [`writeup/record/INDEX.md`](writeup/record/INDEX.md). For an agent that starts cold: [`writeup/record/context.md`](writeup/record/context.md) (why the rules are what they are) and [`writeup/record/playbook.md`](writeup/record/playbook.md) (how the work is done).
+ 
+ **The principle: every kind of fact has one home.** Every other document links there. A copy (a number, a status, a rule) names its source and build, or it goes stale.
+ 
+-**The current intended state, not the history.** The references, and every document that is not explicitly about the history (`design.md`, the glossary, `intro/`, `state.md`, the evidence, the comparison, the open issues, the work queue), describe the current intended state of the design, plus the deviations of the implementation from it. **Never the history:** not what was removed, replaced or decided against, not how a rule came about, not "was", "until <date>", "no longer", "superseded". Those have their own places: `design/alternatives.md` (what was considered, rejected or replaced, with the reason), the decision log, `record/design-history.md`, reviews, plans and session notes.
++**The current intended state, not the history.** The references, and every document that is not explicitly about the history (`design.md`, the glossary, `intro/`, `goals.md`, `state.md`, the evidence, the comparison, the open issues, the work queue, the registry), describe the current intended state of the design, plus the deviations of the implementation from it. Four rules (2026-11-18, the user: "At this point unified _is_ the implementation. The documentation should describe the intended design."; "The baseline is plane Julia and Python, not previous iterations of the design."):
++- **One implementation.** A current document does not say "the unified build", "the earlier build" or "the prototype". It says the implementation, Julia, the library, and names a branch only where a number needs its build.
++- **No chronology.** Not what was removed, replaced or decided against, not how a rule came about: no "was", "until <date>", "no longer", "superseded"; no date, commit, work item or "decided by" in a rule's text. Those have their own places: `design/alternatives.md` (what was considered, rejected or replaced, with the reason), `design/lessons.md` (what the work taught), the decision log, the agents' tier (`record/context.md`, `record/build-notes/`), reviews, plans, session notes and the attic.
++- **A baseline is plain Julia or Python.** Plain Julia is vanilla v1.13.2, or plain code on the build. A comparison with an earlier iteration of the design is a regression control: it lives with its gate and in the registry's controls, not in the evidence, the goals, the state or `intro/`. (The user: "measuring a set of changes against the immediate predecessor is of course fine during regression testing and performance work.")
++- **What is no longer relevant goes to the attic,** after its insights are in the lessons and the alternatives. It keeps its path under `attic/` and leaves no "Moved" page. The lint `experiments/tools/doclint/` counts what these rules forbid.
+ 
+ **The demonstrators follow the design.** A demonstrator already built never constrains the design. When the design changes, the demonstrators are changed to follow it. Experience from writing idiomatic trait code in Julia feeds back into the design only through review: an open issue or a proposal, decided like any other change.
+ 
+-**Principled solutions; the ports find the design's weak points.** The guiding principle is principled solutions. One purpose of the ports (SciML, Makie, DataFrames) is to find where the trait design is weak. Do not design a port around such a point. Record it as an open issue, with the case, the rule that blocks it and a proposal. A tweak in the trait design that enables a principled solution in a port's architecture is the most valuable finding there is.
++**Principled solutions; the ports find the design's weak points.** The guiding principle is principled solutions. One purpose of the ports (SciML, Makie, DataFrames) is to find where the trait design is weak. Do not design a port around such a point. Record it as an open issue, with the case, the rule that blocks it and a proposal. A tweak in the trait design that enables a principled solution in a port's architecture is the most valuable finding there is. A port's change that applies a rule of the references is the port following the design, not a workaround: measure it and merge it (the lesson of the `IO` episode, [`writeup/design/lessons.md`](writeup/design/lessons.md) §5).
+ 
+ **A failure names a pattern** (2026-11-09, the user: "When we see failures like this, also think about principled fixes or new tools that reveal common patterns"). When a test, gate or measurement fails, look past the one case:
+ - name the pattern it belongs to, and the rule that produces it;
+@@ -17,7 +21,7 @@
+ 
+ **The goals direct the work** (2026-11-10, the user: "The entire point of this project is to show that Traits and Facts actually enable dramatically reducing (re) compilation and potentially improve speed and caching with limited to no downsides and better error messages and better AOT compilation experience. We also want to show that there is a clean and doable path for the ecosystem to transition with clear potting guidelines. Finally unification made the design of the Trait system dramatically simpler, making it easy to teach."). The goals, the claim on each axis and where each stands are [`writeup/goals.md`](writeup/goals.md). The order of work follows the weakest axes (the user: "Clean up our experiment, decisions and work/todo log to reflect the aim to build towards that goal, prioritising weakest spots.").
+ 
+-**The schedule** (2026-11-11, the user: "The strategy should be to build the complete prototype. Then thoroughly measure it, and then do some performance work as long as it doesn't increase the code complexity too much."): triage, the design questions and deviations of bin A, the cache across sessions, the ports brought to the head, a freeze and the measurement round, low-hanging performance work, the ports' lessons checked, the synthesis. In full, with the bins and what "conceptually complete" means: [`writeup/plans/2026-11-11-complete-prototype.md`](attic/writeup/plans/2026-11-11-complete-prototype.md); the items: `writeup/record/todo.md`.
++**The schedule.** The first schedule (the user, 2026-11-11: "The strategy should be to build the complete prototype. Then thoroughly measure it, and then do some performance work as long as it doesn't increase the code complexity too much.") is finished: the tag `prototype-2026-11`. The order of work now is the stages of [the next iteration](writeup/plans/2026-11-15-next-iteration.md); the items: `writeup/record/todo.md`.
+ 
+ **The cache across sessions is not built now** (2026-11-14, the user: "We don't build the cross session cache now. The measurement campaign should contain workloads that would exercise it and break down times in such a way that we can make a clear judgment."). The measurement round (W-145) carries those workloads: code of several packages first combined in a session, each compile's time attributed so that what an image holds, could hold or cannot hold is told apart.
+ 
+@@ -25,7 +29,7 @@
+ 
+ **Principled ways of making the design fast** (2026-11-15, the user, on the compiler's part of one way to erase: "Yes please. Build the compiler for P1 and be cogniszent of finding principled ways of making the design fast."). The rule above stands: no claim of better steady-state speed, no patch at a case. While building the design's mechanisms, look for where a rule of the design itself lets the compiler do less (a membership test decided with an edge, a box that needs no heap, a check read from an instance that exists). Take such a way where it follows from a rule and adds little code. Record the others with their measurement and a proposal ([open issues](writeup/open-issues.md); a tension where a goal pays).
+ 
+-**Record a tension between the goals; do not resolve it at the case** (2026-11-10, the user: "I want to continue the strategy of recording pressure and tension between the goals (as we did for pushback on the design from speed and port work). The goal is not for me to review this bit by bit but to eventually create a synthesis, and iterate the design from all the evidence collected."; it widens the rule of 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, sets one goal against another (a slowdown, a cost at load, a port that the rule blocks, a message that the mechanism cannot give), list it in `writeup/open-issues.md` §1 under "Flagged: tensions between the goals", with the rule, its measured cost and a proposal, and add its row to the index in `writeup/goals.md` §3. Do not work around it in the implementation or a port.
++**Record a tension between the goals; do not resolve it at the case** (2026-11-10, the user: "I want to continue the strategy of recording pressure and tension between the goals (as we did for pushback on the design from speed and port work). The goal is not for me to review this bit by bit but to eventually create a synthesis, and iterate the design from all the evidence collected."; it widens the rule of 2026-11-08: "Where a design decision makes speed difficult to achieve, flag that for me to review."). Where a rule of the references, or a choice marked mine or the user's, sets one goal against another (a slowdown, a cost at load, a port that the rule blocks, a message that the mechanism cannot give), list it in `writeup/open-issues.md` §1 under "Flagged: tensions between the goals", with the rule, its measured cost and a proposal, and add its row to the index in `writeup/goals.md` §3. Do not work around it in the implementation or a port. **A change that touches Base, or erases a type the whole ecosystem specializes on, is flagged before it is built:** its decision row names the guarantees for plain code it touches ([facts](writeup/reference/facts.md) §2, §13), and a proxy measured first says what it does not model.
+ 
+ **The agent's choices are not reviewed one by one** (2026-11-10, the user: "I don't want to review all decisions made by you."). A choice made while building stands as recorded: the reference, and the decision log marked "mine". Open issues §1 lists it as input to the synthesis (`writeup/goals.md` §4). Only a question the work cannot continue without is put to the user.
+ 
+@@ -33,29 +37,34 @@
+ 
+ | Content | Its home | Rule |
+ |---|---|---|
+-| The intended design: syntax, meaning, rules, guarantees, Julia's interfaces, the lowering | `writeup/reference/` (traits, facts, compiler, lowering) | The source of truth. Intended shape first; each section has a status line (Implemented, Planned, Optional, Open). Conventions: `writeup/reference/README.md`. |
+-| Where the code falls short of a reference | that reference's Deviations table | Stable IDs (T-, F-, C-, L-). A row names code, a commit or a test. |
++| The intended design: syntax, meaning, rules, guarantees, Julia's interfaces, the lowering | `writeup/reference/` (traits, facts, compiler, lowering; the optional extensions) | The source of truth. Each section ends with a status line: one word (Implemented, Planned, Optional, Open) and the deviations that qualify it. No commit, date, work item or name in it. Conventions: `writeup/reference/README.md`. |
++| Where the code falls short of a reference | that reference's Deviations table | Stable IDs (T-, F-, C-, L-). The table lists open rows; a row names code or a test. A retired row leaves the table for the ledger. |
++| Where a rule is in the code, the commits that built it, its gates, who decided it | `writeup/record/build-notes/<reference>.md`, by the reference's section | The agents' tier. Never the only home of the rule. |
+ | A decision | first the reference, then a row in `writeup/record/decisions.md` | A decision that is not in a reference is not in force. The log row quotes the user's words verbatim, gives the date, and names the reference sections it changed. |
+ | The goals, the claim on each axis, where each stands | `writeup/goals.md` | The standing links to the evidence for numbers and to the work queue for work. Updated in the commit that changes an axis's standing. |
+ | A tension between the goals | `writeup/open-issues.md` §1, "Flagged: tensions between the goals" | The rule, its measured cost (E-n), a proposal. Its row in the index, `writeup/goals.md` §3, with a stable `GT-n`. |
+ | A decision waiting for the user | `writeup/open-issues.md` §1 | The reference marks it Open and links the issue; it does not describe a guess. |
+ | A choice an agent made while building | the reference, and the decision log marked "mine" | Also listed in `open-issues.md` §1 as input to the synthesis; it does not wait for the user's review. |
+ | An alternative considered, rejected or replaced | `writeup/design/alternatives.md`, by topic | With the reason and, where measured, the experiment's ID. The references never mention alternatives. |
+-| An experiment | a row in `writeup/record/experiments.md`; scripts and logs in `experiments/<dir>/` | The row comes before the run: the question, and the result that would change the design. When done: the outcome with its key numbers, the build, the write-up (the directory's README). Logs are committed; never only in `/tmp` or a scratchpad. |
+-| The current numbers behind a claim | `writeup/design/evidence.md` | Each number cites its experiment (E-n) and build. Other documents link to it rather than copy. |
++| What the work taught | `writeup/design/lessons.md` | Short, for people: one sentence per lesson, what it rests on, its experiment. The long form is in the agents' tier. |
++| An experiment | a row in `writeup/record/experiments.md`, by goal; scripts and logs in `experiments/<dir>/` | The row comes before the run: the question, the baseline (plain Julia or Python), and the result that would change the design. When done: the build and the outcome with its key numbers; the write-up is the directory's README. Logs are committed; never only in `/tmp` or a scratchpad. A row that a later one replaces, or whose mechanism is gone, moves to the ledger. A proxy's row names what it does not model. |
++| The current numbers behind a claim | `writeup/design/evidence.md`, by goal | Each number is against plain Julia or Python and cites its experiment (E-n) and build. Other documents link to it rather than copy. |
+ | Performance work the rule for performance work does not take up now | `writeup/record/performance-explorations.md` | An ID PE-n; what it is, what was measured (E-n), why not now, what would make it worth pursuing. An entry that returns to the queue names its W-item and stays. |
+-| Agreed work (a todo) | `writeup/record/todo.md` | A stable ID `W-n`, the source (the user's words), a status, links to the open issue, experiment or decision it serves. `state.md` §6.3 gives the order in brief. |
+-| An open question | `writeup/open-issues.md` | Numbered, stable. When resolved, it moves to "Closed items" with the resolution and a link. |
+-| What is built now | `writeup/state.md` (current state only) and the Deviations tables | Changes to Julia: `writeup/design/julia-changes.md`, with commits. |
++| Agreed work (a todo) | `writeup/record/todo.md` | Open items only. A stable ID `W-n`, the source (the user's words), a status, links to the open issue, experiment or decision it serves. A closed item moves to the ledger with its last row. |
++| An open question | `writeup/open-issues.md` | Open items only, each as it stands: the rule, the cost with its experiment, the proposal. Numbered, stable. When resolved, it moves to the ledger with the resolution and a link. |
++| What is built now | `writeup/state.md` (the heads, what is built, the suites, what is next) and the Deviations tables | The one home of the heads. Changes to Julia: `writeup/design/julia-changes.md`, with commits. |
++| Why the guarantees hold | `writeup/design/proofs.md` | It states no rule; it derives the guarantees of `reference/facts.md` from a model. |
+ | Why the design has its shape | `writeup/design.md`, the rationale | It cites the references for rules and the evidence for numbers, and states no rules of its own. |
+ | The design against other languages | `writeup/design/other-languages.md` | Claims about other languages cite primary sources or `writeup/record/other-languages-research-2026-10-16.md`. |
+ | Teaching | `writeup/intro/` | Current state only: no history, no core developers' terms. Its examples run in `experiments/docs-examples/`. |
+-| A review | `writeup/reviews/<date>-<topic>.md` | Not edited after it is written, except by a dated addendum. Record what was done with each finding where it was done (a deviation row, an open issue, a commit). List it in the record index. |
+-| A plan or proposal | `writeup/plans/<date>-<topic>.md` | A status line at the top: proposal, adopted, done, superseded. Not normative. |
++| A review | `writeup/reviews/<date>-<topic>.md` while it is live | Not edited after it is written, except by a dated addendum that says what was done with each finding and where (a deviation row, an open issue, a commit). When every finding has its place, the review moves to the attic. |
++| A plan or proposal | `writeup/plans/<date>-<topic>.md` while it is live | A status line at the top: proposal, adopted, done, superseded. Not normative. A plan that is done or superseded moves to the attic. |
+ | The chronology, and the user's words in full | `session-notes/` | Never the only home of a fact. |
+ | Guidance for agents: how to work, the user's standing preferences | this file, or the document in this table that owns the subject | Never only in Claude Code's project memory (see below). |
+ | Terms | `writeup/glossary.md` | The reference defines a term where it first matters; the glossary links there. |
+-| History | `attic/`, `writeup/record/design-history.md` | Kept out of the references, `design.md` and `intro/`. |
++| History | `attic/` (its `README.md` is the index, by era, with a line per archived document), `writeup/record/design-history.md`, `writeup/record/context.md` | Kept out of the references, `design.md` and `intro/`. |
++| What is closed: closed work items and issues, superseded decisions, retired deviation rows, the experiments of earlier builds | the ledgers in `attic/writeup/record/` | Rows unchanged, IDs permanent. |
++| How the work is done; why the rules are what they are | `writeup/record/playbook.md`; `writeup/record/context.md` | The agents' tier: it may hold chronology and the user's words; it is never the only home of a rule, a number or a decision. |
+ 
+ ## Rules across documents
+ 
+@@ -65,10 +74,10 @@
+    - A finished experiment: its registry row and its evidence row.
+ 2. **Look for stale copies before finishing.** Grep every repository for the IDs, terms and numbers you changed; fix or remove each copy. Reviews, plans and session notes are history: leave them.
+ 3. **Precedence:** references, then `design.md`, then the evidence, then the record. A lower document that disagrees is fixed, or the disagreement becomes a deviation row or an open issue. It is never left standing.
+-4. **IDs are permanent.** T-, F-, C-, L-, E- and open-issue numbers are never renumbered or reused. A retired deviation row stays as its ID, marked *Retired*, with a pointer to what holds its subject now; it tells no story of what it was (that is in the record).
++4. **IDs are permanent.** T-, F-, C-, L-, E-, W-, GT- and open-issue numbers are never renumbered or reused. A retired or closed row lives in its ledger (`attic/writeup/record/`) with its text; the current document names the retired IDs in one line.
+ 5. **A number says what it measures:** the build (commit), the setting (product, or the test bed `all`), strict mode on or off, the load order, the number of runs, the machine's load. And whether it measures interop (trait code calling plain code) or idiomatic trait code.
+ 6. **Demonstrator and experiment READMEs** say how to run, and keep dated tables of their own results. For current numbers they link to the evidence.
+-7. **A moved document leaves a short "Moved" page at its old path,** because reviews and session notes cite paths; current documents get their links updated.
++7. **A single document that moves leaves a short "Moved" page at its old path;** current documents get their links updated. **A move to the attic keeps the path** (`writeup/plans/x.md` becomes `attic/writeup/plans/x.md`) **and leaves no page:** the attic's index states the rule once.
+ 
+ ## Writing
+ 
+@@ -108,8 +117,8 @@
+ 
+ **No excessive benchmarking.** Run quick tests, a few minutes at most and less where feasible, chosen to reveal regressions first.
+ 
+-**No measurement campaigns until the prototype is conceptually complete** (2026-11-11, the user: "Small measurements are fine. Larger measurement campaigns that take more than a few minutes should be avoided until we have reached a conceptually complete state of the prototype."). The prototype is conceptually complete when bin A of the schedule is empty (the cache across sessions is stopped, 2026-11-14). Until then:
++**Measurement campaigns at a freeze only** (2026-11-11, the user: "Small measurements are fine. Larger measurement campaigns that take more than a few minutes should be avoided until we have reached a conceptually complete state of the prototype."). Between freezes:
+ - a change is checked by the gates, the library's tests and one or two small cases that take minutes;
+-- a round over the ports, the unrelated loads, the sessions or every demonstrator's build waits. Its registry row says "to measure at the conceptually complete state", and the work queue lists what waits.
++- a round over the ports, the unrelated loads, the sessions or every demonstrator's build waits for the next freeze (stage 7 of the next iteration). Its registry row says "registered, not run", and the work queue lists what waits.
+ 
+ The machine is shared. Jobs niced; full builds under a memory guard; above half load, one Julia job at a time and full builds alone. Details and the push pattern: `writeup/record/INDEX.md` ("Standing constraints") and `session-notes/00-environment-and-workflow.md`.
+```
