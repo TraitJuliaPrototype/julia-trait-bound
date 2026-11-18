@@ -718,3 +718,15 @@ The agent's choices not carried into §3:
 - "A call through a trait asserts the declared result, never converts it" merged with "A declared result is asserted, never converted"; the two lines on a default's method typing its arguments merged; the two lines on method matching in the query's world merged; the three strict-mode ambiguity lines on activation merged into one.
 
 Paragraphs of the old §1 that were not items: "W-141, input to the synthesis", "The next iteration, in one plan", "The ports' fresh-ideas round" (all decided). The old §3, §4b and §5 headings held nothing open. The old §6, "To revisit with the ports", is folded into §4 under Traits.
+
+## Closed after 2026-11-18
+
+234. **Closed (2026-11-18; W-163, E-502):** the fault was the call's tuple type, held unrooted across the member hook at dispatch, which allocates; fixed on `next` (436bb59b29), with every other finding of Julia's static check of GC roots in the changed runtime (26 findings, 0 after; a5bd871cce). The tools are kept: `experiments/implementation/w163/` (`sagc.sh`, `roots.sh`, a collection forced in a window); the playbook §3 makes the static check a check of every change to the runtime's C code. The entry as it stood:
+
+**234. A crash in dispatch's cache while a trait is declared: memory unsafety in the changed runtime.**
+- *The case:* the tutorial's script (`experiments/docs-examples/tutorial.jl`) ends with a segmentation fault in 2 of 6 runs on `next` 32a2235abd with the library at d1febca, each time while `@trait Named` is expanded, after one collection. The stack: the library's `_parse_body` (`src/trait.jl:201`) calls a function through `apply_generic_reach`; `jl_mt_find_cache_entry` reads the leaf cache (`lookup_leafcache`, `gf.c`) and takes the identity hash of a key that is no valid object (`jl_object_id`). The log: `experiments/docs-examples/logs/tutorial-next-32a2235abd-b-segfault.log`.
+- *The pattern:* a value the runtime's C code builds or caches is not rooted across an allocation, or a cache keeps a key the collector has freed. Open issue 189's fix was of this kind (the membership walk's substituted signature). The changes to dispatch add such places: the cache per call site, the lookup that reaches code compiled by facts, the tables of the split.
+- *The rule:* none of the design. It is the implementation's own.
+- *The proposal:*
+  - a tool, since the pattern can recur: Julia's own static check of roots (`make -C src analyzegc`) run over the changed runtime files, and the gates with the examples run once under a stressed collector, with the counts recorded;
+  - then the fix at each place the tool names. Before the measurement round: a crash in one of six runs of a teaching example outranks every performance item.

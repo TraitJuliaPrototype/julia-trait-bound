@@ -108,3 +108,16 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 - One question waits for the user (open issues §1, Q-1): the eight commits whose co-author line names a model.
 - W-163 started: an Opus agent in `wt/w163-julia`.
 
+## W-163: the crash, found and fixed
+
+An Opus agent worked in `wt/w163-julia` (branch `w163`) and `experiments/implementation/w163/`; the main session reviewed the fix, merged, rebuilt and checked.
+
+- **The fault:** `jl_lookup_generic_` holds the call's tuple type in a C local. Vanilla is sound there, because nothing allocates before `jl_mt_assoc_by_type` roots it. The design's member hook at dispatch (`member_hook_at_dispatch`) was put into that gap; it allocates (a method lookup) and runs the library's hook. A tuple type with a `Type{…}` parameter is not in Julia's type cache, so a collection there freed it, and `lookup_leafcache` hashed freed memory. The same pattern in the compile queue's drain (`jl_type_infer_policy`).
+- **Plain runs did not reproduce it** (0 of 30 for the agent). A collection forced in the window (`window_gc.patch`, a runtime built with the collector's debugging) crashes `tutorial.jl`, `intro.jl` and `strict.jl` with E-502's backtrace before the fix, none after.
+- **Every place of its kind:** Julia's static check of GC roots over the changed runtime files (`sagc.sh`; the Clang JLL was fetched for it): 26 findings against vanilla's 0. Three real (fixed), fourteen held in practice (eleven now rooted, three annotated), one NULL dereference (guarded), eight false positives (annotated). 0 after. `roots.sh`: two globals without a root, now rooted.
+- **The commits** on `next`: 768850cff7 (the runtime compiles under clang), 436bb59b29 (the fix), a5bd871cce (the other findings). `next` fast-forwarded and rebuilt (442 s).
+- **The main session's checks on the rebuilt head** (`experiments/implementation/w163/logs/main-a5bd871cce-*`, `w161/logs/w163-*`): the gates in force 67 of 71 (the four of open issue 237); `gate_deep`, `gate_d11`, the four check gates; the library 93 testsets; the ODE library 35; TraitMakie 8; NetworkDynamics' subset with its known failures; the forks' digests equal at 26 steps; the examples; the tutorial's script ten times without a fault.
+- **Found beside it, fixed:** loaded from source, the library stopped with `UndefVarError: _signatures_of`: a generated function's generator called a helper defined after it. The helper now stands before it (TraitWorld 3e64ede); the tutorial's script passes with `--compiled-modules=no`.
+- **Recorded:** E-502's outcome; open issue 234 and W-163 closed into their ledgers; the inventory's rows 137 to 139; the playbook §3 (the static check for a change to the runtime's C code) and §5 (the trap).
+- **W-164 started:** an Opus agent in `experiments/implementation/gates/`.
+

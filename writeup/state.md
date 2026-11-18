@@ -11,8 +11,8 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | 32a2235abd | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 51e3a86 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `julia-next` | julia, `next` | a5bd871cce | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `TraitWorld` | TraitWorld, `unified` | 3e64ede | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 0816231 | the ODE library |
 | `TraitMakie` | `unified` | efc3ec0 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | 7eb82b7, f296d0e, 2a81de6 | the table library, the CSV reader, the report against pandas |
@@ -20,7 +20,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | `ndport` | `main` | 6b41d66 | NetworkDynamics (its branch `unified` 6d311a3), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
-The code of the library and the demonstrators is that of d1febca (the library), ae1a966 (the ODE library), d905a0b (the plotting library) and bf6799b (the forks), on which the suites below ran; the commits since change paths, READMEs and one check script.
+The suites below ran on these heads but for the commits that only change READMEs.
 
 **The regression control** is the tag `prototype-2026-11` in every repository: `julia-unified` (7b374f39ce) and `TraitWorld-base` (e11c7cc) are its trees. A change is measured against plain Julia and Python; the tag says whether the implementation got worse.
 
@@ -44,22 +44,21 @@ The code of the library and the demonstrators is that of d1febca (the library), 
 
 | What | On | Result |
 |---|---|---|
-| the gates of each stage of the iteration (`w155/`, `w155b/`, `w160/`, `w161/`) | `next` (E-496) | pass |
+| the gates of each stage of the iteration (`w155/`, `w155b/`, `w160/`, `w161/`) | `next` | pass |
 | the gates in force (`experiments/implementation/gates/`, 71 files) | `next` | 67 pass; four assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements)) |
-| the library's suite | `next` (E-496) | passes |
-| TraitDifferentialEquations, TraitMakie | `next` (E-496) | their suites pass |
-| NetworkDynamics | `next` (E-496) | its suite passes; the workload's digests are unchanged |
-| the forks | the tag (E-373, E-392) | the session's digests equal upstream's; Tables' and CSV's upstream suites pass; DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
+| the library's suite | `next` | passes (93 testsets) |
+| TraitDifferentialEquations, TraitMakie | `next` | their suites pass |
+| NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
+| the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
 | TraitTables, TraitCSV, TraitReport | the tag (E-373) | pass; on `next` after their conversion |
-| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass, with the deviations T-126 and T-127 marked; the tutorial's script crashed in 2 of 6 runs (open issue 234) |
+| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass, with the deviations T-126 and T-127 marked; the tutorial's script ten times without a fault |
+| Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
 ## 4. What is next
 
-First, a fault: the tutorial's script crashes in one run of three on the head, in dispatch's cache ([open issue 234](open-issues.md#4-runtime-and-measurements); W-163). It is found and fixed before anything is measured.
-
-Four gates assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements); W-164): they are rewritten next.
+First, four gates assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements); W-164): they are rewritten, and one command runs every gate in force.
 
 Then the stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the demonstrators follow the design, and the attribute's machinery leaves Julia and the library (W-156);

@@ -38,6 +38,7 @@ In this order, each a few minutes at most:
 3. The examples of `intro/` (`experiments/docs-examples/`).
 4. One or two demonstrators' suites, chosen to reveal a regression first.
 5. Base's four test files against the vanilla control (`experiments/implementation/e262_suites.sh`), for a change to the type system, dispatch or inference.
+6. Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`; 0 findings on the head, as on vanilla) and the globals' roots (`roots.sh`), for a change to the runtime's C code.
 
 **Testing a compiler change** (L26, L27, L36):
 - Test at concrete argument types, and by what the runtime compiled. Reflection on the abstract signature, or after a run, shows something else.
@@ -80,13 +81,14 @@ In this order, each a few minutes at most:
 ## 5. When something fails
 
 - Name the pattern and the rule that produces it. Propose the fix at the rule (`CLAUDE.md`, "A failure names a pattern").
-- Where the pattern can recur, build the tool that finds every instance, and keep it in `experiments/` with a README. Tools built this way: the audit's probes (`implementation/audit/`), the dispatch profiler and `fully_typed`, the cause tool for lost code, the documentation lint (`tools/doclint/`).
+- Where the pattern can recur, build the tool that finds every instance, and keep it in `experiments/` with a README. Tools built this way: the audit's probes (`implementation/audit/`), the dispatch profiler and `fully_typed`, the cause tool for lost code, the documentation lint (`tools/doclint/`), the static check of GC roots and a collection forced in a suspected window (`implementation/w163/`).
 - Correctness ranks above every performance item (L39).
 - A slowdown is recorded as a tension, not fixed at the case.
 
 **Traps met, by kind.**
 - **Silent and slow, not wrong:** a package that leans on Base folding a type computation; a plain caller's constant propagation into a `getproperty` switch (L54, L55). Found by the dispatch profiler.
 - **Machinery that every call site reaches** must not specialize on what the site passes (L104).
+- **A hook put into the runtime's C code opens a window.** A value a C function holds in a local, unrooted because nothing allocated before it was stored, is freed once a call that allocates or runs Julia code is placed in between. Found as a crash in one run of three; the static check finds each instance (`experiments/implementation/w163/sagc.sh`, with vanilla as the control).
 - **Whatever caches a dispatch answer carries its world** (L16).
 - **A raw pointer in an immutable struct survives into a package image** (L39). **Through a typed pointer a struct by value is a copy** (L50).
 - **Code loaded at first use is invisible to the rest of the calling function** (world age); an entry that may load code goes through `invokelatest` (L70).

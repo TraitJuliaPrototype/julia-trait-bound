@@ -487,14 +487,6 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The rule:* not identified. A lead: the instance is TraitRodas's method compiled by the ODE port's workload, so it is external code in the port's image, which an image keeps only at a signature type with a hash ([julia-changes](design/julia-changes.md)).
 - *The proposal:* find where the workload's instance goes (not compiled, not kept by the serializer, or kept and dropped at load) with `image_instances.jl` on the precompiling process. Before the measurement round, since the sessions' times rest on it.
 
-**234. A crash in dispatch's cache while a trait is declared: memory unsafety in the changed runtime.**
-- *The case:* the tutorial's script (`experiments/docs-examples/tutorial.jl`) ends with a segmentation fault in 2 of 6 runs on `next` 32a2235abd with the library at d1febca, each time while `@trait Named` is expanded, after one collection. The stack: the library's `_parse_body` (`src/trait.jl:201`) calls a function through `apply_generic_reach`; `jl_mt_find_cache_entry` reads the leaf cache (`lookup_leafcache`, `gf.c`) and takes the identity hash of a key that is no valid object (`jl_object_id`). The log: `experiments/docs-examples/logs/tutorial-next-32a2235abd-b-segfault.log`.
-- *The pattern:* a value the runtime's C code builds or caches is not rooted across an allocation, or a cache keeps a key the collector has freed. Open issue 189's fix was of this kind (the membership walk's substituted signature). The changes to dispatch add such places: the cache per call site, the lookup that reaches code compiled by facts, the tables of the split.
-- *The rule:* none of the design. It is the implementation's own.
-- *The proposal:*
-  - a tool, since the pattern can recur: Julia's own static check of roots (`make -C src analyzegc`) run over the changed runtime files, and the gates with the examples run once under a stressed collector, with the counts recorded;
-  - then the fix at each place the tool names. Before the measurement round: a crash in one of six runs of a teaching example outranks every performance item.
-
 **235. A message of the definition-time check prints the compiler's tuple type.**
 - *The case:* `TraitUseError` for a method declared bounded reads "is not bounded at the box (Tuple{typeof(Main.Broken.colsum), Dynamic{ColTable}})" (`experiments/docs-examples/intro.jl`, `tutorial.jl`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
 - *The proposal:* the message names the method as its signature is written, `colsum(t::ColTable)`, and says "read with `t` in a box".
