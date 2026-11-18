@@ -49,3 +49,22 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 **Where the work stands** is kept in two places, for a session whose context has been summarized:
 - part 1: the Progress table of `writeup/record/harvest-2026-11.md`;
 - the parts: the row W-162 of the work queue.
+
+## The night's log
+
+**Part 1, the harvest: done.**
+- Seven batches of reading, each committed with its notebook entries (`writeup/record/harvest-2026-11.md`: 110 lessons, 11 groups of alternatives, 46 checks against today's documents).
+- **How much was read in full, stated plainly:** the reviews and plans to 2026-10-21, the explorations `wrapping-by-facts`, `dataframes-port-lessons`, `ndport-pushback`, `ndport-principled-traits`, the meta plan of the NetworkDynamics port, the synthesis, the High findings of the reviews of the turn to unification. The rest (from 2026-10-22 on: about 2 MB) by status lines, summaries, every finding's opening and the closing sections. The Progress table says which, batch by batch. The promise "the session reads all of it" was kept for every document's conclusions, not for every line (mine).
+- **Its products:** `design/lessons.md` (new); `design/alternatives.md` regrouped under eleven chapters with the harvested entries added; `design/proofs.md` (Q7: the proofs of G1 and G2 in today's terms, from `wrapping-by-facts` and facts §1, §2); `record/context.md` and `record/playbook.md` (the agents' tier).
+- **The dispositions of sixteen reviews** (2026-11-07 to 2026-11-10) were audited by an agent (`record/harvest-dispositions-2026-11.md`: 199 findings; 153 done, 30 superseded, 5 open and recorded, 2 declined, 9 without a record). The nine and the partials: open issues 229 to 233, the proposed changes to `CLAUDE.md`, and the later parts of the clean-up.
+
+**Part 2, the move: done.** 78 plans, 73 reviews, the explorations, the findings log and three retired design pages are under `attic/writeup/` at their old relative paths; the stubs are deleted; 725 links in current documents follow; `attic/README.md` is the index by era with one line per archived document; the site's navigation follows.
+
+**Part 7, the workspace: done but for one item.**
+- Removed: the worktrees `julia-s3`, `TraitWorld-s3`, `TraitWorld-w155`, `TraitDifferentialEquations-s3` (each merged; the last held one local line that `unified` has), the six `wt/design-w*` with their `iter-w*` branches, the copy `julia-unified-base` (3.3 GB; only W-141's README names it), the core dump and eleven build logs in `julia-unified`.
+- Deleted in the design repository: `w141-record`, `p2-experiments`, `poc-error-split` (merged), and `binA-wip`, local and remote. Its one commit was the unverified work in progress of 2026-11-12; its session note is in `main`, and bin A was finished and verified on 2026-11-14. The branches `binA-wip` of the other repositories are left.
+- The tag `pre-unified` on the earlier line's head of each repository: julia `trait-world-1.13` 00dcc9994c, TraitWorld `main` 1c2335f, TraitDifferentialEquations `w34` e9e07ed, TraitMakie ba46982, TraitTables 438ac2b, TraitCSV 9c6477b, TraitReport 882c533, forks a28abf1. Pushed.
+- The manifests of `TraitReport-unified` (three environments) and `ndport` (two) committed.
+- **Not done (mine): the build output of `julia-1.13` is not cleaned.** Scripts of the record under `experiments/unification/` run its binary for the controls against the earlier line. 1.9 GB is not worth breaking them before the rename of part 9 touches those paths anyway.
+
+**Part 3, the record: in progress.** The index is short (the old one: `attic/writeup/record/INDEX-2026-11-18.md`); the work queue holds 8 open items (every row as it stood: `attic/writeup/record/todo-closed.md`); the closed open issues are in `issues-closed.md`, the open page's snapshot in `issues-open-2026-11-18.md`; the performance explorations are split by build. Agents (two side by side, Opus) put the registry's rows into the new shape, rewrite the open issues as open items only, and map the decision log's rows; each result is checked by a script for conservation of IDs and of numbers.
