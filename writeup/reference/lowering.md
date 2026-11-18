@@ -136,7 +136,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `@nospecialize t::X` and `@specialize t::X` are Julia's, as at any argument.
 - **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** Implemented, but for [traits T-125](traits.md#19-deviations) and [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument).
+**Status:** Implemented, but for [traits T-125](traits.md#19-deviations).
 
 ---
 
@@ -172,7 +172,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - `unwrap(t)` is `getfield(t, :object)` for both; `==`, `isequal` and `hash` by the objects' `===`; `show` prints `Dynamic{Shape}(Circle(1.0))` and `Compiled(Circle(1.0))`.
 - **`compiled_for(x)`** is the library's function. The library exports it, as any name.
 
-**Status:** Implemented, but for [compiler C-113](compiler.md#deviations) (the wrapper the library's type).
+**Status:** Implemented.
 
 ---
 

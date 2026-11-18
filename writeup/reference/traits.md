@@ -650,7 +650,7 @@ Which form a value has is in its type. Nothing beside the call decides (§7.5). 
 
 Per key, one copy shared by every member with that key, is an optional extension (§7.2).
 
-**Status:** Implemented, but for [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument); per key: Optional (§7.2).
+**Status:** Implemented; per key: Optional (§7.2).
 
 ### 7.2 The key
 
@@ -753,7 +753,7 @@ solve(compiled_for(MyModel()), u0)            # the wrapper: the code compiled f
 - **A `where` variable bounded by a trait is the type of what the method is given:** in `f(x::C) where {C <: X}`, `C` is `typeof(x)`, a member's, a box's or a wrapper's type. Where `X` erases by default, `C` is the kept form's type.
 - **`@nospecialize` and `@specialize` are Julia's,** at a trait argument as at any other (§7.1).
 
-**Status:** Implemented, but for T-125 and [compiler C-112](compiler.md#deviations).
+**Status:** Implemented, but for T-125.
 
 ### 7.6 `compiled_for(x)`
 <a id="76-casts"></a>
@@ -771,7 +771,7 @@ prob = ODEProblem(w, u0, tspan, p)            # the solver compiled for lorenz!
 - **The name is the library's,** exported as any function is. A module that binds its own `compiled_for` has its own.
 - Equality: §8.3. Printing: §15.
 
-**Status:** Implemented, but for [compiler C-113](compiler.md#deviations).
+**Status:** Implemented.
 
 ### 7.7 `Dynamic{X}`
 
@@ -797,7 +797,7 @@ hooks = Dynamic{Hook}[Dynamic{Hook}(Below(0.9)), Dynamic{Hook}(Always())]
 - A result declared `::T` is asserted at the parameter's value: at `Float64` for a `Dynamic{StateVector{Float64}}`.
 - Rust's `dyn X` and Swift's `any X` are such boxes: usable through their own trait only. `Dynamic{All{X, Y}}` is Swift's `any X & Y`.
 
-**Status:** Implemented, but for [compiler C-113](compiler.md#deviations).
+**Status:** Implemented.
 
 ### 7.8 Erasing by default: the forwarder
 <a id="78-keeping-an-argument-with-its-attribute"></a>
@@ -952,6 +952,7 @@ colmap(uppercase, m, 1)                   # MethodError where the function is bo
 - **A struct parameter bounded by `Callable{A, S}` holds every function:** the bound checks no signature. The constructor with a `Callable` argument checks it, by its box or its entry (§8.2).
 - **A `where` variable that only `A` or `S` names is not bound by a call,** as Julia's `detect_unbound_args` reports. Another argument binds it (`retain!`, `byrow` above), or code computes the result type as a value, `Base.promote_op(f, T)`, as `map` does ([facts §7](facts.md#7-return_type-and-reflection)).
 - **Its default erases:** a plain function is boxed, so code is compiled once per signature, not per function, Julia's own functions included (§7.8). `compiled_for(f)` compiles it for the function.
+  - Where the method leaves `A` or `S` open (`byrow` above, `f::Callable` written bare), there is no signature to box at: the function is taken as it is, and the method is compiled per function (§7.8). A method that should be compiled once writes both.
 - **Several signatures** are an intersection: a box of `All{Callable{A, S}, Callable{B, R}}` is made for a function with methods at both, and a call picks the signature its argument types match.
 - **Argument types may follow other arguments:** `retain!(f::Callable{Tuple{T}, Bool}, xs::Iterable{T}) where {T}`; the box is made at the signature the other arguments give.
 - `Callable` without parameters is every function; a box needs a signature (§7.7).
@@ -1295,7 +1296,7 @@ Two guarantees, asked for separately.
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member) and [C-114](compiler.md#deviations) (the wrapper of a value known only by its trait: `verify_main` lists its targets, the build's own check refuses it); a build that compiles what is written, and a method that erases compiled ahead at the box: Planned, with [compiler C-112, C-114](compiler.md#deviations) and [lowering L-66](lowering.md#15-deviations).
+**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member) and [C-150](compiler.md#deviations) (no trimmed binary of a program with a wrapper is built); a method that erases compiled ahead at the box: Planned, with [lowering L-66](lowering.md#15-deviations).
 
 ---
 
@@ -1334,8 +1335,8 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | keywords, defaults, varargs at traits | Implemented | §6.6 |
 | keys and shared code: an optional extension | Optional ([open issue 147](../open-issues.md)) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 and T-130 | §7.3, §11.2 |
-| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-130 and compiler C-112, C-113 | §7.4–§7.6 |
-| `Dynamic{X}`, the box | Implemented, but for compiler C-113 | §7.7 |
+| the two kept forms, the box and the wrapper; the value's type decides | Implemented, but for T-130 | §7.4–§7.6 |
+| `Dynamic{X}`, the box | Implemented | §7.7 |
 | erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented | §7.9 |
 | storage typed by a trait; struct parameters; storage keeps the form given | Implemented | §8 |
@@ -1350,7 +1351,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented | §13 |
 | concreteness and fully typed mode | Implemented, but for T-100, T-101, T-109 and T-122 | §14 |
 | printing | Implemented | §15 |
-| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86, C-114; a build that compiles what is written: Planned, with compiler C-112, C-114 and lowering L-66 | §16 |
+| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86, C-150; a method that erases compiled ahead at the box: Planned, with lowering L-66 | §16 |
 | named implementations | Planned | §17 |
 
 ---

@@ -159,6 +159,8 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | The demonstrators' programs: the verifier's errors under `--trim=safe` | with traits: the table 0, 3.11 MB, runs and prints the session's output; the ODE program 50, with a gradient 88; the plot 6; the report 6 | the plain twins: table 6 (12 on vanilla); ODE 14; plot 86 (88 on vanilla); report 92 (98). Upstream CSV with DataFrames 844, 768 on vanilla | — | `unified` 21c9b33e39; one build each | E-383 |
 | Base's exported surface at broad types | — | of 6,179 signatures of Base's 837 exported functions, 71.4 % fully typed, 20.1 % with a hole, 8.4 % where the report failed; five standard libraries 68.8 % of 474 | — | `unified` f6ad3008b4; one run | E-368 |
 
+**On the head the table program does not build:** 28 errors on `next` 4bf381040c (E-506), where the row above has 0 on its build. Its loops reach a column's code by a plain call, which a closed build compiles once at the trait ([open issue 242](../open-issues.md#2-design)). The other programs are not counted on the head.
+
 **Not shown.**
 - The ODE program does not build under `--trim=safe`: 38 of its 50 errors are in the core's callbacks, 6 in Rodas5, 6 in a sort (open issue 184). Under `unsafe-warn` its binary runs.
 - A hole in Base below a trait program fails the build where the user cannot fix it (open issues 179, 181).
@@ -200,7 +202,6 @@ What plain Julia does where the design sets out to change it. No trait code is i
 
 **Not shown.**
 - Teaching: nothing measures "easy to teach".
-- The changed Julia still carries the machinery of an argument's attribute (compiler C-112, C-113).
 
 <a id="4c-the-unifications-trade-offs-measured-on-todays-build"></a>
 <a id="each-tensions-cost-on-the-rounds-second-freeze-w-145-part-8"></a>

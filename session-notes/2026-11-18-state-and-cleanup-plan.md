@@ -172,3 +172,22 @@ An Opus agent worked on a branch `w156` of the library and of each port; the mai
 - **What the library still reads of Julia's machinery:** `src/ahead.jl`, `src/erasing.jl` (`Callable`'s default), `src/fullytyped.jl`; named in compiler C-112's row.
 - **NetworkDynamics' clone has no remote of ours:** its branch reaches the repository by `ndport/pkgs-bundles/make.sh`, run after the merge (ndport 6928edb).
 - **The main session's run:** gates 72 of 72 and 9 of 9; the library 90 testsets; every port's suite and session; NetworkDynamics' subset with its known failures; the forks' digests equal at 26 steps; the examples 26, 95 and 5 checks with one known deviation (open issue 235). Logs: `experiments/implementation/w156/logs/main-b-*`, `w161/logs/main-w156b-*`.
+
+## W-156, its third part: the attribute's machinery leaves Julia
+
+An Opus agent worked in `wt/w156-julia` (branch `w156`) and on a branch of the library; the main session reviewed, merged, rebuilt, ran every check again and recorded.
+
+- **Built** (julia `next` dc760be0b2 to 4bf381040c; TraitWorld 6ad7098; E-506): a closed build branches at the wrapper's constructor (compiler C-114); no attribute is resolved at a call, and the casts, `Core.attributed_call`, `keep` and the module options `dynamic` and `first_seen` are gone (C-112); `Core.Compiled{T}` stands beside `Core.Dynamic{X}` (C-113). Julia lost 1,116 lines and gained 218. The three rows are retired.
+- **The main session's checks on the rebuilt `julia-next`** (822 s): gates 72 of 72 and 9 of 9; Base's six test files pass, `detect_ambiguities(Base)` 0; the library 91 testsets; every port's suite and session, NetworkDynamics' subset and the forks' digests as before; the examples; the static check 0 findings.
+- **What the build settled in the references** (mine): the closed build's instance at the call's types; the box by `new` with no conversion, and a box of another set no member; `@nospecialize` Julia's, with `@nospecializeinfer` where inference should stay at the trait; a `Callable` argument with its result left open takes the function as it is.
+- **TraitMakie's doors** carried `@nospecialize` only, so a caller that knew the data's type inferred each door again: the report's session compiled 28 methods where it had compiled 25. With `Base.@nospecializeinfer` it compiles 25 (TraitMakie 0668ebf): the port following the rule.
+- **Found by a check the suites do not make: the table program does not build on the head.** Its trimmed build counts 28 errors where the tag's had 0. The first part replaced the casts in TraitTables' loops by plain calls, which a session compiles per column type and a closed build compiles once at the trait. The design's form there is the wrapper, which needs traits T-130 first. Open issue 242; W-166, now first in the queue. The main session had accepted the first part on the suites alone; the playbook §2 now names the trimmed build as a check of such a change.
+- **The ODE program's build stops at load** (open issue 241): a package's workload runs while the closed build loads it, and a split over members not counted yet raises.
+- **Small leftovers closed:** TraitReport's form (b) loads (its workload in Julia's own form, `ReportCore` as a module with `@trait_module` inside, `env_b` resolved); `stack/battery.sh` runs the one command for the gates.
+
+## A mistake of the main session: Pkg's clean-up removed packages from the depot
+
+- **What happened:** to make TraitReport's `env_b` loadable I ran `Pkg.update()` in it. Pkg then ran its automatic clean-up of the depot, which had not run for some time. It keeps the packages of the manifests Pkg has operated on in the depot (8 were on its list); most of the workspace's environments are only loaded. It deleted 157 package installations and 4 artifacts, among them Makie's and the unrelated loads' packages that 60 environments name.
+- **Found** at once, from the clean-up's own lines, and measured with a check of every manifest against the depot.
+- **Restored** from the file system's snapshot of the night (`/p/projects/coen/.snapshots/globaldaily.p.2026-11-18_01-09-08`): all 157 installations and the 4 artifacts. The depot's list of installations equals the snapshot's. The 41 manifests that still name a package the depot lacks did so before (old experiments' environments).
+- **So that it does not recur:** `env.sh` sets `JULIA_PKG_GC_AUTO=false`; the playbook §2 has the rule and the way back; the check is kept as `experiments/tools/depot_check.jl`.

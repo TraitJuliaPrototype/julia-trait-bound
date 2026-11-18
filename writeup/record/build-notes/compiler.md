@@ -153,6 +153,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 ### §6.2 How an argument is compiled
 
 - **The status line as it stood:** Julia's rule: Implemented. Not in force on the build: Julia resolves an attribute at each argument typed by a set (C-112), so `@nospecialize` there takes the attribute's run-time path (E-402: 829 ns a call). The kept forms: §6.9.
+- **The attribute's machinery removed:** `next` 1ded4d77e7 (inference, the inliner), 17a260206c (dispatch, lowering, `Core`), a9e2a0addd (the module options) with TraitWorld `unified` a2bf677 (W-156, E-506): 22 files, 1,116 lines removed and 218 added in all. Kept: a set written with the method's variables at a `@nospecialize` argument compiled at its instance (`jl_is_trait_arg_type`), which the forwarders need; the erasing bit `TypeName.erases`. Gate `n33_compiled_as_julia`. Found by the control: TraitMakie's `@nospecialize` doors were inferred again per caller type; they carry `Base.@nospecializeinfer` (TraitMakie 0668ebf).
 
 ### §6.3 The forwarders
 
@@ -171,6 +172,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 
 - **The status line as it stood:** `Core.Dynamic`: Implemented on `unified` e692e57ab7 (W-111); its constructor tests the membership when it runs and boxes a box anew, and the library's methods stand in (C-113). The wrapper is the library's type (C-113, [traits T-126](../../reference/traits.md#19-deviations)). The casts and `keep` are still built (C-112). `Dynamic` in `Core`: mine (2026-11-06, the reviews of the draft). `Compiled` in `Core`, beside it: mine (2026-11-15).
 - **Taken from the section's text:** It is no method at a set: a late load of it ends nothing (E-404).
+- **The wrapper in `Core`:** `next` 4bf381040c with TraitWorld `unified` 6ad7098 (W-156, E-506). The box is made by `Core._new_dynamic`, an `Expr(:new, …)` with no conversion: a `new` written in the constructor converts, and raised `convert`'s `MethodError` for a non-member. Gates `n33_compiled_as_julia` (7), `m1_no_wrappers`.
 
 ### §7.1 The rule
 
@@ -197,6 +199,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 ### §7.6 A closed build
 
 - **The status line as it stood:** Implemented on `unified` 97861c6b31, ddc328b343 (the instance compiled once at a call that does not know the member), 5d8da002fa (the branches at a cast to `Compiled`, the cast typed by its set) and d8cebc40fe (members by use, the rounds, the report) (W-139; E-364: five small programs and TraitTables' table program build under `--trim=safe` and run, where the plain twin with an abstract type is refused). The rule: the user (2026-11-11); members by use: the user (2026-11-11, "Build members by use."). The box as a member, the bound of 64, the second inference, the rounds, and what counts as a use (the places, the test): mine (2026-11-11). The branches at a call whose static parameter the value binds: built for a cast only (C-114), mine (2026-11-11, for the cast; 2026-11-15, for the wrapper). The rules asked of the interpreter, and an invoke that names its instance compiled: `unified` 381cc8b953, bounded on 42681be784 (Base's `Compiler/inference` test) (W-142; E-369: Base's `repeat(::Char, ::Int)` builds). With C-86, C-87. A build that compiles what is written: Planned (the plan's D-1, 2026-11-15); the build still resolves an attribute at a trait argument (C-112, C-114). The closed rules as what follows from what is final, and the three consequences stated first: mine (2026-11-15; D-10); an operation on a set with no member and a call in the latest world: Planned, with C-102 and C-103.
+- **The branches at the wrapper's constructor, the instance at the call's types:** `next` dc760be0b2 (W-156, E-506): `closed_sparam_bits`, `closed_member_split`, `closed_set_signature` (`Compiler/src/abstractinterpretation.jl`, `ssair/inlining.jl`); TraitWorld `test/verify.jl`. Checked by the build's check in a session only (C-150): the table program's trimmed build counts 28 errors on the head, because its loops call a column's code by a plain call ([open issue 242](../../open-issues.md#2-design)).
 
 ### §8.1 The `cfunction` calling convention `:caller_world`
 

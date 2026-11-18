@@ -11,6 +11,9 @@ export TW_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # The Julia depot inside the workspace instead of ~/.julia
 export JULIA_DEPOT_PATH=$TW_ROOT/.julia-depot
+# Pkg's automatic clean-up stays off: it keeps only the packages of the manifests Pkg itself has operated on in
+# this depot, and most environments here are only loaded, so it removes what they need (2026-11-18).
+export JULIA_PKG_GC_AUTO=false
 
 # At most 4 cores
 export JULIA_NUM_THREADS=4
