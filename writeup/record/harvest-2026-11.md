@@ -944,3 +944,35 @@ What each pass over a ledger did, with the choices (mine).
 - **179 kept.** Its plan's parts are done (E-368, E-476 to E-478); what is open is the build's verdict per signature, P3's demand rule for upstream by facts and P6.
 - **125 closed.** By compiler §2.4 (a callee inferred under its own policy). If the main session reads 125 as the pressure "Base by facts in the product setting", that is GT-3 and GT-8.
 - **19 and 65** are in §4 (Facts and ownership), not §1: they wait for E-189 (proposed, not run), not for the user. §1 holds no question.
+
+### The decision log
+
+- **How:** an agent classified each of the log's 491 rows as in force (with the part of the design it sets) or for the ledger (with a reason). The main session built both files by script, each row unchanged, and checked that every row is in one of them.
+- **The result:** 282 rows in [the log](decisions.md), in 21 groups by reference chapter; 209 in [the ledger](../../attic/writeup/record/decisions-superseded.md): the old section of superseded rows (85), and 124 whose mechanism is gone, that a later row decides differently, or that are finished plans.
+- **Anchors:** the log's old section anchors (`#5-the-compiler-and-julia` and the like) are gone. A link "decisions §5" in a row or a note of its day means the old log's section.
+- **Kept in doubt** (in force, with a clause of its day; mine): each is a row to restate when its subject is next decided.
+
+| The row | What is of its day |
+|---|---|
+| The receiver type: the type whose own methods serve at least one operation (th (T4) | the receiver type: "none when defaults serve every operation" is not stated today |
+| Declared fields are stored fields of the conforming type, by name or mapped (` (T4) | declared fields are stored fields; "or mapped" is gone |
+| Built W-46 (mine, the agent building it, 2026-10-22): (T4) | a supertrait's parameter taken only where written bare: not clearly stated in traits §4.5 |
+| Built T-64 (mine, 2026-10-22): (T5) | a result typed by a trait checked by its inferred type; "kept value" is gone |
+| TraitDifferentialEquations around a problem trait: (P-ports) | the ODE library around `ODEProblemTrait`: the other details not checked |
+| No sealing (T3) | "no sealing": not in the references; sealed sets deferred |
+| Slowdowns are tolerated if redesigning the code with traits recovers them. (P-goals) | slowdowns tolerated if a redesign with traits recovers them: of the time before the speed work was retired |
+| What the check before a pirate's membership misses is reported, not undone: (T12) | the miss of a pirate's membership is reported, not undone: partly overtaken by taking a membership back |
+| The key's form: (X) | the key's form, of the time before keys became optional |
+| The owner of code compiled by facts beside plain code is the symbol `:facts` (C) | the owner symbol `:facts`: the references speak of a policy |
+| In a closed build the split holds the box `Dynamic{X}` as a member, splits over at most 64 members, and code i (T16) | the closed build's split holds the box; its clause on the attribute's call is gone |
+| A user's own component types in NetworkDynamics on the ports (R6): (P-ports) | NetworkDynamics' component adaptors through bounded helpers: not found in the port |
+| Symbolic access as a protocol (open issue 118, R5): (P-ports) | `HasSystem` holds; `observed` returning `Kept{Callable}` is gone |
+| Image validation gives a fold that holds the bound `typemax`, (C) | image validation of a fold, with the folds of that time |
+| A large library keeps its API by package extensions for keys and loading stubs for functions (P-ports) | lean libraries by package extensions for keys |
+| Workspace: the design repository with separate repositories inside it (`julia/ (P-docs) | the workspace layout; its "no remotes" is stale |
+| Cleaning up the open issues and the work queue: (P-method) | the clean-up of 2026-10-27: finished; its rule for open questions stands |
+| At an intersection argument: (T3) | intersection arguments; the clause on the attribute's fallback is gone |
+| An image's memberships, activated at load, run the stopgap's walk and the ambiguity report as a declaration do (C) | an image's memberships run the walk at load; "stopgap" is stale |
+| A membership's check, at a further argument declared abstract, asks for a method that meets the signature (T5) | the check at abstract further arguments holds; one clause contradicts a contract's entries |
+| Sets in Base's build: (C) | sets in Base's build; its "final negatives" are of that time |
+| Dispatch's lookup at an open set keeps a match met only at an intersection no type is in (C) | dispatch keeps a match at an empty intersection; negatives fold with an edge now |
