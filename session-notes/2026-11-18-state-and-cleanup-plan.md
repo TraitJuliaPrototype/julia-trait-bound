@@ -67,4 +67,29 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 - The manifests of `TraitReport-unified` (three environments) and `ndport` (two) committed.
 - **Not done (mine): the build output of `julia-1.13` is not cleaned.** Scripts of the record under `experiments/unification/` run its binary for the controls against the earlier line. 1.9 GB is not worth breaking them before the rename of part 9 touches those paths anyway.
 
-**Part 3, the record: in progress.** The index is short (the old one: `attic/writeup/record/INDEX-2026-11-18.md`); the work queue holds 8 open items (every row as it stood: `attic/writeup/record/todo-closed.md`); the closed open issues are in `issues-closed.md`, the open page's snapshot in `issues-open-2026-11-18.md`; the performance explorations are split by build. Agents (two side by side, Opus) put the registry's rows into the new shape, rewrite the open issues as open items only, and map the decision log's rows; each result is checked by a script for conservation of IDs and of numbers.
+**Part 3, the record: done.**
+- The index is short (the old one: `attic/writeup/record/INDEX-2026-11-18.md`). The work queue holds the open items (every row as it stood: `attic/writeup/record/todo-closed.md`).
+- The registry of experiments by goal: 106 rows; 329 IDs in the ledger only, each with its reason (`attic/writeup/record/experiments-archive.md`, which holds every old row). Two agents drafted the rows; the merge and the checks (every ID once; every number of a kept row in its old row) were the main session's.
+- The decision log by the part of the design: 283 rows; 209 in `attic/writeup/record/decisions-superseded.md`. An agent classified, a script built both files, every row unchanged.
+- The open issues as what is open: no question for the user, 12 tensions, the agent's choices one line each, the design's and the implementation's items. What the pass closed, with reasons: `attic/writeup/record/issues-closed.md`. New from the clean-up: open issues 229 to 237.
+- The experiments repository: the earlier experiments that nothing reads are under `experiments/attic/`; its READMEs describe the implementation's layout.
+
+**Part 4, the evidence and the goals: done.** `design/evidence.md` by goal, each number against plain Julia or Python with its build and experiment (an agent's draft from the old page, kept at `attic/writeup/design/evidence-2026-11-18.md`; numbers checked by script). `goals.md`: the standings on that evidence, the index of the twelve tensions that stand. `design.md` and `intro/results.md` on the same numbers.
+
+**Part 5, the references: done.** Three agents, one brief: a status line is one word and its deviation rows; commits, branches, dates, work items, plan rows, experiments and the user's words left the text for `record/build-notes/`; 279 retired deviation rows are in `attic/writeup/record/deviations-retired.md`. No heading or anchor changed. Status lines that the pass showed stale were corrected (traits §3.1, §3.6, §7.4 to §7.6; compiler §8.2).
+
+**Part 6, the front and the teaching: done but for the repositories' READMEs** (an agent's, running when this was written).
+- `intro/traits-for-julia.md` and `traits-by-example.md` teach the box and the wrapper; their scripts run on `next` 32a2235abd with the library at d1febca: intro 24 pass, tutorial 94, strict 5, four deviations marked.
+- `intro/porting.md` rewritten on the ports' code of today, with the harvested rules; its 23 quotes check against the ports' files.
+- `design/other-languages.md` on the design as it is (an agent's; it stopped at a usage limit after writing the page; the main session ran its checks). `design/julia-changes.md` is the inventory of the current line. The glossary without retired terms. The setup page, the writeup's overview, the environment page.
+
+**Part 9, the names: done.** `writeup/plans/2026-11-18-names.md`. The seven `-unified` trees lost the suffix; the earlier checkouts are under `pre-unified/`; `experiments/unification/` is `experiments/implementation/`; 1,639 places in 364 files rewritten by `tools-local/names-2026-11-18.py`. Checked on `next` after it: the library's suite (93 testsets), the ODE library's (35), TraitMakie's (8), NetworkDynamics' subset as before, the stage gates, the forks' digests (equal at 26 steps), the examples.
+
+**Found on the way, each recorded and none fixed at the case:**
+- **A crash:** the tutorial's script ended with a segmentation fault in 2 of 6 runs, in dispatch's leaf cache while `@trait` was expanded (open issue 234; W-163). The two core files (0.5 GB each) were deleted; the backtrace is `experiments/docs-examples/logs/tutorial-next-32a2235abd-b-segfault.log`.
+- **Four gates fail on `next` and pass on the tag:** `n8_callable`, `n20_unmet_lookup`, `n22_declared_assert`, `n26_callable_late_method`. They assert rules the iteration replaced (open issue 237). Of the 71 gates in force 67 pass.
+- **The forks' digests differed from upstream's after the rename's rebuild of the images.** The cells were equal; `hash(Date)` differed between the two environments, which loaded two cache files of Dates. The digest is now made from the cells' printed form (forks 201950c's parent commit).
+
+**The user, in the morning, after a usage limit stopped two agents:** "You hit a usage limit. Continue with only one opus subagent at a time." From then on one agent at a time. It is in the proposal for `CLAUDE.md`, not in `CLAUDE.md`: an edit of that file's rules was refused by the harness, as the user had asked to see rule changes as a diff.
+
+**What waits for the user:** the proposal for `CLAUDE.md` (`writeup/plans/2026-11-18-claude-md-changes.md`); the default branch of each repository on GitHub. The review of the whole: `writeup/reviews/2026-11-18-documentation-cleanup.md`.
