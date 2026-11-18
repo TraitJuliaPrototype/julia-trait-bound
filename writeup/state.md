@@ -12,13 +12,15 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | 32a2235abd | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | d1febca | the library: `@trait`, `@implement`, the checks, BaseTraits |
-| `TraitDifferentialEquations` | `unified` | ae1a966 | the ODE library |
-| `TraitMakie` | `unified` | d905a0b | the plotting library |
-| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | c339175, 92c46d0, f60f1f2 | the table library, the CSV reader, the report against pandas |
-| `forks` | forks, `unified` | bf6799b | Tables, DataFrames and CSV ported, with upstream's suites |
-| `ndport` | `main` | 2299240 | NetworkDynamics (its branch `unified` 6d311a3), Graphs and GraphMakie ported, with the workload |
+| `TraitWorld` | TraitWorld, `unified` | 51e3a86 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitDifferentialEquations` | `unified` | 0816231 | the ODE library |
+| `TraitMakie` | `unified` | efc3ec0 | the plotting library |
+| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | 7eb82b7, f296d0e, 2a81de6 | the table library, the CSV reader, the report against pandas |
+| `forks` | forks, `unified` | b8cab0b | Tables, DataFrames and CSV ported, with upstream's suites |
+| `ndport` | `main` | 6b41d66 | NetworkDynamics (its branch `unified` 6d311a3), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
+
+The code of the library and the demonstrators is that of d1febca (the library), ae1a966 (the ODE library), d905a0b (the plotting library) and bf6799b (the forks), on which the suites below ran; the commits since change paths, READMEs and one check script.
 
 **The regression control** is the tag `prototype-2026-11` in every repository: `julia-unified` (7b374f39ce) and `TraitWorld-base` (e11c7cc) are its trees. A change is measured against plain Julia and Python; the tag says whether the implementation got worse.
 

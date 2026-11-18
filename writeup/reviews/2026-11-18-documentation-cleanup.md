@@ -29,6 +29,7 @@
   - experiments of the ledger cited by an open issue as its case (13), and by the evidence in "measured only on the library of October 2026" lines (8);
   - one link from each reference to the ledger of retired rows.
 - **Conservation, by script:** every experiment ID, every decision row, every open issue number, every tension and every status line of the documents before the clean-up is in the current document or in its ledger. Every number in a kept registry row stands in that experiment's old row; every number of the evidence stands in the old evidence or the registry.
+- **Two rows of the evidence read against their logs** (E-392, the nine loads; E-443, an operation on a box): the numbers are the logs'.
 - **What runs, after the rename, on `next` 32a2235abd:**
 
   | What | Result | Log (`experiments/implementation/`) |
@@ -69,6 +70,7 @@ The decision log's row "The clean-up's choices made while it ran" lists them. Th
 ## 5. What is left
 
 - **For the user:**
+  - the eight commits "The README for the package as it is; its history to HISTORY.md" (one per repository of the library, the demonstrators, the forks and ndport) carry a co-author line that names a model. An agent wrote them so and they were pushed before the main session saw it. Rewriting them needs a forced push, which the harness refused; it is the user's to do or to allow;
   - the rule changes in `CLAUDE.md`: [the proposal with its diff](../plans/2026-11-18-claude-md-changes.md). In `CLAUDE.md` itself only paths were changed;
   - the default branch of each repository on GitHub (`unified`; for julia, `next`): a repository setting, not changed from here.
 - **Not verified:**
@@ -78,10 +80,12 @@ The decision log's row "The clean-up's choices made while it ran" lists them. Th
 - **Not done:**
   - TraitTables, TraitCSV and TraitReport are not on the design's one way to erase (traits T-128; W-156). The teaching pages mark two deviations of the library (T-126, T-127);
   - the build output of `julia-1.13` is kept (1.9 GB);
+  - scripts of the demonstrators that still name a Julia of an earlier line by default: TraitMakie's and TraitReport's `scripts/session.sh`, TraitReport's `measure.sh`, the forks' `check_session.sh` and `testsuites.sh` (each takes the Julia as an argument or a variable), ndport's `u_workload.sh` and `r5_workload.sh`. Each README says how to run on `julia-next`;
+  - TraitReport's `src/TraitReport.jl` calls `TraitWorld.@workload`, which the library does not define: one of its forms may not load. It goes with the demonstrators' conversion (W-156);
   - the experiments' directories of the earlier library that a current script still reads stay where they are (`experiments/README.md` lists them).
 
 ## 6. What an independent reader should do next
 
 - Read `intro/` as a programmer who has not seen the project, and the references as a core developer. The clean-up removed what the lint can count; whether the pages teach is not measured (G-8).
-- Check ten rows of the evidence against their logs.
+- Check ten more rows of the evidence against their logs.
 - Run `python3 experiments/tools/doclint/doclint.py` and `anchors.py` before each commit to a current document.
