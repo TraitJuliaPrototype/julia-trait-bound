@@ -121,3 +121,14 @@ An Opus agent worked in `wt/w163-julia` (branch `w163`) and `experiments/impleme
 - **Recorded:** E-502's outcome; open issue 234 and W-163 closed into their ledgers; the inventory's rows 137 to 139; the playbook §3 (the static check for a change to the runtime's C code) and §5 (the trap).
 - **W-164 started:** an Opus agent in `experiments/implementation/gates/`.
 
+## W-164: the gates say what is in force
+
+An Opus agent worked in `experiments/implementation/gates/`; the main session ran the result and recorded it.
+
+- The four gates rewritten to the rules in force (`n8_callable`, `n26_callable_late_method`, `n20_unmet_lookup` case 5, `n22_declared_assert`), one added (`n8_callable_box`, with the library). Each fails on the tag's Julia or under a wrong assertion on the head.
+- The nine `m3_*` files are in `gates/not-in-force/`. `gates/run_all.sh <tree>` with no pattern runs the 72 gates in force and the 9 stage gates of `gates/stage_gates.txt`. On `next` a5bd871cce: 72 of 72 and 9 of 9, run again by the main session (`gates/logs/main-a5bd871cce-all.log`).
+- **A mistake of the main session:** its commit of the check logs (experiments cb51434) took the agent's staged renames with it, since a plain `git commit` commits everything staged. The playbook §9 now says to commit with a pathspec where an agent works in the same repository.
+- **Found by the gates:** two methods at `Callable` instances that differ only in an input do not tie: the intersection of the two instances is `Union{}`, and dispatch selects one silently (compiler C-147). And the unmet lookup keeps its ambiguity flag at `Callable` (C-148). The rule was not in the reference: compiler §4.9 and traits §3.2 now state that two instances of one set meet where they differ only in inputs (mine; the decision log). Open issue 238 keeps what is not decided: an entry that leaves a parameter free which is no input.
+- **The static check of GC roots on `julia-next` itself:** 15 files, 0 findings. A first run read "0 findings" although the checker's plugin had not been built: `sagc.sh` now exits with an error when the check could not run. `wt/w163-julia` and the merged branch `w163` are removed.
+- **W-165 started** (E-503 registered): an Opus agent in `wt/w165-julia`.
+
