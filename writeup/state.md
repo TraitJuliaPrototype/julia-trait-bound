@@ -12,11 +12,11 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | 32a2235abd | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld-unified` | TraitWorld, `unified` | d1febca | the library: `@trait`, `@implement`, the checks, BaseTraits |
-| `TraitDifferentialEquations-unified` | `unified` | ae1a966 | the ODE library |
-| `TraitMakie-unified` | `unified` | d905a0b | the plotting library |
-| `TraitTables-unified`, `TraitCSV-unified`, `TraitReport-unified` | `unified` | c339175, 92c46d0, f60f1f2 | the table library, the CSV reader, the report against pandas |
-| `forks-unified` | forks, `unified` | bf6799b | Tables, DataFrames and CSV ported, with upstream's suites |
+| `TraitWorld` | TraitWorld, `unified` | d1febca | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitDifferentialEquations` | `unified` | ae1a966 | the ODE library |
+| `TraitMakie` | `unified` | d905a0b | the plotting library |
+| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | c339175, 92c46d0, f60f1f2 | the table library, the CSV reader, the report against pandas |
+| `forks` | forks, `unified` | bf6799b | Tables, DataFrames and CSV ported, with upstream's suites |
 | `ndport` | `main` | 2299240 | NetworkDynamics (its branch `unified` 6d311a3), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
@@ -42,18 +42,22 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | What | On | Result |
 |---|---|---|
-| the gates (`experiments/unification/gates/`, with the gates of each stage) | `next` (E-496) | pass |
+| the gates of each stage of the iteration (`w155/`, `w155b/`, `w160/`, `w161/`) | `next` (E-496) | pass |
+| the gates in force (`experiments/implementation/gates/`, 71 files) | `next` | 67 pass; four assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements)) |
 | the library's suite | `next` (E-496) | passes |
 | TraitDifferentialEquations, TraitMakie | `next` (E-496) | their suites pass |
 | NetworkDynamics | `next` (E-496) | its suite passes; the workload's digests are unchanged |
 | the forks | the tag (E-373, E-392) | the session's digests equal upstream's; Tables' and CSV's upstream suites pass; DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
 | TraitTables, TraitCSV, TraitReport | the tag (E-373) | pass; on `next` after their conversion |
+| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass, with the deviations T-126 and T-127 marked; the tutorial's script crashed in 2 of 6 runs (open issue 234) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
 ## 4. What is next
 
-The stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
+First, a fault: the tutorial's script crashes in one run of three on the head, in dispatch's cache ([open issue 234](open-issues.md#4-runtime-and-measurements); W-163). It is found and fixed before anything is measured.
+
+Then the stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the demonstrators follow the design, and the attribute's machinery leaves Julia and the library (W-156);
 2. daily use: a program of the ODE library through a build, the teaching, a reader from outside (W-158);
 3. a freeze and a short measurement round, each row against plain Julia and Python (W-159);

@@ -111,7 +111,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Implemented, but for [compiler C-45, C-47, C-51](compiler.md#deviations) (the acceptance suite, `experiments/unification/test/acceptance/`).
+**Status:** Implemented, but for [compiler C-45, C-47, C-51](compiler.md#deviations) (the acceptance suite, `experiments/implementation/test/acceptance/`).
 
 ### 2.2 G2: stable caches
 

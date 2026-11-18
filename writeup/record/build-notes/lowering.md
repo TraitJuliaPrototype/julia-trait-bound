@@ -54,7 +54,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 
 ### §12 Compiling ahead
 
-- **The status line as it stood:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 and e81cd49a67 (W-114); gate `experiments/unification/stack/ahead_two_packages.jl`: in a fresh session that loads the member's package, the methods at the set have their code for `S` from its image, and with `JULIA_TW_AHEAD=0` none. The request as Julia's `precompile`, and nothing per member for a method that erases: Planned (D-1, 2026-11-15), with L-66.
+- **The status line as it stood:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 and e81cd49a67 (W-114); gate `experiments/implementation/stack/ahead_two_packages.jl`: in a fresh session that loads the member's package, the methods at the set have their code for `S` from its image, and with `JULIA_TW_AHEAD=0` none. The request as Julia's `precompile`, and nothing per member for a method that erases: Planned (D-1, 2026-11-15), with L-66.
 
 ### §13 Strict mode
 

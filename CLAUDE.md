@@ -13,7 +13,7 @@ This directory is the design repository of trait-bound Julia. Beside `writeup/` 
 **A failure names a pattern** (2026-11-09, the user: "When we see failures like this, also think about principled fixes or new tools that reveal common patterns"). When a test, gate or measurement fails, look past the one case:
 - name the pattern it belongs to, and the rule that produces it;
 - propose the principled fix at that rule, not a patch at the case;
-- where the pattern can recur, build a tool that finds every instance, and keep it in the experiments repository with a README (as `experiments/unification/audit/`). The open issue records the tool and its counts.
+- where the pattern can recur, build a tool that finds every instance, and keep it in the experiments repository with a README (as `experiments/implementation/audit/`). The open issue records the tool and its counts.
 
 **The goals direct the work** (2026-11-10, the user: "The entire point of this project is to show that Traits and Facts actually enable dramatically reducing (re) compilation and potentially improve speed and caching with limited to no downsides and better error messages and better AOT compilation experience. We also want to show that there is a clean and doable path for the ecosystem to transition with clear potting guidelines. Finally unification made the design of the Trait system dramatically simpler, making it easy to teach."). The goals, the claim on each axis and where each stands are [`writeup/goals.md`](writeup/goals.md). The order of work follows the weakest axes (the user: "Clean up our experiment, decisions and work/todo log to reflect the aim to build towards that goal, prioritising weakest spots.").
 

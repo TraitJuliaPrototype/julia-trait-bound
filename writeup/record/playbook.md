@@ -33,17 +33,18 @@ Before changing anything:
 ## 3. Checking a change
 
 In this order, each a few minutes at most:
-1. The gates that concern the change (`experiments/unification/gates/run_all.sh <tree> '<pattern>'`), then all of them.
+1. The gates that concern the change (`experiments/implementation/gates/run_all.sh <tree> '<pattern>'`), then all of them: the patterns `'m[12]_*'` and `'[nf]*'`. The `m3_*` files are not gates in force (`gates/README.md`).
 2. The library's tests.
 3. The examples of `intro/` (`experiments/docs-examples/`).
 4. One or two demonstrators' suites, chosen to reveal a regression first.
-5. Base's four test files against the vanilla control (`experiments/unification/e262_suites.sh`), for a change to the type system, dispatch or inference.
+5. Base's four test files against the vanilla control (`experiments/implementation/e262_suites.sh`), for a change to the type system, dispatch or inference.
 
 **Testing a compiler change** (L26, L27, L36):
 - Test at concrete argument types, and by what the runtime compiled. Reflection on the abstract signature, or after a run, shows something else.
 - A claim "the same as plain Julia" is checked by a redefinition, in both modes.
 - A check of a guarantee counts the code the guarantee is about.
 - A deviation row gets an expected-failure check, or nobody re-verifies it.
+- A decision that replaces a rule names the gates that pinned the old one. "The gates pass" means every gate in force and every stage's gates, not the stage's own (open issue 237).
 
 **Auditing code you did not write** (L88): by probes, not by its gates. Gates pin the defects their author believed in.
 
@@ -61,6 +62,7 @@ In this order, each a few minutes at most:
   - a cache measured on the session that recorded it;
   - settings that differ in five things at once;
   - a criterion that cannot be decided.
+  - a digest made with `hash`: the hash of a value of a package's type mixes in the type's identity, which differs between two cache files of that package. Digest the printed form.
 
 **The run.**
 - Fresh processes, one per cell. State the build (commit), the setting, strict mode, the load order, the number of runs, the machine's load.
@@ -78,7 +80,7 @@ In this order, each a few minutes at most:
 ## 5. When something fails
 
 - Name the pattern and the rule that produces it. Propose the fix at the rule (`CLAUDE.md`, "A failure names a pattern").
-- Where the pattern can recur, build the tool that finds every instance, and keep it in `experiments/` with a README. Tools built this way: the audit's probes (`unification/audit/`), the dispatch profiler and `fully_typed`, the cause tool for lost code, the documentation lint (`tools/doclint/`).
+- Where the pattern can recur, build the tool that finds every instance, and keep it in `experiments/` with a README. Tools built this way: the audit's probes (`implementation/audit/`), the dispatch profiler and `fully_typed`, the cause tool for lost code, the documentation lint (`tools/doclint/`).
 - Correctness ranks above every performance item (L39).
 - A slowdown is recorded as a tension, not fixed at the case.
 

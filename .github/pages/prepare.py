@@ -9,17 +9,11 @@
 import os, re, shutil, subprocess
 
 ORG = "https://github.com/TraitJuliaPrototype"
-# a directory of the workspace -> its repository and branch on GitHub. The trees without a suffix are the main
-# checkouts (the library on Julia 1.13, tag `pre-unified`); the `-unified` trees and `julia-next` hold the implementation.
-REPOS = {"TraitWorld": "TraitWorld/blob/main", "TraitDifferentialEquations": "TraitDifferentialEquations/blob/main",
-         "TraitMakie": "TraitMakie/blob/main", "TraitTables": "TraitTables/blob/main", "TraitCSV": "TraitCSV/blob/main",
-         "TraitReport": "TraitReport/blob/main", "forks": "forks/blob/main", "experiments": "experiments/blob/main",
-         "ndport": "ndport/blob/main",
-         "TraitWorld-unified": "TraitWorld/blob/unified",
-         "TraitDifferentialEquations-unified": "TraitDifferentialEquations/blob/unified",
-         "TraitMakie-unified": "TraitMakie/blob/unified", "TraitTables-unified": "TraitTables/blob/unified",
-         "TraitCSV-unified": "TraitCSV/blob/unified", "TraitReport-unified": "TraitReport/blob/unified",
-         "forks-unified": "forks/blob/unified",
+# a directory of the workspace -> its repository and branch on GitHub
+REPOS = {"TraitWorld": "TraitWorld/blob/unified", "TraitDifferentialEquations": "TraitDifferentialEquations/blob/unified",
+         "TraitMakie": "TraitMakie/blob/unified", "TraitTables": "TraitTables/blob/unified",
+         "TraitCSV": "TraitCSV/blob/unified", "TraitReport": "TraitReport/blob/unified", "forks": "forks/blob/unified",
+         "experiments": "experiments/blob/main", "ndport": "ndport/blob/main",
          "julia-next": "julia/blob/next", "julia-unified": "julia/blob/unified", "julia-vanilla": "julia/blob/v1.13.2",
          "julia-1.13": "julia/blob/trait-world-1.13", "julia": "julia/blob/trait-world-1.13"}
 root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))

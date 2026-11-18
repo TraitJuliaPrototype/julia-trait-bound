@@ -2,7 +2,7 @@
 
 The agreed work that is open: what is to be done, why, in what order, and what it waits for.
 
-- **Each item has an ID, `W-n`,** stable and never reused. A new item takes the next free number (W-163).
+- **Each item has an ID, `W-n`,** stable and never reused. A new item takes the next free number (W-164).
 - **Status:** next, open, waiting (say for what), paused, idea.
 - **Source:** who asked; the user's words where the user asked.
 - **A closed item** (done, dropped, merged, retired, stopped) leaves this page for [the ledger](../../attic/writeup/record/todo-closed.md), with its last row. The ledger holds every item up to W-162 with its history.
@@ -25,6 +25,7 @@ Stages 0 to 3 and 5 are closed. The speed work is retired: no item pursues speed
 
 | ID | Work | Source | Status | Links |
 |---|---|---|---|---|
+| W-163 | **A crash in dispatch's cache: find every place of its kind, and fix them.** Julia's static check of roots (`make -C src analyzegc`) over the changed runtime files; the gates and the examples of `intro/` once under a stressed collector; the counts recorded; the fix at each place. Before the measurement round. | mine, by the rule that a failure names a pattern (`CLAUDE.md`): the tutorial's script crashed in 2 of 6 runs on `next` | next | [open issue 234](../open-issues.md#4-runtime-and-measurements) |
 | W-162 | **The documentation clean-up:** the documents describe the intended design and the implementation as it is; the record shows the current experiments, work and decisions; plans and reviews that are no longer relevant are in the attic, their insights in the lessons and the alternatives; the workspace tidied; the directories renamed last. | the user: "Currently a lot of the documentation seems still to be written in terms of the history, and referencing the pre unified implementation. At this point unified _is_ the implementation. The documentation should describe the intended design." | next: in progress, by its parts | [the plan](../plans/2026-11-18-documentation-cleanup.md); [the harvest notebook](harvest-2026-11.md) |
 | W-156 | **Stage 4: the ports follow.** Every demonstrator on the head with the box and the wrapper in place of casts, `Callable`'s guards and operations as contract entries; the suites' table again; the annotations per port counted; the porting guideline rewritten on the converted ports; then the attribute's machinery removed from Julia and the library (compiler C-112, traits T-127). | the user: "Have Opus agents implement the plan" | next, not started | [the plan](../plans/2026-11-15-next-iteration.md) §3, §6 ("Where it stands") |
 | W-158 | **Stage 6: daily use.** The ODE program without callbacks through a build (open issue 184); the prune list; `intro/` on the reduced design with its examples run; W-150 if small; a reader from outside prepared. | as W-156 | open, after W-156 | [the plan](../plans/2026-11-15-next-iteration.md) §3 |

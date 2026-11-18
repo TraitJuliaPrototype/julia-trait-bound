@@ -79,12 +79,12 @@ This directory is the design repository (`writeup/`, `session-notes/`, `attic/`;
 | `julia-next/` | Julia with the design: v1.13.2 and the stack of [Julia's changes](../design/julia-changes.md); the tree the work is done in | `next` |
 | `julia-unified/` | the same repository at the tag `prototype-2026-11`: the regression control of the running iteration | the tag |
 | `julia-vanilla/` | Julia v1.13.2 unchanged: the plain baseline | detached at the release |
-| `TraitWorld-unified/` | the library: `@trait`, `@implement`, the checks, BaseTraits | `unified` |
+| `TraitWorld/` | the library: `@trait`, `@implement`, the checks, BaseTraits | `unified` |
 | `TraitWorld-base/` | the library at the tag: the regression control | the tag |
-| `TraitDifferentialEquations-unified/`, `TraitMakie-unified/`, `TraitTables-unified/`, `TraitCSV-unified/`, `TraitReport-unified/` | the demonstrators: an ODE library, a plotting library, a table library, a CSV reader, a report against pandas | `unified` |
-| `forks-unified/` | Tables, DataFrames and CSV ported, with upstream's suites | `unified` |
+| `TraitDifferentialEquations/`, `TraitMakie/`, `TraitTables/`, `TraitCSV/`, `TraitReport/` | the demonstrators: an ODE library, a plotting library, a table library, a CSV reader, a report against pandas | `unified` |
+| `forks/` | Tables, DataFrames and CSV ported, with upstream's suites | `unified` |
 | `ndport/` | NetworkDynamics and the packages under it: the workload, its environments and logs; the clones under `ndport/pkgs/` are restored from bundles | `main` |
 | `experiments/` | gates, measurements, tools; one directory per experiment or work item, each with a README | `main` |
 | `tools-local/` | the build script and the load guard (in the design repository) | — |
-| `julia-1.13/`, `TraitWorld/`, and the demonstrators' directories without a suffix | the main checkouts of each repository, on the branches of October 2026 (the library on a patched Julia 1.13). History; the trees above are worktrees of them | — |
+| `julia-1.13/`; `pre-unified/` | the library on a patched Julia 1.13 and its demonstrators, of October 2026: the tag `pre-unified` of each repository. History. `julia-1.13/` holds the julia repository, of which the other Julia trees are worktrees; the directories under `pre-unified/` hold the other repositories, of which the trees above are worktrees | — |
 | `wt/` | worktrees of agents | — |

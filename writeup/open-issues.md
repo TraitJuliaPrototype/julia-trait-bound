@@ -40,7 +40,7 @@ Between G-4 and G-7, against G-1.
 - **The proposals:**
   - (1) Measure first: the compiler's module compiled by facts, in a system image so built; inference's speed and the invalidations at load.
   - (2) Where inference slows, declared results at the compiler's hot abstract positions (a trait for lattice elements, one for call infos), found by the dispatch profiler.
-  - (3) Meanwhile, the stack's compiler code is held to no dynamic call of Base's generic functions, with `experiments/unification/e289/dyncalls.jl` as a gate.
+  - (3) Meanwhile, the stack's compiler code is held to no dynamic call of Base's generic functions, with `experiments/implementation/e289/dyncalls.jl` as a gate.
   - The library's check code typed throughout would reach Base's methods statically ([PE-28](record/performance-explorations.md)).
 
 ### GT-5. A closed type's contract promises no result
@@ -77,8 +77,8 @@ Between G-8 and G-1.
   - What keeps the rest out is Base's plain code where types are not known: [item 218](#2-design).
 - **The proposals:**
   - (a) Base compiled by facts in the product setting, so that the callees are facts code. GT-3 sets this against the compiler compiled plainly.
-  - (b) The boundary flag ([compiler §2.2](reference/compiler.md#22-the-method-flag)) on the Base methods that `experiments/unification/w134/cause.jl` names, which makes each such call a run-time site.
-  - (c) Base's surface by the census's culprits: each a patch to Base that stands without traits ([compiler §11](reference/compiler.md#11-changes-useful-without-traits)). The gate is the share of the class (`experiments/unification/w157/census.jl`). The rest is item 218.
+  - (b) The boundary flag ([compiler §2.2](reference/compiler.md#22-the-method-flag)) on the Base methods that `experiments/implementation/w134/cause.jl` names, which makes each such call a run-time site.
+  - (c) Base's surface by the census's culprits: each a patch to Base that stands without traits ([compiler §11](reference/compiler.md#11-changes-useful-without-traits)). The gate is the share of the class (`experiments/implementation/w157/census.jl`). The rest is item 218.
   - No port is changed to avoid these callees.
 
 ### GT-9. The membership machinery costs code that uses no trait
@@ -114,7 +114,7 @@ Between G-1, against G-5 and G-7.
   - (a) A hint on that `MethodError`, and on a `TypeError` at a set: where the value's type has a membership in the set in a later world, the message says so and names `invokelatest`.
   - (b) `intro/` teaches a membership as a definition, with a method's rule for running code. Since a membership invalidates as a method does, its world is a method's world in every respect, and (b) is the whole account.
   - (c) No change to the worlds: a membership seen at once would change the answers of code running in an older world.
-- The tool: `experiments/unification/w136/` (case 08, both forms).
+- The tool: `experiments/implementation/w136/` (case 08, both forms).
 
 ### GT-16. Fully typed mode raises exactly where a build refuses, or fully typed code pays nothing
 
@@ -293,7 +293,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **177. Where a port's messages fall short of upstream's.**
 - *The case* (E-363, SciML's three error cases): none is a mistake against a contract, so the port's messages are those of its plain twin, 1.2 to 1.7 times as long; upstream's hand-written explanations say more in two of the three.
 - *The proposals:* a `Callable` whose result infers `Union{}` at its declared arguments (it always throws: `p[1]` at `p::Nothing`) is refused where the function enters, with the declared signature ([traits §9](reference/traits.md#9-functions-callable)), so the first case is caught at `ODEProblem(…)` or `solve`; a port writes its explanations as upstream does, by a method of its own error type, which no rule gives or prevents.
-- *The tool:* `experiments/unification/w136/` (`run.sh`, `summarize.py`): each mistake in both forms, the message's lines, bytes and frames.
+- *The tool:* `experiments/implementation/w136/` (`run.sh`, `summarize.py`): each mistake in both forms, the message's lines, bytes and frames.
 
 **226. The kept forms' forwarding methods are listed among Julia's closest candidates.**
 - *The case* (E-498): E-385's `03b_wrong_operation_argument`, `scale(Circle(1.0), 2)` for `scale(s::Scalable, k::Float64)`, raises a `MethodError` at the user's line with the contract's hint: 11 lines, 743 bytes. Four of the lines name `scale(::Compiled{<:Scalable}, ::Float64)` and `scale(::Dynamic{<:Scalable}, ::Float64)`, which the call's member never reaches.
@@ -303,7 +303,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **227. A plain package's callable object is no `Callable` member** (GT-32).
 - *The case* (E-500): `at(g::Callable{Tuple{Float64}, Float64}, x::Float64) = g(x)`; `at(linear_interpolation(xs, ys), 1.5)` raises `MethodError: no method matching at(::Interpolations.Extrapolation{…}, ::Float64)`. The library's hint names the declaration. After the caller's own `@implement Callable Interpolations.Extrapolation` (a pirate's membership, warned) the call runs.
 - *The rule* ([traits §9](reference/traits.md#9-functions-callable), [compiler §7.4](reference/compiler.md#74-callables-call)): every `Function` is a member by Core's entry; a callable type that is no `Function` only by its declaration.
-- *The counts* (E-500, `experiments/unification/w161/d2/functors.jl`, every type with a call method in a session: a `Function`; declared; neither): the forks' session 40, 0, 134; the demonstrators' session 18, 14, 35.
+- *The counts* (E-500, `experiments/implementation/w161/d2/functors.jl`, every type with a call method in a session: a `Function`; declared; neither): the forks' session 40, 0, 134; the demonstrators' session 18, 14, 35.
 - *The proposals:*
   - (a) Core's entry covers every type (`Any` in `Callable`): every value is a member, and the box's test at `A` decides alone. Then dispatch cannot tell a callable value from another at a `Callable` position: a method at `Callable` against one at another type there meets every value ([alternatives](design/alternatives.md#callable-by-its-methods-replaced-2026-11-15)).
   - (b) The porting guideline: a package's callable types are declared by their owner, or are a `Function` by Julia's idiom where the type has no other supertype.
@@ -366,7 +366,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **166. Code compiled once at a stream typed `IO` reaches its targets by dynamic calls.**
 - *The case:* in code an author erases (an entry `@nospecialize(io::IO)` passing `IOContext{IO}(io)` on, [traits §9b](reference/traits.md#9b-streams-io)), a call on the stream that is not one of `IO`'s operations infers `Any`. It dispatches when it runs where more methods match than inference unions (`read(io)`, `read(f, Int32)`), or where its receiver is a wrapper built from the stream. The instance it reaches is in an image only if the image's build ran it.
 - *Wrappers over a stream:* `IOContext{IO_t}`, `EachLine{IOT}`, `ReadEachIterator{T, IOT}` and JuliaSyntax's `Lexer{IO_t}` take the stream's type as a parameter. Built in code compiled once, they are abstract even where the caller knows the stream: a loop over `eachline` infers `Any`.
-- *Counted* over Base's 931 methods typed `IO`, compiled once (E-331; the erasure report, `experiments/unification/audit/erased_calls.jl`): 1,093 dynamic sites, 128 of them because of the stream (`read` 41, keyword calls 13, `displaysize` 11, `position` 11), 953 because of another argument. Base itself compiles these methods per stream type ([compiler §7.5](reference/compiler.md#75-io)).
+- *Counted* over Base's 931 methods typed `IO`, compiled once (E-331; the erasure report, `experiments/implementation/audit/erased_calls.jl`): 1,093 dynamic sites, 128 of them because of the stream (`read` 41, keyword calls 13, `displaysize` 11, `position` 11), 953 because of another argument. Base itself compiles these methods per stream type ([compiler §7.5](reference/compiler.md#75-io)).
 - *The rules:* [compiler §7.2](reference/compiler.md#72-the-split) splits only an operation's call; [§9](reference/compiler.md#9-images-and-the-machine-code-cache)'s rule that an image holds what a run-time site reaches applies to facts code.
 - *The proposals:*
   - (a) An image holds what a call at a closed type's candidates reaches: while an image is built, a dynamic call in code compiled once whose receiver is typed by a closed type with candidates gets the instance each candidate selects, as §9's rule does for facts run-time sites.
@@ -385,14 +385,14 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **179. A fully typed Base surface for trait code.**
 - *The case:* fully typed code is exactly what compiles ahead ([traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode)), so a hole in Base below a trait program fails its build, where the user cannot fix it (Base's `repeat(::Char, ::Int)` under TraitTables' table program, E-364). Trait code also keeps an edge to each plain callee in Base (GT-8).
 - *The claim:* Base is fully typed at the signatures typed code calls it with; a hole there is a defect of Base, fixed in Base by a patch that stands without traits ([compiler §11](reference/compiler.md#11-changes-useful-without-traits)). The part that is dynamic by purpose (`show` and display, `IO` at its abstract type, the REPL, Pkg, loading, `eval`, reflection, the compiler) is not patched.
-- *Measured* (E-368, `experiments/unification/w143/`): of 6,179 signatures of Base's 837 exported functions over twelve broad types, 71.4 % are fully typed and 20.1 % have a hole. The holes sit in 106 functions; five hold 73 % of the sites (`typejoin`, `ntuple`, `setproperty!`, `rehash!`, `_growend_internal!`). The report over-counts calls at a union (166 signatures) and misses holes a build finds.
+- *Measured* (E-368, `experiments/implementation/w143/`): of 6,179 signatures of Base's 837 exported functions over twelve broad types, 71.4 % are fully typed and 20.1 % have a hole. The holes sit in 106 functions; five hold 73 % of the sites (`typejoin`, `ntuple`, `setproperty!`, `rehash!`, `_growend_internal!`). The report over-counts calls at a union (166 signatures) and misses holes a build finds.
 - *The deep class* (E-478, `next-s3`): the forks' own facts instances in the class 63.1 %, upstream by facts 79.0 % (GT-8; item 218 for the rest).
 - *Open:*
   - The build's verdict per signature, in place of the session's report.
   - P3's demand rule (a facts copy of each callee outside the class) is worth another look for upstream compiled by facts: it crosses the criterion of three quarters (79.0 %), not that of 1,000 copies (1,782). The forks cross neither (63.1 %; 2,413).
   - P6 (an image's deep code validated by ownership): deep code holds 68.3 % of the instances the forks' CSV and DataFrames bring after the nine loads, and 18.4 % of the calls by signature (E-480), short of E-399's criterion of a quarter.
 
-**180. What the membership's method leaves** ([compiler §5.6](reference/compiler.md#56-the-memberships-method-and-the-edges); E-367; the findings: `experiments/unification/w141/README.md`).
+**180. What the membership's method leaves** ([compiler §5.6](reference/compiler.md#56-the-memberships-method-and-the-edges); E-367; the findings: `experiments/implementation/w141/README.md`).
 - *(a) One list for every absence edge.* Julia keeps such edges under the function's type, and each membership scans all of them: 293 µs with 2,000 folded in the session, where a membership cell cost 7.5 µs. Sessions hold 0 to 6. *Proposal:* index these edges by the trait's name, as Julia indexes keyword calls by another argument; or one function per trait.
 - *(d) Tools that list ambiguities see the runtime's methods.* A member of two subtraits is in their common supertrait twice; `Test.detect_ambiguities` reports 12 such pairs of `Core.implements` in the library, and Aqua would. No call ever selects among them. *Proposal:* the tools leave `Core.implements` out; the library's test does.
 - *(f) An overlapping membership drops the dispatch cache* where its method meets one that code folded. Not measured.
@@ -404,13 +404,13 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The proposals:*
   - (a) The list goes where Base is fully typed: each replacement marks a place where Base is not fully typed at a signature typed code calls (item 179). Printing a type is the first.
   - (c) The build compiles through the same overlay, so that the script changes nothing in its process either; only if the two lists drift.
-- *The tool:* `TraitWorld.build_base_report()`; `experiments/unification/w142/agree.sh` with the apps `bb_*`.
+- *The tool:* `TraitWorld.build_base_report()`; `experiments/implementation/w142/agree.sh` with the apps `bb_*`.
 
 **184. The session's check and the build differ at a family's member that no image has checked.**
 - *The case* (E-387, the ODE port's program): the problem's type names the function (`ODEProblem{…, PartialFn{typeof(f), P}, …}`), a new member of the problem's family in each program. The check run in a session leaves `_system(prob)` and three more calls unresolved; the build's own process, which runs the member's check in its compile queue (compiler C-31), resolves them.
 - *The rule* ([compiler §7.6](reference/compiler.md#76-a-closed-build), [§2.7](reference/compiler.md#27-fully-typed-mode)): a member's check is its serving instances ([traits §5.10](reference/traits.md#510-checks)), which both infer the same way; the implementation does not build that yet (traits T-129).
 - *The proposals:* (b) the check in a session runs a family member's check as the build's queue does; and see whether T-129 removes the difference. With it, the program without callbacks should build. For the ports' lessons: (a) the port takes callbacks as a tuple where the program knows them.
-- *The tools:* `experiments/unification/w135/build.sh ode` with `summarize.py`; `experiments/unification/w142/ft_app.jl`.
+- *The tools:* `experiments/implementation/w135/build.sh ode` with `summarize.py`; `experiments/implementation/w142/ft_app.jl`.
 
 **218. Calls at a value typed `Any`, an abstract type or a kind in Base's plain code keep the rest of a port's code out of the deep class** (GT-8).
 - *The case:* below the forks' code, the culprits are Base's plain code compiled where types are not known: the generic paths of `collect` and `map` when an element type is not inferred (`similar`, `setindex!`, `Vector{T}(undef, n)` at a computed `T`, `promote_typejoin` at kinds, `indexed_iterate` at a tuple with an abstract element); the task code under a lock (a payload typed `Any` passed to `schedule`, `notify`, `push!` of a `CompositeException`); stores into containers of `Any`; keyword calls at an abstract argument; property reads at an abstract receiver. Each is a call where a stakeholder of a type in it may add a method: `Vector{MyT}(undef, n)`, `eltype(::Type{MyColl})` and `push!(::Vector{Any}, ::MyT)` are legal methods of their owners. The rule is right; the code is outside the class.
@@ -424,7 +424,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
   - (e) Accept: G2's reach in a port is the measured share; the guarantee holds for the class.
   - Not a lever: the boundary flag ([compiler §2.2](reference/compiler.md#22-the-method-flag)) on a culprit's caller gives a facts copy of that method only; the culprit below still keeps it out.
   - The proposal: (c) looked at again for upstream compiled by facts (item 179); (a) and (b) for the synthesis; (d) only where a culprit carries a share alone.
-- *The tool:* `experiments/unification/w157/census.jl`, `diag/culprit.jl`.
+- *The tool:* `experiments/implementation/w157/census.jl`, `diag/culprit.jl`.
 
 **219. A query that rests on dispatch names the matched instance, so any code of it ends the caller.**
 - *The case:* `hasmethod(f, Tuple{…})`, folded by inference, records an edge to the matched method's MethodInstance. The answer rests on dispatch only, yet the edge ends the caller when any code of that instance is invalidated, so the caller is outside the class. 11 of the forks' `hasmethod` instances, and 33 culprit instances named by instance alone (E-478); `hasmethod` alone buys +0.8 point.
@@ -476,7 +476,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The case* (E-499; the session `plain.jl`, upstream CSV and DataFrames compiled plainly, the same hour, 3 runs): the first work takes 3.31–3.47 s on `next`, against 3.25–3.30 s on vanilla, and is a regression against the tag `prototype-2026-11`. The same holds with the library loaded first. The repeated work is unchanged (0.18–0.19 ms).
 - *The profile of one first call* (`w161/d4/prof_first.jl`): on `next` 2,640 of 3,466 samples are in code generation (`jl_compile_codeinst`, 76 %), 834 in inference. The membership machinery takes no measurable share.
 - *The rule:* not identified.
-- *The proposal:* bisect `next`'s commits with `experiments/unification/w161/d4/plain.sh`, one build each, at the freeze, where builds are made anyway.
+- *The proposal:* bisect `next`'s commits with `experiments/implementation/w161/d4/plain.sh`, one build each, at the freeze, where builds are made anyway.
 
 **228. An instance a package's workload compiles for a call dispatched at run time is missing from its image.**
 - *The case* (E-501): the ODE session (E-372) solves Robertson with Rodas5. `rodas5_solve` calls `TraitRodas._rodas5_run` past a barrier (`rodas5_init`'s result is not inferred to one type). The ODE port's image holds only the instance at the bare `Rodas5Integrator`, not the one at the session's integrator, so the session compiles it (315 ms): the first run takes 651 ms, a regression against the tag `prototype-2026-11`.
@@ -495,6 +495,17 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **235. A message of the definition-time check prints the compiler's tuple type.**
 - *The case:* `TraitUseError` for a method declared bounded reads "is not bounded at the box (Tuple{typeof(Main.Broken.colsum), Dynamic{ColTable}})" (`experiments/docs-examples/intro.jl`, `tutorial.jl`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
 - *The proposal:* the message names the method as its signature is written, `colsum(t::ColTable)`, and says "read with `t` in a box".
+
+**237. Four gates assert rules the design replaced.**
+- *The case:* of the 71 gates in force (`experiments/implementation/gates/`, the patterns `m[12]_*` and `[nf]*`), 67 pass on `next` 32a2235abd and four fail. Each passes on the tag's Julia. Each asserts a rule that the running iteration replaced:
+  - `n8_callable` and `n26_callable_late_method`: `Callable` by a function's own methods. `Callable` is a contract at the box ([traits §9](reference/traits.md#9-functions-callable));
+  - `n20_unmet_lookup`: its case of a pair at `Callable`, for the same reason;
+  - `n22_declared_assert`: a declared result read from the trait's method. An operation is an entry of the contract ([traits §4.1](reference/traits.md#41-operations)).
+- *The pattern:* a rule changed, and the gates of the stage that changed it ran (`w161/`), not the older gates that pin the rule it replaced. "The gates pass" then meant the stage's own.
+- *The proposal:*
+  - each of the four is rewritten to the rule in force, or retired with a note in `gates/README.md`, as that file requires;
+  - one script runs every gate in force and every stage's gates, and is what "the gates" means in the record (`gates/run_all.sh` with no pattern);
+  - a decision that replaces a rule names the gates that pinned the old one, in its row.
 
 **232. Rules about a set over many of Base's methods have no test at Base's scale.**
 - *The case:* the fixes of E-331, E-334, E-335 and E-336 answer cases that appear only when a set stands on a thousand of Base's methods ([the lessons](design/lessons.md)). No gate declares such a set.

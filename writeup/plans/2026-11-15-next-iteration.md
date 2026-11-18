@@ -31,10 +31,10 @@ The user (2026-11-15): "What would be the best way to act on the Synthesis+Revie
 |---|---|---|
 | the design repository | `w141-record` | this commit |
 | `julia-unified` | `unified-w141` | 7b374f39ce |
-| `TraitWorld-unified` | `unified` | e11c7cc |
-| `forks-unified` (Tables, CSV, DataFrames) | `unified` | 439bae7 |
-| `TraitTables-unified`, `TraitCSV-unified`, `TraitMakie-unified`, `TraitReport-unified` | `unified` | c339175, 92c46d0, c862914, a4bcf33 |
-| `TraitDifferentialEquations-unified` | `unified` | b730628 |
+| `TraitWorld` | `unified` | e11c7cc |
+| `forks` (Tables, CSV, DataFrames) | `unified` | 439bae7 |
+| `TraitTables`, `TraitCSV`, `TraitMakie`, `TraitReport` | `unified` | c339175, 92c46d0, c862914, a4bcf33 |
+| `TraitDifferentialEquations` | `unified` | b730628 |
 | `ndport` (NetworkDynamics: `pkgs/NetworkDynamics-unified`) | `main` | 163d60e |
 | `experiments` | `main` | 1e39190 |
 
@@ -43,10 +43,10 @@ The user (2026-11-15): "What would be the best way to act on the Synthesis+Revie
 **How to work.**
 - `source env.sh` first. Check `/proc/loadavg` before a compile. Build Julia with `tools-local/build.sh <tree>`.
 - No subagents. No search outside the workspace. No campaign: a gate is a run of minutes.
-- An experiment's registry row comes before its run. Scripts and logs go to `experiments/unification/<w-item>/` with a README.
+- An experiment's registry row comes before its run. Scripts and logs go to `experiments/implementation/<w-item>/` with a README.
 - A decision goes into its reference first, then the decision log. A change to a rule and its deviation rows go in one commit.
 - A gate that fails does not stop the stage. Record the choice (the reference, the decision log marked "mine", open issues §1) and go on. A failure names a pattern: look for the rule, and keep the tool that finds every instance.
-- The run pattern of the probes: `experiments/unification/w152/README.md`.
+- The run pattern of the probes: `experiments/implementation/w152/README.md`.
 
 **The first action.** Stage 0 is done (the tags). Read §6 for who works where, then the work queue for each stage's status.
 
@@ -89,7 +89,7 @@ Sizes are relative: S a session's part, M a session, L several.
 | 0 | The baseline tagged; the plan's items opened | every repository | S | W-154 |
 | 1 | D-1 and D-3 as a prototype, with two pieces of the ports | the library, no change to Julia | M | W-151 |
 | 2 | The references of the iteration; what is not built as deviation rows | `writeup/` | M | W-154 |
-| 3 | Julia and the library: the facts side, then the type system | `julia-unified`, `TraitWorld-unified` | L | W-155, W-153 |
+| 3 | Julia and the library: the facts side, then the type system | `julia-unified`, `TraitWorld` | L | W-155, W-153 |
 | 4 | The ports brought to the head; then the attribute's machinery removed | the demonstrators, `julia-unified` | L | W-156 |
 | 5 | Base's surface by the census | `julia-unified`, W-19's stack | M | W-157 |
 | 6 | Daily use: a build, the teaching, the pruning | the demonstrators, `intro/` | M | W-158 |
@@ -110,12 +110,12 @@ Sizes are relative: S a session's part, M a session, L several.
 - `@trait` declares the wrapper's family as a member, as it declares `Dynamic{Z}`'s ([lowering §2](../reference/lowering.md#2-trait)).
 - For a trait with `@default_dynamic`: a method at the trait is defined at the two kept forms, and one forwarder takes a plain member and boxes it.
 - `convert` into storage typed `Dynamic{X}`; `unwrap` on both forms.
-- The check (D-3): `check_definitions` as a reading of the method's instance at `Dynamic{X}`. Start from `experiments/unification/w152/p2/agree.jl`.
+- The check (D-3): `check_definitions` as a reading of the method's instance at `Dynamic{X}`. Start from `experiments/implementation/w152/p2/agree.jl`.
 
 **The two pieces.**
 - TraitDifferentialEquations' front end: `lib/ODECore/src/frontend.jl` 60 to 82 (`ODEProblem` with `keep(f)`, the fallback with `Erased(f)`), the callbacks at `core.jl` 548 to 575. The target is the review's snippet: `ODEProblem(lorenz!, …)` gives the box, `ODEProblem(compiled_for(lorenz!), …)` the wrapper, with no `keep`.
 - NetworkDynamics' kernel: `ndport/pkgs/NetworkDynamics-unified/src/coreloop.jl` 147 to 155 (`compiled_for(batch.model)` at `_run_batch!`).
-- The other casts in library code, for the count: `TraitTables-unified/src/TableCore.jl` 75, 90, 188, `TraitTables.jl` 52; `TraitCSV-unified/src/CSVCore.jl` 123; `forks-unified/Tables/src/ColumnCore.jl` 98 to 118.
+- The other casts in library code, for the count: `TraitTables/src/TableCore.jl` 75, 90, 188, `TraitTables.jl` 52; `TraitCSV/src/CSVCore.jl` 123; `forks/Tables/src/ColumnCore.jl` 98 to 118.
 
 **The gate.**
 - E-310's row (a new model: what NetworkDynamics compiles again), E-314's, and E-374's calls (an operation at a known type, a method compiled once, `compiled_for`, an element of a `Vector{Shape}`): not worse than the baseline beyond the runs' spread.
@@ -249,8 +249,8 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 |---|---|
 | `julia-next` (branch `next`) | one agent at a time: the Julia work of stages 3 to 5 |
 | `julia-unified`, `TraitWorld-base` | nobody: the baseline |
-| `TraitWorld-unified` and the demonstrators' `-unified` trees, `ndport` | one agent at a time: stages 1, 3 (the library's part), 4, 6 |
-| `experiments` | every agent, each in its own directory `unification/w<item>/`; a commit names its paths |
+| `TraitWorld` and the demonstrators' `-unified` trees, `ndport` | one agent at a time: stages 1, 3 (the library's part), 4, 6 |
+| `experiments` | every agent, each in its own directory `implementation/w<item>/`; a commit names its paths |
 | the design repository | every agent in its own worktree `wt/design-w<item>` on a branch `iter-w<item>`; it merges `origin/main` into its branch and pushes to `main` (the design repository's branch since 2026-11-18; before, `w141-record`) |
 
 **The first wave** (2026-11-15), three agents side by side:
@@ -265,7 +265,7 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 - **W-160, the compiler for one way to erase,** in `julia-next` after W-155's agent, with the library: a positive membership decided at `new`'s field test and at `isa` with an edge (GT-19's fix); the forwarders made where a method is defined, in place of the prototype's macro; the check's instance at the box kept with its edges (D-3); and, on the way, the principled ways of making the design fast that it finds (`CLAUDE.md`).
 
 **The third wave** (2026-11-15). W-155's agent is done: D-5 and D-7 built on `next` (9b6dacf5c5), the library's part merged (TraitWorld `unified` bb4ad00); D-6 not built (open issue 194, GT-21). Two builders side by side, each with a Julia tree and a library tree of its own:
-- **W-160** in `julia-next` (branch `next`) with `TraitWorld-unified`, `TraitDifferentialEquations-unified` and NetworkDynamics.
+- **W-160** in `julia-next` (branch `next`) with `TraitWorld`, `TraitDifferentialEquations` and NetworkDynamics.
 - **W-155, continued: D-9, D-11, D-12, D-13** in `julia-s3` (branch `next-s3`, from `next`) with `TraitWorld-s3` (branch `s3`, from `unified`). Open issue 195 (a) if it is little code.
 - **Then,** in `julia-next` after both are merged: D-4 and D-2 (they change `@trait` and the box, which W-160 changes), and stage 4.
 
@@ -296,12 +296,12 @@ The user (2026-11-15): "Have Opus agents implement the plan". The main session d
 |---|---|---|
 | `julia-next` (built) | `next` | 32a2235abd |
 | `julia-s3` (built; all of it merged into `next`) | `next-s3` | bc844be7c0 |
-| `TraitWorld-unified` | `unified` | d1febca |
-| `TraitDifferentialEquations-unified` | `unified` | ae1a966 |
-| `forks-unified` | `unified` | bf6799b |
-| `TraitMakie-unified` | `unified` | d905a0b |
+| `TraitWorld` | `unified` | d1febca |
+| `TraitDifferentialEquations` | `unified` | ae1a966 |
+| `forks` | `unified` | bf6799b |
+| `TraitMakie` | `unified` | d905a0b |
 | `ndport` (NetworkDynamics-unified 6d311a3, local, in the bundles) | `main` | cad389d |
-| `TraitTables-unified`, `TraitCSV-unified`, `TraitReport-unified` | `unified` | at the baseline: not converted |
+| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | at the baseline: not converted |
 | `julia-unified`, `TraitWorld-base` | — | the baseline, `prototype-2026-11` |
 
 **To go on: stage 4,** one agent in `julia-next` with the library and every demonstrator. Its brief is this plan's stage 4 and these notes: `session-notes/2026-11-15-agent-w161.md` ("What stage 4 must know"), `-w160.md` (what of the attribute's machinery can go: C-112), `-w154.md` part 2 (T-127, T-128).

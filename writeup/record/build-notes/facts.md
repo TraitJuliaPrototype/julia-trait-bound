@@ -14,7 +14,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 
 ### §2.1 G1: identical or error
 
-- **The status line as it stood:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; a membership invalidates the code it changes ([compiler §5.5](../../reference/compiler.md#55-a-membership-invalidates-as-a-method-does), `unified` a19d937eaa). The acceptance suite (`experiments/unification/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
+- **The status line as it stood:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; a membership invalidates the code it changes ([compiler §5.5](../../reference/compiler.md#55-a-membership-invalidates-as-a-method-does), `unified` a19d937eaa). The acceptance suite (`experiments/implementation/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
 
 ### §2.2 G2: stable caches
 

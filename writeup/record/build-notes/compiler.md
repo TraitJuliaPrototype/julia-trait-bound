@@ -91,7 +91,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 
 ### §4.5 Subtyping
 
-- **The status line as it stood:** Implemented on `unified` 62016706d0. No type equality from a membership: `next-s3` e967266d9e (the plan's D-11, 2026-11-15; gate `experiments/unification/w155b/gate_d11.jl`, E-456).
+- **The status line as it stood:** Implemented on `unified` 62016706d0. No type equality from a membership: `next-s3` e967266d9e (the plan's D-11, 2026-11-15; gate `experiments/implementation/w155b/gate_d11.jl`, E-456).
 
 ### §4.6 One instance per member
 

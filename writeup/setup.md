@@ -23,10 +23,9 @@ The design repository holds the others, each with its own history. Packages refe
 git clone git@github.com:TraitJuliaPrototype/julia-trait-bound
 cd julia-trait-bound
 
-# the library, the demonstrators, the experiments
+# the library, the demonstrators and the forks: the implementation is each repository's branch `unified`
 for r in TraitWorld TraitDifferentialEquations TraitMakie TraitTables TraitCSV TraitReport forks; do
-    git clone git@github.com:TraitJuliaPrototype/$r
-    git -C $r worktree add ../$r-unified unified          # the implementation is on branch `unified`
+    git clone -b unified git@github.com:TraitJuliaPrototype/$r
 done
 git clone git@github.com:TraitJuliaPrototype/experiments
 git clone git@github.com:TraitJuliaPrototype/ndport
@@ -39,7 +38,7 @@ git -C julia-1.13 worktree add --detach ../julia-vanilla 45b6d15e34    # v1.13.2
 ```
 
 - **SSH:** the commands clone over SSH, so that pushes work. To read only, replace `git@github.com:` with `https://github.com/`.
-- **The directories without a suffix** (`TraitWorld/`, `julia-1.13/`, …) are each repository's main checkout, on the branches of the library on Julia 1.13 (history; tag `pre-unified`). The work is done in the worktrees.
+- **The library on Julia 1.13 and its demonstrators** (October 2026) are the tag `pre-unified` of each repository, and `julia-1.13/` holds their Julia. They are history. On the project's own machine their checkouts are under `pre-unified/`.
 - **`ndport/pkgs-bundles/restore.sh`** recreates `ndport/pkgs/`, the clones of the packages NetworkDynamics uses. Each comes from its upstream repository, with the port's branches and worktrees added.
 - **`--filter=blob:none`** fetches file contents on demand, so the Julia clone stays small.
 - **The regression control** of the running iteration is the tag `prototype-2026-11`:
@@ -67,9 +66,10 @@ tools-local/build.sh julia-vanilla
 
 ```sh
 J=$PWD/julia-next/julia
-$J --project=TraitWorld-unified -e 'using Pkg; Pkg.instantiate(); using TraitWorld; println("the library loads")'
-(cd TraitWorld-unified && $J --project=. -e 'using Pkg; Pkg.test()')
-experiments/unification/gates/run_all.sh julia-next
+$J --project=TraitWorld -e 'using Pkg; Pkg.instantiate(); using TraitWorld; println("the library loads")'
+(cd TraitWorld && $J --project=. -e 'using Pkg; Pkg.test()')
+experiments/implementation/gates/run_all.sh julia-next 'm[12]_*'      # the gates of the type system and dispatch
+experiments/implementation/gates/run_all.sh julia-next '[nf]*'        # the other gates
 ```
 
 What to run after a change: [the playbook](record/playbook.md) §3.

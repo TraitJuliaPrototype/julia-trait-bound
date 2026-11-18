@@ -7,9 +7,9 @@ For people about to port a Julia package written without traits. It teaches and 
 - The numbers: [`results.md`](results.md) and [the evidence](../design/evidence.md).
 
 **The examples are quoted from the ports,** each run by its package's suite. Each quote is checked against the port's file (`experiments/docs-checks/check_quotes.py`):
-- the forks of Tables, CSV and DataFrames (`forks-unified`);
-- TraitDifferentialEquations (`TraitDifferentialEquations-unified`);
-- TraitMakie (`TraitMakie-unified`);
+- the forks of Tables, CSV and DataFrames (`forks`);
+- TraitDifferentialEquations (`TraitDifferentialEquations`);
+- TraitMakie (`TraitMakie`);
 - NetworkDynamics (`ndport/pkgs/NetworkDynamics-unified`).
 
 **A port does not change the design.** Where idiomatic trait code meets a rule that blocks a principled solution, the port records an [open issue](../open-issues.md): the case, the rule, a proposal. It does not build around the rule. A part the port needs whose status is Planned, or a Deviations row that blocks it, becomes a work item.
@@ -79,7 +79,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 
 **What a port does not do.** Each is a tension recorded for the design, not a problem for a port to solve ([the open issues §2](../open-issues.md#2-tensions-between-the-goals)):
 - **It does not turn a type the whole ecosystem specializes on into a trait to cure one slow step.** A trait laid over such a type moves every caller. Where one entry compiles too much, it erases with the type's own eraser (0.4, A11).
-- **It does not rewrite code to avoid the functions of Base that a load can invalidate** (GT-8). The tool `experiments/unification/w134/cause.jl` lists them for an environment; the list is evidence for the design.
+- **It does not rewrite code to avoid the functions of Base that a load can invalidate** (GT-8). The tool `experiments/implementation/w134/cause.jl` lists them for an environment; the list is evidence for the design.
 - **It does not design around a rule** (the note at the top of this page).
 
 **A change that follows a rule of the references is not a workaround.** Erasing a stream at a display entry, declaring a result, making a sibling's interface `public`: each is the design used as intended. A workaround is code that exists only because a rule blocks the principled form; that case becomes an open issue.
@@ -90,11 +90,11 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 - **What it buys** ([facts §2](../reference/facts.md#2-the-guarantees)): plain Julia's results or an error (G1); compiled code that no unrelated package's load discards (G2).
 - **What it costs:** nothing for fully typed code. At a run-time site plain Julia infers from the methods that match today; the facts mode does not. After one run-time site, a call on its `Any` result is one too. Code over `Vector{Any}` gets slower ([evidence, G-4](../design/evidence.md)).
 - **How:** `@trait_module bounded = false no_pirates = false` in the package's module, before its first method. Its code is compiled by facts; nothing else changes.
-  - DataFrames' fork does this for its whole module (`forks-unified/DataFrames/src/DataFrames.jl:139`), CSV's for its own (`forks-unified/CSV/src/CSV.jl:21`).
+  - DataFrames' fork does this for its whole module (`forks/DataFrames/src/DataFrames.jl:139`), CSV's for its own (`forks/CSV/src/CSV.jl:21`).
   - What it buys: the path's step 2 above (E-392).
   - **What it does not cover:** code compiled by facts keeps a dependency on each plain function it calls and builds on, Base's included. When a load invalidates such a function, its callers compiled by facts are compiled again ([facts §2.2](../reference/facts.md#22-g2-stable-caches), the scope).
 - **Credit the right part.** The protection against loads is the facts mode's, for any code it compiles. Traits add checked memberships, code that says what it needs, and the choice between code compiled per type and code compiled once ([the rationale](../design.md)).
-- **Submodules inherit the options.** The submodule that holds the trait code declares `@trait_module` again, every option on: DataFrames' `ColumnKernels` (`forks-unified/DataFrames/src/other/kernels.jl:15`), CSV's `ColumnParsers` (`forks-unified/CSV/src/ColumnParsers.jl:18`).
+- **Submodules inherit the options.** The submodule that holds the trait code declares `@trait_module` again, every option on: DataFrames' `ColumnKernels` (`forks/DataFrames/src/other/kernels.jl:15`), CSV's `ColumnParsers` (`forks/CSV/src/ColumnParsers.jl:18`).
 - **A package extension is a module of its own:** plain unless it declares `@trait_module`. One that only declares memberships needs none.
 - **Pirates:** under `no_pirates` a pirate is refused at its definition (`OwnershipError`, [traits §12.2](../reference/traits.md#122-pirates)). Before turning it on, move each pirate to the package that owns the function or a type. A split package names its joint owners ([§12.1](../reference/traits.md#121-who-may-declare-a-membership)), and its core declares the interface its siblings extend `public`.
 - **Workloads cover broad typical cases** (a `String` column, an `Int` column), not the workload's own data.
@@ -139,7 +139,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 - **Traits for open sets, types for closed ones.** A set is open when packages other than its owner add members: columns, problems, callbacks, component models. A trait states what every member provides, checked at `@implement`. A set that one package holds whole, as a solver package holds its caches, stays a type hierarchy. `Number`, `Real` and `AbstractVector` stay; an abstract type can itself be a member of a trait:
 
   ```julia
-  @trait Column{T} begin                                   # forks-unified/Tables/src/ColumnCore.jl:38
+  @trait Column{T} begin                                   # forks/Tables/src/ColumnCore.jl:38
       T = eltype(Self)
       nrows(c::Column)::Int
       cell(c::Column{T}, i::Int)::T
@@ -159,7 +159,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 - **Operations or fields:** a declared field where code reads or writes stored data, `@const` where it only reads; an operation otherwise, with its result type. A default is written with the other operations:
 
   ```julia
-  @trait ODEProblemTrait{T, P} begin     # TraitDifferentialEquations-unified/lib/ODECore/src/core.jl:60
+  @trait ODEProblemTrait{T, P} begin     # TraitDifferentialEquations/lib/ODECore/src/core.jl:60
       @const u0::Vector{T}
       @const tspan::Tuple{Float64, Float64}
       @const p::P
@@ -172,22 +172,22 @@ A trait names what generic code needs from a value, not how a type stores it.
   - the call's form is the operation's signature, `rhs!(…)::Nothing`;
   - element and parameter types are the trait's parameters;
   - an optional capability is a default (the finite differences above), or a trait of its own.
-- **A capability only some members have is a trait of its own,** and code that can use it has a method at both: `PooledColumn{T}` beside `Column{T}` (`forks-unified/Tables/src/ColumnCore.jl:60`).
+- **A capability only some members have is a trait of its own,** and code that can use it has a method at both: `PooledColumn{T}` beside `Column{T}` (`forks/Tables/src/ColumnCore.jl:60`).
 - **Declared fields and operations, not `getproperty` switches.** A switch on a property's name (`integrator.ps`) stays sugar on the concrete type. Where a property is part of the contract, a supertrait names it:
 
   ```julia
   @trait IntegratorView{U, T, P} <: (HasProperty{:ps, ParameterView{P}}, HasSystem, ValueProvider{U, P}, IndexProvider{Symbol}) begin
-      @const u::U                        # TraitDifferentialEquations-unified/lib/ODECore/src/core.jl:102
+      @const u::U                        # TraitDifferentialEquations/lib/ODECore/src/core.jl:102
       ...
   ```
 - **How each type joins:**
   - by its own methods, in a block or after them;
-  - by forwarding to a field that holds the data: `@implement Positions Live{Matrix{Float64}} by val` (`TraitMakie-unified/src/TraitMakie.jl:232`);
-  - as a family, or as an abstract type: `@implement Positions AbstractVector{P} where {P <: AbstractVector{<:Real}}` (`TraitMakie-unified/src/PlotCore.jl:51`).
+  - by forwarding to a field that holds the data: `@implement Positions Live{Matrix{Float64}} by val` (`TraitMakie/src/TraitMakie.jl:232`);
+  - as a family, or as an abstract type: `@implement Positions AbstractVector{P} where {P <: AbstractVector{<:Real}}` (`TraitMakie/src/PlotCore.jl:51`).
 - **Extension is by membership, never by overloading the entry.** The owner writes the entry (`solve`, `DataFrame(x)`) once. A package that adds a member declares the membership, in an extension that names its triggers ([§12.1](../reference/traits.md#121-who-may-declare-a-membership)):
 
   ```julia
-  @implement PooledColumn{T} PooledArray{T, R, 1, RA} where {T, R, RA}   # forks-unified/Tables/ext/TablesPooledArraysExt.jl:11
+  @implement PooledColumn{T} PooledArray{T, R, 1, RA} where {T, R, RA}   # forks/Tables/ext/TablesPooledArraysExt.jl:11
   ```
 - **Concreteness is chosen when the trait is published** ([§14](../reference/traits.md#14-concreteness-and-fully-typed-mode)): added later, it refuses members that joined.
 - **Names:** an operation is a function of the trait's module, and a common name clashes on `using`. The forks name Tables' operations `tablenames`, `tablecolumn` and `tablerows`, not `nrow`, which DataAPI exports. A trait's name must not collide with an exported alias.
@@ -196,7 +196,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 
 - **Start where user types enter.** A function users pass their own types to is the first to take a trait.
 - **One function at a time.** At each argument a closed type ranks before a trait ([traits §6.2](../reference/traits.md#62-specificity)). So upstream's methods on its own types and the port's methods at traits stand side by side, and a later membership never takes a call from a method on the type's own supertypes.
-- **The kernels in a trait module with every option on.** A kernel reads a value only through the trait's operations. Where it needs Base's or a library's code over many values, it gathers them into a plain `Vector{T}` first: that code is compiled per element type and shared by every member (DataFrames' `describe`; `forks-unified/DataFrames/src/other/kernels.jl`, the module's comment).
+- **The kernels in a trait module with every option on.** A kernel reads a value only through the trait's operations. Where it needs Base's or a library's code over many values, it gathers them into a plain `Vector{T}` first: that code is compiled per element type and shared by every member (DataFrames' `describe`; `forks/DataFrames/src/other/kernels.jl`, the module's comment).
 - **A constructor from a trait goes through a named method at the trait.** `DataFrame(x)` stays plain and calls `fromsource(t::TableSource, copycols)`.
 - **Keyword APIs:** the plain layer takes the keywords and builds a concrete options struct; the method at the trait takes it positionally.
 - **Extensions add memberships, and plain methods for their triggers' types only.**
@@ -238,7 +238,7 @@ A member is passed as itself, in a box or in a wrapper. The choice is in the val
 - **A record made before a signature is known keeps each value in the form given:** `ODEFunction(f; jac = compiled_for(j))` holds a plain `f` and a wrapped `j` ([§8.2](../reference/traits.md#82-a-struct-parameter-bounded-by-a-trait)).
 - **Keep the user's types at the surface.** A user's type that only the user's own functions read never reaches the core. The ODE library's problem keeps the right-hand side partially evaluated on the parameters, `(du, u, t)`, so the solver is compiled per state type whatever the parameters.
 - **Hand a callback the integrator in a box:** `affect!(cb::Callback{U, T, P}, integ::Dynamic{IntegratorView{U, T, P}})::Nothing` (`…/ODECore/src/core.jl:126`). A new callback compiles its own function, not the solver.
-- **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks-unified/DataFrames/src/dataframe/dataframe.jl:181`). Each item is stored in the form given. An operation on it calls the member's method directly for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
+- **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks/DataFrames/src/dataframe/dataframe.jl:181`). Each item is stored in the form given. An operation on it calls the member's method directly for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
 - **A call gives the same code at the prompt and in compiled code:** the value's type decides ([§7.5](../reference/traits.md#75-what-decides)). To time the code compiled per type of an erasing library, pass `compiled_for(x)`.
 - **Neither form is the object.** A method that asks what only the object can answer (its type, a function outside the contract) asks it of `unwrap(t)`, or before the value is boxed ([§7.4](../reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)).
 
@@ -307,15 +307,15 @@ One line per rule; the evidence is in part B, the rule's home in the references.
 
 ### B1. Tables, DataFrames, CSV
 
-Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks-unified`). Traits: `Column{T}`, `PooledColumn{T}`, `TableSource` in Tables' `ColumnCore`; `CSVSource`, `CSVColumn{T} <: Column{T}`, `TextColumn{T} <: Column{T}` in CSV's `ColumnParsers`.
+Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks`). Traits: `Column{T}`, `PooledColumn{T}`, `TableSource` in Tables' `ColumnCore`; `CSVSource`, `CSVColumn{T} <: Column{T}`, `TextColumn{T} <: Column{T}` in CSV's `ColumnParsers`.
 
 **The architecture's principle: compile per cell type, not per column type.** The trait's parameter is the cell type. Layouts are a closed set, so they stay types. A capability is an operation with a default, or a trait of its own.
 
 1. **The package compiled by facts, the kernels bounded.** DataFrames and CSV are trait modules with `bounded` and `no_pirates` off; `ColumnKernels` and `ColumnParsers` have every option on (0.1).
 2. **A kernel reads through the operations,** and heavy code runs over gathered cells: `describe` gathers into `emptycells(c, n)::Vector{T}` and runs Statistics there, compiled once per `T` (A7).
 3. **A capability is a trait of its own:** `PooledColumn` beside `Column`, joined by PooledArrays' and CategoricalArrays' vectors in Tables' extensions (A4).
-4. **A type passed as a value:** `stringtype = String15` passes a type; the reader makes `S[]` and calls `TextColumn`'s operations on it, and CSV's InlineStrings extension declares memberships, with helper functions of its own, and adds no method to CSV's functions (`forks-unified/CSV/ext/CSVInlineStringsExt.jl:87`).
-5. **A function applied per row is unbounded on purpose** where it asks for its result type: `@unbounded function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks-unified/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
+4. **A type passed as a value:** `stringtype = String15` passes a type; the reader makes `S[]` and calls `TextColumn`'s operations on it, and CSV's InlineStrings extension declares memberships, with helper functions of its own, and adds no method to CSV's functions (`forks/CSV/ext/CSVInlineStringsExt.jl:87`).
+5. **A function applied per row is unbounded on purpose** where it asks for its result type: `@unbounded function byrow(f::Callable{Tuple{T}}, c::Column{T}) where {T}` computes `Base.promote_op(f, T)`, as `map` does (`forks/Tables/src/ColumnCore.jl:105`; [traits §9](../reference/traits.md#9-functions-callable)).
 6. **Mixed columns in one vector:** `DataFrame`'s `columns::Vector{Column}` holds each vector itself; the kernels over it (`joinkeys`, `_group_rows!`) take `Vector{Column}`.
 7. **Upstream's tests decide** (A6). The forks' session gives upstream's digests at 26 steps. Tables' and CSV's upstream suites pass. DataFrames' has four errors: `@inferred` tests that see `Any` through run-time sites in facts code ([open issue 157](../open-issues.md#2-design); E-373).
 8. **A stream's type, which plain code specializes on:** DataFrames' `show(io, df)` hands the stream to PrettyTables, plain code compiled per stream type, and at a REPL the stream is `IOContext{REPL.LimitIO{TTYTerminal}}`, which no workload at an `IOBuffer` sees. The REPL's display erases the stream ([traits §9b](../reference/traits.md#9b-streams-io)): DataFrames' code stays as upstream's, and its workload displays once at `IOContext{IO}(IOBuffer())` (0.4).
@@ -323,7 +323,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks-unified`). Traits
 
 ### B2. Differential equations
 
-TraitDifferentialEquations (`TraitDifferentialEquations-unified`): a solver core (`ODECore`), Rosenbrock and implicit methods, nonlinear solvers, and SciML's front end. Traits: `ODEProblemTrait{T, P}`, `IntegratorView{U, T, P}`, `Callback{U, T, P}`, `EventCallback{U, T, P}`, `StepView{U, T}`, and SymbolicIndexingInterface's concepts in `TraitIndexing`.
+TraitDifferentialEquations (`TraitDifferentialEquations`): a solver core (`ODECore`), Rosenbrock and implicit methods, nonlinear solvers, and SciML's front end. Traits: `ODEProblemTrait{T, P}`, `IntegratorView{U, T, P}`, `Callback{U, T, P}`, `EventCallback{U, T, P}`, `StepView{U, T}`, and SymbolicIndexingInterface's concepts in `TraitIndexing`.
 
 **The architecture's principle: the model is the trait, the problem is a record.** A library's inputs vary at three rates: per ecosystem, per model, per call. Compiled code is keyed on the slowest that the hot code needs.
 
@@ -345,11 +345,11 @@ TraitDifferentialEquations (`TraitDifferentialEquations-unified`): a solver core
 
 ### B3. Plotting and the report
 
-TraitMakie (`TraitMakie-unified`) and TraitReport (`TraitReport-unified`). Traits: `Positions`, `Sample`, `ColorSpec`, `Colormap`, `MarkerShape`, `Scale`, `Plot` in `PlotCore`; `Table`, `Job` in `ReportCore`.
+TraitMakie (`TraitMakie`) and TraitReport (`TraitReport`). Traits: `Positions`, `Sample`, `ColorSpec`, `Colormap`, `MarkerShape`, `Scale`, `Plot` in `PlotCore`; `Table`, `Job` in `ReportCore`.
 
 **The architecture's principle: marks are a closed set, recipes an open one.** The primitives the backend draws are types; what users add are members of traits.
 
-1. **The plain layer converts, the trait code draws:** `x, y` become the n × 2 `Matrix{Float64}` that `Positions` serves (`TraitMakie-unified/src/PlotCore.jl:38`).
+1. **The plain layer converts, the trait code draws:** `x, y` become the n × 2 `Matrix{Float64}` that `Positions` serves (`TraitMakie/src/PlotCore.jl:38`).
 2. **A wrapper type joins by forwarding:** `Live{Matrix{Float64}}` forwards `Positions` to its field `val`, so it shares the code compiled for the field's type.
 3. **Families over Base's types:** every vector of real vectors is a `Positions` (`PlotCore.jl:51`), every `Vector` of reals a `Sample`.
 4. Measured: the report's task (CSV → table → summary → histogram PNG) in a fresh process takes 0.78–0.80 s in its trait form, against Python's 0.63–0.65 s (E-389, E-289; [results](results.md)).

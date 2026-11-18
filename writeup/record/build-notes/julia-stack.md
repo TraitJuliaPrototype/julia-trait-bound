@@ -8,7 +8,7 @@ How the commits of [the inventory](../../../design/julia-changes.md) were made a
 - **Not carried yet,** each with the stage that needs it: the field-offset intrinsics (W-110); `known_type` (b5bb9ab881) and the registry of type printers (db82407fa6), which no stage of the references uses yet.
 - **Not carried:** the invalidation filter and its hooks (pieces 2 and 4, reverted on `trait-world-1.13`), the remembered validation (reverted there), build scripts.
 - **The measured first build of stage 1,** fd800b27b9 (the W-98 gates' and E-270's build; commits 13 and 14 are its code with their comments cleaned, the same after comments are stripped), is kept on branch `w98-fd800b27b9`.
-- **How the stack was checked (2026-11-06 and 07;** `experiments/unification/stack/README.md`**):**
+- **How the stack was checked (2026-11-06 and 07;** `experiments/implementation/stack/README.md`**):**
   - each commit that changes the runtime's C code built on its own (`julia-src-release`); the Julia code of commits 1 to 3, 7, 9 to 12 was built only with the others, at the checkpoints; the MMTk collector's lines are not built (the stock collector is);
   - full builds at the eleventh general commit and at each stage's top, with Base's `core`, `subtype`, `worlds`, `ambiguous`, `reflection`, `reinterpretarray`, `Compiler/inline`, `Compiler/inference`, `ccall`, `precompile`, `exceptions` and `threads` test files, the unification gates, E-262's four files, E-270's and E-269's questions. `threads` fails one BLAS-threads case the same way on vanilla (env.sh's `JULIA_CPU_THREADS=4`);
   - **found and fixed on the way:**
@@ -23,9 +23,9 @@ How the commits of [the inventory](../../../design/julia-changes.md) were made a
 
 ## Branch `next`
 
-- **How it is checked** (`experiments/unification/w155/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the deep class's gate `gate_deep.jl`, the library's suite on its branch `w155`, and the forks' session digests (E-417, E-419).
-- **W-160's rows** (`experiments/unification/w160/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the library's suite on `unified`, the ports' suites, and the row's gate (E-436 to E-442).
+- **How it is checked** (`experiments/implementation/w155/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the deep class's gate `gate_deep.jl`, the library's suite on its branch `w155`, and the forks' session digests (E-417, E-419).
+- **W-160's rows** (`experiments/implementation/w160/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the library's suite on `unified`, the ports' suites, and the row's gate (E-436 to E-442).
 
 ## Branch `next-s3`
 
-- **How it is checked** (`experiments/unification/w155b/README.md`; for s3-7 on, `experiments/unification/w157/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the row's gate, the library's suite on its branch `s3`, and the forks' session digests. Stage 5's rows also: the census of the deep class (`w157/census.jl`), the test files of the Base files they touch, and what plain Julia pays (E-479).
+- **How it is checked** (`experiments/implementation/w155b/README.md`; for s3-7 on, `experiments/implementation/w157/README.md`): after each commit Base's `core`, `subtype`, `Compiler/inline` and `Compiler/inference`, the row's gate, the library's suite on its branch `s3`, and the forks' session digests. Stage 5's rows also: the census of the deep class (`w157/census.jl`), the test files of the Base files they touch, and what plain Julia pays (E-479).

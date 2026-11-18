@@ -7,7 +7,12 @@ Nothing here is current. The current documents are in [`../writeup/`](../writeup
 - **A document moved here keeps its path:** `writeup/plans/x.md` is `attic/writeup/plans/x.md`. A path cited in a session note, a review, a commit message or another repository maps to `attic/<the same path>`.
 - **No "Moved" page is left at the old path.**
 - **Links inside an archived document are not updated.** Read a relative link from the document's old place: `../reference/traits.md` in an archived plan meant `writeup/reference/traits.md`. Where the target was itself archived, it is here under the same rule.
-- **An archived document keeps the terms of its time.** The glossary gives today's.
+- **An archived document keeps the terms of its time.** The glossary gives today's; the terms that are gone are in [the retired terms](writeup/glossary-retired-terms.md).
+- **A directory an archived document names may have another name now.** The directories were renamed on 2026-11-18:
+  - `TraitWorld-unified/`, `TraitDifferentialEquations-unified/`, `TraitMakie-unified/`, `TraitTables-unified/`, `TraitCSV-unified/`, `TraitReport-unified/` and `forks-unified/` are `TraitWorld/` … `forks/`: each repository's branch `unified`.
+  - `TraitWorld/` … `forks/` in a document of October 2026 or earlier, `TraitWorld-port/` and `TraitDifferentialEquations-w96/` are under `pre-unified/`: the library on Julia 1.13 and its demonstrators (the tag `pre-unified` of each repository).
+  - `experiments/unification/` is `experiments/implementation/`. An experiment's directory that no current script reads is under `experiments/attic/`.
+  - `julia-s3/`, `julia-unified-base/` and the trees under `wt/design-*` are gone: their branches are merged or tagged.
 - **Ledgers:** closed work items, closed issues, superseded decisions, retired deviation rows and the experiments of earlier builds are in [`writeup/record/`](writeup/record/).
 
 ## The digest
