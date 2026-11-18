@@ -1,42 +1,47 @@
 # writeup/
 
-The design, written for three audiences: programmers, core developers, and agents. Nothing has been deleted: superseded documents are in [`../attic/writeup/`](../attic/writeup/), and the record lists everything with its status.
+The design, written for three audiences: programmers, core developers, and agents. What is no longer current is in [the attic](../attic/README.md).
 
 ## For programmers: [`intro/`](intro/)
 
 - [`intro/traits-for-julia.md`](intro/traits-for-julia.md): what traits are, what you write, what you get, one worked example, the costs.
 - [`intro/traits-by-example.md`](intro/traits-by-example.md): a tutorial that uses every part of the trait language.
-- [`intro/porting.md`](intro/porting.md): a working guideline for porting a package to traits.
-- [`intro/results.md`](intro/results.md): what the demonstrators show, against fair baselines.
+- [`intro/porting.md`](intro/porting.md): a guideline for porting a package to traits.
+- [`intro/results.md`](intro/results.md): what the demonstrators show, against plain Julia and Python.
 - [`glossary.md`](glossary.md): the project's terms in plain words, each with its origin in other languages or in Julia, and where it is defined precisely.
 
 ## For core developers: [`reference/`](reference/README.md), then the rest
 
-**The references are the source of truth** for the intended shape of the design. Each records, separately, where the implementation deviates (a Deviations table with stable IDs). Where any other document disagrees with them, they win. Their conventions: [`reference/README.md`](reference/README.md).
+**The references are the source of truth** for the design. Each records, apart from the design, where the implementation falls short (a Deviations table with stable IDs). Where another document disagrees with them, they win. Their conventions: [`reference/README.md`](reference/README.md).
 
 - [`reference/traits.md`](reference/traits.md): the trait language.
 - [`reference/facts.md`](reference/facts.md): the facts mode: what compiled code may assume, the guarantees, which code is compiled how.
 - [`reference/compiler.md`](reference/compiler.md): what Julia's compiler and runtime provide.
-- [`reference/lowering.md`](reference/lowering.md): how the trait language is realized on them.
+- [`reference/lowering.md`](reference/lowering.md): how the trait language is built on them.
+- [`reference/extensions.md`](reference/extensions.md): the optional extensions.
 
 Explaining, measuring, comparing (not normative):
-- [`goals.md`](goals.md): the goals, and where each stands.
-- [`state.md`](state.md): the state of the prototype in one page.
+- [`goals.md`](goals.md): the goals, where each stands, the tensions between them.
+- [`state.md`](state.md): what is built, the heads, the suites, what is next.
 - [`design.md`](design.md): the rationale: the problem, the argument, what is not claimed.
-- [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
-- [`design/performance.md`](../attic/writeup/design/performance.md): where the costs come from, and the costs that remain.
-- [`design/julia-changes.md`](design/julia-changes.md): the inventory of Julia changes, with commits and upstream status.
-- [`design/other-languages.md`](design/other-languages.md): the choices against C++, Rust, Swift and Mojo; [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md) is the research behind it.
-- [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, with the reasons.
-- [`open-issues.md`](open-issues.md): what is open; questions waiting for the user first (§1).
-- [`glossary.md`](glossary.md): every term, with a link to its precise definition.
+- [`design/proofs.md`](design/proofs.md): why the guarantees hold.
+- [`design/evidence.md`](design/evidence.md): the measurements, by goal, each against plain Julia or Python; what is not shown.
+- [`design/julia-changes.md`](design/julia-changes.md): the changes to Julia, one row per commit.
+- [`design/other-languages.md`](design/other-languages.md): the choices against C++, Rust, Swift and Mojo.
+- [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, by topic, with the reasons.
+- [`design/lessons.md`](design/lessons.md): what the work taught.
+- [`open-issues.md`](open-issues.md): what is open: questions for the user, the tensions, the agent's choices, design, implementation.
 
 ## For agents: [`record/INDEX.md`](record/INDEX.md)
 
-The annex for agents: every review, exploration, plan, findings section and session note, with its date, status and what supersedes it; the decision log, with the user's words and the origin of every decision ([`record/decisions.md`](record/decisions.md)); where to find a measurement's raw numbers or an experiment's scripts. Nothing in the record is normative.
+The agents' tier: where each kind of fact lives, the project's context, the playbook, the build notes, the ledgers (decisions, experiments, work), the standing constraints. Nothing in the record is normative.
+
+## Plans and reviews
+
+`plans/` and `reviews/` hold the ones that are live. A plan that is done and a review whose findings all have their place move to the attic.
 
 ## Conventions
 
-- **Terms** as in [`glossary.md`](glossary.md) and the references (trait, implementation, receiver type, key, trait object, entry, worker, fact, run-time site, owner, stakeholder, pirate). "Representation" and "projection" belong to the design before keys, and appear only in history.
-- **Writing:** short sentences, bullets for anything with more than two parts, one idea per sentence, no unexplained jargon; documents for programmers avoid the core developers' terms.
-- The machine is shared. Its rules (cores by load, jobs niced, full builds under a memory guard) are the record's standing constraints: [`record/INDEX.md`](record/INDEX.md).
+- **Terms** as in [`glossary.md`](glossary.md) and the references.
+- **Writing:** short sentences, bullets for anything with more than two parts, one idea per sentence; documents for programmers avoid the core developers' terms.
+- **Every kind of fact has one home:** [`../CLAUDE.md`](../CLAUDE.md).
