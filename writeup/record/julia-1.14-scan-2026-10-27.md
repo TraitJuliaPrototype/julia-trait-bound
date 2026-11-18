@@ -23,7 +23,7 @@ Our patched Julia is 1.13.2 (`julia-1.13/`, [`../design/julia-changes.md`](../de
 
 - **What changed.** `release-1.14`'s `jl_type_infer` has no `JL_LOCK(&jl_typeinf_lock)`. It keeps the reentrancy guard on a MethodInstance the thread already reserves (`jl_engine_hasreserved`) and wraps inference in a `sigatomic` region ("sigatomic defers asynchronous unwinds (e.g. task abandonment) until inference has finished"). In 1.13 the lock is there, marked temporary.
 - **For us:**
-  - W-40 ([the note](../plans/2026-10-26-w40-member-builder-fold.md) §10, §11): the first review's B1 was a deadlock between the inference lock and TraitWorld's lock. In 1.14 that lock is gone, but folds then run on several threads truly at once. The discipline stays (no waiting on TraitWorld's lock, no yield), and the thread checks in §7 become meaningful, where under 1.13 they prove little.
+  - W-40 ([the note](../../attic/writeup/plans/2026-10-26-w40-member-builder-fold.md) §10, §11): the first review's B1 was a deadlock between the inference lock and TraitWorld's lock. In 1.14 that lock is gone, but folds then run on several threads truly at once. The discipline stays (no waiting on TraitWorld's lock, no yield), and the thread checks in §7 become meaningful, where under 1.13 they prove little.
   - The facts mode's own state shared across inferences (the split's candidate registry, `SPLIT_TABLES`, the plain `return_type` cache) is copy-on-write or atomic already ([compiler §4.2](../../attic/writeup/reference/compiler.md#42-compilersplit_call-the-call-site-split), §4.3). It should be reviewed for concurrent inference before a move.
 - **Recommendation:** watch; plan the move for 1.14.0 final. Revisit W-40's §7 thread checks on 1.14.
 

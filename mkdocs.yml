@@ -56,15 +56,16 @@ nav:
       - Results: writeup/intro/results.md
       - Glossary: writeup/glossary.md
   - For core developers:
-      - The state of the prototype: writeup/state.md
+      - The goals, and where each stands: writeup/goals.md
+      - The state of the implementation: writeup/state.md
       - The rationale: writeup/design.md
       - Evidence: writeup/design/evidence.md
-      - Performance: writeup/design/performance.md
-      - Changes to Julia, the inventory: writeup/design/julia-changes.md
-      - Other languages: writeup/design/other-languages.md
+      - The proofs of the guarantees: writeup/design/proofs.md
+      - Lessons learned: writeup/design/lessons.md
       - Alternatives considered: writeup/design/alternatives.md
+      - Other languages: writeup/design/other-languages.md
+      - Changes to Julia: writeup/design/julia-changes.md
       - Open issues: writeup/open-issues.md
-      - Glossary: writeup/glossary.md
   - The references:
       - Overview and conventions: writeup/reference/README.md
       - Traits: writeup/reference/traits.md
@@ -74,15 +75,12 @@ nav:
       - Optional extensions: writeup/reference/extensions.md
   - The record, for agents:
       - Index: writeup/record/INDEX.md
+      - The project's context: writeup/record/context.md
+      - The playbook: writeup/record/playbook.md
       - Decision log: writeup/record/decisions.md
       - Registry of experiments: writeup/record/experiments.md
       - Work queue: writeup/record/todo.md
+      - Design history: writeup/record/design-history.md
       - Other languages, the research of 2026-10-16: writeup/record/other-languages-research-2026-10-16.md
       - Writeup overview: writeup/README.md
-      - Proofs, wrapping by facts: writeup/explorations/wrapping-by-facts.md
-      - Strict mode: writeup/explorations/strict-mode.md
-      - Findings log: writeup/design-findings.md
-      - Design history: writeup/record/design-history.md
-      - Retired, the implementation in detail: writeup/design/implementation.md
-      - Retired, the mechanisms: writeup/design/mechanisms.md
-      - Environment and workflow: session-notes/00-environment-and-workflow.md
+      - The attic: attic/README.md

@@ -24,7 +24,7 @@ Explaining, measuring, comparing (not normative):
 - [`state.md`](state.md): the state of the prototype in one page.
 - [`design.md`](design.md): the rationale: the problem, the argument, what is not claimed.
 - [`design/evidence.md`](design/evidence.md): the measurements, with builds, baselines and run counts; what is not shown.
-- [`design/performance.md`](design/performance.md): where the costs come from, and the costs that remain.
+- [`design/performance.md`](../attic/writeup/design/performance.md): where the costs come from, and the costs that remain.
 - [`design/julia-changes.md`](design/julia-changes.md): the inventory of Julia changes, with commits and upstream status.
 - [`design/other-languages.md`](design/other-languages.md): the choices against C++, Rust, Swift and Mojo; [`record/other-languages-research-2026-10-16.md`](record/other-languages-research-2026-10-16.md) is the research behind it.
 - [`design/alternatives.md`](design/alternatives.md): designs tried, rejected or replaced, with the reasons.

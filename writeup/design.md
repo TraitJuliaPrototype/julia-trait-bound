@@ -10,13 +10,13 @@ Julia compiles a method for the concrete types of its arguments and caches the r
 
 **Problem 1: compiled code does not stay valid.**
 - Compiled code depends on the method table: on which methods match at the signatures inference used. Where inference ran at an abstract signature, that is every method that matches there, so any package that adds a method for its own type changes the answer, and the code is discarded (invalidated). A package that defines `Base.show(io, ::MyType)` invalidates every caller compiled at a `show(::IO, ::Any)`-shaped signature, though it touches nothing foreign.
-- Loading CairoMakie on Julia 1.12 discards code at 769 signatures, none concrete ([findings §1](design-findings.md#1-measurements-behind-the-motivation)).
+- Loading CairoMakie on Julia 1.12 discards code at 769 signatures, none concrete ([findings §1](../attic/writeup/design-findings.md#1-measurements-behind-the-motivation)).
 - A package's own extension can discard its code: with DataFrames loaded, CSV's first read takes 2.5 s instead of 0.19 s, because DataFrames loads InlineStrings, which activates CSV's extension ([evidence](design/evidence.md#the-earlier-builds-rounds-what-they-showed)).
 - Package images, Julia's caches of compiled code per package, cannot help: their code is discarded the same way. Without stable caches, neither composable caching across packages nor ahead-of-time compilation (AOT) is reliable.
 
 **Problem 2: code cannot say what it needs.**
 - A field or argument is typed concretely or abstractly.
-- Concretely, code is compiled per type and carries every part of the value, read or not. In SciML a new callback closure recompiles the solver, although the step never reads the callback, and an integrator's type prints in an error as 3,553 characters ([findings §17](design-findings.md#17-where-unreadable-errors-come-from-and-what-bounds-change-session-22); E-5).
+- Concretely, code is compiled per type and carries every part of the value, read or not. In SciML a new callback closure recompiles the solver, although the step never reads the callback, and an integrator's type prints in an error as 3,553 characters ([findings §17](../attic/writeup/design-findings.md#17-where-unreadable-errors-come-from-and-what-bounds-change-session-22); E-5).
 - Abstractly (`Vector{AbstractVector}` for "a vector of columns"), there is one copy of the code, but every operation is a dynamic dispatch, and inference speculates over the methods that exist today. Nothing checks what an abstract type promises; mistakes surface deep inside the library.
 - The result: silent performance cliffs, overparametrized types, and compiled code multiplied by every type that differs only in what the code never reads.
 
@@ -37,7 +37,7 @@ This is true of plain Julia today.
 - **Lemma O:** a method that applies at a concrete signature and is no pirate is defined by one of its stakeholders. So only a stakeholder or a pirate can change a fact.
 - A stakeholder's definition is "the code changing": an edit, an upgrade, an extension of the package that owns the function or a type.
 - A pirate changes compiled code only if it wins at a fact. **Lemma D:** one that loses changes nothing, in any load order.
-- Verified on stock 1.13.2 and on the patched build: a stakeholder's method, a winning pirate and a redefined `const` invalidate code at concrete signatures; a losing pirate never does ([evidence §1](design/evidence.md#1-the-guarantee); [the framing review](reviews/2026-10-18-framing-and-motivation.md) §0). Proofs: [wrapping by facts](explorations/wrapping-by-facts.md) (Lemma O, Lemma D, Theorems 1–3).
+- Verified on stock 1.13.2 and on the patched build: a stakeholder's method, a winning pirate and a redefined `const` invalidate code at concrete signatures; a losing pirate never does ([evidence §1](design/evidence.md#1-the-guarantee); [the framing review](../attic/writeup/reviews/2026-10-18-framing-and-motivation.md) §0). Proofs: [wrapping by facts](../attic/writeup/explorations/wrapping-by-facts.md) (Lemma O, Lemma D, Theorems 1–3).
 
 ### 2.2 Step 2: refuse the pirates that would win, and fully typed code is never invalidated
 
@@ -196,7 +196,7 @@ colmean(t::ColTable, i::Int) = sum(col(t, i)) / length(col(t, i))
 - **Two rules carry it:** facts (compiled code depends on the method table only through facts; trait code may call any Julia code) and ownership (only a stakeholder or a winning pirate can change a fact; the same rule says who may declare a membership, [traits §12.1](reference/traits.md#121-who-may-declare-a-membership)). Two guarantees follow: G1, identical or error, and G2, stable caches ([facts §2](reference/facts.md#2-the-guarantees)).
 - **Julia provides** sets and memberships in subtyping and dispatch, the policy per method and the facts inference, the kept forms and their forwarders, the split, and the edges by which a membership invalidates only the code that relied on its absence ([the compiler reference](reference/compiler.md); [changes to Julia](design/julia-changes.md)).
 
-What is built, and what is not yet: [the state](state.md). What the measurements show, with builds and baselines: [the evidence](design/evidence.md); where the costs come from: [performance](design/performance.md).
+What is built, and what is not yet: [the state](state.md). What the measurements show, with builds and baselines: [the evidence](design/evidence.md); where the costs come from: [performance](../attic/writeup/design/performance.md).
 
 ## 4. What is not claimed
 
@@ -215,7 +215,7 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 ## Where to read on
 
 - The design, precisely: the [references](reference/README.md), each with its deviations. The [state of the prototype](state.md) in one page.
-- The measurements: [evidence](design/evidence.md) and [performance](design/performance.md); the [changes to Julia](design/julia-changes.md) with commits and upstream status; the design against [C++, Rust, Swift and Mojo](design/other-languages.md).
+- The measurements: [evidence](design/evidence.md) and [performance](../attic/writeup/design/performance.md); the [changes to Julia](design/julia-changes.md) with commits and upstream status; the design against [C++, Rust, Swift and Mojo](design/other-languages.md).
 - [Alternatives considered](design/alternatives.md): what was tried, rejected or replaced, and why. [Open issues](open-issues.md), the [glossary](glossary.md).
 - For programmers: [Traits for Julia](intro/traits-for-julia.md), [Traits by example](intro/traits-by-example.md) and [Results](intro/results.md).
 - For agents: the [record](record/INDEX.md), with the decision log and the [registry of experiments](record/experiments.md).

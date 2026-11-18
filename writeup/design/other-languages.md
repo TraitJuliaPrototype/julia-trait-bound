@@ -318,7 +318,7 @@ Sources: `other-languages-research-2026-10-16.md` §8.
 - **smooth:** no wrapper, annotation or layer; it is an ordinary Julia call;
 - **correct:** the plain code it reaches is compiled by facts too, so G1 (identical or error) and G2 (no unrelated load invalidates it) hold there as well.
 
-So two cases are judged apart. **Interop** is trait code calling plain code on plain data. **Idiomatic trait code** is code written against bounds, as it would be written in Rust or Swift. A cost measured in the first case is an interop cost and is labelled so ([the design](../design.md); [the review's addendum](../reviews/2026-10-20-heterogeneous-collections.md#5-addendum-2026-10-20-after-the-user-read-the-review-interop-and-idiomatic-code)).
+So two cases are judged apart. **Interop** is trait code calling plain code on plain data. **Idiomatic trait code** is code written against bounds, as it would be written in Rust or Swift. A cost measured in the first case is an interop cost and is labelled so ([the design](../design.md); [the review's addendum](../../attic/writeup/reviews/2026-10-20-heterogeneous-collections.md#5-addendum-2026-10-20-after-the-user-read-the-review-interop-and-idiomatic-code)).
 
 **How the others reach code without their bounds:**
 - **C++0x** forbade a constrained template to call an unconstrained one (section 4). C++20 allows it, because it checks no definitions.
@@ -334,7 +334,7 @@ So two cases are judged apart. **Interop** is trait code calling plain code on p
 
 **What the call costs.** These numbers measure interop, not idiomatic trait code.
 - **Where types are known: nothing.** For fully typed code, facts inference is plain inference. A typed trait call costs 0.8 ns, as plain Julia does, in both settings ([evidence §2](evidence.md#2-run-time)).
-- **Where they are not:** a call at an abstract signature is a run-time site, typed `Any`. The dispatch itself costs what plain Julia's costs. What is lost is the inlining of one-method callees declared at `Any`, and the types after the call: the `Any` cascades through the results ([review F2](../reviews/2026-10-20-heterogeneous-collections.md), E-122, E-123).
+- **Where they are not:** a call at an abstract signature is a run-time site, typed `Any`. The dispatch itself costs what plain Julia's costs. What is lost is the inlining of one-method callees declared at `Any`, and the types after the call: the `Any` cascades through the results ([review F2](../../attic/writeup/reviews/2026-10-20-heterogeneous-collections.md), E-122, E-123).
   - In the product setting, trait code pays this whenever it calls Base's generic algorithms on containers of `Any`. `filter!` on a `Vector{Any}` takes 36.8 ns per element from a trait module, 1.1 ns from plain code (review F1, E-121, julia-1.13 of 2026-10-20, BenchmarkTools minima).
   - On Base's own benchmarks, under the test bed `all`: geometric mean 1.037, tails up to 27.8× on containers of `Any` ([evidence §1](evidence.md#1-the-guarantee)).
 - **A session of upstream code** (E-140: CSV, DataFrames, CairoMakie and seven analysis packages, no trait code; the test bed `all` against plain; julia-1.13 3b8085c222; three fresh sessions per cell, two load orders; [evidence §3](evidence.md#3-first-calls-and-sessions), [`experiments/plotwork/README.md`](../../experiments/plotwork/README.md)). It measures the facts mode on ordinary code, which is what trait code meets when it calls into it.
@@ -384,7 +384,7 @@ Neither Rust nor Swift has a number to set beside these: their untyped code is i
 
 ## 12. Compiled code kept across builds: fingerprints of what it used
 
-How other compilers decide that code compiled earlier is still valid, against the facts-keyed cache (W-66, [the note](../plans/2026-10-27-facts-keyed-cache.md) §5b). The sources are in [the research record](../record/incremental-precedents-research-2026-10-27.md).
+How other compilers decide that code compiled earlier is still valid, against the facts-keyed cache (W-66, [the note](../../attic/writeup/plans/2026-10-27-facts-keyed-cache.md) §5b). The sources are in [the research record](../record/incremental-precedents-research-2026-10-27.md).
 
 - **GHC** records, in each interface file, the entities a module used and their fingerprints, and recompiles only when one changed. A function's body enters its fingerprint only when exposed for inlining. A non-orphan instance is hashed with its class or its type; orphan modules are listed apart. Across packages it tracks the module's ABI hash.
 - **rustc** fingerprints each query's result and cuts off early (the red-green algorithm). Across crates, queries depend on the crate's hash (SVH), and early cutoff on each upstream item read recovers the grain.
@@ -445,4 +445,4 @@ The predictions are those of `other-languages-research-2026-10-16.md`, "What the
 | 13 | Dictionary or witness dispatch for dynamic values | Swift, Rust | **confirmed, in Julia's form:** a witness pointer of the package ran in the wrong world (section 6) and was dropped; behind the split, the compiler now calls through a table keyed by the value's type, with pointers that run in the caller's world (E-145, section 11) |
 | 14 | A collection of mixed types is converted where it is made, or seen through a lazy adaptor | Rust, Swift | **open:** a copy into `Vector{Dynamic{X}}` today, which loses aliasing; collection traits with a view planned, not built (section 11) |
 
-Rows 13 and 14 are not predictions of `other-languages-research-2026-10-16.md`. Row 13 is the other languages' standard mechanism, tried and dropped ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)). Row 14 is their idiom for heterogeneous data, set against ours in [the review of 2026-10-20](../reviews/2026-10-20-heterogeneous-collections.md) §5.
+Rows 13 and 14 are not predictions of `other-languages-research-2026-10-16.md`. Row 13 is the other languages' standard mechanism, tried and dropped ([`alternatives.md`](alternatives.md#dynamic-values-pointer-tables-and-witness-tables-replaced-by-the-call-site-split)). Row 14 is their idiom for heterogeneous data, set against ours in [the review of 2026-10-20](../../attic/writeup/reviews/2026-10-20-heterogeneous-collections.md) §5.

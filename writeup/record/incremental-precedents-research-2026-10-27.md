@@ -1,6 +1,6 @@
 # Precedents for identifying compiled code by what it used
 
-> **Research of its date.** This page records what the research found on 2026-10-27. It serves [W-66's plan, §5b](../plans/2026-10-27-facts-keyed-cache.md#5b-an-open-choice-after-e-194-the-identitys-grain): a cache entry of code compiled by facts identified by fingerprints (F1 its own method, F2 its facts and callees' inferred results, F3 layouts), not by its dependencies' build ids. Its statements about other systems stand as of this date. Its statements about our design describe the plan of this date; the references and the plan win where they differ.
+> **Research of its date.** This page records what the research found on 2026-10-27. It serves [W-66's plan, §5b](../../attic/writeup/plans/2026-10-27-facts-keyed-cache.md#5b-an-open-choice-after-e-194-the-identitys-grain): a cache entry of code compiled by facts identified by fingerprints (F1 its own method, F2 its facts and callees' inferred results, F3 layouts), not by its dependencies' build ids. Its statements about other systems stand as of this date. Its statements about our design describe the plan of this date; the references and the plan win where they differ.
 
 Research of 2026-10-27 (W-66), by one agent with web access and the local Julia tree.
 

@@ -52,7 +52,7 @@ Core.TraitKey{X, R, F}
 - It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
 - **The compilation signature per key:** `TraitKey{X, R, F}` at an argument where the method is bounded, inferred once per key by the path `@nospecializeinfer` takes. Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed instance. Static parameters bound by a keyed argument are those the key fixes; a method whose body uses a static parameter the key does not fix is compiled per type there.
 
-**Status:** Optional. The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+**Status:** Optional. The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../../attic/writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
 
 ### 1.3 Calls from code compiled per key
 

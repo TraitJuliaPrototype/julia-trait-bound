@@ -56,7 +56,8 @@ SEARCHED = {"writeup/reference/README.md", "writeup/reference/traits.md", "write
             "writeup/reference/compiler.md", "writeup/reference/lowering.md",
             "writeup/intro/traits-for-julia.md", "writeup/intro/traits-by-example.md", "writeup/intro/results.md",
             "writeup/intro/porting.md", "writeup/state.md", "writeup/design.md",
-            "writeup/design/julia-changes.md", "writeup/design/evidence.md", "writeup/design/performance.md",
+            "writeup/design/julia-changes.md", "writeup/design/evidence.md", "writeup/design/proofs.md",
+            "writeup/design/lessons.md", "writeup/goals.md",
             "writeup/design/other-languages.md", "writeup/design/alternatives.md",
             "writeup/open-issues.md", "writeup/glossary.md", "writeup/setup.md"}
 NOSEARCH = "---\nsearch:\n  exclude: true\n---\n\n"

@@ -7,7 +7,7 @@ For core developers. The design is the four [references](reference/README.md), e
 ## 1. Where the project stands
 
 - **The design:** the references for "traits are abstract types", adopted by the user on 2026-11-06. The choices marked mine since then stand, as input to the synthesis ([the goals](goals.md) §4; [open issues](open-issues.md) §1).
-- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` 7b374f39ce.
+- **Julia** (`julia-unified`, branch `unified`): a stack of self-contained commits on v1.13.2, the changes useful without traits first ([julia-changes §7.1](design/julia-changes.md#71-the-stack)). The stages of [the work plan](../attic/writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md) are built: W-98, W-99, W-107, W-108, W-109, W-100, W-111, W-112, W-113, W-114, W-101, and W-129. Latest: `unified` 7b374f39ce.
 - **The library** (`TraitWorld-unified`, branch `unified`): a library on the new type system, with the next iteration's D-1 and D-3 (W-151), its forwarders made where a method is defined on `julia-next` (W-160; traits T-125, compiler C-111), a trait's parameters left open erasing too (open issue 204), and D-9, D-12, D-13 (merged from `s3`). The library at the tag `prototype-2026-11` is e11c7cc (`TraitWorld-base`).
 - **The ports** (W-104): every port runs on the unified build: slices 1 and 2 (the DataFrames side and the plotting core) and slice 3 (TraitDifferentialEquations, NetworkDynamics) (§4).
 - **Performance:** speed work is stopped; the claim is no regression where types are known, and full speed by opting in ([the goals](goals.md) G-2; [decisions](record/decisions.md) §5). The numbers are in §5.
@@ -36,7 +36,7 @@ TraitWorld `unified`: `@trait` (operations, defaults, fields, inputs, supertrait
 
 ## 4. The ports (W-104)
 
-Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([the plan](plans/2026-11-07-w104-ports.md)).
+Each port lives on a branch `unified` in a sibling worktree, `<Repo>-unified` ([the plan](../attic/writeup/plans/2026-11-07-w104-ports.md)).
 
 | Slice | Port | On the unified build | Checked on (2026-11-08) |
 |---|---|---|---|
@@ -97,10 +97,10 @@ The design of the references, built on Julia as a stack of self-contained commit
 
 ### 6.3 The order of work
 
-The work follows [the schedule to the synthesis](plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
+The work follows [the schedule to the synthesis](../attic/writeup/plans/2026-11-11-complete-prototype.md). The work queue, with every item, its source and status, is [`record/todo.md`](record/todo.md). The phases:
 1. Triage: every open question and deviation in a bin (A before the measurement round, B to the synthesis, C accepted). Done. Three of bin A's decisions are made (the `where` variable, kept values, the abstract result). The membership as a method (W-141) is decided: a membership behaves as a method does, and its method of the runtime's function is the implementation of its edges (compiler §5.6, open issue 180).
 2. Bin A: the design questions that change the mechanism, then the deviations (W-142, W-143's tool, W-128). W-142 is built: `fully_typed` in a session is the closed build's own check, and it agrees with the build on 17 of 18 programs (E-369; traits T-109). Bin A is empty: the prototype is conceptually complete.
-3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](plans/2026-11-14-cache-across-sessions.md), with its addendum).
+3. The cache across sessions, bounded (W-120; G-3). Its first step is done (E-372): on the table and the ODE sessions the images hold the libraries' code, and a session compiles its own code and Julia's. The cache is not built now (the user, 2026-11-14); the measurement round carries the workloads that would exercise it ([the proposal](../attic/writeup/plans/2026-11-14-cache-across-sessions.md), with its addendum).
 4. The ports brought to the head (W-104). Done (E-373): every suite passes or has its known failures; §4.
 5. Freeze, then the measurement round (W-145). Done (E-374 to E-386) on `unified` 21c9b33e39, tag `round-2026-11-b`: [evidence](design/evidence.md) §1 to §4, each tension's cost in §4c.
 6. Low-hanging performance work (W-146). Done on `unified` 7b374f39ce, TraitWorld e11c7cc (E-389 to E-391): an instance's code compiled once per result; the membership walk's substitution below a position's top; the definition-time check in inference's world.
