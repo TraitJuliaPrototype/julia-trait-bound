@@ -44,8 +44,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 
 | What | On | Result |
 |---|---|---|
-| the gates of each stage of the iteration (`w155/`, `w155b/`, `w160/`, `w161/`) | `next` | pass |
-| the gates in force (`experiments/implementation/gates/`, 71 files) | `next` | 67 pass; four assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements)) |
+| the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; two carry an expected-failure check (compiler C-147, C-148) |
 | the library's suite | `next` | passes (93 testsets) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass |
 | NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
@@ -58,7 +57,7 @@ Base's own test files against the vanilla control, and the acceptance cases of t
 
 ## 4. What is next
 
-First, four gates assert rules the design replaced ([open issue 237](open-issues.md#4-runtime-and-measurements); W-164): they are rewritten, and one command runs every gate in force.
+First, a fault the gates found: two instances of one set that a member is in both do not meet, so dispatch selects one of two methods at `Callable` instances without a report ([open issue 238](open-issues.md#2-design); compiler C-147; W-165).
 
 Then the stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the demonstrators follow the design, and the attribute's machinery leaves Julia and the library (W-156);

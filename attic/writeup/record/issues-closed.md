@@ -730,3 +730,16 @@ Paragraphs of the old §1 that were not items: "W-141, input to the synthesis", 
 - *The proposal:*
   - a tool, since the pattern can recur: Julia's own static check of roots (`make -C src analyzegc`) run over the changed runtime files, and the gates with the examples run once under a stressed collector, with the counts recorded;
   - then the fix at each place the tool names. Before the measurement round: a crash in one of six runs of a teaching example outranks every performance item.
+
+237. **Closed (2026-11-18; W-164; experiments 36b07c1, 90ecdee):** the four gates that pinned replaced rules are rewritten to the rules in force: `n8_callable` (`Callable`'s memberships are entries), the new `n8_callable_box` and `n26_callable_late_method` (the check at the box, and the late method's edge), `n20_unmet_lookup` (5) (a `Callable` component is met only by a declared member) and `n22_declared_assert` (an operation is a contract entry). Each fails on the tag or under a wrong assertion on the head. The `m3_*` files are in `gates/not-in-force/`. `gates/run_all.sh <tree>` with no pattern runs every gate in force and every stage gate of `gates/stage_gates.txt`: that command is what "the gates pass" means (the playbook §3). On `next` a5bd871cce: 72 of 72 and 9 of 9. Two defects found on the way are compiler C-147 and C-148 (open issue 238). The entry as it stood:
+
+**237. Four gates assert rules the design replaced.**
+- *The case:* of the 71 gates in force (`experiments/implementation/gates/`, the patterns `m[12]_*` and `[nf]*`), 67 pass on `next` 32a2235abd and four fail. Each passes on the tag's Julia. Each asserts a rule that the running iteration replaced:
+  - `n8_callable` and `n26_callable_late_method`: `Callable` by a function's own methods. `Callable` is a contract at the box ([traits §9](reference/traits.md#9-functions-callable));
+  - `n20_unmet_lookup`: its case of a pair at `Callable`, for the same reason;
+  - `n22_declared_assert`: a declared result read from the trait's method. An operation is an entry of the contract ([traits §4.1](reference/traits.md#41-operations)).
+- *The pattern:* a rule changed, and the gates of the stage that changed it ran (`w161/`), not the older gates that pin the rule it replaced. "The gates pass" then meant the stage's own.
+- *The proposal:*
+  - each of the four is rewritten to the rule in force, or retired with a note in `gates/README.md`, as that file requires;
+  - one script runs every gate in force and every stage's gates, and is what "the gates" means in the record (`gates/run_all.sh` with no pattern);
+  - a decision that replaces a rule names the gates that pinned the old one, in its row.

@@ -404,7 +404,7 @@ Questions about open sets are answered in three layers:
   - A component under a `where` (`All{AbstractVector{T}, X} where T`) is met where a member is under the component for some value of its variable.
 - **Core and Base's own negatives.** Code compiled while Base is built at such an intersection is invalidated, with its callers, at the end of Base's build, in a new world; the image's later code drops the match.
 
-**Status:** Implemented, but for C-51, C-77 and C-79 (gates `n2_open_abstract`, `n18_closed_after_load`, `n20_unmet_lookup`, `n31_isa_narrows`).
+**Status:** Implemented, but for C-51, C-77, C-79 and C-148 (gates `n2_open_abstract`, `n18_closed_after_load`, `n20_unmet_lookup`, `n31_isa_narrows`).
 
 ### 4.9 Intersections
 
@@ -426,7 +426,7 @@ Core.All{X, Y}
 - **In the normal form, further:** a variable as a component is in a covariant position, and the diagonal rule applies to it; a `Union` component distributes (`All{Union{A, B}, Y}` is `Union{All{A, Y}, All{B, Y}}`); a component that is itself an intersection under a `UnionAll` is flattened; two closed components whose intersection Julia computes exactly are replaced by it.
 - **Its name** is not exported by `Core`.
 
-**Status:** Implemented.
+**Status:** Implemented, but for C-147.
 
 ### 4.10 Type values
 
@@ -715,7 +715,7 @@ void *jl_split_table_ptr(jl_value_t *tbl, jl_value_t *T);
 
 This is `Callable`'s own handling, as Rust's `Fn` traits are the compiler's own.
 
-**Status:** Implemented, but for C-146.
+**Status:** Implemented, but for C-146 and C-147.
 
 ### 7.5 `IO`
 
@@ -930,7 +930,7 @@ Each applies to all code.
 | a declared result on `Method`; lowering's record of `f(…)::RT` | Implemented | §4.1, §6.8 |
 | the kept forms in `Core`: `Dynamic{X}`, `Compiled{T}` | Implemented, but for C-112, C-113 and [traits T-126](traits.md#19-deviations) | §6.9 |
 | operations on a value typed by its trait; the split; the table | Implemented, but for C-38 and C-39 | §7.1–§7.3 |
-| `Callable`: every function a member, the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for C-146 | §7.4 |
+| `Callable`: every function a member, the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for C-146 and C-147 | §7.4 |
 | A closed abstract type with a contract; `IO`'s contract, its candidates, the eraser `IOContext{IO}` | Implemented; the targets at a stream past the candidates: Open ([open issue 170](../open-issues.md#4-design)) | §7.1, §7.5 |
 | a closed build | Implemented, but for C-86 and C-87; a build that compiles what is written, an operation on a set with no member, a call in the latest world: Planned, with C-102, C-103, C-112 and C-114 | §7.6 |
 | world-checked caches: `:caller_world`, the per-call-site cache | Implemented; exact-type entries: Optional | §8.1, §8.2 |
@@ -971,5 +971,7 @@ The rows below are where the implementation falls short of this page; the heads 
 | C-115 | [§6.7](#67-the-definition-time-check) | The check reads the method's instance at the box, the instance a box's call runs: inferred by the native interpreter, cached with its edges, kept by an image; nothing else infers for the check. | Where a box's call runs an instance at another signature (the attribute's instance at the trait, for a method of a trait without the default, C-112), or Julia's cache keeps no code, the library infers the instance apart (`check_at_box`: `Base.code_typed_by_type` with a `NativeInterpreter(world; facts = true)` of its own), as it infers each callee below a call that only throws. A later definition of a function it called does not check the method again; only a name not yet defined and the module's end do (`_check_pending_bounded`, `_end_pending_bounded`). Beside it the classification is built: `Compiler.DefinitionCheckInterpreter` (an ephemeral cache, the library's hook at each known call) and the library's `classify`. | TraitWorld `src/atbox.jl` (`check_at_box`, `_box_instance`, `box_signature`, `_stand_in`), `src/classify.jl` (`classify`, `check_definitions`, `_decide_bounded`, the pending lists); `Compiler/src/types.jl` (`DefinitionCheckInterpreter`) |
 | C-130 | [§1.2](#12-fact-signatures) | A later `public` or `export` of an owner-only function is the owner's change: it ends the code that relied on the function's being owner-only, through its binding edge. | Nothing ends: `public` sets the binding's flag without a new partition, and `export`'s new partition is no change to what inference reads of the binding (`invalidate_code_for_globalref!` compares the loads), so code that inferred a call at an abstract signature stays, and a method by another package that the status would now allow invalidates it as Julia's edges do (G1 holds; G2's claim that such code ends only by a stakeholder or a pirate fails for it). In a package the status is final before its code is compiled: `public` and `export` stand at the module's top. | `src/module.c` (`jl_module_public_`), `Compiler/src/bindinginvalidations.jl` |
 | C-146 | [§6.3](#63-the-forwarders), [§7.4](#74-callables-call) | A wrapper at a `Callable{A, S}` argument is tested where it enters every method as written. | The library's hook answers the entry only where exactly one positional argument has a `Callable` component, written in the signature (not through a `where` variable's bound), the set's parameters given (not lifted), outside a keyword body; elsewhere a wrapper of a function with no method at `A` enters untested, and the error is the call's own `MethodError` where the method calls it. | TraitWorld `src/erasing.jl` (`_wrapper_entry`) |
+| C-147 | [§4.9](#49-intersections), [§7.4](#74-callables-call) | Two instances of one set that a member is in both meet: methods at `Callable{A, S}` and `Callable{B, R}` tie for every function, and Julia reports the tie. The same holds for any set with a member of several instances (a membership at the bare name, an input parameter). | The intersection of two instances of one set is empty, by the parameters' invariance: `typeintersect(Callable{Tuple{Int}, Int}, Callable{Tuple{String}, String})` is `Union{}`. Dispatch selects one of the two methods without a report, and `isambiguous` answers false. | `src/subtype.c` (the intersection of two instances of a set); gate `n8_callable` (its expected-failure check) |
+| C-148 | [§4.8](#48-negatives-fold-with-an-edge-positives-through-entries) | A lookup that drops a match met only at an unmet intersection reports no ambiguity with it. | At `Callable` (bare or an instance) and at a parametric set written bare, the lookup drops the match and keeps its ambiguity flag, so the caller's call stays a dynamic call. | `src/gf.c` (the lookup's ambiguity flag); gate `n20_unmet_lookup`, case 5 (its expected-failure check) |
 
 **Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): C-1 to C-29, C-32 to C-37, C-40 to C-44, C-46, C-48, C-53 to C-76, C-78, C-80 to C-85, C-89 to C-93, C-100, C-101, C-104 to C-106, C-110, C-116.

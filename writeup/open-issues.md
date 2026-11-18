@@ -366,6 +366,13 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 
 ### The compiler
 
+**238. Two instances of one set that a member is in both do not meet.**
+- *The case:* every function is a member of every `Callable{A, S}`. Two methods `apply(f::Callable{Tuple{Int}, Int}, x)` and `apply(f::Callable{Tuple{String}, String}, x)` should tie for every function ([traits §9](reference/traits.md#9-functions-callable)). On the head `typeintersect` of the two instances is `Union{}`, dispatch selects one of the methods without a report (`apply(abs, 1)` runs the method for `String`), and `isambiguous` answers false. The same for any parametric set with a member at its bare name, `@implement Z S`: `h(::Z{1})`, `h(::Z{2})`, `h(S())` selects one. It is a wrong method selected silently (compiler C-147).
+- *The rule that produces it:* a set's parameters are invariant, so two instances with different parameters are disjoint, as two instances of a parametric type are. That holds where a member is in one instance (a parameter the member defines, [traits §3.2](reference/traits.md#32-parameters)). It does not hold where one member is in several: a membership at the bare name, an input parameter, `Callable`.
+- *The reference's gap:* [compiler §4.9](reference/compiler.md#49-intersections) does not say what the intersection of two instances of one set is.
+- *The proposal:* two instances of one set meet where the set has a member that is in both: the intersection is `All{X{A}, X{B}}`, unmet or met by the entries as any intersection is. For a set whose every parameter is defined by the member, two different instances stay disjoint. The gate `n8_callable` holds the expected-failure check; W-165 builds it.
+- *Beside it* (compiler C-148): the lookup that drops a match at an unmet intersection keeps its ambiguity flag at `Callable` and at a parametric set written bare, so the call stays dynamic. No wrong answer. The gate `n20_unmet_lookup` (5) holds its check.
+
 **166. Code compiled once at a stream typed `IO` reaches its targets by dynamic calls.**
 - *The case:* in code an author erases (an entry `@nospecialize(io::IO)` passing `IOContext{IO}(io)` on, [traits §9b](reference/traits.md#9b-streams-io)), a call on the stream that is not one of `IO`'s operations infers `Any`. It dispatches when it runs where more methods match than inference unions (`read(io)`, `read(f, Int32)`), or where its receiver is a wrapper built from the stream. The instance it reaches is in an image only if the image's build ran it.
 - *Wrappers over a stream:* `IOContext{IO_t}`, `EachLine{IOT}`, `ReadEachIterator{T, IOT}` and JuliaSyntax's `Lexer{IO_t}` take the stream's type as a parameter. Built in code compiled once, they are abstract even where the caller knows the stream: a loop over `eachline` infers `Any`.
@@ -490,17 +497,6 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **235. A message of the definition-time check prints the compiler's tuple type.**
 - *The case:* `TraitUseError` for a method declared bounded reads "is not bounded at the box (Tuple{typeof(Main.Broken.colsum), Dynamic{ColTable}})" (`experiments/docs-examples/intro.jl`, `tutorial.jl`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
 - *The proposal:* the message names the method as its signature is written, `colsum(t::ColTable)`, and says "read with `t` in a box".
-
-**237. Four gates assert rules the design replaced.**
-- *The case:* of the 71 gates in force (`experiments/implementation/gates/`, the patterns `m[12]_*` and `[nf]*`), 67 pass on `next` 32a2235abd and four fail. Each passes on the tag's Julia. Each asserts a rule that the running iteration replaced:
-  - `n8_callable` and `n26_callable_late_method`: `Callable` by a function's own methods. `Callable` is a contract at the box ([traits §9](reference/traits.md#9-functions-callable));
-  - `n20_unmet_lookup`: its case of a pair at `Callable`, for the same reason;
-  - `n22_declared_assert`: a declared result read from the trait's method. An operation is an entry of the contract ([traits §4.1](reference/traits.md#41-operations)).
-- *The pattern:* a rule changed, and the gates of the stage that changed it ran (`w161/`), not the older gates that pin the rule it replaced. "The gates pass" then meant the stage's own.
-- *The proposal:*
-  - each of the four is rewritten to the rule in force, or retired with a note in `gates/README.md`, as that file requires;
-  - one script runs every gate in force and every stage's gates, and is what "the gates" means in the record (`gates/run_all.sh` with no pattern);
-  - a decision that replaces a rule names the gates that pinned the old one, in its row.
 
 **232. Rules about a set over many of Base's methods have no test at Base's scale.**
 - *The case:* the fixes of E-331, E-334, E-335 and E-336 answer cases that appear only when a set stands on a thousand of Base's methods ([the lessons](design/lessons.md)). No gate declares such a set.

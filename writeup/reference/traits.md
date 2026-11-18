@@ -944,7 +944,7 @@ colmap(uppercase, m, 1)                   # MethodError where the function is bo
 ```
 
 **`Callable{A, S}` is the trait of functions called with arguments of the tuple type `A` and returning an `S`.** It is Julia's own, as Rust's `Fn` traits are the compiler's own. Its contract is checked at the box, not in the type system:
-- **Every function is a member of every `Callable{A, S}`:** a value of a subtype of `Function`, and a value of a callable type declared a member (`@implement Callable MyCallable`, for a callable struct that is no `Function`). Subtyping reads no method: membership is declared, as for any trait.
+- **Every function is a member of every `Callable{A, S}`:** a value of a subtype of `Function`, and a value of a callable type declared a member (`@implement Callable MyCallable`, for a callable struct that is no `Function`). Julia's builtins (`getfield`, `isa`) are the exception: their types are members of no set ([compiler §4.1](compiler.md#41-sets)). Subtyping reads no method: membership is declared, as for any trait.
 - **The signature is checked where the function is boxed or enters.** A plain function given at `Callable{A, S}` is boxed (`Callable` erases by default, §7.8), and the box is made only for a function with a method at `A`: otherwise it raises the `MethodError` a call at `A` would, with a hint that names the declaration and the function's methods near `A`. So the error is at the call that passes the function. A wrapper is checked at the entry of the method that takes it, by the same test.
 - **The result is asserted to `S` on return,** at every call of a box, however it is called: its own argument, a copy, a capture, a splat. A call at arguments outside `A` raises `MethodError`; a result outside `S` raises `TypeError`, naming the declared and the returned type; where `S` is `Nothing`, the message adds: end the function with `nothing`.
 - **A wrapper is the function:** passed with `compiled_for(f)`, it is checked at entry: a method at `A`, and a result inferred at `A` that can be an `S` (else the `TypeError` a call would raise). Its calls are the function's own, compiled for its type; their results are not asserted to `S` ([GT-24](../goals.md#3-tensions-between-the-goals)).
@@ -959,7 +959,7 @@ colmap(uppercase, m, 1)                   # MethodError where the function is bo
 - A closure with a trait argument, `(u::ColTable) -> …`, is a method at the trait.
 - **Passing `f` on to a higher-order function,** `map(f, xs)`, passes the box: a call at a concrete signature, whose code is compiled once for the box. `colmap` above is bounded (§7.3).
 
-**Status:** Implemented, but for T-156, [compiler C-146](compiler.md#deviations) and [lowering L-58](lowering.md#15-deviations); keywords (`Callable{A, S, K}`): Planned.
+**Status:** Implemented, but for T-156, [compiler C-146, C-147](compiler.md#deviations) and [lowering L-58](lowering.md#15-deviations); keywords (`Callable{A, S, K}`): Planned.
 
 ---
 
@@ -1339,7 +1339,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | erasing by default: the forwarder made where a method is defined | Implemented, but for T-125 and compiler C-111 | §4.6, §7.8 |
 | operations on a value known only by its trait | Implemented | §7.9 |
 | storage typed by a trait; struct parameters; storage keeps the form given | Implemented | §8 |
-| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for T-156, compiler C-146 and lowering L-58 | §9 |
+| `Callable`: every function a member; the signature checked at the box and at a wrapper's entry, the result on return | Implemented, but for T-156, compiler C-146, C-147 and lowering L-58 | §9 |
 | A closed abstract type with a contract; `IO`'s contract; the eraser `IOContext{IO}` | Implemented | §3.4, §9b |
 | BaseTraits; element types by variance; `retain!` | Implemented | §10 |
 | checks, errors, hints | Implemented, but for T-99 and compiler C-115 | §11 |

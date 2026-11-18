@@ -33,7 +33,7 @@ Before changing anything:
 ## 3. Checking a change
 
 In this order, each a few minutes at most:
-1. The gates that concern the change (`experiments/implementation/gates/run_all.sh <tree> '<pattern>'`), then all of them: the patterns `'m[12]_*'` and `'[nf]*'`. The `m3_*` files are not gates in force (`gates/README.md`).
+1. The gates that concern the change (`experiments/implementation/gates/run_all.sh <tree> '<pattern>'`), then all of them: `run_all.sh <tree>` with no pattern runs every gate in force and every stage gate. That command is what "the gates pass" means.
 2. The library's tests.
 3. The examples of `intro/` (`experiments/docs-examples/`).
 4. One or two demonstrators' suites, chosen to reveal a regression first.
@@ -45,7 +45,7 @@ In this order, each a few minutes at most:
 - A claim "the same as plain Julia" is checked by a redefinition, in both modes.
 - A check of a guarantee counts the code the guarantee is about.
 - A deviation row gets an expected-failure check, or nobody re-verifies it.
-- A decision that replaces a rule names the gates that pinned the old one. "The gates pass" means every gate in force and every stage's gates, not the stage's own (open issue 237).
+- A decision that replaces a rule names the gates that pinned the old one. A gate must discriminate: it fails on the tag's Julia where the rule differs, or a wrong assertion fails on the head.
 
 **Auditing code you did not write** (L88): by probes, not by its gates. Gates pin the defects their author believed in.
 
@@ -128,5 +128,6 @@ In this order, each a few minutes at most:
 
 - **Never `git add -A` beside a build tree or a depot.** A baseline tree was committed that way once.
 - Commit with paths. Push when a piece of work is done, in every repository.
+- **Where an agent works in the same repository, commit with a pathspec** (`git commit -m … -- <paths>`): a plain `git commit` after `git add <paths>` also takes what the other has staged.
 - A worktree of the julia repository per line of work; the baseline's tree is changed by nobody.
 - Before deleting a branch or a worktree: `git branch --merged`, `git log <branch> --not --remotes`.
