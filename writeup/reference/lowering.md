@@ -1,6 +1,6 @@
 # Lowering: the reference
 
-**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines what the trait library's macros expand to on Julia's interfaces ([`compiler.md`](compiler.md)), within the facts mode's contract ([`facts.md`](facts.md)). It decides nothing the other three references decide; where it seems to, they win.
+This page defines what the trait library's macros expand to on Julia's interfaces ([`compiler.md`](compiler.md)), within the facts mode's contract ([`facts.md`](facts.md)). It decides nothing the other three references decide; where it seems to, they win. Each section ends with a status line (Implemented, Planned, Optional, Open), as [the README](README.md#conventions-for-every-reference) defines them. The [Deviations](#15-deviations) table lists where the implementation falls short of this page.
 
 The language puts most of the work in Julia: a trait is an abstract type, a membership is an entry of the type system, a method at a trait is a Julia method, compiled as Julia compiles one; the box and the wrapper are two structs. What remains for the library is to declare, to check, and to report.
 
@@ -36,7 +36,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 | `@trait_module` | module option bits | before the module's first method |
 | `Dynamic{X}`, `Compiled{T}`, `compiled_for` | two structs of `Core` with the library's memberships and methods; a function of the library | — |
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for `@trait`, `@implement`, a pattern's members, a method at a trait and `Dynamic{X}` (L-51); `@trait_module` in TraitWorld `unified` bb78d02 (W-111; §6); the wrapper in 5e2ef71 (W-151; §7), with [traits T-125, T-126](traits.md#19-deviations).
+**Status:** Implemented, but for [traits T-125, T-126](traits.md#19-deviations).
 
 ---
 
@@ -71,7 +71,7 @@ The language puts most of the work in Julia: a trait is an abstract type, a memb
 
 A trait's declaration changes no compiled code: its methods are at a set with no members yet, and at `Dynamic{<:X}` and `Compiled{<:X}`, of which no value exists yet.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2, with L-54. A further argument typed only where it binds an input: TraitWorld 4be0097, mine (2026-11-07), found by BaseTraits' `Keyed` (an ambiguity with Base's `haskey` for every dictionary). The operations as entries, a method at the trait only for a default, and `Dynamic{X}`'s forwarding methods: Implemented (D-4, 2026-11-15; TraitWorld `unified` c838f76 with julia `next` 5448a8b7bf; W-161, E-498); a further argument typed where its declared type names no variable: mine (2026-11-15, found by the library's test of ambiguities, Base's `show(io::IO, x)`). The wrapper's membership: TraitWorld 5e2ef71 (W-151); its forwarding methods: TraitWorld c838f76 (W-161); the erasing record read where a method is defined and `:no_forwarder`: TraitWorld 21ae901 (W-160); `:no_forwarder`: mine (2026-11-15).
+**Status:** Implemented, but for L-67.
 
 ---
 
@@ -112,7 +112,7 @@ A trait's declaration changes no compiled code: its methods are at a set with no
 
 **Revise.** The library's extension for Revise tells Revise which memberships an expression declared, as Revise knows which methods it defined. An `@implement` that a revised file no longer has is taken back with `delete_membership`, as a method no longer defined is deleted; one that changed is declared again (a redeclaration, [traits §5.11](traits.md#511-overrides-and-redeclaration)).
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 for steps 2 to 6 (a `Union`-bounded variable in dd72b10), the use before the declaration raised in 0aff625 (E-350), in compiled code with `unified` fcdfd0da36 (E-352); ownership (step 1) and compiling ahead (step 8) in TraitWorld 7adcc94 (W-114), the override records (step 7) in TraitWorld 701aaab, the forwarding's and the checked results in 5b3c427, made again from an image's memberships in 6871ea9 (E-344); forwarding's methods (step 6) in TraitWorld (W-128), mine (open issue 158 (a), 2026-11-08). The check's instances as the records (steps 3, 7): Planned (D-3), with [traits T-129](traits.md#19-deviations). `struct S <: X` decided (the user, 2026-11-06, Q8 (c)). Taking a membership back: TraitWorld `s3` 9e0e3f4 (D-13, 2026-11-15; E-459). The extension for Revise: Planned, with L-64.
+**Status:** Implemented, but for L-64 (Revise); the check's instances as the records (steps 3, 7): Planned, with [traits T-129](traits.md#19-deviations).
 
 ---
 
@@ -125,7 +125,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - Inference never calls the hook, and no runtime lock is held while it runs. A check that reaches its own member again raises.
 - Members checked while a package image is built are kept in the image with the methods each check relied on. At load, a member whose relied-on methods dispatch the same is not checked again.
 
-**Status:** Implemented in TraitWorld `unified` e7ff8e2 with the runtime's hook at dispatch and in the compile queue ([compiler §10.4](compiler.md#104-the-member-hook), C-30, C-31); a pattern an image brought, read from the runtime's entries, in TraitWorld `unified` bd9a721; an abstract member by its definition through its entry in e8554d9 (E-345); the answers in images: L-55. The pattern rule for equations is mine (2026-11-06; [the README](README.md#the-choices-in-these-references)).
+**Status:** Implemented, but for [compiler C-30, C-31](compiler.md#deviations).
 
 ---
 
@@ -136,7 +136,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 - `@nospecialize t::X` and `@specialize t::X` are Julia's, as at any argument.
 - **Per-method options:** `@bounded f(…) = …`, `@unbounded f(…) = …` and `@facts f(…) = …` put `Expr(:meta, :bounded)`, `Expr(:meta, :bounded, false)` and `Expr(:meta, :facts_always)` first in the body.
 
-**Status:** A method at a trait: Julia's, implemented. The forwarder: Implemented (D-1; `next` 8b1ec88a56 with TraitWorld `unified` 21ae901, W-160), with [traits T-125](traits.md#19-deviations); `@nospecialize` at a trait argument still takes the attribute's path on the build ([compiler C-112](compiler.md#deviations)), which a forwarder's box made in its own body does not need. The per-method options with what reads them: `@bounded` and `@unbounded` in TraitWorld `unified` 59134ef and bb78d02 (W-109, W-111; [traits §7.3](traits.md#73-fully-bounded-methods)); the facts flag on `unified` beafa01b36 (W-100; [compiler §2.2](compiler.md#22-the-method-flag)).
+**Status:** Implemented, but for [traits T-125](traits.md#19-deviations) and [compiler C-112](compiler.md#deviations) (`@nospecialize` at a trait argument).
 
 ---
 
@@ -148,7 +148,7 @@ A membership with a pattern (a family `S{P} where P`, a closed abstract type, a 
 
 The module's statements are Julia's; nothing is rewritten. At the module's end (the module-end hook, [compiler §10.1](compiler.md#101-definition-and-image-hooks)), methods whose check waited are checked, and `struct S <: X` without its `@implement` is refused.
 
-**Status:** Implemented in TraitWorld `unified` bb78d02 (W-111); the options decided (the user, 2026-11-06, Q2 (a)); the three and no other: the plan's D-1 and D-14 (2026-11-15), with [traits T-127](traits.md#19-deviations).
+**Status:** Implemented, but for [traits T-127](traits.md#19-deviations).
 
 ---
 
@@ -172,7 +172,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - `unwrap(t)` is `getfield(t, :object)` for both; `==`, `isequal` and `hash` by the objects' `===`; `show` prints `Dynamic{Shape}(Circle(1.0))` and `Compiled(Circle(1.0))`.
 - **`compiled_for(x)`** is the library's function. The library exports it, as any name.
 
-**Status:** `Core.Dynamic` and its methods: Implemented on `unified` e692e57ab7 and TraitWorld `unified` bb78d02 (W-111). The wrapper, its methods, the box's constructors at a box and a wrapper, and `convert`: TraitWorld 5e2ef71, 5a9d19d (W-151), with [traits T-126](traits.md#19-deviations) and [compiler C-113](compiler.md#deviations) (the wrapper the library's type; `compiled_for` exported as Julia's cast).
+**Status:** Implemented, but for [traits T-126](traits.md#19-deviations) and [compiler C-113](compiler.md#deviations) (the wrapper the library's type; `compiled_for` exported as Julia's cast).
 
 ---
 
@@ -188,7 +188,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - Nothing is looked up when either runs. Both are fully typed where the constructor's call is, and a package's image keeps a member's rebuilding method as it keeps its forwarding methods.
 - A type without a positional constructor that takes every field in order cannot be rebuilt. The call raises Julia's `MethodError` at the constructor, with the library's hint: the constructor to define.
 
-**Status:** Implemented in TraitWorld `unified` 78da5cb (`test/core.jl`; stack gate `like_precompiled`): the rebuilding as a method made at the declaration, and the hint, are mine (2026-11-14).
+**Status:** Implemented (test `core.jl`; gate `like_precompiled`).
 
 ---
 
@@ -200,7 +200,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - **`Dynamic{Callable{A, S}}`'s constructor** tests `hasmethod(f, A)` and raises the `MethodError` a call at `A` would; its call method asserts the arguments to `A` and the result to `S`. A wrapper's call method forwards any arguments to its object (§7).
 - It adds the error hints of [traits §9](traits.md#9-functions-callable): where a function has no method at `A`, the hint names the declaration and the function's methods near `A`; where a result fails its check, the hint names `S`.
 
-**Status:** Implemented in TraitWorld `unified` 5d52f0d (W-113): `Callable` is Julia's; `Dynamic{Z}`'s membership and its call, checked at both ends; the wrapper's family in 5e2ef71 (W-151). The hint for a function with no method at `A`: TraitWorld e572379 (W-114); the hint at a result that fails its check: L-58. The box's test at `A`, the wrapper's entry ([compiler §6.3](compiler.md#63-the-forwarders)) and `@implement Callable T`: TraitWorld `unified` c14d2e4 (D-2, W-161; E-500), with [compiler C-146](compiler.md#deviations).
+**Status:** Implemented, but for L-58 and [compiler C-146](compiler.md#deviations).
 
 ---
 
@@ -214,7 +214,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - `HasProperty{N, R}`'s operation is `getproperty` at the constant name `N`. A member's own `getproperty` serves it; on a value typed by the trait, the compiler's rule for operations gives `x.N` the declared type `R` ([compiler §7.1](compiler.md#71-the-rule)).
 - `retain!` is a method of the library at `All{MutableIndexable{T}, Resizable{T}}`.
 
-**Status:** Implemented in TraitWorld `unified` 4be0097 (W-114); `HasProperty` in a658203.
+**Status:** Implemented, but for L-66 (`asvector`).
 
 ---
 
@@ -242,7 +242,7 @@ compiled_for(x) = Compiled(x)           # the library's
 
 **The check's instances for an image's memberships** are validated with the image at its load. A method of the session that ends one fails its validation: that instance alone is inferred again, and a result outside the declared one is reported ([traits §12.3](traits.md#123-strict-mode)).
 
-**Status:** Implemented on `unified` 28c401eb0c and TraitWorld `unified` 701aaab: contracts and memberships in images; the definition hook (an override), the module-end hook (a missing `@implement`), the image hook (overrides left inactive). The records of §3, step 7, kept at a method's definition and an image's activation: TraitWorld 5b3c427 (E-342); made again from an image's memberships: TraitWorld 6871ea9 with `unified` e42047dba2 (E-344). The pattern members' answers in images: L-55. `bounded` in TraitWorld bb78d02 (W-111), reading the instance at the box in 6f86b4e (W-151); pirates, strict mode and code compiled ahead in 7adcc94 (W-114); the hints e572379. The check's instances as the records, kept and validated with an image: Planned (the plan's D-3, 2026-11-15), with [traits T-129](traits.md#19-deviations) and [compiler C-115](compiler.md#deviations).
+**Status:** Implemented; the check's instances as the records, kept and validated with an image: Planned, with [traits T-129](traits.md#19-deviations) and [compiler C-115](compiler.md#deviations).
 
 ---
 
@@ -258,7 +258,7 @@ While a package that declares `@implement X S` is precompiled:
 - The compile request at a method at the set is Julia's `precompile` of the signature at `S`'s type: the instance a call at `S` runs ([compiler §6.2](compiler.md#62-how-an-argument-is-compiled)).
 - The set-to-methods index is read with `jl_open_set_methods_of(X)`; `ahead_requests(X, S)` lists the requests.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 and e81cd49a67 (W-114); gate `experiments/unification/stack/ahead_two_packages.jl`: in a fresh session that loads the member's package, the methods at the set have their code for `S` from its image, and with `JULIA_TW_AHEAD=0` none. The request as Julia's `precompile`, and nothing per member for a method that erases: Planned (D-1, 2026-11-15), with L-66.
+**Status:** Implemented, but for L-66 (gate `ahead_two_packages`).
 
 ---
 
@@ -280,7 +280,7 @@ While a package that declares `@implement X S` is precompiled:
 - **After an image's load,** the report of edges that failed validation names a pirate loaded earlier.
 - **Deletions and bindings redefined from other modules** are refused through their hooks ([compiler §10.2](compiler.md#102-hooks-for-strict-mode)).
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114): the walk before the definition and the log after it, the image hook, the report after a load from validation's log, the deletion hook; bindings redefined from other modules: [traits T-96](traits.md#19-deviations). The refusal at a membership: `unified` 0bb8f38830 with TraitWorld 960b99e (E-343). A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations).
+**Status:** Implemented, but for [traits T-96, T-112](traits.md#19-deviations).
 
 ---
 
@@ -301,29 +301,19 @@ While a package that declares `@implement X S` is precompiled:
 - **Concrete parts:** in a trait's body, `@enforce_concrete_only` and `@warn_on_abstract` name parameters and `Self` in the contract; `check_member` checks them for each contract, a supertrait's included, at a concrete member. Before a method, the macro puts a check per named part at the top of its body: a `where` variable's type, and an argument's `Self` from the argument's type, a constant where the call is compiled (a generated predicate); a box is not checked, a wrapper's `Self` is its object's type.
 - **`verify_main(main, argtypes)`** is the same walk from `main`: its targets are the signatures the code resolves, a function passed at a `Callable{A, S}` argument at `A`, and each declared member (the set's candidates) of an operation on a value known by its trait; its holes are the calls the build's check lists.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114); tests `fullytyped.jl`, `verify.jl`. The calls as the build's check's, the hook, the build's Base: TraitWorld `unified` 78a78af with `unified` 381cc8b953 (W-142; E-369), with traits T-109; mine (2026-11-12, 2026-11-14).
+**Status:** Implemented, but for [traits T-109](traits.md#19-deviations) (tests `fullytyped.jl`, `verify.jl`).
 
 ---
 
 ## 15. Deviations
 
-The library on the unified build: TraitWorld `unified` (its head: [state.md §6.1](../state.md#today)).
+The rows below are where the implementation falls short of this page; the heads are in [the state](../state.md).
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| L-1 to L-50 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/lowering.md` | — | — |
-| L-51 | — | *Retired* (2026-11-07): `Dynamic{X}` is `Core.Dynamic` on `unified` e692e57ab7 ([§7](#7-dynamicx-keep-casts)); gate `n6_attribute` | — | — |
-| L-52 | — | *Retired* (2026-11-10): the use raises at dispatch and in compiled code ([§3](#3-implement); TraitWorld 0aff625, 048c44e with `unified` fcdfd0da36; `test/declared.jl`, E-350, E-352). What remains is the hook's: [compiler C-31](compiler.md#deviations) | — | — |
-| L-53 | — | *Retired* (2026-11-07): built in TraitWorld `unified` dd72b10 ([§3](#3-implement)); test `Union-bounded family` | — | — |
-| L-54 | — | *Retired* (2026-11-15): [§2](#2-trait) states the library's forwarding call; `Core.trait_receiver` is an optional extension ([extensions §1.4](extensions.md#14-the-calling-convention)) | — | — |
-| L-55 | — | *Retired*: what an image keeps is [§11](#11-checks-errors-and-what-images-keep); gate `experiments/unification/l55/kept_checks.jl` | — | — |
-| L-56 | — | *Retired* (2026-11-15): there are no casts ([§7](#7-dynamicx-and-compiledt)); what Julia still carries of them: [compiler C-112](compiler.md#deviations) | — | — |
-| L-57 | — | *Retired* (2026-11-14): the error names the constructor to define ([§8](#8-like-and-withfields)); `test/core.jl` | — | — |
 | L-58 | [§9](#9-callable) | Where a `Callable`'s result fails its check, a hint names `S`. | Julia's `TypeError` names the expected type, without the hint. | TraitWorld `src/callable.jl` |
-| L-59 | — | *Retired* (2026-11-15): [§2](#2-trait) declares the wrapper's family, as the library does; the erasing bit is L-65 | — | — |
-| L-63 | — | *Retired* (2026-11-15): `@trait` writes the operations as entries (`jl_set_contract_operations`), a method at the trait only for a default, and the kept forms' forwarding methods, in TraitWorld `unified` c838f76 ([§2](#2-trait)); E-498 | — | — |
 | L-64 | [§3](#3-implement) | The library's extension for Revise lists the memberships an expression declared and takes back, with `delete_membership`, those a revised file no longer has. | No extension for Revise: Revise re-evaluates a changed `@implement` (a redeclaration) and leaves a deleted one in force. `delete_membership` itself is built ([traits §5.13](traits.md#513-taking-a-membership-back)). Revise is not in the workspace's depot, so the extension is neither built nor tested. | TraitWorld `src/delete.jl`; `Project.toml` (no `[weakdeps]` entry for Revise) |
-| L-65 | — | *Retired* (2026-11-15): §2's mark `Expr(:meta, :no_forwarder)` and the contract's record of the default, read where a method is defined by the library's expansion hook, are built (TraitWorld `unified` 21ae901, julia `next` 8b1ec88a56; W-160); `@default_compiled` is [traits T-127](traits.md#19-deviations)'s | — | — |
 | L-66 | [§12](#12-compiling-ahead), [§10](#10-basetraits) | Compiling ahead asks Julia's `precompile` of the signature at `S`'s type, and nothing per member for a method that erases; `asvector` stores its argument. | `ahead.jl` asks the attribute's instance (`jl_attribute_dynamic_bits`, `jl_attributed_mi`), the set's instance where the method's attribute is `Dynamic`. BaseTraits' `asvector` stores `keep(x)`, which is `x` there. | TraitWorld `src/ahead.jl` (`ahead_requests`, the request loop), `src/BaseTraits.jl` (`asvector`) |
 | L-67 | [§2](#2-trait) | `@trait` defines, at each kept form, a method of each equation's function that returns the parameter's value. | It defines none: `eltype` of a box or a wrapper is Base's fallback, `Any` ([traits T-130](traits.md#19-deviations)). | TraitWorld `src/trait.jl` (the expansion) |
-| L-68 | — | *Retired* (2026-11-15): the box's constructor tests `hasmethod(f, A)`, and `@implement Callable T` declares a callable type ([§9](#9-callable)); built in TraitWorld `unified` c14d2e4 (W-161), the ports' guard pairs gone (E-500) | — | — |
+
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): L-1 to L-57, L-59, L-63, L-65, L-68.

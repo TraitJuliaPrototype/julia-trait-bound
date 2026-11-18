@@ -1,6 +1,6 @@
 # The facts mode: the reference
 
-**Adopted** (the user, 2026-11-06; W-105; [the folder's README](README.md)). This page defines the facts mode: the contract between compiled code and the method table. It says what code compiled by facts may assume about other code, what it records, which code is compiled by facts, and what the two guarantees promise. It describes the mode as designed. The status line of each section says how far it is built.
+This page defines the facts mode: the contract between compiled code and the method table. It says what code compiled by facts may assume about other code, what it records, which code is compiled by facts, and what the two guarantees promise. Each section ends with a status line (Implemented, Planned, Optional, Open), as [the README](README.md#conventions-for-every-reference) defines them. The [Deviations](#16-deviations) table lists where the implementation falls short of this page.
 
 - The trait language: [`traits.md`](traits.md).
 - The Julia interfaces this page relies on: [`compiler.md`](compiler.md).
@@ -49,7 +49,7 @@
 
 - <a id="term-owner"></a>**Owner.** A package owns the functions, types (traits included) and bindings it defines.
   - A method belongs to the module it is evaluated in.
-  - Julia (Core, Base, the standard libraries) is one owner. **Open:** whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#2-design)).
+  - Julia (Core, Base, the standard libraries) is one owner. **Open:** whether the standard libraries are owners of their own ([open issue 19](../open-issues.md#2-design)).
   - A package extension belongs to its parent.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
@@ -111,7 +111,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Conditions.** Code that branches on what inference knows computes the same result on both branches. Threads are untested.
 
-**Status:** Implemented on `unified` cb7f55bd35 (W-100), with compiler C-45, C-47, C-51; a membership invalidates the code it changes ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), `unified` a19d937eaa). The acceptance suite (`experiments/unification/test/acceptance/`): 21 of 21 cases pass in the product setting and under the test bed (E-277; `AC_16` with W-114).
+**Status:** Implemented, but for [compiler C-45, C-47, C-51](compiler.md#deviations) (the acceptance suite, `experiments/unification/test/acceptance/`).
 
 ### 2.2 G2: stable caches
 
@@ -125,7 +125,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Scope.** G2 covers code compiled by facts that is deep G2, as each CodeInstance records it ([compiler §3.2](compiler.md#32-g2-as-a-predicate)). It does not cover:
 - plain code in the product setting. Plain code in the class is stable by the same reasoning; G2 claims it as what code compiled by facts rests on;
-- code compiled by facts that rests on a callee outside the class, at any depth (a plain callee of Base that commits across a call at an abstract type): it is compiled again when that callee is. The share of a package's code compiled by facts that is in the class measures the reach of G2 ([evidence §1](../design/evidence.md#1-the-guarantee));
+- code compiled by facts that rests on a callee outside the class, at any depth (a plain callee of Base that commits across a call at an abstract type): it is compiled again when that callee is. The share of a package's code compiled by facts that is in the class measures the reach of G2 ([the evidence, G-1](../design/evidence.md#1-the-guarantee));
 - plain inference's answers behind `return_type` (§7), which change exactly when plain Julia's do.
 
 **Exceptions**, named wherever G2 is claimed:
@@ -139,7 +139,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - a new type that joins a trait (§10): no earlier code asked about it;
 - a new member of a trait among the candidates of a split (§9): candidates are read without an edge.
 
-**Status:** Implemented on `unified` (W-100): the facts inference records only facts, bindings and edges to callees (compiler §1, §3.1); a membership invalidates as a method does: `unified` a19d937eaa (W-140). The deep class as the bit each CodeInstance records: `next` 7063158f42 (W-155; [compiler §3.2](compiler.md#32-g2-as-a-predicate)): the nine unrelated loads end no instance that carries it (E-417); strict mode's walk by the class: F-25.
+**Status:** Implemented.
 
 ### 2.3 Two tiers
 
@@ -151,7 +151,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - The compiled code is the same in both tiers. Strict mode acts only when a method is defined or an image's methods are activated.
 - By default a winning pirate is followed, as plain Julia follows it: the code with the broken fact is compiled again, once.
 
-**Status:** Implemented: strict mode in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [traits §12.3](traits.md#123-strict-mode)), with traits T-96, T-97.
+**Status:** Implemented, but for [traits T-96](traits.md#19-deviations).
 
 ---
 
@@ -187,12 +187,12 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 **Owner-only functions** (the row above; §1):
 - **By default** each function of a trait module (its `owner_only` option on: `@trait_module`'s default, [traits §12.2](traits.md#122-pirates)), its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
 - **By declaration** a function's owner makes any function of its module owner-only, an exported one included ([traits §12.2](traits.md#122-pirates)).
-- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that declares only `facts`, as an existing package does on the porting path's first step: its internal functions are the interface other packages extend (E-431). The default does not depend on how the caller is compiled: the callee's module decides.
+- **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that declares only `facts`, as an existing package does on the porting path's first step: its internal functions are the interface other packages extend. The default does not depend on how the caller is compiled: the callee's module decides.
 - **The call is inferred as plain inference infers it** at its signature, the callee under its own policy, with Julia's ordinary dispatch edge. Where Julia's method matching gives up (more matches than `max_methods`), the call is a run-time site, as at any fact ([compiler §1.3](compiler.md#13-run-time-sites)).
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.2](compiler.md#12-fact-signatures)). With keys, an optional extension, two more forms: [extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key). Owner-only functions: `next-s3` e483299622 with TraitWorld `s3` 4210852, 4f34916 (the plan's D-9, 2026-11-15; E-458), but for a later `public` or `export`, which ends nothing ([compiler C-130](compiler.md#deviations)). The default for trait modules, not for every module that declares `facts`: mine (2026-11-15; E-431, GT-23 (c)). Their declaration's form, and the reading of a later `public` as the owner's change: mine (2026-11-15). What is final as the one input from which a session's and a closed build's rules follow, and fully typed with the setting as its parameter: mine (2026-11-15; the plan's D-10).
+**Status:** Implemented, but for [compiler C-130](compiler.md#deviations) (a later `public` or `export` ends nothing); fully typed in a closed build: Implemented, but for [compiler C-102, C-103](compiler.md#deviations) and [traits T-122](traits.md#19-deviations); with keys, two more forms: Optional ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)).
 
 ---
 
@@ -217,7 +217,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 - **Exact.** A CodeInstance is invalidated if and only if a definition wins at one of its facts, a binding it reads is redefined, a membership ends an absence it relied on, or a CodeInstance it holds an edge to is invalidated. No invalidation is skipped, and none is added beyond Julia's own at a concrete signature.
 
-**Status:** Implemented on `unified` (W-100) for facts, binding edges, edges to callees as CodeInstance edges and positive memberships (compiler §3.1, with C-52); with no code slot on `next` 9b6dacf5c5 (W-155).
+**Status:** Implemented, but for [compiler C-52](compiler.md#deviations).
 
 ---
 
@@ -228,7 +228,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **Caches at run-time sites** remember what dispatch decided, for the worlds where that holds, and are checked against the caller's world. They never decide which method runs ([compiler §8](compiler.md#8-world-checked-caches-at-dynamic-boundaries)).
 - A run-time site costs a dynamic dispatch, as in plain Julia.
 
-**Status:** Implemented on `unified` 28fe27b2f7 (W-100; [compiler §1.3](compiler.md#13-run-time-sites)).
+**Status:** Implemented.
 
 ---
 
@@ -245,7 +245,7 @@ The kind follows from the method and its module alone.
 | **Plain method** | the compiler's own code | the module flag "never by facts" |
 | **Neutral method** | everything else: Base, packages, user code at the prompt | — |
 
-**Status:** Implemented on `unified` beafa01b36, c44a447f2c (W-100; [compiler §2.1–§2.3](compiler.md#2-the-policy-per-method)); no method of Base is a boundary (E-279).
+**Status:** Implemented.
 
 ### 6.2 The policy rule
 
@@ -260,7 +260,7 @@ The kind follows from the method and its module alone.
 - **One CodeInstance per MethodInstance and policy.** A CodeInstance records its policy; a lookup never takes code of another policy. A neutral method in the product setting has only plain code, whoever calls it.
 - **Under `--trim`** every method is plain (§13.3).
 
-**Status:** Implemented on `unified` 10c7e1c2cf, c44a447f2c (W-100; [compiler §2.3](compiler.md#23-one-codeinstance-per-methodinstance-and-policy)), with compiler C-49.
+**Status:** Implemented, but for [compiler C-49](compiler.md#deviations).
 
 ### 6.3 Calls between policies
 
@@ -272,7 +272,7 @@ The kind follows from the method and its module alone.
 - **Code compiled by facts calling the compiler's own plain code** propagates no constants into it.
 - **At run time** each callee runs its own policy's code (§5). A callee that takes the policy of the code reaching it runs the code of the caller's policy, through every way of calling: a generic call, `invoke`, a splat, `invokelatest`.
 
-**Status:** Implemented on `unified` 10c7e1c2cf, c44a447f2c (W-100; [compiler §2.4](compiler.md#24-calls-between-policies)), with compiler C-45, C-50.
+**Status:** Implemented, but for [compiler C-45, C-50](compiler.md#deviations).
 
 ### 6.4 The compiler's own code
 
@@ -280,7 +280,7 @@ The kind follows from the method and its module alone.
 - The compiler runs in its own world. Reflection runs it there also with an explicit interpreter.
 - **The limit.** Code compiled by facts that calls compiler functions directly holds code edges to plain compiler code, valid as long as plain Julia keeps it valid. The loss is cacheability, not correctness.
 
-**Status:** Implemented on `unified` 4ba5b7025f, 95fe10427c (W-100).
+**Status:** Implemented.
 
 ---
 
@@ -295,7 +295,7 @@ The kind follows from the method and its module alone.
 
 So a load changes a folded answer exactly when it changes plain Julia's.
 
-**Status:** Implemented on `unified` b87d863b9e (W-100; [compiler §1.4](compiler.md#14-return_type)), with compiler C-47. Optional: revalidating cached answers after loads ([PE-5](../record/performance-explorations.md)).
+**Status:** Implemented, but for [compiler C-47](compiler.md#deviations); revalidating cached answers after loads: Optional.
 
 ### 7.2 Reflection
 
@@ -303,7 +303,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 - `code_typed`, `infer_return_type`, `verify_main` and the definition-time check see that code.
 - Reflection with an explicit `NativeInterpreter` runs in the compiler's world.
 
-**Status:** Implemented on `unified` (W-100) for a method's callees, inferred under their own policy; the top frame under the default interpreter's, plain (F-24). The definition-time check reads the instance at the box ([compiler §6.7](compiler.md#67-the-definition-time-check), C-115).
+**Status:** Implemented, but for F-24 and [compiler C-115](compiler.md#deviations).
 
 ---
 
@@ -317,7 +317,7 @@ So a load changes a folded answer exactly when it changes plain Julia's.
 
 The rule applies to every method, Base's included. A frame without run-time sites keeps its assertions.
 
-**Status:** Implemented on `unified` 3363088725, 28fe27b2f7 (W-100): the `nortsite` bit carries a run-time site to every caller, and an assertion does not apply over it.
+**Status:** Implemented.
 
 ---
 
@@ -338,7 +338,7 @@ An operation called on a value the code knows only by its trait ([traits §7.9](
 
 So the split takes the place of the speculation the facts mode removes (§4.2), from a declaration rather than from the methods that exist today.
 
-**Status:** Implemented on `unified` e70675a606 and 50da8d8ee2 (W-109; [compiler §7.1–§7.3](compiler.md#7-operations-on-a-value-typed-by-its-trait)), asserted, never converted, on ef1233e79e (E-340), with compiler C-38, C-39. The declared result read from the contract, with no method at the set for an operation without a default: Implemented (D-4; julia `next` 5448a8b7bf with TraitWorld `unified` c838f76 (W-161, E-498)).
+**Status:** Implemented, but for [compiler C-38, C-39](compiler.md#deviations).
 
 ---
 
@@ -353,9 +353,9 @@ A membership makes a type a member of a trait from a world on ([traits §3.1](tr
 - **A membership taken back** ([traits §5.13](traits.md#513-taking-a-membership-back)) ends the code that relied on it, as a deleted method ends its callers: the code that folded the positive, through its edge to the membership's method, and the callers whose selection at the member changes, by the walk run for the removal ([compiler §5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)). No other code ends: a call that dispatched to the member's own method keeps its fact. It is a stakeholder's change, or a pirate's, as its declaration is. A task in a world before it keeps the membership.
 - **Who may declare a membership** is ownership's ([traits §12.1](traits.md#121-who-may-declare-a-membership)): the trait's owner or the type's. A membership is a stakeholder's declaration; a redeclared one is a stakeholder's change (§2.2). One by neither owner is a pirate's ([traits §12.2](traits.md#122-pirates)), and behaves as a pirate's method: followed by default, refused under strict mode where it would change code compiled by facts (§11.2).
 - **Methods at traits** invalidate as any method does: a method at a trait defined later reaches the compiled callers at its members. A caller at a type that is no member stays valid; the membership reaches it when the type joins.
-- **`Callable`'s memberships** are entries, as any trait's: every function is a member of every `Callable{A, S}` ([compiler §7.4](compiler.md#74-callables-call)). A function's signature is checked where it is boxed, and its result on return from the box, in plain code and code compiled by facts alike. A method definition begins or ends no membership.
+- **`Callable`'s memberships** are entries, as any trait's: every `Function` is a member of every `Callable{A, S}`, and a callable type that is no `Function` where its owner declares it ([compiler §7.4](compiler.md#74-callables-call)). A function's signature is checked where it is boxed, and its result on return from the box, in plain code and code compiled by facts alike. A method definition begins or ends no membership.
 
-**Status:** Implemented on `unified` a19d937eaa (W-140; [compiler §4.8](compiler.md#48-negatives-fold-with-an-edge-positives-through-entries), [§5.5](compiler.md#55-a-membership-invalidates-as-a-method-does), [§5.6](compiler.md#56-the-memberships-method-and-the-edges)), with compiler C-77, C-79, C-88. Gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`. The rule: the user (2026-11-11); it replaces "a membership invalidates nothing" ([alternatives](../design/alternatives.md)). A membership taken back: `next-s3` 213c759370 with TraitWorld `s3` 9e0e3f4 (the plan's D-13, 2026-11-15; E-459).
+**Status:** Implemented, but for [compiler C-77, C-79, C-88](compiler.md#deviations) (gates `n7_guards`, `n18_closed_after_load`, `n25_image_before_set_method`, `n26_callable_late_method`).
 
 ---
 
@@ -371,7 +371,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 - A pirate defined before the code is compiled is in the method table; the code's facts select it from the start.
 - A pirate loaded before a package image breaks the image's facts at that signature; that code is discarded at validation and compiled again.
 
-**Status:** Implemented on `unified` (W-100): Julia's invalidation at the fact a pirate's method wins, and image validation at load (compiler §9). The report by default: TraitWorld `s3` 2770c10 with `next-s3` 5d2ec7ff85 (the plan's D-12, 2026-11-15; `test/report.jl`, E-457).
+**Status:** Implemented (test `report.jl`).
 
 ### 11.2 Strict mode
 
@@ -384,7 +384,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **How it finds the facts:** from the backedges of the specializations the method could take over and of the method table; from each caller in the deep class, the callers' backedges, transitively, through code in the class, to code compiled by facts. A caller outside the class ends the walk: what rests on it is outside the class too. After the definition, validation's log is checked: a hit the walk missed deletes the method and raises ([lowering §13](lowering.md#13-strict-mode)). For a membership the facts are the absence edges its method meets ([compiler §5.6](compiler.md#56-the-memberships-method-and-the-edges)) and, for each method at the trait, the facts that method would win at with the member in the trait's place.
 
-**The same walk for a member's check.** A member's check is its serving instances, kept with their edges ([traits §5.10](traits.md#510-checks)). A definition that would end one is found by this walk over their backedges, in every mode, and is refused where the call, inferred again with it, leaves the declared result or becomes ambiguous. So strict mode's refusal and the check's are one mechanism. At an image's load only the check instances that fail validation are inferred again. Planned (the plan's D-3, 2026-11-15), with [traits T-129](traits.md#19-deviations).
+**The same walk for a member's check.** A member's check is its serving instances, kept with their edges ([traits §5.10](traits.md#510-checks)). A definition that would end one is found by this walk over their backedges, in every mode, and is refused where the call, inferred again with it, leaves the declared result or becomes ambiguous. So strict mode's refusal and the check's are one mechanism. At an image's load only the check instances that fail validation are inferred again.
 
 **The property it secures:** code compiled by facts in the deep class is never invalidated, except by a stakeholder's change, with the exceptions of §2.2.
 
@@ -392,7 +392,7 @@ Who may write a method, and the errors a user sees, are in [traits §12](traits.
 
 **Effects.** The refused method or membership does not exist, for plain code either; G1 holds against the world without it. Code compiled with strict mode on or off is the same code.
 
-**Status:** Implemented in TraitWorld `unified` 7adcc94 with `unified` 5f2373b2d5 (W-114; [lowering §13](lowering.md#13-strict-mode)): the walk before the definition, the check of validation's log after it, the image hook. A pirate's membership: TraitWorld a2ca7be with `unified` 7fee959383, with [traits T-112](traits.md#19-deviations). The walk by the deep class: F-25.
+**Status:** Implemented, but for [traits T-112](traits.md#19-deviations); the same walk for a member's check: Planned, with [traits T-129](traits.md#19-deviations).
 
 ### 11.3 Strict mode's errors at their sources
 
@@ -410,7 +410,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 
 **The symmetric check** is a lint: `verify_main` reports a fact of code compiled by facts that selects a pirate defined before the code was compiled.
 
-**Status:** Implemented with §11.2 (W-114), `verify_main` in TraitWorld, but for two rows: a binding redefined from another module is followed ([traits T-96](traits.md#19-deviations)); an extension's winning method is followed without the warning (T-97). An ambiguity at a membership is refused at a declaration (`unified` 0bb8f38830, E-343) and reported after the load at an image's activation (`unified` 9f8d7d7c48, TraitWorld 0aff625, E-349).
+**Status:** Implemented, but for [traits T-96](traits.md#19-deviations).
 
 ---
 
@@ -421,7 +421,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - Code for other packages' methods its workload compiled.
 - Code compiled ahead for the memberships it declares ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 - The memberships it declares on other modules' types, in a list of its own.
-- The check records of members checked while it was built.
+- The checks of the members checked while it was built ([lowering §11](lowering.md#11-checks-errors-and-what-images-keep)).
 - `return_type`'s answers, without machine code.
 
 **When it stays valid.**
@@ -430,11 +430,11 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - A fact breaks only by a stakeholder's change or a winning pirate loaded earlier. So which code in the deep class is kept depends on the method table, not on the order of unrelated loads.
 - **Code a session reaches only by a dynamic call** (another package's method, compiled for the image's code) is kept where it is deep G2, of either policy ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Code outside the class could be ended by an unrelated load, and is compiled where a session needs it.
 
-**A store across sessions** (paused): code compiled by facts may come from a cache of machine code kept across sessions and environments. A stored entry is used when its edges verify in the session by Julia's own validation of loaded code, and its content is the same: the lowered code of its method and of each method its code edges name, the layouts it reads, the values it embeds. Its world range comes from that validation. The record of [compiler §3.1](compiler.md#31-the-record) is kept complete for it.
+**A store across sessions:** code compiled by facts may come from a cache of machine code kept across sessions and environments. A stored entry is used when its edges verify in the session by Julia's own validation of loaded code, and its content is the same: the lowered code of its method and of each method its code edges name, the layouts it reads, the values it embeds. Its world range comes from that validation. The record of [compiler §3.1](compiler.md#31-the-record) is kept complete for it.
 
 **Images and the setting.** A CodeInstance records its policy, so an image built under one setting is correct under the other; the other finds no code of its own policy for a neutral method, and compiles it.
 
-**Status:** The memberships activated before validation: implemented on `unified` 28c401eb0c ([compiler §9](compiler.md#9-images-and-the-machine-code-cache)). Images with the facts mode's code and its edges, positive memberships validated: `unified` (W-100). The keep rule by the deep class: `next` 7063158f42 (E-417). A folded negative's edge (W-129, W-140, W-141); the check records made again from an image's memberships (TraitWorld 6871ea9, E-344), the pattern answers: lowering L-55; the store paused.
+**Status:** Implemented; a store across sessions: Optional.
 
 ---
 
@@ -446,7 +446,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - Plain code keeps all of Julia's behaviour: its inference, its speed, its invalidation, its results. At a value typed by a closed abstract type with a contract (Base's `IO`) a call of one of its operations is compiled as the split, in plain code too, with its result `Any` and nothing converted or asserted ([compiler §7.1](compiler.md#71-the-rule)): the split changes how the call is dispatched, not what it returns.
 - G1 and G2 hold for code compiled by facts.
 
-**Status:** Implemented on `unified` (W-100).
+**Status:** Implemented.
 
 ### 13.2 The test bed `all`
 
@@ -455,7 +455,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - `JULIA_COMPILE_BY_FACTS=1`, read once per process; planned spelling `--compile-by-facts=all`. A depot of its own, for speed.
 - G1 and G2 hold under `all` for all code. Strict mode protects all code but the compiler's.
 
-**Status:** Implemented on `unified` 4ba5b7025f, c44a447f2c (W-100; [compiler §2.5](compiler.md#25-the-test-bed)): a session's start-up compiles Base's start-up code by facts, 24–25 s ([PE-23](../record/performance-explorations.md)).
+**Status:** Implemented; the flag `--compile-by-facts=all`: Planned.
 
 ### 13.3 Trimmed binaries
 
@@ -465,7 +465,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Implemented on `unified` cb7f55bd35 and bb2031f820 (W-100; [compiler §2.6](compiler.md#26---trim)); trimmed binaries are built and run in E-361 ([evidence §4](../design/evidence.md#4-builds-and-binaries)). `verify_main`: TraitWorld (W-114). Stated as the facts rule with everything final: mine (2026-11-15; D-10).
+**Status:** Implemented, but for [compiler C-102, C-103](compiler.md#deviations).
 
 ---
 
@@ -484,30 +484,30 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 
 | Item | Status | Where |
 |---|---|---|
-| G1, identical or error | Implemented (`unified`, W-100); 21 of 21 acceptance cases in both settings (E-277) | §2.1 |
-| G2, stable caches, for the deep class; exceptions named | Implemented (`unified`, W-100); a membership's invalidation (W-140); the deep class `next` 7063158f42 (W-155) | §2.2 |
-| fact signatures | Implemented (`unified`, W-100); with keys, two more forms: an optional extension ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)); owner-only functions `next-s3` e483299622 (D-9, E-458), with compiler C-130 | §1, §3 |
-| run-time sites; each callee runs its own policy's code | Implemented (`unified`, W-100) | §4.2, §5 |
-| kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented (`unified`, W-100) | §6 |
-| `return_type`; reflection | Implemented (`unified`, W-100), with compiler C-47 | §7 |
-| no asserted effect over a run-time site | Implemented (`unified`, W-100) | §8 |
-| operations on a value typed by its trait: the split | Implemented (`unified` e70675a606, 50da8d8ee2, W-109; asserted ef1233e79e), with compiler C-38, C-39; the declared result from the contract, no method at the set for an operation without a default: Implemented (D-4; `next` 5448a8b7bf) | §9 |
-| a membership invalidates as a method does | Implemented (`unified` a19d937eaa, W-140), with compiler C-77, C-79, C-88; taken back as a method's deletion: `next-s3` 213c759370 (D-13, E-459) | §10 |
-| pirates followed; strict mode and its errors at their sources | Implemented (`unified`, W-100; strict mode TraitWorld 7adcc94 with `unified` 5f2373b2d5, W-114), with traits T-96, T-97, F-25; a pirate reported by default where it ends deep-G2 code: TraitWorld `s3` 2770c10, `next-s3` 5d2ec7ff85 (D-12, E-457) | §11 |
-| package images, memberships activated before validation | Implemented (`unified` 28c401eb0c; W-100's facts and edges) | §12 |
-| the store across sessions | paused | §12 |
-| product setting, test bed, `--trim` | Implemented (`unified`, W-100); strict mode TraitWorld 7adcc94 (W-114) | §13 |
-| what is final; a call settled; fully typed in a setting (a session, a closed build); a trimmed build as the facts rule with everything final | Implemented as the build's rules ([compiler §7.6](compiler.md#76-a-closed-build)), stated as one input: mine (2026-11-15; D-10); Planned: compiler C-102, C-103 and the report's two lists (traits T-122) | §1, §3, §13.3 |
-| standard libraries as owners | Open | §1 |
+| G1, identical or error | Implemented, but for compiler C-45, C-47, C-51 | §2.1 |
+| G2, stable caches, for the deep class; exceptions named | Implemented | §2.2 |
+| fact signatures | Implemented, but for compiler C-130; with keys, two more forms: Optional ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)) | §1, §3 |
+| run-time sites; each callee runs its own policy's code | Implemented | §4.2, §5 |
+| kinds of methods; the policy rule; one CodeInstance per MethodInstance and policy | Implemented, but for compiler C-45, C-49, C-50 | §6 |
+| `return_type`; reflection | Implemented, but for F-24 and compiler C-47, C-115 | §7 |
+| no asserted effect over a run-time site | Implemented | §8 |
+| operations on a value typed by its trait: the split | Implemented, but for compiler C-38, C-39 | §9 |
+| a membership invalidates as a method does | Implemented, but for compiler C-77, C-79, C-88 | §10 |
+| pirates followed; strict mode and its errors at their sources | Implemented, but for traits T-96, T-112; the same walk for a member's check: Planned, with traits T-129 | §11 |
+| package images, memberships activated before validation | Implemented | §12 |
+| the store across sessions | Optional | §12 |
+| product setting, test bed, `--trim` | Implemented, but for compiler C-102, C-103 (`--trim`); the flag `--compile-by-facts=all`: Planned | §13 |
+| what is final; a call settled; fully typed in a setting (a session, a closed build); a trimmed build as the facts rule with everything final | Implemented, but for compiler C-102, C-103 and traits T-122 | §1, §3, §13.3 |
+| standard libraries as owners | Open ([open issue 19](../open-issues.md#2-design)) | §1 |
 
 ---
 
 ## 16. Deviations
 
-Where the unified build falls short of this page.
+The rows below are where the implementation falls short of this page; the heads are in [the state](../state.md).
 
 | ID | Section | The reference says | The implementation does | Where |
 |---|---|---|---|---|
-| F-1 to F-23 | — | *Retired* (2026-11-06): the rows of the reference these replaced, in `attic/writeup/reference/facts.md` | — | — |
-| F-24 | [§7.2](#72-reflection) | `infer_return_type` and the definition-time check see the code of the method's policy. | `code_typed` and `Base.infer_return_type` infer with the default interpreter (`_default_interp`, plain): a facts method's top frame is inferred plainly, its callees under their own policy. TraitWorld's membership check reads it, so a member is checked by a mix of the two ([open issue 157](../open-issues.md#2-design)). Inferring it under the method's policy makes TraitMakie's `MappedColors` fail its check at `rgba`, a function barrier whose result facts types `Any` (157's case; found 2026-11-08 by E-311). The plain frame is not kept as the method's code (`unified` 50261bb4c7: `typeinf_type` infers it uncached; gate `n15_image_policy`). | `Compiler/src/reflection_interface.jl` (`_default_interp`), `base/reflection.jl`; TraitWorld `src/check.jl` |
-| F-25 | [§11.2](#112-strict-mode) | *Retired:* built (TraitWorld `unified` bb4ad00, with `next` 7063158f42); the walk by the deep class is §11.2's | — | — |
+| F-24 | [§7.2](#72-reflection) | `infer_return_type` and the definition-time check see the code of the method's policy. | `code_typed` and `Base.infer_return_type` infer with the default interpreter (`_default_interp`, plain): a facts method's top frame is inferred plainly, its callees under their own policy. TraitWorld's membership check reads it, so a member is checked by a mix of the two ([open issue 157](../open-issues.md#2-design)). Inferring it under the method's policy makes TraitMakie's `MappedColors` fail its check at `rgba`, a function barrier whose result facts types `Any` (157's case). The plain frame is not kept as the method's code (`typeinf_type` infers it uncached; gate `n15_image_policy`). | `Compiler/src/reflection_interface.jl` (`_default_interp`), `base/reflection.jl`; TraitWorld `src/check.jl` |
+
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): F-1 to F-23, F-25.

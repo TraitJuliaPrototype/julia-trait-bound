@@ -1,6 +1,6 @@
 # Optional extensions: the reference
 
-**Adopted** with the plan's D-14 (2026-11-15; the user, by adopting [the plan](../plans/2026-11-15-next-iteration.md): "Have Opus agents implement the plan"). This page holds mechanisms of the design that are **Optional** ([the folder's README](README.md#conventions-for-every-reference)): built when a measurement or a later decision asks for them. User code may not rely on what they would give. No rule and no guarantee of the other four references depends on them.
+This page holds mechanisms of the design that are **Optional** ([the README](README.md#conventions-for-every-reference)): built when a measurement or a later decision asks for them. User code may not rely on what they would give. No rule and no guarantee of the other four references depends on them. Each section ends with a status line, and the Deviations section says where the implementation falls short of this page.
 
 - The language: [`traits.md`](traits.md). What compiled code may assume: [`facts.md`](facts.md). Julia's interfaces: [`compiler.md`](compiler.md). The library's macros: [`lowering.md`](lowering.md).
 - Each extension says what it would add, what it rests on in the other references, and its status.
@@ -14,9 +14,9 @@
 
 ## 1. Keys: code shared among members the contract sees alike
 
-**What it would add.** Members that the contract sees alike would run one compiled copy of a bounded method, where Julia compiles one per type. It is purely a performance optimization (the user, 2026-11-11: "Keys should be considered purely a performance optimization. They can stay deferred.").
+**What it would add.** Members that the contract sees alike would run one compiled copy of a bounded method, where Julia compiles one per type. It is purely a performance optimization.
 
-**Status of the whole:** Optional, to be built late (W-110; the user, 2026-11-06: "keys as optional is approved", and "Keep them optional and build them late"). A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design). Four of 148 memberships in the ports share a key (E-263).
+**Status of the whole:** Optional. A use case to investigate, traits with operations only: [open issue 147](../open-issues.md#2-design).
 
 ### 1.1 The key
 
@@ -35,7 +35,7 @@
 
 **What it rests on:** the contract on the trait's `TypeName` ([compiler §4.1](compiler.md#41-sets)) and the receiver each membership records ([compiler §4.2](compiler.md#42-memberships)), both built.
 
-**Status:** Optional. The compilation per key of a method whose result is built by `like`, per type: mine (2026-11-06). Keys' printing: mine (2026-11-06).
+**Status:** Optional.
 
 ### 1.2 The key as a type
 
@@ -52,7 +52,7 @@ Core.TraitKey{X, R, F}
 - It is never written by a user. It prints as the key: `ColTable at Vector{Vector{Float64}}`, in `show`, `show_tuple_as_call`, `MethodError` and reflection.
 - **The compilation signature per key:** `TraitKey{X, R, F}` at an argument where the method is bounded, inferred once per key by the path `@nospecializeinfer` takes. Keyed instances are cached with their original tuple (`cache_with_orig`), so a concrete tuple maps to its keyed instance. Static parameters bound by a keyed argument are those the key fixes; a method whose body uses a static parameter the key does not fix is compiled per type there.
 
-**Status:** Optional. The name `TraitKey`, beside BaseTraits' trait `Keyed`, is mine (2026-11-06). Keys computed by the runtime from memberships: mine (2026-11-06, [the work plan's review](../../attic/writeup/plans/2026-11-06-work-plan-under-the-draft-reference.md) §6, weak point 4).
+**Status:** Optional.
 
 ### 1.3 Calls from code compiled per key
 
@@ -68,7 +68,7 @@ Core.TraitKey{X, R, F}
   | **A key, at the parts of a keyed argument** | in code compiled per key, `area(receiver)` with the receiver's concrete type | The parts' types are concrete: a dispatch tuple. |
   | **A keyed argument passed on,** where one method is selected for every member with that key | `g(t)` with `t` keyed for `ColTable` | A method of `g` defined later invalidates through the edge at the key; so does a later member with that key that another method of `g` would take. |
 
-**Status:** Optional; mine (2026-11-06).
+**Status:** Optional.
 
 ### 1.4 The calling convention
 
@@ -91,7 +91,7 @@ At a key, inference resolves them to the parts above. At a member, it resolves t
 
 ### 1.5 The boxed adapter
 
-A dynamic call to a keyed instance goes through one adapter per keyed CodeInstance. The adapter reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target ([the evidence](../design/evidence.md) §2), there is one adapter per member instead; W-110 measures.
+A dynamic call to a keyed instance goes through one adapter per keyed CodeInstance. The adapter reads the receiver's and the fields' offsets from a table per (member typename, set) on the member's `TypeName`. If it costs more than the target ([the evidence, G-2](../design/evidence.md#2-run-time)), there is one adapter per member instead.
 
 **Status:** Optional.
 
