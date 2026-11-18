@@ -446,6 +446,16 @@ Waiting for evidence, not for the user:
    - *With D-2* (W-161, `next` eaa19da272): the box's test at `Callable` is such a query, `hasmethod(f, A)` folded in every forwarder at a `Callable` argument and in every wrapper's entry, so the edge this issue names reaches each of them and their callers. Not counted: W-157's census on the head would count it.
    - *Proposals:* (a) an edge kind "dispatch at an instance": a backedge on the instance that a definition changing dispatch there reaches and the invalidation of one of its CodeInstances does not (`_invalidate_backedges` with a replaced CodeInstance skips it); (b) accept.
 
+**From the reviews of 2026-11-07 to 2026-11-10, findings that had no record** (found 2026-11-18 by the documentation clean-up, W-162; [the dispositions of the harvest](record/harvest-dispositions-2026-11.md)):
+
+229. **Which of Base's closed abstract types declare a contract.** `IO` does ([traits §9b](reference/traits.md#9b-streams-io)). The rule is general ([traits §3.4](reference/traits.md#34-open-and-closed)): a closed abstract type may declare operations with declared results. `AbstractArray` and `AbstractString` are the next cases: values in a `Vector{AbstractArray}` would gain typed results at a call.
+   - *The rule that blocks it:* none. No one has asked which of Base's types gain from it, and what a contract on `AbstractArray` costs plain code that is typed by it.
+   - *Proposal:* a census first, as for Base's surface: the calls in the ports' sessions at a value typed by a closed abstract type of Base, by type and function. Then a contract where the count is large and the results are uniform.
+230. **`NTuple`, `ReshapedArray` and other packages' mutable arrays are no members of BaseTraits' collection traits.** `NTuple{N, T}` is not in `Iterable{T}` or `Indexable{T}`; `ReshapedArray`, StaticArrays' `MVector` and RecursiveArrayTools' `ArrayPartition` are not in `MutableIndexable{T}` ([traits §10.1](reference/traits.md#101-basetraits)). A port that writes through such a value meets a `MethodError` at the trait's method.
+   - *Proposal:* `NTuple` and `ReshapedArray` joined by the library, which owns the traits; the packages' types by their owners, in the port that first needs them. State in §10.1 which of Base's types are members by design and which are left to their first use.
+231. **A pattern member's candidates in a split, when an image keeps the check's answers.** A member that joins by a pattern is registered as a candidate of a closed type's split at its first use ([compiler §7.2](reference/compiler.md#72-the-split)). An image keeps the answers of the checks that passed (compiler C-30). Whether a session that loads the image, and never runs the first use, has the candidate registered is not stated and not tested.
+   - *Proposal:* a gate: an image whose workload uses a pattern member through a split, loaded in a session that calls the split first. Then a sentence in compiler §7.2, or a deviation row.
+
 ## 3. TraitWorld (the prototype)
 
 State: [state §6.1](state.md#today).
@@ -457,6 +467,8 @@ From [the annotation audit](reviews/2026-10-28-ports-annotation-workarounds.md):
 
 66. **W-52 costs the folds of Base's type-introspection helpers in code compiled by facts** (E-162, 2026-10-27). `array_subpadding` (`@assume_effects :total`) calls `padding(T::DataType)` (`:foldable`), whose calls on `DataType` are run-time sites under the facts mode. Before W-52 the caller's assertion still applied (the G1 hole of the facts review's H2) and `array_subpadding(Dual{…}, Float64)` folded; now it runs at every `reinterpret` of dual numbers: in the port (setting P4, julia-1.13 0c589fd385) a Rodas5P solve takes 311–339 ms against Tsit5's 4.5 ms, and step d's steady state 267.7 ms against 33–47 ms before and upstream's 18.6 ms (`ndport/logs/p4-regress-*.log`). Results stay bit-equal. **Taken (mine, 2026-10-27): W-57,** Base's asserted helpers made fully typed, so they fold under the rule ([the W-56 review](reviews/2026-10-27-w56-recorded-concrete-evaluation.md) found a dispatch recorder unsound as drafted). **Deferred, W-56:** keep W-52, and let concrete evaluation fold a call over run-time sites while recording the dispatches it performs as edges: inside a call on constant types every dispatch is at a concrete signature (`fieldoffset(::Type{Dual{…}}, ::Int)`), a fact, so the fold rests on facts again. Needs a dispatch recorder in the runtime (`gf.c`), so a full build. The alternative, reverting W-52's reach through calls until then, reopens G1. **Next** (W-65): E-167 (2), step d after W-57's part 1 (julia-1.13 252edca933). Back near 33–47 ms: this item closes, and W-57's parts 2–3 continue only where the withdrawn-assertion log finds a gap of 20% or more. Still far: part 3 by the log's list. *2026-10-29 (E-235, setting M on julia-1.13 bfca89decc):* step d's steady state is 29.1–29.6 ms, not 267.7 ms; W-57's part 1 likely fixed it. E-167 (2) in setting P4 confirms or not; then this item closes.
 
+232. **Rules about a set over many of Base's methods have no test at Base's scale** (W-162, [the dispositions of the harvest](record/harvest-dispositions-2026-11.md); the `IO` episode's lessons, §5.11). The fixes of E-331, E-334, E-335 and E-336 were found only when a set stood on a thousand of Base's methods. No gate declares such a set now. *Proposal:* check which of those rules are still in the build after a membership came to invalidate as a method does; for those that are, one gate with a set over a few hundred methods of a module made for it.
+
 ## 4b. The review of session 23
 
 Nothing open (closed items §4b). What Julia must provide, in order: `explorations/julia-support.md`, reviewed in session 25.
@@ -464,6 +476,8 @@ Nothing open (closed items §4b). What Julia must provide, in order: `exploratio
 ## 5. Documents
 
 Nothing open (closed items §5).
+
+233. **Code comments name retired deviation rows** (W-162, [the dispositions of the harvest](record/harvest-dispositions-2026-11.md)). `src/datatype.c` of the julia repository names "compiler C-18" in two comments; the row is retired. The references' IDs are the code's too. *Proposal:* a grep over the julia repository's `src/`, `Compiler/src/` and `base/`, and the library's `src/`, for the IDs of retired rows, as a check of the lint; the comments rewritten to name the section that holds the rule, in the next commit that touches each file.
 
 ## 6. To revisit with the ports
 
