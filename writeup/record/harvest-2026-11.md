@@ -24,6 +24,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | 2b | the seven reviews and five plans of 2026-10-19 (255 KB) | 2026-11-18, in full |
 | 3 | the three plans and two reviews of 2026-10-20 (142 KB; the implementation plan by its opening sections and outline) | 2026-11-18 |
 | 4 | 2026-10-21 and 2026-10-22: values-carry, what-follows-the-split, tonights-code, porting-guideline, pickup, the two reviews of the traits reference, w34; the NetworkDynamics port (the meta plan and the two explorations in full; the six part-plans and six reviews by summary and verdict) | 2026-11-18 |
+| 5 | 2026-10-26 to 2026-10-28: the four fresh-eye reviews of the references; W-40, W-56, W-57; the first-use cluster (ten plans, eight reviews); the ports' design round (eight plans, three reviews). By heads, summaries and every finding's opening; the audit's conclusions and the High findings in full | 2026-11-18 |
 
 ## Entries
 
@@ -548,6 +549,72 @@ Read: the meta plan, the two explorations in full. The part-plans (`plans/2026-1
 - **Not yet in a current document.** To check (C-24 to C-28): whether today's porting guideline carries the silent hazards with their tool (the dispatch profiler after a wrap); whether the "what stays plain" list is there; whether each pushback entry that is still true on today's build is an open issue, a tension or a guideline entry, and each that is not is in the attic's digest only; whether the port's numbers in the evidence are of today's build or the earlier one (R3); whether P6-2 to P6-5 (strict mode refusing OffsetArrays' `reshape`; extensions rewriting a wrapped core's facts at every load; packages' own `@inferred` tests failing by design; run-time `return_type` answers as a large share of new code) are each recorded as a tension or an open issue today.
 - **L:** L53 to L61. **A:** A5 (per-value membership; a trait with input parameters beside `Self`; optional bounded parameters; a witness carried in the held value). **For `record/context.md`:** the port's ground rules in the user's words; the two tracks and why (the user's "inside-out under strict mode" idea); that the user did not review choices 1 to 47 one by one ("I trust the reviewed plan"), the origin of today's rule that the agent's choices are not reviewed one by one.
 
+### The four fresh-eye reviews of the references: `reviews/2026-10-26-{traits,facts,lowering,compiler}-fresh-eye.md`
+
+Read: the traits review nearly in full; the facts review's High findings and M1, M5 in full; the others by their findings' titles.
+
+- **What it was.** Four agents, one per reference, each reading its reference as an outsider against the code, with probes of seconds. Counts for traits: High 3, Medium 17, Low 16.
+- **Found, of lasting substance** (all on the facts rule, which today's design keeps):
+  - **Lemma O was false for a `Vararg` tail.** `Lib.g(x::Int, y::MyT...)` is its owner's method, and applies at `g(::Int)`, where the owner is no stakeholder. Fix: stakeholders judged at every signature a method applies to.
+  - **The asserted-effects rule was per frame.** A frame without run-time sites that calls one with a run-time site kept its `:foldable`; the fold went stale. G1 failed one frame up. Fix: at any depth.
+  - **A call that Julia's method matching gives up on** (more matches than `max_methods`) was dispatched at run time with no edge, yet was no run-time site by the definition. Found twice, independently.
+  - **`@eval Owner` launders a pirate:** ownership follows the module a method is evaluated in.
+  - **A facts answer can be wider than plain inference's** where plain's is `Union{}`.
+- **Found, of the references as documents:** sections contradicting each other (who may add a bounded method; where the first-seen rule applies); "Implemented" on things that failed with an internal error; a deviation written into the design text; status lines carrying rules; 94 of 108 code citations by line stale within 40 commits; measurements in deviation rows; "Implemented" not saying whether the source or the build; terms used before their definition; claims about other languages without a source.
+- **Became.** Checked today: facts §1 judges stakeholders at every signature and names `Vararg`; facts §8 says "at any depth"; facts §4 makes the `max_methods` case a run-time site; facts §1 and traits §10 say "a method belongs to the module it is evaluated in". The traits findings concern the attribute design, which one way to erase replaced.
+- **Not yet in a current document.** The document lessons are the plan's part 5 (status lines, no line citations, no measurements in the references).
+- **L:** L62 to L64. **For `record/playbook.md`:** how a fresh-eye review of a reference is commissioned (read as an outsider, check "Implemented" against code, probes of seconds, severity by "a false statement about what is built").
+
+### The first-use cluster of 2026-10-27 (W-58 to W-66): `plans/2026-10-27-{ttfx-sciml-makie,port-architecture-ttfx,parameters-outer-layer,session-cache,facts-keyed-cache,remembered-validation,lean-core-old-apis,facts-first-julia-work,cleanup-issues-and-queue}.md`, `plans/2026-10-28-facts-cache-store.md`, `reviews/2026-10-27-{ttfx-plan,cache-and-port-notes,cache-design,facts-keyed-cache,remembered-validation,lean-core-memo,w58-direction}.md`, `reviews/2026-10-28-facts-cache-store.md`
+
+Read: heads, summaries, every finding's title and opening, the "as built" and results sections.
+
+- **What it was.** The user's question (2026-10-27): "With a large solid trait core that is amenable to cross session caching, there should be no reason that loading+running first simulation+plot should be slow. We could take SciPy + matplotlib as [the baseline]". One day of measurements (E-168 to E-198), three cache designs, an architect's memo for the ports, and eight reviews.
+- **Found.**
+  - **The baseline.** Python's session 1.45 s; stock SciML with CairoMakie 9.2 s; the trait demonstrators 0.96 s.
+  - **A cache recurs only where its keys recur.** Compilation is of three kinds: what repeats in every session; what is keyed on the user's model or data; what is keyed on the call's shape (keyword tuples, a range against a vector). No type of the user's script may sit in a library's keys. Normalize at the entry.
+  - **The parameters in the outermost layer only** (the user: "The outermost layer has to depend on parameter type, but inside the solver we only need to see the right hand side that is partially evaluated on the parameters."). Built in TraitDifferentialEquations (E-181).
+  - **With a cache, the work after the load is about Python's; the load is what remains,** and the load follows the dependency tree (E-176, E-179). Validation of edges about 34 % of a stock load, activating methods about 27 % (E-185).
+  - **Three caches.** Keyed on the environment: built, paid (off-workload sessions 2.4 to 1.07 s and 19.4 to 6.1 s, E-180), retired by the user for one "keyed on facts and their origins". That one: identity by fingerprints, validity by Julia's own validation of edges; its store paused (the vehicle is machine code, open issue 95). Remembered validation: unsound as first written, then set aside.
+  - **What is trait-specific and what is packaging.** Lean trees, loading stubs, normalizing at the entry, erasing the user's function: plain code can do all of it. What only the facts rule gives: code that may load early and stays valid through later loads; a narrow declared interface that is checked. A review's blocker: "The direction has no trait-specific hypothesis, and the data so far favour plain code."
+  - **Old APIs above a lean core** (the user: keep the user API; "not necessarily the solver and algorithm developer API. Though a compatibility shim would be great"): four layers; old recipes run as upstream's plain code above the core; extensions for keys, loading stubs for functions, entries through `invokelatest` (code loaded at first use is invisible to the rest of the calling function: world age, for plain code alike, E-182).
+  - **"Facts first":** rely on what the facts rule guarantees for facts code, instead of making a mechanism work for all of Julia's code. Strict mode then protects code of the facts owner.
+  - **The reviews' recurring catches:** a harness that precompiles inside a measured session; `--compiled-modules=existing` loads from source silently when an image is stale; a cache measured on the session that recorded it; the settings differing in five things at once; a registered decision rule whose outcome pointed the other way and was read past; an emulation that recorded compile roots only.
+- **Became.** `design/alternatives.md` "Caches across sessions"; `record/performance-explorations.md` (begun here, PE-1 to PE-8); the user's rules for open issues and for performance work (decisions §5, §8); the ports' architecture (TraitDifferentialEquations' two layers, TraitMakie's compat layer); strict mode on facts code (facts §11). The cache across sessions is not built (the user, 2026-11-14); the measurement round carries its workloads.
+- **Not yet in a current document.** To check (C-29 to C-32): the three kinds of compilation and "keys recur" in the porting guideline; "trait-specific or packaging" in the goals or the rationale, as the honest form of the first-use claim; the harness's traps in the playbook; that the Python baseline and its workload are in today's registry (R3 makes it the baseline).
+- **L:** L65 to L72. **A:** A6 (the three caches, remembered validation, recorded concrete evaluation, the member's builder folded by the compiler).
+
+### `plans/2026-10-26-w40-member-builder-fold.md` with `reviews/2026-10-27-w40-member-builder-fold{,-r2}.md`; `plans/2026-10-27-w56-recorded-concrete-evaluation.md` with its review; `plans/2026-10-27-w57-type-introspection-layer.md`
+
+- **What it was.** Three attempts to recover folds that the facts rule had rightly stopped.
+  - W-40: a compiler primitive that runs the library's member check inside inference and fixes the result in the caller's code. Two reviews: a deadlock under the inference lock, records that crash edge walkers, the wrong world, load order, a constant over 256 bytes not folded.
+  - W-56: concrete evaluation over run-time sites with the dispatches it performs recorded as edges. Unsound: static dispatch decisions inside the code that runs escape the recorder.
+  - W-57, an architect's memo, adopted: the cause is that **Base's type-introspection layer is written as generic calls on values of a kind** (`t.name` is `getproperty(::DataType, ::Symbol)`). A kind is never a fact, rightly: any type's owner may add `f(::Type{MyT})`. So the layer goes onto builtins and `invoke`, with a tool that finds the sites.
+- **Became.** The Julia changes to Base's introspection helpers (`design/julia-changes.md`); membership as a subtype relation removed W-40's need at the root.
+- **Not yet in a current document.** To check (C-33): the rationale for the introspection layer on builtins, and its tool, in `julia-changes.md` or the build notes.
+- **L:** L73, L74.
+
+### The ports' design round of 2026-10-28: `plans/2026-10-28-{dataframes-lean-core,fresh-ideas-sciml,fresh-ideas-makie,fresh-ideas-dataframes,annotation-audit-decisions,sciml-move3-today,x3-waist-slice1,strict-mode-on-facts-code}.md`, `reviews/2026-10-28-{dataframes-lean-core,ports-annotation-workarounds,strict-mode-on-facts-code}.md`
+
+Read: summaries, every weak point's case and rule, the audit's conclusions in full.
+
+- **What it was.** The user (2026-10-28): "Remember that one purpose of the ports is to identify weak points in the design." and "The guiding principle should be principled solutions. If a tweak in the trait design can enable a principled solution in the port architecture, that's the most valuable finding we can have." Three fresh-eye agents proposed an architecture per ecosystem and listed the design's weak points. An audit counted annotations used as workarounds in the ports.
+- **Found: the weak points, most of which the later design answers.**
+  - **A stored value is seen through one trait only** (open issue 82): a legend, an inspector, a pooled column's fast path cannot ask a stored plot or column for a capability. Proposed: "a kept value is seen through every trait its object conforms to". Today: a value has its type, and every membership of that type holds.
+  - **A function at several signatures** (plain, duals of a chunk chosen at `init`): one `Callable` per signature. Proposed: a generic `Callable`. Today: the contract at the box (D-2).
+  - **A type conforming at several values of a parameter** (a callback type for every problem): input parameters.
+  - **Attributes as a cost model in the wrong hands:** 26 `compiled_for` sites at callers of kernels; a caller that forgets pays twice. Proposed: "open here" at the bound. Today: one way to erase; the callee's signature says what is compiled.
+  - **A kept `Compiled` function slower than a `Dynamic` one** (270 against 13 ns).
+  - **Types as values** (CSV's cell types), **operations valid only when another says so**, **predicate-based interfaces** (`Tables.istable`), **the member check per view type**.
+- **Found: architecture.**
+  - DataFrames: compile per cell type, not per column type; layouts are a closed set, so types; capabilities as operations with defaults.
+  - SciML: the model is the trait, the problem is a record; inputs vary at three rates (per ecosystem, per model, per call) and the key follows the slowest.
+  - Makie: marks are a closed set; a recipe is a stat plus marks; capabilities belong to whoever asks; backends are a minimum plus defaults.
+- **Found: the audit.** The user: "Often in Julia code the more principled solution is to fix the inference rather than hard code an annotation. Likewise, marking something nospecialize should be an escape hatch in my opinion." 43 occurrences: 15 fixable in the port, 12 a weak point of the design or the library, 15 a real dynamic boundary, 1 Julia's. What fully typed checks catch early, and what they cannot (compile-time cost, the cost of `Dynamic`).
+- **Became.** Open issues 82, 96 to 108; the Planned parts that the unified design then replaced; the next iteration's D-1, D-2 and the input parameters (C-32 of 2026-11-08).
+- **Not yet in a current document.** To check (C-34 to C-36): the audit's advice for port authors in `intro/porting.md`; each weak point above against today's reference (answered, open issue, or alternative); the three architectures' one-line principles in the porting guideline's case studies.
+- **L:** L75 to L80. **A:** A7. **For `record/context.md`:** the two sentences of the user that became CLAUDE.md's "the ports find the design's weak points"; the user's rule for open issues (2026-10-27): "Is there a principled choice? A choice that simplifies the architecture at little cost? If so adopt that. … Only keep the choices with a well articulated trade-off for me to review."
+
 ## The running lists
 
 ### L-list: candidates for the lessons
@@ -615,6 +682,25 @@ Read: the meta plan, the two explorations in full. The part-plans (`plans/2026-1
 | L59 | Closed library families stay abstract types; construction-time code, keyword front ends and code dynamic by design stay plain. A port that says what it leaves alone is shorter and more honest. | ndport-principled-traits §8 | the ports |
 | L60 | Membership is per type; real packages decide per value (`f.jac === nothing`). The answer within the design is a branch in the implementation or two record types. An optional capability is the same question. | ndport-principled-traits §10.5; W34-8 | the design, alternatives |
 | L61 | Measurement plans fail in the same few ways: settings that share a tree or a depot, a check without a control, a timer not switched on, state carried from one run to the next, a criterion that cannot be decided. A review that reads the harness's code before the first run pays for itself. | the six plan reviews | the playbook |
+| L62 | A lemma about ownership must be checked at every signature a method applies to: `Vararg` tails and `Union` members make a method apply where its owner is no stakeholder. | facts-fresh-eye H1 | the design |
+| L63 | A rule whose reason is transitive must be transitive. The asserted-effects rule was per frame; the fold went stale one frame up. | facts-fresh-eye H2 | the design |
+| L64 | A fresh reader with probes of seconds finds what the authors cannot: sections that contradict, "Implemented" that fails, code citations by line that are stale in days. Cite code by name, never by line. | the four fresh-eye reviews | the documents |
+| L65 | A cache recurs only where its keys recur. Compilation is keyed on the library, on the user's model or data, or on the call's shape; only the first is kept across sessions. Keep the user's types out of the library's keys; normalize at the entry. | ttfx-plan review M5; port-architecture §2 | the ports, first use |
+| L66 | The part that depends on the user's parameter type is the outermost layer only; inside, the right-hand side partially evaluated. | the user, 2026-10-27; E-181 | the ports |
+| L67 | Once compiled code is kept, the load is what remains, and the load follows the dependency tree and Julia's validation of edges, not the traits. | E-176, E-179, E-185 | first use |
+| L68 | Say what is trait-specific and what is packaging. Lean trees, stubs, normalization and erasure are open to plain code. The facts rule adds code that loads early and stays valid, and interfaces that are checked. | w58-direction 1; lean-core memo §2.5 | the goals |
+| L69 | "Facts first": use the guarantee the facts rule gives for facts code, instead of making a mechanism work for all of Julia's code. | facts-first-julia-work | the method, the compiler |
+| L70 | Code loaded at first use is invisible to the rest of the calling function (world age), for plain code alike. Entries that may load code go through `invokelatest`. | lean-core review B1; E-182 | the ports |
+| L71 | A harness must prove its images valid: `--compiled-modules=existing` loads from source without a word; one depot per setting; no cache measured on the session that recorded it. | ttfx-plan B1; w58-direction 3, 4 | the playbook |
+| L72 | A decision rule registered before the run binds: when the outcome takes the other branch, the plan changes, or the row says why not. | w58-direction 6 | the playbook |
+| L73 | Running library code inside inference to fix a fact is a deep hole: locks, worlds, edge records, load order. Make the fact a relation the type system knows. | the W-40 plan and reviews | the design, alternatives |
+| L74 | Where the facts rule makes Julia's own code slow, look for the structural cause before a mechanism. Base's introspection layer called generic functions on kinds; the fix was builtins, not a recorder. | the W-57 memo; the W-56 review | the compiler |
+| L75 | A tweak in the trait design that gives a port a principled architecture is the most valuable finding. A workaround that every caller must write (26 `compiled_for` sites) is such a finding. | the user, 2026-10-28; the audit's item 1 | the method |
+| L76 | An annotation that fixes a time hides a cause. Run the fully typed report first; declare the callee's result before asserting at the call; `@nospecialize` is an escape hatch. | the user, 2026-10-28; the audit | the ports |
+| L77 | A stored value must offer every capability its type has, to whoever asks. Seeing it through the one trait it was stored under blocked legends, inspectors and pooled columns alike. | fresh-ideas-makie D1; open issue 82 | the design |
+| L78 | The key holds what the hot code must know and no more: the cell type, not the column's container type; the numerical key, not the user's model. | fresh-ideas-dataframes §1.1; fresh-ideas-sciml §1.1 | the ports |
+| L79 | Closed sets are types; open sets are traits. Layouts, marks, caches and tableaus are closed. Columns, recipes, data, backends, algorithms are open. | the three fresh-ideas plans | the ports |
+| L80 | A capability belongs to whoever asks for it (the legend owns the legend's trait), and has a default that takes what it needs. | fresh-ideas-makie §2.3; fresh-ideas-sciml §1.4 | the ports |
 
 ### A-list: alternatives to add or complete
 
@@ -625,6 +711,9 @@ Read: the meta plan, the two explorations in full. The part-plans (`plans/2026-1
 | A3 | Guarded devirtualization at run-time sites, postponed by the user (a failed guard is a cliff; traits recover the cost); polymorphic inline caches, not built | principled-speed-plan; inline-caches-plan | to check (C-15) |
 | A4 | For `return_type` after loads: freezing answers; no optimizer for the answer cache (tried, widens answers); a guarded fold; red-green revalidation (not built, Optional) | return-type-after-loads | partly there ("`return_type` at run time…, replaced"); to complete |
 | A5 | From the first port: membership per value; a trait with input parameters beside `Self` (Rust's `Algorithm<P>`), answered by the driver bounded by both traits; an optional bounded parameter; a witness carried in the held value for a cheaper crossing; erasing the graph's type | the ndport cluster; pushback W34-1, W34-8 | to check by topic |
+| A6 | Caches across sessions: keyed on the environment (built, retired); keyed on facts and their origins (identity by fingerprints; store paused); remembered validation (set aside); a store of optimized IR against machine code | the first-use cluster | "Caches across sessions" exists; to check it has all four with reasons |
+| A7 | From the ports' design round: "open here" at a bound; a kept function without a signature; a generic `Callable`; trait casts; a wider-but-not-disjoint result accepted by the member check; `rewrap`; `where` variables on an operation | the audit's candidates; the fresh-ideas plans | to check by topic against D-1, D-2 |
+| A8 | Folds recovered by mechanism: the member's builder folded by a compiler primitive (W-40); concrete evaluation with recorded dispatches (W-56); kinds inferred plainly; assertions as the asserter's promise | W-40, W-56, the W-57 memo's options B to H | to check |
 
 ### C-list: to check against today's documents
 
@@ -658,3 +747,11 @@ Read: the meta plan, the two explorations in full. The part-plans (`plans/2026-1
 | C-26 | Each pushback entry of the NetworkDynamics port: still true on today's build? Then an open issue, a tension or a guideline entry holds it. | ndport-pushback |
 | C-27 | The NetworkDynamics numbers in the evidence: of which build? (R3) | the meta plan's state table |
 | C-28 | P6-2 to P6-5 (strict mode and OffsetArrays' `reshape`; extensions rewriting a core's facts at each load; `@inferred` tests failing by design; run-time `return_type` answers' share): each a tension or an open issue today? | ndport-pushback |
+| C-29 | Does `intro/porting.md` give the three kinds of compilation and "a cache recurs only where its keys recur", with normalization at the entry and the parameters in the outer layer? | the first-use cluster |
+| C-30 | Do the goals or the rationale say what of the first-use claim is trait-specific and what is packaging? | w58-direction 1 |
+| C-31 | Is the Python workload (SciPy with matplotlib) in today's registry with a current run? It is the baseline by R3. | ttfx-sciml-makie §3 |
+| C-32 | The harness's traps (stale images loaded from source, shared depots, self-replay): in the playbook, and does today's harness check them? | the first-use reviews |
+| C-33 | Is the reason for Base's introspection layer on builtins, with its tool, in `julia-changes.md` or the build notes? | the W-57 memo |
+| C-34 | The audit's advice for port authors: in `intro/porting.md` in today's terms? | ports-annotation-workarounds |
+| C-35 | Each weak point of the ports' design round against today's references: answered, an open issue, or an alternative. | the fresh-ideas plans |
+| C-36 | The three architectures' principles (cell type as key; the model is the trait; marks closed, recipes open) in the porting guideline's case studies? | the fresh-ideas plans |
