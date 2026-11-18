@@ -34,14 +34,14 @@ This directory holds more context than a reader of the design wants. An agent th
 |---|---|
 | [`context.md`](context.md) | the project for an agent that starts cold: the eras and why each turn was taken, what the user wants and why, what a new agent tends to get wrong |
 | [`playbook.md`](playbook.md) | how the work is done: building, checking, measuring, reviews, agents, the traps met |
-| `build-notes/` | per section of a reference: where the rule is in the code, the commits that built it, its gates, its decision, its experiments, the pitfalls |
+| [`build-notes/`](build-notes/traits.md): [traits](build-notes/traits.md), [facts](build-notes/facts.md), [compiler](build-notes/compiler.md), [lowering](build-notes/lowering.md), [extensions](build-notes/extensions.md), [Julia's stack](build-notes/julia-stack.md), [the choices](build-notes/choices.md) | per section of a reference: the status line as it stood, with the commits that built the rule, its gates, its decision and its experiments; how the stack of Julia's commits was checked; the choices an agent made in the references |
 | [`decisions.md`](decisions.md), [`experiments.md`](experiments.md), [`todo.md`](todo.md) | the ledgers that are current |
 | [`design-history.md`](design-history.md) | the timeline, with pointers into the attic |
 | [`performance-explorations.md`](performance-explorations.md) | performance work not taken up: an archive, read for ideas |
 | [`harvest-2026-11.md`](harvest-2026-11.md), [`harvest-dispositions-2026-11.md`](harvest-dispositions-2026-11.md) | the reading of every archived plan, review and exploration: the digest behind the lessons and the alternatives; what was done with the findings of the last reviews |
 | the research notes (`*-research-*.md`, `julia-1.14-scan-*.md`) | research on other languages and on Julia |
 
-**The ledgers of what is closed** are in the attic, under [`attic/writeup/record/`](../../attic/writeup/record/): the experiments of earlier builds and superseded rows, closed work items, closed issues, superseded decisions, retired deviation rows.
+**The ledgers of what is closed** are in the attic, under `attic/writeup/record/`: [every experiment registered](../../attic/writeup/record/experiments-archive.md), [closed work items](../../attic/writeup/record/todo-closed.md), [closed issues](../../attic/writeup/record/issues-closed.md), [superseded decisions](../../attic/writeup/record/decisions-superseded.md), [retired deviation rows](../../attic/writeup/record/deviations-retired.md), [the performance explorations of the library of October 2026](../../attic/writeup/record/performance-explorations-earlier.md).
 
 **Rules of this tier.** It may hold chronology, provenance and the user's words. It is never the only home of a rule of the design, a number or a decision.
 
