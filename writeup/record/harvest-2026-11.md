@@ -23,6 +23,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | 2a | the five reviews of 2026-10-18 (255 KB) | 2026-11-18, in full |
 | 2b | the seven reviews and five plans of 2026-10-19 (255 KB) | 2026-11-18, in full |
 | 3 | the three plans and two reviews of 2026-10-20 (142 KB; the implementation plan by its opening sections and outline) | 2026-11-18 |
+| 4 | 2026-10-21 and 2026-10-22: values-carry, what-follows-the-split, tonights-code, porting-guideline, pickup, the two reviews of the traits reference, w34; the NetworkDynamics port (the meta plan and the two explorations in full; the six part-plans and six reviews by summary and verdict) | 2026-11-18 |
 
 ## Entries
 
@@ -440,6 +441,113 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 - *Not yet in a current document:* whether each open deviation row of today has its expected-failure check (C-19); the build notes can carry the check's name per row.
 - **L (evidence):** a deviation without an expected-failure check is a claim nobody re-verifies. Write down what would count against the design before the results come.
 
+### `plans/2026-10-21-values-carry-through-storage.md` and `reviews/2026-10-21-values-carry-through-storage.md`
+
+- *What they were:* the plan of W-18 (done 2026-10-21, revision 2) and its review (read: the three major findings and the outline). The rule is the user's.
+- *Found:*
+  - **The user on storage:** "I thought of Values carry as just that: It persists through storage… The type ODEProblem has to store the function and if compiled_for(f) is lost on storage this forces us back into the library provided switch (that already exists in SciML). We have just turned today's @nospecialize around rather than having a principled design."
+  - **The user on the demonstrators:** "Remember that the Demonstrators follow the design. […] the Demonstrators already built never constrain the design."
+  - **The rule as the user closed it:** "Values carry. Annotations provide defaults when a plain value enters trait code. Explicit casts always win."
+  - Why Julia can do what Rust and Swift do not: they compile ahead, so a value stored at an abstract type runs shared code through a table. Julia compiles when code first runs, and a function barrier is idiomatic, so a stored value can still select the code compiled for its type at the next bound.
+  - The review's F1: a field typed `Dynamic{X}` that converts on assignment silently erases the caller's `compiled_for`: "the library switch the user objects to, moved from a function to a field… One spelling, two meanings." Hence "types never cast".
+  - The mechanisms: `Kept{X}`, one concrete type holding the attribute as data; a struct parameter bounded by a trait in place of `stored`.
+- *Became:* on the unified line the attribute with `keep` and `Kept{X}`; all replaced on 2026-11-15 by one way to erase, where the wrapper `compiled_for(x)` is a value and passes storage as any value does ([traits §7.6](../reference/traits.md)). The principle survived the mechanism: who decides what is compiled for a value is the caller or a declaration one can read, never a switch inside a library. The sentence on the demonstrators is in `CLAUDE.md`.
+- **L (the design):** whether code is compiled for a caller's value is the caller's to say, in the language. A switch the library provides is `@nospecialize` turned around. This held through three mechanisms (the attribute's casts, `Kept`, the wrapper as a value).
+- **L (the design):** an annotation that means "a default for values first seen here" on an argument must not mean "convert" on a field.
+- *For `record/context.md`:* the three passages of the user's words.
+
+### `plans/2026-10-21-what-follows-the-split.md`, `reviews/2026-10-21-what-follows-the-split.md`, `reviews/2026-10-21-tonights-code-and-w2.md`
+
+- *What they were:* the design of what an operation does for a member past the split's first four (E-145; built on julia-1.13 the same night), its review, and a review of the night's code. The user (2026-10-21): "try to come up with principled thoroughly reasoned proposals, rather than asking me to approve dozens of detailed points. Go ahead and implement things when you reached a satisfactory proposal and flag for later review. Finally the principle of this whole project is: Principled clean solutions that stick to establish best practices and experiences from decades of prior work, adapted to Julia's specifics. No workarounds or hacks."
+- *Found:*
+  - **Every mature implementation layers three pieces:** a guess compiled inline (inline caches, guarded devirtualization); a constant-cost path for every other type, through a table (vtables, V8's megamorphic cache, witness tables); optionally feedback from the types seen. "Today we have the first piece only."
+  - Measured (E-145): the dynamic fallback 40 to 90 ns and an allocation per element at 16 to 64 types; a table 6 to 15 ns in the cache, no allocation, no dependence on order. A longer split is fastest for one multiply and costs 190 KB of code at 64 types: rejected on code size and compile time. A split over the observed hot types pays only for skewed mixes.
+  - **The design:** keep the split in front; its last branch is a table of the call's targets, keyed by the value's type, emitted by the compiler. "The type is the index": a Julia object carries its type in its header, as C++ and JVM objects reach their vtables; Rust, Swift and Go carry a witness because their values need not be boxed.
+  - **Pointer tables had been rejected (session 22), built (28) and deleted (29).** Each objection is answered by name: world age (each pointer runs in the caller's world), serialization (a session stamp, checked at the probe), races (copy-on-write).
+  - The first version composed a "default case" in the library with a compiler predicate. It conflicted with the facts rule (a call at an abstract type is no fact); the author and the reviewer found it independently.
+  - **The ABI defect, found by reading:** a typed call through a pointer passes a concrete struct by value in Julia's C ABI. A mutable struct past the split arrived as a copy: identity lost, a mutation not seen by the caller, silently. No check exercised it. Fixed: only isbits values by value.
+  - The first use of a type at a call signature cost about 8 ms (the pointer's making).
+- *Became:* "a split over the first members, a table past them" ([compiler §7.2](../reference/compiler.md)). The pointer's making per member in each session is GT-7 (18 ms for two operations on today's build).
+- *Not yet in a current document:* the alternatives' entry on pointer and witness tables should carry the three objections and their answers (C-22).
+- **L (the design):** a mechanism rejected for stated reasons returns when each reason is answered by name. Keep the reasons with the rejection.
+- **L (the playbook):** through a typed pointer only isbits values go by value; a struct by value is a copy.
+- *For `record/context.md`:* the user's principle, in full; and the mandate to implement a reasoned proposal and flag it.
+
+### `reviews/2026-10-21-porting-guideline.md`
+
+- *What it was:* a fresh-eye review of the porting guideline as rewritten for the NetworkDynamics port. Every example checked against the file it quotes.
+- *Found:*
+  - "Upstream's methods and the port's can stand side by side" was false for an untyped upstream method (the earlier library's entries).
+  - **"Keep plain" does not keep code plain:** code that trait code reaches is compiled by facts, whoever owns it. "Plain means: not in a trait module."
+  - **How to make an unchanged package a trait module was missing,** with what it will refuse. Split packages meet it at once: DiffEqBase defines `solve` for SciMLBase's problem types, a function and a type it does not own.
+  - **The highest-value, lowest-change pattern was missing:** an informal interface written as generic functions that types extend (Graphs' `nv`, `ne`, `outneighbors`; SymbolicIndexingInterface; RecursiveArrayTools) becomes a trait over the existing functions, and existing types join by their existing methods, as a family over the abstract type.
+  - Stored user functions; generated functions with a type per body; keyword-heavy entry points (the ordinary layer builds a concrete options struct, the bounded function takes it positionally); observables of `Any`.
+  - Where the facts mode inlines differently, fused arithmetic (`@muladd`) can differ in the last bit without a bug.
+  - The guideline stated several rules three times, and copied numbers from a review. Its own governance: a rule becomes guidance once a second port confirms it.
+- *Became:* [`intro/porting.md`](../intro/porting.md) in five steps, the first being a package compiled by facts as it is, by one line per module (E-392). Joint owners for split packages.
+- *Not yet in a current document:* whether today's guideline has the informal-interface pattern, the options struct for keyword entry points, and the rule of the second port (C-21).
+- **L (the ports):** the first trait of a port is an interface the ecosystem already has informally; it costs a declaration and changes no method.
+- **L (the ports):** a split package is a pirate by the letter; the design needs an answer for it before the first big port (joint owners).
+- **L (the documents):** a porting rule is guidance when a second port confirms it; until then it is one port's experience.
+
+### `plans/2026-10-21-pickup-sciml-validation.md`
+
+- *What it was:* the pick-up note of session 33 (superseded 2026-10-28 by the state page and the work queue).
+- *Found, for the playbook:* a job started from the sandboxed shell died with the command, so long builds were started by the user outside it; in the daytime every run was pinned to two cores at the lowest priority.
+- *Became:* `env.sh`, `tools-local/build.sh` and the rules on cores by load.
+
+### `reviews/2026-10-21-traits-reference-structure.md` and `reviews/2026-10-21-traits-reference-restructured.md`
+
+- *What they were:* two reviews of the traits reference's level and structure (W-20), on the user's two questions: where does it describe mechanism instead of meaning; and can it be simpler, with a section "how plain values enter the trait world"? Read: the scope, the major findings, the proposed outline and both verdicts. By reading only.
+- *Found:*
+  - **One spelling, `Dynamic{X}`, had five meanings by position** (a bound with a default; a concrete type that refuses; a kept slot that widens silently; a default for items; a plain type), and no table showed them. "Types never cast" was applied as refuse in two and as widen in one.
+  - **The attribute rule the user had stated in three sentences stood in thirteen places,** two of them disagreeing with the fuller statement. The cause was structural: chapters cut by syntactic category (bounds, storage, functions, items) each restate the rule for their case.
+  - The body described entries, workers, erased keys, views, pointers and tables, which the lowering reference already held. `Self` was defined through a mechanism.
+  - The outline adopted: chapters by rule for everything about values; one table of where a plain value enters; one table of what each spelling means by position; the cost model in one subsection; everything "how" out.
+  - After the restructure: a programmer "can now read chapters 5 to 7 in order and meet each rule once"; the reference was 84 lines longer.
+- *Became:* the shape of today's [traits reference](../reference/traits.md) chapter 7. The five meanings went with the user's decision of that day and, for good, with one way to erase.
+- **L (the documents):** a reference's chapters are cut by rule, not by syntactic category; where one spelling has several readings, one table shows them; the reference says what a user observes and the lowering says how.
+- **L (the design):** a spelling that needs a table of five readings is a finding about the design, not about the document (see L40).
+
+### `plans/2026-10-21-w34-sciml-prerequisites.md` and `reviews/2026-10-21-w34-sciml-prerequisites.md`
+
+- *What they were:* the plan of W-34, what the library and the facts mode needed to validate the restructuring of SciML as traits, and its review (21 findings, accepted). Read: the plan's summary and its inventory by move; the review's verdict, findings 2 and 5, and its order. The user (2026-10-21): "Tackle anything that is needed in TraitWorld/Facts to validate the Fable strategy."
+- *Found:*
+  - **The standing rules for a port:** the port does not change the design; agents may add highly orthogonal features; a change to an existing design goes to the user as an open issue; a Planned part the work really needs is implemented first, and the work pauses for it.
+  - **The route, in six moves:** 0, compile by facts as it is; 1, the right-hand side at a declared signature, the problem as a trait; 2, callbacks and the integrator's view as traits, callbacks out of the integrator's type; 3, the algorithms as an open set that each solver package joins, the front end's body in its owner; 4, symbolic access as traits, the `getproperty` sugar plain; 5, the solution as a trajectory.
+  - **The method:** an inventory, move by move, of every capability against the references' statuses (Implemented; Implemented and unprobed; Planned; a deviation; not in the design), then one experiment of probes (minutes), then one prototype per move in small packages outside SciML.
+  - "Most of what the route needs is Implemented." One gap was outside the design: an algorithm trait cannot name its integrator's type per problem; decided as a driver bounded by both traits at shared parameters.
+  - CommonSolve owns `solve`, `init` and `solve!`: a split-package fact that put a deviation on the main path.
+  - **The review:** "The central decision of the plan rests on a wrong premise": the form the plan made a prerequisite was already running in the demonstrator, and the plan used it as its own control. And the principled form for a function is `Callable`, checked at every call; a trait method generic in its buffers behind an erased value gives the check up ("which Rust refuses as not object-safe").
+- *Became:* the rules for a port are `CLAUDE.md`'s ("the ports find the design's weak points"). The six moves are the plan of the ODE port (`TraitDifferentialEquations-unified`) and the case study of the porting guideline. `Callable` changed on 2026-11-15 to a contract at the box, which keeps "checked where it enters".
+- *Not yet in a current document:* the inventory-then-probes method as the first step of a port (C-23: `intro/porting.md`).
+- **L (the ports):** before a port, list what it needs against the references' statuses and probe the unprobed forms in minutes; validate an architecture's moves in small packages before the big one.
+- **L (plans):** a plan's central decision is checked against what already runs. Here the prerequisite was the control.
+- *For `record/context.md`:* the four rules for a port, as the user set them.
+
+### The NetworkDynamics port (W-32): `plans/2026-10-21-networkdynamics-port.md` (the meta plan), `explorations/ndport-principled-traits.md`, `explorations/ndport-pushback.md`, the six part-plans and their six reviews
+
+Read: the meta plan, the two explorations in full. The part-plans (`plans/2026-10-21-ndport-{workload,facts-first,traits,graph,inside-out}.md`, `plans/2026-10-22-ndport-step3.md`) and their reviews (`reviews/2026-10-21-ndport-*-plan.md`, `reviews/2026-10-22-ndport-step3-plan.md`) by status, summary, outline and verdict: about 460 KB of implementation detail on the library of that time.
+
+- **What it was.** The first port of a real stack: NetworkDynamics on SciML, Graphs, GraphMakie with Makie, Observables. The user's goal: "reap the biggest possible benefits of Trait and Facts mode with minimal changes to the code". One workload fixed first (define equations, build, simulate, plot, change the equations, run again), with digests for equality of results and four settings. Then two tracks: outside-in (traits where they pay: the component dynamics behind a trait, the graph trait, the traits per kind) and inside-out (the SciML core wrapped as trait modules from the bottom up, each step free of pirates under strict mode).
+- **The ground rules,** which became the project's standing method:
+  - the port does not change the design; a Planned part the port needs pauses it and becomes a work item;
+  - "make a choice, record the pushback" (the user, 2026-10-22: "The idea is to make a choice and record where the design pushes back against it and then maybe revisit either the choice or the design later. Not to get all choices right from the start.");
+  - a function at a time, results equal to upstream at every step;
+  - orthogonal features may be added by the agent (the user: "For things like split packages I think you can decide yourself to add features that are highly orthogonal. Don't make changes to existing designs and features though").
+- **Found.**
+  - **The one change that pays is in the library on top, not in SciML.** The user's component functions reached the `Network`'s type, and through it the problem, the integrator, the solution and every symbolic getter. Keeping the model as a held value of a trait, opened once per batch, makes the network's type the same for every set of equations. New equations then compiled 0.45 to 1.1 s against upstream's 15 s (E-152, E-250).
+  - **Wrapping a package as a trait module is three lines, and its hazards are silent.** NetworkDynamics wrapped needed one method in Static.jl: its promotion leaned on Base folding `typejoin`; under the facts rule every `Int * StaticInt` dispatched at run time, 1,500 times slower, the results equal, nothing warned (P3-1).
+  - **A plain caller's constant propagation into a wrapped package's `getproperty`** was lost (P6-1): twice the steady state, silently. The user decided that constant propagation crosses from plain code into facts code.
+  - **Inside-out under strict mode works as a porting method.** Seven steps up the SciML core; a census of pirates after each load; joint owners (approved and built for it) take the methods that packages split from one core define on each other's types. One true pirate (OrdinaryDiffEqDifferentiation) stays plain.
+  - **The per-batch crossing was the steady state's price** (P4-1): 0.8 µs and 13 allocations at first, 36 to 48 ns after two rounds of work in the library; the steady state ended at about twice upstream's, then at 35 times upstream's over the whole session's gain (E-249/E-250: the session 31 s against 73 to 80 s).
+  - **An informal interface becomes a trait over its existing functions** (Graphs' `AbstractGraph`, with throwing fallbacks): one family line. Functions that return open iterators need a second function with a declared result (P4-3). The trait's name must not collide with an exported alias (`Graph` is `SimpleGraph`).
+  - **What stays plain, and why that is fine:** closed library families (an abstract tree is right), construction-time and metadata code, code dynamic by design (Observables, Makie's compute graph), keyword front ends behind a function barrier.
+  - **The reviews of the part-plans** found, again and again, the same kinds of defect: settings sharing one working tree or depot (Julia keeps ten cache files per package, so one setting evicts another's); a check without a control; a timer that reads zero unless switched on; a workload whose second solve starts from the first's mutated parameters; a criterion that cannot be decided; plans stale against results that arrived while they were written.
+- **Became.** `intro/porting.md` (0.1a the wrap, 0.2 informal interfaces, A12, B5, B6 "the solvers are an open set"); joint owners (traits §10); constant propagation across the modes (facts §6.3); the table for family members (open issue 48); W-49; the open-set link (open issue 51, option a+); the parametric subtrait (open issue 55); `ndport/` with its README and logs; evidence §3's NetworkDynamics rows. The pushback log is the model for today's "tensions between the goals".
+- **Not yet in a current document.** To check (C-24 to C-28): whether today's porting guideline carries the silent hazards with their tool (the dispatch profiler after a wrap); whether the "what stays plain" list is there; whether each pushback entry that is still true on today's build is an open issue, a tension or a guideline entry, and each that is not is in the attic's digest only; whether the port's numbers in the evidence are of today's build or the earlier one (R3); whether P6-2 to P6-5 (strict mode refusing OffsetArrays' `reshape`; extensions rewriting a wrapped core's facts at every load; packages' own `@inferred` tests failing by design; run-time `return_type` answers as a large share of new code) are each recorded as a tension or an open issue today.
+- **L:** L53 to L61. **A:** A5 (per-value membership; a trait with input parameters beside `Self`; optional bounded parameters; a witness carried in the held value). **For `record/context.md`:** the port's ground rules in the user's words; the two tracks and why (the user's "inside-out under strict mode" idea); that the user did not review choices 1 to 47 one by one ("I trust the reviewed plan"), the origin of today's rule that the agent's choices are not reviewed one by one.
+
 ## The running lists
 
 ### L-list: candidates for the lessons
@@ -491,6 +599,22 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | L43 | Under facts a run-time site costs a dynamic dispatch as in plain Julia; the loss is inlining of one-method callees at `Any` and the result's type, and it cascades. | heterogeneous-collections F2 | the design |
 | L44 | A number says whether it measures interop or idiomatic trait code. | heterogeneous-collections, addendum | measuring |
 | L45 | A deviation without an expected-failure check is a claim nobody re-verifies; write what would count against the design before the results. | proving-the-references | evidence |
+| L46 | Whether code is compiled for a caller's value is the caller's to say, in the language; a switch inside a library is `@nospecialize` turned around. Held through three mechanisms. | values-carry; the user | the design |
+| L47 | A mechanism rejected for stated reasons returns when each reason is answered by name (pointer tables: world age, serialization, races). | what-follows-the-split §4.3 | the design, alternatives |
+| L48 | A guess inline, a constant-cost table behind it, optionally feedback: the three pieces of every mature implementation of dynamic dispatch. | what-follows-the-split §2 | the design |
+| L49 | The first trait of a port is an interface the ecosystem already has informally. A split package is a pirate by the letter. A porting rule needs a second port. | porting-guideline review 11, 12, 20 | the ports |
+| L50 | Through a typed pointer a struct by value is a copy: identity lost silently. | tonights-code 1 | the playbook |
+| L51 | A reference is cut by rule, not by syntactic category; one table per spelling with several readings; what a user observes in the reference, how in the lowering. A spelling with five readings is a finding about the design. | traits-reference-structure F2 to F4 | the documents, the design |
+| L52 | Before a port: an inventory of what it needs against the references' statuses, probes in minutes, each move validated in a small package. A plan's central decision is checked against what already runs. | w34 plan and review | the ports, plans |
+| L53 | The change that pays is where a user's types enter a library's types. Erase there (a held value of a trait, opened once per batch) and everything above keeps its type. SciML had built that erasure by hand (function wrappers); the leak was one field. | ndport-principled-traits §1, §3; E-152 | the ports, the design's case |
+| L54 | A package correct in plain Julia can lean on Base folding a type computation. Under the facts rule it is then correct and slow, and nothing warns. After wrapping a package, run the dispatch profiler on the steady state. | pushback P3-1 | the ports, messages |
+| L55 | The same silent kind: a plain caller's constant propagation into a wrapped package's `getproperty` switch. Costs across the boundary between the modes are found by a tool, not by a failure. | pushback P6-1 | the ports, the design |
+| L56 | "Make a choice, record the pushback." A port never bends the design at the case; the log of where the design pushed back is the port's main product. | the meta plan's ground rules | the method |
+| L57 | Inside-out under strict mode is a porting method for core packages: bottom-up, a census of pirates after each load, joint owners for packages split from one core. Each step is free of pirates, whatever the final setting. | the inside-out plan; the user, 2026-10-21 | the ports |
+| L58 | An informal interface with throwing fallbacks is a trait over its existing functions: one family line, members checked at first use. Results of an open iterator type need a function with a declared result. Check the trait's name against exported aliases. | the graph plan; pushback P4-3 | the ports |
+| L59 | Closed library families stay abstract types; construction-time code, keyword front ends and code dynamic by design stay plain. A port that says what it leaves alone is shorter and more honest. | ndport-principled-traits §8 | the ports |
+| L60 | Membership is per type; real packages decide per value (`f.jac === nothing`). The answer within the design is a branch in the implementation or two record types. An optional capability is the same question. | ndport-principled-traits §10.5; W34-8 | the design, alternatives |
+| L61 | Measurement plans fail in the same few ways: settings that share a tree or a depot, a check without a control, a timer not switched on, state carried from one run to the next, a criterion that cannot be decided. A review that reads the harness's code before the first run pays for itself. | the six plan reviews | the playbook |
 
 ### A-list: alternatives to add or complete
 
@@ -500,6 +624,7 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | A2 | Owner-only functions as the return of facts at non-public functions | consistency 3 | the two entries exist apart; link them (C-2) |
 | A3 | Guarded devirtualization at run-time sites, postponed by the user (a failed guard is a cliff; traits recover the cost); polymorphic inline caches, not built | principled-speed-plan; inline-caches-plan | to check (C-15) |
 | A4 | For `return_type` after loads: freezing answers; no optimizer for the answer cache (tried, widens answers); a guarded fold; red-green revalidation (not built, Optional) | return-type-after-loads | partly there ("`return_type` at run time…, replaced"); to complete |
+| A5 | From the first port: membership per value; a trait with input parameters beside `Self` (Rust's `Algorithm<P>`), answered by the driver bounded by both traits; an optional bounded parameter; a witness carried in the held value for a cheaper crossing; erasing the graph's type | the ndport cluster; pushback W34-1, W34-8 | to check by topic |
 
 ### C-list: to check against today's documents
 
@@ -525,3 +650,11 @@ The notebook of the documentation clean-up's reading ([the plan](../plans/2026-1
 | C-18 | Where is today's interop number: trait code calling Base's generic algorithms on a container of `Any`? | heterogeneous-collections F1 |
 | C-19 | Does each open deviation row have an expected-failure check? (For the build notes.) | proving-the-references §1 |
 | C-20 | Do the alternatives say that one way to erase is the Rust and Swift rule cited on 2026-10-20? | dynamic-and-compiled §1b |
+| C-21 | Does `intro/porting.md` have the informal-interface pattern, the options struct for keyword entry points, and the rule of the second port? | porting-guideline review |
+| C-22 | Do the alternatives carry the three objections to pointer tables and their answers? | what-follows-the-split §4.3 |
+| C-23 | Does `intro/porting.md` give the inventory and the probes as a port's first step, and SciML's six moves as its case study? | w34-sciml-prerequisites |
+| C-24 | Does `intro/porting.md` carry the silent hazards of a wrap (folding of type computations, constant propagation into `getproperty`) with the tool that finds them? | pushback P3-1, P6-1 |
+| C-25 | Does `intro/porting.md` say what stays plain in a port, and why? | ndport-principled-traits §8 |
+| C-26 | Each pushback entry of the NetworkDynamics port: still true on today's build? Then an open issue, a tension or a guideline entry holds it. | ndport-pushback |
+| C-27 | The NetworkDynamics numbers in the evidence: of which build? (R3) | the meta plan's state table |
+| C-28 | P6-2 to P6-5 (strict mode and OffsetArrays' `reshape`; extensions rewriting a core's facts at each load; `@inferred` tests failing by design; run-time `return_type` answers' share): each a tension or an open issue today? | ndport-pushback |
