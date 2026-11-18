@@ -26,6 +26,7 @@ Moved here by the documentation clean-up of 2026-11-18 (W-162). Every row is unc
 | T-121 | — | *Retired* (2026-11-15): a method of another package's owner-only function is a pirate's, and `@owner_only`, in TraitWorld `s3` 4210852, 4f34916 ([§12.2](#122-pirates)); `test/owner_only.jl`, E-458 | — | — |
 | T-123 | — | *Retired* (2026-11-15): the report by default, in TraitWorld `s3` 2770c10 ([§12.2](#122-pirates)); `test/report.jl`, E-457 | — | — |
 | T-124 | — | *Retired* (2026-11-15): `delete_membership` in TraitWorld `s3` 9e0e3f4 with `next-s3` 213c759370 ([§5.13](#513-taking-a-membership-back)); `test/delete.jl`, E-459; Revise's part is lowering L-64 | — | — |
+| T-128 | — | *Retired* (2026-11-18): the demonstrators erase by the trait's default or at a door and choose code per type with the wrapper ([§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper) to [§7.8](#78-erasing-by-default-the-forwarder), [§8](#8-storage)): TraitTables 3f3e5a9, TraitCSV 57ccb3c, TraitReport a41c595, TraitMakie 4ef82e1, the forks 2176f57, TraitDifferentialEquations a4bc47d (W-156; E-504). What is left is the library's: the module option the ports write (T-127) and the wrapper's function bound by name (T-126) | — | — |
 
 ## The facts mode (F-)
 

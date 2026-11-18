@@ -13,10 +13,10 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 |---|---|---|---|
 | `julia-next` | julia, `next` | 02139b2168 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
 | `TraitWorld` | TraitWorld, `unified` | 3e64ede | the library: `@trait`, `@implement`, the checks, BaseTraits |
-| `TraitDifferentialEquations` | `unified` | 0816231 | the ODE library |
-| `TraitMakie` | `unified` | efc3ec0 | the plotting library |
-| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | 7eb82b7, f296d0e, 2a81de6 | the table library, the CSV reader, the report against pandas |
-| `forks` | forks, `unified` | b8cab0b | Tables, DataFrames and CSV ported, with upstream's suites |
+| `TraitDifferentialEquations` | `unified` | a4bc47d | the ODE library |
+| `TraitMakie` | `unified` | 2c560cb | the plotting library |
+| `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | 3f3e5a9, 57ccb3c, a41c595 | the table library, the CSV reader, the report against pandas |
+| `forks` | forks, `unified` | 2176f57 | Tables, DataFrames and CSV ported, with upstream's suites |
 | `ndport` | `main` | 6b41d66 | NetworkDynamics (its branch `unified` 6d311a3), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
@@ -36,7 +36,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 **The library** provides `@trait` (operations as contract entries, defaults, fields, inputs, supertraits), `@implement` (the forms, families, forwarding), the checks at a declaration and at a member's first use, bounded methods, `@trait_module`, the box `Dynamic{X}` and the wrapper `compiled_for(x)`, `Callable`, ownership and strict mode, fully typed mode with `fully_typed`, `make_executable` and `make_library`, hints, and BaseTraits ([traits §10](reference/traits.md#10-collections)).
 
 **What is not built, or built differently,** is in the Deviations tables: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). The largest:
-- **Julia and four demonstrators still carry the machinery of an argument's attribute** (casts beside the box and the wrapper; compiler C-112, traits T-127, T-128). TraitTables, TraitCSV and TraitReport are not yet converted to the box and the wrapper. Converting them and removing the machinery is the next stage (§4).
+- **Julia and the library still carry the machinery of an argument's attribute** (casts beside the box and the wrapper; compiler C-112, traits T-126, T-127). The demonstrators use none of it but one module option, which the library's default requires (`@trait_module first_seen = false`). Removing the machinery is the next stage (§4).
 - **Keys** are an optional extension, not built ([the extensions](reference/extensions.md)).
 - **A cache across sessions** is not built ([the goals](goals.md), G-3).
 
@@ -46,10 +46,10 @@ The suites below ran on these heads but for the commits that only change READMEs
 |---|---|---|
 | the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
 | the library's suite | `next` | passes (93 testsets) |
-| TraitDifferentialEquations, TraitMakie | `next` | their suites pass |
+| TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets), and their REPL sessions' checks |
 | NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
-| the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
-| TraitTables, TraitCSV, TraitReport | the tag (E-373) | pass; on `next` after their conversion |
+| the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
+| TraitTables, TraitCSV, TraitReport | `next` (E-504) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 |
 | the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass, with the deviations T-126 and T-127 marked; the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-503) |

@@ -99,7 +99,7 @@ Between G-8 and G-4.
 
 Between G-5 and G-1.
 - **The rule** ([traits §11.2](reference/traits.md#112-definition-checking), [compiler §6.7](reference/compiler.md#67-the-definition-time-check)): the check reads the method's instance at the box, which an edit infers once, as the box's next call would.
-- **What it costs today:** an edit of TraitTables' `summarize` evaluates in 0.70 s the first time and 0.49 s the second, with the check's code in the system image (E-391, `unified`). The plain twin takes 88 ms and 9 ms (E-379). On `next` the check reads the box's instance (compiler C-115), but the edit is not timed there: TraitTables does not yet follow the design (traits T-128).
+- **What it costs today:** an edit of TraitTables' `summarize` evaluates in 0.70 s the first time and 0.49 s the second, with the check's code in the system image (E-391, `unified`). The plain twin takes 88 ms and 9 ms (E-379). On `next` the check reads the box's instance (compiler C-115), but the edit is not timed there.
 - **The proposals:**
   - Time E-391's edit again once TraitTables follows the design. The tension closes if the edit then costs what the box's first call costs.
   - (b) The check's inference results kept between checks, as the native interpreter's are, and ended as code is.
@@ -159,7 +159,8 @@ Between G-8, against G-7 and G-4.
   - Such an object passed where `Callable` is asked raises `MethodError`, where Julia's `map` takes it.
   - The ODE port needed 14 declarations, and its tests 5.
   - A caller may declare the type (a pirate's membership, warned) or pass a closure, `x -> itp(x)`.
-- **The proposals:** [item 227](#2-design).
+  - A type passed as a constructor is no member either: upstream Tables' test `ByRow(Dict)` errors in the forks (E-504; [item 240](#2-design)).
+- **The proposals:** [item 227](#2-design); for a type, item 240.
 
 ## 3. The agent's choices
 
@@ -313,6 +314,14 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
   - (b) The porting guideline: a package's callable types are declared by their owner, or are a `Function` by Julia's idiom where the type has no other supertype.
   - (c) A closure at the call (`x -> itp(x)`) accepted as the plain form, with the hint naming it.
   - The proposal is (b) with (c); (a) for the synthesis, with a census of the pairs it would tie.
+
+**240. A type passed as a constructor is no `Callable` member** (GT-32).
+- *The case* (E-504, `experiments/implementation/w156/probes/byrow.jl`): upstream Tables' suite calls `ByRow(Dict)`, which the forks' `byrow(f::Callable{…}, xs)` serves. `Dict` is a `Type`, no `Function`, so `byrow(::Type{Dict}, ::Vector{Pair{Int, Int}})` finds no method. Julia's `map(Dict, xs)` takes it.
+- *The rule* ([traits §9](reference/traits.md#9-functions-callable)): a member of `Callable` is a value of a subtype of `Function`, or of a callable type declared a member. A type is neither.
+- *The proposals:*
+  - (a) Types are members of `Callable` as functions are: Core's entry covers `Type`, and the box checks the signature against the type's constructors (`hasmethod(T, A)`), as for any function. Which pairs of methods it ties (one at `Type{T}` or `DataType` against one at `Callable` at the same argument) is not counted; the census of E-503 would count them.
+  - (b) The caller passes a closure, `x -> Dict(x)`.
+  - The proposal is (a): a constructor is Julia's ordinary function value, and (b) asks every caller of `map(T, xs)` to change. Not built; the forks keep the failing test.
 
 **236. What `withfields` gives for a box is not defined.**
 - *The case:* `like(t, x)` at a box is defined ([traits §6.5](reference/traits.md#65-results)): a method that rebuilds with `like` is bounded. `withfields(t; …)` at a box only throws in the implementation, so the tutorial's `nudged` is marked `@unbounded`, and a method of a trait that erases by default cannot rebuild its argument with other field values.

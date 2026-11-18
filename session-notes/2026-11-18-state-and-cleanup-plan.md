@@ -145,3 +145,18 @@ An Opus agent worked in `wt/w165-julia` (branch `w165`); the main session review
 - **A trap of the build:** Julia's make does not rebuild the first image stage (`basecompiler`) for a change of the runtime, and that stage stores Core's types with the bits the runtime's start gave them. `tools-local/build.sh` now touches `Compiler/src/Compiler.jl` where a runtime source is newer than the first stage, so every stage is rebuilt (the playbook §2).
 - **The main session's checks on the rebuilt `julia-next`** (02139b2168, 832 s): gates 72 of 72 and 9 of 9; the suites as before (library 93 testsets, the ODE library 35, TraitMakie 8, NetworkDynamics with its known failures, the forks' digests equal at 26 steps); Base's `subtype`, `core`, `ambiguous`, `worlds` pass, `detect_ambiguities(Base)` 0; the examples pass; the static check 0 findings in 15 files. Logs: `experiments/implementation/w165/logs/main-*`, `w161/logs/main-02139b2168-*`.
 - **W-156 started, its first part** (E-504 registered): an Opus agent converts the demonstrators' casts (traits T-128), on a branch `w156` of each demonstrator's repository.
+
+## W-156, its first part: the demonstrators follow
+
+An Opus agent worked on a branch `w156` of each demonstrator; the main session reviewed, ran the suites again, merged and recorded.
+
+- **Converted** (E-504): TraitTables' four casts and TraitCSV's one became plain calls (`Column` erases nothing by default, so a call at a column compiles for its type, as Julia compiles it); TraitReport's and TraitMakie's sessions lost `Kept{…}`; the forks import no cast, and their joins box the key columns at the door; the ODE library lost `kept_interpolant` and `with_dynamic`. No cast was blocked. Traits T-128 retired.
+- **The census of the attribute's surface** (`experiments/implementation/w156/census.sh`): 88 lines before, 24 after, all the library's (T-126: the wrapper's function bound by name; T-127: `@trait_module first_seen = false`, now in 11 modules).
+- **The control:** the report's session 1.07 s after and 1.09 to 1.15 s before, 25 compiles in each; the table's 0.69 s in each.
+- **Found:**
+  - A type passed as a constructor is no `Callable` member: upstream Tables' `ByRow(Dict)` errors in the forks (open issue 240, with GT-32).
+  - `eltype` of a boxed column is `Any`, so TraitTables' `take` of a box returns a `Vector{Any}` column (traits T-130; with W-158).
+  - A wrapper passed to a method at `Callable` gets no code per function (compiler C-112).
+  - TraitMakie's `scripts/errors.jl` wrote `@trait_module module … end`, a form the reference does not have. The main session rewrote it (TraitMakie 2c560cb): the definition check refuses the recipe's method where it is defined.
+- **The main session's run** (`experiments/implementation/w156/logs/main-w156-*`): every suite as the agent reported; the forks' Tables suite with its one error.
+- **Started, the second part** (E-505 registered): the attribute's surface leaves the library.
