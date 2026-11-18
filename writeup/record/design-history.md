@@ -78,4 +78,4 @@ The work queue's plan from 2026-10-29 to 2026-11-09, replaced by the current ord
 - **Session 26:** `using TraitMakie` took 0.69 s patched against 0.23 s stock, and CSV, DataFrames, Statistics and TraitMakie together 1.40 s against 0.82 s; after TraitWorld's load hooks were moved under the policy (TraitWorld 29f0a8e), `using TraitReport` took 0.79–0.82 s patched, 0.71–0.72 s stock. The view cache flushed at every exit, 0.14 s with TraitMakie alone (fixed in TraitWorld 6239b1e). TraitWorld's own `Base.show` methods for trait-object types invalidated callers compiled for `show(::IO, ::Type)`, 1.0 s on CSV's first read with DataFrames loaded (2.64 s against 3.6 s without them); fixed by Julia's type-printer registry (db82407fa6; TraitWorld 6239b1e).
 - **Session 27 (the package policy):** a new model type 0.16–0.23 s to declare and 33–44 ms to solve first; family registries took row 1 from 47 to 7 ms (a19ba7e).
 
-The open-issues entries of these numbers are at the end of [`../open-issues.md`](../open-issues.md#closed-items).
+The open-issues entries of these numbers are at the end of [`../open-issues.md`](../../attic/writeup/record/issues-closed.md).
