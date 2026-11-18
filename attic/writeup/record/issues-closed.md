@@ -679,3 +679,42 @@ Closed before the clean-up:
 4. **Closed (s29):** superseded. [`record/decisions.md`](record/decisions.md) states the adopted rule (tags labelled by the primal signature, implemented in TraitDifferentialEquations), and `notes/1-overview.md` goes to the attic (`plans/2026-10-19-notes-cleanup-plan.md`). The gradient rows are measured: a second loss 17–18 ms in every load order (`design/evidence.md` §3). `notes/1-overview.md` ("Fields as the key") says a new loss under automatic differentiation "compiles the step again, as today". The adopted decision labels tags by the loss's primal signature (`Tag{Sig{A, S}, V}`), so that a second loss of the same signature compiles nothing; the sentence holds only without it. Fix when TraitDifferentialEquations row 5 is built (review of session 26).
 163. **Closed (2026-11-11, the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later."):** a `where` variable bounded by a trait is the value's type under either attribute; code compiled once reads it from the value ([compiler §6.2](reference/compiler.md#62-compilation-signatures); decisions §3; to build: W-148, C-54). The proposal of the issue (a used variable makes the method open) is in [the alternatives](design/alternatives.md). *The case:* `f(x::C) where {C <: X} = C`, compiled once at the erased `X`, would return `X`.
 175. **Closed (2026-11-11, the user (2026-11-11): "I meant 2 not 1. So 2, 3, 4 with Kept is agreed. We can think about syntax sugar for this later."):** what is stored is decided by the storage's type: storage typed by the trait holds the object, `Kept{X}` holds a member with its attribute ([traits §7.8](reference/traits.md#78-keeping-an-argument-with-its-attribute), [§8.1](reference/traits.md#81-fields-and-containers-typed-by-a-trait); decisions §3; to build: W-149, traits T-111). *The case:* the tutorial's `add!` with `keep` stored a `Dynamic{Shape}` at the prompt and the circle in compiled code, so `sc.shapes[1] isa Scalable`, `==` and a `count` answered differently (`experiments/docs-examples/keep_at_prompt.jl`).
+
+
+## Closed by the pass of 2026-11-18
+
+The documentation clean-up (W-162) rewrote the open issues as what is open. These entries left the page then. Each entry's full text, with its history, is in [the snapshot of that day](issues-open-2026-11-18.md).
+
+Tensions:
+- **GT-1:** decided (a membership invalidates as a method does, facts §10) and built. Measured: the walk adds no load time and ends nothing a load does not end without it (E-378, E-390). The guards and "a membership invalidates nothing" are gone.
+- **GT-4:** decided by D-1: there are no casts; the wrapper is a value and passes any parameter (traits §7.6). Built (E-403).
+- **GT-6:** decided by D-1: the attribute is replaced. Its cost per call moved to GT-19, which is closed.
+- **GT-10:** the porting guideline states it (`intro/porting.md`, "It does not turn a type the whole ecosystem specializes on into a trait"); `IO` as an open set is gone.
+- **GT-11:** decided by D-4 and built: the late load ends 0 of 120,065 plain instances (E-498). See "In doubt".
+- **GT-13:** decided (a closed build compiles generic code for the members it has, compiler §7.6). What a build still leaves is item 184.
+- **GT-15:** decided (members by use) and built (E-364); compiler C-86 for what it does not count.
+- **GT-17:** decided by D-10 (mine). The build is traits T-122. The choice is a line in the new §3 ("One statement of what is final").
+- **GT-18:** decided by D-11 and built: E-456's gate passes, 33 of 33.
+- **GT-19:** closed by its gate (E-436, E-437).
+- **GT-23:** decided (mine: the default for trait modules only, `public` as the guideline) and built (E-458). The choice is in §3; the ODE port's case is item 212.
+- **GT-24:** decided (mine: (b), the entry refuses a result inferred at `A` outside `S`) and built (E-500, E-501). The choice is in §3, with its residue (a result inference cannot tell apart from `S` is returned unchecked).
+
+Numbered items:
+- **66:** concerns the earlier build on julia-1.13 (W-52, W-57); E-235 found step d at 29.1–29.6 ms, near its old time.
+- **125:** the mechanism is gone: a callee is inferred under its own policy (compiler §2.4), so code compiled by facts compiles no facts copy of Base. What remains of the subject is GT-3 and GT-8.
+- **148:** taken (b), the library exports `All` (traits §3.6). The choice is a line in §3.
+- **178:** measured and settled: the walk adds no load time and ends nothing a load does not end without it (E-378, E-390).
+- **194:** (a) taken for the helpers the census names (E-478). What is left of the kind sits in item 218; the question of a rule is GT-21, which now holds 194's proposal (b).
+- **211:** fixed (`is_membership_mi` in the G2 predicate, `next-s3` e7681dfc54, `next` 76ae6b0ee7); the tool finds no instance kept out of the class by such an edge alone.
+
+Parts of items, closed inside a kept item:
+- **184 (f):** fixed (TraitWorld 2072e75). Item 184 keeps (b) only; (a), (c), (d), (e) were closed before.
+
+The agent's choices not carried into §3:
+- "W-101 (the code slot) after W-113 and W-114", "The code slot as built", "A slot's miss with no code to make gets a dispatching entry": the code slot is retired (D-7).
+- "W-100 developed on the stack's top", "The profiling campaign's plan, and slice 3's sessions": work done.
+- "Bin A's rest is sorted", "The triage revised", "The triage of 2026-11-11": the schedule's triage, done.
+- In "`IO`'s contract", the declared `Int` counts and `Bool` of `haskey`: superseded by "a closed type's contract promises no result" (traits §9b states every result `Any`). The rest of the choice is kept.
+- "A call through a trait asserts the declared result, never converts it" merged with "A declared result is asserted, never converted"; the two lines on a default's method typing its arguments merged; the two lines on method matching in the query's world merged; the three strict-mode ambiguity lines on activation merged into one.
+
+Paragraphs of the old §1 that were not items: "W-141, input to the synthesis", "The next iteration, in one plan", "The ports' fresh-ideas round" (all decided). The old §3, §4b and §5 headings held nothing open. The old §6, "To revisit with the ports", is folded into §4 under Traits.

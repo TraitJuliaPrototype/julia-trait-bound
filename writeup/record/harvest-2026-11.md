@@ -924,3 +924,23 @@ What each pass over a ledger did, with the choices (mine).
 - **To the ledger though a current document cited it:** E-369 and E-376 (repeated by E-384 and E-392), E-401, E-402, E-404 and E-442 (repeated on `next` by E-440, E-437, E-439 and E-501), E-330 and E-331 (E-341 is the kept row), E-31 and E-176 (a stock number beside an earlier build's). The documents that cite them are changed in their own passes; the history's documents (the alternatives, the lessons, the decision log, the build notes) may cite a ledger row.
 - **E-418** was registered and not run; it is in the ledger, since its rule (a call that only throws as a run-time site) is not in the references.
 - **A control's row** (E-405, E-436 to E-439, E-441) compares `next` with the tag. E-436 and E-441 also state a property of `next` alone.
+
+### The open issues
+
+- **How:** an agent rewrote the page as what is open, each item as it stands now. The main session checked: every numbered item and every tension of the old page is on the new page or in the ledger's list of what the pass closed; the lint.
+- **The result:** no question waits for the user; 12 tensions (GT-2, 3, 5, 7, 8, 9, 12, 14, 16, 21, 31, 32); 74 choices of the agent, one line each; 35 design items; 4 on the implementation and measurements; 1 on the documents. 12 tensions and 6 items closed, each with its reason in [the ledger](../../attic/writeup/record/issues-closed.md).
+- **The old anchors** `#1-decisions-waiting-for-the-user`, `#2-design`, `#4-runtime-and-measurements` and `#5-documents` are kept above the sections that hold their content now.
+
+**Where the reading was in doubt** (the agent's list; the choices stand, mine):
+
+- **GT-2 kept.** Decided by D-3, but the old text says it closes once built (traits T-129). The entry's cost is the implementation's deviation.
+- **GT-12 kept.** Decided by D-3 and built on `next`, but the old text says it closes only with E-391's edit timed again once TraitTables follows the design.
+- **GT-11 closed.** A default's method at a set on one of Base's functions stays; E-394 found none among what the late load ends.
+- **GT-24 closed.** Its residue is stated in §3's `Callable` line, not as a tension.
+- **166 kept.** Its counts (E-331) are of Base's methods compiled once at `IO`, which Base does not do; the case stands for code an author erases with `IOContext{IO}`. Proposal (c) leans on declared results that GT-5's rule leaves `Any`.
+- **170 kept.** With the display erasing, what is left is a candidate's target invalidated and compiled again (E-338) and C-39, which is also a deviation row.
+- **112 kept.** Measured only on an earlier build (E-226); MakieCompat still has the recipe children.
+- **110 kept** under the ports. The design answers it (traits §10.1); only the port's change is left.
+- **179 kept.** Its plan's parts are done (E-368, E-476 to E-478); what is open is the build's verdict per signature, P3's demand rule for upstream by facts and P6.
+- **125 closed.** By compiler §2.4 (a callee inferred under its own policy). If the main session reads 125 as the pressure "Base by facts in the product setting", that is GT-3 and GT-8.
+- **19 and 65** are in §4 (Facts and ownership), not §1: they wait for E-189 (proposed, not run), not for the user. §1 holds no question.

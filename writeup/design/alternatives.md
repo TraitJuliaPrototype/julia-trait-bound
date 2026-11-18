@@ -124,7 +124,7 @@ The references ([`../reference/`](../reference/README.md), W-105, adopted 2026-1
 
 ### W-114, the surface: options not taken
 
-Choices made while building W-114 (2026-11-07), each recorded in [the decision log](../record/decisions.md) §9 as mine and listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis.
+Choices made while building W-114 (2026-11-07), each recorded in [the decision log](../record/decisions.md) §9 as mine and listed in [open issues §1](../open-issues.md#3-the-agents-choices) as input to the synthesis.
 
 - **Fully typed mode by a prologue the library's macro adds to each method,** a flag per signature checked at every call. Not taken: the mode for a module (`@enforce_fully_typed @trait_module`) cannot reach methods written after it without rewriting the module, and the prologue costs every call. The compiler finds the fault and puts a check only into code that fails ([compiler §2.7](../reference/compiler.md#27-fully-typed-mode)).
 - **Fully typed mode raising when the code is compiled,** from `code_typed` (the earlier attempt's acceptance case `AC_16`). Not taken: the compiler cannot raise while it compiles for a call; the code raises when it runs at the signature.
@@ -493,7 +493,7 @@ Earlier causes of the same kind, found in s26: the policy's compiler code failin
 
 ### W-101, the code slot: options not taken
 
-Choices made while building W-101 (2026-11-07), each recorded in [the decision log](../record/decisions.md) §9 as mine and listed in [open issues §1](../open-issues.md#1-decisions-waiting-for-the-user) as input to the synthesis. The plan: [plans/2026-11-07-w101-the-code-slot.md](../../attic/writeup/plans/2026-11-07-w101-the-code-slot.md).
+Choices made while building W-101 (2026-11-07), each recorded in [the decision log](../record/decisions.md) §9 as mine and listed in [open issues §1](../open-issues.md#3-the-agents-choices) as input to the synthesis. The plan: [plans/2026-11-07-w101-the-code-slot.md](../../attic/writeup/plans/2026-11-07-w101-the-code-slot.md).
 
 - **One slot per (MethodInstance, calling convention), written when a CodeInstance of it compiles and when one is invalidated** (the draft's §7.7). Replaced by a slot per call site that holds the CodeInstance it last called, checked against the task's world at each call:
   - nothing writes the slots at compile or invalidation time;

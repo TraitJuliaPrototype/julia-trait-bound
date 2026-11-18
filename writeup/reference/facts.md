@@ -49,7 +49,7 @@
 
 - <a id="term-owner"></a>**Owner.** A package owns the functions, types (traits included) and bindings it defines.
   - A method belongs to the module it is evaluated in.
-  - Julia (Core, Base, the standard libraries) is one owner. **Open:** whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#1-decisions-waiting-for-the-user)).
+  - Julia (Core, Base, the standard libraries) is one owner. **Open:** whether the standard libraries are owners of their own ([open issues §1.19](../open-issues.md#2-design)).
   - A package extension belongs to its parent.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
