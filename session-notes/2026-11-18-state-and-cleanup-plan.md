@@ -39,3 +39,13 @@ The main session. No agent, no build, no measurement. Nothing was moved or rewri
 - The 107 untracked logs of `experiments` committed.
 
 **Found on the way:** the survey counted experiment IDs with a pattern that also matched `PE-n`; the tool's count is the right one (84 of the earlier build in the evidence, not 89; none in the references).
+
+## The night: the whole plan, unattended
+
+**The user's words:** "I can't look at them now, can you print one in your response please?" (one notebook entry was printed), then: "This looks good to me, you are the judge on this though, you have the better overview to judge this. Go ahead. I am going to bed, so work without getting back to me and only report back at the very end."
+
+**So:** the plan's parts 1 to 9 are worked through in the main session without a question to the user. A choice on the way is made and recorded (the decision log, mine). One thing waits for the user as agreed: the rules' changes in `CLAUDE.md` are prepared as a diff and shown in the final report (Q1: "shown as a diff first"); only links that the move breaks are fixed there before.
+
+**Where the work stands** is kept in two places, for a session whose context has been summarized:
+- part 1: the Progress table of `writeup/record/harvest-2026-11.md`;
+- the parts: the row W-162 of the work queue.
