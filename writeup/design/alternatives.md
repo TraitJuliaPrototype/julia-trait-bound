@@ -746,7 +746,7 @@ In s23, TraitDifferentialEquations was to use a dual number type owned by the li
 | the trait world and ordinary code, as worlds | trait code and plain code, compiled by facts or plainly | s29 |
 | open method, `@open` (a method that uses its argument beyond the contract) | unbounded method, `@unbounded`; *open* is kept for traits and types, where it says who may join | 2026-11-12 (open issue 176) |
 
-The verb stays: a type still *conforms to* a trait, and the query is still `conforms(T, X)`. The glossary's [retired terms](../glossary.md#retired-terms).
+The verb stays: a type still *conforms to* a trait, and the query is still `conforms(T, X)`. The glossary's [retired terms](../../attic/writeup/glossary-retired-terms.md).
 
 ### Further options not taken
 
