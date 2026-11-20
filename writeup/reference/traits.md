@@ -606,10 +606,14 @@ shifted(r::LRec{Vector{Float64}}) = withfields(r; u = r.u .+ 1.0)
   - where `t`'s membership serves the trait by its own methods: `x`, which must be of `t`'s type, or the same type at other parameters;
   - where it forwards by a field: `t`'s type rebuilt by its positional constructor, the forwarding field replaced by `x`, the other fields kept; the constructor recomputes the parameters, so a sibling at other parameters comes out where `x` has them;
   - on a box `Dynamic{X}`: a `Dynamic{X}` of that value; on a wrapper: the wrapper of `like` of its object.
-- **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced.
+- **`withfields(t; name = v, …)`** is `t` rebuilt with declared fields replaced:
+  - on a member: its type's positional constructor called with the named fields replaced;
+  - on a box `Dynamic{X}`: the object it holds rebuilt, boxed at `X`; the box is made as any box is, so a rebuilt object that is no member of `X` is refused there;
+  - on a wrapper: the wrapper of the rebuilt object.
+- So a method that rebuilds its argument with `like` or `withfields` is bounded ([§7.3](#73-bounded-methods)): at the box its result is a box.
 - **`like` and `withfields` are conveniences of the library,** outside the language's core: functions that rebuild a member from its declaration ([lowering §8](lowering.md#8-like-and-withfields)).
 
-**Status:** Implemented.
+**Status:** Implemented, but for T-157.
 
 ### 6.6 Keywords, defaults, varargs
 
@@ -678,7 +682,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 - A call left to run time that finds a method when it runs is Julia's function barrier, no fault.
 
 **What the body does decides,** not a list of forms.
-- `typeof(t)`, `Wrapped(t)`, a closure that captures `t`, `like(t, …)`, a constructor that stores `t` at a struct parameter: each acts on the box, and is bounded.
+- `typeof(t)`, `Wrapped(t)`, a closure that captures `t`, `like(t, …)`, `withfields(t; …)`, a constructor that stores `t` at a struct parameter: each acts on the box, and is bounded.
 - `sum(t)` at a box of `ColTable` reaches `iterate(::Dynamic{ColTable})`, which has no method: not bounded. The report names `iterate`, reached from `sum`. At a box of `Iterable{Float64}` the same call is bounded, and Base's `sum` is compiled once for the box.
 - A function of `Self` that an equation names (`eltype(t)` where the trait defines `T = eltype(Self)`) answers at the box as for the object: its value is the trait's parameter (§7.4).
 
@@ -1331,7 +1335,7 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | overrides fixed; redeclaration | Implemented | §5.11 |
 | a membership taken back, `delete_membership`; Revise on memberships | Implemented, but for lowering L-64 (Revise) | §5.13 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented | §6.2–§6.4 |
-| `like`, `withfields`: the library's conveniences | Implemented | §6.5 |
+| `like`, `withfields`: the library's conveniences | Implemented, but for T-157 | §6.5 |
 | keywords, defaults, varargs at traits | Implemented | §6.6 |
 | keys and shared code: an optional extension | Optional ([open issue 147](../open-issues.md)) | §7.2; [extensions §1](extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | bounded methods: the instance at the box, read where a method is defined | Implemented, but for compiler C-115 | §7.3, §11.2 |
@@ -1375,5 +1379,6 @@ The rows below are where the implementation falls short of this page; the heads 
 | T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
 | T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen. Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; [GT-2](../goals.md#3-tensions-between-the-goals)). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
 | T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types. The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
+| T-157 | [§6.5](#65-results) | `withfields` on a box gives the box of the rebuilt object, on a wrapper the wrapper of it; a method that rebuilds with it is bounded. | `withfields` on a box or a wrapper throws: no field of the kept form has the name. A method of a trait that erases by default cannot rebuild its argument with other field values unless it is marked `@unbounded`. | TraitWorld `src/like.jl` (`withfields`, `_withfields`) |
 
 **Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128, T-130.

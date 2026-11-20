@@ -189,10 +189,11 @@ compiled_for(x) = Compiled(x)           # the library's
   - any other type serves its trait by its own methods: the general method checks that `x` is of `t`'s type family and returns it;
   - a box `Dynamic{X}`: a `Dynamic{X}` of `x`; a wrapper: the wrapper of `like` of its object.
 - `withfields(t; name = v, …)` calls the positional constructor with the named fields replaced. The call is made from `t`'s type and the names when the method is compiled.
+  - a box `Dynamic{X}`: `withfields` of the object it holds, then a `Dynamic{X}` of the result. The inner call is at a value known only by its trait: a session dispatches it once, a closed build branches over the members ([compiler §7.6](compiler.md#76-a-closed-build)). A wrapper: the wrapper of `withfields` of its object.
 - Nothing is looked up when either runs. Both are fully typed where the constructor's call is, and a package's image keeps a member's rebuilding method as it keeps its forwarding methods.
 - A type without a positional constructor that takes every field in order cannot be rebuilt. The call raises Julia's `MethodError` at the constructor, with the library's hint: the constructor to define.
 
-**Status:** Implemented (test `core.jl`; gate `like_precompiled`).
+**Status:** Implemented (test `core.jl`; gate `like_precompiled`), but for `withfields` on a kept form ([traits T-157](traits.md#19-deviations)).
 
 ---
 
