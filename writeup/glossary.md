@@ -337,7 +337,7 @@ The precedents come from the research in [`record/other-languages-research-2026-
 
 ### Trait module
 
-- **Here:** a module declared `@trait_module`: its methods are compiled by facts, it refuses unbounded methods at traits (`bounded`) and pirates of its own. Its code is **trait code**; code compiled under Julia's own rules is **plain code**.
+- **Here:** a module declared `@trait_module`: its methods are compiled by facts (`facts`), it refuses unbounded methods at traits (`bounded`) and pirates of its own (`no_pirates`), and the functions it neither exports nor declares `public` are [owner-only](#owner-only-function) (`owner_only`). Its code is **trait code**; code compiled under Julia's own rules is **plain code**.
 - **Origin:** the project's term, on Julia's per-module compiler options (`Base.Experimental.@compiler_options`), which exist for settings such as `optimize` and `infer`.
 - **Defined in:** [traits §13](reference/traits.md#13-scopes-trait-modules); the module option: [compiler §2.1](reference/compiler.md#21-the-module-option).
 

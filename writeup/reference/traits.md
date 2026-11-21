@@ -1271,12 +1271,28 @@ Two guarantees, asked for separately.
 - A method with several trait arguments is compiled at its first call.
 - **A method at a trait that erases by default** runs one instance for every member, at the box. It is compiled where the method is defined, by its definition-time check (§11.2), and kept in that package's image. A member's package compiles nothing of it.
 - Compiling ahead adds no method, so it invalidates nothing.
-- **A closed build compiles generic code for the members it has,** as Rust and Mojo do with a trait bound. A session keeps the set of members open, so code compiled once for a box reaches a member through a call that is resolved when it runs (§7.9). A build under `juliac --trim` has every member:
-  - a build compiles what is written, as a session does: a plain member at a method of a trait that erases by default is boxed, a box's code is compiled once per trait instance, a wrapper's for its object's type;
-  - an operation on a value known only by its trait (an item of a `Vector{Shape}`, a `Dynamic{Shape}`) branches over every member, each branch a direct call. Past the members it raises `MethodError`;
-  - `compiled_for(x)` of such a value branches the same way, each branch the wrapper of the member;
-  - the members of a family (`@implement Column{T} Vector{T} where {T}`) are the types the program uses as members: those it stores, passes or returns where only the trait is known ([compiler §7.6](compiler.md#76-a-closed-build)). `JULIA_CLOSED_BUILD_REPORT=1` makes the build list them;
-  - so a program whose calls outside the traits are typed builds without a call left to run time, and its binary has no compiler in it.
+- **A closed build compiles generic code for the members it has,** as Rust and Mojo do with a trait bound. A session keeps the set of members open, so code compiled once for a box reaches a member through a call that is resolved when it runs (§7.9). A build under `juliac --trim` has every member, and every method: nothing joins or is defined later ([compiler §7.6](compiler.md#76-a-closed-build)). So:
+  - **A build compiles what is written,** as a session does: a plain member at a method of a trait that erases by default is boxed, a box's code is compiled once per trait instance, a wrapper's for its object's type.
+  - **An operation on a value known only by its trait** (an item of a `Vector{Shape}`, a `Dynamic{Shape}`) branches over every member the program uses, not the first four, each branch a direct call. Past them it raises `MethodError`.
+  - **An operation on a trait with no member** raises `MethodError`, as a call no method takes. So a library's code that calls a trait's operations builds in a program that has no member of the trait.
+  - **A call at an abstract type that one method takes** runs that method, as Julia infers such a call: the methods are final.
+  - **A call in the latest world is the call:** `invokelatest(f, args…)` is `f(args…)` (Planned, below).
+- **The members a program uses.** A build counts the members it compiles for:
+  - a type declared a member by its own membership is a member;
+  - the members of a family (`@implement Column{T} Vector{T} where {T}`) and of an abstract type (`@implement Sequence AbstractVector{Float64}`) are the types the program hands to the trait: those it stores, passes, returns or asserts where only the trait is known, or keeps at a place typed by an abstract type or a family and then passes on to such a place;
+  - a type that one declaration makes a member of every instance (`@implement Callable T`, and every function at `Callable`) is counted at each instance the same way;
+  - a box is counted where the program keeps one at a place typed by the trait;
+  - a place typed by a type that merely is a member counts for no trait. Every function is a member of every `Callable{A, S}`, so a field `f::Function` counts for a signature once the code passes its value on to a place typed by that signature. A trait's members in a build are the types the program hands to it, not every member the program has.
+  - `JULIA_CLOSED_BUILD_REPORT=1` makes the build list each trait's members and where each was counted.
+  - **A value of a type the build did not count** raises `MethodError` at the branch: the answer is Julia's or an error. Which values a build does not count: [compiler C-86](compiler.md#deviations).
+- **Calls at a value known only by its trait.** A build leaves none of them to dispatch when the program runs:
+  - **`compiled_for(x)`** branches, each branch the wrapper of the member. **A call that takes such a wrapper** branches over the members' wrappers, so a loop that hands each item over as `compiled_for(x)` runs each member's own code in a build, as in a session.
+  - **A call where the member's type chooses the method** (a method at a struct, a family, a kept form, or a union with one, beside a method at the trait: `f(x::ODEFunction)` beside `f(x)`) branches over the members, each branch the call at the member's type.
+  - **Several such arguments** branch over each: the branches are the product of their members, up to 64. Past that bound, where the method reached erases by default (§7.8), each argument is boxed apart over its own members, and the method as written is called once at the boxes: the sum of their members, not the product.
+  - **The call of a function known only as `Callable{A, S}`** (an element of a `Vector{Callable{A, S}}`) branches over the signature's members, each the function's own call; the box's test (§9) is answered at each member when the program is built. **A function known only as bare `Callable`** (an element of a `Vector{Callable}`) branches over `Callable`'s members, and the result is the join of the branches'.
+  - **A call that one method at the trait takes** runs that method's code compiled at the trait, once; its operations branch over the members.
+  - **Past 64 members** a branch is not made: the call stays dynamic, and the build refuses it.
+- **So a program whose calls outside the traits are typed builds without a call left to run time,** and its binary has no compiler in it.
 - **`make_executable(main, path)`** writes an executable of `main(args::Vector{String})` at `path`. **`make_library([f => (R, (A...)), …], path)`** writes a shared library that exports each `f` under its name, with C's calling convention; `R` and each `A` is a type C can pass (a bits type, a pointer, `Cstring`, `Nothing`).
 
   ```julia
@@ -1292,18 +1308,18 @@ Two guarantees, asked for separately.
   - Inside a build's own process the two functions do nothing.
 - **Closed programs:** `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program can reach, for `juliac --trim`:
   - a function passed at a `Callable` adds one target at its signature;
-  - a box's code lists every declared member as a target of its operations;
-  - the wrapper of a value known only by its trait lists, at every declared member, the instances its calls run;
+  - a box's code lists a target of its operations at every member the session has: each concrete member declared, and each member of a family or an abstract type the session has used. These can be more than a build's members (above); a target past them is compiled and never called;
+  - the wrapper of a value known only by its trait lists, at the same members, the instances its calls run;
   - a `like` result lists the member's rebuilding;
   - each set of supplied keywords is a signature.
 - **The report:**
   - `targets`: every signature the program reaches;
   - `entrypoints`: the targets that no call in the code names (the members', the wrappers' and the `Callable`s'). A build is told these: `add_entrypoints(report)`, called while `juliac` builds, registers them;
-  - `holes`: the calls a build refuses, as `fully_typed` lists them;
+  - `holes`: the calls a build refuses, as `fully_typed` lists them: the build's own check, with the members a build counts;
   - `complete`: false where the walk stopped at its bound (`bound = 100_000` signatures).
 - A trimmed binary compiles everything plainly ([facts §13.3](facts.md#133-trimmed-binaries)).
 
-**Status:** Implemented, but for T-108, T-109 and [compiler C-86](compiler.md#deviations) (a closed build at an abstract member); a method that erases compiled ahead at the box: Planned, with [lowering L-66](lowering.md#15-deviations).
+**Status:** Implemented, but for T-108, T-109 and [compiler C-86, C-87 and C-156](compiler.md#deviations) (a value the build does not count; the branch's cost; several choosing arguments past the bound); a call in the latest world: Planned, with [compiler C-103](compiler.md#deviations); a method that erases compiled ahead at the box: Planned, with [lowering L-66](lowering.md#15-deviations).
 
 ---
 
@@ -1355,10 +1371,10 @@ A second way for a type to join a trait, used only where a caller names it, is a
 | owner-only functions, `@owner_only` | Implemented, but for compiler C-130 | §6.8, §12.2 |
 | a pirate reported where it ends deep-G2 code; `report_pirates!` | Implemented | §12.2 |
 | the standard libraries as owners | Open ([open issue 19](../open-issues.md)) | §12.1 |
-| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates` | Implemented | §13 |
+| scopes: `@trait_module` and its options `facts`, `bounded`, `no_pirates`, `owner_only` | Implemented | §13 |
 | concreteness and fully typed mode | Implemented, but for T-100, T-101, T-109 and T-122 | §14 |
 | printing | Implemented | §15 |
-| compiling ahead, `verify_main` | Implemented, but for T-108, T-109 and compiler C-86; a method that erases compiled ahead at the box: Planned, with lowering L-66 | §16 |
+| compiling ahead; a closed build's members and branches; `verify_main` | Implemented, but for T-108, T-109 and compiler C-86, C-87, C-156; a call in the latest world: Planned, with compiler C-103; a method that erases compiled ahead at the box: Planned, with lowering L-66 | §16 |
 | named implementations | Planned | §17 |
 
 ---
