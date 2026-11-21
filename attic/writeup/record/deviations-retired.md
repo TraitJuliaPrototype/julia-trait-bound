@@ -32,6 +32,7 @@ Moved here by the documentation clean-up of 2026-11-18 (W-162). Every row is unc
 | T-130 | — | *Retired* (2026-11-18): a function of `Self` that an equation names answers through a kept form as for its object ([§7.3](#73-bounded-methods), [§7.4](#74-the-two-kept-forms-the-box-and-the-wrapper)); TraitWorld `unified` a8d11af (W-166; E-507); `test/bytype.jl` | — | — |
 | T-157 | — | *Retired* (2026-11-21): `withfields` on a box gives the box of the rebuilt object, on a wrapper the wrapper of it ([§6.5](#65-results)); TraitWorld `unified` ccd6c48 (W-158); `test/core.jl` ("withfields on a kept form"), `experiments/docs-examples/tutorial.jl` §11 | — | — |
 | T-158 | — | *Retired* (2026-11-21): a vararg of members is read at the box, each element in a box ([§7.3](#73-bounded-methods)); TraitWorld `unified` 327f253 (W-158); `test/messages.jl` ("the bounded check names the method as written") | — | — |
+| T-159 | — | *Retired* (2026-11-21): the report names what the call reaches at any depth, and at a vararg of boxes what a call that passes one box reaches ([§7.3](#73-bounded-methods)); TraitWorld `unified` 1335b13 (W-158); `test/messages.jl` ("the bounded check names the method as written") | — | — |
 
 ## The facts mode (F-)
 

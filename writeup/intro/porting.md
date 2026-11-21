@@ -108,6 +108,7 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 | an option typed by a union | a concrete options struct built by the plain layer (0.3) |
 | keyword splats | the plain layer takes the keywords; the method at the trait takes the struct positionally (0.3) |
 | a result type computed by inference (`collect`, a broadcast, a comprehension) | **declare the element type:** the library knows it and does not write it. `emptycells(c, n)::Vector{T}` in place of a `collect` |
+| a record built from a value typed `Any` (a system handle read through an operation declared `::Any`): the constructor is a run-time site, and its result `Any` | a declared result on the function that builds the record |
 | an option kept in a run-time field that chooses a type (`Val(n)` of a `Union{Nothing, Int}` field) | a type parameter of the option's record, set where the program makes it (`Rodas5{L, CS}`) |
 | a `@nospecialize(f)` helper that takes a function | take the kept form and `unwrap` it, or declare `@nospecialize(f::Callable{A, S})` |
 | a function barrier whose callee others may extend | an operation of the trait with a declared result ([open issue 157](../open-issues.md#2-design)) |

@@ -182,6 +182,7 @@ Choices made while building. Each stands as recorded, in its reference and in [t
 - Bounded at the box: the faults are no method, or a call that only throws, and a call left to run time that finds a method is no fault; free variables are read at stand-ins; a keyword method's body is read, the forwarders not; a method whose box cannot be formed is not read, and nothing is checked at a first call; an equation's function answers at the kept forms (traits T-130). [traits §7.3](reference/traits.md#73-bounded-methods), [§7.4](reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper); [decisions §2](record/decisions.md).
 - A function passed as itself and known only as `Callable{A, S}` (a `@nospecialize` argument, compiled once) is called as a box is: its arguments checked against `A`, its result asserted to `S`. [compiler §7.4](reference/compiler.md#74-callables-call), [traits §9](reference/traits.md#9-functions-callable); [decisions](record/decisions.md).
 - A vararg of members does not erase: its elements are passed as they are, the method compiled per tuple of their types; the bounded check reads it with each element in a box, the code a call that passes boxes runs. In the check a tuple that holds a value at the box is one, and a call left to run time that never returns only throws. [traits §7.3](reference/traits.md#73-bounded-methods), [§7.8](reference/traits.md#78-erasing-by-default-the-forwarder); [decisions](record/decisions.md).
+- The bounded check reads a call as written: the `MethodError` branch Julia compiles beside the methods that cover part of an abstract argument is no fault where a method matches at the types known; the walk to the call that finds no method has no depth bound. [traits §7.3](reference/traits.md#73-bounded-methods).
 - `withfields` on a box rebuilds the object it holds and boxes the result at the same trait; on a wrapper it gives the wrapper of the rebuilt object; at a box only the fields the trait declares are named. [traits §6.5](reference/traits.md#65-results), [lowering §8](reference/lowering.md#8-like-and-withfields); [decisions §4](record/decisions.md).
 
 **Operations and contracts**
@@ -512,13 +513,14 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 
 ## 5. Implementation and measurements
 
-**249. The definition-time check reads the other branch of a split as "no method".**
-- *The case:* where a call's argument is abstract and its one method covers part of it, the optimizer emits a type test, the invoke, and else `Core.throw_methoderror`. The check at the box counts that branch as a fault, though a method exists at the types the code knows ([traits §7.3](reference/traits.md#73-bounded-methods): such a call is Julia's function barrier). Met twice in TraitNonlinearSolve (`nl_with_problem(::NLCoreSolution, …)`; `solve_nonlinear(…, ::Any)` in a keyword body); the port writes a declared result and two assertions there (`experiments/implementation/w158/port/README.md`).
-- *The proposal:* no fault where a method matches at the types known (`Base._methods_by_ftype`); a test with the two cases; then the port's two assertions removed.
-
-**250. In a session `Base.infer_return_type` gives `Any` for the ODE and the nonlinear `solve` at concrete types.**
-- *The case:* `solve_ode` and `solve_nonlinear` at concrete argument types, and callers in `Main` compiled after a run, infer `Any`; their callees infer concrete types, and the build's check resolves the result's use. Not diagnosed.
-- *The proposal:* find the statement that loses the type (`fully_typed` on the front end in a session against the build's check); a test that holds the front ends' inferred results.
+**251. The definition-time check reads the optimized instance, so an optimization decides some verdicts.**
+- *The cases* (`experiments/implementation/w158/g-probes/artifacts.jl`):
+  - a callee whose branch for another type only throws, or holds a call with no method, is a fault where the optimizer inlines it and none where it does not;
+  - an error path spelled `error("…", t)` is a fault (the call only throws), spelled `throw(ArgumentError(string("…", t)))` it is none;
+  - `Core.typeassert(t, M)` that always fails at the box is not read: builtins are not;
+  - a value known only by its trait passed to a function with methods for some members is no fault, though a member that joins later finds no method.
+- *The rule* ([traits §7.3](reference/traits.md#73-bounded-methods)): "its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws".
+- *The proposal:* read the instance before optimization; follow a call that passes a value at the box into its callee where the callee is not checked itself; read an assertion at the box as a call; count an error path only where it reaches a call that finds no method or an undeclared field; look up an argument known only by its trait at its box. Measured first over the demonstrators' 188 methods at a trait: which verdicts change.
 
 **116. A member first used while Julia writes an image is checked again at load.**
 - *The case:* code compiled at output runs after the build's `atexit` hooks, so the list of checks an image keeps ([lowering §11](reference/lowering.md#11-checks-errors-and-what-images-keep)) misses a member whose first use is there: 1 of the forks' 27 members (`Vector{Union{Missing,String15}}`). A cost at load, no wrong answer.
