@@ -701,7 +701,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 - **`@unbounded f(…) = …` marks a method unbounded on purpose:** `bounded` does not refuse it. A library's adapter that hands its argument to plain code is written so.
 - With keys, an optional extension (§7.2), a bounded method would share its code per key.
 
-**Status:** Implemented, but for [compiler C-115](compiler.md#deviations).
+**Status:** Implemented, but for T-161 and [compiler C-115](compiler.md#deviations).
 
 ### 7.4 The two kept forms: the box and the wrapper
 <a id="74-the-attribute-compiled-and-dynamic"></a>
