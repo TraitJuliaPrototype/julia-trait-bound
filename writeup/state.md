@@ -12,7 +12,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | f5328f94c5 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 9d4f782 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitWorld` | TraitWorld, `unified` | e32d443 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 3e60c29 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -45,12 +45,12 @@ The suites below ran on these heads but for the commits that only change READMEs
 | What | On | Result |
 |---|---|---|
 | the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
-| the library's suite | `next` | passes (93 testsets) |
+| the library's suite | `next` | passes (96 testsets; one expected failure, compiler C-153) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets), and their REPL sessions' checks |
 | NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
 | the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
 | TraitTables, TraitCSV, TraitReport | `next` (E-504) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 |
-| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (26, 95 and 5 checks), with one known deviation marked ([open issue 235](open-issues.md#5-implementation-and-measurements)); the tutorial's script ten times without a fault |
+| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (27, 96 and 5 checks); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
 | the table program as a trimmed binary (`experiments/implementation/w135/build.sh table`) | `next` | builds with 0 errors, 2.7 MB, and prints the session's output; the eight small trait programs build and run (E-508). The plot's and the report's programs count 6 errors, the ODE program 12 (`experiments/implementation/w166/build_c.sh`, which writes the images first; E-509) |

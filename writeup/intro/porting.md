@@ -263,7 +263,7 @@ A member is passed as itself, in a box or in a wrapper. The choice is in the val
 - Bookkeeping, macros, printing, options parsing, `getproperty` sugar.
 - **Closed library families:** an abstract type hierarchy that one package holds whole is right as it is.
 - **Code that is dynamic by design:** an observable's graph, construction-time and metadata code.
-- **Rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is unbounded, marked `@unbounded` in a trait module.
+- **Rebuilding: plain and thin,** behind a function barrier. What a trait declares is rebuilt with `withfields` and `like` ([§6.5](../reference/traits.md#65-results)); such a method is bounded: at a box it gives a box.
 - **Not the front end.** A package's entry functions (`solve`, `read`) belong to a trait module, as the code under them does. A front end compiled plainly is lost to unrelated loads as any plain code is, and it is the first thing each call runs.
 - Code that is not type-stable gets slower when compiled by facts. Keep it out of the facts mode where trait code does not call it, or make it fully typed.
 

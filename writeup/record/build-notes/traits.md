@@ -293,7 +293,7 @@ The reference is the source of truth for the rule; this page is its build log, b
 | overrides fixed; redeclaration | Implemented (TraitWorld 701aaab; from images TraitWorld 6871ea9, E-344); a redeclaration's entry (`unified` 62016706d0) | §5.11 |
 | a membership taken back, `delete_membership`; Revise on memberships | Implemented (TraitWorld `s3` 9e0e3f4, `next-s3` 213c759370; D-13, E-459); Revise: Planned, with L-64 | §5.13 |
 | dispatch: specificity, ambiguity reported at a membership, fallback | Implemented (`unified` 62016706d0, 0d529d33a9, 8a9144928e) | §6.2–§6.4 |
-| `like`, `withfields`: the library's conveniences | Implemented (TraitWorld e7ff8e2) | §6.5 |
+| `like`, `withfields`: the library's conveniences | Implemented (TraitWorld e7ff8e2; `withfields` on a kept form ccd6c48, W-158, mine) | §6.5 |
 | keywords, defaults, varargs at traits | Implemented as Julia's (TraitWorld c9f701e under `bounded`) | §6.6 |
 | keys and shared code: an optional extension | Optional, built late (W-110; open issue 147) | §7.2; [extensions §1](../../reference/extensions.md#1-keys-code-shared-among-members-the-contract-sees-alike) |
 | bounded methods: the instance at the box, read where a method is defined | Implemented (D-3; TraitWorld 6f86b4e, W-151; read from Julia's cache, 9c0912b, W-160), with compiler C-115, T-130; `bounded` and `@unbounded` TraitWorld bb78d02 (W-111) | §7.3, §11.2 |

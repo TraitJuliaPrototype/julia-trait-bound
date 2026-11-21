@@ -365,7 +365,7 @@ In `Geometry`:
     scale(s::Scalable, k::Float64)::Self
 end
 doubled(s::Scalable) = like(s, scale(s, 2.0))
-@unbounded nudged(p::Placed) = withfields(p; x = p.x + 1.0)
+nudged(p::Placed) = withfields(p; x = p.x + 1.0)
 ```
 
 ```julia
@@ -381,11 +381,12 @@ doubled(Circle(1.0))                      # Circle(2.0)
 doubled(Tile("door", Rect(1.0, 2.0)))     # Tile("door", Rect(2.0, 4.0)): the label stays
 doubled(Dynamic{Scalable}(Circle(1.0)))   # Dynamic{Scalable}(Circle(2.0)): at a box, a box
 nudged(sp)                                # a new Sprite, x = 2.0; `sp` is unchanged
+nudged(Dynamic{Placed}(sp))               # a box of a new Sprite, x = 2.0: at a box, a box
 ```
 
 - `Self` is the member's type, or the forwarding field's: `scale` on a `Tile` returns a `Rect`.
 - `like(t, x)` is a value like `t` built from `x`: `x` itself for a member that serves the trait by its own methods; for one that forwards, `t` rebuilt with `x` in its field; for a box, a box of `x`. So `doubled` is bounded ([§4](#4-methods-at-a-trait)).
-- `withfields(t; …)` is `t` rebuilt with declared fields replaced. At the box it only throws, so `nudged` is unbounded there. A trait module accepts it marked `@unbounded`.
+- `withfields(t; …)` is `t` rebuilt with declared fields replaced; for a box, the box of its object rebuilt. So `nudged` is bounded too.
 
 Rules: [reference §4.4](../reference/traits.md#44-self), [§6.5](../reference/traits.md#65-results).
 

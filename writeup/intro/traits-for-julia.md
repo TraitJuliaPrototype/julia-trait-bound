@@ -212,8 +212,8 @@ colsum(t::ColTable) = sum(t)      # meant: sum(col(t, 1))
 `sum` needs `iterate`, which `ColTable` does not declare. TraitWorld reads the method's code for the box `Dynamic{ColTable}`, which stands for every member: there `sum(t)` finds no method, so the method is not bounded. In a trait module that is a `TraitUseError` where the method is defined. It names the call, what it reaches and its line, before any user type exists:
 
 ```
-TraitUseError: colsum is declared bounded, and is not bounded at the box …:
-  sum(Dynamic{ColTable}) reaches iterate(Dynamic{ColTable}), which has no method (through sum → mapreduce → mapfoldl → mapfoldl_impl → foldl_impl → _foldl_impl), at line 142
+TraitUseError: `colsum(t::ColTable)` is declared bounded, and is not bounded: read with `t` in a box, `Dynamic{ColTable}`:
+  sum(t) reaches iterate(::Dynamic{ColTable}), which has no method (through sum → mapreduce → mapfoldl → mapfoldl_impl → foldl_impl → _foldl_impl), at line 142
 ```
 
 **A value of no member type.** `colmean(42, 1)` raises a `MethodError`, as plain Julia would.

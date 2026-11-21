@@ -193,7 +193,7 @@ compiled_for(x) = Compiled(x)           # the library's
 - Nothing is looked up when either runs. Both are fully typed where the constructor's call is, and a package's image keeps a member's rebuilding method as it keeps its forwarding methods.
 - A type without a positional constructor that takes every field in order cannot be rebuilt. The call raises Julia's `MethodError` at the constructor, with the library's hint: the constructor to define.
 
-**Status:** Implemented (test `core.jl`; gate `like_precompiled`), but for `withfields` on a kept form ([traits T-157](traits.md#19-deviations)).
+**Status:** Implemented (test `core.jl`; gate `like_precompiled`).
 
 ---
 
