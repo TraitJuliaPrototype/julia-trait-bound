@@ -50,7 +50,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 | NetworkDynamics | `next` | its test subset of six files passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
 | the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
 | TraitTables, TraitCSV, TraitReport | `next` (E-504) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 |
-| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (27, 96 and 5 checks); the tutorial's script ten times without a fault |
+| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (33, 122 and 10 checks), with two known deviations marked (compiler C-157, traits T-160); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
 | the four demonstrators' programs as trimmed binaries (`experiments/implementation/w158/m-builds.sh`) | `next` | each builds with 0 errors, runs, and gives the session's output (and PNG): the table 2.7 MB, the report 5.4 MB, the plot 4.9 MB, the ODE program 4.3 MB (E-510). The eight small trait programs build and run |
