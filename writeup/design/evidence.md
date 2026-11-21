@@ -162,7 +162,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 **On the head** (`next` dc11704ef7, TraitWorld `unified` 2d93199, TraitDifferentialEquations `unified` 06c28c3; E-510; one build each, the programs' images written first): the four demonstrators' programs build under `--trim=safe` with 0 errors, run, and give a session's output: the table 2.72 MB, the report 5.39 MB and the plot 4.94 MB (their PNGs equal a session's byte for byte), the ODE program 4.29 MB (a Lorenz and a Robertson solve). The eight small trait programs build and run. The plain twins are not built again on this head: the ODE twin counts 8 errors on `next` 61277571fa, where the specialized keyword body of `issorted` took 6 of its 14 away; the others' counts are the row's. The ODE port was changed to follow the design at its callbacks, its function and Rodas5's chunk before its program built (open issue 184).
 
 **Not shown.**
-- An ODE program that passes callbacks it knows does not build under `--trim=safe`: 20 errors in 4 statements, the callback records' constructors at values known only as bare `Callable` (open issue 184; compiler C-156).
+- A program at a port's scale as a trimmed binary: the programs built are a demonstrator's main with one or two solves, a table's summary, a plot. An ODE program with callbacks it knows builds too (0 errors, 4.14 MB, the session's output; `next` f1d6e51efa, E-510).
 - A hole in Base below a trait program fails the build where the user cannot fix it (open issues 179, 181).
 - The time of the build's check, asked in a session: not measured on a registered row (GT-16).
 - A program of a port at scale as a binary.
