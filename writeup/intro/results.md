@@ -26,7 +26,8 @@ This page is for Julia programmers. It says what the measurements show, each aga
 - **A new member, a new type, a new closure compile little, and discard nothing.** Twenty packages that each add a member to one trait discard none of each other's code, in any load order. A member's package image holds 42 compiled instances where a plain twin's holds 146.
 - **The costs are stated below:** no faster steady state is claimed; first-run sessions take longer than Python's; code that uses no trait pays a little; an edit of a method at a trait takes about half a second in a session.
 - **Mistakes are reported where they are made.** Of thirteen mistakes made against one small library, written with traits and in plain Julia, the trait form reports five at the line that makes them, where plain Julia reports four at a later call inside the library and one not at all.
-- **Not shown yet:** better messages for failures inside a user's own function at run time, a library-sized trait program as a trimmed binary, a port by someone outside the project.
+- **Programs compile ahead of time.** The four demonstrators' programs build as trimmed binaries with no error, run, and give a session's output (E-510).
+- **Not shown yet:** better messages for failures inside a user's own function at run time, a port's program at scale as a trimmed binary, a port by someone outside the project.
 
 ## Unrelated packages loaded after the work
 
@@ -94,6 +95,14 @@ Sessions a user would run, each in a fresh process:
 - **Most of a short session's time is the start and the imports:** loading the package images. After that, code generation and inference of the session's own code ([the evidence](../design/evidence.md#where-a-sessions-time-goes), E-388).
 - The ports pass their upstream test suites but for four tests in DataFrames that assert an inferred type and see `Any` ([open issue 157](../open-issues.md#2-design); E-373).
 
+## Ahead-of-time binaries
+
+A program built with `juliac --trim` has every member of each trait, so it compiles generic code for the members it uses, as Rust does ([`traits-by-example.md`](traits-by-example.md#19-traits-in-a-package)).
+- **Small trait programs** build and run, with no compiler in them, also where they loop over a vector typed by a trait. The same loop over an abstract type is refused in plain Julia (E-384).
+- **The four demonstrators' programs** build with no error, run, and give a session's output: the table, the report, the plot and the ODE program's two solves. The report's and the plot's images equal a session's. They take 2.7 to 5.4 MB (E-510).
+- `fully_typed` in a session agrees with the build on 17 of 18 programs (E-384), and on the ODE program's members and errors (E-510).
+- The sizes, the builds and what the plain twins give: [the evidence, G-6](../design/evidence.md#g-6-compiling-ahead).
+
 ## What it costs
 
 **No faster steady state.** The claim is no regression where types are known. A trait operation at a known type costs what a plain call costs, 0.79 ns (E-443). Erased code pays for being compiled once: an operation on a boxed value takes 5.6–9.1 ns, where Julia's own dynamic call takes 18 ns (E-443).
@@ -112,7 +121,7 @@ Sessions a user would run, each in a fresh process:
 ## What is not shown yet
 
 - **Better messages for failures at run time inside a user's own function.** On three classic failures of a differential equation solver, the trait port's messages are shorter than the upstream package's and no shorter than those of the same small solver written without traits: no contract is broken, so no check reports earlier (E-363).
-- **Ahead-of-time binaries of a library's size.** Small trait programs build as trimmed binaries (`juliac --trim`) and run, 2.5 MB with no compiler in them, also where they loop over a vector typed by a trait; the same loop over an abstract type is refused in plain Julia (E-384). One demonstrator's program builds this way too: a CSV read with a summary, 2.7 MB, with the session's output (E-508). The ODE program and the plot's do not build.
+- **Ahead-of-time binaries at a port's scale.** No port's program at scale is built as a binary. An ODE program that passes callbacks it knows to the solver does not build yet ([open issue 184](../open-issues.md#4-design)).
 - **A port by someone outside the project.**
 - **Scale:** the ports are parts of three ecosystems.
 - **A cache across sessions.**

@@ -198,7 +198,7 @@ ratio(Window(Rect(3.0, 3.0), Rect(1.0, 2.0)))       # 0.3333333333333333
 describe(Tile("door", Rect(1.0, 2.0)))              # "a 1.0 by 2.0 rectangle": Rect's own, at the field
 ```
 
-- Forwarding is always written with `by`. Without it, `@implement Shape Tile` would say that `Tile` serves the operations itself, and fail.
+- Forwarding is always written with `by`, a convenience of the library. Without it, `@implement Shape Tile` would say that `Tile` serves the operations itself, and fail.
 - The membership defines `Tile`'s own method for each required operation, calling it on the field; an operation with a default is served by the trait's method, which calls it on the field.
 - The field's type must be a member by its own methods. Forwarding does not chain.
 
@@ -291,7 +291,7 @@ Rules: [reference §3.6](../reference/traits.md#36-intersections).
 So a later method is refused where it is defined:
 
 ```julia
-Geometry.describe(c::Circle) = "a circle"     # ImplementError: define it before the membership, or in its block
+Geometry.describe(c::Circle) = "a circle"     # ImplementError: … define the method before `@implement`, or in its block
 title(Circle(1.0))                            # "A shape of area 3.141592653589793": unchanged
 ```
 
@@ -318,12 +318,12 @@ fits(Circle(1.0); within = Rect(2.0, 3.0))       # true
 fits(Rect(2.0, 3.0); within = Circle(1.0))       # false
 scaled_area(Rect(2.0, 3.0))                      # 24.0
 largest(Circle(1.0), Rect(2.0, 3.0), Tile("door", Rect(1.0, 2.0)))   # 6.0
-fits(Circle(1.0); margin = 1)                    # TypeError: margin is declared Float64
-fits(Circle(1.0); within = 42)                   # TypeError: 42 is no Shape
+fits(Circle(1.0); margin = 1)                    # TypeError: in keyword argument margin, expected Float64, got a value of type Int64
+fits(Circle(1.0); within = 42)                   # TypeError: in keyword argument within, expected Shape, got a value of type Int64
 ```
 
 - A keyword may be typed by a trait, like `within`. It selects no method, as in Julia.
-- The elements of a vararg may be of different types: `largest` takes a `Circle`, a `Rect` and a `Tile` at once.
+- The elements of a vararg may be of different types: `largest` takes a `Circle`, a `Rect` and a `Tile` at once. It is compiled per tuple of their types, also at a trait that erases by default; the check of §4 reads each element in a box.
 
 Rules: [reference §6.6](../reference/traits.md#66-keywords-defaults-varargs).
 
@@ -386,7 +386,8 @@ nudged(Dynamic{Placed}(sp))               # a box of a new Sprite, x = 2.0: at a
 
 - `Self` is the member's type, or the forwarding field's: `scale` on a `Tile` returns a `Rect`.
 - `like(t, x)` is a value like `t` built from `x`: `x` itself for a member that serves the trait by its own methods; for one that forwards, `t` rebuilt with `x` in its field; for a box, a box of `x`. So `doubled` is bounded ([§4](#4-methods-at-a-trait)).
-- `withfields(t; …)` is `t` rebuilt with declared fields replaced; for a box, the box of its object rebuilt. So `nudged` is bounded too.
+- `withfields(t; …)` is `t` rebuilt with declared fields replaced; for a box, the box of its object rebuilt. At a box only the fields the trait declares may be named: `withfields(Dynamic{Placed}(sp); name = "kite")` raises an `ArgumentError`, since behind the box only the contract reaches the object. So `nudged` is bounded too.
+- `like` and `withfields` are conveniences of the library: functions that rebuild a member from its declaration.
 
 Rules: [reference §4.4](../reference/traits.md#44-self), [§6.5](../reference/traits.md#65-results).
 
@@ -440,7 +441,7 @@ unwrap(d)                         # Circle(2.0)
 
   Code over a `Vector{Dynamic{Shape}}` knows each item's type, `Dynamic{Shape}`, and is compiled once.
 - **The wrapper, `compiled_for(x)`,** is a member of every trait `x` is in: `compiled_for(Circle(1.0))` is a `Shape` and a `Scalable`. Neither the box nor the wrapper is the object: `typeof`, `===` and `isa Circle` answer for the form the value has, and `unwrap` gives the object.
-- `totalarea` is compiled once, whatever the scene holds. `area(s)` on an item tests its type against `Shape`'s members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type, so the loop stays typed.
+- `totalarea` is compiled once, whatever the scene holds. `area(s)` on an item has the declared result type, so the loop stays typed. In a session it tests the item's type against `Shape`'s members, up to four, and calls each one's method directly; any other member is called through a table. In a program built ahead of time it tests against every member the program uses (§19).
 - A shape type declared later works at once, and discards no compiled code.
 
 Rules: [reference §7.1](../reference/traits.md#71-how-an-argument-is-compiled), [§7.6–§7.9](../reference/traits.md#76-compiled_forx), [§8](../reference/traits.md#8-storage).
@@ -503,7 +504,7 @@ total([1, 2, 3])                  # 6, an Int: T = Int for Vector{Int}
 total(Series(Float32[1, 2]))      # 3.0f0
 mean64(Series([1.0, 4.0]))        # 2.5
 Vector{Int} <: Samples{Int}       # true
-mean64([1, 2])                    # MethodError: Vector{Int} is a Samples{Int}, not a Samples{Float64}
+mean64([1, 2])                    # MethodError … Hint: `s` is a member of `Samples{Int64}`; the method takes `Samples{Float64}`
 ```
 
 - A parameter is defined by an equation (`T = eltype(Self)`), by a field's type, or stated at the membership (`@implement ArrayLike{Float32, 1} MyVec`).
@@ -529,7 +530,7 @@ end
 using .Dots
 
 dotp([1.0, 2.0], [3.0, 4.0])     # 11.0
-dotp([1.0], [1])                 # MethodError: T is Float64 for one and Int for the other
+dotp([1.0], [1])                 # MethodError … Hint: `T` is `Float64` for `a` and `Int64` for `b`
 ```
 
 A generator does as well: `sum(sample(a, i) * sample(b, i) for i in 1:nsamples(a))` captures `a` and `b` in a closure that calls only operations on them, so the method is bounded ([§4](#4-methods-at-a-trait)).
@@ -567,8 +568,8 @@ uppercase isa Callable{Tuple{Float64}, Float64} # true: membership reads no meth
 transform(x -> 2x, [1.0, 2.0])                  # [2.0, 4.0]: the closure boxed, code compiled once
 transform(compiled_for(x -> x / 2), [1.0])      # [0.5]: the wrapper, code compiled for this closure
 sumby(abs2, [1.0, 2.0])                         # 5.0: Julia's own functions are boxed too
-transform(x -> 1, [1.0])                        # TypeError: the result is an Int, not a Float64
-transform(uppercase, [1.0])                     # MethodError: uppercase has no method at Float64
+transform(x -> 1, [1.0])                        # TypeError: in Callable, expected Float64, got a value of type Int64
+transform(uppercase, [1.0])                     # MethodError … Hint: `uppercase` is given at `Callable{Tuple{Float64}, Float64}`, and none of its methods takes `Tuple{Float64}`; …
 ```
 
 - Every function is a member of every `Callable{A, S}`; nothing is declared. The signature is checked where the function is boxed or enters: `transform(uppercase, …)` raises at the call that passes it.
@@ -597,6 +598,25 @@ countif(Threshold(x -> x > 1.0), [0.5, 1.5, 2.5])     # 2
 ```
 
 The constructor boxes the function, so `countif` is compiled once, whatever function the threshold holds; each call checks its result.
+
+**A container of functions** keeps each one in the form given, as any storage does (§12):
+
+```julia
+function passes(tests::Vector{Callable{Tuple{Float64}, Bool}}, x::Float64)
+    n = 0
+    for t in tests
+        t(x) && (n += 1)
+    end
+    return n
+end
+
+tests = Callable{Tuple{Float64}, Bool}[x -> x > 1.0, iszero]
+tests[2] === iszero                                   # true: the function itself
+passes(tests, 2.0)                                    # 1
+passes(Callable{Tuple{Float64}, Bool}[x -> 1], 2.0)   # TypeError: the result is an Int, not a Bool
+```
+
+`passes` knows each element only by its signature. It calls it as a box is called: `passes` is compiled once, and each result is checked.
 
 **A struct parameter bounded by `Callable`.** The parameter records the form. The constructor boxes a plain function, and keeps a wrapper:
 
@@ -682,7 +702,7 @@ struct Square
 end
 Geometry.area(s::Square) = s.side^2          # an Int
 Geometry.perimeter(s::Square) = 4.0 * s.side
-@implement Shape Square                      # ImplementError: `area` infers Int64, declared Float64
+@implement Shape Square                      # ImplementError: … area's method at Square infers its result as Int64, outside the declared Float64
 ```
 
 **A missing operation**, at `@implement`:
@@ -690,7 +710,7 @@ Geometry.perimeter(s::Square) = 4.0 * s.side
 ```julia
 struct Dot end
 Geometry.area(::Dot) = 0.0
-@implement Shape Dot                         # ImplementError: no method of `perimeter` at Dot
+@implement Shape Dot                         # ImplementError: … no method serves perimeter(s::Shape)::Float64 at Dot
 ```
 
 The message names each missing operation with its declared signature, and the type's methods of that function that do not cover it.
@@ -720,6 +740,40 @@ Base.sum(x::Vector{Int8}) = 0          # OwnershipError
 end
 ```
 
+**A library's internal function is its own.** A function of a trait module that the module neither exports nor declares `public` is *owner-only*. A method of it from another module is a pirate's, whatever types it names:
+
+```julia
+module Tally
+using TraitWorld
+@trait_module
+export tally
+weight(x) = 1                    # neither exported nor public: owner-only
+function tally(xs::Vector{Any})
+    n = 0
+    for x in xs
+        n += weight(x)
+    end
+    return n
+end
+end
+using .Tally
+
+tally(Any[1, "a", 2.0])          # 3
+
+struct Heavy
+    w::Int
+end
+Tally.weight(h::Heavy) = h.w     # a pirate, although Heavy is the user's own type
+# Warning: a pirate ended code compiled by facts …: `weight(::Heavy)`, defined by Main in Main, which does not own
+# the function: an owner-only function of Main.Tally, whose methods are its owner's. It ended 1 instance:
+# Main.Tally.tally. It is followed, as plain Julia follows it: that code is compiled again. …
+tally(Any[1, Heavy(5)])          # 6: the pirate is followed
+```
+
+- By default a pirate is followed, as in plain Julia. Where it ends code compiled by facts, that code is compiled again, and a warning names the pirate, who defined it and the code it ended. `TraitWorld.report_pirates!(false)` turns the warning off.
+- In a trait module the same method is refused (`OwnershipError`). Strict mode refuses it where it would change code compiled by facts (§18).
+- To let other packages add methods to `weight`, `Tally` exports it or declares it `public`. `@owner_only f` makes an exported function owner-only too.
+
 Rules: [reference §11](../reference/traits.md#11-checks-and-errors), [§12.2](../reference/traits.md#122-pirates).
 
 ---
@@ -747,7 +801,7 @@ using .Weights
 struct Crate
     data::AbstractVector{Float64}      # an abstract field type
 end
-@implement Weighted Crate by data      # ImplementError: the forwarding field is not concrete
+@implement Weighted Crate by data      # ImplementError: … Self is AbstractVector{Float64}, which is not concrete (@enforce_concrete_only Self in Weighted)
 
 struct Box
     data::Vector{Float64}
@@ -770,7 +824,7 @@ end
 using .Strictly
 
 firstsample([1.5, 2.0])          # 1.5
-firstsample(Real[1.5, 2.0])      # TraitUseError: `T` is Real, which is not concrete
+firstsample(Real[1.5, 2.0])      # TraitUseError: `firstsample`: `T` is Real, which is not concrete (`@enforce_concrete_only T`)
 ```
 
 `fully_typed` reports the calls that neither the types nor the traits' members resolve, with their root cause. Code with none is exactly the code that `make_executable` builds into a binary:
@@ -788,7 +842,7 @@ Rules: [reference §14](../reference/traits.md#14-concreteness-and-fully-typed-m
 
 ## 18. Strict mode
 
-By default, a pirate is followed, as in plain Julia: code compiled by facts that it changes compiles again. Strict mode refuses a pirate that would change such code.
+By default, a pirate is followed, as in plain Julia: code compiled by facts that it changes compiles again, with a warning (§16). Strict mode refuses a pirate that would change such code.
 
 ```julia
 module Norms
@@ -816,7 +870,7 @@ sq([1.0, 2.0, 3.0])                 # 14.0: the pirate was never defined
 
 - Strict mode applies to code compiled by facts. What it secures: such code is invalidated only by a change of code it depends on.
 - A pirate that changes no code compiled by facts is accepted.
-- Methods for your own types are never pirates.
+- A method for your own type is no pirate, but for a method of another package's owner-only function (§16): under strict mode `Tally.weight(h::Heavy) = h.w` raises `PirateError`, since it would change `tally`.
 - A package extension's method counts as its parent package's change. It is followed, not refused, with a warning where it changes code compiled by facts.
 - Strict mode is off by default. It changes nothing at run time.
 
@@ -840,7 +894,8 @@ This section shows the layout of a package; it is taken from the demonstrators a
   ```
 - **Compiling ahead.** While a package that declares `@implement X T` is precompiled, the methods at `X` that `T` reaches are compiled for `T` into its image, and the checks run. A failing check fails the build. A method at a trait that erases by default is compiled once, at the box, into the image of the package that defines it.
 - **Extensions declare memberships,** never methods of the library's internal functions. TraitCSV supports InlineStrings' `String15` in an extension that declares one membership of `Vector{String15}`. Loading InlineStrings then discards none of the reader's compiled code.
-- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls left to run time. No demonstrator builds as a trimmed binary yet ([results](results.md#what-is-not-shown-yet)).
+- **A program built ahead of time** (`juliac --trim`, or `make_executable`) has every member of each trait: an operation on a value known only by its trait branches over every member the program uses. The four demonstrators' programs build this way, and give a session's output ([results](results.md#ahead-of-time-binaries)).
+- `verify_main(main, (Vector{String},); entrypoints = true)` lists every target a program reaches through trait code, for `juliac --trim`. Its report names the targets a build must be told (`add_entrypoints(report)` tells it) and the calls a build refuses.
 
 Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-programs).
 
@@ -851,6 +906,6 @@ Rules: [reference §16](../reference/traits.md#16-compiling-ahead-closed-program
 > **Not implemented.** The syntax is the design's; it may still change.
 
 - **Named implementations:** a second way for a type to join a trait, used only where a caller names it, `Via{Fast}(m)` ([reference §17](../reference/traits.md#17-named-implementations)).
-- **Keys:** members that a trait sees alike (types that forward to fields of one type, say) sharing one compiled copy. Optional, built late ([reference §7.2](../reference/traits.md#72-the-key)).
+- **Keys:** members that a trait sees alike (types that forward to fields of one type, say) sharing one compiled copy. Optional: built where a measurement asks for it ([reference §7.2](../reference/traits.md#72-the-key)).
 
 The full list, with the status of each: [reference §18](../reference/traits.md#18-status-index).

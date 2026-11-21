@@ -258,7 +258,7 @@ Everything else is as for an abstract type:
 You declare that a type is a member with `@implement`. TraitWorld checks the declaration when you write it: every operation must exist, with the declared result type.
 
 There are two ways to serve the operations:
-- **Your type has a field that is already a member.** `@implement ColTable Measurements by data` forwards the trait to the field `data`. Forwarding is always written with `by`.
+- **Your type has a field that is already a member.** `@implement ColTable Measurements by data` forwards the trait to the field `data`. Forwarding is always written with `by`, a convenience of the library: the membership defines your type's method for each operation, which calls it on the field ([traits §5.5](../reference/traits.md#55-forwarding-with-by)).
 - **Your type serves the operations itself.** Define the methods, then declare the membership.
 
 Who may declare a membership: the package that owns the trait, or the package that owns the type ([traits §12.1](../reference/traits.md#121-who-may-declare-a-membership)).
@@ -310,7 +310,7 @@ For a mixed collection, or a field whose value can change type, type the field o
 - `Dynamic{X}(x)`, the box, holds a member of `X` and is itself a member of `X`. Code that receives it runs the code compiled once, for the trait. `unwrap(d)` gives the object back ([traits §7.7](../reference/traits.md#77-dynamicx)). A `Vector{Dynamic{X}}` boxes each member stored in it.
 - `compiled_for(x)`, the wrapper, holds `x` with its type. It is a member of every trait `x` is in, and code that receives it is compiled for `x`'s type ([traits §7.6](../reference/traits.md#76-compiled_forx)).
 - Neither is the object: `typeof`, `===` and `isa Measurements` answer for the box or the wrapper, and `unwrap` gives the object.
-- An operation on a value the code knows only by its trait tests the value's type against the trait's members, up to four, and calls each one's method directly; any other member is called through a table. Its result has the declared type ([traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
+- An operation on a value the code knows only by its trait has the declared result type ([traits §7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)). In a session it tests the value's type against the trait's members, up to four, and calls each one's method directly; any other member is called through a table. In a program built ahead of time it tests against every member the program uses ([traits §16](../reference/traits.md#16-compiling-ahead-closed-programs)).
 
 ### `Callable`: a function with a declared signature
 
@@ -334,8 +334,10 @@ end
 ### Piracy and strict mode
 
 - *Type piracy* is defining a method of a function you do not own, for types you do not own. An example from the project's tests: a package defines `+` for ForwardDiff's `Dual` numbers. It owns neither `+` (Base's) nor `Dual` (ForwardDiff's).
-- By default, a pirate's method is followed, as in plain Julia. Code that the pirate changes is compiled again, once.
-- **Strict mode** refuses another package's method, on a function and for types that package does not own, when the method would change code compiled by facts ([traits §12.3](../reference/traits.md#123-strict-mode)). It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
+- **A trait module's internal functions are its own.** A function of a trait module that the module neither exports nor declares `public` is *owner-only*: a method of it from another package is a pirate's, whatever types it names, the other package's own types included. `@owner_only f` declares an exported function so too. To let other packages add methods, the owner exports the function or declares it `public` ([traits §12.2](../reference/traits.md#122-pirates)).
+- By default, a pirate's method is followed, as in plain Julia. Code compiled by facts that it changes is compiled again, once, and a warning names the pirate, who defined it and the code it ended. `TraitWorld.report_pirates!(false)` turns the warning off. [Traits by example §16](traits-by-example.md#16-when-something-does-not-fit) shows one.
+- A trait module refuses a pirate of its own (`OwnershipError`).
+- **Strict mode** refuses a pirate, of either kind, when it would change code compiled by facts ([traits §12.3](../reference/traits.md#123-strict-mode)). It is off by default. Turn it on with `TraitWorld.strict!(true)` or `JULIA_TW_STRICT=1`.
 
 ## What you get
 
@@ -367,12 +369,12 @@ Measured, with nine unrelated packages loaded after the work ([`results.md`](res
 
 - A trait module's methods are checked when they are defined. A use the trait does not allow is reported at its line, before any user type exists.
 - A user's membership is checked at `@implement`, before any value reaches the library.
-- A `Callable` checks its result at every call.
+- A boxed `Callable` checks its result at every call.
 - Not everything is caught early: the check at `@implement` infers the member's methods; it cannot prove that every conversion inside them succeeds.
 
 ### 3. Mixed collections and functions without recompiling
 
-- A vector typed by a trait holds members of any type; the code over it is compiled once, and each operation on an item calls the member's method directly for up to four member types.
+- A vector typed by a trait holds members of any type; the code over it is compiled once, and each operation on an item calls the member's method directly: in a session for up to four member types, in a program built ahead of time for every member the program uses.
 - A type that joins later works at once, through the table, and discards no compiled code.
 - `Callable{Tuple{Float64}, Float64}` says "a function from `Float64` to `Float64`", and checks it. A new closure compiles nothing in the library.
 
@@ -428,7 +430,7 @@ Most of the time is Julia's start and the loading of package images.
 
 ### What is not done yet
 
-- **Ahead-of-time binaries:** a build (`juliac --trim`) has every member of a trait, so it compiles generic code for them, as Rust does. A small program builds and runs; no demonstrator builds as a trimmed binary yet.
+- **Ahead-of-time binaries:** a build (`juliac --trim`) has every member of a trait, so it compiles generic code for them, as Rust does. Small programs build and run; the four demonstrators' programs build, run and give a session's output ([`results.md`](results.md#ahead-of-time-binaries)). Not yet: an ODE program that passes callbacks it knows to the solver, and a port's program at scale.
 - **Threads:** not tested.
 - **Revise:** a membership can be declared again or taken back (`delete_membership`) in a running session, but Revise does not yet take back the membership of an `@implement` line deleted from a file.
 - **Keys:** sharing one compiled copy among members that the trait sees alike (a type that forwards to a field, say) is Optional, not built ([traits §7.2](../reference/traits.md#72-the-key)).

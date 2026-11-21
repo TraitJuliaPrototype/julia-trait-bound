@@ -134,7 +134,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 6. `@nospecialize` barriers as the cure: they bound compile time, and every call behind one is a run-time site;
 7. printing through a generic printer at abstract types.
 
-**Compilation is keyed three ways:** on the library, on the user's model or data, and on the call's shape (a keyword tuple, a range against a vector). Code is kept in an image only where its keys recur. So keep the user's types out of the library's keys: normalize at the entry, and keep the user's parameters in the outermost layer.
+**What code is compiled for has three parts:** the library, the user's model or data, and the call's shape (a keyword tuple, a range against a vector). An image's code serves a session only where the same types recur. So keep the user's types out of the types the library's code is compiled for: normalize at the entry, and keep the user's parameters in the outermost layer.
 
 - **Read the generic functions, not the types.** For each function users pass their own types to, list what it calls on the argument. That list is a trait.
 - **Find the seams:** the functions users extend for their own types (a right-hand side, a callback, a column, a plot's positions). Each is an operation.
@@ -162,7 +162,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 - **Operations or fields:** a declared field where code reads or writes stored data, `@const` where it only reads; an operation otherwise, with its result type. A default is written with the other operations:
 
   ```julia
-  @trait ODEProblemTrait{T, P} begin     # TraitDifferentialEquations/lib/ODECore/src/core.jl:60
+  @trait ODEProblemTrait{T, P} begin     # TraitDifferentialEquations/lib/ODECore/src/core.jl:61
       @const u0::Vector{T}
       @const tspan::Tuple{Float64, Float64}
       @const p::P
@@ -180,7 +180,7 @@ A trait names what generic code needs from a value, not how a type stores it.
 
   ```julia
   @trait IntegratorView{U, T, P} <: (HasProperty{:ps, ParameterView{P}}, HasSystem, ValueProvider{U, P}, IndexProvider{Symbol}) begin
-      @const u::U                        # TraitDifferentialEquations/lib/ODECore/src/core.jl:102
+      @const u::U                        # TraitDifferentialEquations/lib/ODECore/src/core.jl:103
       ...
   ```
 - **How each type joins:**
@@ -236,13 +236,13 @@ A member is passed as itself, in a box or in a wrapper. The choice is in the val
 - **A stored user function:** a constructor with a `Callable` argument at the declared signature, whose variables come from the other arguments:
 
   ```julia
-  @unbounded function ODEProblem(f::Callable{RHSSig{P,T},Nothing}, u0::AbstractVector{T}, tspan, p::P; callback = nothing) where {T,P}     # …/ODECore/src/frontend.jl:68
+  @unbounded function ODEProblem(f::Callable{RHSSig{P,T},Nothing}, u0::AbstractVector{T}, tspan, p::P; callback = nothing) where {T,P}     # …/ODECore/src/frontend.jl:69
   ```
   A plain function arrives boxed, so the solver is compiled once per state and parameter type. `ODEProblem(compiled_for(f), …)` passes the wrapper, and the solver is compiled for the function. The constructor is `@unbounded`: an adapter, it stores its argument in the form given.
 - **A record made before a signature is known keeps each value in the form given:** `ODEFunction(f; jac = compiled_for(j))` holds a plain `f` and a wrapped `j` ([§8.2](../reference/traits.md#82-a-struct-parameter-bounded-by-a-trait)).
 - **Keep the user's types at the surface.** A user's type that only the user's own functions read never reaches the core. The ODE library's problem keeps the right-hand side partially evaluated on the parameters, `(du, u, t)`, so the solver is compiled per state type whatever the parameters.
-- **Hand a callback the integrator in a box:** `affect!(cb::Callback{U, T, P}, integ::Dynamic{IntegratorView{U, T, P}})::Nothing` (`…/ODECore/src/core.jl:126`). A new callback compiles its own function, not the solver.
-- **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks/DataFrames/src/dataframe/dataframe.jl:181`). Each item is stored in the form given. An operation on it calls the member's method directly for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)).
+- **Hand a callback the integrator in a box:** `affect!(cb::Callback{U, T, P}, integ::Dynamic{IntegratorView{U, T, P}})::Nothing` (`…/ODECore/src/core.jl:127`). A new callback compiles its own function, not the solver.
+- **Mixed collections:** a field or element typed by the trait, `columns::Vector{Column}` (`forks/DataFrames/src/dataframe/dataframe.jl:181`). Each item is stored in the form given. An operation on it calls the member's method directly: in a session for the trait's first four members, and through a table beyond them ([§7.9](../reference/traits.md#79-operations-on-a-value-the-code-knows-only-by-its-trait)); in a trimmed build for every member the program uses ([§16](../reference/traits.md#16-compiling-ahead-closed-programs)).
 - **A call gives the same code at the prompt and in compiled code:** the value's type decides ([§7.5](../reference/traits.md#75-what-decides)). To time the code compiled per type of an erasing library, pass `compiled_for(x)`.
 - **Neither form is the object.** A method that asks what only the object can answer (its type, a function outside the contract) asks it of `unwrap(t)`, or before the value is boxed ([§7.4](../reference/traits.md#74-the-two-kept-forms-the-box-and-the-wrapper)).
 
@@ -329,7 +329,7 @@ Forks of Tables 1.14.0, DataFrames 1.8.2 and CSV 1.1.0 (`forks`). Traits: `Colum
 
 TraitDifferentialEquations (`TraitDifferentialEquations`): a solver core (`ODECore`), Rosenbrock and implicit methods, nonlinear solvers, and SciML's front end. Traits: `ODEProblemTrait{T, P}`, `IntegratorView{U, T, P}`, `Callback{U, T, P}`, `EventCallback{U, T, P}`, `StepView{U, T}`, and SymbolicIndexingInterface's concepts in `TraitIndexing`.
 
-**The architecture's principle: the model is the trait, the problem is a record.** A library's inputs vary at three rates: per ecosystem, per model, per call. Compiled code is keyed on the slowest that the hot code needs.
+**The architecture's principle: the model is the trait, the problem is a record.** A library's inputs vary at three rates: per ecosystem, per model, per call. The hot code is compiled for the slowest rate it needs.
 
 **The route, in six moves,** each leaving a library that runs:
 0. compiled by facts as it is;
@@ -355,7 +355,7 @@ TraitMakie (`TraitMakie`) and TraitReport (`TraitReport`). Traits: `Positions`, 
 **The architecture's principle: marks are a closed set, recipes an open one.** The primitives the backend draws are types; what users add are members of traits.
 
 1. **The plain layer converts, the trait code draws:** `x, y` become the n × 2 `Matrix{Float64}` that `Positions` serves (`TraitMakie/src/PlotCore.jl:38`).
-2. **A wrapper type joins by forwarding:** `Live{Matrix{Float64}}` forwards `Positions` to its field `val`, so it shares the code compiled for the field's type.
+2. **A type that holds the data joins by forwarding:** `Live{Matrix{Float64}}` forwards `Positions` to its field `val`. The membership defines `Live`'s own method for each operation, which calls it on the field ([traits §5.5](../reference/traits.md#55-forwarding-with-by)). Code at `Positions` is compiled for `Live{Matrix{Float64}}` as for any member that comes as itself, and once for the trait where it comes in a box ([§7.1](../reference/traits.md#71-how-an-argument-is-compiled)).
 3. **Families over Base's types:** every vector of real vectors is a `Positions` (`PlotCore.jl:51`), every `Vector` of reals a `Sample`.
 4. Measured: the report's task (CSV → table → summary → histogram PNG) in a fresh process takes 0.78–0.80 s in its trait form, against Python's 0.63–0.65 s (E-389, E-289; [results](results.md)).
 
