@@ -192,7 +192,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 - **A pirate of it is followed** by default, and its edge invalidates the code: G1 holds ([§2.1](#21-g1-identical-or-error)). It is refused in strict mode where it wins at a fact (§11.2), and in a scope that declares `no_pirates` ([traits §12.2](traits.md#122-pirates)).
 - **Whether a function is owner-only is read where a call of it is inferred.** Its owner may lift it later, by `public` or `export`. That is the owner's change: it ends the code that relied on it, as the redefinition of a binding the code reads ends that code.
 
-**Status:** Implemented, but for [compiler C-130](compiler.md#deviations) (a later `public` or `export` ends nothing); fully typed in a closed build: Implemented, but for [compiler C-102, C-103](compiler.md#deviations) and [traits T-122](traits.md#19-deviations); with keys, two more forms: Optional ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)).
+**Status:** Implemented, but for [compiler C-130](compiler.md#deviations) (a later `public` or `export` ends nothing); fully typed in a closed build: Implemented, but for [compiler C-103](compiler.md#deviations) and [traits T-122](traits.md#19-deviations); with keys, two more forms: Optional ([extensions §1.3](extensions.md#13-calls-from-code-compiled-per-key)).
 
 ---
 
@@ -465,7 +465,7 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 - G1 holds by definition. Values decided by inference can differ between a session and the binary.
 - `verify_main` lists the targets a program can reach ([traits §16](traits.md#16-compiling-ahead-closed-programs)).
 
-**Status:** Implemented, but for [compiler C-102, C-103](compiler.md#deviations).
+**Status:** Implemented, but for [compiler C-103](compiler.md#deviations).
 
 ---
 
@@ -496,8 +496,8 @@ In strict mode, code compiled by facts in the deep class, in a session and in pa
 | pirates followed; strict mode and its errors at their sources | Implemented, but for traits T-96, T-112; the same walk for a member's check: Planned, with traits T-129 | §11 |
 | package images, memberships activated before validation | Implemented | §12 |
 | the store across sessions | Optional | §12 |
-| product setting, test bed, `--trim` | Implemented, but for compiler C-102, C-103 (`--trim`); the flag `--compile-by-facts=all`: Planned | §13 |
-| what is final; a call settled; fully typed in a setting (a session, a closed build); a trimmed build as the facts rule with everything final | Implemented, but for compiler C-102, C-103 and traits T-122 | §1, §3, §13.3 |
+| product setting, test bed, `--trim` | Implemented, but for compiler C-103 (`--trim`); the flag `--compile-by-facts=all`: Planned | §13 |
+| what is final; a call settled; fully typed in a setting (a session, a closed build); a trimmed build as the facts rule with everything final | Implemented, but for compiler C-103 and traits T-122 | §1, §3, §13.3 |
 | standard libraries as owners | Open ([open issue 19](../open-issues.md#2-design)) | §1 |
 
 ---

@@ -11,8 +11,8 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | f5328f94c5 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 81c04c3 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `julia-next` | julia, `next` | 8b35e4b77c | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `TraitWorld` | TraitWorld, `unified` | cedb718 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 3e60c29 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -36,7 +36,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 **The library** provides `@trait` (operations as contract entries, defaults, fields, inputs, supertraits), `@implement` (the forms, families, forwarding), the checks at a declaration and at a member's first use, bounded methods, `@trait_module`, the box `Dynamic{X}` and the wrapper `compiled_for(x)`, `Callable`, ownership and strict mode, fully typed mode with `fully_typed`, `make_executable` and `make_library`, hints, and BaseTraits ([traits §10](reference/traits.md#10-collections)).
 
 **What is not built, or built differently,** is in the Deviations tables: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). The largest:
-- **Three of the four demonstrators' programs do not build as trimmed binaries.** The table program builds and runs. The plot's and the report's count 6 errors each, a hole of Base reached from a JLL's `__init__`; the ODE program counts 12, six of them its own ([open issue 184](open-issues.md#2-design)).
+- **Two of the four demonstrators' programs do not run as trimmed binaries.** The table's and the report's build and print a session's output. The plot's builds with 0 errors and lacks an instance when run. The ODE program counts 36 errors, all its own ([open issue 184](open-issues.md#2-design); compiler C-151, C-154).
 - **Keys** are an optional extension, not built ([the extensions](reference/extensions.md)).
 - **A cache across sessions** is not built ([the goals](goals.md), G-3).
 
@@ -45,7 +45,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 | What | On | Result |
 |---|---|---|
 | the gates: 72 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
-| the library's suite | `next` | passes (96 testsets; one expected failure, compiler C-153) |
+| the library's suite | `next` | passes (99 testsets; one expected failure, compiler C-153) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets), and their REPL sessions' checks |
 | NetworkDynamics | `next` | its test subset passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
 | the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
@@ -53,7 +53,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 | the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (27, 96 and 5 checks); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
-| the table program as a trimmed binary (`experiments/implementation/w135/build.sh table`) | `next` | builds with 0 errors, 2.7 MB, and prints the session's output; the eight small trait programs build and run (E-508). The plot's and the report's programs count 6 errors, the ODE program 12 (`experiments/implementation/w166/build_c.sh`, which writes the images first; E-509) |
+| the table program as a trimmed binary (`experiments/implementation/w135/build.sh table`) | `next` | builds with 0 errors, 2.7 MB, and prints the session's output; the eight small trait programs build and run (E-508). The report's program builds with 0 errors and prints the session's output; the plot's builds with 0 and stops at a missing instance when run; the ODE program counts 36 errors (`experiments/implementation/w166/build_c.sh`, which writes the images first; E-510) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
