@@ -124,7 +124,7 @@ How they depend on each other:
 - **Stable code makes declared needs worth having:** code compiled per member's type is cached in the image of the package that compiled it and not discarded by an unrelated load, so the copies are compiled once, not once per session.
 - **Compiling ahead follows from declared needs:** dispatch through trait code goes to declared targets that a build can list ([traits §16](reference/traits.md#16-compiling-ahead-closed-programs)).
 
-The first two are measured. The last two are arguments whose evidence is thin: what images keep, and a trait program of a library's size in a trimmed binary, are the weak axes of [the goals](goals.md#2-where-each-axis-stands) (G-3, G-6).
+The first two are measured. The last two are arguments whose evidence is thin: what images keep, and a port's program at scale in a trimmed binary, are the weak axes of [the goals](goals.md#2-where-each-axis-stands) (G-3, G-6).
 
 **What G2's scope costs.** G2 covers code compiled by facts that is deep G2: code that rests on facts, bindings and memberships at any depth ([facts §2.2](reference/facts.md#22-g2-stable-caches), [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate)). With one CodeInstance per MethodInstance and policy, facts code holds edges into plain callees. Where such a callee commits across a call at an abstract type, the caller is outside the class, and it is compiled again when a load ends that callee. Base is plain code in the product setting, so the plain callees include Base's. Measured ([the evidence, G-1](design/evidence.md#1-the-guarantee)):
 - no instance in the deep class is ended by nine unrelated loads, and every instance they end is outside it (E-395, E-478);
@@ -205,7 +205,7 @@ What is built, and what is not yet: [the state](state.md). What the measurements
 - No claim of better steady-state speed. The claim is no regression against plain Julia where types are known, and code per type where a caller opts in with `compiled_for(x)` ([the goals](goals.md), G-2).
 - No claim that code that uses no trait pays nothing: memberships are consulted in subtyping and method matching ([the evidence](design/evidence.md#what-each-tension-costs); [the open issues §2](open-issues.md#2-tensions-between-the-goals), GT-9).
 - No claim that traits protect code from loads: the facts mode does, for the code it compiles, and not for the plain code that code builds on (§2.6). Traits make it cheap.
-- No trait program of a library's size in a trimmed binary: small ones build and run, with values known only by their trait (E-384), and one demonstrator's program, the table's (E-383). The ODE program and the plot's do not build under `--trim=safe` ([evidence](design/evidence.md#4-builds-and-binaries)).
+- No port's program at scale in a trimmed binary: small ones build and run, with values known only by their trait (E-384), and the four demonstrators' programs build under `--trim=safe` and give a session's output (E-510). An ODE program that passes callbacks it knows does not build yet ([evidence](design/evidence.md#4-builds-and-binaries)).
 - No claim that code calling into plain Julia at abstract types is as fast as in plain Julia: that is where the facts rule costs, and where traits are the remedy.
 - No numbers for TraitWorld on stock Julia: the design needs the changed Julia. Numbers on released Julia appear only as baselines, and say so.
 - No threads, no Revise.
