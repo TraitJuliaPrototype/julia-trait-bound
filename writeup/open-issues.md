@@ -444,12 +444,12 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The rule* ([compiler §7.6](reference/compiler.md#76-a-closed-build), [§2.7](reference/compiler.md#27-fully-typed-mode)): a member's check is its serving instances ([traits §5.10](reference/traits.md#510-checks)), which both infer the same way; the implementation does not build that yet (traits T-129).
 - *The proposals:* (b) the check in a session runs a family member's check as the build's queue does; and see whether T-129 removes the difference. With it, the program without callbacks should build. For the ports' lessons: (a) the port takes callbacks as a tuple where the program knows them.
 - *The tools:* `experiments/implementation/w135/build.sh ode` with `summarize.py`; `experiments/implementation/w142/ft_app.jl`.
-- *On the head* (E-510, `next` 8b35e4b77c): the session's check of the ODE program converges in 5 rounds and 12 s, and its members equal the build's but at bare `Callable` (12 against 7: the check compiles `PartialFn(f::Any, p)`, which the build leaves to dispatch). The trimmed build counts 36 errors, all the program's own, in 18 statements each reached by both solves:
-  - 22 at the callbacks' entry. The port keeps callbacks in a `Vector{Any}` and calls at `Any` (a departure from [traits §14](reference/traits.md#14-concreteness-and-fully-typed-mode), proposal (a)); and the callbacks' constructors are called with values known only by a `Callable` signature, where the box's test does not fold and only the first of several such arguments is split (compiler C-154, C-151);
-  - 4 at the call of the object a box of two signatures holds (compiler C-154);
-  - 6 in Rodas5: a chunk size chosen by a run-time value and a `@nospecialize` argument at `Any` (the port's code);
-  - 4 at `PartialFn(f::Any, p)` in a `@nospecialize` helper (the port's code).
-- *Next:* compiler C-154 and C-151's rest; the port follows traits §14 at its callbacks, Rodas5's chunk and `PartialFn` (a port's change that applies a rule of the references).
+- *On the head* (E-510, `next` 8b35e4b77c, TraitDifferentialEquations `unified` 1d9a516): the port follows the references where it departed: its callbacks in storage typed by their traits, entered where the problem's types are known ([traits §8.1](reference/traits.md), §14); its function kept by its signature, never at `Any` (§7.7, §9); Rodas5's chunk a parameter of its type (§14, §16). No rule of the design blocked the port's principled form.
+  - The trimmed ODE program counts 4 errors in 2 statements: the call of the object a box of two `Callable` signatures holds (compiler C-154).
+  - A program with callbacks it knows (a tuple; `experiments/implementation/w158/port/apps/ode_cb.jl`) counts 36, none in the port's code: 34 at the callback records' constructors and the box's test at functions known only by `Callable` (compiler C-151, C-154), 2 at the box's call.
+  - The session's check counts 28 errors in 3 rounds, 7.7 s: 2 are C-154's, 26 are the box's declared-field reads (compiler C-153), which the build resolves. The check and the build differ there.
+  - The plain twin (PlainODE) has the same two holes as plain Julia's: a chunk chosen by a run-time value, and callbacks in a `Vector{Any}`.
+- *Next:* compiler C-154 and C-151's rest, then C-153.
 
 **218. Calls at a value typed `Any`, an abstract type or a kind in Base's plain code keep the rest of a port's code out of the deep class** (GT-8).
 - *The case:* below the forks' code, the culprits are Base's plain code compiled where types are not known: the generic paths of `collect` and `map` when an element type is not inferred (`similar`, `setindex!`, `Vector{T}(undef, n)` at a computed `T`, `promote_typejoin` at kinds, `indexed_iterate` at a tuple with an abstract element); the task code under a lock (a payload typed `Any` passed to `schedule`, `notify`, `push!` of a `CompositeException`); stores into containers of `Any`; keyword calls at an abstract argument; property reads at an abstract receiver. Each is a call where a stakeholder of a type in it may add a method: `Vector{MyT}(undef, n)`, `eltype(::Type{MyColl})` and `push!(::Vector{Any}, ::MyT)` are legal methods of their owners. The rule is right; the code is outside the class.
@@ -476,6 +476,11 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The proposal:* a gate: an image whose workload uses a pattern member through a split, loaded in a session that calls the split first. Then a sentence in [compiler §7.2](reference/compiler.md#72-the-split), or a deviation row.
 
 ### The ports
+
+**245. A mixed list of callbacks given before the problem's types are known.**
+- *The case:* a user hands SciML's callback records mixed with callbacks of types of their own, before the problem's state and parameter types exist. The ODE port enters a tuple or a vector item by item once the types are known; a `Vector{Any}` the user builds is entered at `Any` (NetworkDynamics builds one: `get_callbacks`).
+- *The rule:* a trait instance `Callback{U, T, P}` needs the three types ([traits §8.1](reference/traits.md)); no trait without parameters names "a callback for some problem".
+- *The proposal:* probe a trait without parameters whose operation's variables another argument binds ([traits §4.1](reference/traits.md)), with the instances' members as its members; until then the port's lesson stands: a tuple, or a vector of a small union.
 
 **110. Two traits for reading items by position: `Column` and `Indexable`.**
 - *The case:* the DataFrames port's `CellVector` is `asvector` for a `Column`, written again.

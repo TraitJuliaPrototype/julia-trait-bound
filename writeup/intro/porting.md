@@ -108,6 +108,8 @@ Write to TraitWorld's language, never to its internals: names that start with `_
 | an option typed by a union | a concrete options struct built by the plain layer (0.3) |
 | keyword splats | the plain layer takes the keywords; the method at the trait takes the struct positionally (0.3) |
 | a result type computed by inference (`collect`, a broadcast, a comprehension) | **declare the element type:** the library knows it and does not write it. `emptycells(c, n)::Vector{T}` in place of a `collect` |
+| an option kept in a run-time field that chooses a type (`Val(n)` of a `Union{Nothing, Int}` field) | a type parameter of the option's record, set where the program makes it (`Rodas5{L, CS}`) |
+| a `@nospecialize(f)` helper that takes a function | take the kept form and `unwrap` it, or declare `@nospecialize(f::Callable{A, S})` |
 | a function barrier whose callee others may extend | an operation of the trait with a declared result ([open issue 157](../open-issues.md#2-design)) |
 
 **The silent hazards of step 2.** Results stay equal, nothing warns, and code gets slow:
@@ -342,7 +344,8 @@ TraitDifferentialEquations (`TraitDifferentialEquations`): a solver core (`ODECo
 4. **Properties of the contract are supertraits:** `HasProperty{:ps, ParameterView{P}}` (0.2).
 5. **A record that holds a function before its signature is known** (`ODEFunction`, a callback's functions) keeps each value in the form given; the constructor that knows the signature boxes a plain one.
 6. **A split package's internal interface is `public` in the core:** the solver packages add methods of the integrator's step interface ([open issue 212](../open-issues.md#2-design)).
-7. Measured: at the prompt a new closure costs 59 ms and a new parameter struct 223 ms, and neither ends compiled code (E-379).
+7. **A list of user values whose trait instance needs types the user has not given yet** (callbacks before the problem's types) is entered where those types are known, into storage typed by the trait. A list the caller gives keeps its own type (a tuple), never a `Vector{Any}`.
+8. Measured: at the prompt a new closure costs 59 ms and a new parameter struct 223 ms, and neither ends compiled code (E-379).
 
 ### B3. Plotting and the report
 
