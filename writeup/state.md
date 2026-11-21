@@ -12,7 +12,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | dc11704ef7 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 2d93199 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitWorld` | TraitWorld, `unified` | 3ba84fc | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 06c28c3 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -36,6 +36,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 **The library** provides `@trait` (operations as contract entries, defaults, fields, inputs, supertraits), `@implement` (the forms, families, forwarding), the checks at a declaration and at a member's first use, bounded methods, `@trait_module`, the box `Dynamic{X}` and the wrapper `compiled_for(x)`, `Callable`, ownership and strict mode, fully typed mode with `fully_typed`, `make_executable` and `make_library`, hints, and BaseTraits ([traits §10](reference/traits.md#10-collections)).
 
 **What is not built, or built differently,** is in the Deviations tables: [traits](reference/traits.md#19-deviations) (T-), [facts](reference/facts.md#16-deviations) (F-), [compiler](reference/compiler.md#deviations) (C-), [lowering](reference/lowering.md#15-deviations) (L-). The largest:
+- **A hole of soundness in a session:** a function known only by its signature and passed on to a higher-order function can return a value outside its declared result, which the caller reads as that type (compiler C-157).
 - **An ODE program that passes callbacks it knows does not build as a trimmed binary:** 20 errors, the callback records' constructors at values known only as bare `Callable` ([open issue 184](open-issues.md#2-design); compiler C-156). The four demonstrators' programs build and give a session's output.
 - **Keys** are an optional extension, not built ([the extensions](reference/extensions.md)).
 - **A cache across sessions** is not built ([the goals](goals.md), G-3).
@@ -45,12 +46,12 @@ The suites below ran on these heads but for the commits that only change READMEs
 | What | On | Result |
 |---|---|---|
 | the gates: 73 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
-| the library's suite | `next` | passes (110 testsets) |
+| the library's suite | `next` | passes (111 testsets) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets), and their REPL sessions' checks |
 | NetworkDynamics | `next` | its test subset of six files passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
 | the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
 | TraitTables, TraitCSV, TraitReport | `next` (E-504) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 |
-| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (33, 122 and 10 checks), with two known deviations marked (compiler C-157, traits T-160); the tutorial's script ten times without a fault |
+| the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (33, 124 and 10 checks); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
 | the four demonstrators' programs as trimmed binaries (`experiments/implementation/w158/m-builds.sh`) | `next` | each builds with 0 errors, runs, and gives the session's output (and PNG): the table 2.7 MB, the report 5.4 MB, the plot 4.9 MB, the ODE program 4.3 MB (E-510). The eight small trait programs build and run |

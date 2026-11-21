@@ -613,7 +613,7 @@ end
 tests = Callable{Tuple{Float64}, Bool}[x -> x > 1.0, iszero]
 tests[2] === iszero                                   # true: the function itself
 passes(tests, 2.0)                                    # 1
-passes(Callable{Tuple{Float64}, Bool}[x -> 1], 2.0)   # TypeError: the result is an Int, not a Bool
+passes(Callable{Tuple{Float64}, Bool}[x -> 1], 2.0)   # TypeError: non-boolean (Int64) used in boolean context
 ```
 
 `passes` knows each element only by its signature. It calls it as a box is called: `passes` is compiled once, and each result is checked.
@@ -765,8 +765,10 @@ struct Heavy
 end
 Tally.weight(h::Heavy) = h.w     # a pirate, although Heavy is the user's own type
 # Warning: a pirate ended code compiled by facts …: `weight(::Heavy)`, defined by Main in Main, which does not own
-# the function: an owner-only function of Main.Tally, whose methods are its owner's. It ended 1 instance:
-# Main.Tally.tally. It is followed, as plain Julia follows it: that code is compiled again. …
+# the function: `weight` is an owner-only function of Main.Tally (neither exported nor declared `public`): only
+# Main.Tally adds methods to it, whatever types they are for. It ended 1 instance: Main.Tally.tally. It is followed,
+# as plain Julia follows it: that code is compiled again. To let other modules add methods, Main.Tally declares it
+# `public` or exports it, … Otherwise define a function of your own; …
 tally(Any[1, Heavy(5)])          # 6: the pirate is followed
 ```
 

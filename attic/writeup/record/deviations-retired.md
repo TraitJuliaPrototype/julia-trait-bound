@@ -33,6 +33,7 @@ Moved here by the documentation clean-up of 2026-11-18 (W-162). Every row is unc
 | T-157 | — | *Retired* (2026-11-21): `withfields` on a box gives the box of the rebuilt object, on a wrapper the wrapper of it ([§6.5](#65-results)); TraitWorld `unified` ccd6c48 (W-158); `test/core.jl` ("withfields on a kept form"), `experiments/docs-examples/tutorial.jl` §11 | — | — |
 | T-158 | — | *Retired* (2026-11-21): a vararg of members is read at the box, each element in a box ([§7.3](#73-bounded-methods)); TraitWorld `unified` 327f253 (W-158); `test/messages.jl` ("the bounded check names the method as written") | — | — |
 | T-159 | — | *Retired* (2026-11-21): the report names what the call reaches at any depth, and at a vararg of boxes what a call that passes one box reaches ([§7.3](#73-bounded-methods)); TraitWorld `unified` 1335b13 (W-158); `test/messages.jl` ("the bounded check names the method as written") | — | — |
+| T-160 | — | *Retired* (2026-11-21): the messages for a pirate of an owner-only function name the function as owner-only, its module, and what the owner or the user writes ([§11.3](#113-errors-and-their-messages), [§12.2](#122-pirates)); TraitWorld `unified` 3ba84fc (W-158); `test/owner_only.jl` ("the messages at an owner-only function's pirate"), `experiments/docs-examples/tutorial.jl` §16 | — | — |
 
 ## The facts mode (F-)
 
