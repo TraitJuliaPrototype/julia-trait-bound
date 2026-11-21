@@ -451,6 +451,11 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
   - The plain twin (PlainODE) has the same two holes as plain Julia's: a chunk chosen by a run-time value, and callbacks in a `Vector{Any}`.
 - *Next:* compiler C-154 and C-151's rest, then C-153.
 
+**247. A method at a `Union` of two records is not chosen by the member's type in the closed check.**
+- *The case:* one method `_nlproblem_of(…, f::Union{NonlinearFunction, ODEFunction}, …)` called at the object a box of a `Callable` signature holds stays unresolved in the session's check, with the members listed; two methods, one per record, give no error (TraitNonlinearSolve; `experiments/implementation/w158/port/probes/nl_members.jl`). The port writes the two methods.
+- *The rule* ([compiler §7.6](reference/compiler.md#76-a-closed-build)): a call where the member's type chooses the method branches over the members, where a method that takes the call is at a type that is no set. A `Union` of structs is such a type.
+- *The proposal:* find why the split does not apply (the test for "a type that is no set" at a `Union`); a gate with the case.
+
 **218. Calls at a value typed `Any`, an abstract type or a kind in Base's plain code keep the rest of a port's code out of the deep class** (GT-8).
 - *The case:* below the forks' code, the culprits are Base's plain code compiled where types are not known: the generic paths of `collect` and `map` when an element type is not inferred (`similar`, `setindex!`, `Vector{T}(undef, n)` at a computed `T`, `promote_typejoin` at kinds, `indexed_iterate` at a tuple with an abstract element); the task code under a lock (a payload typed `Any` passed to `schedule`, `notify`, `push!` of a `CompositeException`); stores into containers of `Any`; keyword calls at an abstract argument; property reads at an abstract receiver. Each is a call where a stakeholder of a type in it may add a method: `Vector{MyT}(undef, n)`, `eltype(::Type{MyColl})` and `push!(::Vector{Any}, ::MyT)` are legal methods of their owners. The rule is right; the code is outside the class.
 - *The rule* ([compiler §3.2](reference/compiler.md#32-g2-as-a-predicate), [facts §3](reference/facts.md#3-fact-signatures)).
@@ -480,7 +485,16 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **245. A mixed list of callbacks given before the problem's types are known.**
 - *The case:* a user hands SciML's callback records mixed with callbacks of types of their own, before the problem's state and parameter types exist. The ODE port enters a tuple or a vector item by item once the types are known; a `Vector{Any}` the user builds is entered at `Any` (NetworkDynamics builds one: `get_callbacks`).
 - *The rule:* a trait instance `Callback{U, T, P}` needs the three types ([traits §8.1](reference/traits.md)); no trait without parameters names "a callback for some problem".
-- *The proposal:* probe a trait without parameters whose operation's variables another argument binds ([traits §4.1](reference/traits.md)), with the instances' members as its members; until then the port's lesson stands: a tuple, or a vector of a small union.
+- *The proposal:* probe a trait without parameters whose operation's variables another argument binds ([traits §4.1](reference/traits.md)), with the instances' members as its members; until then the port's lesson stands: a tuple, or a vector of a small union. NetworkDynamics' `add_nw_cb` takes the ODE port's two callback records and refuses a callback of another type.
+
+**246. The nonlinear solver's `solve` takes its problem at `Any`.**
+- *The case:* TraitNonlinearSolve's `solve(@nospecialize(prob), @nospecialize(alg); kw...)` is neither specialized nor inferred on the problem's type, and the front end forwards to it at `Any`. A closed build cannot resolve the call or the use of its result: 6 errors in the session's check of a small nonlinear program (`experiments/implementation/w158/port/apps/nl.jl`). The ODE port's `solve` is typed: its problem is a trait.
+- *The rule:* [traits §14](reference/traits.md), §16: fully typed code is the code that compiles ahead.
+- *The proposal:* the nonlinear problem as a trait and its `solve` typed, as the ODE front end is. It is the port following the design; it is no tension of the design until a measurement says the typed form costs a session.
+
+**248. NetworkDynamics' discrete component callbacks fail at their first event.**
+- *The case:* `TypeError: expected Nothing, got a value of type Bool`: `to_callbacks(::DiscreteCallbackWrapper)` passes the user's affect's value on, and the ODE port declares the affect's result `Nothing` ([traits §9](reference/traits.md#9-functions-callable)). The continuous path ends its affects with `nothing`. No test of the subset has a discrete callback (`experiments/implementation/w158/port/probes/nd_callbacks.jl`).
+- *The proposal:* the discrete batch's affect ends with `nothing`, as the continuous one's; a test in the subset.
 
 **110. Two traits for reading items by position: `Column` and `Indexable`.**
 - *The case:* the DataFrames port's `CellVector` is `asvector` for a `Column`, written again.

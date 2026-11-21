@@ -13,11 +13,11 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 |---|---|---|---|
 | `julia-next` | julia, `next` | 8b35e4b77c | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
 | `TraitWorld` | TraitWorld, `unified` | cedb718 | the library: `@trait`, `@implement`, the checks, BaseTraits |
-| `TraitDifferentialEquations` | `unified` | 1d9a516 | the ODE library |
+| `TraitDifferentialEquations` | `unified` | 1425aec | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
 | `forks` | forks, `unified` | a3a37d6 | Tables, DataFrames and CSV ported, with upstream's suites |
-| `ndport` | `main` | 6928edb | NetworkDynamics (its branch `unified` 82513ee), Graphs and GraphMakie ported, with the workload |
+| `ndport` | `main` | 7904538 | NetworkDynamics (its branch `unified` 5f82334), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
 The suites below ran on these heads but for the commits that only change READMEs.
