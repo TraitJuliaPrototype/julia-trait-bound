@@ -104,6 +104,7 @@ Between G-5 and G-1.
   - Time E-391's edit again once TraitTables follows the design. The tension closes if the edit then costs what the box's first call costs.
   - (b) The check's inference results kept between checks, as the native interpreter's are, and ended as code is.
   - (c) The check of an edited method deferred to its first call, with the definition's error raised there. It sets the place of the error (G-5) against the edit's time.
+- **What a verdict that no optimization decides would add** ([open issue 251](#5-implementation-and-measurements); E-529): the check per method 1.8 to 2.3 times, 0.17 ms median and 0.54 ms mean over the demonstrators' 142 methods becoming 0.26 to 0.35 and 1.0 to 1.25; with the walk's results kept and the inferred code handed over by Julia, at most 1.31 times.
 
 ### GT-14. A membership is seen from the world of its declaration
 
@@ -520,7 +521,14 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
   - `Core.typeassert(t, M)` that always fails at the box is not read: builtins are not;
   - a value known only by its trait passed to a function with methods for some members is no fault, though a member that joins later finds no method.
 - *The rule* ([traits §7.3](reference/traits.md#73-bounded-methods)): "its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws".
-- *The proposal:* read the instance before optimization; follow a call that passes a value at the box into its callee where the callee is not checked itself; read an assertion at the box as a call; count an error path only where it reaches a call that finds no method or an undeclared field; look up an argument known only by its trait at its box. Measured first over the demonstrators' 188 methods at a trait: which verdicts change.
+- *The readings measured* (E-529; 363 methods at a trait of the library's tests, the examples and the demonstrators; `experiments/implementation/w158/h-probes/`): (a) the inferred code before optimization; (b) a call that passes a value at the box followed into a callee that is not itself read at a box; (c) an assertion at the box read as a call; (d) a call that only throws a fault only where it reaches a call with no method or an undeclared field; (e) a value known only by its trait looked up at its box.
+  - (a) to (e) together give one verdict per method as written for every case above. They change one verdict of the 363: ODECore's `ODEProblem` keyword body, through a `hasproperty` guard that inference does not fold at a box (`propertynames(::Dynamic{X})` infers a tuple of unknown length).
+  - They cost 1.8 to 2.3 times the check per method (0.17 ms median and 0.54 ms mean become 0.26 to 0.35 and 1.0 to 1.25): following callees is most of it; reading before optimization is a second inference unless Julia hands the check the inferred code.
+  - (c), (d) and (e) on the optimized code cost 0.85 times and change no verdict, and leave a callee's faulty branch to the inliner.
+  - (a), (c), (d), (e) without following accept a helper's branch that fails at every box: unsound for what the check certifies.
+  - A closure that captures the box (`map(i -> sum(t), 1:2)`) is read by none of them, nor by the check in force.
+- *The proposal:* the rule (a) to (e), with a value that holds the box (a closure, a struct) passing it on; `propertynames` of a box foldable; a Julia hook that keeps the inferred code of the box's inference; a walk's result kept with the callee's instance (an upper bound of 1.31 times). Its cost at an edit is [GT-12](#gt-12-the-definition-time-check-runs-at-each-edit)'s.
+- *Found beside:* the library's test `mfvok` calls a name its module never imports, and the check accepts it at the module's end (a callee typed `Any`); traits §7.3 does not say what the module's end decides for a name still undefined. Inference at a box advances the world counter (by 1 for the check, by 3 for `code_typed_by_type`); the cause is not found.
 
 **116. A member first used while Julia writes an image is checked again at load.**
 - *The case:* code compiled at output runs after the build's `atexit` hooks, so the list of checks an image keeps ([lowering §11](reference/lowering.md#11-checks-errors-and-what-images-keep)) misses a member whose first use is there: 1 of the forks' 27 members (`Vector{Union{Missing,String15}}`). A cost at load, no wrong answer.
