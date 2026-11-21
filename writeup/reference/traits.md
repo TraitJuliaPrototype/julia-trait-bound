@@ -672,13 +672,13 @@ wrap(t::ColTable) = Wrapped(t)         # bounded: at a box, a Wrapped{Dynamic{Co
 colsum(t::ColTable) = sum(t)           # not bounded: at a box, sum reaches iterate(::Dynamic{ColTable}), which has no method
 ```
 
-A method is **bounded** at a trait argument when its code for the box does what it says for every member: **its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws.** A value at the box is the box itself, or a value the code knows only by a trait (an operation's result declared with one).
+A method is **bounded** at a trait argument when its code for the box does what it says for every member: **its instance at `Dynamic{X}` makes no call, with a value at the box, that finds no method or only throws.** A value at the box is the box itself, or a value the code knows only by a trait (an operation's result declared with one), or a tuple that holds one (a vararg of members).
 - **That instance is ordinary code at a concrete type,** compiled by Julia's own inference, with its edges. It is the code a box runs at the method (§7.7), and, for a trait that erases by default, the code every plain member runs through the forwarder (§7.8).
 - **What it certifies:** behind the box only the contract's operations reach the member (§7.7). So a bounded method works, erased, for every member that will ever join. Rust checks a generic body against its bounds with an archetype; here the archetype is a real type, the box.
 
 **A fault** is a call in that instance, with a value at the box:
 - that finds no method: directly; below a call that only throws, the chain of calls named; or left to run time with no method at the types the code knows;
-- that only throws: an undeclared field read at the box is named as such.
+- that only throws: an undeclared field read at the box is named as such. A call left to run time that inference gives as never returning only throws.
 - A call left to run time that finds a method when it runs is Julia's function barrier, no fault.
 
 **What the body does decides,** not a list of forms.
@@ -690,6 +690,7 @@ A method is **bounded** at a trait argument when its code for the box does what 
 
 **Where the instance is read.**
 - Each argument at a trait, an intersection, a kept form, or a `where` variable bounded by one, at the box of that trait.
+- A vararg of members, `ts::X...`, with each element in a box, at least one: the instance a call that passes boxes there runs.
 - A variable the signature leaves free, at a stand-in: the first of `Float64`, `Int`, `Symbol`, `String` its bounds allow, else its bound where that is concrete.
 - A keyword method's body is read, not its sorter. The forwarders (§7.8) are not read.
 - A method whose box cannot be formed (a trait whose parameters the signature leaves open, where no stand-in fits) is not read.
@@ -830,13 +831,14 @@ A trait **erases by default** when it declares `@default_dynamic` (§4.6). `Call
 - **An argument whose trait the signature leaves open erases too** (`c::Column`, `c::Column{<:Real}`): the trait's default applies to anyone who writes a method. A member is in one instance of the trait (§3.2), so its membership fixes the open parameters. The forwarder takes them as variables of its own and boxes at the instance the member is in: a member of `Column{Float64}` is boxed as `Dynamic{Column{Float64}}` (§7.7). The method as written is compiled once per trait instance.
 - An argument typed by an intersection with such a component. It is boxed at the intersection.
 - An argument typed by a `where` variable bounded by such a trait: `x::C` with `C <: X`. `C` is then the kept form's type.
+- **Not** a vararg of members (`ts::X...`, `ts::Vararg{X, 2}`): its elements are passed as they are, and the method is compiled per tuple of their types (§6.6).
 - **Not** an argument whose open parameter is an input (§3.2): the member does not fix it, as a function's type fixes no signature (`f::Callable` written bare). There the argument takes a plain member as it is.
 - **Not** an argument typed by a `where` variable that another argument names (a struct's own constructor, `T{F}(f::F)`): the call fixes the variable to the member's type, which the box is not. Nor a `Callable{A, S}` whose variables only that argument would bind: a function's type fixes none of them.
 
 **The forwarder's shape.**
 - One forwarder per positional arity that holds an argument that erases. Positional defaults make their arities, as in Julia.
 - It is compiled once where one argument erases and the other arguments fix its trait's parameters; per member type where only the member fixes one (`ip::IndexProvider{I}`, `c::Column`), or where several arguments erase.
-- Keyword arguments are passed on whole.
+- Keyword arguments are passed on whole. A keyword typed by such a trait is boxed by the forwarder of the keyword method's body, whose positional arguments are the keywords.
 - With several arguments that erase, the one forwarder boxes each plain one and passes a kept form as it is.
 - The forwarders belong to the method: they are defined after it, and redefining or deleting the method redefines or deletes them. Reflection shows the method as written.
 - **The trait's own methods are not forwarded:** a default (§4.2) is a method at the trait for every member. A plain member served by a default runs it as itself; a kept form reaches it as a member.
@@ -1238,7 +1240,7 @@ Two guarantees, asked for separately.
 **Fully typed code** is a property of a method at the signature it runs at, in a setting: every call in it, and in what it calls, is **settled** there. A settled call is one whose target no later definition can change, but a stakeholder's or a pirate's ([facts §3](facts.md#3-fact-signatures), "What is final").
 - **Fully typed when closed:** every call is one a closed build resolves, by the argument types or by the traits' members. This is what the modes and a build ask (below).
 - **Fully typed in a session:** every call is at a fact signature, so nothing is dispatched when it runs. Code fully typed in a session is fully typed when closed.
-- A call that only a build resolves (a value typed `Any` passed to a function with one method that is not owner-only) is fully typed when closed, and is dispatched when it runs in a session.
+- A call that only a build resolves (a value typed `Any` passed to a function with one method that is not owner-only) is fully typed when closed, and is dispatched when it runs in a session. So is an operation called at a value typed `Any` (an element of a `Vector{Any}`): a build branches over the operation's methods, the members' and the kept forms'; a session leaves the call, or the kept forms' part of it, to dispatch when it runs.
 - Code whose calls all have known argument types pays nothing for the facts mode.
 - `@warn_not_fully_typed` warns at a method's first run at a signature; `@enforce_fully_typed` raises there, at every run, `NotFullyTypedError`: the code has a call it cannot resolve when compiled, in it or in what it calls. A method in either mode is compiled by facts. Fully typed code pays nothing for either.
 - `fully_typed(f, argtypes)` reports the calls that are not fully typed when closed, with their root cause through any number of layers, in the trait's terms ("field `data` of `HasData` is declared `AbstractVector`"). It lists apart the calls a build resolves and a session leaves to run time. `isfullytyped(report)` answers for a closed build; `isfullytyped(report; session = true)` for a session too.
@@ -1380,6 +1382,6 @@ The rows below are where the implementation falls short of this page; the heads 
 | T-125 | [§7.8](#78-erasing-by-default-the-forwarder) | The forwarders belong to the method: reflection shows the method as written, and redefining or deleting the method takes its forwarders with it. | `methods(f)` lists the method at the kept forms and its forwarder as two methods, both at the definition's line; a forwarder is found by a mark in its code (`TraitWorld._is_forwarder`). Deleting the method at the kept forms leaves its forwarder (Revise). `@erasing` is kept as the definition itself. | TraitWorld `src/erasing.jl` (`_expand_definition`, `_is_forwarder`, `@erasing`); compiler C-111 |
 | T-129 | [§5.10](#510-checks), [§5.11](#511-overrides-and-redeclaration), [§12.3](#123-strict-mode) | A member's check is its serving instances, kept with their edges and validated with an image; a definition that would end one, an operation's own method or one below its body, is judged by inferring that call again with it, found by the walk strict mode runs; at a load only the instances that fail validation are inferred again. | The library infers each serving method's result apart (`check_member`, `_check_contract!`: `Base.infer_return_type`) and keeps the answers as its own records (`_CHECKED`, `_FIXED_CALLS`, `_CHECKED_RESULTS`), made again at a load by a walk without inference (`_sync_image_records!`, `_records_from_entry!`). A definition is judged against the records by one intersection per kept call (`_definition_checks`, `_check_membership_calls`), so a method below an operation's body is not seen. Under strict mode every checked call of an image's membership is inferred again at its load (`_LOAD_MEMBERSHIPS`; [GT-2](../goals.md#3-tensions-between-the-goals)). | TraitWorld `src/check.jl`, `src/implement.jl` (the records, `_definition_checks`, `_infer_new_method`), `src/strict.jl` (the load's inference) |
 | T-156 | [§9](#9-functions-callable) | A function with no method at `A`, given where it is boxed, raises the `MethodError` a call at `A` would, with the hint naming the declaration. | At a forwarder the refusal is the `MethodError` of the method's own call (`colmap(::typeof(uppercase), ::Float64)`), with the hint naming the declaration and the function's methods; Julia's message adds its line "This error has been manually thrown, explicitly, so the method may exist but be intentionally marked as unimplemented", since a method matches the call's types. The box written out (`Dynamic{Callable{A, S}}(f)`) raises the call's own. | TraitWorld `src/callable.jl` (`_callable_box_check`) |
-| T-158 | [§7.3](#73-bounded-methods), [§6.6](#66-keywords-defaults-varargs) | A method is read at the box at each argument at a trait that erases, a vararg of members included. | No `Vararg` position is boxed: a method whose only trait argument is a vararg (`call(ts::CTab...) = sum(t -> sum(t), ts)`) is not read, and a `bounded` scope accepts it. | TraitWorld `src/atbox.jl` (`box_signature`) |
+| T-159 | [§7.3](#73-bounded-methods) | The report names the line of the method that passes the value, and what the call reaches. | For a closure over a vararg of boxes (`sum(t -> sum(t), ts)`) the fault names the call and that it only throws, not the operation it reaches: at a tuple of no fixed length Base's `mapfoldl_impl` loses the element type; at a fixed count the chain is deeper than the walk's bound of 20 calls. | TraitWorld `src/atbox.jl` (`_reaches_no_method`) |
 
-**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128, T-130, T-157.
+**Retired IDs** (their rows are in [the ledger](../../attic/writeup/record/deviations-retired.md)): T-1 to T-95, T-97, T-98, T-102, T-103, T-106, T-107, T-110, T-111, T-113, T-114, T-120, T-121, T-123, T-124, T-126 to T-128, T-130, T-157, T-158.

@@ -12,7 +12,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | f5328f94c5 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | e32d443 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitWorld` | TraitWorld, `unified` | 81c04c3 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 3e60c29 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
