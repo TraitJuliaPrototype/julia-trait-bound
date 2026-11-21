@@ -447,7 +447,7 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The tools:* `experiments/implementation/w135/build.sh ode` with `summarize.py`; `experiments/implementation/w142/ft_app.jl`.
 - *On the head* (E-510, `next` d8f65ef1ea, TraitWorld `unified` 82959cf, TraitDifferentialEquations `unified` 3a1c4c3): the port follows the references where it departed (callbacks in storage typed by their traits, entered where the problem's types are known; its function kept by its signature; Rodas5's chunk a parameter of its type), and the build branches the call of a box's object over the signature's members. No rule of the design blocked the port's principled form.
   - The trimmed ODE program counts 12 errors in 4 statements, each reached by both solves and at both of the box's signatures. The split at the right-hand side's signature has a branch for TraitIndexing's `VectorGetter`, a member of every `Callable` signature by its one entry, which the program never hands to it; the branch calls the elements of a `Vector{Callable}` and collects the results (compiler C-155).
-  - A program with callbacks it knows (a tuple; `experiments/implementation/w158/port/apps/ode_cb.jl`): not built on this head.
+  - A program with callbacks it knows (a tuple; `experiments/implementation/w158/port/apps/ode_cb.jl`): its count on the head waits for compiler C-155.
   - The plain twin (PlainODE) has plain Julia's two holes: a chunk chosen by a run-time value, and callbacks in a `Vector{Any}`.
 - *Next:* compiler C-155; then the program with callbacks; then the getters' own code (a `Vector{Callable}` called and collected with no declared element type) read against traits §14.
 
