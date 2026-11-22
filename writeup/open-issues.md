@@ -163,6 +163,17 @@ Between G-8, against G-7 and G-4.
   - A type passed as a constructor is no member either: upstream Tables' test `ByRow(Dict)` errors in the forks (E-504; [item 240](#2-design)).
 - **The proposals:** [item 227](#2-design); for a type, item 240.
 
+### GT-33. Every declared result read at a trait is checked where it is passed on
+
+Between soundness (facts G1) and G-2.
+- **The rule** ([compiler §7.1](reference/compiler.md#71-the-rule), [§7.4](reference/compiler.md#74-callables-call)): a declared result holds for the call at the set, not for a member's own instance. A result that rests on one is its type alone, and is checked wherever the code that runs may be another instance than the one inferred. At the call the compiler cannot know which member runs, nor whether that member's check reached it in this world: a family's member is checked at its first use, a later method below a body is not judged ([traits T-129](reference/traits.md#19-deviations)).
+- **What it costs** (E-530, counts): a type test where an operation's result is passed on to code left to dispatch, and no constant read from the instance at the trait. In the report's session 56 instances carry the mark and 50 statements take a result as its type alone; 20 checks follow a call that passes a result on. In the table's session 13, 11 and 2. The sessions' compiles are unchanged (24 and 19). No time is measured.
+- **Without the rule** a value outside the declared result reaches code that reads it as that type: 10 of 15 cases answered wrongly (`experiments/implementation/w158/p-probes/ops.jl`).
+- **The proposals:**
+  - The members' check made to reach each case, so that fewer results need the mark: the serving instances kept with their edges (traits T-129) close a later method; a member of a pattern checked where its type is first made, not at its first use, would close the first use.
+  - The mark left off where every member the session has is checked at the call's types and an edge ends the code when one joins: a membership that invalidates as a method does carries such an edge already.
+  - Time one call that passes an operation's result on, with and without the check, before either.
+
 ## 3. The agent's choices
 
 Choices made while building. Each stands as recorded, in its reference and in [the decision log](record/decisions.md) marked "mine", and is input to the next synthesis.
@@ -185,7 +196,7 @@ Choices made while building. Each stands as recorded, in its reference and in [t
 - A vararg of members does not erase: its elements are passed as they are, the method compiled per tuple of their types; the bounded check reads it with each element in a box, the code a call that passes boxes runs. In the check a tuple that holds a value at the box is one, and a call left to run time that never returns only throws. [traits §7.3](reference/traits.md#73-bounded-methods), [§7.8](reference/traits.md#78-erasing-by-default-the-forwarder); [decisions](record/decisions.md).
 - The bounded check reads a call as written: the `MethodError` branch Julia compiles beside the methods that cover part of an abstract argument is no fault where a method matches at the types known; the walk to the call that finds no method has no depth bound. [traits §7.3](reference/traits.md#73-bounded-methods).
 - A function kept as itself in a container typed by a signature is called as a box is (the case of traits §9's sentence); at a trait that erases by default the forwarder boxes a plain member whatever `@nospecialize` says; a trait's operation is not owner-only by the default (traits T-162). [traits §9](reference/traits.md#9-functions-callable).
-- A declared result is trusted only where the code that runs checks it: a result that rests on a declared result its members' code is not checked against is marked through callers, is its type alone, and is checked wherever another instance may run; a closed build marks nothing. [compiler §7.4](reference/compiler.md#74-callables-call), §7.1; [decisions](record/decisions.md).
+- A declared result is trusted only where the code that runs checks it: a result that rests on a declared result its members' code is not checked against is marked through callers, is its type alone, and is checked wherever another instance may run; a closed build marks nothing. [compiler §7.4](reference/compiler.md#74-callables-call), §7.1; [decisions](record/decisions.md). The mark is on every declared result read at a set ([GT-33](#gt-33-every-declared-result-read-at-a-trait-is-checked-where-it-is-passed-on)). In a closed build a record known only by its family branches over the record types counted there. A trait's operation is open by a flag that Julia's owner-only test reads.
 - `withfields` on a box rebuilds the object it holds and boxes the result at the same trait; on a wrapper it gives the wrapper of the rebuilt object; at a box only the fields the trait declares are named. [traits §6.5](reference/traits.md#65-results), [lowering §8](reference/lowering.md#8-like-and-withfields); [decisions §4](record/decisions.md).
 
 **Operations and contracts**

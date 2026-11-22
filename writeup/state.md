@@ -11,8 +11,8 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | 85bd884a57 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 46687cb | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `julia-next` | julia, `next` | cf0f039f51 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `TraitWorld` | TraitWorld, `unified` | 42d60e1 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 06c28c3 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -44,7 +44,7 @@ The suites below ran on these heads but for the commits that only change READMEs
 | What | On | Result |
 |---|---|---|
 | the gates: 74 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
-| the library's suite | `next` | passes (117 testsets) |
+| the library's suite | `next` | passes (118 testsets) |
 | TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets), and their REPL sessions' checks |
 | NetworkDynamics | `next` | its test subset of six files passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
 | the forks | `next`; the tag for upstream's suites (E-373, E-392) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); on the tag Tables' and CSV's upstream suites pass, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
