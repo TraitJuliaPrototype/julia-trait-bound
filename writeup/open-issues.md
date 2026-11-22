@@ -16,6 +16,11 @@ What is open in the design, the implementation, the measurements and the documen
 - *The options:* (a) leave them; (b) amend each and push with force. The harness refused (b) without the user's word.
 - *The recommendation:* (b). Each is the head commit of its branch, and no one else uses the remotes.
 
+**Q-2. NetworkDynamics' workload has no plain run beside it: may the sources be downloaded?**
+- *The case:* E-514's baseline is upstream's packages on vanilla. `ndport/env_upstream` cannot be loaded offline: 73 of its 352 packages have no source in the workspace's depots (NetworkDynamics 1.3.0, Makie, SciMLBase, the OrdinaryDiffEq solvers and others; `experiments/implementation/w159/logs/g2-nd-upstream-missing-r2.txt`). The standing rule for the depot forbids `Pkg.add` and `Pkg.resolve`.
+- *The options:* (a) the sources downloaded once into a depot of their own (`Pkg.instantiate` of that one environment, network), then `PREP_LABEL=ndup bash prepare.sh V ndup` and `UPSTREAM=1 bash rows/g2_nd.sh r3` in `experiments/implementation/w159/`; (b) the workload stays without a plain run, and the evidence says so.
+- *The recommendation:* (a). It is the one row of G-2 that has only a regression control.
+
 - The tensions (§2) and the agent's choices (§3) are input to the next synthesis ([the goals §4](goals.md#4-the-synthesis)). They do not wait for a review one by one.
 - A question goes here when the work cannot continue without the user's answer: the question, the options, the recommendation, and the reference section where the answer would land.
 
@@ -549,19 +554,14 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *What the load activates:* 113 memberships; in 65 the member's type comes with the load itself, and a membership of a type new with the load can end no code compiled before it ([facts §2.2](reference/facts.md#22-g2-stable-caches)).
 - *The proposals:* (a) the walk skips its search for code at a member whose type is new with the image, and keeps lowering the dispatch caches: measure the walk's share by new and foreign members first; it is a cost the rule sets, GT-9's. (b) The image records the memberships its build checked against, the hook checks only against memberships from images outside the image's dependency closure, and the image holds the library's records of its own memberships: a performance exploration.
 
-**256. A top-level block compiled whole infers a branch it does not take; the check of a program costs its session 1.35 s.**
-- *The case* (E-521; `experiments/implementation/w159/probes/defs_timed.jl`, `logs/probe-defs-timed-ode.txt`, `logs/probe-defs-profile-H.txt`; two runs): the ODE program (`experiments/implementation/w135/apps/ode.jl`) includes `verify.jl`, a top-level `if get(ENV, "VERIFY", "0") == "1"` around `TraitWorld.verify_main(main, (Vector{String},); entrypoints = true)`. With `VERIFY=0` the branch is not taken. The block holds a loop, so Julia compiles the top-level block whole, and inference infers `verify_main` at the session's `main`: `include("verify.jl")` takes 1,350–1,361 ms, its profile in `typeinf_ext_toplevel`. The session's load mark is 2,059–2,096 ms, of it `using` 650–654 ms.
-- *The pattern:* any program, test or harness that guards a costly call by a condition at top level, in a block that Julia compiles, pays the call's inference when the branch is not taken.
-- *What it shows beside:* `verify_main`'s inference at the ODE program's `main` costs about 1.35 s. G-6 has no registered row for the time of the check asked in a session (GT-16 cites E-369: the build's check 2 to 5 s for a small program, 4 to 11 s for a demonstrator's).
-- *The rule:* none of the design; Julia's rule for top-level code.
-- *The proposals:* (a) the harness: the guarded call moved into a function that the branch calls, so that a branch not taken is not inferred; E-521 run again. (b) A registered row for the check's time in a session: `verify_main` and `fully_typed` at each demonstrator's `main`, a warm-up and 3 runs.
-- *The tool:* `defs_timed.jl <app.jl>` times every top-level statement of a program; `PROFILE_STMT=<text>` profiles the statement that holds the text.
+**258. The check of a program in a session keeps no inference between calls.**
+- *The case* (E-532): `fully_typed` and `verify_main` infer the program afresh at each call: for the ODE program 10.2 s at the first call and 2.5 s at a second in the same session, 96 % of it compiling; for the table's 2.39 s and 0.77 s. The cost follows the program's compiled code, not the walk (the ODE program's walk takes 50 ms).
+- *The rule:* none of the design's: the build's check run in a session ([compiler §2.7](reference/compiler.md#27-fully-typed-mode)) makes its interpreter with an empty cache at each call.
+- *The proposal:* the check's inference kept between calls in a session and ended as code is (GT-12's proposal (b) is the same for the definition-time check), with a counter of what a second call infers. It matters at the prompt, where `@enforce_fully_typed` and `fully_typed` are called again after an edit.
 
-**257. A tool that reads the runtime's flags itself reads them wrong on the head: `w134/cause.jl` reports every ended instance as plain.**
-- *The case* (E-511, `logs/probe-cause-forks-H.txt`): `experiments/implementation/w134/cause.jl` groups the invalidation log's entries by the method that ends them, and marks each entry facts or plain by the flag `0x20`, read only where the entry is a `CodeInstance` (line 27). On the head every entry of the forks' groups reads plain, "facts 0", while `w134/lost.jl` counts 149 facts instances among the forks' 150 lost.
-- *The pattern:* a tool that hard-codes the runtime's flag bits and the log's shape breaks silently when either changes. 32 scripts under `experiments/implementation/` read `0x20` (facts) or `0x10` (G2) from an instance's flags themselves, 8 of them gates.
-- *The rule:* none of the design; the experiments' code.
-- *The proposal:* one helper in the experiments' common code that answers "is this instance's code facts, deep G2" for a `MethodInstance` or a `CodeInstance`, used by every tool; and a self-check in each tool that counts facts code: 0 facts instances in a module compiled by facts fails the run. `cause.jl` first, then the gates.
+**259. `fully_typed`'s walk stops at its bound and reports `complete`.**
+- *The case* (E-532): on the table program the walk stops at 400 signatures (401 inferred). The verdict comes from the build's own check, so it is right; the walk's sites and causes are cut, and the report's `complete` is `true`.
+- *The proposal:* `complete` is `false` where the walk was cut, and the report says how many signatures it did not read; or the walk has no bound, as the bounded check's walk ([traits §7.3](reference/traits.md#73-bounded-methods)).
 
 **244. `MethodError`'s closest candidates list the library's forwarders.**
 - *The case:* a call with no method at a function that has a method at a trait that erases prints, among Julia's "Closest candidates", the forwarder at the wrapper's family, which the user did not write: `sz(!Matched::Compiled{<:Sized2})`, `applyc(!Matched::Compiled{Z} where Z<:Callable{Tuple{Int64}, Int64}, ::Any)`. Six of the 102 messages the library's tests and the examples of `intro/` provoke (the tool `experiments/implementation/w158/messages/`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
