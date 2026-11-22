@@ -357,9 +357,9 @@ The patched compiler compiles trait modules in its *facts mode* ([the rationale 
 - A few exceptions remain in both settings, listed in [the rationale §2.2](../design.md#22-step-2-refuse-the-pirates-that-would-win-and-fully-typed-code-is-never-invalidated).
 
 Measured, with nine unrelated packages loaded after the work ([`results.md`](results.md)):
-- CSV.jl and DataFrames as they are, compiled in the facts mode by one added line per module: 0.4 % of their compiled code is discarded, against 9.0 % in plain Julia. The same work afterwards takes 1.7 s against 5.2 s.
+- CSV.jl and DataFrames as they are, compiled in the facts mode by one added line per module: 0.4 % of their compiled code is discarded, against 9.1 % in plain Julia. The same work afterwards takes 1.5 s against 5.3 s.
 - Small libraries written with traits (a reader, a table, a plot): none of their compiled code is discarded, and nothing is compiled again afterwards. The same libraries written without traits lose 28 compiled instances and take 0.33 s.
-- The ports of CSV.jl and DataFrames lose 1.0 %, and it is their entry functions, through functions of Base: the limit above.
+- The ports of CSV.jl and DataFrames lose 2.6 %, and it is their reader, through functions of Base: the limit above.
 
 **This protection comes from the compiler's facts mode, and it works for any code.** What traits add:
 - **The mode costs type-stable trait code nothing.** A method at a trait is compiled for the member's type. If its code is type-stable, all its calls have known types, and those are compiled as plain Julia compiles them. Plain code that is not type-stable gets slower in this mode (see "What it costs").
@@ -417,8 +417,8 @@ Most of the time is Julia's start and the loading of package images.
 
 - **Loading:** a membership is checked when it is declared, and a package's memberships are activated when its image loads. Loading TraitWorld and the packages that use it is most of each session's time above.
 - **A member that joins after its caller was compiled** is reached through a table. Each session makes the table's entry on the first call: 18 ms for a member's two operations in the measured case.
-- **Editing a method at a trait** runs its check again: about 0.5 s per edit in a session, 0.65–0.70 s for the first.
-- **Code that uses no trait** runs on the same patched Julia, where dispatch and subtyping also look at memberships. Measured on CSV.jl and DataFrames without traits: the first run takes 3.3–3.5 s against 3.3 s on Julia 1.13.2, and repeated small operations 0.18–0.19 ms against 0.17–0.18 ms.
+- **Editing a method at a trait** runs its check again: about 0.24 s for the first edit in a session, then about 10 ms per edit.
+- **Code that uses no trait** runs on the same patched Julia, where dispatch and subtyping also look at memberships. Measured on CSV.jl and DataFrames without traits: the first run takes 3.32–3.34 s against 3.25–3.28 s on Julia 1.13.2, and repeated small operations 0.18–0.19 ms against 0.18 ms.
 - **Loading TraitWorld after plain work** discards none of the plain code compiled before it.
 
 [`results.md`](results.md) has each number with its measurement.
