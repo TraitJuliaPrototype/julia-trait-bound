@@ -16,11 +16,6 @@ What is open in the design, the implementation, the measurements and the documen
 - *The options:* (a) leave them; (b) amend each and push with force. The harness refused (b) without the user's word.
 - *The recommendation:* (b). Each is the head commit of its branch, and no one else uses the remotes.
 
-**Q-2. NetworkDynamics' workload has no plain run beside it: may the sources be downloaded?**
-- *The case:* E-514's baseline is upstream's packages on vanilla. `ndport/env_upstream` cannot be loaded offline: 73 of its 352 packages have no source in the workspace's depots (NetworkDynamics 1.3.0, Makie, SciMLBase, the OrdinaryDiffEq solvers and others; `experiments/implementation/w159/logs/g2-nd-upstream-missing-r2.txt`). The standing rule for the depot forbids `Pkg.add` and `Pkg.resolve`.
-- *The options:* (a) the sources downloaded once into a depot of their own (`Pkg.instantiate` of that one environment, network), then `PREP_LABEL=ndup bash prepare.sh V ndup` and `UPSTREAM=1 bash rows/g2_nd.sh r3` in `experiments/implementation/w159/`; (b) the workload stays without a plain run, and the evidence says so.
-- *The recommendation:* (a). It is the one row of G-2 that has only a regression control.
-
 - The tensions (§2) and the agent's choices (§3) are input to the next synthesis ([the goals §4](goals.md#4-the-synthesis)). They do not wait for a review one by one.
 - A question goes here when the work cannot continue without the user's answer: the question, the options, the recommendation, and the reference section where the answer would land.
 
