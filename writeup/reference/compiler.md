@@ -566,7 +566,7 @@ At `jl_declare_membership`, the report asks which methods the membership makes a
 - **An argument is compiled as Julia compiles it:** for the value's type, or at the declared type where the method says `@nospecialize`. Nothing beside the values decides which instance runs. `jl_apply_generic`, its caches and the interpreter are Julia's.
 - **A box's type is one per set instance,** `Core.Dynamic{X{p…}}`: code for it is compiled once for every member, and its operations dispatch on the held object (§7.1, §7.2).
 - **A wrapper's type is one per object type,** `Core.Compiled{T}`: code for it is compiled for `T`, and its operations call the object's own methods, statically.
-- **An argument at a set declared `@nospecialize`** is compiled once at the declared set instance, the object passed as itself. Its operations split (§7.2); passing it on is a run-time site.
+- **An argument at a set declared `@nospecialize`,** the set one that does not erase by default, is compiled once at the declared set instance, the object passed as itself. Its operations split (§7.2); passing it on is a run-time site. At a set that erases by default the forwarder boxes a plain member whatever the method declares (§6.3).
   - A set written with its parameters as the method's variables (`c::Column{T}`) is compiled at its instance with the variables' values, so a forwarder's box has its parameters.
   - `@nospecialize` is Julia's: a caller that knows the argument's type still infers the method there, and may inline it. `Base.@nospecializeinfer` on the method keeps inference at the declared set, as for any argument.
 - **A `where` variable bounded by a set** is the type of the value given: a member's, a box's or a wrapper's.
