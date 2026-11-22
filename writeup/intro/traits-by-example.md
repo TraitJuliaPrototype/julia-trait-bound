@@ -740,7 +740,7 @@ Base.sum(x::Vector{Int8}) = 0          # OwnershipError
 end
 ```
 
-**A library's internal function is its own.** A function of a trait module that the module neither exports nor declares `public` is *owner-only*. A method of it from another module is a pirate's, whatever types it names:
+**A library's internal function is its own.** A function of a trait module that the module neither exports nor declares `public` is *owner-only*, but for its traits' operations, which a member's package implements. A method of an owner-only function from another module is a pirate's, whatever types it names:
 
 ```julia
 module Tally

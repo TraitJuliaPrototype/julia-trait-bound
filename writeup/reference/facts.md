@@ -53,7 +53,7 @@ This page defines the facts mode: the contract between compiled code and the met
   - A package extension belongs to its parent.
   - At the prompt, `Main` is one owner, and each module defined directly under `Main` is an owner of its own.
   - A package's joint owners own what it owns with it ([traits §12.1](traits.md#121-who-may-declare-a-membership)).
-- <a id="term-owner-only"></a>**Owner-only function:** a function whose methods only its owner may define (§3).
+- <a id="term-owner-only"></a>**Owner-only function:** a function whose methods only its owner may define (§3). A trait's operation is none by the default: its members extend it ([traits §12.2](traits.md#122-pirates)).
   - By default: a function of a trait module (a module whose `owner_only` option is on, which `@trait_module` turns on; its submodules included) that the module neither exports nor declares `public`. A closure of such a module is one.
   - By declaration: a function its owner declares so in its module, exported or not ([traits §12.2](traits.md#122-pirates)).
   - Not by default: the internal functions of Base and the standard libraries, and the functions of a module that declares only `facts` (a package compiled by facts with one line, the porting path's first step). Packages extend such internals as a matter of course.
@@ -186,6 +186,7 @@ G1 depends on no declaration. A wrong performance setting can make code slow, ne
 
 **Owner-only functions** (the row above; §1):
 - **By default** each function of a trait module (its `owner_only` option on: `@trait_module`'s default, [traits §12.2](traits.md#122-pirates)), its submodules included, that the module neither exports nor declares `public`, is owner-only. So is a closure of such a module, and the function's keyword calls (a call with keywords is a call of `Core.kwcall` at the function's type, whose methods the function's definitions make).
+  - But for its traits' operations, which members extend ([traits §12.2](traits.md#122-pirates)): a call of an operation at a value known by the trait is typed by the contract, and at a concrete type it is a fact as any call is. `@owner_only` closes one.
 - **By declaration** a function's owner makes any function of its module owner-only, an exported one included ([traits §12.2](traits.md#122-pirates)).
 - **Not by default:** Base's and the standard libraries' internal functions, which packages extend, and every function of a module that declares only `facts`, as an existing package does on the porting path's first step: its internal functions are the interface other packages extend. The default does not depend on how the caller is compiled: the callee's module decides.
 - **The call is inferred as plain inference infers it** at its signature, the callee under its own policy, with Julia's ordinary dispatch edge. Where Julia's method matching gives up (more matches than `max_methods`), the call is a run-time site, as at any fact ([compiler §1.3](compiler.md#13-run-time-sites)).
