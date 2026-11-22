@@ -1,6 +1,6 @@
 # The changes to Julia for upstream: the plan for the facts series and the traits series (W-19)
 
-**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 with F4 in three, and the traits parts T1 to T10 are made; the stacks are built together). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
+**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 with F4 in three, and the traits parts T1 to T17 with S3 are made; the whole series, 66 commits, is built and runs the library's suite). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
 
 **What it is.** The plan's stage 8 ([the next iteration](../plans/2026-11-15-next-iteration.md)) asks for two proposals that stand apart: the facts rule with ownership, and traits (sets, memberships, contracts, the box and the wrapper). This file cuts the final tree's diff into parts a core developer reviews one at a time, orders them, and names what does not go upstream as it is. No patch of these two series is made here.
 
@@ -122,6 +122,15 @@ The 18 branches `up/01` to `up/18`, each on v1.13.2 alone: `README.md`. 595 line
 - **T10** drops `Method.declared_covers` and each function's list of methods at sets.
 - **Plain method matching pays from T7 on** (GT-9).
 - **The order for T11 to T17:** T11 with T15; T12 with T13; T14 with T17 and S3, after which the library loads; T16.
+
+**Made: T11 to T17 and S3** (`traits-v2/15`, `11`, `12`, `13`, `14`, `17`, `s3`, `16`; the stack `w19-traits-v2-head`; 2,685 lines). What making them showed:
+- **The order** is T15, T11, T12, T13, T14, T17, S3, T16: T11's split asserts with T15's check. In §3's graph T10 leads to T15, and T15 to T11 and to T12.
+- **The sizes** against the estimates: T15 168 (50), T11 675 (620), T12 210 (110), T13 51 (50), T14 112 (65), T17 66 (85), S3 26, T16 1,420 (880).
+- **T16 is too large for one review.** A cut: the members by use and the build's rounds (about 550), the closed splits (about 600), the check in a session and the verifier (about 270).
+- `jl_open_set_methods_of`, the bit `erases` and `jl_set_erases` go with T14; Base's walk at the end of its build is T12's.
+- **The library loads at T14; its suite needs T16** (`closed_check`).
+- **Row 179** (a call's edge at a top-level union is split) changes no invalidation in plain Julia: its place is with S1 in the facts series, not in series G (`up/26` is on `up/19`).
+- **Left:** testsets in Julia's `test/` for T11 to T17 (each names its gates now); T16 cut in three; rows 182 to 184 of the inventory into the parts they belong to; the parts not built alone; the static check of the collectors' roots over the new C; every message and comment read once more.
 
 ### 2.4 Shared parts and candidates for series G
 
