@@ -279,6 +279,7 @@ Choices made while building. Each stands as recorded, in its reference and in [t
 
 <a id="2-design"></a>
 - **A run-time site by intent in the library is a call in the latest world,** which a closed build resolves; a call at a function typed `Any` is one it cannot ([the decision log](record/decisions.md), the project: how the work is done).
+- **An answer about a set that inference does not fold is not consistent,** so the compiler does not evaluate it; a call given a set's type as a constant is not evaluated at compile time. Chosen for soundness over the folds lost; their cost is not measured ([compiler §4.8](reference/compiler.md#48-negatives-fold-with-an-edge-positives-through-entries); E-542).
 
 ## 4. Design
 

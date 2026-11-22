@@ -92,7 +92,7 @@ Why G1 and G2 hold, and why the facts rule has the form it has. The statements t
 ## 7. Where a proof would break
 
 A change to the design is checked against these points first.
-- **A record that is not complete:** an answer cached without its world or its edge (a dispatch cache, a table, a fold). The invariant then has nothing to invalidate.
+- **A record that is not complete:** an answer cached without its world or its edge (a dispatch cache, a table, a fold). The invariant then has nothing to invalidate. So also an answer computed at compile time from a question whose answer depends on the world: a shortcut that declares a question about a set settled by the types' structure must be complete for every shape subtyping walks, and code run by the compiler records nothing for the questions about sets it asks.
 - **A fact at a signature that is not concrete** and not an owner-only function's: Lemma O fails, and an unrelated package can break it.
 - **Ownership judged where the method does not apply:** a `Vararg` tail, a `Union`, a type parameter.
 - **A rule whose reason is transitive, stated per frame.**

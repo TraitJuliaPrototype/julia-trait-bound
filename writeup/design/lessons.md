@@ -84,6 +84,7 @@ What the work taught, stated as it holds now. Each lesson is one sentence in bol
 - **A build that stops is first a question about the procedure.** Three trimmed builds stopped after a rebuild of Julia because no package image was valid, not because of a change of the design; the control at the tag stopped the same way (E-509).
 - **A cost measured beside a rule is not the rule's until a profile says where the time goes.** A plain package's load a tenth slower was recorded as the price of dispatch edges at the call's own signature, with two guessed causes; the profile showed a third, a duplicate check over boxed pairs, and the fix left the rule and removed the cost. (E-534)
 - **A check that the gates do not make is made by hand after every merge, or it is lost.** The library's hooks were made run-time sites and the gates, the suites and the examples passed; the trimmed programs, which only the round built, had one unresolved call for two merges. (E-538)
+- **Gates pin the cases their author thought of; a generator finds the rest.** Three holes found by chance led to a tool that crosses every question about a set with every position a set takes in a type and every change of the world: 8,975 mismatches from eight patterns on a head whose 77 gates passed. (E-542)
 
 ## 7. The record
 
