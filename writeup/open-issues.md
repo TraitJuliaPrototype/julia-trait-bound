@@ -501,6 +501,11 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The rule:* none blocks it.
 - *The proposal:* a vector condition in ODECore, as upstream's `VectorContinuousCallback`; the adapter's field typed by the callback's type.
 
+**264. ODECore's callback instances at a session's types are not in the port's image.**
+- *The case* (E-536): the ODE program with callbacks takes 306 ms for its first run where PlainODE takes 125 ms. The session compiles 55 instances of ODECore's callback machinery at `Vector{Float64}` (`step_event_initialize!`, `push!` of the callbacks' records, `event_affect_dir!`, the records' constructors): 20 ms of inference and 109 ms of code generation.
+- *The rule:* a package's workload counts where it covers broad typical cases; a callback on a `Vector{Float64}` state is one. Whether the image would hold the instances is item 228's question.
+- *The proposal:* a callback in the port's workload; then the first run again, and the instances the image holds.
+
 **110. Two traits for reading items by position: `Column` and `Indexable`.**
 - *The case:* the DataFrames port's `CellVector` is `asvector` for a `Column`, written again.
 - *The answer, without a change to the design:* `Indexable` has `firstindex` ([traits §10.1](reference/traits.md#101-basetraits)), so the port's `Column` joins by a block ([traits §5.4](reference/traits.md#54-with-a-block-of-methods)): `@implement Indexable{T} Column{T} where {T} begin getindex(c, i) = cell(c, i); firstindex(c) = 1 end`, and `CellVector` becomes `asvector`. Taken when the DataFrames port is next rebuilt.
@@ -560,11 +565,12 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **255. The ODE port's load: what the memberships' activation, the walk and the library's image hook cost.**
 - *The case* (E-531; `experiments/implementation/w167/load_parts.jl`; `next` cf0f039f51, TraitWorld 57879c3; a warm-up and 3 runs, load 2.8–3.0): with the library's hooks in the deep class, the ODE port's load with the library loaded first takes 313 ms. In it: the image hook 48 ms (the check of the image's methods against the memberships in force, and the library's records rebuilt from the runtime's list); the membership walk, about 57 of 331 profile samples; its invalidation costs nothing measurable.
 - *The rules:* a membership activated at a load walks for the code it ends, as a method's insertion does ([compiler §5.5](reference/compiler.md#55-a-membership-invalidates-as-a-method-does)); the image hook runs once per image and first brings the library's records up to date ([compiler §10.1](reference/compiler.md#101-definition-and-image-hooks), [traits §5.10](reference/traits.md#510-checks)).
+- *The load against PlainODE's* (E-536; `next` 683ea4fc16): 534 against 268 ms. The 266 ms: the walk 57, the image hook 52 (45 of it compiling; 17 ms of that is machine code for instances the system image holds inferred only, reached by the hooks), the memberships' activation 25, more images restored and validated 40, the files of six more packages 54, the definition-time check 10, GC 10.
 - *What the load activates:* 113 memberships; in 65 the member's type comes with the load itself, and a membership of a type new with the load can end no code compiled before it ([facts §2.2](reference/facts.md#22-g2-stable-caches)).
 - *The proposals:* (a) the walk skips its search for code at a member whose type is new with the image, and keeps lowering the dispatch caches: measure the walk's share by new and foreign members first; it is a cost the rule sets, GT-9's. (b) The image records the memberships its build checked against, the hook checks only against memberships from images outside the image's dependency closure, and the image holds the library's records of its own memberships: a performance exploration.
 
 **260. A declared field read through a box computes its type at each read.**
-- *The case* (E-537): the library's `getproperty` and `setproperty!` at `Dynamic{X}` are called, not inlined, and compute the declared field's type at every read: 80 to 100 ns. In NetworkDynamics' steady state the callbacks read `integrator.p` through a box: 28 ms of the port's Tsit5 solve of 63 ms.
+- *The case* (E-537): the library's `getproperty` and `setproperty!` at `Dynamic{X}` are called, not inlined, and compute the declared field's type at every read: 80 to 100 ns. In NetworkDynamics' steady state the callbacks read `integrator.p` through a box: 28 ms of the port's Tsit5 solve of 63 ms. In NetworkDynamics' whole session the reads are 0.38 s of 42.4 s (E-536).
 - *The rule* ([lowering §7](reference/lowering.md), [traits §3.3](reference/traits.md)): a declared field's type is fixed when the trait is declared. Nothing in the rule needs it computed at a read.
 - *The proposal:* the two methods inlined, or the type a constant per trait and field name; a few lines of the library. The saving is a bound from the profile, not measured.
 

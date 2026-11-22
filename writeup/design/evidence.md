@@ -243,22 +243,32 @@ Each tension that stands, with its entry in [the open issues §2](../open-issues
 
 ## Where a session's time goes
 
-Each step profiled at 0.5 ms in one process after a warm-up; the shares applied to an unprofiled run's times. Every sample goes to one class by its stack.
+Each session in a fresh process: a warm-up and 3 unprofiled runs beside its plain run, then one profiled run at 1 ms; the shares applied to the unprofiled times. Every sample goes to one class by its stack. `next` 683ea4fc16, TraitWorld 38200d3; product setting, strict mode off; load 1.9–5.9 (E-536).
 
-| Step | Time | Where it goes | Build | Experiment |
+| Session | With traits (load / first run) | Plain twin on the build | Where the difference goes |
+|---|---|---|---|
+| The table's | 215 / 65.5 ms | 111 / 65.2 ms | the load |
+| The ODE port's | 534 / 375 ms | 268 / 378 ms | the load: the membership walk 57 ms, the library's image hook 52 (45 compiling), the memberships' activation 25, more images restored and validated 40, the files of six more packages 54, the definition-time check 10, GC 10 |
+| The ODE port's, with callbacks | 522 / 306 ms | 250 / 125 ms | the load, and the first run: 55 of ODECore's callback instances compiled in the session, 129 ms ([open issue 264](../open-issues.md#the-ports)) |
+| The plot's | 510 / 172 ms | 432 / 174 ms | the load |
+| The report's | 625 / 135 ms | 504 / 127 ms | the load |
+
+| Upstream CSV with DataFrames: the work, nine unrelated loads, the work again | plain, vanilla | plain, the build | by facts | the forks |
 |---|---|---|---|---|
-| `using TraitCSV, TraitTables, TraitMakie` | 0.38 s | the images' restore 36 %, their validation 36 %, file system calls 14 %, the methods' activation 9 %, the memberships' 2 %, the walk 1 % | `unified` 21c9b33e39 | E-388 |
-| `using TraitDifferentialEquations` | 0.33 s | validation 31 %, restore 30 %, file system calls 18 %, the methods' activation 13 %, the memberships' 6 % | `unified` 21c9b33e39 | E-388 |
-| The forks' CSV and DataFrames loaded | 1.02 s | validation 45 %, restore 25 %, file system calls 10 %, the methods' activation 8 % | `unified` 21c9b33e39 | E-388 |
-| The first solve (Lorenz, Tsit5) | 0.18 s | code generation 57 %, inference 28 %, code compiled while inferring 13 % | `unified` 21c9b33e39 | E-388 |
-| The first stiff solve (Robertson, Rodas5) | 0.14 s | code generation 37 %, code compiled while inferring 35 %, inference 26 % | `unified` 21c9b33e39 | E-388 |
-| Upstream's eight steps, plain code on the build | 10.3 s | code generation 6.23 s, inference 3.57 s, code compiled while inferring 0.49 s | `unified` 21c9b33e39 | E-388 |
-| The same on vanilla | 10.2 s | code generation 7.56 s, inference 2.08 s, code compiled while inferring 0.46 s | vanilla v1.13.2 | E-388 |
-| NetworkDynamics' workload | 44.0 s | code generation 58 %, inference 26 %, code compiled while inferring 6 %, the work 4 %, the loads 6 % | `unified` 21c9b33e39 | E-388 |
+| The session | 16.60 s | 16.78 s | 10.22 s | 10.02 s |
+| Code generation | 7.31 s | 7.22 s | 2.47 s | 1.72 s |
+| Inference | 1.66 s | 1.53 s | 0.37 s | 0.39 s |
+| The loads: files found and read | 2.15 s | 2.13 s | 2.16 s | 2.15 s |
+| The loads: edges validated; images restored; methods inserted | 1.37; 1.28; 0.87 s | 1.40; 1.34; 0.89 s | 1.31; 1.33; 0.89 s | 1.56; 1.34; 0.89 s |
+| The hooks, the walk, the memberships | — | — | — | 0.15 s |
+| The first work; the work after the loads | 4.42; 5.40 s | 4.47; 5.24 s | 1.77; 1.46 s | 0.20; 2.27 s |
 
-- A session's time is the images' validation and restore at a load, and code generation and inference after it.
-- The membership walk, the member check and the memberships' activation are below a tenth of every step.
-- With no instance of the compiler compiled twice, inference on upstream's eight steps takes 3.12 s against vanilla's 2.08 s (E-389; GT-3).
+- Where a port is slower than its plain twin, its load pays; its first run does not, but for the ODE program with callbacks.
+- Plain code on the build takes vanilla's time part by part.
+- After the loads the facts and forks sessions compile again PrettyTables' printing (0.92 s; a package compiled plainly) and `CSV._parse` (0.39 and 0.64 s; GT-8).
+- NetworkDynamics' workload, 42.4 s (no plain run in this row): code generation 27.0 s, inference 6.6 s, the loads 2.9 s, the work 0.87 s, the box's field reads at run time 0.38 s ([open issue 260](../open-issues.md#5-implementation-and-measurements)). Of 37.5 s of compiling, 30.3 s is compositions of packages.
+- A load's file work (sources' stat, the candidates' headers, checksums) is 10 to 45 % of every load, on vanilla as on the build.
+- No candidate found saves a tenth of a session.
 
 <a id="5-not-shown"></a>
 
