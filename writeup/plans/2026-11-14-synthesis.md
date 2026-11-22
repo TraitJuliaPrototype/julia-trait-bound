@@ -175,3 +175,60 @@ Each has a recommendation. None blocks the upstream patches (W-19), which stand 
 5. **The code slot** (§3.6): its marks keep nothing that shows at unrelated loads (E-393). *Recommended: one more control, a session of edits; retire it if that shows nothing either.*
 6. **A membership taken back** (§3.4 (c)), so that Revise works on memberships. *Recommended: yes, before any reader from outside.*
 7. **The next demonstrators:** the ODE program without callbacks through a build (§3.5), and a reader from outside for `intro/` (G-8). *Recommended: both, before more ports.*
+
+## 8. Addendum (2026-11-22): the iteration assessed
+
+Written by the round's agent (W-159) from the round at the freeze `round-2026-11-c` (julia `next` cf0f039f51, TraitWorld `unified` 42d60e1; E-511 to E-528; `experiments/implementation/w159/README.md`) and the iteration's experiments (E-401 to E-510, E-529, E-530). Each number names its experiment. A comparison with the tag `prototype-2026-11` is the regression control (E-524 to E-526); the standings against plain Julia are in [the goals](../goals.md) §2 and [the evidence](../design/evidence.md).
+
+### 8.1 Each tension
+
+**Closed in the iteration.**
+- Before the round, by decision and build: GT-1, GT-4, GT-6, GT-10, GT-11, GT-13, GT-15, GT-17, GT-18, GT-19, GT-23, GT-24 (the open issues' ledger, "Closed by the pass of 2026-11-18").
+- GT-31, by its criterion: strict mode refuses case 05's pirate at the user's line (E-518).
+
+**Smaller.**
+- GT-12 (the check at each edit): the table's first edit is defined in 0.235 s, the second in 9.3 ms; the plain twin 70.5 and 6.7 ms (E-512). At the control 0.69 and 0.51 s (E-524). The criterion for "smaller" (under 0.35 s) is met.
+- GT-3 (the compiler compiled plainly), in its load count: upstream's load ends 132 of the compiler's instances against vanilla's 122 (E-516); at the control 615. The session's and inference's cost not measured again (E-386, E-389).
+
+**Standing, with the round's cost.**
+- GT-2: strict mode adds 40 % to TraitTables with TraitCSV's load, 215 against 153 ms (E-516); the criterion was under 10 %.
+- GT-8, larger: the forks lose 150 of 5,705 own image instances to nine loads (2.6 %), their work after the loads 12 times their first (E-511); at the control 48 of 4,799 (E-524). The library's own hooks are lost the same way: 15 instances at a port's load (E-516; open issue 254).
+- GT-9: plain code's first work 0.07 s above vanilla's (E-515); at the control it is 0.37 s below vanilla's (E-525). After the bisection's first step three commits are left: the G2 bit for the deep class (D-5), a split's inlined branch naming its CodeInstance, the code slot's removal (D-7) (E-527).
+- GT-32: the ODE port writes 19 `@implement Callable` (E-522); the forks' suite has one error, `ByRow(Dict)` (E-523; open issue 240).
+- GT-5, GT-7, GT-14, GT-16, GT-21: not measured in the round; their costs stand as recorded (E-340, E-443, E-362, E-369, E-416).
+
+**New.**
+- GT-33 (every declared result read at a trait checked where it is passed on): 56 marked instances and 20 checks in the report's session, 13 and 2 in the table's; the compiles unchanged; no time (E-530).
+
+### 8.2 Each decision of the plan
+
+| | What it gave | What it cost |
+|---|---|---|
+| D-1 one way to erase | the attribute's surface in the library from 88 lines to 24 (E-504); Julia 1,116 lines removed, 218 added (E-506); known types at a plain call's 0.79 ns, `compiled_for` at 2.38 ns as plain (E-513); NetworkDynamics' steady state 312 against the control's 427 ms (E-514, E-524) | a plain member boxed at each call: 8.66 ns against 2.38 ns with `compiled_for`, and against 7.88 ns at the control (E-513, E-524); the annotations did not fall (8.4) |
+| D-2 `Callable` a contract at the box | subtyping reads no method table; no guard pair needs dispatch by signature (E-500); the wrapper 0.79 ns, against 1.34 ns at the control (E-513, E-524) | the box by default 25.25 ns a call (E-513); 134 of 174 callable types in the forks' session need a declaration (E-500; GT-32); a type passed as a constructor is no member (open issue 240) |
+| D-3 bounded means fully typed at the box | the edit's check reads the box's instance: GT-12 smaller (E-512) | the verdict depends on the optimizer: a reading of the method as written costs 1.8 to 2.3 times (E-529; open issue 251); the member's check at its instances not built (traits T-129), so GT-2 stands and GT-33's mark is needed |
+| D-4 a required operation is an entry of the contract | the library's late load ends 0 of 120,780 plain instances (E-515); 209 at the control (E-525) | a call outside an operation's declared signature is Julia's `MethodError` with a hint: 11 lines, 752 bytes, against plain Julia's 6 lines, 353 bytes (E-518) |
+| D-5 G2 is the deep class | no unrelated load ends an instance in the class (E-478); upstream by facts loses 0.4 % (E-511) | the guarantee reaches the class: 63.1 % of the forks' own facts instances, 79.0 % of upstream's (E-478); the forks lose 2.6 % (E-511); its commit is among the three the bisection leaves (E-527) |
+| D-6 a call that only throws is a run-time site | not built (GT-21) | the share it would add rests on plain callers: 1,983 to 1,986 of 4,799 from facts code, 2,917 from every caller (E-416) |
+| D-7 the code slot retired | no instance lost and no time at unrelated loads without it; TraitWorld's image 5.29 against 5.33 MB (E-419) | not cleared of plain code's first work: its commit is among the three the bisection leaves (E-527) |
+| D-8 Base's surface by the census | the deep share from 41.8 % to 63.1 % (the forks), 39.6 % to 79.0 % (upstream by facts) (E-478) | plain code: nothing measurable, the system image +0.16 % (E-479); the long tail is open issue 218 |
+| D-9 owner-only functions | run-time sites at a package's own helpers: the trait demonstrators 0 of 136, the forks 134 of 8,128 (E-458); TraitMakie's eleven asserted barriers removed | a sibling package's method of a core's internal interface is a pirate's (open issue 212) |
+| D-10 one statement of what is final | the closed build's rules follow from it; the five programs build with 0 errors (E-519) | compiler C-156's rows; no number |
+| D-11 a membership adds no type equality | the gate 33 of 33 (E-456) | none measured |
+| D-12 a pirate reported by default | the report, 21 checks, no measurable cost at the nine loads (E-457); case 05 reported, and refused under strict mode (E-518) | none measured |
+| D-13 a membership taken back | 27 of 27 checks (E-459) | none measured; Revise itself untested (lowering L-64) |
+| D-14 the prune list | fewer forms in the references and the library | no experiment measures it |
+
+### 8.3 What the iteration did not move
+
+- **G-3:** no cache across sessions, and no new measurement of what an image holds against a session (E-521 restates E-372's classes; open issue 228: an instance in the image without code, E-528).
+- **The annotations a port writes:** from the control to the freeze, TraitTables 4 to 5, the forks 5 to 6, the ODE port 24 to 30, TraitReport 2 to 0, NetworkDynamics 3 to 1; the ODE port's boxes 78 to 85, its `unwrap` 7 to 18 (E-526). "Few annotations" is not shown.
+- **Plain code's first work:** 0.07 s above vanilla's (E-515), where the control was below it (E-525); the bisection decides which commit (E-527).
+- **G-8:** teaching is not tested.
+
+### 8.4 For the next synthesis
+
+- **The cost of the mark (GT-33):** the narrower mark (the members' check made to reach each case) against a time for one call that passes a result on, which E-530 does not have.
+- **The bounded check's verdict and the optimizer (open issue 251):** a verdict per method as written costs 1.8 to 2.3 times the check (E-529); its cost at an edit is GT-12's.
+- **The forks' loss to unrelated loads (GT-8):** 2.6 % lost and the work after the loads 12 times the first (E-511), through Base's `vcat` and `open`; Base compiled by facts, the boundary flag, or Base's surface by the census (GT-8 (a) to (c)), and open issue 218.
+- **The library's runtime on Base's plain code (open issue 254):** its hooks rest on Base's plain callees at abstract types and are compiled again at a port's load (E-515, E-516); whether the library is held to the deep class by its own porting rule, with a gate, or its runtime is treated as Julia's own code.
