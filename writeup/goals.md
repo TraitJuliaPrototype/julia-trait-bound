@@ -58,7 +58,7 @@ Each standing rests on the rows of [the evidence](design/evidence.md) for its go
 Where one goal presses on another, or on the design, the tension is recorded, not resolved at the case.
 
 - **The home of an entry** is [the open issues §2](open-issues.md#2-tensions-between-the-goals): the rule, what it costs with its experiment, and a proposal.
-- **This table is the index** of the tensions that stand: each with the axes it sets against each other. A tension takes the next free `GT-n`: **GT-34**.
+- **This table is the index** of the tensions that stand: each with the axes it sets against each other. A tension takes the next free `GT-n`: **GT-35**.
 - **A tension that is decided and built** leaves this table. It is in [the open issues' ledger](../attic/writeup/record/issues-closed.md), with how it was decided.
 - **What each costs:** [the evidence](design/evidence.md#what-each-tension-costs).
 
@@ -76,6 +76,7 @@ Where one goal presses on another, or on the design, the tension is recorded, no
 | GT-21 | [Calls that only throw keep a port's code out of the deep class](open-issues.md#gt-21-calls-that-only-throw-keep-a-ports-code-out-of-the-deep-class) | G-1 against G-4 |
 | GT-32 | [A callable struct that is no `Function` is no member of `Callable` until its owner declares it](open-issues.md#gt-32-a-callable-struct-that-is-no-function-is-no-member-of-callable-until-its-owner-declares-it) | G-8 against G-7 and G-4 |
 | GT-33 | [Every declared result read at a trait is checked where it is passed on](open-issues.md#gt-33-every-declared-result-read-at-a-trait-is-checked-where-it-is-passed-on) | soundness (facts G1) against G-2 |
+| GT-34 | [A dispatch edge at the call's own signature costs a plain package's load](open-issues.md#gt-34-a-dispatch-edge-at-the-calls-own-signature-costs-a-plain-packages-load) | G-1 against G-4 |
 
 ## 4. The synthesis
 

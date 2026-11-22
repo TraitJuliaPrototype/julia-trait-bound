@@ -228,7 +228,7 @@ Rows 132 and 136 merged these into `next`. The rows of kind *general* are useful
 <a id="patches"></a>
 ## 5. The patches for upstream
 
-The changes that are useful without traits and facts, each as one commit on v1.13.2: the branches `up/01` to `up/18` of the julia repository. Each is its subject's part of the final diff against v1.13.2, not a commit of the stack above. `w19-stack` holds the eighteen in order: the tree that was built and tested. Each patch's size, test, motivation in plain Julia's terms and risk: [the table](../../experiments/implementation/w19/README.md). The plan for the two series that follow, the facts mode with ownership and traits: [the proposal](../plans/2026-11-22-upstream-series.md).
+The changes that are useful without traits and facts, each as one commit on v1.13.2: the branches `up/01` to `up/19` of the julia repository. Each is its subject's part of the final diff against v1.13.2, not a commit of the stack above. `w19-stack` holds the first eighteen in order: the tree that was built and tested. Each patch's size, test, motivation in plain Julia's terms and risk: [the table](../../experiments/implementation/w19/README.md). The plan for the two series that follow, the facts mode with ownership and traits: [the proposal](../plans/2026-11-22-upstream-series.md).
 
 | Patch | What | Rows it covers | Checked |
 |---|---|---|---|
@@ -250,7 +250,10 @@ The changes that are useful without traits and facts, each as one commit on v1.1
 | `up/16-cfunction-caller-world` | the `cfunction` convention `:caller_world` | 6 | built alone |
 | `up/17-image-hashless-external` | an image keeps no external code at a signature type without a hash | 8 | built alone |
 | `up/18-precompile-typeinf-type` | `typeinf_type` compiled into the system image | 59 (its precompile statement) | built alone |
+| `up/19-callsig-backedge` | a dispatch backedge keeps the call's own signature where the call reached a wider instance (a `Base.@nospecializeinfer` method) | 79, 83 (without its G2 half), s3-8 without its `!==` clause (with the facts series' deep class) | built alone |
 
-- **Without a patch:** row 137 (a cast that v1.13.2 does not need; it goes with the facts mode); the call's own signature in a dispatch edge and its backedge (rows 79, 83 and s3-8, kind *general* by what they do: the candidate for `up/19`, with a build of its own).
+- **Without a patch:** row 137 (a cast that v1.13.2 does not need; it goes with the facts mode).
+- **What `up/19` costs plain code:** a package's load. Upstream CSV and DataFrames compiled plainly load in 718–740 ms against vanilla's 647–657 ms ([GT-34](../open-issues.md#gt-34-a-dispatch-edge-at-the-calls-own-signature-costs-a-plain-packages-load); E-534).
+- **The facts series:** the branches `facts/00` to `facts/08` and `facts/s1` (the stack `w19-facts`), each one commit on v1.13.2, in the order F0, F2, F1, F3, F4, F5, S1, F7, F8 of [the proposal](../plans/2026-11-22-upstream-series.md): 27 files, 1,191 lines added. The series' head, with no set and none of the patches above, keeps what the facts mode keeps on the head: of upstream CSV's and DataFrames' 3,461 own image instances 14 are lost to nine unrelated loads, where 424 of 4,670 are lost compiled plainly, and the work after the loads takes 1.43–1.45 s against 5.14–5.16 s (E-534). Each part's size, check and seams: [the table](../../experiments/implementation/w19/README.md).
 - **The whole stack** on v1.13.2: 22 files, 595 lines added, 121 removed; the system image 1.0 % larger (E-533).
 
