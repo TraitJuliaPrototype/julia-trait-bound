@@ -11,8 +11,8 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | cf0f039f51 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | a5ec7f0 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `julia-next` | julia, `next` | 683ea4fc16 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `TraitWorld` | TraitWorld, `unified` | 38200d3 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 06c28c3 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -20,7 +20,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | `ndport` | `main` | 4fecc02 | NetworkDynamics (its branch `unified` c2bbf0d), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
-The suites below ran on these heads, but for the library: the round's rows (E-519 to E-523) and NetworkDynamics' subset ran at the freeze `round-2026-11-c`, whose library is TraitWorld 42d60e1. The gates, the library's suite, the examples and the suites of the ODE port, TraitTables and TraitMakie ran on 57879c3 too.
+The suites below ran on these heads, but for the library: the round's rows (E-519 to E-523) and NetworkDynamics' subset ran at the freeze `round-2026-11-c`, whose library is TraitWorld 42d60e1. The gates, the library's suite, the examples and the suites of the ODE port, TraitTables and TraitMakie ran on 57879c3 too. The gates (75 and 9) and the library's suite (120 testsets) ran on `next` 683ea4fc16 with TraitWorld 38200d3.
 
 **The regression control** is the tag `prototype-2026-11` in every repository: `julia-unified` (7b374f39ce) and `TraitWorld-base` (e11c7cc) are its trees. A change is measured against plain Julia and Python; the tag says whether the implementation got worse.
 

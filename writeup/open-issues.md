@@ -166,18 +166,6 @@ Between soundness (facts G1) and G-2.
   - The mark left off where every member the session has is checked at the call's types and an edge ends the code when one joins: a membership that invalidates as a method does carries such an edge already.
   - Time one call that passes an operation's result on, with and without the check, before either.
 
-### GT-34. A dispatch edge at the call's own signature costs a plain package's load
-
-Between G-1 and G-4.
-- **The rule** ([compiler §3.1](reference/compiler.md#31-the-record)): a dispatch edge and its backedge keep the call's own signature where the call reached an instance wider than its match, so that a method defined later ends the caller only where it meets the call. The facts mode's deep class asks a call's dispatch fact there; in plain Julia the rule serves a `Base.@nospecializeinfer` method.
-- **What it costs** (E-534, the rule alone on v1.13.2): upstream CSV and DataFrames compiled plainly load in 718–740 ms against vanilla's 647–657 ms, a tenth more. The packages' images keep 269 external instances that vanilla's do not. The first work is unchanged. On the head a plain load of the two takes 748.0–751.6 ms against vanilla's 652.1–660.6 ms (E-516): the rule accounts for that difference to within the runs' spread.
-- **What it gives plain Julia** (E-534): a package's `Base.preserve_handle(::MyType)` ends 1 instance of the system image, not 443. The system image holds 871 such backedges beside 267,706 ordinary ones.
-- **Not isolated:** whether the load pays for the external instances the images now keep, or for the backedges collected into a vector per caller where they are stored (`store_backedges`).
-- **The proposals:**
-  - One build of each variant tells the two causes apart. If it is the collection, the duplicate check runs on the iterator as in plain Julia and the cost goes.
-  - If it is the instances kept, the image keeps an external instance through such a backedge only where the facts mode reads it.
-  - `!==` declared `Base.@nospecializeinfer`, one instance, in place of the clause that matches it at the call's types ([compiler C-159](reference/compiler.md#deviations)).
-
 ## 3. The agent's choices
 
 Choices made while building. Each stands as recorded, in its reference and in [the decision log](record/decisions.md) marked "mine", and is input to the next synthesis.
