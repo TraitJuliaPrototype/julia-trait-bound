@@ -1,6 +1,6 @@
 # The changes to Julia for upstream: the plan for the facts series and the traits series (W-19)
 
-**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 and F4 in three are made, and the two series are built together). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
+**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 with F4 in three, and the traits parts T1 to T5 are made; the stacks are built together). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
 
 **What it is.** The plan's stage 8 ([the next iteration](../plans/2026-11-15-next-iteration.md)) asks for two proposals that stand apart: the facts rule with ownership, and traits (sets, memberships, contracts, the box and the wrapper). This file cuts the final tree's diff into parts a core developer reviews one at a time, orders them, and names what does not go upstream as it is. No patch of these two series is made here.
 
@@ -107,6 +107,13 @@ The 18 branches `up/01` to `up/18`, each on v1.13.2 alone: `README.md`. 595 line
 
 **Series T in all:** about 8,500 lines with TX and its share of the unassigned comments.
 
+**Made: T1 to T5** (`traits/01` to `traits/05`, the stack `w19-traits`; 29 files, 4,184 lines; E-539). What making them showed:
+- **T1** holds only what T1 to T5 read (`open_set`, `never_member`, `input_params`, `memberships`, the entry without its method, `has_open_set` with the flags word widened): 142 lines. `contract`, `declared_fields` and `operations` go with T10, `erases` with T14, `closed_after_load` with T7, `Core.All` with T3, `Core.Callable` with T12.
+- **T2** is made in four (the declaration and its checks with the query world; subtyping and intersection through entries, with type values; the memo and the non-member's fast path; inference's query world and the compiler's fold gates in a form that records nothing): 1,487 lines. Without the gates, code compiled before a membership is wrong.
+- **T4 is not sound alone** for a call compiled or cached before a membership: it lands with T5. T5 includes `jl_delete_membership` and exports F10's deep ending.
+- **Plain code pays** 12 % in a micro-timing of subtyping and 3 % of its first work with no set declared (GT-9): a test at the entry of subtyping is proposed, not built.
+- **The gates that wait** and the part each needs: the README's table.
+
 ### 2.4 Shared parts and candidates for series G
 
 | Part | Subject | Files | Lines | Kind |
@@ -187,7 +194,9 @@ Each with the question a core developer would ask.
 - **The display at `IOContext{IO}`** (T13: `REPL.show_limited`, `TextDisplay`): changes what type every `show` method sees at the REPL. Question: what plain packages' `show` methods that dispatch on the stream's type do then (a method at `IOContext{Base.TTY}`).
 - **`DataType.flags` widened to 32 bits** (T1): every DataType gets a word; Base's masks change. Question: the cost in memory, and whether a bit on `TypeName` serves.
 - **Lowering's record of `f(…)::RT` as a declared result** (T10): a method's return annotation becomes something inference trusts at a set. Question: what it means for plain methods with a return annotation (none: it is read only at a set), stated in the patch.
-- **Rewrites of `test/precompile.jl`** (`(be.def::Core.MethodInstance).def::Method`): follows neither S1 nor F7 (`precompile` passes on both without it): a traits change by the two series alone, but needed on the two built together (`w19-g-facts`: the test's line 977 runs there; which part makes it run is not found); it goes with that part, with the reason.
+- **The rewrite of `test/precompile.jl`'s line 977** (`(be.def::Core.MethodInstance).def::Method`): needed where F8 and `up/04` are together. F8 keeps in a package's image the code its workload reached only by dispatch at run time where that code is in the deep class, plain code too; with `up/04` the test's `g1` is such code, so its instance has backedges after the loads. It goes with F8, with the reason (`w19-facts-tests-v2`).
+- **F8 changes what a plain package's image keeps** (the line above): to say in its message.
+- **Debugging switches** `JULIA_MEMBERSHIP_LOG`, `jl_membership_stat`: not for upstream as they are.
 
 ## 6. How to continue
 
