@@ -1,6 +1,6 @@
 # The changes to Julia for upstream: the plan for the facts series and the traits series (W-19)
 
-**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 with F4 in three, and the traits parts T1 to T5 are made; the stacks are built together). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
+**Status:** proposal (2026-11-22; series G, the facts parts F0 to F12 with F4 in three, and the traits parts T1 to T10 are made; the stacks are built together). Written beside the patches useful without traits ([their table](../../experiments/implementation/w19/README.md)). Not normative: the references are.
 
 **What it is.** The plan's stage 8 ([the next iteration](../plans/2026-11-15-next-iteration.md)) asks for two proposals that stand apart: the facts rule with ownership, and traits (sets, memberships, contracts, the box and the wrapper). This file cuts the final tree's diff into parts a core developer reviews one at a time, orders them, and names what does not go upstream as it is. No patch of these two series is made here.
 
@@ -113,6 +113,15 @@ The 18 branches `up/01` to `up/18`, each on v1.13.2 alone: `README.md`. 595 line
 - **T4 is not sound alone** for a call compiled or cached before a membership: it lands with T5. T5 includes `jl_delete_membership` and exports F10's deep ending.
 - **Plain code pays** 12 % in a micro-timing of subtyping and 3 % of its first work with no set declared (GT-9): a test at the entry of subtyping is proposed, not built.
 - **The gates that wait** and the part each needs: the README's table.
+
+**Made: T6 to T10** (`traits-v2/06` to `traits-v2/10`, the stack `w19-traits-v2` on the facts series with its tests; 31 files, 3,039 lines of which 302 tests; E-539). What making them showed:
+- **T6** has no absence edge: nothing folds a negative before T7, so the edge goes with T7. It carries the two `typesubtract` gates T2d lacked.
+- **T7** is the final negatives alone, without the bit `closed_after_load` and a module's `loaded` mark, which nothing reads; it bounds the worlds of code that relies on a final negative, and brings the match's query world.
+- **T8** does not keep the member checks: they are the member hook's state and go with T9.
+- **T9 is three patches:** the hooks with the scope options, the member hook, strict mode; 1,108 lines.
+- **T10** drops `Method.declared_covers` and each function's list of methods at sets.
+- **Plain method matching pays from T7 on** (GT-9).
+- **The order for T11 to T17:** T11 with T15; T12 with T13; T14 with T17 and S3, after which the library loads; T16.
 
 ### 2.4 Shared parts and candidates for series G
 
