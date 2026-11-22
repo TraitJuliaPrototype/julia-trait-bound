@@ -68,6 +68,7 @@ What the work taught, stated as it holds now. Each lesson is one sentence in bol
 - **A session's suites cannot see what a build compiles differently.** A plain call at a value known only by its trait is per type in a session and once at the trait in a trimmed build; the wrapper carries the member's own code into both. A change of how code erases is checked by a trimmed build (E-506, E-507, E-508).
 - **The casts gave a session nothing the box, the wrapper and the forwarder do not give.** Their machinery left Julia with every suite and session as before (E-504, E-505, E-506).
 - **Each ecosystem was ported once, by the design's author.** A porting rule needs a second port. (L49)
+- **A library compiled by facts keeps its own hooks safe from unrelated loads only where it calls Base's generic code at values typed `Any` from its own code, or through a run-time site by intent.** The same call inside Base's plain code commits, and puts every caller outside the deep class: a dependency's `promote_rule` ended 15 of the library's instances at each port's load. (E-531)
 
 ## 6. Claims and measuring
 
