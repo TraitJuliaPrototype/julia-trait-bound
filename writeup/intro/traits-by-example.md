@@ -171,7 +171,27 @@ ratio(compiled_for(Circle(1.0)))      # 0.5: the wrapper, compiled for Circle
 ratio(Dynamic{Shape}(Circle(1.0)))    # 0.5: the box, compiled once for Shape
 ```
 
-Rules: [reference §6](../reference/traits.md#6-methods-at-traits), [§7.1–§7.5](../reference/traits.md#71-how-an-argument-is-compiled).
+**What a value offers.** `operations(x)` lists what can be done with a value: for each trait it is a member of, the operations as the contract writes them, the defaults marked, and the methods at the trait; then the methods at its own type. `operations(Shape)` gives the trait's contract and its members. At the prompt, `TraitWorld.install_operations_key!()` binds Alt-o to the same listing, for the name under the cursor; its docstring gives the line for `startup.jl`.
+
+```julia
+operations(Circle(1.0))
+# Circle(1.0) is a Circle, a member of Shape
+#
+# Shape
+#   operations:
+#     area(s::Shape)::Float64
+#     perimeter(s::Shape)::Float64
+#     describe(s::Shape)::String   # a default
+#   methods at Shape:
+#     ratio(s::Shape)
+#     bigger(a::Shape, b::Shape)
+#     title(s::Shape)
+#
+# other: methods at Circle
+#     circle_ratio(c::Circle)
+```
+
+Rules: [reference §6](../reference/traits.md#6-methods-at-traits), [§15.1](../reference/traits.md#151-what-a-value-offers), [§7.1–§7.5](../reference/traits.md#71-how-an-argument-is-compiled).
 
 ---
 

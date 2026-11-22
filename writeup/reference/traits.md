@@ -243,6 +243,8 @@ end
 - At a call on a value whose type the code knows only as the trait: the result is asserted to the declared type (§7.9).
 - At a call outside the declared signature that no method of the member takes (`scale(c, 2)` for `scale(s::Scalable, k::Float64)`): Julia raises its `MethodError`, with a hint that names the operation's declared signature and its trait (§11.4).
 
+- **A docstring written before an operation in the body** documents its function at the declared signature. It defines no method. A docstring before a declared field is refused.
+
 **Status:** Implemented.
 
 ### 4.2 Defaults
@@ -1263,6 +1265,17 @@ Two guarantees, asked for separately.
 - A trait prints as the type it is.
 
 **Status:** Implemented.
+
+### 15.1 What a value offers
+
+- **`operations(x)`** lists what can be done with a value or a type. For each trait its type is a member of (by its own membership, a supertrait, forwarding, or an abstract type that is a member): the contract's operations as written, with their declared results, defaults and docstrings; the declared fields; the methods at the trait. Then the methods at an intersection the type is in, and the methods at the type itself, bounded.
+- **`operations(X)`** for a trait gives its contract, its supertraits' and its members.
+- **For a box** it lists the operations of the object the box holds, and says that only the box's trait's operations reach it. For either kept form a method at the object's own type needs `unwrap(x)`.
+- Signatures print as written (§11.3). `Callable` is listed for a function only as `operations(Callable)`: every function is a member of every signature.
+- **Its result is a value** (`Operations`), which the REPL shows grouped; tools read its fields.
+- **At the REPL** `TraitWorld.install_operations_key!()` binds Alt-o to it, on the name under the cursor.
+
+**Status:** Implemented (the library; test `operations.jl`).
 
 ---
 
