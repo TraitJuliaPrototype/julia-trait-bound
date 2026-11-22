@@ -224,3 +224,33 @@ Rows 132 and 136 merged these into `next`. The rows of kind *general* are useful
 | s3-11 | 396cd65a48 | **W-157, D-8:** `yieldto` sets the task's result with `setfield!`, as `schedule` does. | general | compiler §11 |
 | s3-12 | 024755ee89 | **W-157, D-8:** `Val(x)` builds its singleton with `new{x}()`, an inner constructor, not by a call of the constructor at a type computed from the value. | general | compiler §11 |
 | s3-13 | bc844be7c0 | **W-157, D-8:** `IOContext(io, key => value)` stores the property through `ImmutableDict`'s own constructor by `invoke`. | general | compiler §11 |
+
+<a id="patches"></a>
+## 5. The patches for upstream
+
+The changes that are useful without traits and facts, each as one commit on v1.13.2: the branches `up/01` to `up/18` of the julia repository. Each is its subject's part of the final diff against v1.13.2, not a commit of the stack above. `w19-stack` holds the eighteen in order: the tree that was built and tested. Each patch's size, test, motivation in plain Julia's terms and risk: [the table](../../experiments/implementation/w19/README.md). The plan for the two series that follow, the facts mode with ownership and traits: [the proposal](../plans/2026-11-22-upstream-series.md).
+
+| Patch | What | Rows it covers | Checked |
+|---|---|---|---|
+| `up/01-reinterpret-padding-typed` | `reinterpret`'s padding helpers call type functions by `invoke` and builtins | 1 | in the stack; in a session of vanilla |
+| `up/02-introspection-getfield-invoke` | the introspection helpers read with `getfield` and call through `invoke` | 2, 3 (without the flags' masks, which are traits) | in the stack; in a session |
+| `up/03-typejoin-getfield-invoke` | the type joins | s3-10 | in the stack; in a session |
+| `up/04-error-paths-concrete` | error paths build their exception at a concrete signature | s3-9 | in the stack |
+| `up/05-yieldto-setfield` | `yieldto` writes the result with `setfield!` | s3-11 | in the stack; in a session |
+| `up/06-val-new` | `Val(x)` builds with `new` | s3-12 | in the stack |
+| `up/07-iocontext-property-invoke` | `IOContext(io, k => v)` stores through `invoke` | s3-13 (its `Pair` hunk) | in the stack |
+| `up/08-issorted-specialize` | `issorted`'s keyword body specialized on `lt` and `by` | 152 | in the stack; in a session |
+| `up/09-reflection-interp-world` | an explicit `NativeInterpreter` runs in the compiler's world | 9 | in the stack; in a session |
+| `up/10-bootstrap-return-type` | `_return_type` as a bootstrap entry | 7 | in the stack |
+| `up/11-invoke-exact-vararg` | an invoke keeps the exact specialization over a widened varargs tail | 10 | built alone |
+| `up/12-cycle-inline` | an inference cycle's members inline each other | 11 | built alone |
+| `up/13-applicable-union-bottom` | `applicable` at a `Union{}` tuple type | 49 | in the stack |
+| `up/14-callsite-cache-wildcard` | the per-call-site cache holds entries with `Any` positions | 4 | built alone |
+| `up/15-dispatch-profiler` | `JULIA_DISPATCH_PROFILE=1` | 5 | built alone |
+| `up/16-cfunction-caller-world` | the `cfunction` convention `:caller_world` | 6 | built alone |
+| `up/17-image-hashless-external` | an image keeps no external code at a signature type without a hash | 8 | built alone |
+| `up/18-precompile-typeinf-type` | `typeinf_type` compiled into the system image | 59 (its precompile statement) | built alone |
+
+- **Without a patch:** row 137 (a cast that v1.13.2 does not need; it goes with the facts mode); the call's own signature in a dispatch edge and its backedge (rows 79, 83 and s3-8, kind *general* by what they do: the candidate for `up/19`, with a build of its own).
+- **The whole stack** on v1.13.2: 22 files, 595 lines added, 121 removed; the system image 1.0 % larger (E-533).
+
