@@ -93,14 +93,14 @@ Sessions a user would run, each in a fresh process:
 - **Julia is slower than Python on every row,** and several times faster than plain Julia on the two rows that have it.
 - **The ODE row is not like for like:** the demonstrators have a fraction of SciML's and Makie's features.
 - **Most of a short session's time is the start and the imports:** loading the package images. After that, code generation and inference of the session's own code ([the evidence](../design/evidence.md#where-a-sessions-time-goes), E-388).
-- The ports pass their upstream test suites but for four tests in DataFrames that assert an inferred type and see `Any` ([open issue 157](../open-issues.md#2-design); E-373).
+- The ports pass their upstream test suites but for four tests in DataFrames that assert an inferred type and see `Any` ([open issue 157](../open-issues.md#2-design)), and one in Tables, a type passed where a function is expected ([open issue 240](../open-issues.md#2-design)). CSV's suite passes whole, 330,549 tests (E-523).
 
 ## Ahead-of-time binaries
 
 A program built with `juliac --trim` has every member of each trait, so it compiles generic code for the members it uses, as Rust does ([`traits-by-example.md`](traits-by-example.md#19-traits-in-a-package)).
 - **Small trait programs** build and run, with no compiler in them, also where they loop over a vector typed by a trait. The same loop over an abstract type is refused in plain Julia (E-384).
-- **The four demonstrators' programs** build with no error, run, and give a session's output: the table, the report, the plot and the ODE program's two solves, and an ODE program that passes callbacks it knows to the solver. They take 2.7 to 5.4 MB (E-519). The same programs written without traits stop the build with 6 to 86 errors.
-- `fully_typed` in a session agrees with the build on each small program (E-520, E-384), and on the ODE program's members and errors (E-510).
+- **The four demonstrators' programs** build with no error, run, and give a session's output: the table, the report, the plot and the ODE program's two solves, and an ODE program that passes callbacks it knows to the solver. They take 2.7 to 5.4 MB, and the plot's and the report's images are byte for byte the ones a session writes (E-519). The same programs written without traits stop the build with 6 to 86 errors.
+- `fully_typed` in a session agrees with the build on each of thirteen small programs (E-520), and on the ODE program's members and errors (E-510).
 - The sizes, the builds and what the plain twins give: [the evidence, G-6](../design/evidence.md#g-6-compiling-ahead).
 
 ## What it costs
@@ -112,7 +112,9 @@ A program built with `juliac --trim` has every member of each trait, so it compi
 **Code that uses no trait** runs on the same Julia, where dispatch and subtyping also look at memberships (E-515, E-386):
 - upstream CSV.jl and DataFrames compiled plainly: the first run takes 3.32–3.34 s against 3.25–3.28 s on Julia 1.13.2; repeated small operations 0.18–0.19 ms against 0.18 ms;
 - a long scripted session of plain code takes 14.1–14.4 s against 13.5–13.6 s;
-- loading the trait library after plain work discards none of the plain code.
+- loading the trait library after plain work takes 33 ms and discards none of the plain code (E-531).
+
+**Asking a session whether a program builds** takes seconds, and the session keeps none of it for the next time: for the ODE program `fully_typed` takes 10 s the first time and 2.5 s each time after, where the build's own compile step takes 13 s (E-532, E-519). Plain Julia has no such check.
 
 **Editing:** about a quarter of a second to evaluate an edited method at a trait the first time in a session, then milliseconds (the table above).
 
