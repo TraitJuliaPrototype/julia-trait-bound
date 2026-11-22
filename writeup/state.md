@@ -11,8 +11,8 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
-| `julia-next` | julia, `next` | bfaf484f55 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | e2cb5d0 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `julia-next` | julia, `next` | dd42dc8c3f | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
+| `TraitWorld` | TraitWorld, `unified` | 0f54043 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 21a5aa5 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -20,7 +20,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | `ndport` | `main` | e8e1e00 | NetworkDynamics (its branch `unified` 4992049), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
-The suites below ran on these heads, but for the library: the round's rows (E-519 to E-523) and NetworkDynamics' subset ran at the freeze `round-2026-11-c`, whose library is TraitWorld 42d60e1. The gates, the library's suite, the examples and the suites of the ODE port, TraitTables and TraitMakie ran on 57879c3 too. The gates (75 and 9), the library's suite (120 testsets), the examples (33, 129, 10), the ODE port's suite, NetworkDynamics' subset and the four trimmed programs (0 errors, each output equal to a session's) ran on `next` bfaf484f55 with TraitWorld e2cb5d0, TraitDifferentialEquations 21a5aa5 and NetworkDynamics 4992049.
+The suites below ran on these heads, but for the library: the round's rows (E-519 to E-523) and NetworkDynamics' subset ran at the freeze `round-2026-11-c`, whose library is TraitWorld 42d60e1. The gates, the library's suite, the examples and the suites of the ODE port, TraitTables and TraitMakie ran on 57879c3 too. The gates (75 and 9), the library's suite (120 testsets), the examples (33, 129, 10), the ODE port's suite, NetworkDynamics' subset and the four trimmed programs (0 errors, each output equal to a session's) ran on `next` dd42dc8c3f with TraitWorld 0f54043 (the gates now 77 and 9), TraitDifferentialEquations 21a5aa5 and NetworkDynamics 4992049.
 
 **The regression control** is the tag `prototype-2026-11` in every repository: `julia-unified` (7b374f39ce) and `TraitWorld-base` (e11c7cc) are its trees. A change is measured against plain Julia and Python; the tag says whether the implementation got worse.
 
