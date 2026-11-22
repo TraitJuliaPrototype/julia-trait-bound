@@ -792,3 +792,15 @@ Paragraphs of the old §1 that were not items: "W-141, input to the synthesis", 
 - *The case:* a trait module declares a trait whose operation it neither exports nor declares `public`; `@implement OShape Sq begin oarea(q) = … end` in another trait module is refused as a pirate: the operation is owner-only by the default ([traits §12.2](reference/traits.md#122-pirates)), and a member's method of it is another module's method.
 - *The rule:* a member's package is a stakeholder of its own type at a trait's operation ([facts §3](reference/facts.md#3-fact-signatures)); the owner-only default takes no account of a function being a trait's operation.
 - *The proposal:* a trait's operations are not owner-only by the default: a contract is there to be implemented. Or `@trait` requires its operations exported or `public`, with a message where they are not.
+
+GT-31. **Closed (2026-11-22, by its criterion; W-159, E-518):** on `next` cf0f039f51 strict mode refuses the case's pirate: `PirateError` at the user's line 13, 3 lines, 486 bytes, "It would win at the call `uppercasefirst(::String)`, which code compiled by facts makes (in `Main.Geometry.title`)". Without strict mode the pirate is reported by a warning and followed. E-518's criterion was this refusal. The rule of facts §11.2 is unchanged: strict mode and the report read the deep class. The log: `experiments/implementation/w159/logs/g5-r1/H/05_pirate.trait-strict.out`.
+**GT-31. Strict mode secures the deep class only.**
+
+Between G-5 and G-1.
+- **The rule** ([facts §11.2](reference/facts.md#112-strict-mode), [traits §12.2](reference/traits.md#122-pirates), [§12.3](reference/traits.md#123-strict-mode)): strict mode's walk and the pirate report read the deep class only, so that a load costs nothing measurable (E-457).
+- **What it costs today** (E-498, `next`): E-385's `05_pirate`, a module that owns neither defines `Base.uppercasefirst(::String)`. The library's `title(s)`, compiled by facts in a trait module, calls it, and rests on Base's plain `uppercasefirst`, outside the class. Under strict mode the case runs to its end and prints the pirate's result. One of E-385's fifteen mistakes reaches its end silently.
+- **The proposals:**
+  - (b) The report names a pirate that ends code compiled by facts outside the class too, under strict mode only, where its cost is accepted.
+  - (c) Base's patches bring such callees into the class (GT-8 (c)).
+  - (a) Under strict mode the walk refuses a pirate that ends any code compiled by facts, deep or not, at the walk's cost over the share outside the class.
+  - The proposal is (b), with (c) as Base's surface reaches the callees.

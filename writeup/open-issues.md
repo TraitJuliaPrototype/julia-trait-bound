@@ -27,16 +27,16 @@ Each entry is a rule of the references that sets one goal against another. The i
 
 Between G-5 and G-4 (load time).
 - **The rule** ([traits §5.10](reference/traits.md#510-checks), [§12.3](reference/traits.md#123-strict-mode)): a member's check is its serving instances, kept with their edges and validated with an image. At a load, only the instances that fail validation are inferred again.
-- **What it costs today:** the implementation deviates (traits T-129). Strict mode infers every membership of an image at its load. `using TraitTables, TraitCSV` takes 248–250 ms under strict mode and 180–181 ms without it (E-382, `unified`). Strict mode only.
+- **What it costs today:** the implementation deviates (traits T-129). Strict mode infers every membership of an image at its load. `using TraitTables, TraitCSV` takes 215.2–216.4 ms under strict mode and 153.0–153.7 ms without it, 40 % more (E-516, `next` cf0f039f51; a warm-up and 3 runs). Strict mode only.
 - **The proposal:** build T-129. The tension closes with it.
 
 ### GT-3. The compiler and Base are compiled plainly
 
 Between G-4 and G-7, against G-1.
 - **The rule** ([facts §6.4](reference/facts.md#64-the-compilers-own-code), [§13.1](reference/facts.md#131-the-product-setting)): the compiler's own code is compiled plainly, and so is Base's code in the product setting. Plain code commits across calls at abstract types, so a plain package's ordinary method can invalidate it.
-- **What it costs today** (E-382, E-386, `unified`):
-  - Loading upstream CSV and DataFrames logs 605 instances of the compiler, against 122 on vanilla.
-  - The session takes 14.1–14.4 s, against 13.5–13.6 s on vanilla.
+- **What it costs today:**
+  - Loading upstream CSV and DataFrames logs 132 instances of the compiler, against 122 on vanilla; the ODE port's load logs 489 (E-516, `next` cf0f039f51).
+  - Upstream's REPL session takes 14.1–14.4 s, against 13.5–13.6 s on vanilla (E-386, `unified` 21c9b33e39).
   - Inference on plain code takes 1.5 times vanilla's (E-389).
   - Base compiled by facts needs a system image of its own: an empty session under the test bed `all` takes 24–25 s without one (E-275).
   - Of the calls a load checks by signature, the costliest edges, 732 of 882 are in plain code that fails G2 (E-325).
@@ -76,7 +76,9 @@ Between G-8 and G-1.
 - **What it costs today:**
   - The share in the class (E-478, `next-s3`): the forks' own facts instances 63.1 %; upstream compiled by facts 79.0 %.
   - Nine unrelated loads end no own instance in the class. Below the own code they end 30 and 12, all by SparseArrays' method of Base's `_cat` at Base's types, a standard library's method (item 19).
-  - The forks' work after the nine loads: 2.22–2.25 s, against 0.18–0.19 s first (E-392, `unified`); 2.3 s on `next-s3` (E-478). Upstream compiled plainly: 5.17–5.29 s after the loads, against 4.13–4.26 s first (E-392).
+  - The forks lose 150 of 5,705 own image instances to the nine loads (2.6 %: CSV 137, DataFrames 12, PooledArrays 1); their work after the loads takes 2.19–2.34 s, against 0.19 s first (E-511, `next` cf0f039f51). Upstream compiled plainly: 5.19–5.32 s after the loads, against 4.45–4.46 s first.
+  - What ends the forks' instances on that head (`experiments/implementation/w134/cause.jl`, the work first): 162 entries of the load's log hang from SparseArrays' method of Base's `_cat`, through Base's `vcat(::Int64, ::Vector{Int64})`, to CSV's `_parse`, `_parseprepared` and `_filefromprepared` (depth 4 to 8); 32 from FilePathsBase's method of `open`. The tool reads an older build's flag bit for facts code ([item 257](#5-implementation-and-measurements)).
+  - The library's own hooks are facts code above Base's plain callees too: a port's load ends 15 of them ([item 254](#5-implementation-and-measurements)).
   - What keeps the rest out is Base's plain code where types are not known: [item 218](#2-design).
 - **The proposals:**
   - (a) Base compiled by facts in the product setting, so that the callees are facts code. GT-3 sets this against the compiler compiled plainly.
@@ -89,7 +91,7 @@ Between G-8 and G-1.
 Between G-8 and G-4.
 - **The rule** ([compiler §4](reference/compiler.md#4-sets-and-memberships), [§5.1](reference/compiler.md#51-the-method-table)): memberships are consulted in subtyping and in method matching, for every type.
 - **What it costs today:**
-  - Plain code's repeated work: a median of 0.18–0.19 ms on `next`, against 0.17–0.18 ms on vanilla (E-499).
+  - Plain code's repeated work: a median of 0.18–0.19 ms on `next` cf0f039f51, against 0.18 ms on vanilla (E-515).
   - DataFrames' repeated steps on a small table, 8–18 % slower than vanilla (E-356, `unified`): `describe` 19.2 against 17.6 µs, `sort` 8.0 against 6.9 µs, `groupby`-`combine` 45.2 against 40.4 µs.
   - A non-member's `<:` against a set: 1.7–1.8 times an unrelated pair's in vanilla (E-270).
   - Plain code's first work: [item 225](#4-runtime-and-measurements).
@@ -99,9 +101,9 @@ Between G-8 and G-4.
 
 Between G-5 and G-1.
 - **The rule** ([traits §11.2](reference/traits.md#112-definition-checking), [compiler §6.7](reference/compiler.md#67-the-definition-time-check)): the check reads the method's instance at the box, which an edit infers once, as the box's next call would.
-- **What it costs today:** an edit of TraitTables' `summarize` evaluates in 0.70 s the first time and 0.49 s the second, with the check's code in the system image (E-391, `unified`). The plain twin takes 88 ms and 9 ms (E-379). On `next` the check reads the box's instance (compiler C-115), but the edit is not timed there.
+- **What it costs today** (E-512, `next` cf0f039f51, TraitTables e1ec1f4; a warm-up and 2 processes): after the table session's work, an edit of TraitTables' `summarize` is defined in 0.235 s the first time and in 9.3 ms the second. The plain twin takes 70.5 ms and 6.7 ms. The first edit compiles the check's own instances (4 of the library's); the second compiles none. With the library alone the edit takes 4.5–4.6 ms to define and 10.4 ms to the box's first call (E-440).
 - **The proposals:**
-  - Time E-391's edit again once TraitTables follows the design. The tension closes if the edit then costs what the box's first call costs.
+  - (a) The library's image holds the check's own instances that the first edit compiles (4 in this session, `TraitWorld._argtype` among them), so that the first edit costs what the second costs. To measure first: which part of the 0.235 s they are, and whether a load ends them ([item 254](#5-implementation-and-measurements)).
   - (b) The check's inference results kept between checks, as the native interpreter's are, and ended as code is.
   - (c) The check of an edited method deferred to its first call, with the definition's error raised there. It sets the place of the error (G-5) against the edit's time.
 - **What a verdict that no optimization decides would add** ([open issue 251](#5-implementation-and-measurements); E-529): the check per method 1.8 to 2.3 times, 0.17 ms median and 0.54 ms mean over the demonstrators' 142 methods becoming 0.26 to 0.35 and 1.0 to 1.25; with the walk's results kept and the inferred code handed over by Julia, at most 1.31 times.
@@ -139,17 +141,6 @@ Between G-1 and G-4.
   - (a) Patch the rest as Base's surface reaches them (item 218 (d)).
   - (b) The rule in code of either policy: such a call dispatched when it runs, its result `Union{}` asserted, holding an edge that a redefinition of the callee reaches and the callee's own invalidation does not. Julia has no such edge (item 219 (a) is the same form). It changes plain code where a change below the callee makes it return: a `TypeError` where Julia goes on.
   - Or accept, as item 218 (e).
-
-### GT-31. Strict mode secures the deep class only
-
-Between G-5 and G-1.
-- **The rule** ([facts §11.2](reference/facts.md#112-strict-mode), [traits §12.2](reference/traits.md#122-pirates), [§12.3](reference/traits.md#123-strict-mode)): strict mode's walk and the pirate report read the deep class only, so that a load costs nothing measurable (E-457).
-- **What it costs today** (E-498, `next`): E-385's `05_pirate`, a module that owns neither defines `Base.uppercasefirst(::String)`. The library's `title(s)`, compiled by facts in a trait module, calls it, and rests on Base's plain `uppercasefirst`, outside the class. Under strict mode the case runs to its end and prints the pirate's result. One of E-385's fifteen mistakes reaches its end silently.
-- **The proposals:**
-  - (b) The report names a pirate that ends code compiled by facts outside the class too, under strict mode only, where its cost is accepted.
-  - (c) Base's patches bring such callees into the class (GT-8 (c)).
-  - (a) Under strict mode the walk refuses a pirate that ends any code compiled by facts, deep or not, at the walk's cost over the share outside the class.
-  - The proposal is (b), with (c) as Base's surface reaches the callees.
 
 ### GT-32. A callable struct that is no `Function` is no member of `Callable` until its owner declares it
 
@@ -546,16 +537,54 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The proposal:* a Julia hook after code is compiled at output, or the member used in the package's workload before output.
 
 **225. Plain code's first work is slower on `next`: more code generation.**
-- *The case* (E-499; the session `plain.jl`, upstream CSV and DataFrames compiled plainly, the same hour, 3 runs): the first work takes 3.31–3.47 s on `next`, against 3.25–3.30 s on vanilla, and is a regression against the tag `prototype-2026-11`. The same holds with the library loaded first. The repeated work is unchanged (0.18–0.19 ms).
-- *The profile of one first call* (`w161/d4/prof_first.jl`): on `next` 2,640 of 3,466 samples are in code generation (`jl_compile_codeinst`, 76 %), 834 in inference. The membership machinery takes no measurable share.
+- *The case* (E-515; the session `w134/plain.jl`, upstream CSV and DataFrames compiled plainly; `next` cf0f039f51 against vanilla 45b6d15e34, a warm-up and 3 runs, interleaved, load 2.5–3.5): the first work takes 3.316–3.342 s on `next`, against 3.252–3.281 s on vanilla, 0.07 s more at the median. The registered criterion is met by neither branch: above vanilla's range, under the line of 0.1 s above it. With the library loaded first: 3.287–3.298 s. The repeated work is unchanged (0.18–0.19 ms against vanilla's 0.18 ms). The same work is faster at the regression control (E-525), which is why `next`'s commits are bisected.
+- *The profile of one first call* (`w161/d4/prof_first.jl`, `next` 5448a8b7bf): 2,640 of 3,466 samples are in code generation (`jl_compile_codeinst`, 76 %), 834 in inference. The membership machinery takes no measurable share.
 - *The rule:* not identified.
-- *The proposal:* bisect `next`'s commits with `experiments/implementation/w161/d4/plain.sh`, one build each, at the freeze, where builds are made anyway.
+- *The bisection* (E-527; `experiments/implementation/w159/rows/oi225.sh`, one build at a time in `wt/w159-bisect`, each with its own depot, the regression control and vanilla the same hour):
+  - `next` 9b6dacf5c5, the code slot removed (D-7): first work 3.362–3.366 s, vanilla 3.261–3.276 s; bad by the row's line.
+  - Left, first-parent after the control: 7063158f42 (the G2 bit marks the deep class, D-5), 3037289af6 (a split's inlined branch names its CodeInstance), 9b6dacf5c5. Two more builds decide it: 3037289af6, then 7063158f42 or none.
+  - The result: not yet.
+- *The proposal:* the commit found names the rule; a fix at the rule if it is small. Until then the cost stands in [GT-9](#gt-9-the-membership-machinery-costs-code-that-uses-no-trait).
 
 **228. An instance a package's workload compiles for a call dispatched at run time is missing from its image.**
-- *The case* (E-501): the ODE session (E-372) solves Robertson with Rodas5. `rodas5_solve` calls `TraitRodas._rodas5_run` past a barrier (`rodas5_init`'s result is not inferred to one type). The ODE port's image holds only the instance at the bare `Rodas5Integrator`, not the one at the session's integrator, so the session compiles it (315 ms): the first run takes 651 ms, a regression against the tag `prototype-2026-11`.
-- *The counts* (`w161/d2/image_instances.jl`, the instances with valid code after loading, per function): fewer of `_rodas5_run`, `advance!`, `core_solution` (TraitRodas's), `run_to_end!`, `_steps`, `_retcode`, `step_condition`, `step_affect!` (ODECore's).
+- *The case* (E-501, E-521): the ODE session solves Robertson with Rodas5. `rodas5_solve` calls `TraitRodas._rodas5_run` past a barrier (`rodas5_init`'s result is not inferred to one type). On `next` cf0f039f51 the session's first run takes 347–350 ms, against 374.6–376.5 ms with PlainODE (E-521). It compiles ODECore's `_problem_of` (8.1 ms) and `_problem` (7.5 ms) at the session's types besides the session's own functions; `_rodas5_run` is not compiled on its own, it is inferred inside `main` (201.5 ms). E-521's criterion (the first run compiles no instance of TraitRodas or ODECore) is not met.
+- *What the image holds* (E-528; `w161/d2/image_instances.jl`, `experiments/implementation/w159/probes/rodas_ci.jl`): 509 instances with code in TraitDifferentialEquations, ODECore and TraitRodas. `_rodas5_run` at the session's integrator is a `MethodInstance` with no code instance, valid or invalidated. So it is not dropped at load. A `MethodInstance` without code is written into an image when another item of the image names it: the writing process reached the call. Whether it had code for it there is not known.
 - *The rule:* not identified. A lead: the instance is TraitRodas's method compiled by the ODE port's workload, so it is external code in the port's image, which an image keeps only at a signature type with a hash ([julia-changes](design/julia-changes.md)).
-- *The proposal:* find where the workload's instance goes (not compiled, not kept by the serializer, or kept and dropped at load) with `image_instances.jl` on the precompiling process. Before the measurement round, since the sessions' times rest on it.
+- *The proposal:* the next step is the writing process's list: the instances with code in the process that writes the ODE port's image, before it serializes (`image_instances.jl` in that process). Then the serializer's rule for an external instance whose code the process has, against the image's keep rule ([compiler §9](reference/compiler.md#9-images-and-the-machine-code-cache)).
+
+**254. A port's load ends the library's own hooks, which are compiled again in the session** (GT-8's pattern, in the library's runtime).
+- *The case* (`next` cf0f039f51, TraitWorld `unified` 42d60e1):
+  - The ODE port's, the forks' and NetworkDynamics' loads each end 15 of TraitWorld's own instances; TraitTables' and TraitMakie's end none (E-516). They are compiled again in the session: 0.20 to 0.24 s at the ODE port's load.
+  - The cause at the ODE port's load: a method of `promote_rule` that the port's dependencies add ends Base's plain `string(::Integer)`, `promote(::Int64, ::Integer)` and `sprint(showerror, …)` broadcast over a `Vector{Any}`. The library's hooks call them: the definition hook, strict mode's hook at a load, the module-end hook, the bounded check (`_decide_bounded`, `_check_bounded`), the names it prints (`_code_name`, `_written_method`) and `showerror` of `PirateAtLoadError`.
+  - Loaded after plain work, the library takes 168–170 ms, against 58–80 ms loaded first (E-515). Of the profiled load's 381 samples, 277 are in its load-time callback, 221 of them code generation: its image code is invalid after CSV's and DataFrames' methods.
+  - In the forks' session the nine unrelated loads end 16 of TraitWorld's own image instances (E-511).
+  - The ODE session compiles 236 ms again (E-521).
+- *The rule* ([facts §2.2](reference/facts.md#22-g2-stable-caches), [compiler §3.2](reference/compiler.md#32-g2-as-a-predicate)): G2 holds for code in the deep class. The library is compiled by facts, and its hooks rest on Base's plain code at abstract types (an `Integer`, a `Vector{Any}`), outside the class. It is [GT-8](#gt-8-g2-covers-the-deep-class-a-ports-code-outside-it-is-lost-through-plain-callees)'s pattern, in code that every session with the library runs.
+- *The tools:* `experiments/implementation/w159/probes/lib_ended.jl <Pkg>`: each of the library's instances a load ends, and the method that ends it (`logs/probe-lib-ended-ode-H.txt`). `probes/late_profile.jl`: where the library's late load goes (`logs/probe-late-profile-H.txt`).
+- *The proposals:*
+  - (a) The library follows its own porting guide: the hooks' callees typed so that each is in the deep class (`string` at the integer type the value has, a typed vector in place of a broadcast over `Vector{Any}`). The gate: `lib_ended.jl` counts 0 at every port's load; the late load within the first load's time (E-515).
+  - (b) `promote` and `string` at an abstract integer as entries of Base's surface by the census (GT-8 (c), `w157/census.jl`), each a patch that stands without traits.
+  - The proposal is (a): no change of the design; (b) as Base's surface reaches them.
+
+**255. The ODE port's load: what the memberships' activation, the walk and the library's image hook cost.**
+- *The case* (E-516, `next` cf0f039f51): `using TraitDifferentialEquations` takes 505.9–509.2 ms (a warm-up and 3 runs; load 2.6–3.3). Its invalidation log holds 643 instances: 489 of the compiler, 139 of Base, 15 of the library. One profiled load (`experiments/implementation/w159/probes/load_profile.jl`, 1 ms, 469 samples): 148 in code generation, 133 in the packages' load-time callbacks, 83 in the memberships' activation (`jl_memberships_activated`), of them 57 in the membership walk (`jl_membership_dispatch_walk`); 50 in the library's image hook (`_image_methods_hook`).
+- *The rules:* a membership activated at a load walks for the code it ends, as a method's insertion does ([compiler §5.5](reference/compiler.md#55-a-membership-invalidates-as-a-method-does)); the image hook runs once per image, with its methods for other modules' functions, before any is activated ([compiler §10.1](reference/compiler.md#101-definition-and-image-hooks)).
+- *What is not separated:* the code generation at load is mostly the hooks compiled again ([item 254](#5-implementation-and-measurements)); the walk and the image hook are counted under the profiler only. No load of a plain twin of the port is measured beside it.
+- *The proposal:* attribute the load once item 254 is fixed: `load_profile.jl` again, and the load with the walk's and the hook's time counted apart. Then a tension (G-8 against G-4) if the walk or the hook is a share of the load that a rule sets, or a performance exploration if it is the implementation's.
+
+**256. A top-level block compiled whole infers a branch it does not take; the check of a program costs its session 1.35 s.**
+- *The case* (E-521; `experiments/implementation/w159/probes/defs_timed.jl`, `logs/probe-defs-timed-ode.txt`, `logs/probe-defs-profile-H.txt`; two runs): the ODE program (`experiments/implementation/w135/apps/ode.jl`) includes `verify.jl`, a top-level `if get(ENV, "VERIFY", "0") == "1"` around `TraitWorld.verify_main(main, (Vector{String},); entrypoints = true)`. With `VERIFY=0` the branch is not taken. The block holds a loop, so Julia compiles the top-level block whole, and inference infers `verify_main` at the session's `main`: `include("verify.jl")` takes 1,350–1,361 ms, its profile in `typeinf_ext_toplevel`. The session's load mark is 2,059–2,096 ms, of it `using` 650–654 ms.
+- *The pattern:* any program, test or harness that guards a costly call by a condition at top level, in a block that Julia compiles, pays the call's inference when the branch is not taken.
+- *What it shows beside:* `verify_main`'s inference at the ODE program's `main` costs about 1.35 s. G-6 has no registered row for the time of the check asked in a session (GT-16 cites E-369: the build's check 2 to 5 s for a small program, 4 to 11 s for a demonstrator's).
+- *The rule:* none of the design; Julia's rule for top-level code.
+- *The proposals:* (a) the harness: the guarded call moved into a function that the branch calls, so that a branch not taken is not inferred; E-521 run again. (b) A registered row for the check's time in a session: `verify_main` and `fully_typed` at each demonstrator's `main`, a warm-up and 3 runs.
+- *The tool:* `defs_timed.jl <app.jl>` times every top-level statement of a program; `PROFILE_STMT=<text>` profiles the statement that holds the text.
+
+**257. A tool that reads the runtime's flags itself reads them wrong on the head: `w134/cause.jl` reports every ended instance as plain.**
+- *The case* (E-511, `logs/probe-cause-forks-H.txt`): `experiments/implementation/w134/cause.jl` groups the invalidation log's entries by the method that ends them, and marks each entry facts or plain by the flag `0x20`, read only where the entry is a `CodeInstance` (line 27). On the head every entry of the forks' groups reads plain, "facts 0", while `w134/lost.jl` counts 149 facts instances among the forks' 150 lost.
+- *The pattern:* a tool that hard-codes the runtime's flag bits and the log's shape breaks silently when either changes. 32 scripts under `experiments/implementation/` read `0x20` (facts) or `0x10` (G2) from an instance's flags themselves, 8 of them gates.
+- *The rule:* none of the design; the experiments' code.
+- *The proposal:* one helper in the experiments' common code that answers "is this instance's code facts, deep G2" for a `MethodInstance` or a `CodeInstance`, used by every tool; and a self-check in each tool that counts facts code: 0 facts instances in a module compiled by facts fails the run. `cause.jl` first, then the gates.
 
 **244. `MethodError`'s closest candidates list the library's forwarders.**
 - *The case:* a call with no method at a function that has a method at a trait that erases prints, among Julia's "Closest candidates", the forwarder at the wrapper's family, which the user did not write: `sz(!Matched::Compiled{<:Sized2})`, `applyc(!Matched::Compiled{Z} where Z<:Callable{Tuple{Int64}, Int64}, ::Any)`. Six of the 102 messages the library's tests and the examples of `intro/` provoke (the tool `experiments/implementation/w158/messages/`). [Traits §11.3](reference/traits.md#113-errors-and-their-messages) says no message shows a type of the machinery.
