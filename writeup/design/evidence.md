@@ -123,7 +123,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | Base's tests | — | `subtype`, `core`, `ambiguous`, `worlds` pass on both, 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s; `detect_ambiguities(Base)` 0 on both | — | `unified` c3f0b4bc11; one run each | E-262 |
 
 **Not shown.**
-- What the 0.07 s of plain code's first work above vanilla's is made of: not profiled on this head.
+- What the 0.07 s of plain code's first work above vanilla's is made of: not profiled on this head. The build with the code slot did that work 0.38 s under vanilla's (E-527, a regression control).
 - The membership walk without its search at a member whose type is new with the image, and an image that holds the image hook's work: not built, not measured (open issue 255).
 - The library's head under strict mode at a load: not measured (E-531).
 - A package image against a plain twin of the same program: the twins are smaller programs (E-517). A member's image against the twin's member: measured only on `unified` 21c9b33e39 (E-380).
