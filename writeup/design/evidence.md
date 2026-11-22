@@ -75,7 +75,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 - Better steady-state speed: not claimed.
 - An operation on a box past the split's branches goes through the table's pointer (GT-7, below).
 - A stream erased on purpose: up to 4.99 times the stream's type known (GT-5, below).
-- NetworkDynamics' workload: the session 43.6 and 44.1 s, the first pass 19.5–20.2 s, the steady state (`again`) 312–313 ms (E-514, `next` cf0f039f51, NetworkDynamics c2bbf0d; a warm-up and 2 sessions). No plain run is beside it: upstream's packages on vanilla run SciML's solvers, another program, and cannot be loaded offline: 73 of the environment's 352 packages have no source in the workspace's depots ([Q-2](../open-issues.md#1-questions-for-the-user)). Its steady state against upstream's: measured only on the library of October 2026 (E-250 in the ledger); not measured on this implementation.
+- NetworkDynamics' workload has a reference, no twin: upstream's packages on vanilla run SciML's solvers, another program. The port on `next` cf0f039f51 (NetworkDynamics c2bbf0d; a warm-up and 2 sessions, load 3) against upstream on vanilla v1.13.2 (a warm-up and 2 sessions, load 6–13, another hour; E-514): the session 43.6 and 44.1 s against 90.2 and 92.0 s; the first pass 19.5–20.2 s against 48.0–48.6 s; changed equations 0.70–0.72 s against 20.2 s; new parameter values 0.51–0.52 s against 0.71–0.77 s; **the steady state (`again`) 312–313 ms against 225–231 ms: the port's repeated work is slower.** What the 85 ms are made of is not profiled.
 - The solver's time per step against OrdinaryDiffEq's: measured only on the library of October 2026 (E-163 in the ledger); not measured on this implementation.
 
 <a id="3-first-calls-and-sessions"></a>
