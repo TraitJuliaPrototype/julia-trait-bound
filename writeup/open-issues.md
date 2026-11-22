@@ -96,6 +96,7 @@ Between G-8 and G-4.
   - A non-member's `<:` against a set: 1.7–1.8 times an unrelated pair's in vanilla (E-270).
   - Plain code's first work: [item 225](#4-runtime-and-measurements).
 - **The proposal:** leave it, and state it as the design's cost to plain code. Which part is dynamic dispatch through the per-call-site and leaf caches is not separated ([PE-24](record/performance-explorations.md)).
+- **Where the 0.07 s comes from** (E-527): one commit, the code slot removed (compiler §3.3). The build before it does plain code's first work in 2.88 s, 0.38 s under vanilla's 3.26 s; with the slot gone it takes 3.36 s. So the facts mode costs plain code's first work what vanilla costs, to within 0.1 s; the slot had bought plain code 0.4 s of code generation.
 
 ### GT-12. The definition-time check runs at each edit
 
@@ -535,16 +536,6 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 **116. A member first used while Julia writes an image is checked again at load.**
 - *The case:* code compiled at output runs after the build's `atexit` hooks, so the list of checks an image keeps ([lowering §11](reference/lowering.md#11-checks-errors-and-what-images-keep)) misses a member whose first use is there: 1 of the forks' 27 members (`Vector{Union{Missing,String15}}`). A cost at load, no wrong answer.
 - *The proposal:* a Julia hook after code is compiled at output, or the member used in the package's workload before output.
-
-**225. Plain code's first work is slower on `next`: more code generation.**
-- *The case* (E-515; the session `w134/plain.jl`, upstream CSV and DataFrames compiled plainly; `next` cf0f039f51 against vanilla 45b6d15e34, a warm-up and 3 runs, interleaved, load 2.5–3.5): the first work takes 3.316–3.342 s on `next`, against 3.252–3.281 s on vanilla, 0.07 s more at the median. The registered criterion is met by neither branch: above vanilla's range, under the line of 0.1 s above it. With the library loaded first: 3.287–3.298 s. The repeated work is unchanged (0.18–0.19 ms against vanilla's 0.18 ms). The same work is faster at the regression control (E-525), which is why `next`'s commits are bisected.
-- *The profile of one first call* (`w161/d4/prof_first.jl`, `next` 5448a8b7bf): 2,640 of 3,466 samples are in code generation (`jl_compile_codeinst`, 76 %), 834 in inference. The membership machinery takes no measurable share.
-- *The rule:* not identified.
-- *The bisection* (E-527; `experiments/implementation/w159/rows/oi225.sh`, one build at a time in `wt/w159-bisect`, each with its own depot, the regression control and vanilla the same hour):
-  - `next` 9b6dacf5c5, the code slot removed (D-7): first work 3.362–3.366 s, vanilla 3.261–3.276 s; bad by the row's line.
-  - Left, first-parent after the control: 7063158f42 (the G2 bit marks the deep class, D-5), 3037289af6 (a split's inlined branch names its CodeInstance), 9b6dacf5c5. Two more builds decide it: 3037289af6, then 7063158f42 or none.
-  - The result: not yet.
-- *The proposal:* the commit found names the rule; a fix at the rule if it is small. Until then the cost stands in [GT-9](#gt-9-the-membership-machinery-costs-code-that-uses-no-trait).
 
 **228. An instance a package's workload compiles for a call dispatched at run time is missing from its image.**
 - *The case* (E-501, E-521): the ODE session solves Robertson with Rodas5. `rodas5_solve` calls `TraitRodas._rodas5_run` past a barrier (`rodas5_init`'s result is not inferred to one type). On `next` cf0f039f51 the session's first run takes 347–350 ms, against 374.6–376.5 ms with PlainODE (E-521). It compiles ODECore's `_problem_of` (8.1 ms) and `_problem` (7.5 ms) at the session's types besides the session's own functions; `_rodas5_run` is not compiled on its own, it is inferred inside `main` (201.5 ms). E-521's criterion (the first run compiles no instance of TraitRodas or ODECore) is not met.

@@ -804,3 +804,12 @@ Between G-5 and G-1.
   - (c) Base's patches bring such callees into the class (GT-8 (c)).
   - (a) Under strict mode the walk refuses a pirate that ends any code compiled by facts, deep or not, at the walk's cost over the share outside the class.
   - The proposal is (b), with (c) as Base's surface reaches the callees.
+225. **Closed (2026-11-22, W-159; E-527, E-515):** the bisection names one commit: the code slot removed (`next` 9b6dacf5c5; compiler §3.3). The commit before it (3037289af6) does the first work in 2.88 s, as the regression control (2.90 s); with the slot gone it takes 3.36 s; vanilla 3.26–3.28 s the same hours. Against plain Julia the freeze is 0.07 s slower at the median (3.316–3.342 against 3.252–3.281 s), under the row's line: the cost is GT-9's. The control was faster than plain Julia by what the slot saved in code generation.
+- *The case* (E-515; the session `w134/plain.jl`, upstream CSV and DataFrames compiled plainly; `next` cf0f039f51 against vanilla 45b6d15e34, a warm-up and 3 runs, interleaved, load 2.5–3.5): the first work takes 3.316–3.342 s on `next`, against 3.252–3.281 s on vanilla, 0.07 s more at the median. The registered criterion is met by neither branch: above vanilla's range, under the line of 0.1 s above it. With the library loaded first: 3.287–3.298 s. The repeated work is unchanged (0.18–0.19 ms against vanilla's 0.18 ms). The same work is faster at the regression control (E-525), which is why `next`'s commits are bisected.
+- *The profile of one first call* (`w161/d4/prof_first.jl`, `next` 5448a8b7bf): 2,640 of 3,466 samples are in code generation (`jl_compile_codeinst`, 76 %), 834 in inference. The membership machinery takes no measurable share.
+- *The rule:* not identified.
+- *The bisection* (E-527; `experiments/implementation/w159/rows/oi225.sh`, one build at a time in `wt/w159-bisect`, each with its own depot, the regression control and vanilla the same hour):
+  - `next` 9b6dacf5c5, the code slot removed (D-7): first work 3.362–3.366 s, vanilla 3.261–3.276 s; bad by the row's line.
+  - Left, first-parent after the control: 7063158f42 (the G2 bit marks the deep class, D-5), 3037289af6 (a split's inlined branch names its CodeInstance), 9b6dacf5c5. Two more builds decide it: 3037289af6, then 7063158f42 or none.
+  - The result: not yet.
+- *The proposal:* the commit found names the rule; a fix at the rule if it is small. Until then the cost stands in [GT-9](#gt-9-the-membership-machinery-costs-code-that-uses-no-trait).

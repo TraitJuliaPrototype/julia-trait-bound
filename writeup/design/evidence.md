@@ -105,7 +105,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 
 | What is measured | With traits, or by facts | Plain Julia | Python | Build | Experiment |
 |---|---|---|---|---|---|
-| Plain code's first work (upstream CSV and DataFrames) | — | plain code on the build 3.316–3.342 s, vanilla 3.252–3.281 s: 0.07 s more at the median (open issue 225) | — | `next` cf0f039f51; vanilla v1.13.2 45b6d15e34; a warm-up and 3 runs, interleaved; load 2.5–3.5 | E-515 |
+| Plain code's first work (upstream CSV and DataFrames) | — | plain code on the build 3.316–3.342 s, vanilla 3.252–3.281 s: 0.07 s more at the median (GT-9) | — | `next` cf0f039f51; vanilla v1.13.2 45b6d15e34; a warm-up and 3 runs, interleaved; load 2.5–3.5 | E-515 |
 | Plain code's repeated work, the median | — | plain code on the build 0.18–0.19 ms, vanilla 0.18 ms | — | `next` cf0f039f51; vanilla v1.13.2; as above | E-515 |
 | The library loaded late, after plain work | with traits: 168–170 ms (58–80 ms loaded first), ending 0 of 120,780 plain instances; the work after it 1.05–1.08 ms. Of the profiled load's 381 samples, 277 are in the library's load-time callback, 221 of them code generation: its image code is invalid after CSV's and DataFrames' methods ([open issue 254](../open-issues.md#5-implementation-and-measurements)) | — | — | `next` cf0f039f51; 3 runs; the profile one process | E-515 |
 | Base's patches that bring callees into the deep class | — | plain code on the build with and without them: nothing measurable; first work 3.355–3.359 s against 3.351–3.370 s; the system image +0.16 % | — | `next-s3` bc844be7c0; 3 runs each, alternating | E-479 |
@@ -121,7 +121,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 | Base's tests | — | `subtype`, `core`, `ambiguous`, `worlds` pass on both, 16.1/67.7/8.6/8.6 s against 15.7/65.4/8.1/8.4 s; `detect_ambiguities(Base)` 0 on both | — | `unified` c3f0b4bc11; one run each | E-262 |
 
 **Not shown.**
-- Why plain code's first work on the head takes more code generation than vanilla's: not diagnosed; a bisection of `next`'s commits is under way (open issue 225, E-527).
+- What the 0.07 s of plain code's first work above vanilla's is made of: not profiled on this head.
 - What the ODE port's load spends in the membership walk and the library's image hook, once the hooks are not compiled again at load: not attributed (open issue 255).
 - A package image against a plain twin of the same program: the twins are smaller programs (E-517). A member's image against the twin's member: measured only on `unified` 21c9b33e39 (E-380).
 - The facts rule's cost to plain code compiled by facts, on BaseBenchmarks under the test bed `all`: measured only on the library of October 2026 (E-163 in the ledger); not measured on this implementation.

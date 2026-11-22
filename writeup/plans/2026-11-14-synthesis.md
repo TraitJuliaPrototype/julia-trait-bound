@@ -193,7 +193,7 @@ Written by the round's agent (W-159) from the round at the freeze `round-2026-11
 **Standing, with the round's cost.**
 - GT-2: strict mode adds 40 % to TraitTables with TraitCSV's load, 215 against 153 ms (E-516); the criterion was under 10 %.
 - GT-8, larger: the forks lose 150 of 5,705 own image instances to nine loads (2.6 %), their work after the loads 12 times their first (E-511); at the control 48 of 4,799 (E-524). The library's own hooks are lost the same way: 15 instances at a port's load (E-516; open issue 254).
-- GT-9: plain code's first work 0.07 s above vanilla's (E-515); at the control it is 0.37 s below vanilla's (E-525). After the bisection's first step three commits are left: the G2 bit for the deep class (D-5), a split's inlined branch naming its CodeInstance, the code slot's removal (D-7) (E-527).
+- GT-9: plain code's first work 0.07 s above vanilla's (E-515); at the control it is 0.37 s below vanilla's (E-525). After the bisection's first step three commits are left: the G2 bit for the deep class (D-5), a split's inlined branch naming its CodeInstance, the code slot's removal (D-7) (E-527). **The bisection is done (E-527):** one commit, the code slot removed (D-7): the commit before it does the first work in 2.88 s, as the control; with the slot gone 3.36 s; vanilla 3.26 s.
 - GT-32: the ODE port writes 19 `@implement Callable` (E-522); the forks' suite has one error, `ByRow(Dict)` (E-523; open issue 240).
 - GT-5, GT-7, GT-14, GT-16, GT-21: not measured in the round; their costs stand as recorded (E-340, E-443, E-362, E-369, E-416).
 
@@ -210,7 +210,7 @@ Written by the round's agent (W-159) from the round at the freeze `round-2026-11
 | D-4 a required operation is an entry of the contract | the library's late load ends 0 of 120,780 plain instances (E-515); 209 at the control (E-525) | a call outside an operation's declared signature is Julia's `MethodError` with a hint: 11 lines, 752 bytes, against plain Julia's 6 lines, 353 bytes (E-518) |
 | D-5 G2 is the deep class | no unrelated load ends an instance in the class (E-478); upstream by facts loses 0.4 % (E-511) | the guarantee reaches the class: 63.1 % of the forks' own facts instances, 79.0 % of upstream's (E-478); the forks lose 2.6 % (E-511); its commit is among the three the bisection leaves (E-527) |
 | D-6 a call that only throws is a run-time site | not built (GT-21) | the share it would add rests on plain callers: 1,983 to 1,986 of 4,799 from facts code, 2,917 from every caller (E-416) |
-| D-7 the code slot retired | no instance lost and no time at unrelated loads without it; TraitWorld's image 5.29 against 5.33 MB (E-419) | not cleared of plain code's first work: its commit is among the three the bisection leaves (E-527) |
+| D-7 the code slot retired | no instance lost and no time at unrelated loads without it; TraitWorld's image 5.29 against 5.33 MB (E-419) | plain code's first work: 0.46 s more than the commit before it (E-527), which brings the build from 0.38 s under vanilla's to 0.07 s above it; before the bisection the note read: its commit is among the three the bisection leaves (E-527) |
 | D-8 Base's surface by the census | the deep share from 41.8 % to 63.1 % (the forks), 39.6 % to 79.0 % (upstream by facts) (E-478) | plain code: nothing measurable, the system image +0.16 % (E-479); the long tail is open issue 218 |
 | D-9 owner-only functions | run-time sites at a package's own helpers: the trait demonstrators 0 of 136, the forks 134 of 8,128 (E-458); TraitMakie's eleven asserted barriers removed | a sibling package's method of a core's internal interface is a pirate's (open issue 212) |
 | D-10 one statement of what is final | the closed build's rules follow from it; the five programs build with 0 errors (E-519) | compiler C-156's rows; no number |
@@ -223,7 +223,7 @@ Written by the round's agent (W-159) from the round at the freeze `round-2026-11
 
 - **G-3:** no cache across sessions, and no new measurement of what an image holds against a session (E-521 restates E-372's classes; open issue 228: an instance in the image without code, E-528).
 - **The annotations a port writes:** from the control to the freeze, TraitTables 4 to 5, the forks 5 to 6, the ODE port 24 to 30, TraitReport 2 to 0, NetworkDynamics 3 to 1; the ODE port's boxes 78 to 85, its `unwrap` 7 to 18 (E-526). "Few annotations" is not shown.
-- **Plain code's first work:** 0.07 s above vanilla's (E-515), where the control was below it (E-525); the bisection decides which commit (E-527).
+- **Plain code's first work:** 0.07 s above vanilla's (E-515), where the control was below it (E-525); the bisection decides which commit (E-527). **The bisection is done (E-527):** one commit, the code slot removed (D-7): the commit before it does the first work in 2.88 s, as the control; with the slot gone 3.36 s; vanilla 3.26 s.
 - **G-8:** teaching is not tested.
 
 ### 8.4 For the next synthesis
