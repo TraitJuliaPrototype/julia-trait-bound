@@ -12,7 +12,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | Tree | Repository, branch | Head | What it is |
 |---|---|---|---|
 | `julia-next` | julia, `next` | cf0f039f51 | Julia v1.13.2 with the design's changes: the tree the work is done in ([the inventory](design/julia-changes.md)) |
-| `TraitWorld` | TraitWorld, `unified` | 42d60e1 | the library: `@trait`, `@implement`, the checks, BaseTraits |
+| `TraitWorld` | TraitWorld, `unified` | 57879c3 | the library: `@trait`, `@implement`, the checks, BaseTraits |
 | `TraitDifferentialEquations` | `unified` | 06c28c3 | the ODE library |
 | `TraitMakie` | `unified` | 1888698 | the plotting library |
 | `TraitTables`, `TraitCSV`, `TraitReport` | `unified` | e1ec1f4, 094dcb2, ec34d12 | the table library, the CSV reader, the report against pandas |
@@ -20,7 +20,7 @@ What is built, on which heads, which suites pass, and what is next. For core dev
 | `ndport` | `main` | 4fecc02 | NetworkDynamics (its branch `unified` c2bbf0d), Graphs and GraphMakie ported, with the workload |
 | `julia-vanilla` | julia, v1.13.2 | 45b6d15e34 | plain Julia: the baseline |
 
-The suites below ran on these heads but for the commits that only change READMEs.
+The suites below ran on these heads, but for the library: the round's rows (E-519 to E-523) and NetworkDynamics' subset ran at the freeze `round-2026-11-c`, whose library is TraitWorld 42d60e1. The gates, the library's suite, the examples and the suites of the ODE port, TraitTables and TraitMakie ran on 57879c3 too.
 
 **The regression control** is the tag `prototype-2026-11` in every repository: `julia-unified` (7b374f39ce) and `TraitWorld-base` (e11c7cc) are its trees. A change is measured against plain Julia and Python; the tag says whether the implementation got worse.
 
@@ -43,26 +43,26 @@ The suites below ran on these heads but for the commits that only change READMEs
 
 | What | On | Result |
 |---|---|---|
-| the gates: 74 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
+| the gates: 75 in force and the 9 stage gates, by one command (`experiments/implementation/gates/run_all.sh <tree>`) | `next` | all pass; none carries an expected-failure check |
 | the library's suite | `next` | passes (118 testsets) |
-| TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets; E-523), and their REPL sessions' checks (not run again in the round) |
+| TraitDifferentialEquations, TraitMakie | `next` | their suites pass (35 and 8 testsets; E-523); their REPL sessions' checks pass: the ODE port's 14, its results equal the plain session's; TraitMakie's 10 of 10 (E-523) |
 | NetworkDynamics | `next` | its test subset of six files passes but for its known failures (`diffusion_test`, `inhomogeneous_test`) |
-| the forks | `next` (E-523); the tag for CSV's and DataFrames' upstream suites (E-373) | the session's digests equal upstream's at 26 steps on `next`; Tables' upstream suite on `next` has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)); CSV's and DataFrames' upstream suites are not run on `next` (W-168); on the tag CSV's passes, DataFrames' has the failures of [open issue 157](open-issues.md#2-design) |
-| TraitTables, TraitCSV, TraitReport | `next` (E-523; TraitReport E-504) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 on an earlier `next` (not run again in the round) |
+| the forks | `next` (E-523) | the session's digests equal upstream's at 26 steps; upstream CSV's suite passes, 330,549 of 330,549; upstream DataFrames' has the four `@inferred` errors of [open issue 157](open-issues.md#2-design) (a); upstream Tables' has one error, `ByRow(Dict)` ([open issue 240](open-issues.md#2-design)) |
+| TraitTables, TraitCSV, TraitReport | `next` (E-523) | pass: 3 and 2 testsets; the report's check 3 of 3 and its REPL session 8 of 8 |
 | the examples of `intro/` (`experiments/docs-examples/`) | `next` | pass (33, 126 and 10 checks); the tutorial's script ten times without a fault |
 | Julia's static check of GC roots over the changed runtime files (`experiments/implementation/w163/sagc.sh`) | `next` | 0 findings, as on vanilla (E-502) |
 | Base's `subtype`, `core`, `ambiguous`, `worlds`, `Compiler/inline`, `Compiler/inference`; `detect_ambiguities(Base)` | `next` | pass, as on vanilla; 0 (E-508) |
-| the four demonstrators' programs as trimmed binaries (`experiments/implementation/w159/rows/g6_builds.sh`) | `next` | each builds with 0 errors, runs, and prints the session's output: the table 2.7 MB, the plot 5.0 MB, the report 5.4 MB, the ODE program 4.3 MB, an ODE program with callbacks it knows 4.1 MB; the PNGs were not compared in the round (E-519). Their plain twins on the same build count 6 to 86 errors. Seven of the thirteen small programs build or are refused as the session's check says (E-520) |
+| the four demonstrators' programs as trimmed binaries (`experiments/implementation/w159/rows/g6_builds.sh`) | `next` | each builds with 0 errors, runs, and prints the session's output: the table 2.7 MB, the plot 5.0 MB, the report 5.4 MB, the ODE program 4.3 MB, an ODE program with callbacks it knows 4.1 MB; the plot's and the report's PNGs equal a session's byte for byte (E-519). Their plain twins on the same build count 6 to 86 errors. The thirteen small programs build or are refused as the session's check says (E-520) |
 
 Base's own test files against the vanilla control, and the acceptance cases of the facts mode, are gates of a change to the type system, dispatch or inference ([the playbook](record/playbook.md) §3).
 
 ## 4. What is next
 
-The last stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
-1. the round at the freeze `round-2026-11-c` is run and assessed ([the evidence](design/evidence.md); [the synthesis](plans/2026-11-14-synthesis.md) §8);
-2. the library's hooks typed so that a port's load does not end them (open issue 254, W-167);
-3. the suites and sessions the round did not run (W-168);
-4. the changes to Julia as patches for upstream (W-19).
+The last stage of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
+1. the changes to Julia as patches for upstream (W-19), with a fully typed Base surface for trait code (W-143);
+2. last, `operations(x)` at the REPL (W-150).
+
+The round at the freeze `round-2026-11-c` and the work after it are in [the evidence](design/evidence.md) and [the synthesis](plans/2026-11-14-synthesis.md) §8.
 
 ## 5. The target
 
