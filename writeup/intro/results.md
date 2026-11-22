@@ -17,32 +17,32 @@ This page is for Julia programmers. It says what the measurements show, each aga
 
   | Code | Compiled instances discarded | The same work again |
   |---|---|---|
-  | CSV.jl and DataFrames, plain Julia | 9.0 % | 5.2–5.3 s |
-  | CSV.jl and DataFrames as they are, compiled in the facts mode by one line per module | **0.4 %** | **1.7 s** |
-  | The ports of CSV.jl and DataFrames to traits | **1.0 %** | 2.2 s (0.19 s before the loads) |
+  | CSV.jl and DataFrames, plain Julia | 9.1 % | 5.2–5.3 s |
+  | CSV.jl and DataFrames as they are, compiled in the facts mode by one line per module | **0.4 %** | **1.5 s** |
+  | The ports of CSV.jl and DataFrames to traits | 2.6 % | 2.2–2.3 s (0.19 s before the loads) |
   | Small libraries written with traits: a reader, a table, a plot | **none** | nothing compiled again |
   | The same small libraries without traits | 28 instances | 0.33 s |
 
 - **A new member, a new type, a new closure compile little, and discard nothing.** Twenty packages that each add a member to one trait discard none of each other's code, in any load order. A member's package image holds 42 compiled instances where a plain twin's holds 146.
-- **The costs are stated below:** no faster steady state is claimed; first-run sessions take longer than Python's; code that uses no trait pays a little; an edit of a method at a trait takes about half a second in a session.
+- **The costs are stated below:** no faster steady state is claimed; first-run sessions take longer than Python's; code that uses no trait pays a little; an edit of a method at a trait takes about a quarter of a second the first time in a session.
 - **Mistakes are reported where they are made.** Of thirteen mistakes made against one small library, written with traits and in plain Julia, the trait form reports five at the line that makes them, where plain Julia reports four at a later call inside the library and one not at all.
-- **Programs compile ahead of time.** The four demonstrators' programs build as trimmed binaries with no error, run, and give a session's output (E-510).
-- **Not shown yet:** better messages for failures inside a user's own function at run time, a port's program at scale as a trimmed binary, a port by someone outside the project.
+- **Programs compile ahead of time.** The four demonstrators' programs build as trimmed binaries with no error, run, and give a session's output; the same programs written without traits do not build (E-519).
+- **Not shown yet:** better messages for failures inside a user's own function at run time, a port's program at scale as a trimmed binary, a port by someone outside the project, that a port needs few annotations.
 
 ## Unrelated packages loaded after the work
 
-The work: read a CSV file into a `DataFrame`, describe, sort, group and combine. Then nine packages the work does not use are loaded, and the work runs again (E-392).
+The work: read a CSV file into a `DataFrame`, describe, sort, group and combine. Then nine packages the work does not use are loaded, and the work runs again (E-511).
 
 | | Plain Julia | The one line | The ports |
 |---|---|---|---|
-| Compiled instances of the packages' own code discarded | 424 of 4,693 | 14 of 3,490 | 48 of 4,799 |
-| The work: first run | 4.13–4.26 s | 1.88–1.89 s | 0.18–0.19 s |
-| The work after the loads | 5.17–5.29 s | 1.71–1.73 s | 2.22–2.25 s |
+| Compiled instances of the packages' own code discarded | 426 of 4,688 | 14 of 3,490 | 150 of 5,705 |
+| The work: first run | 4.45–4.46 s | 1.75–1.83 s | 0.19 s |
+| The work after the loads | 5.19–5.32 s | 1.45–1.46 s | 2.19–2.34 s |
 
 - **"The one line"** is upstream CSV.jl and DataFrames, each module compiled in the facts mode by one added line and otherwise unchanged. No trait is written.
 - **The ports** are the forks of CSV 1.1.0, DataFrames 1.8.2 and Tables 1.14.0 with their generic code written at traits.
 - **What is still discarded is reached through Base.** Code compiled in the facts mode builds on the plain functions of Base that it calls. A loaded package's method can invalidate one of those, and its callers are then compiled again.
-- **The ports lose few instances, but the wrong ones:** the reader's entry functions. So their work after the loads costs many times its first run. This is an open tension in the design ([GT-8](../open-issues.md#2-tensions-between-the-goals)), not a property a port can fix.
+- **The ports lose few instances, but the wrong ones:** CSV's reader, through Base's `vcat`, below which a standard library adds a method. So their work after the loads costs many times its first run. This is an open tension in the design ([GT-8](../open-issues.md#2-tensions-between-the-goals)), not a property a port can fix.
 
 **Small libraries written with traits, under the same loads** (E-377):
 
@@ -67,15 +67,15 @@ The work: read a CSV file into a `DataFrame`, describe, sort, group and combine.
 - written with traits: 42 compiled instances, 128 kB;
 - the plain twin: 146 instances, 266 kB.
 
-**At the REPL** (E-379, E-391), the demonstrators against their plain twins:
+**At the REPL**, after the session's work (E-512), the demonstrators against their plain twins:
 
 | Step | Written with traits | Plain twin |
 |---|---|---|
-| A table with columns of new cell types, summarized, sorted and plotted | 522–527 ms | 560 ms |
-| The same with a column of a new struct type | 147–150 ms | 189 ms |
-| An ODE solve with a new right-hand side | 59 ms | no twin |
-| An ODE solve with a new parameter struct | 223 ms | no twin |
-| Evaluating an edited method at a trait | 0.65–0.70 s the first time in a session, then 0.48–0.50 s | 88 ms the first time, then 9 ms |
+| A table with columns of new cell types, summarized, sorted and plotted | 523 ms | 535 ms |
+| The same with a column of a new struct type | 145 ms | 144 ms |
+| An ODE solve with a new right-hand side | 54 ms | no twin |
+| An ODE solve with a new parameter struct | 293 ms | no twin |
+| Evaluating an edited method at a trait | 0.24 s the first time in a session, then 9 ms | 71 ms the first time, then 7 ms |
 
 - None of the new types or closures discards compiled code.
 - The last row is a cost: a method at a trait is checked when it is defined, so each edit runs the check.
@@ -99,29 +99,30 @@ Sessions a user would run, each in a fresh process:
 
 A program built with `juliac --trim` has every member of each trait, so it compiles generic code for the members it uses, as Rust does ([`traits-by-example.md`](traits-by-example.md#19-traits-in-a-package)).
 - **Small trait programs** build and run, with no compiler in them, also where they loop over a vector typed by a trait. The same loop over an abstract type is refused in plain Julia (E-384).
-- **The four demonstrators' programs** build with no error, run, and give a session's output: the table, the report, the plot and the ODE program's two solves. The report's and the plot's images equal a session's. They take 2.7 to 5.4 MB (E-510).
-- `fully_typed` in a session agrees with the build on 17 of 18 programs (E-384), and on the ODE program's members and errors (E-510).
+- **The four demonstrators' programs** build with no error, run, and give a session's output: the table, the report, the plot and the ODE program's two solves, and an ODE program that passes callbacks it knows to the solver. They take 2.7 to 5.4 MB (E-519). The same programs written without traits stop the build with 6 to 86 errors.
+- `fully_typed` in a session agrees with the build on each small program (E-520, E-384), and on the ODE program's members and errors (E-510).
 - The sizes, the builds and what the plain twins give: [the evidence, G-6](../design/evidence.md#g-6-compiling-ahead).
 
 ## What it costs
 
-**No faster steady state.** The claim is no regression where types are known. A trait operation at a known type costs what a plain call costs, 0.79 ns (E-443). Erased code pays for being compiled once: an operation on a boxed value takes 5.6–9.1 ns, where Julia's own dynamic call takes 18 ns (E-443).
+**No faster steady state.** The claim is no regression where types are known. A trait operation at a known type costs what a plain call costs, 0.79 ns (E-513). Erased code pays for being compiled once: an operation on a boxed value takes 5.6–9.1 ns, where Julia's own dynamic call takes 18 ns (E-443).
 
 **Code that is not type-stable, compiled in the facts mode,** gets slower at each call whose argument types are unknown. How much, over a broad benchmark suite, is not measured on this implementation ([the evidence](../design/evidence.md), G-4).
 
-**Code that uses no trait** runs on the same Julia, where dispatch and subtyping also look at memberships (E-499, E-386):
-- upstream CSV.jl and DataFrames compiled plainly: the first run takes 3.3–3.5 s against 3.3 s on Julia 1.13.2; repeated small operations 0.18–0.19 ms against 0.17–0.18 ms;
+**Code that uses no trait** runs on the same Julia, where dispatch and subtyping also look at memberships (E-515, E-386):
+- upstream CSV.jl and DataFrames compiled plainly: the first run takes 3.32–3.34 s against 3.25–3.28 s on Julia 1.13.2; repeated small operations 0.18–0.19 ms against 0.18 ms;
 - a long scripted session of plain code takes 14.1–14.4 s against 13.5–13.6 s;
 - loading the trait library after plain work discards none of the plain code.
 
-**Editing:** about half a second to evaluate an edited method at a trait in a session (the table above).
+**Editing:** about a quarter of a second to evaluate an edited method at a trait the first time in a session, then milliseconds (the table above).
 
 **Erasing a stream on purpose:** code that writes a byte or a character per call through an erased stream is 3.6 to 5 times slower than with the stream's type known; formatted output within 10 to 20 % (E-340). [`porting.md`](porting.md) says where to erase.
 
 ## What is not shown yet
 
 - **Better messages for failures at run time inside a user's own function.** On three classic failures of a differential equation solver, the trait port's messages are shorter than the upstream package's and no shorter than those of the same small solver written without traits: no contract is broken, so no check reports earlier (E-363).
-- **Ahead-of-time binaries at a port's scale.** No port's program at scale is built as a binary. An ODE program that passes callbacks it knows to the solver does not build yet ([open issue 184](../open-issues.md#4-design)).
+- **Ahead-of-time binaries at a port's scale.** No port's program at scale is built as a binary.
+- **Few annotations in a port.** A port writes annotations that choose how its code compiles: the ODE port 30, with 85 boxes (E-522).
 - **A port by someone outside the project.**
 - **Scale:** the ports are parts of three ecosystems.
 - **A cache across sessions.**
