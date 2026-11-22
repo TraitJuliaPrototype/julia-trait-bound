@@ -160,7 +160,7 @@ Between G-8, against G-7 and G-4.
 Between soundness (facts G1) and G-2.
 - **The rule** ([compiler §7.1](reference/compiler.md#71-the-rule), [§7.4](reference/compiler.md#74-callables-call)): a declared result holds for the call at the set, not for a member's own instance. A result that rests on one is its type alone, and is checked wherever the code that runs may be another instance than the one inferred. At the call the compiler cannot know which member runs, nor whether that member's check reached it in this world: a family's member is checked at its first use, a later method below a body is not judged ([traits T-129](reference/traits.md#19-deviations)).
 - **What it costs** (E-530, counts): a type test where an operation's result is passed on to code left to dispatch, and no constant read from the instance at the trait. In the report's session 56 instances carry the mark and 50 statements take a result as its type alone; 20 checks follow a call that passes a result on. In the table's session 13, 11 and 2. The sessions' compiles are unchanged (24 and 19). No time is measured.
-- **What it costs in time** (E-537): where the ODE port holds its linear solver in a field typed by the trait, `linfactor`'s declared result is checked against a set at each step, 1.07 µs, and the factorization is then known by its trait, so the step's 8 solves are dispatched when they run, 0.48 µs. Together 14 % of a small stiff solve (POLLU, 20 states) under `compiled_for`, which does not reach it; nothing measurable in a solve of 512 states.
+- **What it costs in time** (E-537, E-538): where a port holds a value in a field typed by a trait, an operation's declared result is checked against a set at each use: 1.07 µs at the ODE port's `linfactor`, and the solves after it dispatched, 14 % of a small stiff solve. With the field typed by the value's type (the port following traits §7.10) nothing is checked in the step, and no cost is measurable.
 - **Without the rule** a value outside the declared result reaches code that reads it as that type: 10 of 15 cases answered wrongly (`experiments/implementation/w158/p-probes/ops.jl`).
 - **The proposals:**
   - The members' check made to reach each case, so that fewer results need the mark: the serving instances kept with their edges (traits T-129) close a later method; a member of a pattern checked where its type is first made, not at its first use, would close the first use.
@@ -273,6 +273,7 @@ Choices made while building. Each stands as recorded, in its reference and in [t
 - Compiling ahead asks for the instance that a static call at the member runs. [lowering §12](reference/lowering.md#12-compiling-ahead); [decisions §9](record/decisions.md).
 
 <a id="2-design"></a>
+- **A run-time site by intent in the library is a call in the latest world,** which a closed build resolves; a call at a function typed `Any` is one it cannot ([the decision log](record/decisions.md), the project: how the work is done).
 
 ## 4. Design
 
@@ -491,20 +492,10 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The rule:* a trait instance `Callback{U, T, P}` needs the three types ([traits §8.1](reference/traits.md)); no trait without parameters names "a callback for some problem".
 - *The proposal:* probe a trait without parameters whose operation's variables another argument binds ([traits §4.1](reference/traits.md)), with the instances' members as its members; until then the port's lesson stands: a tuple, or a vector of a small union. NetworkDynamics' `add_nw_cb` takes the ODE port's two callback records and refuses a callback of another type.
 
-**262. The ODE port holds its linear solver in a field typed by the trait.**
-- *The case* (E-537): `Rodas5Integrator`'s field is `ls::LinearSolver`, though `Rodas5{L}` knows the solver's type. Each step pays the declared result's check and dispatched solves (GT-33): 1.55 µs a step, 14 % of a small stiff solve, not removed by `compiled_for`.
-- *The rule:* none blocks a fix. A type that is known is kept as a parameter ([traits §7.10](reference/traits.md)).
-- *The proposal:* the integrator typed by the solver's type: the port following the design. Then E-537's POLLU cells again.
-
-**263. One continuous callback per output, each evaluating the whole batch.**
-- *The case* (E-537): ODECore has no continuous callback with a vector condition, so NetworkDynamics' port makes 40 callbacks whose conditions each evaluate the batch. The callbacks are 95 % of its Tsit5 solve (62 of 63 ms; upstream 2.1 of 3 ms). The callbacks' adapter in the ODE port costs 1.3 µs a step against the twin's 0.04.
-- *The rule:* none blocks it.
-- *The proposal:* a vector condition in ODECore, as upstream's `VectorContinuousCallback`; the adapter's field typed by the callback's type.
-
-**264. ODECore's callback instances at a session's types are not in the port's image.**
-- *The case* (E-536): the ODE program with callbacks takes 306 ms for its first run where PlainODE takes 125 ms. The session compiles 55 instances of ODECore's callback machinery at `Vector{Float64}` (`step_event_initialize!`, `push!` of the callbacks' records, `event_affect_dir!`, the records' constructors): 20 ms of inference and 109 ms of code generation.
-- *The rule:* a package's workload counts where it covers broad typical cases; a callback on a `Vector{Float64}` state is one. Whether the image would hold the instances is item 228's question.
-- *The proposal:* a callback in the port's workload; then the first run again, and the instances the image holds.
+**263. NetworkDynamics' explicit solve with callbacks takes twice upstream's.**
+- *The case* (E-538): with a vector condition for continuous callbacks in ODECore (`VectorContinuousCallback`), NetworkDynamics' two solves take 25.9–26.7 ms against upstream's 28.0–28.8 ms on vanilla: the stiff solve 18.9 against 24.5 ms, the Tsit5 solve 6.35 against 2.91 ms. In the Tsit5 solve the callbacks take 3.6 ms, of it 1.5 ms dispatch at run time (the adapter's reads through the box of the step's view), and the right-hand side 2.7 against 0.8 ms.
+- *The rule:* none blocks a fix. The adapter typed by the callback's type gives no gain beyond the spread (`experiments/implementation/w170/patches-adapter-typed.diff`).
+- *The proposal:* profile the Tsit5 solve's right-hand side and the view's reads; a fix where a type the port knows is erased.
 
 **110. Two traits for reading items by position: `Column` and `Indexable`.**
 - *The case:* the DataFrames port's `CellVector` is `asvector` for a `Column`, written again.
@@ -556,29 +547,13 @@ Each item: the case, the rule that blocks it, the proposal, and the experiment w
 - *The case:* code compiled at output runs after the build's `atexit` hooks, so the list of checks an image keeps ([lowering §11](reference/lowering.md#11-checks-errors-and-what-images-keep)) misses a member whose first use is there: 1 of the forks' 27 members (`Vector{Union{Missing,String15}}`). A cost at load, no wrong answer.
 - *The proposal:* a Julia hook after code is compiled at output, or the member used in the package's workload before output.
 
-**228. An instance a package's workload compiles for a call dispatched at run time is missing from its image.**
-- *The case* (E-501, E-521): the ODE session solves Robertson with Rodas5. `rodas5_solve` calls `TraitRodas._rodas5_run` past a barrier (`rodas5_init`'s result is not inferred to one type). On `next` cf0f039f51 the session's first run takes 347–350 ms, against 374.6–376.5 ms with PlainODE (E-521). It compiles ODECore's `_problem_of` (8.1 ms) and `_problem` (7.5 ms) at the session's types besides the session's own functions; `_rodas5_run` is not compiled on its own, it is inferred inside `main` (201.5 ms). E-521's criterion (the first run compiles no instance of TraitRodas or ODECore) is not met.
-- *What the image holds* (E-528; `w161/d2/image_instances.jl`, `experiments/implementation/w159/probes/rodas_ci.jl`): 509 instances with code in TraitDifferentialEquations, ODECore and TraitRodas. `_rodas5_run` at the session's integrator is a `MethodInstance` with no code instance, valid or invalidated. So it is not dropped at load. A `MethodInstance` without code is written into an image when another item of the image names it: the writing process reached the call. Whether it had code for it there is not known.
-- *The rule:* not identified. A lead: the instance is TraitRodas's method compiled by the ODE port's workload, so it is external code in the port's image, which an image keeps only at a signature type with a hash ([julia-changes](design/julia-changes.md)).
-- *The proposal:* the next step is the writing process's list: the instances with code in the process that writes the ODE port's image, before it serializes (`image_instances.jl` in that process). Then the serializer's rule for an external instance whose code the process has, against the image's keep rule ([compiler §9](reference/compiler.md#9-images-and-the-machine-code-cache)).
-
 **255. The ODE port's load: what the memberships' activation, the walk and the library's image hook cost.**
 - *The case* (E-531; `experiments/implementation/w167/load_parts.jl`; `next` cf0f039f51, TraitWorld 57879c3; a warm-up and 3 runs, load 2.8–3.0): with the library's hooks in the deep class, the ODE port's load with the library loaded first takes 313 ms. In it: the image hook 48 ms (the check of the image's methods against the memberships in force, and the library's records rebuilt from the runtime's list); the membership walk, about 57 of 331 profile samples; its invalidation costs nothing measurable.
 - *The rules:* a membership activated at a load walks for the code it ends, as a method's insertion does ([compiler §5.5](reference/compiler.md#55-a-membership-invalidates-as-a-method-does)); the image hook runs once per image and first brings the library's records up to date ([compiler §10.1](reference/compiler.md#101-definition-and-image-hooks), [traits §5.10](reference/traits.md#510-checks)).
 - *The load against PlainODE's* (E-536; `next` 683ea4fc16): 534 against 268 ms. The 266 ms: the walk 57, the image hook 52 (45 of it compiling; 17 ms of that is machine code for instances the system image holds inferred only, reached by the hooks), the memberships' activation 25, more images restored and validated 40, the files of six more packages 54, the definition-time check 10, GC 10.
 - *What the load activates:* 113 memberships; in 65 the member's type comes with the load itself, and a membership of a type new with the load can end no code compiled before it ([facts §2.2](reference/facts.md#22-g2-stable-caches)).
+- *The walk by member* (E-538; a proxy that walks again in the loaded state): about 96 % of the methods the walk replays at the ODE port's load are for memberships whose type is new with the load. Most are the 25 memberships of `Callable`, each replaying every method with a `Callable` argument (123): a method at `Callable` lengthens every such walk.
 - *The proposals:* (a) the walk skips its search for code at a member whose type is new with the image, and keeps lowering the dispatch caches: measure the walk's share by new and foreign members first; it is a cost the rule sets, GT-9's. (b) The image records the memberships its build checked against, the hook checks only against memberships from images outside the image's dependency closure, and the image holds the library's records of its own memberships: a performance exploration.
-
-**260. A declared field read through a box computes its type at each read.**
-- *The case* (E-537): the library's `getproperty` and `setproperty!` at `Dynamic{X}` are called, not inlined, and compute the declared field's type at every read: 80 to 100 ns. In NetworkDynamics' steady state the callbacks read `integrator.p` through a box: 28 ms of the port's Tsit5 solve of 63 ms. In NetworkDynamics' whole session the reads are 0.38 s of 42.4 s (E-536).
-- *The rule* ([lowering §7](reference/lowering.md), [traits §3.3](reference/traits.md)): a declared field's type is fixed when the trait is declared. Nothing in the rule needs it computed at a read.
-- *The proposal:* the two methods inlined, or the type a constant per trait and field name; a few lines of the library. The saving is a bound from the profile, not measured.
-
-**261. A function boxed at two signatures costs five times a box at one.**
-- *The case* (E-537): the ODE port boxes the right-hand side at two signatures where the Jacobian is by duals (`Dynamic{All{Callable{…}, Callable{…}}}`). A call costs 124 ns at either signature; a box at one signature costs 23 ns. 12 % of a small stiff solve; `compiled_for` removes it.
-- *The rule* ([traits §9](reference/traits.md), [compiler §7.4](reference/compiler.md#74-callables-call)): a call of a box at `Callable{A, S}` is checked as a box's. Nothing in it sets a cost that grows with the intersection.
-- *A reading, not verified:* the call's method binds `A` and `S` through the intersection, so the match is made when the call runs (the profile's frames are the type cache's and the method lookup's).
-- *The proposal:* the call of an intersection's box reads the signatures from the box's type, a constant; a few lines of the library. Then the cost again.
 
 **258. The check of a program in a session keeps no inference between calls.**
 - *The case* (E-532): `fully_typed` and `verify_main` infer the program afresh at each call: for the ODE program 10.2 s at the first call and 2.5 s at a second in the same session, 96 % of it compiling; for the table's 2.39 s and 0.77 s. The cost follows the program's compiled code, not the walk (the ODE program's walk takes 50 ms).

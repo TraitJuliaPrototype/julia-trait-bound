@@ -38,6 +38,7 @@ Before changing anything:
 In this order, each a few minutes at most:
 1. The gates that concern the change (`experiments/implementation/gates/run_all.sh <tree> '<pattern>'`), then all of them: `run_all.sh <tree>` with no pattern runs every gate in force and every stage gate. That command is what "the gates pass" means.
 2. The library's tests, as a file: `julia-next/julia --startup-file=no --project=TraitWorld TraitWorld/test/runtests.jl`. Not after `using TraitWorld` in `Main`: a test must not rest on what `Main` has loaded (a message prints `Core.Dynamic` where `Main` does not see the name).
+3. After a change to the library or a port: the four trimmed programs, `experiments/implementation/w158/m-builds.sh <label>` (0 errors, each output equal to a session's). The gates build trimmed programs with the stub library only.
 3. The examples of `intro/` (`experiments/docs-examples/`).
 4. One or two demonstrators' suites, chosen to reveal a regression first.
 5. Base's four test files against the vanilla control (`experiments/implementation/e262_suites.sh`), for a change to the type system, dispatch or inference.
