@@ -122,7 +122,7 @@ What plain Julia does where the design sets out to change it. No trait code is i
 
 **Not shown.**
 - Why plain code's first work on the head takes more code generation than vanilla's: not diagnosed; a bisection of `next`'s commits is under way (open issue 225, E-527).
-- What the ODE port's load spends in the membership walk and the library's image hook, once the hooks are no longer compiled again at load: not attributed (open issue 255).
+- What the ODE port's load spends in the membership walk and the library's image hook, once the hooks are not compiled again at load: not attributed (open issue 255).
 - A package image against a plain twin of the same program: the twins are smaller programs (E-517). A member's image against the twin's member: measured only on `unified` 21c9b33e39 (E-380).
 - The facts rule's cost to plain code compiled by facts, on BaseBenchmarks under the test bed `all`: measured only on the library of October 2026 (E-163 in the ledger); not measured on this implementation.
 - What the open rows of the references' Deviations tables cost: not measured.

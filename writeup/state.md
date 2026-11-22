@@ -60,7 +60,7 @@ Base's own test files against the vanilla control, and the acceptance cases of t
 
 The last stages of [the next iteration](plans/2026-11-15-next-iteration.md), in [the work queue](record/todo.md):
 1. the round at the freeze `round-2026-11-c` is run ([the evidence](design/evidence.md)); left of it: the bisection of plain code's first work (open issue 225, E-527) and the addendum to [the synthesis](plans/2026-11-14-synthesis.md) (W-159);
-2. the library's hooks typed so that a port's load no longer ends them (open issue 254, W-167);
+2. the library's hooks typed so that a port's load does not end them (open issue 254, W-167);
 3. the suites and sessions the round did not run (W-168);
 4. the changes to Julia as patches for upstream (W-19).
 
