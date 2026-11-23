@@ -94,6 +94,7 @@ Between G-8 and G-4.
   - Plain code's repeated work: a median of 0.18–0.19 ms on `next` cf0f039f51, against 0.18 ms on vanilla (E-515).
   - DataFrames' repeated steps on a small table, 8–18 % slower than vanilla (E-356, `unified`): `describe` 19.2 against 17.6 µs, `sort` 8.0 against 6.9 µs, `groupby`-`combine` 45.2 against 40.4 µs.
   - A non-member's `<:` against a set: 1.7–1.8 times an unrelated pair's in vanilla (E-270).
+  - A plain session on `next` 0bbd759c13 (E-544; upstream CSV and DataFrames, a warm-up and 3 runs beside vanilla): the load 666–673 against 637–642 ms, the first work 4.47–4.50 against 4.37–4.39 s.
   - On `next` bfaf484f55 with no set declared (E-540): `jl_subtype` 263–264 against vanilla's 239–240 ns, an intersection 314–316 against 278–280 ns, method matching 191–197 against 177–180 ns. Of the 25 ns, 15 are in subtyping's own functions and 10 in the timing's dynamic calls; two builds of one `subtype.c` differ by 3–4 %.
   - On v1.13.2 with the series' first parts alone and no set declared (E-539): `jl_subtype` 268 against 238 ns (+12 %), an intersection 309 against 279 ns, method matching 187 against 179 ns; plain code's first work 4.53 against 4.40 s. The bit that says a type has a set in it is read at each step of subtyping's walk.
   - Plain code's first work: [item 225](#4-runtime-and-measurements).
